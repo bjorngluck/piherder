@@ -5,7 +5,7 @@ import re
 from typing import Optional, Tuple
 
 # Keep in lockstep with pyproject.toml / FastAPI app.version / metrics APP_VERSION
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 
 GITHUB_OWNER = "bjorngluck"
 GITHUB_REPO = "piherder"

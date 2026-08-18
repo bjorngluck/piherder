@@ -1,6 +1,6 @@
 # PiHerder v1.1.0
 
-**Status:** **Tagged** — current production release  
+**Status:** **Tagged** — production baseline for the 1.1 line; **prefer [v1.1.1](RELEASE_v1.1.1.md)** (SSH test / host-deps patch)
 **Date:** 2026-08-08  
 **Git tag:** `v1.1.0` (merged `v1.1.0-dev` → `main`)  
 **Package / image version:** `1.1.0`  

@@ -1,6 +1,6 @@
 # Publishing a PiHerder image (Docker Hub / GHCR)
 
-**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64**. Production line **v1.1.0** until **v1.2.0** is tagged (freeze QA: [QA_v1.2.0.md](QA_v1.2.0.md)).  
+**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64**. Production line **v1.1.1** until **v1.2.0** is tagged (freeze QA: [QA_v1.2.0.md](QA_v1.2.0.md)).
 **Related:** [ADMIN](https://piherder-docs.hacknow.info/operations/upgrades/) · [wiki publish page](https://piherder-docs.hacknow.info/developers/publish-image/) · live docs: https://piherder-docs.hacknow.info/
 
 Official compose pulls the published image:
@@ -8,7 +8,7 @@ Official compose pulls the published image:
 ```bash
 docker compose up -d
 # optional pin:
-# PIHERDER_IMAGE=bjorngluck/piherder:1.1.0 docker compose up -d
+# PIHERDER_IMAGE=bjorngluck/piherder:1.1.1 docker compose up -d
 ```
 
 **Dependency pins:** the image installs from committed `requirements.lock.txt` (`pip install --require-hashes`). Bump deps with `./scripts/refresh-lockfiles.sh` before a release build so Hub tags match the lockfile in the git tag.
@@ -60,7 +60,8 @@ echo "$GITHUB_TOKEN" | docker login ghcr.io -u bjorngluck --password-stdin
 
 | Tag | Meaning |
 |-----|---------|
-| `1.1.0` | Immutable release (match git tag `v1.1.0`) |
+| `1.1.1` | Immutable release (match git tag `v1.1.1`) |
+| `1.1.0` | Prior 1.1 patch pin (still valid) |
 | `1.1` | Rolling minor |
 | `1.0` | Prior production minor (optional pin) |
 | `0.9.0` | Prior line (historical) |
@@ -77,7 +78,7 @@ Arm64 matters for Raspberry Pi hosts running the herder itself.
 ```bash
 # From repo root, after docker login
 export IMAGE=bjorngluck/piherder
-export VERSION=1.1.0   # match release
+export VERSION=1.1.1   # match release
 
 docker buildx create --use --name piherder-builder --driver docker-container 2>/dev/null || true
 docker buildx use piherder-builder
@@ -155,14 +156,21 @@ Add when account + token exist and first manual push has worked once.
 
 ---
 
-## v1.1.0 publish checklist (maintainer)
+## v1.1.1 publish checklist (maintainer)
+
+- [x] `pyproject.toml` = `1.1.1`
+- [x] [RELEASE_v1.1.1.md](RELEASE_v1.1.1.md) finalized · Status **Tagged**
+- [x] Fix: `run_in_threadpool` import in `server_ssh.py`
+- [x] Multi-arch push: `1.1.1` / `1.1` / `latest` (amd64 + arm64) · digest `sha256:5a769302e8285d997438740a469284c6fa51f507868515d2e00bb3cd14701349`
+- [x] Git tag `v1.1.1`
+
+### Prior: v1.1.0
 
 - [x] `APP_VERSION` / `pyproject.toml` = `1.1.0`
 - [x] [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) finalized · Status **Tagged**
 - [x] Unit / Docs / E2E green (PR #1 + `main` merge)
 - [x] Multi-arch push: `1.1.0` / `1.1` / `latest` (amd64 + arm64) · digest `sha256:7256a9cea6ba403b33c28dd74d7176c3c6e890850419efd70e7b7fb02ad725c1`
 - [x] Git tag `v1.1.0`
-- [ ] Optional: GitHub Release UI notes
 
 ### Prior: v1.0.0
 
