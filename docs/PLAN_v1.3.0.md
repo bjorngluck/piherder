@@ -1,15 +1,15 @@
 # PiHerder v1.3.0 — operator policy, scale UX, multi-identity console, alerts, insights, host files
 
-**Status:** **Planning / backlog** — capture while **v1.2.0** finishes on `v1.2.0-dev`  
-**Date opened:** 2026-08-10  
-**Git branch (when train opens):** `v1.3.0-dev` (not opened yet)  
+**Status:** **Active** — branch `v1.3.0-dev`  
+**Date opened:** 2026-08-18 (planning capture 2026-08-10)  
+**Git branch:** `v1.3.0-dev` (integration) · merge → `main` at freeze → tag `v1.3.0`  
 **Package / image version (at tag):** `1.3.0`  
 **Theme:** Operator-configurable security policy · multi-identity console · optional command audit · console knobs · map/alert granularity · fleet-scale list UX · thin-slice reporting / custom dashboards · **host file transfer (discover + thin slice)**  
-**Baseline:** `v1.2.0`  
-**Mode:** Planning only — do **not** start implementation streams until 1.2 freezes  
-**Related:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [wiki/operations/alerts-email-webhooks.md](../wiki/operations/alerts-email-webhooks.md) · [SECURITY.md](../SECURITY.md)
+**Baseline:** `v1.2.0` (identity + webshell + gated demo — 2026-08-18)  
+**Mode:** Focus · polish · discover · pull-in by capacity · defer enhanced work to **v1.4**  
+**Related:** [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [wiki/operations/alerts-email-webhooks.md](../wiki/operations/alerts-email-webhooks.md) · [SECURITY.md](../SECURITY.md)
 
-> **Not the active train.** v1.2 is identity + webshell + gated demo. This document parks **operator policy, multi-identity shell, scale, and insights** work so 1.2 bug-capture stays focused. Promote streams when the 1.3 train opens.
+> **Active train after 1.2.** Ship operator-owned security and console policy, least-priv / privileged **Connect as…**, and lists that stay usable at fleet scale. Discover insights and confined host files; pull Should only when Must is green. Keep `main` patchable for **v1.2.x** while this train runs on `v1.3.0-dev`.
 
 ---
 
@@ -28,7 +28,7 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 
 **Carry-over from earlier plans (still in 1.3 path):** fine-grained roles (**AC-fg**), ACME-in-herder (under consideration), residual HA REST/path2, branding, k8s/bare — see §6 and [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
 
-**Parked from the 1.2 review (do not start on `v1.2.0-dev`):**
+**Parked from the 1.2 review (Cap unless Must is green):**
 
 | Item | Notes |
 |------|--------|
@@ -38,24 +38,85 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 
 ---
 
-## 1. Decision lock (planning defaults — revisit at train open)
+## 1. Decision lock (train open)
 
 | Choice | Value |
 |--------|--------|
-| Integration branch | **`v1.3.0-dev`** when 1.2 is on `main` |
-| Production line until then | **`main` @ 1.2.x** patches; this plan does not block 1.2 |
-| Theme streams (seed) | **P** · **T** · **W-cfg** · **W-id** · **W-audit** (discover) · **W-mux** screen/tmux (**under consideration · low priority**) · **A** · **L** · **N** · **F** host files (discover + thin slice) · (+ **AC-fg** / residual as capacity) |
-| Policy storage | Prefer **app Settings** (DB) with env as override / bootstrap where it already exists |
-| Host SSH identities | At least **two** optional credentials per host: **fleet / least-priv** (default jobs + console) + **privileged** (break-glass console / elevated jobs later); separate Fernet keys |
-| Shell audit | **Opt-in**; default off or session-meta only (1.2); full command/response is **discover → promote** |
-| Insights | **Discover + thin slice only** — compose existing fleet signals; not a second Grafana |
-| Host files | **Discover + thin slice only** — confined list / get / put under a jail; not a full remote file manager |
+| Integration branch | **`v1.3.0-dev`** |
+| Production line | **`main` @ `v1.2.0`** — hotfixes → **`v1.2.x`**, port into `v1.3.0-dev` |
+| Git tag (freeze) | **`v1.3.0`** (RCs: `1.3.0-rc.N` if needed) |
+| Image tags (freeze) | `1.3.0` · `1.3` · `latest` (multi-arch); keep `1.2` / `1.2.x` pins valid |
+| In-scope streams | **L** lists · **P** password policy · **T** (T6 Must; T1–T5 Should) · **W-id** core · **W-cfg** · **A** · **N** discover + thin slice · **F** discover + thin slice · **W-audit** discover · **Q** quality/freeze |
+| Out-of-focus | Multi-tenant SaaS · SAML · ACME-in-herder as Must · **W-mux** · **AC-fg** implementation · video / dual-control console · full BI · WinSCP-in-herder · service migration (**v1.4**) |
+| Mode | Operator-owned policy · no half-built auth / file / audit surfaces · Must → Should → Discover |
+| Coverage | **≥ 55%** unit; focused tests for policy, list queries, multi-identity tickets, path jail |
+| E2E | Settings policy save · one large list page-size · connect-as privileged confirm · console settings smoke if flag on |
 | Semver | Additive minor; document migrations for defaults that change behaviour |
-| Out of focus for seed | Multi-tenant SaaS · SAML · full Elasticsearch · **video / full PTY replay** dual-control console · full custom BI / arbitrary SQL dashboards |
+| Version bump | `1.3.0` **at freeze only** (package stays `1.2.0` on this branch until then) |
+| Policy storage | **App Settings** (DB) with env as override / bootstrap where it already exists |
+| Host SSH identities | At least **two** optional credentials per host: **fleet / least-priv** (default jobs + console) + **privileged** (break-glass console); separate Fernet keys |
+| Shell audit | **Opt-in**; default off; command/response is **discover → promote** |
+| Insights | **Discover + N2 thin slice** — compose existing fleet signals; not a second Grafana |
+| Host files | **Discover + F2 thin slice** — confined list / get / put under a jail; flag **off** until GA |
 
 ```text
-main @ v1.2.0 (+ v1.2.x)
+main @ v1.2.0 (+ v1.2.x patches)
   └─ v1.3.0-dev → merge → main → tag v1.3.0 → Hub
+```
+
+| Rule | Practice |
+|------|----------|
+| Must → Should → Discover | Do not start Discover while Must is open |
+| Prod critical bugs | **main** as **1.2.x** first, then port here |
+| Demo never grows teeth | Files off · transcripts off · privileged console off |
+| Residual Cap | Pull only if **L** + **P** + **T6** + **W-id** core are green |
+| Service migration | Stays on [PLAN_v1.4.0.md](PLAN_v1.4.0.md) — do not add to this freeze |
+
+---
+
+## 1a. Kickoff leans (locked 2026-08-18)
+
+| # | Question | Decision |
+|---|----------|----------|
+| 1 | Which policy stream is Must? | **P** fully usable. **T6** (factor-agnostic account step-up) is also Must. Full **T1–T5** matrix is Should. |
+| 2 | Host files kill switch | **`PIHERDER_HOST_FILES=false`** until **F2** is complete enough to turn on; demo stays off either way |
+| 3 | Files jail | **`docker_base_dir`** (expanded `~`) on Docker hosts; else SSH user home. Never `/`. HAOS out of thin slice |
+| 4 | Files thin-slice shape | **F2 only** — list / get / put. No mkdir / delete / rename this freeze |
+| 5 | Insights freeze shape | **N0** one-pager then **N2** built-in fleet board. **N3** custom layout stays Cap |
+| 6 | Command audit | Spike **W-audit0** after W-id core; default **off**; demo never persists transcripts |
+| 7 | Host mux (`screen`/`tmux`) | Stay Cap · low priority — do not start |
+| 8 | **AC-fg** | Design note only this train. Three global roles remain. Implement only if Must is green **and** capacity |
+| 9 | CSP nonces | Cap (parked from 1.2). Do not block freeze |
+| 10 | Privileged identity | **Console-only** by default; jobs stay on fleet |
+| 11 | `.env` / PEM download | Wiki-warn in thin slice; extra step-up is Cap |
+
+---
+
+## 1b. Recommended delivery order (parallelizable)
+
+```text
+Phase 0  Finish v1.2.0 tag / Hub  ✅ done (v1.2.0)
+    │
+Phase 1  Foundations (parallel)  ← current
+    ├─ L1 shared list chrome (per_page + pager + q)
+    ├─ P1/P2 password-policy settings schema + safe defaults
+    └─ W-id1/W-id2 model + migrate 1.x single key
+    │
+Phase 2  Core Must
+    ├─ L2 Servers · Docker · discovery
+    ├─ P3–P5 copy + audit + docs
+    ├─ T6 factor-agnostic account step-up
+    └─ W-id3–W-id6 Connect as… + test SSH
+    │
+Phase 3  Should (after Must green)
+    ├─ T1–T5 · W-cfg · A
+    ├─ N0 → N2
+    └─ F0 sign-off → F2 (flag off until ready)
+    │
+Phase 4  Discover / Cap + freeze
+    ├─ W-audit0 promote-or-Cap · N3 · AC-fg note
+    ├─ Docs + QA + screenshot pack for new surfaces
+    └─ Version bump 1.3.0 · tag · Hub
 ```
 
 ---
@@ -319,7 +380,7 @@ Host: rpi5-4  →  dest card Files
 - Least-priv SSH already limits SFTP to that user’s rights — jail is defense-in-depth if the key is over-privileged.  
 - Resolve realpath on the host (or `stat` + refuse `S_ISLNK` that leaves the jail).  
 - Writes use tmp + rename; never overwrite via unguarded `open`.  
-- Same kill-switch family as console is acceptable (`PIHERDER_HOST_FILES=false` default until GA, or ride the console flag — decide at train open).  
+- Kill switch: **`PIHERDER_HOST_FILES=false`** until **F2** is ready to turn on (locked at train open). Same family as the console flag.  
 - Public demo must not expose real host trees.
 
 **Non-goals (F) / defer past this minor (or later 1.3 Cap):**
@@ -341,29 +402,29 @@ Host: rpi5-4  →  dest card Files
 
 ---
 
-## 3. Ship bar (draft — finalise at train open)
+## 3. Ship bar (locked 2026-08-18)
 
 | Priority | Streams | Bar |
 |----------|---------|-----|
-| **Must** | **L** (at least Servers + Docker + discovery) · **P** or **T** (at least one policy stream fully usable) · **W-id** core (fleet + privileged identity + console picker) | Scale lists + at least one security policy + least-priv/privileged connect-as |
-| **Should** | **P** + **T** · **W-cfg** · **A** · **W-audit** if spike green · **N2** built-in fleet board (after **N0**) · **F2** host Files list/get/put if **F0** jail decision is signed | Full policy set + console knobs + alerts + opt-in command audit + thin reporting + confined host file transfer |
-| **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-audit** spike · **W-mux** (screen/tmux, low priority) · **F0** files discovery · **F** mkdir/delete/step-up · **AC-fg** · ACME · branding | Promote only if Must green |
+| **Must** | **L** (Servers + Docker + discovery) · **P** (password policy fully usable) · **T6** (factor-agnostic account step-up) · **W-id** core (fleet + privileged identity + console picker) | Scale lists + operator password policy + 1.2 KI close + least-priv/privileged connect-as |
+| **Should** | **T1–T5** · **W-cfg** · **A** · **W-audit** if spike green · **N2** built-in fleet board (after **N0**) · **F2** host Files list/get/put (after **F0** sign-off) | Full policy set + console knobs + alerts + opt-in command audit + thin reporting + confined host file transfer |
+| **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-audit** spike · **W-mux** (screen/tmux, low priority) · **F** mkdir/delete/step-up · **AC-fg** · ACME · branding · CSP nonces | Promote only if Must green |
 
-Success criteria (draft):
+Success criteria:
 
 1. Admin can configure password policy; all password entry paths enforce it and show the same rules.  
-2. Admin can configure force-2FA / step-up windows for the catalogued sensitive actions (incl. console).  
-3. Console idle/max/concurrency/step-up knobs adjustable in Settings without editing compose for common cases.  
+2. Account SSO unlink + passkey revoke accept **any enrolled 2FA** (**T6**). Broader force-2FA / step-up windows (**T1–T5**) are Should.  
+3. *(Should)* Console idle/max/concurrency/step-up knobs adjustable in Settings without editing compose for common cases.  
 4. Host can store **fleet** + **privileged** SSH identities (separate keys/users); console offers **Connect as…**; jobs stay on fleet by default.  
 5. *(If W-audit promoted)* Opt-in command (± response) audit with redaction heuristics and retention; default off; wiki warns about residual secret capture.  
-6. Map/stack/cert-style alerts have documented severities and per-category tuning; channels respect filters.  
-7. Servers + Docker service lists support page size + free-text filter without loading unbounded HTML.  
-8. *(If N promoted)* Operators have at least a **built-in fleet health board** of existing signals; optional **one** customisable layout from a fixed widget registry (no arbitrary queries).  
+6. *(Should)* Map/stack/cert-style alerts have documented severities and per-category tuning; channels respect filters.  
+7. Servers + Docker + discovery lists support page size + free-text filter without loading unbounded HTML.  
+8. *(If N promoted)* Operators have at least a **built-in fleet health board** of existing signals; custom layout is Cap.  
 9. *(If F promoted)* Operator can open **Files** on a Docker host, list the jail, download one file, upload one file; viewer cannot; path escape and oversize rejected; demo does not expose a real tree.
 
 ---
 
-## 4. Quality bar (draft)
+## 4. Quality bar (locked)
 
 | Gate | Target |
 |------|--------|
@@ -395,7 +456,7 @@ Success criteria (draft):
 
 | Theme | Source | Notes |
 |-------|--------|--------|
-| **AC-fg** fine-grained roles | ROADMAP · PLAN_v1.1 §6 · PLAN_v1.2 §10 | Per-host / per-feature gates; design at train open |
+| **AC-fg** fine-grained roles | ROADMAP · PLAN_v1.1 §6 · PLAN_v1.2 §10 | **Train-open stance:** stay Cap. Keep three global roles. Per-host allowlist / per-feature gates are a later design — do not start schema this freeze unless Must is green **and** capacity remains |
 | **P-acme** ACME-in-herder | PLAN_v1.1 §6.1 | Under consideration — not a Must for this seed |
 | HA REST / path 2 | FEATURE_PLAN_HOME_ASSISTANT | Residual integration |
 | Full insights beyond thin slice · branding · k8s/bare | ROADMAP H3 / quality | **N** seeds thin slice; deep BI stays far horizon |
@@ -431,6 +492,7 @@ Success criteria (draft):
 | 2026-08-16 | **F** host files — discovery + thin-slice upload/download (confined SFTP list/get/put under `docker_base_dir` / home). Not a 1.2 add; not 1.1.1. Inventory of existing avatar/logo/backup/compose/cert SFTP paths captured in-stream. |
 | 2026-08-17 | **Service migration** requested (stop → dataset copy → CNAME → both Pi-hole restartdns → dest start → TLS/Kuma · host lock for HAOS / Frigate TPU). Parked on **v1.4** — not this train. |
 | 2026-08-18 | **T6 / KI-account-stepup-factors** from 1.2 QA: unlink TOTP-first; passkey revoke password-only. |
+| 2026-08-18 | **Train opened** on `v1.3.0-dev`. Must/Should locked. Phase 1 current. Package version stays `1.2.0` until freeze. |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 
@@ -439,21 +501,23 @@ Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3�
 
 ---
 
-## 9. Immediate next steps (when ready)
+## 9. Immediate next steps
 
-| # | Step |
-|---|------|
-| 1 | Finish **v1.2.0** freeze / tag / Hub |
-| 2 | Open **`v1.3.0-dev`** + lock Must/Should from this seed |
-| 3 | Spike **L1** shared list component + **P1** settings schema (cheap wins first) |
-| 4 | Spike **W-id** model + console ticket identity field (no UI polish) |
-| 5 | Spike **W-audit0** PTY capture + redaction on a throwaway host; promote or Cap |
-| 6 | Run **N0** insights discovery (one-pager) → decide **N2** vs **N2+N3** for freeze |
-| 7 | Run **F0** files discovery sign-off (jail + size + step-up) → decide **F2** vs F2+mkdir/delete for freeze |
-| 8 | Write short feature notes (or extend host-lifecycle / IAM plans) for **T** / **W-cfg** / **W-id** / **W-audit** / **N** / **F** before coding |
+| # | Step | Status |
+|---|------|--------|
+| 1 | Finish **v1.2.0** freeze / tag / Hub | **Done** — `v1.2.0` tagged · Hub multi-arch published |
+| 2 | Open **`v1.3.0-dev`** + lock Must/Should | **Done** 2026-08-18 |
+| 3 | Spike **L1** shared list component + **P1** settings schema | **Next** (Phase 1) |
+| 4 | Spike **W-id** model + console ticket identity field (no UI polish) | Phase 1 (parallel) |
+| 5 | Land **T6** factor-agnostic account step-up | Phase 2 Must |
+| 6 | Spike **W-audit0** PTY capture + redaction; promote or Cap | After W-id core |
+| 7 | Run **N0** insights discovery (one-pager) → **N2** | Phase 3 |
+| 8 | Run **F0** files sign-off → **F2** (flag off until ready) | Phase 3 |
+
+**Phase 1 execution order (parallelizable):** **L1** shared list chrome · **P1/P2** password-policy schema · **W-id1/W-id2** identity model + migrate single key.
 
 Service migration stays on [PLAN_v1.4.0.md](PLAN_v1.4.0.md) — do not add it to this freeze.
 
 ---
 
-*End of planning capture — not a commitment to ship every stream in one minor.*
+*Living on `v1.3.0-dev` until freeze into `RELEASE_v1.3.0.md`.*

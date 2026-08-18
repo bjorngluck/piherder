@@ -257,7 +257,7 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 7. **Demo** *(optional)* — banner on the public demo only  
 8. **Everything else** — only if a caption/PNG disagree  
 
-Next train (not 1.2 screenshot blockers): per-host ACL · host files · CSP nonces — [PLAN_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.3.0.md).
+Next train (not 1.2 screenshot blockers): per-host ACL · host files · CSP nonces — [PLAN_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/PLAN_v1.3.0.md) (active).
 
 ---
 

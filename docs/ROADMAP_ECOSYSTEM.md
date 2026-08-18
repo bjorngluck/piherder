@@ -1,7 +1,7 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-08-18 (**v1.2.0** current production — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md); **v1.3.0** planning — [PLAN_v1.3.0.md](PLAN_v1.3.0.md); **v1.4.0** service migration planning — [PLAN_v1.4.0.md](PLAN_v1.4.0.md))  
+**Date:** 2026-07-12 · **Refreshed:** 2026-08-18 (**v1.2.0** current production — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md); **v1.3.0** train open on `v1.3.0-dev` — [PLAN_v1.3.0.md](PLAN_v1.3.0.md); **v1.4.0** service migration planning — [PLAN_v1.4.0.md](PLAN_v1.4.0.md))  
 **Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [RELEASE_v1.1.1.md](RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
@@ -35,9 +35,10 @@ Design principles stay the same as SPEC:
 | **v1.0.0** | **First production** — security · authz · validation · credential recovery · known-issue burn-down · docs | Production bar | **Tagged** 2026-07-28 — [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · Hub `1.0.0` / `1.0` / `latest` |
 | **v1.0.x** | Production patches (security / critical) | Patch | As needed |
 | **v1.1.0** | **Day-to-day operator improvements** — certs · discovery · identity · operator UX · topology/maps · integrations/API | Post-1.0 minor | **Tagged** 2026-08-08 — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · Hub `1.1.0` / `1.1` / `latest` |
-| **v1.1.x** | Production patches on `main` while 1.2 is in flight | Patch | As needed — port into `v1.2.0-dev` |
+| **v1.1.x** | Production patches | Patch | Prefer upgrade to **v1.2.x** |
 | **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry · full DB DR · security remediations | Post-1.1 minor | **Tagged** — current production — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
-| **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights thin slice (N)** · **host files thin slice (F)** · **AC-fg** · ACME (consideration) | Post-1.2 minor | **Planning** — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) (train not open) |
+| **v1.2.x** | Production patches on `main` while 1.3 is in flight | Patch | As needed — port into `v1.3.0-dev` |
+| **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights thin slice (N)** · **host files thin slice (F)** · **AC-fg** Cap · ACME (consideration) | Post-1.2 minor | **Active** on `v1.3.0-dev` — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) |
 | **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate) + **host lock** (HAOS refuse, Frigate/TPU-class) | Post-1.3 minor | **Planning** — [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) (train not open) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
@@ -54,7 +55,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-19):** **v0.7.0 feature-locked and tagged**. Wizard, E2E A+B, annotations, compose sets, drift Job shipped. Screenshot pack deferred; residual polish + E2E/coverage growth + full docs review + **nmap** → **v0.8.0 RC3**. See [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md).
 
-**Production path:** ~~RC line through v0.9.0~~ → **v1.0.0** → **v1.1.0 tagged** ([RELEASE_v1.1.0.md](RELEASE_v1.1.0.md)) → **v1.2.0 train** on `v1.2.0-dev` ([PLAN_v1.2.0.md](PLAN_v1.2.0.md)).
+**Production path:** ~~RC line through v0.9.0~~ → **v1.0.0** → **v1.1.0** → **v1.2.0 tagged** ([RELEASE_v1.2.0.md](RELEASE_v1.2.0.md)) → **v1.3.0 train** on `v1.3.0-dev` ([PLAN_v1.3.0.md](PLAN_v1.3.0.md)).
 
 **Decision (2026-07-22):** Post-0.8 operator UX triage — micro-pass **B1/E4/E8** on main for 0.8 screenshots; remaining discovery/Network/coverage polish → **v0.9.0** ([PLAN_v0.9.0.md](PLAN_v0.9.0.md)). Cross-cutting human-readable schedules, selectable hero stats, and full templates catalog redesign stay **post-1.0 discovery** (see Quality & platform § below).
 
@@ -83,6 +84,8 @@ Design principles stay the same as SPEC:
 **Decision (2026-08-08):** **Fine-grained roles / feature ACLs → v1.3 path** (not 1.2). Today RBAC is three global roles (`viewer` / `operator` / `admin`). Future work: per-host and/or per-feature access (e.g. backups only on selected hosts, Docker yes / webshell no, certs read-only). Complements SSO group→role mapping; does **not** require multi-tenant SaaS isolation. Explicitly out of v1.2 scope. See § Quality backlog · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 v1.3.
 
 **Decision (2026-08-17):** **Service migration → v1.4** (not 1.2, not 1.3). Stop-first compose-project move with herder-staged dataset copy, fabric CNAME retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate, and per-project host lock (HAOS refuse; Frigate/TPU-class). Planning only. See [PLAN_v1.4.0.md](PLAN_v1.4.0.md).
+
+**Decision (2026-08-18):** **v1.3.0 train opened** on **`v1.3.0-dev`**. Must: **L** lists · **P** password policy · **T6** account step-up KI · **W-id** Connect as…. Should: **T** remainder · **W-cfg** · **A** · **N2** · **F2**. `main` stays patchable for **v1.2.x**. Package version stays `1.2.0` until freeze. See [PLAN_v1.3.0.md](PLAN_v1.3.0.md).
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.2.0` / `1.2` / `latest`.
 
