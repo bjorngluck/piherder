@@ -560,7 +560,7 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
 | **Image pin** | Prefer a tagged image: Hub **`1.2.0`** / `1.2` / `latest` (`1.1.1` / `1.1` pins remain valid) |
 
-Active ship plan: [PLAN_v1.3.0.md](PLAN_v1.3.0.md) (planning). Current notes: [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [QA_v1.2.0.md](QA_v1.2.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Active ship plan: [PLAN_v1.3.0.md](PLAN_v1.3.0.md) on `v1.3.0-dev`. Current production: [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [QA_v1.2.0.md](QA_v1.2.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 

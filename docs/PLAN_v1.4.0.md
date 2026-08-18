@@ -1,15 +1,15 @@
 # PiHerder v1.4.0 — service migration
 
-**Status:** **Planning / backlog** — capture while **v1.2.0** finishes QA and **v1.3.0** stays the next open train  
+**Status:** **Planning / backlog** — capture while **v1.3.0** runs on `v1.3.0-dev`  
 **Date opened:** 2026-08-17  
 **Git branch (when train opens):** `v1.4.0-dev` (not opened yet)  
 **Package / image version (at tag):** `1.4.0`  
 **Theme:** **Service migration** — move a Docker Compose project host→host with dataset copy, DNS retarget, resolver flush, TLS / Kuma validate, and **host lock**  
 **Baseline:** `v1.3.0` (when tagged)  
-**Mode:** Planning only — do **not** start implementation on `v1.2.0-dev` or the 1.3 train  
+**Mode:** Planning only — do **not** start implementation on `v1.3.0-dev`  
 **Related:** [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [SPEC.md](../SPEC.md) · wiki [Docker](../wiki/docker/overview.md) · [DNS fabric](../wiki/integrations/dns-fabric.md) · [Backups](../wiki/day-to-day/backups.md) · [HAOS](../wiki/day-to-day/haos-hosts.md)
 
-> **Not the active train.** v1.2 is identity + webshell + gated demo. v1.3 is operator policy, scale UX, insights, and confined host files. This document parks **service migration** so those trains stay focused. Promote Stream **M** when the 1.4 train opens.
+> **Not the active train.** v1.3 (active on `v1.3.0-dev`) is operator policy, scale UX, insights, and confined host files. This document parks **service migration** so that train stays focused. Promote Stream **M** when the 1.4 train opens.
 
 ---
 
@@ -226,7 +226,7 @@ Success criteria (draft):
 
 | # | Step |
 |---|------|
-| 1 | Finish **v1.2.0** QA / tag · then **v1.3.0** train |
+| 1 | Finish **v1.3.0** freeze / tag · then open this train |
 | 2 | Open **`v1.4.0-dev`** + lock Must/Should from this seed |
 | 3 | Spike named-volume copy (docker-group rsync vs helper container) on two lab Pis |
 | 4 | Land **M1** lock model + UI (cheap, useful before copy) |
