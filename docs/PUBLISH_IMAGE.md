@@ -160,10 +160,10 @@ Add when account + token exist and first manual push has worked once.
 
 ## v1.2.0 publish checklist (maintainer)
 
-- [ ] `APP_VERSION` / `pyproject.toml` = `1.2.0`
-- [ ] [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) finalized · Status **Tagged**
-- [ ] Multi-arch push: `1.2.0` / `1.2` / `latest` (amd64 + arm64)
-- [ ] Git tag `v1.2.0`
+- [x] `APP_VERSION` / `pyproject.toml` = `1.2.0`
+- [x] [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) finalized · Status **Tagged**
+- [x] Multi-arch push: `1.2.0` / `1.2` / `latest` (amd64 + arm64) · digest `sha256:e7e3b2a46b899961bb9c6336a53e8133ff39534e945242d165af2a035302aa98`
+- [x] Git tag `v1.2.0`
 
 ### Prior: v1.1.1
 
