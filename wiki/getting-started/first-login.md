@@ -62,7 +62,7 @@ If you set `ALLOW_OPEN_REGISTRATION=true`, later self-registered accounts become
 ## Admin quick checklist
 
 1. Create operators/viewers via **Users → Create user** (modal + one-time credentials); share invite passwords carefully.  
-2. Optionally enable **Force 2FA** under Settings → Security policy.  
+2. Optionally set **Who must enrol 2FA** under Settings → Security policy (everyone, operators+, or admins).  
 3. Optionally configure **SSO / OIDC** (Settings → General) once TLS and public URL are stable — [SSO guide](../account-security/sso-oidc.md). Keep at least one break-glass local admin password.
 
 <figure class="ph-figure" markdown>

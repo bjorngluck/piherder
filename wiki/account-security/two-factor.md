@@ -23,8 +23,8 @@ Password-only access to a fleet control plane is risky on shared or exposed URLs
 
 1. As a user: **Account** → enable TOTP **and/or** add a **passkey** → if using TOTP, store **backup codes** offline.  
 2. Optional **trusted device** (default **30 days**, from `TRUSTED_DEVICE_DAYS`) if you accept that trade-off — only on machines you control.  
-3. As admin: **Settings → Security policy → Force 2FA for all**.  
-4. Users without any second factor hit `/auth/force-2fa` after password **or SSO** login (password change-on-first still first if required), then **Set up 2FA on Account**.  
+3. As admin: **Settings → Security policy → Who must enrol 2FA** (everyone, operators+, or admins). Optional **grace 0–60 days**.  
+4. Users in scope without any second factor hit `/auth/force-2fa` after password **or SSO** login (password change-on-first still first if required), then **Set up 2FA on Account**.  
 5. For templates, enable **Require 2FA for template deploy & secrets** if operators should not deploy without TOTP.
 
 ---
@@ -47,7 +47,7 @@ Password-only access to a fleet control plane is risky on shared or exposed URLs
 | **Origin** | From `PIHERDER_PUBLIC_URL` (must match the URL in the browser bar) |
 | **HTTPS** | Required except `localhost` — LAN HTTP without matching RP/origin will fail registration |
 | **Limit** | Up to 10 passkeys per user |
-| **Revoke** | **v1.2:** local **password** required. TOTP / another passkey is **[KI-account-stepup-factors](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md#known-issues-ship-with-awareness)** (v1.3). |
+| **Revoke** | **v1.3:** any enrolled 2FA (passkey step-up, TOTP, or backup code). Password only when no 2FA is enrolled. SSO-only users can revoke without a local password. |
 
 <figure class="ph-figure" markdown>
   ![Account passkeys](../assets/screenshots/account-passkeys.png)
@@ -109,15 +109,26 @@ Rough production defaults (in-process; disabled when `PIHERDER_DISABLE_AUTH_RATE
 | 2FA code | 12 attempts / 5 minutes / IP |
 | Registration | 8 attempts / 10 minutes / IP |
 
-## Force 2FA for all
+## Force 2FA (who must enrol)
 
-**Where:** **Settings** → **Security policy**.
+**Where:** **Settings** → **Security policy**. **Available from v1.3.**
 
 | Setting | Effect |
 |---------|--------|
-| **Force 2FA for all** | Users without TOTP **or** a passkey go to `/auth/force-2fa` before the fleet UI. Password change-on-first-login still runs first if required. Applies after **password and SSO** identity proof. |
+| **Who must enrol** | Off · **admins** · **operators and admins** · **everyone**. Users in scope without TOTP **or** a passkey go to `/auth/force-2fa`. |
+| **Grace** | 0–60 days after you turn the policy on (home-lab). 0 = immediate. |
+| **Trusted device skips login 2FA** | Default **on** (same as v1.2). |
+| **Trusted device skips the enrol wall** | Default **off**. |
+
+Password change-on-first-login still runs first if required. Applies after **password and SSO** identity proof.
 
 Stored in PostgreSQL (`appsetting`) — travels with DB dumps and self-backup.
+
+### Lost factors / sole admin
+
+If force 2FA is on and the only admin lost TOTP and passkeys, use host recovery — not this Settings page:
+
+→ **[Locked out / sole admin recovery](../troubleshooting/locked-out.md)** (`./scripts/recover-admin.sh`)
 
 ## SSO login and 2FA
 
@@ -127,7 +138,7 @@ Stored in PostgreSQL (`appsetting`) — travels with DB dumps and self-backup.
 | **SSO (OIDC)** | **Same helpers** — IdP is first factor only; enrolled 2FA still required; Force 2FA enroll wall still applies |
 | Account link / unlink / remove password | Re-check 2FA when enrolled ([SSO page](sso-oidc.md)) |
 
-IdP multi-factor (if configured at Authentik/Keycloak/etc.) does **not** replace PiHerder TOTP or passkeys.
+IdP multi-factor does **not** replace PiHerder 2FA unless an admin enables **IdP MFA satisfies PiHerder login 2FA** (default **off**). Missing or unknown `amr` / `acr` values fail closed. That option never skips Account, secrets, or console step-up.
 
 ## Template step-up
 

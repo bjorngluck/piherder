@@ -83,8 +83,11 @@ def _finish_login(
     user: User,
     *,
     audit_detail: str,
+    claims: dict | None = None,
 ) -> RedirectResponse:
     """Same 2FA / trusted-device / force-2FA path as password login."""
+    from ..services.account_stepup import idp_mfa_satisfies_login, login_trusted_skip_2fa
+
     user.last_login_at = datetime.utcnow()
     session.add(user)
     session.commit()
@@ -93,8 +96,21 @@ def _finish_login(
         wa_svc.user_requires_2fa_stepup(session, user)
         and not getattr(user, "must_change_password", False)
     ):
+        if idp_mfa_satisfies_login(claims):
+            _audit(session, user.id, "sso_login", f"{audit_detail} (IdP MFA satisfied login 2FA)")
+            _audit(session, user.id, "user_login", "Login (SSO, IdP MFA)")
+            token = create_user_access_token(user)
+            response = RedirectResponse(
+                url=post_login_path(user, session, request), status_code=303
+            )
+            _set_auth_cookie(response, token)
+            return response
         raw_trusted = read_trusted_device_token(request.cookies, user.id)
-        if raw_trusted and find_valid_trusted_device(session, user.id, raw_trusted):
+        if (
+            login_trusted_skip_2fa()
+            and raw_trusted
+            and find_valid_trusted_device(session, user.id, raw_trusted)
+        ):
             _audit(session, user.id, "sso_login", f"{audit_detail} (trusted device, 2FA skipped)")
             _audit(session, user.id, "user_login", "Login (SSO, trusted device)")
             token = create_user_access_token(user)
@@ -342,6 +358,7 @@ async def oidc_callback(request: Request, session: Session = Depends(get_session
             session,
             user,
             audit_detail=f"SSO login reason={reason} iss={issuer}",
+            claims=claims,
         )
         _clear_oidc_state(response)
         return response

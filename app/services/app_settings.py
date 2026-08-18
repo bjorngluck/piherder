@@ -55,6 +55,33 @@ DEFAULTS: Dict[str, Any] = {
     "password_require_lower": True,
     "password_require_digit": True,
     "password_require_special": False,
+    # v1.3 slice 1 Deep — T1–T4
+    "force_2fa_scope": "off",  # off | admins | operators | all
+    "force_2fa_grace_days": 0,  # 0–60 (home-lab)
+    "force_2fa_grace_since": "",
+    "force_2fa_trusted_skip_enroll": False,
+    "login_trusted_skip_2fa": True,
+    "stepup_account_minutes": 5,
+    "stepup_secrets_minutes": 10,
+    "stepup_console_minutes": 10,
+    "factor_login_totp": True,
+    "factor_login_passkey": True,
+    "factor_login_backup": True,
+    "factor_account_totp": True,
+    "factor_account_passkey": True,
+    "factor_account_backup": True,
+    "factor_secrets_totp": True,
+    "factor_secrets_passkey": True,
+    "factor_secrets_backup": False,
+    "factor_console_totp": True,
+    "factor_console_passkey": True,
+    "factor_console_backup": False,
+    "console_require_2fa_every_shell": False,
+    "console_allow_backup_codes": False,
+    "console_prefer_passkey": True,
+    "console_require_passkey": False,
+    "oidc_idp_mfa_satisfies_login_2fa": False,
+    "oidc_idp_mfa_claim": "amr",
     # Suggest host/service FQDNs as {slug}.{dns_base_domain}
     "dns_base_domain": "",
     # Network map (hosts map): LAN topology + public edge

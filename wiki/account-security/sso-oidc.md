@@ -107,7 +107,7 @@ PiHerder does **not** skip its own 2FA because the IdP already authenticated you
 |-----------|-----------|
 | User has TOTP and/or passkey | After IdP callback → same **2FA step-up** as after password (or trusted device skip) |
 | Force 2FA; no factor enrolled | After identity proven → force-2FA enroll wall |
-| Link / unlink / remove password | Re-validate 2FA when enrolled. **v1.2:** unlink prefers TOTP / backup codes when TOTP is on; passkey step-up also works. Factor-agnostic step-up is **[KI-account-stepup-factors](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md#known-issues-ship-with-awareness)** → v1.3. |
+| Link / unlink / remove password | Re-validate 2FA when enrolled. **v1.3:** any enrolled factor (passkey step-up, TOTP, backup). Password only when no 2FA is enrolled. |
 
 IdP MFA (if any) is **extra**, not a substitute for PiHerder TOTP/passkeys. Details: [2FA & force 2FA](two-factor.md).
 

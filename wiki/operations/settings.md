@@ -19,7 +19,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 ## End-to-end: harden a new instance
 
 1. **General** → set app **timezone** (Audit/Jobs clocks).  
-2. **General** → enable **force 2FA** if everyone should enrol.  
+2. **General** → **Security policy**: password rules, who must enrol 2FA (optional grace 0–60 days), step-up windows.  
 3. Optional **General → SSO / OpenID Connect** when you have a BYO IdP — [SSO guide](../account-security/sso-oidc.md).  
 4. **PiHerder backup** → run once + schedule; store archive + master key offline.  
 5. **Status** → Check now until green.  
@@ -32,7 +32,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 | Tab | Purpose |
 |-----|---------|
-| **General** | App timezone, security policy (force 2FA), **SSO / OIDC**, and **Stale data cleanup** |
+| **General** | App timezone, security policy (password rules, 2FA scope, step-up), **SSO / OIDC**, and **Stale data cleanup** |
 | **Alerts** | Outbound **webhook** + **SMTP** (alert mail, test send, forgot-password) — [details](alerts-email-webhooks.md) |
 | **Fleet defaults** | Global OS / container update-check defaults (optional apply to all hosts) |
 | **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)) |

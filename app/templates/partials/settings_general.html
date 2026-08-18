@@ -80,26 +80,152 @@
           {{ password_policy_text or '' }}
         </p>
       </fieldset>
-      <label class="flex items-start gap-2 min-h-11 text-sm">
-        <input type="checkbox" name="force_2fa" value="1" class="mt-1"
-               {% if cfg.force_2fa %}checked{% endif %}>
-        <span>
-          <strong>Require 2FA for all users</strong>
-          <span class="block text-xs text-muted mt-0.5">
-            After login, users without TOTP are sent to set up an authenticator app before using the fleet UI.
+      {% set fscope = cfg.force_2fa_scope or ('all' if cfg.force_2fa else 'off') %}
+      <fieldset class="space-y-3" data-testid="settings-2fa-policy">
+        <legend class="text-sm font-medium text-text">2FA enforcement</legend>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Who must enrol 2FA</span>
+            <select name="force_2fa_scope" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
+                    data-testid="force-2fa-scope">
+              <option value="off" {% if fscope == 'off' %}selected{% endif %}>Off</option>
+              <option value="admins" {% if fscope == 'admins' %}selected{% endif %}>Admins only</option>
+              <option value="operators" {% if fscope == 'operators' %}selected{% endif %}>Operators and admins</option>
+              <option value="all" {% if fscope == 'all' %}selected{% endif %}>Everyone</option>
+            </select>
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Grace after enable (days, 0–60)</span>
+            <input type="number" name="force_2fa_grace_days" min="0" max="60"
+                   value="{{ cfg.force_2fa_grace_days | default(0) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="force-2fa-grace">
+          </label>
+        </div>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="login_trusted_skip_2fa" value="1" class="mt-1"
+                 {% if cfg.login_trusted_skip_2fa is not defined or cfg.login_trusted_skip_2fa %}checked{% endif %}>
+          <span>
+            Trusted device skips <strong>login</strong> 2FA
+            <span class="block text-xs text-muted mt-0.5">Same as v1.2. Does not skip Account / secrets / console step-up.</span>
           </span>
-        </span>
-      </label>
-      <label class="flex items-start gap-2 min-h-11 text-sm">
-        <input type="checkbox" name="template_require_2fa" value="1" class="mt-1"
-               {% if cfg.template_require_2fa %}checked{% endif %}>
-        <span>
-          <strong>Require 2FA for template deploy</strong>
-          <span class="block text-xs text-muted mt-0.5">
-            Operators must have 2FA (passkey or TOTP) enrolled to confirm template deploys. <strong>Viewing secrets always requires step-up 2FA</strong> (View secrets + passkey or authenticator code), even if already logged in with 2FA.
+        </label>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="force_2fa_trusted_skip_enroll" value="1" class="mt-1"
+                 {% if cfg.force_2fa_trusted_skip_enroll %}checked{% endif %}>
+          <span>
+            Trusted device skips the <strong>enrol wall</strong>
+            <span class="block text-xs text-muted mt-0.5">Default off. A trusted browser still must enrol 2FA unless you check this.</span>
           </span>
-        </span>
-      </label>
+        </label>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="template_require_2fa" value="1" class="mt-1"
+                 {% if cfg.template_require_2fa %}checked{% endif %}>
+          <span>
+            <strong>Require 2FA for template deploy</strong>
+            <span class="block text-xs text-muted mt-0.5">
+              Operators must have 2FA enrolled to confirm template deploys. Viewing secrets always requires step-up.
+            </span>
+          </span>
+        </label>
+      </fieldset>
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">Step-up windows (minutes)</legend>
+        <div class="grid sm:grid-cols-3 gap-3">
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Account actions</span>
+            <input type="number" name="stepup_account_minutes" min="1" max="120"
+                   value="{{ cfg.stepup_account_minutes | default(5) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Secrets view</span>
+            <input type="number" name="stepup_secrets_minutes" min="1" max="120"
+                   value="{{ cfg.stepup_secrets_minutes | default(10) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Console grant</span>
+            <input type="number" name="stepup_console_minutes" min="1" max="120"
+                   value="{{ cfg.stepup_console_minutes | default(10) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </label>
+        </div>
+      </fieldset>
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">Allowed factors</legend>
+        <p class="text-xs text-muted">Unchecked factors are rejected on that surface. Console env vars still win when set.</p>
+        <div class="overflow-x-auto">
+          <table class="text-sm w-full min-w-[20rem]">
+            <thead>
+              <tr class="text-xs text-muted text-left">
+                <th class="py-1 pr-2 font-medium">Surface</th>
+                <th class="py-1 pr-2 font-medium">TOTP</th>
+                <th class="py-1 pr-2 font-medium">Passkey</th>
+                <th class="py-1 pr-2 font-medium">Backup code</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for surf, label in [('login','Login'), ('account','Account'), ('secrets','Secrets'), ('console','Console')] %}
+              <tr>
+                <td class="py-1 pr-2">{{ label }}</td>
+                <td class="py-1 pr-2">
+                  <input type="checkbox" name="factor_{{ surf }}_totp" value="1"
+                         {% if cfg['factor_' ~ surf ~ '_totp'] is not defined or cfg['factor_' ~ surf ~ '_totp'] %}checked{% endif %}>
+                </td>
+                <td class="py-1 pr-2">
+                  <input type="checkbox" name="factor_{{ surf }}_passkey" value="1"
+                         {% if cfg['factor_' ~ surf ~ '_passkey'] is not defined or cfg['factor_' ~ surf ~ '_passkey'] %}checked{% endif %}>
+                </td>
+                <td class="py-1 pr-2">
+                  <input type="checkbox" name="factor_{{ surf }}_backup" value="1"
+                         {% if (surf in ['login','account'] and (cfg['factor_' ~ surf ~ '_backup'] is not defined or cfg['factor_' ~ surf ~ '_backup'])) or (surf in ['secrets','console'] and cfg['factor_' ~ surf ~ '_backup']) %}checked{% endif %}>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="console_require_2fa_every_shell" value="1" class="mt-1"
+                 {% if cfg.console_require_2fa_every_shell %}checked{% endif %}>
+          <span>Require 2FA on every new console shell (no grant reuse)</span>
+        </label>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="console_prefer_passkey" value="1" class="mt-1"
+                 {% if cfg.console_prefer_passkey is not defined or cfg.console_prefer_passkey %}checked{% endif %}>
+          <span>Prefer passkey for console</span>
+        </label>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="console_require_passkey" value="1" class="mt-1"
+                 {% if cfg.console_require_passkey %}checked{% endif %}>
+          <span>Require passkey for console when one is enrolled</span>
+        </label>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="console_allow_backup_codes" value="1" class="mt-1"
+                 {% if cfg.console_allow_backup_codes %}checked{% endif %}>
+          <span>Allow backup codes for console (discouraged)</span>
+        </label>
+      </fieldset>
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">SSO / IdP MFA</legend>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="oidc_idp_mfa_satisfies_login_2fa" value="1" class="mt-1"
+                 {% if cfg.oidc_idp_mfa_satisfies_login_2fa %}checked{% endif %}>
+          <span>
+            <strong class="text-warning">IdP MFA satisfies PiHerder login 2FA</strong>
+            <span class="block text-xs text-muted mt-0.5">
+              Default off. Fail closed if the claim is missing. Never skips Account, secrets, or console step-up.
+            </span>
+          </span>
+        </label>
+        <label class="block text-sm">
+          <span class="block text-xs text-muted mb-1">IdP MFA claim (default <code class="font-mono">amr</code>)</span>
+          <input name="oidc_idp_mfa_claim" value="{{ cfg.oidc_idp_mfa_claim or 'amr' }}"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                 placeholder="amr">
+        </label>
+      </fieldset>
       <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save security policy</button>
     </form>
   </div>
