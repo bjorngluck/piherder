@@ -320,7 +320,7 @@
       PiHerder 2FA (TOTP / passkeys) still applies after SSO when enrolled.
     </p>
     {% if oidc_identities %}
-    <ul class="space-y-3">
+    <ul class="space-y-3 list-none pl-0">
       {% for idn in oidc_identities %}
       <li class="border border-border rounded-lg p-3 space-y-2">
         <div class="text-sm font-medium text-text">{{ idn.issuer_host or idn.issuer }}</div>
@@ -530,7 +530,7 @@
     <div id="wa-reg-ok" class="hidden p-3 banner-success border border-border text-sm rounded" role="status"></div>
 
     {% if passkeys %}
-    <ul class="space-y-2" data-testid="passkey-list">
+    <ul class="space-y-2 list-none pl-0" data-testid="passkey-list">
       {% for pk in passkeys %}
       <li class="border border-border rounded p-3 space-y-2">
         <div class="flex flex-wrap items-center justify-between gap-2">
