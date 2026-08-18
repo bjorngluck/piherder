@@ -5,7 +5,7 @@
 **Git branch (when train opens):** `v1.3.0-dev` (not opened yet)  
 **Package / image version (at tag):** `1.3.0`  
 **Theme:** Operator-configurable security policy · multi-identity console · optional command audit · console knobs · map/alert granularity · fleet-scale list UX · thin-slice reporting / custom dashboards · **host file transfer (discover + thin slice)**  
-**Baseline:** `v1.2.0` (when tagged)  
+**Baseline:** `v1.2.0`  
 **Mode:** Planning only — do **not** start implementation streams until 1.2 freezes  
 **Related:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [wiki/operations/alerts-email-webhooks.md](../wiki/operations/alerts-email-webhooks.md) · [SECURITY.md](../SECURITY.md)
 

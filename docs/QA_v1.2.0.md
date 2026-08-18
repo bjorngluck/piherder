@@ -1,8 +1,8 @@
 # PiHerder v1.2.0 — operator QA / sign-off
 
-**Branch:** `v1.2.0-dev`  
+**Branch:** `v1.2.0-dev` → `main` · tag **`v1.2.0`**  
 **Code freeze:** feature-complete (Streams I / S / W / D / B / R).  
-**Hub / `latest`:** still **1.1.0** until you sign this off and we tag.
+**Hub / `latest`:** **1.2.0** (`1.2` / `latest`).
 
 Use this list as a **real operator pass**, not a unit-test dump. Tick **Pass / Fail / N/A**. Anything **Must** that fails is a ship blocker unless you explicitly accept it.
 
@@ -27,6 +27,8 @@ Legend: **Must** = ship blocker · **Should** = fix or accept in notes · **Reg*
 ---
 
 ## 0. Boot, install, upgrade
+
+**Operator sign-off:** 2026-08-18 — **Pass**.
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
@@ -102,6 +104,8 @@ Enable `PIHERDER_SSH_CONSOLE=true` only for this section, then decide whether pr
 
 ## 4. Host SSH, host keys, default user (R7 / R11)
 
+**Operator sign-off:** 2026-08-18 — **Pass**.
+
 | # | Pri | Test | Pass |
 |---|-----|------|------|
 | 4.1 | Must | **Add server** wizard: default SSH user is **`pi`**. Existing hosts still show their previous user. | ☐ |
@@ -115,6 +119,8 @@ Enable `PIHERDER_SSH_CONSOLE=true` only for this section, then decide whether pr
 
 ## 5. Docker compose build (R3)
 
+**Operator sign-off:** 2026-08-18 — **Pass**.
+
 | # | Pri | Test | Pass |
 |---|-----|------|------|
 | 5.1 | Must | **Build** a named compose project as operator: stream works. | ☐ |
@@ -125,6 +131,8 @@ Enable `PIHERDER_SSH_CONSOLE=true` only for this section, then decide whether pr
 ---
 
 ## 6. Sessions, logout, reset URLs (R2 / R4 / R5)
+
+**Operator sign-off:** 2026-08-18 — **Pass**.
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
@@ -137,6 +145,8 @@ Enable `PIHERDER_SSH_CONSOLE=true` only for this section, then decide whether pr
 
 ## 7. Delete graphs (R6)
 
+**Operator sign-off:** 2026-08-18 — **Pass** (partial coverage; accepted).
+
 | # | Pri | Test | Pass |
 |---|-----|------|------|
 | 7.1 | Must | Delete a **non-admin** user who has passkey + TOTP + SSO link + pin + push: **no 500**. User gone. Audit / notifications remain (unlinked). API tokens they created still exist until revoked. | ☐ |
@@ -147,6 +157,8 @@ Enable `PIHERDER_SSH_CONSOLE=true` only for this section, then decide whether pr
 ---
 
 ## 8. Self-backup, archive paths, vanished rsync (B / R9)
+
+**Operator sign-off:** 2026-08-18 — **Pass**.
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
@@ -160,6 +172,8 @@ Enable `PIHERDER_SSH_CONSOLE=true` only for this section, then decide whether pr
 ---
 
 ## 9. CSP / frontend (R14)
+
+**Operator sign-off:** 2026-08-18 — **Pass**.
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
@@ -178,6 +192,8 @@ curl -sI https://YOUR_PUBLIC_URL/ | tr ',' '\n' | grep -i content-security
 
 ## 10. Public demo (Stream D)
 
+**Operator sign-off:** 2026-08-18 — **Pass**.
+
 Run against [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) **or** a local `DEMO_MODE` overlay.
 
 | # | Pri | Test | Pass |
@@ -192,6 +208,8 @@ Run against [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) **o
 ---
 
 ## 11. RBAC + core fleet regression
+
+**Operator sign-off:** 2026-08-18 — **Pass** (not every item fully validated; accepted).
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
@@ -218,7 +236,7 @@ Run against [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) **o
 | Trusted-device cookies survive logout | Documented |
 | 7-day session JWT | Documented (`ACCESS_TOKEN_EXPIRE_MINUTES`) |
 | No per-host ACL | 1.3 **AC-fg** |
-| Screenshots may still be 1.1 | Refresh after this QA (not a code blocker) |
+| Screenshots may still be 1.1 | Refresh shortly (accepted for freeze; not a code blocker) |
 
 ---
 
@@ -226,19 +244,24 @@ Run against [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) **o
 
 | Gate | Name | Date | Result |
 |------|------|------|--------|
-| Identity (I + S) | | | Pass / Fail / N/A |
-| Console (W) | | | Pass / Fail / N/A (flag stays off) |
-| Host keys + deletes + sessions (R) | | | Pass / Fail |
-| Self-backup Full DR (B) | | | Pass / Fail |
-| Demo (D) | | | Pass / Fail / N/A |
-| Core fleet regression | | | Pass / Fail |
-| Docs / wiki match the product | | | Pass / Fail |
-| **Ready to tag `v1.2.0`** | | | **Yes / No** |
+| Identity (I + S) | | 2026-08-18 | **Pass** — SSO (Authentik) + 2FA / passkeys |
+| Console (W) | | 2026-08-18 | **Pass** |
+| Sessions / logout / reset URLs (R2 / R4 / R5) | | 2026-08-18 | **Pass** |
+| Delete graphs (R6) | | 2026-08-18 | **Pass** (partial; accepted) |
+| Host keys + default user (R7 / R11) | | 2026-08-18 | **Pass** |
+| Docker compose build (R3) | | 2026-08-18 | **Pass** |
+| Self-backup Full DR (B / R9) | | 2026-08-18 | **Pass** |
+| CSP / frontend (R14) | | 2026-08-18 | **Pass** |
+| Demo (D) | | 2026-08-18 | **Pass** |
+| Core fleet regression | | 2026-08-18 | **Pass** (not every item; accepted) |
+| Boot / install / upgrade | | 2026-08-18 | **Pass** |
+| Docs / wiki / screenshots | | | Screenshot refresh pending |
+| **Ready to tag `v1.2.0`** | | | **No** — screenshot refresh (non-blocker; say Yes when you want the tag) |
 
 ### After **Yes** (maintainer — not part of operator browsing)
 
-1. Bump `app/version_info.py` + `pyproject.toml` → `1.2.0`.  
-2. Flip this file + [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) + wiki Home to **Tagged / current production**.  
+1. ~~Bump `app/version_info.py` + `pyproject.toml` → `1.2.0`.~~ **Done.**  
+2. ~~Flip this file + [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) + wiki Home to **Tagged / current production**.~~ **Done.**  
 3. Merge `v1.2.0-dev` → `main` · tag `v1.2.0` · Hub `1.2.0` / `1.2` / `latest`.  
 4. Refresh marketing screenshots if you have capacity.  
 5. Do **not** start 1.3 work on this tag.

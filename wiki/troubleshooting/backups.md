@@ -13,7 +13,7 @@ Diagnosis when a **server backup** job fails, stays pending, or never updates `l
 
 ## Vanished files / busy sources
 
-**v1.1.0 known issue** ([RELEASE_v1.1.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md#known-issues-ship-with-awareness) **KI-rsync-vanished**).
+**v1.1.0 known issue** ([RELEASE_v1.1.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md#known-issues-ship-with-awareness) **KI-rsync-vanished**). **v1.2.0** retries and can soft-OK vanished files (below).
 
 On a busy host, files under the backup source can **disappear or move while rsync is running**. Typical examples:
 

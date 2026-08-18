@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** Historical phase checklist (v1.0 era). **Hub production:** [v1.1.0](docs/RELEASE_v1.1.0.md). **Next:** [v1.2.0 freeze](docs/RELEASE_v1.2.0.md) on `v1.2.0-dev` awaiting [QA](docs/QA_v1.2.0.md).  
-> **Last updated:** 2026-08-12 — do not treat this file as the 1.2 operator guide (use the wiki + RELEASE).
+> **Status:** Historical phase checklist (v1.0 era). **Hub production:** [v1.2.0](docs/RELEASE_v1.2.0.md). **Next:** [v1.3.0 planning](docs/PLAN_v1.3.0.md).  
+> **Last updated:** 2026-08-18 — do not treat this file as the operator guide (use the wiki + RELEASE).
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 

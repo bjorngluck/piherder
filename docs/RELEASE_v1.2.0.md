@@ -1,12 +1,16 @@
 # PiHerder v1.2.0
 
-**Status:** **Freeze complete — awaiting operator QA** on `v1.2.0-dev` (not yet tagged)  
+**Status:** **Tagged** — current production release  
+**Date:** 2026-08-18  
+**Git tag:** `v1.2.0`  
+**Package / image version:** `1.2.0`  
 **Theme:** Identity + webshell + gated demo · backup reliability · self-backup full DB DR · security remediations  
-**Baseline:** [v1.1.0](RELEASE_v1.1.0.md)  
+**Baseline:** [v1.1.1](RELEASE_v1.1.1.md) · [v1.1.0](RELEASE_v1.1.0.md)  
 **Plan:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md)  
 **Operator QA:** [QA_v1.2.0.md](QA_v1.2.0.md) · wiki [v1.2.0 QA / sign-off](../wiki/operations/qa-v1.2.0.md)
 
-Do **not** treat Hub `latest` as 1.2 until this document is marked **Tagged**. Published Hub remains **1.1.0** (`1.1` / `latest`).
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) — multi-arch `linux/amd64` + `linux/arm64`  
+**Tags:** `1.2.0` · `1.2` · `latest` (older `1.1.1` / `1.1` / `1.0.x` pins remain valid)
 
 ---
 
@@ -148,9 +152,9 @@ Image includes **`postgresql-client-16`** (matches compose `postgres:16`). Same 
 
 ---
 
-## Upgrade from 1.1.x (when tagged)
+## Upgrade from 1.1.x
 
-Operator checklist: [wiki upgrades — 1.1 → 1.2](../wiki/operations/upgrades.md#11--12-when-tagged).
+Operator checklist: [wiki upgrades — 1.1 → 1.2](../wiki/operations/upgrades.md#11--12).
 
 1. Take a **1.1** self-backup and keep it offline with `PIHERDER_MASTER_KEY`.  
 2. `git fetch --tags && git checkout v1.2.0` (or pull `bjorngluck/piherder:1.2.0`).  

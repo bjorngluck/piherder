@@ -10,11 +10,11 @@
 
 | | |
 |---|---|
-| **Current release** | **[v1.1.1](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.1.md)** — current **Hub / production** · patch on 1.1 (SSH test / host deps) |
-| **Image** | `bjorngluck/piherder:1.1.1` · `1.1` · `latest` (multi-arch amd64 + arm64; `1.1.0` / `1.0.x` pins remain valid) |
-| **Release notes** | [RELEASE_v1.1.1.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.1.md) · [v1.1.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md) · prior [v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) |
-| **Known issue** | Busy-source rsync vanish on **1.1** (**KI-rsync-vanished**) — [troubleshooting](troubleshooting/backups.md#vanished-files-busy-sources). **1.2** retries + optional soft-OK. |
-| **Next release** | **v1.2.0** — **feature-complete** on `v1.2.0-dev` (passkeys · [SSO](account-security/sso-oidc.md) · [web SSH](day-to-day/web-ssh-console.md) · demo · full DB self-backup · security remediations). **Awaiting [operator QA](operations/qa-v1.2.0.md).** Not tagged; Hub `latest` is still **1.1.1**. |
+| **Current release** | **[v1.2.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md)** — current **Hub / production** · passkeys · [SSO](account-security/sso-oidc.md) · [web SSH](day-to-day/web-ssh-console.md) · demo · full DB self-backup · security remediations |
+| **Image** | `bjorngluck/piherder:1.2.0` · `1.2` · `latest` (multi-arch amd64 + arm64; `1.1.1` / `1.1` / `1.0.x` pins remain valid) |
+| **Release notes** | [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) · [v1.1.1](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.1.md) · [v1.1.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md) · prior [v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) |
+| **Known issue** | Console mobile Tab residual IME (**KI-console-mobile-soft-tab**) — [web SSH](day-to-day/web-ssh-console.md#known-issues). Busy-source rsync vanish retries in 1.2 — [troubleshooting](troubleshooting/backups.md#vanished-files-busy-sources). |
+| **Next release** | **v1.3.0** — planning (operator policy · host files · fine-grained roles). [PLAN_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.3.0.md) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **Public demo** | [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) — limited **viewer** sandbox · [credentials](operations/demo-site.md) |

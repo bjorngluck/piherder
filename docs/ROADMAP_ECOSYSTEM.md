@@ -1,7 +1,7 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-08-18 (**v1.2.0** freeze-complete on `v1.2.0-dev`, awaiting [QA](QA_v1.2.0.md) — [PLAN_v1.2.0.md](PLAN_v1.2.0.md); **v1.3.0** planning — [PLAN_v1.3.0.md](PLAN_v1.3.0.md); **v1.4.0** service migration planning — [PLAN_v1.4.0.md](PLAN_v1.4.0.md); Hub production **v1.1.1** — [RELEASE_v1.1.1.md](RELEASE_v1.1.1.md))  
+**Date:** 2026-07-12 · **Refreshed:** 2026-08-18 (**v1.2.0** current production — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md); **v1.3.0** planning — [PLAN_v1.3.0.md](PLAN_v1.3.0.md); **v1.4.0** service migration planning — [PLAN_v1.4.0.md](PLAN_v1.4.0.md))  
 **Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [RELEASE_v1.1.1.md](RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
@@ -36,7 +36,7 @@ Design principles stay the same as SPEC:
 | **v1.0.x** | Production patches (security / critical) | Patch | As needed |
 | **v1.1.0** | **Day-to-day operator improvements** — certs · discovery · identity · operator UX · topology/maps · integrations/API | Post-1.0 minor | **Tagged** 2026-08-08 — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · Hub `1.1.0` / `1.1` / `latest` |
 | **v1.1.x** | Production patches on `main` while 1.2 is in flight | Patch | As needed — port into `v1.2.0-dev` |
-| **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry · full DB DR · security remediations | Post-1.1 minor | **Freeze complete** on `v1.2.0-dev` — awaiting [operator QA](QA_v1.2.0.md) — [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) |
+| **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry · full DB DR · security remediations | Post-1.1 minor | **Tagged** — current production — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
 | **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights thin slice (N)** · **host files thin slice (F)** · **AC-fg** · ACME (consideration) | Post-1.2 minor | **Planning** — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) (train not open) |
 | **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate) + **host lock** (HAOS refuse, Frigate/TPU-class) | Post-1.3 minor | **Planning** — [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) (train not open) |
 
@@ -84,7 +84,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-08-17):** **Service migration → v1.4** (not 1.2, not 1.3). Stop-first compose-project move with herder-staged dataset copy, fabric CNAME retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate, and per-project host lock (HAOS refuse; Frigate/TPU-class). Planning only. See [PLAN_v1.4.0.md](PLAN_v1.4.0.md).
 
-**Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.1.1` / `1.1` / `latest` until **v1.2.0** is tagged.
+**Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.2.0` / `1.2` / `latest`.
 
 ---
 

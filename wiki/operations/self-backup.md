@@ -130,4 +130,4 @@ JSON + gzip of **selected** tables (often dominated by capped audit + logos) typ
 | Upgrades (backup first) | [Upgrades](upgrades.md) |
 | Who may restore | [Roles](../account-security/roles.md) (admin) |
 | Operator journey | [Journey F](../getting-started/operator-scenarios.md#journey-f) |
-| Maintainer detail | [ADMIN.md](https://github.com/bjorngluck/piherder/blob/main/docs/ADMIN.md) · [PLAN_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/v1.2.0-dev/docs/PLAN_v1.2.0.md) · [v1.2 QA](qa-v1.2.0.md) |
+| Maintainer detail | [ADMIN.md](https://github.com/bjorngluck/piherder/blob/main/docs/ADMIN.md) · [PLAN_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.2.0.md) · [v1.2 QA](qa-v1.2.0.md) |

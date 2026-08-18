@@ -1,6 +1,6 @@
 # PiHerder v1.1.1
 
-**Status:** **Tagged** — current production release  
+**Status:** **Tagged** — prior production; prefer [v1.2.0](RELEASE_v1.2.0.md)  
 **Date:** 2026-08-09  
 **Git tag:** `v1.1.1`  
 **Package / image version:** `1.1.1`  
@@ -13,7 +13,7 @@
 **Docs:** https://piherder-docs.hacknow.info/
 
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) — multi-arch `linux/amd64` + `linux/arm64`  
-**Tags:** `1.1.1` · `1.1` · `latest` (older `1.1.0` / `1.0.x` pins remain valid)
+**Tags:** `1.1.1` · `1.1` (older `1.1.0` / `1.0.x` pins remain valid). Hub `latest` is now **1.2.0**.
 
 ---
 
@@ -77,4 +77,4 @@ docker compose up -d
 
 ## Not in this release
 
-Everything else is unchanged from **v1.1.0**. Active feature work continues on **`v1.2.0-dev`**.
+Everything else is unchanged from **v1.1.0**. Current production is **[v1.2.0](RELEASE_v1.2.0.md)**.

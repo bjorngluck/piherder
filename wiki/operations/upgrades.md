@@ -9,7 +9,7 @@ How to move a running compose install to a newer **git tag or `main`**, pull the
 Upgrades change code *and* schema. A self-backup + unchanged master key is the difference between a smooth pull and an unrecoverable encrypted store.
 
 !!! tip "Prefer tags"
-    Prefer **tagged production releases** (`v1.1.1` / later `1.1.x`). Treat untagged `main` as moving. See [Home](../index.md#release-status) · [RELEASE_v1.1.1.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.1.md).
+    Prefer **tagged production releases** (`v1.2.0` / later `1.2.x`). Treat untagged `main` as moving. See [Home](../index.md#release-status) · [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md).
 
 ```bash
 # Config DR first
@@ -17,29 +17,29 @@ Upgrades change code *and* schema. A self-backup + unchanged master key is the d
 # Also snapshot Postgres volume if you can
 
 git fetch --tags
-git checkout v1.1.1   # or later 1.1.x
+git checkout v1.2.0   # or later 1.2.x
 docker compose pull
 docker compose up -d
 # Alembic runs on web startup
-# optional pin: PIHERDER_IMAGE=bjorngluck/piherder:1.1.1 docker compose up -d
+# optional pin: PIHERDER_IMAGE=bjorngluck/piherder:1.2.0 docker compose up -d
 ```
 
 ## Checklist
 
 - [ ] Self-backup successful (**admin** — Settings → PiHerder backup)  
 - [ ] `PIHERDER_MASTER_KEY` unchanged and backed up offline  
-- [ ] Read [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.1.md) for the version you jump to  
+- [ ] Read [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) for the version you jump to  
 - [ ] `docker compose ps` healthy (image `bjorngluck/piherder:…`)  
 - [ ] Smoke: login, Users recovery (if multi-user), one server, maps/ports, optional template  
 - [ ] Hard-refresh browser once after UI/CSS deploys (query-busted stylesheets)  
 
 
-## 1.1 → 1.2 (when tagged)
+## 1.1 → 1.2
 
-Do this **after** `v1.2.0` is tagged and you choose to leave 1.1.x. Freeze QA (before you jump a production box): [v1.2.0 QA](qa-v1.2.0.md).
+Jump from **v1.1.x** to **v1.2.0**. Full notes: [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md).
 
 1. Take a **1.1** self-backup (config pack) and keep it offline with `PIHERDER_MASTER_KEY`.  
-2. Read [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/v1.2.0-dev/docs/RELEASE_v1.2.0.md). Pre-1.2 “full” archives are **not** a Postgres dump.  
+2. Read the release notes. Pre-1.2 “full” archives are **not** a Postgres dump.  
 3. Confirm `.env` has a **long random `SECRET_KEY`**. The 1.2 web process **will not boot** on the compose default (`change-me-in-prod`) unless you set `PIHERDER_ALLOW_INSECURE=true` (lab only).  
 4. `git fetch --tags && git checkout v1.2.0` (or pull the `1.2.0` image).  
 5. `docker compose pull && docker compose up -d` — Alembic runs on web start (includes **`039_ssh_hostkey_pin`**).  
