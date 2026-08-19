@@ -78,7 +78,8 @@ main @ v1.2.0 (+ v1.2.x patches)
 
 | # | Question | Decision |
 |---|----------|----------|
-| 1 | Which policy stream is Must? | **Deep (signed 2026-08-18):** **P** + **T1–T6**. Force-2FA grace **0–60** days (home-lab). Destructive-job step-up stays Cap. Console *timeouts* stay slice 2. |
+| 1 | Which policy stream is Must? | **Deep (signed 2026-08-18):** **P** + **T1–T6**. Force-2FA grace **0–60** days (home-lab). Destructive-job step-up stays Cap. |
+| 12 | W-cfg depth | **Deep (signed 2026-08-19):** idle / max / concurrency / ticket / hold / bind / revalidate / scrollback in Settings. Kill switch env-only. Factor knobs remain slice 1. Compose does not inject defaulted `PIHERDER_SSH_CONSOLE_*` or Settings cannot apply. |
 | 2 | Host files kill switch | **`PIHERDER_HOST_FILES=false`** until **F2** is complete enough to turn on; demo stays off either way |
 | 3 | Files jail | **`docker_base_dir`** (expanded `~`) on Docker hosts; else SSH user home. Never `/`. HAOS out of thin slice |
 | 4 | Files thin-slice shape | **F2 only** — list / get / put. No mkdir / delete / rename this freeze |
@@ -407,14 +408,14 @@ Host: rpi5-4  →  dest card Files
 | Priority | Streams | Bar |
 |----------|---------|-----|
 | **Must** | **P** + **T1–T6** (slice 1 **Deep**) · **L** (Servers + Docker + discovery) · **W-id** core (fleet + privileged + Connect as…) | Operator-owned security policy (full) + scale lists + least-priv/privileged connect-as |
-| **Should** | **W-cfg** (timeouts/concurrency; factor knobs land with T3) · **A** · **W-audit** if spike green · **N2** built-in fleet board (after **N0**) · **F2** host Files list/get/put (after **F0** sign-off) | Console knobs + alerts + opt-in command audit + thin reporting + confined host file transfer |
+| **Should** | **W-cfg Deep** (timeouts/concurrency/bind in Settings; factor knobs landed with T3) · **A** · **W-audit** if spike green · **N2** built-in fleet board (after **N0**) · **F2** host Files list/get/put (after **F0** sign-off) | Console knobs + alerts + opt-in command audit + thin reporting + confined host file transfer |
 | **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-audit** spike · **W-mux** (screen/tmux, low priority) · **F** mkdir/delete/step-up · **AC-fg** · ACME · branding · CSP nonces | Promote only if Must green |
 
 Success criteria:
 
 1. Admin can configure password policy; all password entry paths enforce it and show the same rules.  
 2. Account SSO unlink + passkey revoke accept **any enrolled 2FA** (**T6**). Admin can set force-2FA scope / grace **0–60** days / step-up windows / factor matrix / IdP-MFA opt-in (**T1–T5**, default fail-closed).  
-3. *(Should)* Console idle/max/concurrency/step-up knobs adjustable in Settings without editing compose for common cases.  
+3. *(Should)* Console idle/max/concurrency/ticket/hold/bind/revalidate/scrollback adjustable in Settings without editing compose for common cases. `PIHERDER_SSH_CONSOLE` stays the env kill switch.  
 4. Host can store **fleet** + **privileged** SSH identities (separate keys/users); console offers **Connect as…**; jobs stay on fleet by default.  
 5. *(If W-audit promoted)* Opt-in command (± response) audit with redaction heuristics and retention; default off; wiki warns about residual secret capture.  
 6. *(Should)* Map/stack/cert-style alerts have documented severities and per-category tuning; channels respect filters.  
@@ -495,6 +496,7 @@ Success criteria:
 | 2026-08-18 | **Train opened** on `v1.3.0-dev`. Must/Should locked. Phase 1 current. Package version stays `1.2.0` until freeze. |
 | 2026-08-18 | **Slice 1 Deep signed.** Policy Must = **P + T1–T6**. Force-2FA grace **0–60** days (home-lab). Destructive-job step-up Cap. |
 | 2026-08-18 | **Slice 1 landed** on `v1.3.0-dev`: Settings password policy + force-2FA scope/grace + step-up windows + factor matrix + T6 any-factor mutations + T4 IdP MFA opt-in (fail closed). |
+| 2026-08-19 | **Slice 2 Deep signed + landed:** W-cfg timeouts / concurrency / ticket / hold / bind / revalidate / scrollback in Settings → Console. Kill switch env-only. Compose no longer injects defaulted `PIHERDER_SSH_CONSOLE_*` knobs. |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 

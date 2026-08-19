@@ -3,15 +3,29 @@ from __future__ import annotations
 
 import pytest
 
+from app.services import app_settings as cfg
 from app.services import ssh_console as cons
 
 
 @pytest.fixture(autouse=True)
 def _reset(monkeypatch):
+    store: dict = {}
+
+    def fake_load():
+        return dict(store)
+
+    def fake_write(data: dict):
+        store.clear()
+        store.update(data)
+
+    monkeypatch.setattr(cfg, "_load_raw_from_db", fake_load)
+    monkeypatch.setattr(cfg, "_write_raw_to_db", fake_write)
+    cfg.clear_cache()
     monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE", True)
     cons.reset_runtime_state_for_tests()
-    yield
+    yield store
     cons.reset_runtime_state_for_tests()
+    cfg.clear_cache()
 
 
 def test_console_disabled_by_default(monkeypatch):
@@ -57,6 +71,8 @@ def test_session_still_valid_viewer_lost_outside_demo(monkeypatch):
 
 def test_discard_parked_frees_slot(monkeypatch):
     """Closing a shell must free concurrent slots even if only soft-parked."""
+    monkeypatch.setenv("PIHERDER_SSH_CONSOLE_MAX_PER_USER", "2")
+    monkeypatch.setenv("PIHERDER_SSH_CONSOLE_MAX_GLOBAL", "10")
     monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE_MAX_PER_USER", 2)
     monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE_MAX_GLOBAL", 10)
     cons.reset_runtime_state_for_tests()
@@ -152,6 +168,8 @@ def test_consume_session_version_mismatch():
 
 
 def test_ticket_bound_to_ip_and_device(monkeypatch):
+    monkeypatch.setenv("PIHERDER_SSH_CONSOLE_BIND_IP", "true")
+    monkeypatch.setenv("PIHERDER_SSH_CONSOLE_BIND_DEVICE", "true")
     monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE_BIND_IP", True)
     monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE_BIND_DEVICE", True)
     tok = cons.mint_ticket(
@@ -212,6 +230,8 @@ def test_grant_is_fleet_wide():
 
 
 def test_slot_limits(monkeypatch):
+    monkeypatch.setenv("PIHERDER_SSH_CONSOLE_MAX_PER_USER", "1")
+    monkeypatch.setenv("PIHERDER_SSH_CONSOLE_MAX_GLOBAL", "2")
     monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE_MAX_PER_USER", 1)
     monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE_MAX_GLOBAL", 2)
     cons.try_acquire_slot(7)
@@ -227,6 +247,8 @@ def test_slot_limits(monkeypatch):
 
 
 def test_slots_remaining(monkeypatch):
+    monkeypatch.setenv("PIHERDER_SSH_CONSOLE_MAX_PER_USER", "2")
+    monkeypatch.setenv("PIHERDER_SSH_CONSOLE_MAX_GLOBAL", "10")
     monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE_MAX_PER_USER", 2)
     monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE_MAX_GLOBAL", 10)
     assert cons.slots_remaining(1) == 2
@@ -281,6 +303,7 @@ def test_same_site_browser_request():
 
 
 def test_grant_disabled_when_every_shell(monkeypatch):
+    monkeypatch.setenv("PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL", "true")
     monkeypatch.setattr(
         cons.settings, "PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL", True
     )

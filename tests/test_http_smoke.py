@@ -172,6 +172,83 @@ def test_settings_general_admin_200(smoke_client):
     assert "timezone" in body or "stale" in body or "general" in body or "settings" in body
     assert 'data-testid="settings-password-policy"' in r.text
     assert 'data-testid="password-min-length"' in r.text
+    assert 'data-testid="settings-console"' in r.text
+    assert 'data-testid="console-idle-sec"' in r.text
+
+
+def test_admin_console_policy_save(smoke_client, monkeypatch):
+    from app.services import app_settings as cfg
+    from app.services import ssh_console as cons
+
+    store: dict = {}
+
+    def fake_load():
+        return dict(store)
+
+    def fake_write(data: dict):
+        store.clear()
+        store.update(data)
+
+    monkeypatch.setattr(cfg, "_load_raw_from_db", fake_load)
+    monkeypatch.setattr(cfg, "_write_raw_to_db", fake_write)
+    cfg.clear_cache()
+
+    client, engine = smoke_client
+    with Session(engine) as session:
+        uid = _make_user(session, role="admin").id
+    r = client.post(
+        "/herder-backups/console",
+        data={
+            "console_idle_sec": "1800",
+            "console_max_sec": "7200",
+            "console_max_per_user": "6",
+            "console_max_global": "24",
+            "console_ticket_sec": "90",
+            "console_hold_sec": "0",
+            "console_revalidate_sec": "15",
+            "console_scrollback": "3000",
+            "console_bind_ip": "1",
+            "console_bind_device": "1",
+        },
+        cookies=_auth_cookie(uid),
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert "console_saved" in (r.headers.get("location") or "")
+    cfg.clear_cache()
+    assert cons.idle_sec() == 1800
+    assert cons.max_per_user() == 6
+    cfg.clear_cache()
+
+
+def test_demo_console_policy_save_403(smoke_client, monkeypatch):
+    from app.services import demo as demo_svc
+
+    monkeypatch.setattr(demo_svc.settings, "PIHERDER_DEMO_MODE", True)
+    client, engine = smoke_client
+    with Session(engine) as session:
+        uid = _make_user(session, role="admin", email="demo-admin@smoke.test").id
+    r = client.post(
+        "/herder-backups/console",
+        data={"console_idle_sec": "1800"},
+        cookies=_auth_cookie(uid),
+        follow_redirects=False,
+    )
+    assert r.status_code == 403
+
+
+def test_viewer_cannot_post_console_policy(smoke_client):
+    client, engine = smoke_client
+    with Session(engine) as session:
+        user = _make_user(session, role="viewer", email="viewer-console@smoke.test")
+        uid = user.id
+    r = client.post(
+        "/herder-backups/console",
+        data={"console_idle_sec": "1800"},
+        cookies=_auth_cookie(uid),
+        follow_redirects=False,
+    )
+    assert r.status_code == 403
 
 
 def test_viewer_cannot_post_fleet_mutate(smoke_client):

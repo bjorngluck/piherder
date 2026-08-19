@@ -209,7 +209,12 @@ async def settings_page(
         tab = "backup"
     if qp.get("update_checks_saved"):
         tab = "fleet"
-    if qp.get("security_saved") or qp.get("data_cleanup_saved") or qp.get("data_cleanup_queued"):
+    if (
+        qp.get("security_saved")
+        or qp.get("console_saved")
+        or qp.get("data_cleanup_saved")
+        or qp.get("data_cleanup_queued")
+    ):
         tab = "general"
     if qp.get("demo_restored") or qp.get("demo_error"):
         tab = "general"
@@ -271,7 +276,7 @@ async def settings_page(
     settings_hero_by_tab = {
         "general": {
             "title": "Settings",
-            "sub": "Timezone, security policy, and platform defaults.",
+            "sub": "Timezone, security policy, console limits, and platform defaults.",
             "viz": "tz",
             "primary": tz_info["local"],
             "primary_label": "local",
@@ -430,6 +435,7 @@ async def settings_page(
     }
 
     from ..services import alert_channels as alert_ch
+    from ..services import ssh_console as cons
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -466,6 +472,8 @@ async def settings_page(
             "oidc_role_map_rows": _oidc_role_map_rows(cfg),
             "demo_mode_on": demo_mode(),
             "password_policy_text": pwpol.policy_rules_text(),
+            "console_pol": cons.effective_console_policy(),
+            "console_locks": cons.console_env_locks(),
         },
     )
 
@@ -1158,6 +1166,66 @@ async def save_security_policy(
         session.commit()
     return RedirectResponse(
         _settings_url("general", security_saved="1"), status_code=303
+    )
+
+
+@router.post("/herder-backups/console")
+async def save_console_policy(
+    console_idle_sec: int = Form(900),
+    console_max_sec: int = Form(3600),
+    console_max_per_user: int = Form(4),
+    console_max_global: int = Form(20),
+    console_ticket_sec: int = Form(60),
+    console_hold_sec: int = Form(0),
+    console_revalidate_sec: int = Form(10),
+    console_scrollback: int = Form(2000),
+    console_bind_ip: Optional[str] = Form(None),
+    console_bind_device: Optional[str] = Form(None),
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    from ..services import ssh_console as cons
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_console")
+    before = cons.console_policy_summary()
+    posted = cons.clamp_console_policy(
+        {
+            "console_idle_sec": console_idle_sec,
+            "console_max_sec": console_max_sec,
+            "console_max_per_user": console_max_per_user,
+            "console_max_global": console_max_global,
+            "console_ticket_sec": console_ticket_sec,
+            "console_hold_sec": console_hold_sec,
+            "console_revalidate_sec": console_revalidate_sec,
+            "console_scrollback": console_scrollback,
+            "console_bind_ip": _form_on(console_bind_ip),
+            "console_bind_device": _form_on(console_bind_device),
+        }
+    )
+    locks = cons.console_env_locks()
+    to_save = {k: v for k, v in posted.items() if not locks.get(k)}
+    try:
+        if to_save:
+            app_cfg.save_settings(to_save)
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("general", error=str(e)[:120]), status_code=303
+        )
+    after = cons.console_policy_summary()
+    if after != before:
+        session.add(
+            make_audit_log(
+                user_id=user.id,
+                action="console_policy_changed",
+                status="success",
+                details=f"{before} → {after}",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        session.commit()
+    return RedirectResponse(
+        _settings_url("general", console_saved="1"), status_code=303
     )
 
 
