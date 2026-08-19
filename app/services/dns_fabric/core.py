@@ -2052,6 +2052,11 @@ def host_focus_key(server_id: int) -> str:
     return f"n:host-{int(server_id)}"
 
 
+def discovery_focus_key(discovery_id: int) -> str:
+    """Focus id for a discovered nmap device node (`host-d-{id}`)."""
+    return f"n:host-d-{int(discovery_id)}"
+
+
 def _with_map_anchor(url: str) -> str:
     """Land on the SVG map panel (#map), not the list-first chrome above it."""
     u = (url or "").strip() or "/"
@@ -2064,10 +2069,13 @@ def hosts_map_url(
     *,
     server_id: int | None = None,
     path_id: int | str | None = None,
+    discovery_id: int | None = None,
 ) -> str:
     """URL into Hosts map (map panel), optionally focused on a host or path."""
     if server_id is not None:
         return _with_map_anchor(f"/dns/physical?focus={host_focus_key(server_id)}")
+    if discovery_id is not None:
+        return _with_map_anchor(f"/dns/physical?focus={discovery_focus_key(discovery_id)}")
     if path_id is not None and str(path_id).strip() != "":
         return _with_map_anchor(f"/dns/physical?focus={path_id}")
     return _with_map_anchor("/dns/physical")

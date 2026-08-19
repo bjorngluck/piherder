@@ -622,7 +622,7 @@ Back up `./piherder_backups` and the Postgres volume before major upgrades. Use 
 
 ### Alerts: webhooks & SMTP (v1.1)
 
-**Preferred:** **Settings → Alerts** (`/herder-backups?tab=alerts`, admin) — webhook URL + event filters (notifications / jobs / backups), optional secret; SMTP host/port/security + encrypted password, test email, optional alert recipients, **Forgot password** toggle. Wiki: [Alerts (email & webhooks)](../wiki/operations/alerts-email-webhooks.md).
+**Preferred:** **Settings → Alerts** (`/herder-backups?tab=alerts`, admin) — **alert policy** (per-category severity / mute / debounce / re-alert), webhook URL + event filters (notifications / jobs / backups) + category allowlist, optional secret; SMTP host/port/security + encrypted password, test email, optional alert recipients, **Forgot password** toggle. Host-down uses a Kuma SSH bind (herder does not ping). New nmap devices digest on webhooks. Wiki: [Alerts (email & webhooks)](../wiki/operations/alerts-email-webhooks.md).
 
 **Env fallback** (compose operators; used when Settings webhook URL empty):
 

@@ -8,6 +8,82 @@
     <p class="text-sm text-muted">Webhook and SMTP configuration is <strong class="text-text">admin-only</strong>.</p>
   </div>
   {% else %}
+  {% set pol = alert_policy_ui or {} %}
+  {% set pol_rows = pol.categories or [] %}
+
+  {% if request.query_params.get('policy_saved') %}
+  <div class="mb-3 p-2 text-xs rounded border border-border banner-success">Alert policy saved.</div>
+  {% elif request.query_params.get('webhook_saved') %}
+  <div class="mb-3 p-2 text-xs rounded border border-border banner-success">Webhook saved.</div>
+  {% elif request.query_params.get('smtp_saved') %}
+  <div class="mb-3 p-2 text-xs rounded border border-border banner-success">SMTP saved.</div>
+  {% endif %}
+  {% if request.query_params.get('alerts_error') %}
+  <div class="mb-3 p-2 text-xs rounded border border-border banner-error">{{ request.query_params.get('alerts_error') }}</div>
+  {% endif %}
+
+  <div class="card p-5 mb-4" id="alerts-policy">
+    <h2 class="font-semibold text-text m-0 mb-1">Alert policy</h2>
+    <p class="text-xs text-muted mb-3">
+      Per-category severity, mute, debounce (do not re-open a dismissed flap), and re-alert
+      (nudge webhook/email if still open). Host-down needs a Kuma SSH monitor.
+      Mute <strong class="text-text">LAN discovery</strong> before the first big nmap —
+      new devices are one inbox row each; webhooks get one digest per scan.
+    </p>
+    <form method="post" action="/herder-backups/alerts/policy" class="space-y-3" data-testid="alert-policy-form">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-muted">
+              <th class="py-1 pr-2 font-medium">On</th>
+              <th class="py-1 pr-2 font-medium">Category</th>
+              <th class="py-1 pr-2 font-medium">Severity</th>
+              <th class="py-1 pr-2 font-medium">Debounce (min)</th>
+              <th class="py-1 pr-2 font-medium">Re-alert (h)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in pol_rows %}
+            <tr class="border-t border-border">
+              <td class="py-2 pr-2 align-top">
+                <input type="checkbox" name="cat_enabled_{{ row.id }}" value="1" class="mt-1"
+                       {% if row.enabled %}checked{% endif %}
+                       aria-label="Enable {{ row.label }}">
+              </td>
+              <td class="py-2 pr-2 align-top">
+                <div class="font-medium text-text">{{ row.label }}</div>
+                <div class="text-[11px] text-muted mt-0.5">
+                  {% for t in row.types %}
+                  <span class="inline-block mr-1">{{ t.label }}</span>{% if not loop.last %}·{% endif %}
+                  {% endfor %}
+                </div>
+              </td>
+              <td class="py-2 pr-2 align-top">
+                <select name="cat_severity_{{ row.id }}" class="input text-sm min-h-9">
+                  <option value="default" {% if row.severity_ui == 'default' %}selected{% endif %}>default</option>
+                  {% for s in ['info', 'warning', 'critical'] %}
+                  <option value="{{ s }}" {% if row.severity_ui == s %}selected{% endif %}>{{ s }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td class="py-2 pr-2 align-top">
+                <input type="number" name="cat_debounce_{{ row.id }}" min="0" max="10080"
+                       value="{{ row.debounce_minutes }}"
+                       class="input w-24 font-mono text-sm min-h-9">
+              </td>
+              <td class="py-2 pr-2 align-top">
+                <input type="number" name="cat_realert_{{ row.id }}" min="0" max="168"
+                       value="{{ row.realert_hours }}"
+                       class="input w-24 font-mono text-sm min-h-9">
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save alert policy</button>
+    </form>
+  </div>
 
   <div class="card p-5 mb-4" id="alerts-webhook">
     <div class="flex flex-wrap items-center gap-2 mb-2">
@@ -81,6 +157,19 @@
           <input type="checkbox" name="webhook_events_backup" value="1"
                  {% if wh.events_backup %}checked{% endif %}> Backup scripts
         </label>
+      </div>
+      <input type="hidden" name="webhook_cats_submitted" value="1">
+      <div>
+        <p class="text-xs text-muted mb-1">Notification categories (in-app events)</p>
+        <div class="flex flex-wrap gap-3 text-sm">
+          {% for cid, clabel in alert_categories or [] %}
+          <label class="flex items-center gap-1.5">
+            <input type="checkbox" name="webhook_cat_{{ cid }}" value="1"
+                   {% if cid in (wh.notify_cats or []) %}checked{% endif %}>
+            {{ clabel }}
+          </label>
+          {% endfor %}
+        </div>
       </div>
       <div class="flex flex-wrap gap-2">
         <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save webhook</button>
@@ -185,6 +274,19 @@
             <option value="{{ s }}" {% if (sm.alert_min_severity or 'warning') == s %}selected{% endif %}>{{ s }}</option>
             {% endfor %}
           </select>
+        </div>
+        <input type="hidden" name="smtp_cats_submitted" value="1">
+        <div>
+          <p class="text-xs text-muted mb-1">Notification categories</p>
+          <div class="flex flex-wrap gap-3 text-sm">
+            {% for cid, clabel in alert_categories or [] %}
+            <label class="flex items-center gap-1.5">
+              <input type="checkbox" name="smtp_cat_{{ cid }}" value="1"
+                     {% if cid in (sm.notify_cats or []) %}checked{% endif %}>
+              {{ clabel }}
+            </label>
+            {% endfor %}
+          </div>
         </div>
       </div>
       <label class="flex items-start gap-2 text-sm">

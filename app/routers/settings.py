@@ -302,12 +302,12 @@ async def settings_page(
         },
         "alerts": {
             "title": "Alerts",
-            "sub": "Outbound webhook and SMTP for notifications and password recovery.",
+            "sub": "Alert policy, outbound webhook and SMTP, password recovery.",
             "viz": "orb",
             "primary": int(bool(cfg.get("webhook_enabled") or cfg.get("smtp_enabled"))),
             "primary_label": "channels",
             "primary_cls": "",
-            "caption": "Webhook · SMTP · recovery",
+            "caption": "Policy · webhook · SMTP · recovery",
         },
         "backup": {
             "title": "PiHerder backup",
@@ -435,7 +435,19 @@ async def settings_page(
     }
 
     from ..services import alert_channels as alert_ch
+    from ..services import alert_policy as apol
     from ..services import ssh_console as cons
+
+    webhook_cfg = alert_ch.webhook_config()
+    smtp_cfg = alert_ch.smtp_config()
+    webhook_cfg = dict(webhook_cfg)
+    smtp_cfg = dict(smtp_cfg)
+    webhook_cfg["notify_cats"] = apol.checked_categories(
+        apol.parse_allowlist(webhook_cfg.get("notify_categories"))
+    )
+    smtp_cfg["notify_cats"] = apol.checked_categories(
+        apol.parse_allowlist(smtp_cfg.get("notify_categories"))
+    )
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -454,8 +466,10 @@ async def settings_page(
             "api_token_counts": api_token_counts,
             "is_admin": is_admin,
             "settings_tab": tab,
-            "webhook_cfg": alert_ch.webhook_config(),
-            "smtp_cfg": alert_ch.smtp_config(),
+            "webhook_cfg": webhook_cfg,
+            "smtp_cfg": smtp_cfg,
+            "alert_policy_ui": apol.ui_state(),
+            "alert_categories": apol.CATEGORIES,
             "api_docs_html": api_docs_html,
             "api_meta": api_meta,
             "new_api_token_secret": qp.get("token_secret"),
@@ -1329,8 +1343,54 @@ async def save_oidc_settings(
     return RedirectResponse(_settings_url("general", oidc_saved="1"), status_code=303)
 
 
+@router.post("/herder-backups/alerts/policy")
+async def save_alerts_policy(
+    request: Request,
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    from ..services import alert_policy as apol
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
+    form = await request.form()
+    before = apol.raw_policy()
+    policy = apol.policy_from_form(form)
+    try:
+        app_cfg.save_settings({"alert_type_policy": policy})
+        inv_on = True
+        cats = policy.get("categories") or {}
+        inv = cats.get("inventory") if isinstance(cats, dict) else None
+        if isinstance(inv, dict) and "enabled" in inv:
+            inv_on = bool(inv.get("enabled"))
+        types = policy.get("types") if isinstance(policy.get("types"), dict) else {}
+        if isinstance(types.get("stack_container_down"), dict) and "enabled" in types["stack_container_down"]:
+            inv_on = bool(types["stack_container_down"]["enabled"])
+        app_cfg.save_settings({"stack_inventory_down_alerts": inv_on})
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("alerts", alerts_error=str(e)[:120]), status_code=303
+        )
+    after = apol.raw_policy()
+    details = apol.policy_audit_summary(before, after)
+    session.add(
+        make_audit_log(
+            user_id=user.id,
+            action="alert_policy_changed",
+            status="success",
+            details=details,
+            finished_at=datetime.utcnow(),
+        )
+    )
+    session.commit()
+    return RedirectResponse(
+        _settings_url("alerts", policy_saved="1") + "#alerts-policy", status_code=303
+    )
+
+
 @router.post("/herder-backups/alerts/webhook")
 async def save_alerts_webhook(
+    request: Request,
     webhook_enabled: Optional[str] = Form(None),
     webhook_url: str = Form(""),
     webhook_number: str = Form(""),
@@ -1343,12 +1403,17 @@ async def save_alerts_webhook(
     user: User = Depends(get_admin_user),
 ):
     from ..services.demo import http_403_if_demo
+    from ..services import alert_policy as apol
     http_403_if_demo("settings_write")
     del user
     from ..services import alert_channels as alert_ch
 
     try:
         url = alert_ch.validate_webhook_url(webhook_url)
+        form = await request.form()
+        cats = apol.allowlist_from_form(
+            form, prefix="webhook_cat_", submitted_key="webhook_cats_submitted"
+        )
         partial: dict = {
             "webhook_enabled": _form_on(webhook_enabled),
             "webhook_url": url,
@@ -1361,6 +1426,8 @@ async def save_alerts_webhook(
             "webhook_events_jobs": _form_on(webhook_events_jobs),
             "webhook_events_backup": _form_on(webhook_events_backup),
         }
+        if cats is not None:
+            partial["webhook_notify_categories"] = cats
         if (webhook_secret or "").strip():
             partial["webhook_secret"] = webhook_secret.strip()[:200]
         app_cfg.save_settings(partial)
@@ -1437,6 +1504,7 @@ async def test_alerts_webhook(
 
 @router.post("/herder-backups/alerts/smtp")
 async def save_alerts_smtp(
+    request: Request,
     smtp_enabled: Optional[str] = Form(None),
     smtp_host: str = Form(""),
     smtp_port: int = Form(587),
@@ -1456,6 +1524,7 @@ async def save_alerts_smtp(
     http_403_if_demo("settings_write")
     del user
     from ..services import alert_channels as alert_ch
+    from ..services import alert_policy as apol
 
     try:
         sec = (smtp_security or "starttls").lower()
@@ -1465,8 +1534,7 @@ async def save_alerts_smtp(
         if sev not in ("info", "warning", "critical"):
             sev = "warning"
         port = max(1, min(65535, int(smtp_port or 587)))
-        app_cfg.save_settings(
-            {
+        smtp_partial: dict = {
                 "smtp_enabled": _form_on(smtp_enabled),
                 "smtp_host": (smtp_host or "").strip()[:200],
                 "smtp_port": port,
@@ -1478,8 +1546,14 @@ async def save_alerts_smtp(
                 "smtp_alert_enabled": _form_on(smtp_alert_enabled),
                 "smtp_alert_min_severity": sev,
                 "smtp_password_reset_enabled": _form_on(smtp_password_reset_enabled),
-            }
+        }
+        form = await request.form()
+        cats = apol.allowlist_from_form(
+            form, prefix="smtp_cat_", submitted_key="smtp_cats_submitted"
         )
+        if cats is not None:
+            smtp_partial["smtp_notify_categories"] = cats
+        app_cfg.save_settings(smtp_partial)
         if _form_on(clear_smtp_password):
             alert_ch.clear_smtp_password()
         elif (smtp_password or "").strip():

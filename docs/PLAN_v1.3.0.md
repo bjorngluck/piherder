@@ -112,7 +112,7 @@ Phase 2  Core Must
     └─ W-id3–W-id6 Connect as… + test SSH  ← landed with slice 4 Deep
     │
 Phase 3  Should (after Must green)
-    ├─ T1–T5 · W-cfg · A
+    ├─ T1–T5 · W-cfg · A  ← A Deep landed (slice 6)
     ├─ N0 → N2
     └─ F0 sign-off → F2 (flag off until ready)
     │
@@ -268,16 +268,16 @@ Console open → Connect as: [ fleet (default) ▾ | elevated ]
 
 ### Stream **A** — Map alert severity and granular alert options
 
-**Today:** Notifications have severity (`info` / `warning` / `critical`); webhook/SMTP min severity; some stack-health / cert verify alerts; map and inventory surfaces raise alerts with limited operator control over *which* map events and *how loud*.  
-**Wanted:** Clearer **severity mapping** and **granular enable/filters** so map noise (flapping hosts, optional ports, discovery churn) does not equal cert-fail critical.
+**Today (slice 6 Deep landed):** Settings → Alerts **Alert policy** (per-category mute / severity / debounce / re-alert). New types: `host_down` (Kuma SSH), `nmap_new_device` (inbox per device, webhook digest per scan), `nmap_device_offline`, `map_infra_down` (gateway/WAN). Alerts page: severity + category filters, pager, bulk-dismiss matching. Webhook/SMTP category allowlist. No herder ping; no nmap port alerts.  
+**Wanted:** Clearer **severity mapping** and **granular enable/filters** so map noise (flapping hosts, optional ports, discovery churn) does not equal cert-fail critical. **Done** (Deep).
 
 | ID | Item | Notes |
 |----|------|--------|
-| A1 | Alert taxonomy review | Inventory map / stack / discovery / cert / job event types → default severity table (documented) |
-| A2 | Per-category severity overrides | Settings: e.g. “inventory down” = warning, “cert verify fail” = critical; optional mute categories |
-| A3 | Map-specific options | Which map edges/devices raise alerts; optional debounce / re-alert interval; link back to map focus |
-| A4 | Channel filters depth | Beyond min severity: event allowlist/denylist per webhook and mail (extend Wh-lite) |
-| A5 | UI | Alerts page filters by severity + category; bulk resolve by category |
+| A1 | Alert taxonomy review | **Landed.** Catalog in `alert_policy` + wiki table |
+| A2 | Per-category severity overrides | **Landed.** Settings → Alerts; type overlays (Network inventory-down dual-write) |
+| A3 | Map-specific options | **Landed.** host_down, nmap new/offline, map_infra; debounce / re-alert; map focus URLs. No port-churn alerts. |
+| A4 | Channel filters depth | **Landed.** Webhook/SMTP category allowlist; payload `type`/`category` |
+| A5 | UI | **Landed.** Severity + category + full type list; pager; bulk dismiss matching |
 
 **Non-goals (A):** Full SIEM; PagerDuty product; multi-tenant routing trees.
 
@@ -420,7 +420,7 @@ Success criteria:
 3. *(Should)* Console idle/max/concurrency/ticket/hold/bind/revalidate/scrollback adjustable in Settings without editing compose for common cases. `PIHERDER_SSH_CONSOLE` stays the env kill switch.  
 4. Host can store **fleet** + **privileged** SSH identities (separate keys/users); console offers **Connect as…**; jobs stay on fleet by default. **Done** (slice 4 Deep).  
 5. Opt-in command (± truncated output) audit with redaction heuristics and retention; default off; optional require-on-every-session; wiki warns about residual secret capture. **Done** (slice 5 Deep).  
-6. *(Should)* Map/stack/cert-style alerts have documented severities and per-category tuning; channels respect filters.  
+6. *(Should)* Map/stack/cert-style alerts have documented severities and per-category tuning; channels respect filters. **Done** (slice 6 Deep).  
 7. Servers + Docker + discovery lists support page size + free-text filter without loading unbounded HTML. **Done** (slice 3 Deep).  
 8. *(If N promoted)* Operators have at least a **built-in fleet health board** of existing signals; custom layout is Cap.  
 9. *(If F promoted)* Operator can open **Files** on a Docker host, list the jail, download one file, upload one file; viewer cannot; path escape and oversize rejected; demo does not expose a real tree.
@@ -503,6 +503,7 @@ Success criteria:
 | 2026-08-19 | **Slice 3 Deep signed + landed:** L list chrome on Servers + Docker + discovery. Shared cookie `ph_per_page`. API `/servers` capped at 100. |
 | 2026-08-19 | **Slice 4 Deep signed + landed:** W-id fleet + privileged identities, Connect as…, Settings privileged-role knob, Alembic `040_ssh_identities`. |
 | 2026-08-19 | **Slice 5 Deep signed + landed:** W-audit command audit (option A PTY tap, Fernet table `041`, Settings default off, optional require-all-sessions, privileged warn-when-off). |
+| 2026-08-19 | **Slice 6 Deep signed + landed:** Stream **A** alert policy + map surface (host_down, nmap new/offline, map_infra, debounce/re-alert, Alerts filters). |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 
@@ -521,8 +522,9 @@ Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3�
 | 4 | Slice 4 Deep **W-id** (fleet + privileged + Connect as…) | **Done** |
 | 5 | Slice 3 Deep **L** (Servers + Docker + discovery) | **Done** |
 | 6 | Slice 5 Deep **W-audit** (opt-in commands ± truncated output; require-all-sessions option) | **Done** |
-| 7 | Run **N0** insights discovery (one-pager) → **N2** | Phase 3 |
-| 8 | Run **F0** files sign-off → **F2** (flag off until ready) | Phase 3 |
+| 7 | Slice 6 Deep **A** (alert policy + map/discovery surface) | **Done** |
+| 8 | Run **N0** insights discovery (one-pager) → **N2** | Phase 3 |
+| 9 | Run **F0** files sign-off → **F2** (flag off until ready) | Phase 3 |
 
 **Phase 1 execution order (parallelizable):** **L1** shared list chrome · **P1/P2** password-policy schema · **W-id1/W-id2** identity model + migrate single key.
 
