@@ -39,6 +39,8 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | First boot asks to register / no default password | Expected — [First login](../getting-started/first-login.md) |
 | Sole admin forgot password / lost 2FA / locked out | [Locked out / sole admin recovery](locked-out.md) — host CLI `recover-admin` |
 | SSO / OIDC login fails or IdP down | [SSO / OpenID Connect](../account-security/sso-oidc.md) · [Locked out](locked-out.md) for break-glass |
+| Console “too many shells” / idle disconnect | [Web SSH console](../day-to-day/web-ssh-console.md) · [Settings → Console](../operations/settings.md#console) |
+| Console Settings fields read-only | A `PIHERDER_SSH_CONSOLE_*` env var is set (lock). Unset it or [env reference](../operations/env-reference.md) |
 
 ## Always useful
 

@@ -22,7 +22,7 @@ Three roles, lowest → highest privilege:
 
 **Fleet mutate** means starting backups, OS/container patch and checks, Docker compose actions, template deploy, integration binds, cert deploy, bulk servers actions, etc.
 
-**Control plane (admin only):** force 2FA, **SSO / OIDC** settings, app timezone, global update-check defaults, PiHerder self-backup run/restore/download/delete/schedule, stack Status, API tokens. Details: [Settings](../operations/settings.md) · [SSO](sso-oidc.md) · [Self-backup](../operations/self-backup.md).
+**Control plane (admin only):** force 2FA, **console limits**, **SSO / OIDC** settings, app timezone, global update-check defaults, PiHerder self-backup run/restore/download/delete/schedule, stack Status, API tokens. Details: [Settings](../operations/settings.md) · [SSO](sso-oidc.md) · [Self-backup](../operations/self-backup.md).
 
 ## Viewer self-service (allowed writes)
 

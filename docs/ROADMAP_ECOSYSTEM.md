@@ -87,6 +87,8 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-08-18):** **v1.3.0 train opened** on **`v1.3.0-dev`**. Must: **L** lists · **P** password policy · **T6** account step-up KI · **W-id** Connect as…. Should: **T** remainder · **W-cfg** · **A** · **N2** · **F2**. `main` stays patchable for **v1.2.x**. Package version stays `1.2.0` until freeze. See [PLAN_v1.3.0.md](PLAN_v1.3.0.md).
 
+**Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg: Settings → Console timeouts / concurrency / bind; kill switch env-only). Next slices: **L** lists or **W-id** Connect as….
+
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.2.0` / `1.2` / `latest`.
 
 ---
@@ -264,7 +266,8 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Dependency hygiene** | **Done for RC path:** `uv.lock` + hashed `requirements*.lock.txt`; Dockerfile/CI install with `--require-hashes`. Ongoing: periodic `pip-audit` / Dependabot; intentional bumps via `scripts/refresh-lockfiles.sh`. |
 | **JWT stack** | **Done (pre-0.5.0 tag):** sessions use **PyJWT[crypto]** HS256 — `python-jose` / `ecdsa` removed. |
 | **Custom branding** | Operator logo + accent colours — **far horizon** (well after 1.0 production). Not near-term polish. Built-in light/dark only for now. |
-| **Custom password policy** | Admin-configurable policy (min length, required classes, optional specials) instead of fixed code defaults. Soft max remains ~72 characters (storage limit). **→ v1.3 Stream P** — [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
+| **Custom password policy** | Admin-configurable policy (min length, required classes, optional specials) instead of fixed code defaults. Soft max remains ~72 characters (storage limit). **Landed on `v1.3.0-dev` (slice 1 / P)** — Settings → Security. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
+| **Console timeouts / concurrency (W-cfg)** | Idle, max session, slot caps, ticket, park hold, bind, revalidate, scrollback in Settings. Kill switch stays `PIHERDER_SSH_CONSOLE`. **Landed on `v1.3.0-dev` (slice 2 Deep).** [web SSH](../wiki/day-to-day/web-ssh-console.md). |
 | **Human-readable schedules (E6)** | **Shipped v1.1** — shared `cron_human` + presets on schedule surfaces. |
 | **Selectable hero stats (E9)** | **Discovery needed (post-1.0)** — user-selectable pulse metrics on ops heroes; preference model + metric registry. Non-committed roadmap only. |
 | **Templates catalog redesign (E11)** | **Discovery needed (H3 / post-1.0)** — table/filter layout, extra config files (e.g. CA Advisor). **0.9 stretch done:** OOTB / Yours badges + section groups. Full redesign separate. See [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md). |
@@ -386,7 +389,7 @@ These ideas deepen **day-to-day host operations** and **first-time host bring-up
 | **Injection** | Server-side only: decrypt key in worker/web process memory for that PTY session; browser never sees PEM |
 | **Audit** | `ssh_console_open` / `ssh_console_close` (+ client IP, duration); optional command logging is **hard** (interactive) — document limitations |
 | **Threats** | XSS → terminal takeover; shared admin sessions; browser extensions; long-lived websockets; herder host becomes jump box |
-| **Mitigations (ship bar)** | CSP + trusted TLS; short-lived console tickets; concurrent session limit; no console for **viewer**; kill switch env `PIHERDER_SSH_CONSOLE=false`; never log key material |
+| **Mitigations (ship bar)** | CSP + trusted TLS; short-lived console tickets; concurrent / idle / max limits (Settings → Console); no console for **viewer**; kill switch env `PIHERDER_SSH_CONSOLE=false`; never log key material |
 | **Stance** | **Under consideration** — attractive for tablets/homelab, but **not** a 1.0 requirement. Prefer landing 1–4 first. |
 
 ### 4 — Wizard-driven host onboarding

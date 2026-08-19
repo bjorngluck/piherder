@@ -97,19 +97,19 @@ Demo must use **unique** Fernet/session secrets and never hold decryptable produ
   - **operator+ only** (viewer 403); session cookie required (no Bearer `/api/v1` console)
   - Ticket mint requires **same-site browser** Origin/Referer; rejects `Sec-Fetch-Site: cross-site`
   - WebSocket requires **Origin == Host**; open-ticket in first WS message only (not query string)
-  - Open ticket is **single-use**; **soft resume** after unexpected WS drop parks the SSH PTY (bound resume token, same user/host/session/device) until idle/max (or `PIHERDER_SSH_CONSOLE_HOLD_SEC`); explicit close (`bye`) destroys the PTY
+  - Open ticket is **single-use**; **soft resume** after unexpected WS drop parks the SSH PTY (bound resume token, same user/host/session/device) until idle/max (or Settings park hold / `PIHERDER_SSH_CONSOLE_HOLD_SEC` if set); explicit close (`bye`) destroys the PTY
   - Ticket / resume bound to **login `session_version`**, **client IP** (default on; mobile resume may allow IP change if device cookie still matches), and **console device cookie** (default on)
   - **Continuous revalidation** (~every 10s while attached): session still valid, bindings still match, user still operator+ — else PTY killed
   - Logout / password change / admin “sign out sessions” invalidates open and parked shells within one revalidation / claim check
-  - **2FA step-up (recommended: WebAuthn/passkey)**: passkey preferred in UI; TOTP app accepted; **backup codes rejected by default** (`PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES=false`). Successful step-up issues a **fleet-wide** grant cookie (all hosts, ~10 min) unless every-shell 2FA is enabled; UI re-prompts when the grant expires. Optional `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY=true` / every-shell 2FA
+  - **2FA step-up (recommended: WebAuthn/passkey)**: passkey preferred in UI; TOTP app accepted; **backup codes rejected by default** (Settings → Security; env `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES` locks). Successful step-up issues a **fleet-wide** grant cookie (all hosts, ~10 min unless Settings grant window / env). Optional require-passkey / every-shell 2FA in Settings (env locks when set)
   - Concurrent + idle + max session limits (Settings → Console; env wins if set); PEM never in browser; CSP allows **same-origin** console iframe only (`frame-ancestors 'self'`)
   - UI: floating popup per host; multi-host workspace at `/console` (inactive host tabs keep WebSockets via opacity, not `visibility:hidden`); compact chrome (Aa / ···); sticky Ctrl + common chords
   - **Known UX (mobile):** soft **Tab** IME leftovers improved in 1.2 QA (v12); residual exotic IMEs — **KI-console-mobile-soft-tab**; see wiki web-ssh-console Known issues
-  - Residual risk: XSS on herder origin is still shell-equivalent; IP bind can break mobile networks (set `PIHERDER_SSH_CONSOLE_BIND_IP=false` only if needed)  
+  - Residual risk: XSS on herder origin is still shell-equivalent; IP bind can break mobile networks (turn off in Settings → Console, or set `PIHERDER_SSH_CONSOLE_BIND_IP=false` to lock)  
 
 
 - Put PiHerder behind trusted TLS; restrict network access where possible. Set `PIHERDER_PUBLIC_URL=https://…` so session cookies get the **Secure** flag (or force `COOKIE_SECURE=true`), OIDC redirect URIs match, and **email password-reset links** use that origin only (Host / `X-Forwarded-Host` are ignored).  
-- **Sign out** bumps `session_version` (stolen JWTs die; live consoles close within `PIHERDER_SSH_CONSOLE_REVALIDATE_SEC`; parked PTYs are destroyed). Trusted-device cookies still survive logout by design.  
+- **Sign out** bumps `session_version` (stolen JWTs die; live consoles close within the revalidate interval — Settings → Console, default 10s; parked PTYs are destroyed). Trusted-device cookies still survive logout by design.  
 - Do **not** publish the app port on the LAN. Stock compose binds `127.0.0.1:8000` only; use Caddy (`:8888` / `:8443`). Forwarded client IPs (`X-Forwarded-For` / `CF-Connecting-IP`) are honoured only when the TCP peer is in `PIHERDER_TRUSTED_PROXY_CIDRS` (Compose sets RFC1918 + loopback so Caddy is trusted).  
 - Set `METRICS_TOKEN` if `/metrics` is reachable beyond a private scrape network.  
 - Treat API tokens like passwords; revoke compromised tokens immediately.  

@@ -117,7 +117,7 @@ Path completion still depends on the **remote SSH user’s** home (least-priv `p
 
 | Control | Behaviour |
 |---------|-----------|
-| Kill switch | `PIHERDER_SSH_CONSOLE=false` by default |
+| Kill switch | `PIHERDER_SSH_CONSOLE=false` by default (compose / env only — not a Settings checkbox) |
 | In-app only | Same-origin mint (Origin/Referer); cross-site rejected; CSP `frame-ancestors 'self'` / `frame-src 'self'` for same-origin popup iframe only |
 | No ticket in URL | Ticket in the **first WebSocket message** only |
 | Single-use open ticket | Cannot mint a second WS with the same ticket |
@@ -126,11 +126,11 @@ Path completion still depends on the **remote SSH user’s** home (least-priv `p
 | Session binding | Login **`session_version`** — logout / password change / admin session revoke kills shells |
 | IP binding | Default on; resume may allow IP change if **device** cookie still matches (mobile networks) |
 | Device binding | HttpOnly **`console_device`** cookie |
-| Continuous revalidation | Every ~10s while attached |
+| Continuous revalidation | Default every 10s while attached (Settings → Console, 5–60s) |
 | Fleet 2FA grant | One step-up for all hosts; UI re-prompts when the cookie expires |
 | 2FA methods | **Passkey preferred**; TOTP app OK; **backup codes rejected by default** |
 | CSP | Compiled Tailwind (no `unsafe-eval`); xterm under `/static/vendor/xterm/`; `connect-src` is `'self'` + public origin / its `wss:` only |
-| Limits | Concurrent + idle + max session; PEM never in browser |
+| Limits | Concurrent + idle + max session from **Settings → Console**; PEM never in browser |
 
 **Residual risk:** XSS on the PiHerder origin can act as the logged-in user — **and is shell-equivalent when this flag is on**. Prefer HTTPS; leave the flag off when unused. Host SSH uses the **pinned host key** (same TOFU as Test connection).
 
@@ -144,7 +144,7 @@ When the browser suspends the tab or drops the WebSocket:
 4. Resume is **not** attempted while a multi-host iframe is the inactive tab (avoids burning the resume token).  
 5. Still ends on **idle** / **max session** / explicit close / logout.
 
-Optional hard cap on park window: `PIHERDER_SSH_CONSOLE_HOLD_SEC` (default **0** = until idle/max only).
+Optional hard cap on park window: **Settings → Console → Park hold** (default **0** = until idle/max only). Env `PIHERDER_SSH_CONSOLE_HOLD_SEC` locks the same knob when set.
 
 ### 2FA recommendations
 
@@ -152,12 +152,9 @@ Optional hard cap on park window: `PIHERDER_SSH_CONSOLE_HOLD_SEC` (default **0**
 |--------|---------|
 | **Passkey (WebAuthn)** | Preferred |
 | **TOTP app** | Accepted |
-| **Backup codes** | **Not accepted** unless `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES=true` |
+| **Backup codes** | **Not accepted** unless Settings → Security allows them (or `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES=true` locks that on) |
 
-```bash
-PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY=true          # if passkeys enrolled, TOTP alone fails
-PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL=true  # re-2FA every New shell (no fleet grant)
-```
+Tune in **Settings → Security** (prefer / require passkey, every-new-shell 2FA, backup codes). Set the matching `PIHERDER_SSH_CONSOLE_*` env only to **lock** a value.
 
 ---
 

@@ -119,6 +119,9 @@ Rough production defaults (in-process; disabled when `PIHERDER_DISABLE_AUTH_RATE
 | **Grace** | 0–60 days after you turn the policy on (home-lab). 0 = immediate. |
 | **Trusted device skips login 2FA** | Default **on** (same as v1.2). |
 | **Trusted device skips the enrol wall** | Default **off**. |
+| **Step-up windows** | Account / secrets / **console grant** minutes. |
+| **Allowed factors** | Per surface (login, account, secrets, console) × TOTP / passkey / backup. Console backup codes stay **off** by default. |
+| **Console 2FA extras** | Every-new-shell, prefer/require passkey — same card. Timeouts live under [Settings → Console](../operations/settings.md#console). |
 
 Password change-on-first-login still runs first if required. Applies after **password and SSO** identity proof.
 

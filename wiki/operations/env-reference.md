@@ -34,7 +34,29 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 | `PIHERDER_CSP` | **true** (default) — send Content-Security-Policy. Scripts are **self-hosted** (compiled Tailwind, no Play CDN, **no `unsafe-eval`**). `connect-src` is `'self'` plus `PIHERDER_PUBLIC_URL` / its `wss:` — **no** wildcard `ws:`/`wss:`. Inline script/style still allowed (1.3 nonces). |
 | `PIHERDER_CSP_REPORT_ONLY` | **false** (default) — if true, send Report-Only CSP instead of enforcing |
 | `PIHERDER_SSH_CONSOLE` | **false** (default) — **master enable** for web SSH (operator+ / 2FA; in-app only). Not a Settings checkbox. |
-| `PIHERDER_SSH_CONSOLE_*` (optional lock) | Idle, max session, concurrency, ticket, hold, bind, revalidate, scrollback, grant, and 2FA factor knobs live in **Settings** (Console + Security). Set a non-empty env value to **lock** that knob (air-gap). Bundled compose does **not** inject defaults for these, or Settings cannot apply. See [web SSH console](../day-to-day/web-ssh-console.md). |
+
+Idle, max session, concurrency, ticket, hold, bind, revalidate, scrollback, grant, and 2FA factor knobs live in **Settings** ([Console](settings.md#console) + Security). Set a **non-empty** env value to **lock** that knob (air-gap). Bundled compose does **not** inject defaults for these, or Settings cannot apply. Names if you lock:
+
+| Optional lock | Settings default | Locks |
+|---------------|------------------|--------|
+| `PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL` | false | Security — every new shell |
+| `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES` | false | Security — backup codes |
+| `PIHERDER_SSH_CONSOLE_PREFER_PASSKEY` | true | Security |
+| `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY` | false | Security |
+| `PIHERDER_SSH_CONSOLE_BIND_IP` | true | Console |
+| `PIHERDER_SSH_CONSOLE_BIND_DEVICE` | true | Console |
+| `PIHERDER_SSH_CONSOLE_REVALIDATE_SEC` | 10 | Console |
+| `PIHERDER_SSH_CONSOLE_TICKET_SEC` | 60 | Console |
+| `PIHERDER_SSH_CONSOLE_IDLE_SEC` | 900 | Console |
+| `PIHERDER_SSH_CONSOLE_MAX_SEC` | 3600 | Console |
+| `PIHERDER_SSH_CONSOLE_MAX_PER_USER` | 4 | Console |
+| `PIHERDER_SSH_CONSOLE_MAX_GLOBAL` | 20 | Console |
+| `PIHERDER_SSH_CONSOLE_SCROLLBACK` | 2000 | Console |
+| `PIHERDER_SSH_CONSOLE_HOLD_SEC` | 0 | Console |
+| `PIHERDER_SSH_CONSOLE_GRANT_MIN` | 10 | Security — grant minutes |
+
+| Variable | Purpose |
+|----------|---------|
 | `PIHERDER_BACKUP_VANISHED_RETRIES` | **1** — extra rsync attempts on vanished files |
 | `PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC` | **5** — delay before vanished retry |
 | `PIHERDER_BACKUP_VANISHED_SOFT_OK` | **true** — treat final vanished exit as soft success |

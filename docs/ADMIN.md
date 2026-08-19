@@ -120,7 +120,7 @@ There is **no** built-in `admin@example.com` user. An empty database leaves Regi
 
 ### Settings / instance DR (admin)
 
-Timezone, security policy, fleet defaults, PiHerder self-backup **run/restore/download/delete**, Status, and API tokens require **admin**. Operators use fleet jobs and Account self-service only.
+Timezone, security policy, **console limits**, fleet defaults, PiHerder self-backup **run/restore/download/delete**, Status, and API tokens require **admin**. Operators use fleet jobs and Account self-service only.
 
 ---
 
@@ -138,7 +138,7 @@ Timezone, security policy, fleet defaults, PiHerder self-backup **run/restore/do
 | **Allowed factors** | Per surface (login / account / secrets / console) × TOTP / passkey / backup. Console env still wins when set. |
 | **IdP MFA satisfies login 2FA** | **Default off.** Fail closed if the `amr` (or configured) claim is missing. Never skips Account / secrets / console step-up. |
 
-Stored in PostgreSQL (`appsetting` singleton) with timezone, fleet check defaults, SSO config, and self-backup schedule.
+Stored in PostgreSQL (`appsetting` singleton) with timezone, fleet check defaults, SSO config, console limits, and self-backup schedule.
 
 Account mutations (SSO unlink, passkey revoke) accept **any enrolled 2FA**. Password is only required when no 2FA is enrolled. Wiki: [2FA](../wiki/account-security/two-factor.md). Lost factors: [locked out](../wiki/troubleshooting/locked-out.md) / `./scripts/recover-admin.sh`.
 
@@ -162,6 +162,16 @@ Account mutations (SSO unlink, passkey revoke) accept **any enrolled 2FA**. Pass
 | Secret storage | Client secret Fernet-encrypted in `appsetting`; included in herder self-backup |
 
 Audit: `sso_login`, `sso_login_failed`, `sso_link`, `sso_unlink`, `sso_user_provisioned`, `user_role_changed`, `user_role_sync_skipped` (sole-admin demotion refused), `user_password_removed`, `user_password_set`.
+
+### 3b. Console policy (timeouts / concurrency)
+
+**Where:** **Settings** → **Console** (same General tab, after Security). **Available from v1.3.**
+
+Idle timeout, max session, max shells per user / instance, ticket TTL, park hold, bind IP/device, revalidate interval, and xterm scrollback. Defaults match v1.2. Home-lab ceilings (idle ≤ 8h, max session ≤ 12h, 16/user, 64 global). Env wins when a `PIHERDER_SSH_CONSOLE_*` value is set and non-empty; the field shows as locked. **`PIHERDER_SSH_CONSOLE` stays the compose kill switch** (not a Settings checkbox). Grant window and 2FA factors stay on Security.
+
+Live apply: idle / max / hold / revalidate on the next WS tick; ticket and bind on the next ticket; concurrency on the next new shell (no eviction). Demo writes 403. Audit: `console_policy_changed`.
+
+Wiki: [web SSH console](../wiki/day-to-day/web-ssh-console.md) · [Settings → Console](../wiki/operations/settings.md#console).
 
 ### Pins / favourites & host jump (v1.1)
 
