@@ -176,6 +176,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | 1 | Account → **Add passkey** (+ TOTP still OK) | Second factor without an app-only story |
 | 2 | Optional Settings → **SSO** | BYO IdP; keep an admin password |
 | 3 | Leave `PIHERDER_SSH_CONSOLE=false` unless you need a browser shell | Default off; XSS on the herder origin is shell-equivalent when on |
+| 3b | Leave `PIHERDER_HOST_FILES=false` until you want jailed SFTP | Default off; [Host Files](../day-to-day/host-files.md) |
 | 4 | If you enable it: **Settings → Console** for idle / max / slots; Security for 2FA grant | [Web SSH console](../day-to-day/web-ssh-console.md) · [Settings](../operations/settings.md#console) |
 | 5 | Then: operator + 2FA → Console → **+ Shell** | Same wiki |
 | 6 | **Test connection** pins the host key; reset only after a rebuild | TOFU — mismatch is refused |
@@ -217,6 +218,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | Add a Pi, deploy SSH key, features (wizard) | [Add a server](../day-to-day/add-server.md) · Journey A |
 | HAOS appliance (SSH + HA updates) | [HAOS hosts](../day-to-day/haos-hosts.md) · Journey C2 |
 | Dashboard tiles & fleet services | [Dashboard & Services](../day-to-day/dashboard-and-services.md) |
+| Backup / patch / LAN / Docker / console history (not Grafana) | [Reports](../day-to-day/reports.md) |
 
 ## Backups & patching
 

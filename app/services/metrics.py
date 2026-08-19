@@ -1,7 +1,6 @@
 """Prometheus text exposition for fleet health (scrape-time gauges, no SSH)."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 from typing import Iterable, Optional
 
 from sqlalchemy import text
@@ -54,16 +53,9 @@ def _job_status_counts(session: Session) -> dict[str, int]:
 
 
 def _jobs_failed_24h(session: Session) -> int:
-    try:
-        since = datetime.utcnow() - timedelta(hours=24)
-        n = session.exec(
-            select(func.count())
-            .select_from(Job)
-            .where(Job.status == "failed", Job.finished_at >= since)
-        ).one()
-        return int(n or 0)
-    except Exception:
-        return 0
+    from .insights import count_jobs_failed_24h
+
+    return count_jobs_failed_24h(session)
 
 
 def _open_notifications_by_type(session: Session) -> dict[str, int]:
@@ -83,16 +75,9 @@ def _open_notifications_by_type(session: Session) -> dict[str, int]:
 
 
 def _backup_counts(servers: list[Server], stale_hours: int) -> tuple[int, int]:
-    enabled = 0
-    stale = 0
-    cutoff = datetime.utcnow() - timedelta(hours=max(1, stale_hours))
-    for s in servers:
-        if not s.backup_enabled:
-            continue
-        enabled += 1
-        if s.last_backup_at is None or s.last_backup_at < cutoff:
-            stale += 1
-    return enabled, stale
+    from .insights import backup_counts
+
+    return backup_counts(servers, stale_hours)
 
 
 def collect_samples(session: Session) -> list[tuple[str, str, list[str]]]:

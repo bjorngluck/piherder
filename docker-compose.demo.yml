@@ -23,6 +23,7 @@ services:
       PIHERDER_PUBLIC_URL: ${PIHERDER_PUBLIC_URL:-https://piherder-demo.hacknow.info}
       ALLOW_OPEN_REGISTRATION: "false"
       PIHERDER_SSH_CONSOLE: "false"
+      PIHERDER_HOST_FILES: "false"
       PIHERDER_UPDATE_CHECK: "false"
       # Cloudflare Turnstile (recommended on public demo) — leave empty to disable
       PIHERDER_TURNSTILE_SITE_KEY: ${PIHERDER_TURNSTILE_SITE_KEY:-}
@@ -34,6 +35,7 @@ services:
     environment:
       PIHERDER_DEMO_MODE: "true"
       PIHERDER_SSH_CONSOLE: "false"
+      PIHERDER_HOST_FILES: "false"
       PIHERDER_UPDATE_CHECK: "false"
 
   # Optional: scale nmap worker to 0 on demo (no live scans)

@@ -29,9 +29,11 @@ Inspired by projects like [Nginx Proxy Manager](https://github.com/NginxProxyMan
 - Integrations: Uptime Kuma, Grafana, Pi-hole (v6), Nginx Proxy Manager + cert management
 - **LAN Discovery** (opt-in nmap worker, devices, schedules, Hosts map overlay)
 - Network Maps (DNS fabric, logical/physical topology, service paths, runtime stack view groups)
+- **Reports:** backup dest, OS patches, LAN live, Docker deploys, console sessions (PiHerder history — not Grafana)
 - PWA + Web Push notifications
 - RBAC, 2FA (TOTP + passkeys), optional SSO/OIDC, audit trail, self-backup with full DR
 - Optional in-browser **web SSH console** (off by default)
+- Optional **Host Files** jailed SFTP (off by default; `PIHERDER_HOST_FILES`)
 - Token REST API for automation (n8n, Home Assistant, etc.)
 
 ### Quick Start
@@ -59,7 +61,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - **Current production (Hub):** [docs/RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) — passkeys · SSO · web SSH · gated demo · full DB self-backup · security remediations
 - Prior: [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) · [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
-- **Active train:** [docs/PLAN_v1.3.0.md](docs/PLAN_v1.3.0.md) on `v1.3.0-dev` (password / 2FA policy · console timeouts · scale lists · Connect as… landed · insights / host files)
+- **Active train:** [docs/PLAN_v1.3.0.md](docs/PLAN_v1.3.0.md) on `v1.3.0-dev` (password / 2FA policy · console timeouts · scale lists · Connect as… · alert policy · Reports · Host Files flag-off)
 - API reference: [docs/API.md](docs/API.md)
 
 ### Public demo (view-only)

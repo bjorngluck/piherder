@@ -84,6 +84,7 @@ def _scopes_from_form(
     scope_read: Optional[str],
     scope_jobs: Optional[str],
     scope_edit: Optional[str],
+    scope_files: Optional[str],
     scope_feature_backup: Optional[str],
     scope_feature_os: Optional[str],
     scope_feature_docker: Optional[str],
@@ -93,6 +94,7 @@ def _scopes_from_form(
         (scope_read, "read"),
         (scope_jobs, "jobs"),
         (scope_edit, "edit"),
+        (scope_files, "files"),
         (scope_feature_backup, "feature:backup"),
         (scope_feature_os, "feature:os"),
         (scope_feature_docker, "feature:docker"),
@@ -436,6 +438,7 @@ async def settings_page(
 
     from ..services import alert_channels as alert_ch
     from ..services import alert_policy as apol
+    from ..services import settings_hub as shub
     from ..services import ssh_console as cons
 
     webhook_cfg = alert_ch.webhook_config()
@@ -448,6 +451,8 @@ async def settings_page(
     smtp_cfg["notify_cats"] = apol.checked_categories(
         apol.parse_allowlist(smtp_cfg.get("notify_categories"))
     )
+    alert_policy_ui = apol.ui_state()
+    console_pol = cons.effective_console_policy()
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -468,7 +473,7 @@ async def settings_page(
             "settings_tab": tab,
             "webhook_cfg": webhook_cfg,
             "smtp_cfg": smtp_cfg,
-            "alert_policy_ui": apol.ui_state(),
+            "alert_policy_ui": alert_policy_ui,
             "alert_categories": apol.CATEGORIES,
             "api_docs_html": api_docs_html,
             "api_meta": api_meta,
@@ -486,8 +491,14 @@ async def settings_page(
             "oidc_role_map_rows": _oidc_role_map_rows(cfg),
             "demo_mode_on": demo_mode(),
             "password_policy_text": pwpol.policy_rules_text(),
-            "console_pol": cons.effective_console_policy(),
+            "console_pol": console_pol,
             "console_locks": cons.console_env_locks(),
+            "settings_hub": shub.hub_context(
+                cfg=cfg,
+                console_pol=console_pol,
+                data_cleanup=data_cleanup,
+                alert_policy_ui=alert_policy_ui,
+            ),
         },
     )
 
@@ -647,6 +658,7 @@ async def create_api_token_form(
     scope_read: Optional[str] = Form(None),
     scope_jobs: Optional[str] = Form(None),
     scope_edit: Optional[str] = Form(None),
+    scope_files: Optional[str] = Form(None),
     scope_feature_backup: Optional[str] = Form(None),
     scope_feature_os: Optional[str] = Form(None),
     scope_feature_docker: Optional[str] = Form(None),
@@ -669,6 +681,7 @@ async def create_api_token_form(
         scope_read,
         scope_jobs,
         scope_edit,
+        scope_files,
         scope_feature_backup,
         scope_feature_os,
         scope_feature_docker,
@@ -719,6 +732,7 @@ async def update_api_token_form(
     scope_read: Optional[str] = Form(None),
     scope_jobs: Optional[str] = Form(None),
     scope_edit: Optional[str] = Form(None),
+    scope_files: Optional[str] = Form(None),
     scope_feature_backup: Optional[str] = Form(None),
     scope_feature_os: Optional[str] = Form(None),
     scope_feature_docker: Optional[str] = Form(None),
@@ -741,6 +755,7 @@ async def update_api_token_form(
                 scope_read,
                 scope_jobs,
                 scope_edit,
+                scope_files,
                 scope_feature_backup,
                 scope_feature_os,
                 scope_feature_docker,

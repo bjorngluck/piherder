@@ -26,8 +26,8 @@ You do **not** need Catalog integrations, templates, or Web Push on day one. Tho
 | 5 | [Appearance](appearance.md) | Light/dark (optional comfort) |
 | 6 | [Operator scenarios](operator-scenarios.md) | Map goals → docs for everything after install |
 
-Then: [Add a server](../day-to-day/add-server.md) (guided wizard) → [Dashboard](../day-to-day/dashboard-and-services.md).  
-HAOS appliance: [HAOS hosts](../day-to-day/haos-hosts.md). Templates / from-host: [Service templates](../service-templates/overview.md).
+Then: [Add a server](../day-to-day/add-server.md) (guided wizard) → [Dashboard](../day-to-day/dashboard-and-services.md) → [Reports](../day-to-day/reports.md) once Jobs exist.  
+HAOS appliance: [HAOS hosts](../day-to-day/haos-hosts.md). Optional [Host Files](../day-to-day/host-files.md) (`PIHERDER_HOST_FILES`). Templates / from-host: [Service templates](../service-templates/overview.md).
 
 ## Supported install path
 

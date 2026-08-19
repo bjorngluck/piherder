@@ -474,8 +474,10 @@ app.include_router(fleet_services_router.router, prefix="", tags=["fleet-service
 app.include_router(templates_svc_router.router, prefix="", tags=["templates"])
 app.include_router(dns_router.router, prefix="", tags=["dns"])
 from .routers import about as about_router
+from .routers import insights as insights_router
 
 app.include_router(about_router.router, prefix="", tags=["about"])
+app.include_router(insights_router.router, prefix="", tags=["reports"])
 from .routers import favourites as favourites_router
 
 app.include_router(favourites_router.router, prefix="", tags=["favourites"])

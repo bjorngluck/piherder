@@ -46,8 +46,10 @@ router.include_router(backups_router, prefix="")
 router.include_router(services_router, prefix="")
 from .server_ssh import router as ssh_router
 from .server_patch import router as patch_router
+from .server_files import router as files_router
 router.include_router(ssh_router, prefix="")
 router.include_router(patch_router, prefix="")
+router.include_router(files_router, prefix="")
 logger = logging.getLogger("piherder.servers")
 
 from .server_common import server_redirect as _server_redirect, safe_close_ssh as _safe_close_ssh
@@ -988,6 +990,16 @@ async def server_detail(
     from ..services.nav_shortcuts import host_feature_context
     from ..security.auth import role_at_least, ROLE_OPERATOR
     from ..services import ssh_console as cons_svc
+    from ..services import host_files as hf_svc
+
+    files_on = False
+    files_jail = ""
+    try:
+        files_on = hf_svc.files_enabled() and role_at_least(user, ROLE_OPERATOR)
+        if files_on:
+            files_jail = hf_svc.jail_path(server)
+    except Exception:
+        files_jail = ""
 
     _nav = host_feature_context(session, int(user.id) if user else None, server, "overview")
     return templates_mod.templates.TemplateResponse(
@@ -999,6 +1011,8 @@ async def server_detail(
             "console_enabled": cons_svc.console_enabled(),
             "demo_console": cons_svc.is_demo_console(),
             "is_operator": role_at_least(user, ROLE_OPERATOR),
+            "files_enabled": files_on,
+            "files_jail": files_jail,
             "dns_form": dns_form,
             "fabric_rack": fabric_rack,
             "hosts_map_url": hosts_map_url,

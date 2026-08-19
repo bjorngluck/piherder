@@ -78,6 +78,7 @@ Client IP resolution is enforced in the **backend** on every authenticated API r
 | `read` | `GET` catalog, health, servers, jobs |
 | `jobs` | `POST /api/v1/servers/{id}/jobs` |
 | `edit` | `PATCH /api/v1/servers/{id}/features` |
+| `files` | Host Files (fleet identity only): list / download / upload / mkdir / rename / delete. Not in default token scopes. Privileged Files is UI-only (2FA). |
 
 ### Feature allowlist scopes (optional)
 
@@ -120,6 +121,12 @@ Base path: **`/api/v1`**
 | `GET` | `/api/v1/servers` | `read` | List servers (`features` object). Optional `q`, `limit` (default **100**, max 100), `offset`. Response includes `total`, `limit`, `offset`. Previously unbounded. |
 | `GET` | `/api/v1/servers/{id}` | `read` | One server |
 | `PATCH` | `/api/v1/servers/{id}/features` | `edit` | Toggle feature flags |
+| `GET` | `/api/v1/servers/{id}/files?p=` | `files` | List jail-relative directory (fleet) |
+| `GET` | `/api/v1/servers/{id}/files/download?p=` | `files` | Download one file |
+| `POST` | `/api/v1/servers/{id}/files` | `files` | Multipart upload (`file`, `p`) |
+| `POST` | `/api/v1/servers/{id}/files/mkdir` | `files` | JSON `{p, name}` |
+| `POST` | `/api/v1/servers/{id}/files/rename` | `files` | JSON `{p, src, dest}` |
+| `DELETE` | `/api/v1/servers/{id}/files?p=` | `files` | Delete file or empty directory |
 
 **Server object (summary)**
 

@@ -38,7 +38,7 @@ Design principles stay the same as SPEC:
 | **v1.1.x** | Production patches | Patch | Prefer upgrade to **v1.2.x** |
 | **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry · full DB DR · security remediations | Post-1.1 minor | **Tagged** — current production — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
 | **v1.2.x** | Production patches on `main` while 1.3 is in flight | Patch | As needed — port into `v1.3.0-dev` |
-| **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights thin slice (N)** · **host files thin slice (F)** · **AC-fg** Cap · ACME (consideration) | Post-1.2 minor | **Active** on `v1.3.0-dev` — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) |
+| **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights (N reports)** · **host files (F manager)** · **AC-fg** Cap · ACME (consideration) | Post-1.2 minor | **Active** on `v1.3.0-dev` — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) |
 | **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate) + **host lock** (HAOS refuse, Frigate/TPU-class) | Post-1.3 minor | **Planning** — [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) (train not open) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
@@ -87,7 +87,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-08-18):** **v1.3.0 train opened** on **`v1.3.0-dev`**. Must: **L** lists · **P** password policy · **T6** account step-up KI · **W-id** Connect as…. Should: **T** remainder · **W-cfg** · **A** · **N2** · **F2**. `main` stays patchable for **v1.2.x**. Package version stays `1.2.0` until freeze. See [PLAN_v1.3.0.md](PLAN_v1.3.0.md).
 
-**Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg: Settings → Console timeouts / concurrency / bind; kill switch env-only). **Slice 3 Deep landed** (L: Servers / Docker / discovery search + pager). **Slice 4 Deep landed** (W-id: fleet + privileged + Connect as…). **Slice 5 Deep landed** (W-audit: opt-in command audit). Next: **A** / **N0** / **F0**.
+**Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg). **Slice 3 Deep landed** (L). **Slice 4 Deep landed** (W-id). **Slice 5 Deep landed** (W-audit). **Slice 6 Deep landed** (A). **Slice 7 N2:** `/reports` is history (backups, OS patches, LAN live, Docker, console) — not Grafana, not status portlets. **F Deep:** Host Files manager (flag off).
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.2.0` / `1.2` / `latest`.
 
@@ -279,8 +279,8 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Cross-host feature jump (K)** | **Shipped v1.1** — Jump host on Overview / Docker / Backups / Services. |
 | **Quick editor scope (L)** | **Lean no** for `.env`/sidecars in quick editor; full editor only — document in UI. Open discussion only. |
 | **Template fleet deployment overview (M)** | **Post-1.0** — which hosts/services have a given template (beyond stack-level badge). |
-| **Insights / custom dashboards (N)** | **→ v1.3 Stream N** — discovery + thin slice: metric registry, built-in fleet health board, optional one custom layout; not Grafana-in-herder. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
-| **Host files (F)** | **→ v1.3 Stream F** — discovery + thin slice: confined SFTP list / download / upload under `docker_base_dir` (or home); not WinSCP, not `docker cp`, not console zmodem. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
+| **Insights / custom dashboards (N)** | **→ v1.3 Stream N** — `/reports` history (Jobs / nmap runs / console Audit). N3 custom layout Cap. Not Grafana-in-herder. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
+| **Host files (F)** | **→ v1.3 Stream F Deep** — dest-card manager (list/get/put/mkdir/delete/rename), fleet + privileged, API `files`, 512 MiB stream; not WinSCP / `docker cp` / zmodem. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
 | **Service migration (M)** | **→ v1.4 Stream M** — move one compose project host→host with dataset copy, fabric CNAME + both Pi-hole resolver restarts, TLS/Kuma validate, and per-project **host lock** (HAOS / hardware). Destructive wipe is a later sibling. [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md). |
 | **Web console host mux (`screen`/`tmux`)** | **Under consideration · low priority** — optional host-side multiplexer for durable reattach beyond herder soft-park. **→ v1.3 Stream W-mux** ([PLAN_v1.3.0.md](PLAN_v1.3.0.md)). Not in 1.2. |
 | **Git-rich service onboard (Q)** | **Post-1.0** — full git clone/pull; more files than compose + Dockerfile. |

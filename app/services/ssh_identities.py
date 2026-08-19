@@ -4,7 +4,7 @@ Invariants this freeze:
   * Exactly one fleet row per server (created on ensure)
   * At most one privileged row
   * Fleet cannot be deleted or disabled
-  * Privileged is console-only (never jobs)
+  * Privileged is console + Files (never jobs)
   * Server.ssh_username / ssh_private_key_encrypted / ssh_public_key dual-write the fleet cache
 """
 from __future__ import annotations

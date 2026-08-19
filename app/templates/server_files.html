@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% set L = listing or {} %}
+{% set entries = L.entries or [] %}
+<style>
+  .hf-crumb { display: flex; flex-wrap: wrap; gap: 0.15rem 0.25rem; font-family: ui-monospace, monospace; font-size: 0.75rem; }
+  .hf-crumb a { color: var(--color-accent); text-decoration: none; }
+  .hf-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .hf-table th, .hf-table td { padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
+  .hf-table th { text-align: left; font-size: 0.68rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .hf-name { font-weight: 600; word-break: break-all; }
+  .hf-muted { color: var(--color-muted); font-size: 0.75rem; }
+  .hf-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .hf-row-card { display: none; }
+  .hf-prog { width: 100%; height: 0.45rem; margin-top: 0.4rem; }
+  .hf-secret { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-warning, #d97706); }
+  @media (max-width: 639px) {
+    .hf-table thead { display: none; }
+    .hf-table, .hf-table tbody, .hf-table tr, .hf-table td { display: block; width: 100%; }
+    .hf-table tr { padding: 0.65rem 0; border-bottom: 1px solid var(--color-border); }
+    .hf-table td { border: 0; padding: 0.15rem 0; }
+    .hf-actions { margin-top: 0.35rem; }
+  }
+</style>
+
+<section class="ops-hero ops-hero--host is-ok mb-4" data-testid="host-files-page">
+  <div class="ops-hero-main">
+    <div class="ops-hero-kicker host-kicker-line">
+      <span class="host-switcher-cluster">
+        <a href="/servers/{{ server.id }}" class="host-switcher-name-link"
+           data-testid="host-overview-link" title="Full server overview">{{ server.name }}</a>
+        {% if can_host_jump|default(false) %}
+        <button type="button" class="host-switcher-caret-btn" data-host-switch-open
+                data-testid="host-switcher-open"
+                title="Files on another host"
+                aria-label="Switch host for Files">
+          <span aria-hidden="true">▾</span>
+        </button>
+        {% endif %}
+      </span>
+      <span class="host-kicker-sep">·</span>
+      <span>Files</span>
+      {% include "partials/host_feature_nav.html" %}
+    </div>
+    <h1 class="ops-hero-title">Files</h1>
+    <p class="ops-hero-sub">
+      Jail <code class="text-[10px]">{{ L.jail or '—' }}</code>
+      · {{ role }}
+      · max upload {{ max_upload_h }}
+    </p>
+    <div class="ops-hero-actions">
+      <form method="get" action="/servers/{{ server.id }}/files" class="inline-flex items-center gap-2">
+        <input type="hidden" name="p" value="{{ L.rel or '' }}">
+        <label class="text-xs text-muted">Connect as</label>
+        <select name="identity" class="bg-surface border border-border rounded px-2 min-h-11 text-sm" data-testid="files-identity"
+                onchange="this.form.submit()">
+          {% for ident in identities %}
+          <option value="{{ ident.role }}" {% if ident.role == role %}selected{% endif %}
+                  {% if ident.role == 'privileged' and not can_privileged %}disabled{% endif %}>
+            {% if ident.role == 'privileged' %}Privileged{% else %}Fleet{% endif %}
+            ({{ ident.username }})
+          </option>
+          {% else %}
+          <option value="fleet" selected>Fleet</option>
+          {% endfor %}
+        </select>
+      </form>
+      <a href="/servers/{{ server.id }}" class="btn btn-secondary min-h-11 text-sm">Server</a>
+    </div>
+    {% include "partials/host_switcher.html" %}
+  </div>
+</section>
+
+{% if msg == 'uploaded' %}
+<p class="text-sm text-accent mb-3">Uploaded.</p>
+{% elif msg == 'mkdir' %}
+<p class="text-sm text-accent mb-3">Folder created.</p>
+{% elif msg == 'renamed' %}
+<p class="text-sm text-accent mb-3">Renamed.</p>
+{% elif msg == 'deleted' %}
+<p class="text-sm text-accent mb-3">Deleted.</p>
+{% elif msg == 'unlocked' %}
+<p class="text-sm text-accent mb-3">Privileged Files unlocked for this grant window.</p>
+{% endif %}
+{% if error %}
+<p class="text-sm text-danger mb-3" data-testid="files-error">{{ error }}</p>
+{% endif %}
+
+{% if needs_stepup %}
+<div class="card p-4 mb-4" data-testid="files-stepup">
+  <h2 class="font-semibold mb-1">Unlock privileged Files</h2>
+  <p class="text-sm text-muted mb-3">Same step-up as a privileged console. Enter a TOTP code, or complete passkey step-up in Console first (the grant cookie is shared).</p>
+  <form method="post" action="/servers/{{ server.id }}/files/unlock" class="flex flex-wrap gap-2 items-end">
+    <input type="hidden" name="p" value="{{ L.rel or '' }}">
+    <label class="text-xs text-muted">TOTP
+      <input name="totp_code" inputmode="numeric" autocomplete="one-time-code" class="block bg-surface border border-border rounded px-3 min-h-11" placeholder="123456">
+    </label>
+    <button class="btn btn-accent min-h-11" type="submit">Unlock</button>
+  </form>
+</div>
+{% else %}
+
+<nav class="hf-crumb mb-3" aria-label="Path">
+  <a href="/servers/{{ server.id }}/files?identity={{ role }}">{{ L.jail or '/' }}</a>
+  {% for c in L.crumbs or [] %}
+  <span class="text-muted">/</span>
+  <a href="/servers/{{ server.id }}/files?identity={{ role }}&amp;p={{ c.rel | urlencode }}">{{ c.name }}</a>
+  {% endfor %}
+</nav>
+
+<div class="card p-3 mb-4">
+  <div class="flex flex-wrap gap-3 items-end">
+    <form id="hf-upload" method="post" action="/servers/{{ server.id }}/files/upload" enctype="multipart/form-data" class="flex flex-wrap gap-2 items-end">
+      <input type="hidden" name="p" value="{{ L.rel or '' }}">
+      <input type="hidden" name="identity" value="{{ role }}">
+      <label class="text-xs text-muted">Upload into this folder
+        <input id="hf-file" type="file" name="file" required class="block text-sm mt-1">
+      </label>
+      <button class="btn btn-accent min-h-11" type="submit" data-testid="files-upload">Upload</button>
+    </form>
+    <form method="post" action="/servers/{{ server.id }}/files/mkdir" class="flex flex-wrap gap-2 items-end">
+      <input type="hidden" name="p" value="{{ L.rel or '' }}">
+      <input type="hidden" name="identity" value="{{ role }}">
+      <label class="text-xs text-muted">New folder
+        <input name="name" required maxlength="255" class="block bg-surface border border-border rounded px-3 min-h-11" placeholder="logs">
+      </label>
+      <button class="btn btn-secondary min-h-11" type="submit">Create</button>
+    </form>
+  </div>
+  <progress id="hf-prog" class="hf-prog" max="100" value="0" hidden></progress>
+  <p id="hf-prog-label" class="hf-muted mt-1" hidden></p>
+</div>
+
+{% if not entries %}
+<p class="text-sm text-muted mb-4">This folder is empty.</p>
+{% else %}
+<table class="hf-table">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Size</th>
+      <th>Modified</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in entries %}
+    <tr>
+      <td>
+        {% if e.kind == 'dir' and not e.escaped %}
+        <a class="hf-name text-accent" href="/servers/{{ server.id }}/files?identity={{ role }}&amp;p={{ e.rel | urlencode }}">{{ e.name }}/</a>
+        {% elif e.kind == 'file' and not e.escaped %}
+        <span class="hf-name">{{ e.name }}</span>
+        {% else %}
+        <span class="hf-name">{{ e.name }}</span>
+        {% endif %}
+        {% if e.secretish %}<span class="hf-secret">secret</span>{% endif %}
+        {% if e.escaped %}<span class="hf-muted"> · symlink outside jail</span>{% endif %}
+      </td>
+      <td class="hf-muted">{{ e.kind }}</td>
+      <td class="hf-muted">{{ e.size_h or '—' }}</td>
+      <td class="hf-muted">{% if e.mtime %}{{ e.mtime | app_tz }}{% else %}—{% endif %}</td>
+      <td>
+        <div class="hf-actions">
+          {% if e.kind == 'file' and not e.escaped %}
+          <a class="btn btn-secondary text-xs min-h-11" href="/servers/{{ server.id }}/files/download?identity={{ role }}&amp;p={{ e.rel | urlencode }}">Download</a>
+          {% endif %}
+          {% if not e.escaped %}
+          <form method="post" action="/servers/{{ server.id }}/files/rename" class="inline-flex gap-1 items-center">
+            <input type="hidden" name="p" value="{{ L.rel or '' }}">
+            <input type="hidden" name="identity" value="{{ role }}">
+            <input type="hidden" name="src" value="{{ e.name }}">
+            <input name="dest" value="{{ e.name }}" maxlength="255" class="bg-surface border border-border rounded px-2 min-h-11 text-sm" style="max-width:10rem">
+            <button class="btn btn-secondary text-xs min-h-11" type="submit">Rename</button>
+          </form>
+          <form method="post" action="/servers/{{ server.id }}/files/delete"
+                data-confirm="Delete {{ e.name }}{% if e.kind == 'dir' %} (must be empty){% endif %}?"
+                data-confirm-title="Delete"
+                data-confirm-label="Delete"
+                data-confirm-danger>
+            <input type="hidden" name="p" value="{{ L.rel or '' }}">
+            <input type="hidden" name="identity" value="{{ role }}">
+            <input type="hidden" name="name" value="{{ e.name }}">
+            <button class="btn btn-secondary text-xs min-h-11" type="submit">Delete</button>
+          </form>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if L.truncated %}
+<p class="hf-muted mt-2">Listing truncated at 500 names.</p>
+{% endif %}
+{% endif %}
+{% endif %}
+
+<script>
+(function () {
+  var form = document.getElementById('hf-upload');
+  if (!form) return;
+  var file = document.getElementById('hf-file');
+  var bar = document.getElementById('hf-prog');
+  var lab = document.getElementById('hf-prog-label');
+  var existing = {{ existing_names | tojson }};
+  form.addEventListener('submit', function (ev) {
+    if (!file || !file.files || !file.files[0]) return;
+    var name = file.files[0].name.split(/[/\\\\]/).pop();
+    if (existing.indexOf(name) >= 0) {
+      if (!window.confirm('Replace ' + name + ' in this folder?')) {
+        ev.preventDefault();
+        return;
+      }
+    }
+    ev.preventDefault();
+    var xhr = new XMLHttpRequest();
+    var fd = new FormData(form);
+    xhr.open('POST', form.action);
+    xhr.upload.onprogress = function (e) {
+      if (!e.lengthComputable) return;
+      bar.hidden = false;
+      lab.hidden = false;
+      var pct = Math.round((e.loaded / e.total) * 100);
+      bar.value = pct;
+      lab.textContent = 'Uploading… ' + pct + '%';
+    };
+    xhr.onload = function () {
+      if (xhr.status >= 200 && xhr.status < 400) {
+        lab.textContent = 'Writing to host…';
+        var loc = xhr.responseURL || form.action;
+        window.location = loc;
+      } else {
+        lab.hidden = false;
+        lab.textContent = 'Upload failed (' + xhr.status + ')';
+      }
+    };
+    xhr.onerror = function () {
+      lab.hidden = false;
+      lab.textContent = 'Upload failed';
+    };
+    xhr.send(fd);
+  });
+})();
+</script>
+{% endblock %}

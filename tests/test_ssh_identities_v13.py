@@ -209,7 +209,8 @@ def test_privileged_setup_script_mentions_sudo():
     assert "piherder-admin" in script
     assert "NOPASSWD" in script
     assert "HAOS" in script
-    assert "console-only" in script.lower() or "console only" in script.lower()
+    assert "console" in script.lower()
+    assert "files" in script.lower() or "privileged" in script.lower()
 
 
 def test_http_add_privileged_and_detail_card(client):

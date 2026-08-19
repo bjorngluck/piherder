@@ -24,7 +24,7 @@ Operators on a tablet or locked-down PC need a shell without exporting the herde
 
 ### Connect as… (v1.3)
 
-Each host has a **fleet** identity (jobs + default shell) and may add a **privileged** identity (break-glass console only).
+Each host has a **fleet** identity (jobs + default shell) and may add a **privileged** identity (break-glass **console** and **[Files](host-files.md)**).
 
 ```text
 Host: lab-core
@@ -36,7 +36,7 @@ Host: lab-core
 - Pick **Privileged · user**, complete 2FA if the bar still shows it, then **+ Shell**. Optional reason appears next to the picker until that shell opens (then it hides; it is stored on the audit row).
 - After 2FA the Passkey/TOTP controls hide. They only return if the short privileged proof expired (~90s).
 - The shell tab is labeled `username · priv`.
-- Jobs, Docker, backups, and host-deps always stay on **fleet**. Privileged is never the default console identity.
+- Jobs, Docker, backups, and host-deps always stay on **fleet**. Privileged is never the default console identity. **Files** defaults to fleet and can **Connect as…** privileged (same 2FA grant cookie).
 - Demo: simulated fleet shell only — privileged mint is refused.
 - Leave privileged unset if you do not need break-glass. XSS on the herder origin is already shell-equivalent; a privileged key makes it root-equivalent. Keep `PIHERDER_SSH_CONSOLE` off when unused.
 
@@ -264,3 +264,4 @@ Full catalog: [Environment reference](../operations/env-reference.md) · sample:
 - [Environment reference](../operations/env-reference.md)  
 - [SECURITY.md](https://github.com/bjorngluck/piherder/blob/main/SECURITY.md)  
 - [Add a server](add-server.md) (SSH key first)  
+- [Reports](reports.md) — console sessions, privileged opens, duration (from Audit)  

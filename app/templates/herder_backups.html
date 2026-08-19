@@ -147,6 +147,18 @@
 {% if request.query_params.get('console_saved') %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4">Console policy saved.</div>
 {% endif %}
+{% if request.query_params.get('data_cleanup_saved') %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">Stale data cleanup settings saved.</div>
+{% endif %}
+{% if request.query_params.get('oidc_saved') %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">SSO settings saved.</div>
+{% endif %}
+{% if request.query_params.get('oidc_error') %}
+<div class="banner-error border border-border rounded p-3 text-sm mb-4">SSO: {{ request.query_params.get('oidc_error') }}</div>
+{% endif %}
+{% if request.query_params.get('policy_saved') %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">Alert policy saved.</div>
+{% endif %}
 {% if tab == 'alerts' or request.query_params.get('tab') == 'alerts' %}
 {% if request.query_params.get('webhook_saved') %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4">Webhook settings saved.</div>
@@ -245,6 +257,111 @@
   .settings-tab-panel.hidden { display: none; }
   .api-subpanel.hidden { display: none; }
   .api-docs-prose h1:first-child { margin-top: 0; }
+  .settings-hub-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 640px) {
+    .settings-hub-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .settings-hub-card h2 { font-size: 0.95rem; }
+  /* Settings Edit sheets: full-height on phones; title + save stay put */
+  .settings-sheet-overlay,
+  .settings-policy-overlay {
+    display: none;
+    align-items: stretch;
+    justify-content: center;
+    overflow: hidden;
+    padding: 0;
+  }
+  .settings-sheet-overlay.flex,
+  .settings-policy-overlay.flex { display: flex; }
+  .settings-sheet,
+  .settings-policy-sheet {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+  .settings-sheet-head,
+  .settings-policy-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    padding: max(1rem, env(safe-area-inset-top)) 1rem 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .settings-sheet-form,
+  .settings-policy-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .settings-sheet-body,
+  .settings-policy-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 0.75rem 1rem;
+  }
+  .settings-policy-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .settings-policy-card {
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+  }
+  .settings-policy-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+  .settings-policy-field-sev { grid-column: 1 / -1; }
+  .settings-sheet-foot,
+  .settings-policy-foot {
+    flex-shrink: 0;
+    padding: 0.75rem 1rem max(0.75rem, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--color-border);
+  }
+  .settings-sheet-foot .btn { min-height: 2.75rem; }
+  @media (min-width: 640px) {
+    .settings-sheet-overlay,
+    .settings-policy-overlay {
+      align-items: center;
+      padding: 0.75rem;
+    }
+    .settings-sheet,
+    .settings-policy-sheet {
+      width: 100%;
+      height: auto;
+      max-height: 90vh;
+      border-radius: 0.75rem;
+    }
+    .settings-policy-sheet { max-width: 36rem; }
+    .settings-sheet { max-width: 42rem; }
+    .settings-sheet-head,
+    .settings-policy-head { padding: 1.25rem 1.25rem 0.75rem; }
+    .settings-sheet-body,
+    .settings-policy-body { padding: 0.75rem 1.25rem; }
+    .settings-sheet-foot,
+    .settings-policy-foot { padding: 0.75rem 1.25rem 1.25rem; }
+  }
 </style>
 
 {# ═══════════════ GENERAL ═══════════════ #}
@@ -320,7 +437,31 @@
     }
   }
 
+  function closeSettingsModals(except) {
+    document.querySelectorAll('[data-settings-modal]').forEach(function (el) {
+      if (except && el === except) return;
+      el.classList.add('hidden');
+      el.classList.remove('flex');
+    });
+    document.body.style.overflow = '';
+  }
+
+  function openSettingsModal(name) {
+    var el = document.querySelector('[data-settings-modal="' + name + '"]');
+    if (!el) return;
+    closeSettingsModals(el);
+    el.classList.remove('hidden');
+    el.classList.add('flex');
+    document.body.style.overflow = 'hidden';
+    try {
+      var u = new URL(window.location.href);
+      u.hash = 'settings-' + name;
+      history.replaceState({}, '', u.pathname + u.search + u.hash);
+    } catch (e) {}
+  }
+
   function setSettingsTab(name) {
+    closeSettingsModals();
     document.querySelectorAll('[data-settings-panel]').forEach(function (el) {
       el.classList.toggle('hidden', el.getAttribute('data-settings-panel') !== name);
     });
@@ -498,6 +639,57 @@
       setApiPanel(name);
     });
   });
+
+  document.addEventListener('click', function (ev) {
+    var openBtn = ev.target.closest('[data-open-settings-modal]');
+    if (openBtn) {
+      ev.preventDefault();
+      openSettingsModal(openBtn.getAttribute('data-open-settings-modal'));
+      return;
+    }
+    var closeBtn = ev.target.closest('[data-close-settings-modal]');
+    if (closeBtn) {
+      ev.preventDefault();
+      closeSettingsModals();
+      return;
+    }
+    var overlay = ev.target;
+    if (overlay && overlay.getAttribute && overlay.getAttribute('data-settings-modal')) {
+      closeSettingsModals();
+    }
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Escape') return;
+    var nested = document.getElementById('oidc-role-map-modal');
+    if (nested && !nested.classList.contains('hidden')) return;
+    closeSettingsModals();
+  });
+
+  function hashToSettingsModal() {
+    var h = (location.hash || '').replace(/^#/, '');
+    var map = {
+      'settings-security': 'security',
+      'settings-console': 'console',
+      'settings-sso': 'sso',
+      'settings-cleanup': 'cleanup',
+      'alerts-policy': 'alert-policy',
+      'settings-alert-policy': 'alert-policy'
+    };
+    var name = map[h];
+    if (!name) return;
+    if (name === 'alert-policy') setSettingsTab('alerts');
+    else setSettingsTab('general');
+    openSettingsModal(name);
+  }
+  hashToSettingsModal();
+  window.addEventListener('hashchange', hashToSettingsModal);
+  try {
+    var qp = new URLSearchParams(window.location.search);
+    if (qp.get('oidc_error')) {
+      setSettingsTab('general');
+      openSettingsModal('sso');
+    }
+  } catch (e) {}
 })();
 </script>
 {% endblock %}

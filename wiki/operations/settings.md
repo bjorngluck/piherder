@@ -20,7 +20,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 1. **General** → set app **timezone** (Audit/Jobs clocks).  
 2. **General** → **Security policy**: password rules, who must enrol 2FA (optional grace 0–60 days), step-up windows.  
-3. **General** → **Console**: idle / max session, concurrency, ticket, park hold, bind, scrollback (kill switch stays `PIHERDER_SSH_CONSOLE`).  
+3. **General** → **Console**: idle / max session, concurrency, ticket, park hold, bind, scrollback (kill switch stays `PIHERDER_SSH_CONSOLE`). Host **Files** is **not** a Settings card — env `PIHERDER_HOST_FILES` ([Host Files](../day-to-day/host-files.md)). Privileged Files uses the same “who may elevate” knob as the console.  
 4. Optional **General → SSO / OpenID Connect** when you have a BYO IdP — [SSO guide](../account-security/sso-oidc.md).  
 5. **PiHerder backup** → run once + schedule; store archive + master key offline.  
 6. **Status** → Check now until green.  
@@ -33,7 +33,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 | Tab | Purpose |
 |-----|---------|
-| **General** | App timezone, **security policy**, **console limits**, **SSO / OIDC**, and **Stale data cleanup** |
+| **General** | Timezone (inline) plus a **hub** of summary cards — Security, Console, SSO, Cleanup. **Edit** opens the full form in a modal |
 | **Alerts** | **Alert policy** (per-category severity / mute / debounce) + outbound **webhook** + **SMTP** — [details](alerts-email-webhooks.md) |
 | **Fleet defaults** | Global OS / container update-check defaults (optional apply to all hosts) |
 | **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)) |
@@ -58,6 +58,12 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 ### Schedules (human-readable)
 
 Cron fields across Settings (cleanup, fleet defaults, PiHerder backup) and host feature schedules show a short English line under the expression (e.g. “Daily at 04:30”) plus common presets where a select is offered. The stored value remains standard 5-field cron in the app timezone.
+
+### General tab — hub + modals
+
+Timezone stays on the page (hero clock). **Security policy**, **Console**, **SSO**, and **Stale data cleanup** are **summary cards** (one line of live state) with **Edit**. The full form opens in a modal — same POST URLs as before. Bookmarks still work: `?tab=general#settings-console` opens the Console modal. On a phone, Edit is a **full-height sheet**: title and Save stay put, only the form body scrolls.
+
+**Alerts → Alert policy** uses the same pattern (summary + Edit modal). Webhook and SMTP stay on the Alerts tab.
 
 ### General tab — timezone card
 
@@ -107,6 +113,8 @@ Audit: `console_policy_changed`.
 
 **Run now** enqueues Job type `stale_data_cleanup` (preview counts in the card). Admin-only. Removing a **server** still **keeps** unlinked Jobs/Audit by default — time purge is the bulk growth control ([Remove a server](../day-to-day/remove-server.md)).
 
+[Reports](../day-to-day/reports.md) reads these same rows. Purging Jobs shortens backup / OS / Docker history; purging Audit shortens console sessions; purging nmap runs shortens LAN live.
+
 <figure class="ph-figure" markdown>
   ![Stale data cleanup](../assets/screenshots/settings-stale-cleanup.png)
   <figcaption>Settings → General → Stale data cleanup — opt-in Jobs / Audit / nmap retention.</figcaption>
@@ -131,6 +139,7 @@ Audit: `console_policy_changed`.
 
 | Feature | Where |
 |---------|--------|
+| Reports (backup / patch / LAN / Docker / console history) | Nav **Reports** (`/reports`) |
 | Catalog (integrations, certs, templates, network) | Nav **Catalog** |
 | Users | Avatar → **Users** (admin) |
 | Account / 2FA / SSO link / push | Avatar → **Account** |

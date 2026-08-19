@@ -404,6 +404,11 @@ While a job runs, server UI modals (JobHold / progress) poll job status and log 
 | `os_patch`, `container_patch`, `os_update_check`, `container_update_check` | At most one **pending/running** of that type per server |
 | `backup` | Per-host Redis mutex + Celery (separate path) |
 
+### Reports (PiHerder history)
+
+**Where:** header **Reports** (`/reports`) — any signed-in role.  
+Aggregates **Job** history, **nmap scan runs**, and **console Audit**: backups, dest size, OS patches, LAN hosts_up, Docker deploys/patches, web-console sessions. Windows 7/30/90 days. Wiki: [reports.md](../wiki/day-to-day/reports.md).
+
 ### Jobs vs Audit vs Notifications
 
 | System | Purpose |
@@ -566,7 +571,8 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **2FA** | Enable for admins (TOTP and/or passkeys); consider **Force 2FA** in Settings; revoke trusted devices if a device is lost |
 | **SSO** | Optional OIDC IdP; map groups carefully; keep break-glass local admin; see §3a |
 | **CSP (v1.2)** | Default on (`PIHERDER_CSP=true`). **Compiled Tailwind** (no Play / no `unsafe-eval`). `connect-src` is `'self'` + public origin / its `wss:` only. Console uses vendored xterm. Report-only: `PIHERDER_CSP_REPORT_ONLY=true`. See [SECURITY.md](../SECURITY.md). |
-| **Web SSH** | Default off (`PIHERDER_SSH_CONSOLE=false`); operator+ + passkey-preferred 2FA; floating popup + multi-host `/console`. Optional **privileged** identity is console-only (**Connect as…**, extra confirm + fresh 2FA; jobs stay on fleet). Optional **command audit** (Settings → Console; default off; Fernet body; operator+ read). Timeouts, concurrency, ticket/park, bind, scrollback, privileged RBAC, and audit knobs are **Settings → Console** (env still wins if set). Kill switch stays compose-only. Wiki: [web-ssh-console](../wiki/day-to-day/web-ssh-console.md) · env sample: [console-and-backup.env.example](console-and-backup.env.example) |
+| **Web SSH** | Default off (`PIHERDER_SSH_CONSOLE=false`); operator+ + passkey-preferred 2FA; floating popup + multi-host `/console`. Optional **privileged** identity is console + **Files** (**Connect as…**, extra confirm + fresh 2FA; jobs stay on fleet). Optional **command audit** (Settings → Console; default off; Fernet body; operator+ read). Timeouts, concurrency, ticket/park, bind, scrollback, privileged RBAC, and audit knobs are **Settings → Console** (env still wins if set). Kill switch stays compose-only. Wiki: [web-ssh-console](../wiki/day-to-day/web-ssh-console.md) · env sample: [console-and-backup.env.example](console-and-backup.env.example) |
+| **Host Files** | Default off (`PIHERDER_HOST_FILES=false`). Dest-card on every SSH host (including HAOS). Fleet jail = docker_base or home; privileged jail = `/` minus virtual FS. Operator+; API scope `files` (fleet). Upload cap 512 MiB (env `PIHERDER_HOST_FILES_MAX_BYTES`, ceiling 2 GiB). Wiki: [host-files](../wiki/day-to-day/host-files.md) |
 | **SSH host keys** | First successful **Test connection** **pins** the remote key (TOFU). Mismatch refuses. Reset the pin under SSH access after a rebuild. New hosts default SSH user **`pi`** (existing rows unchanged). |
 | **App port** | Compose binds **`127.0.0.1:8000`** only. Honour `X-Forwarded-For` / `CF-Connecting-IP` only from `PIHERDER_TRUSTED_PROXY_CIDRS`. |
 | **Password-reset URLs** | Built from **`PIHERDER_PUBLIC_URL` only** (Host / `X-Forwarded-Host` ignored). |
