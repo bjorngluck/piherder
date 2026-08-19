@@ -32,9 +32,10 @@ Host: lab-core
   └─ privileged   user=piherder-admin   ← Connect as… only
 ```
 
-- Picker is hidden until a privileged identity exists and you are allowed to use it.
-- Unlock once (passkey/TOTP), pick **Privileged · user**, **+ Shell**, confirm break-glass (optional reason). The Passkey/TOTP row should **not** come back if you just unlocked. It only returns if the short privileged proof expired (~90s) — then passkey/TOTP again.
-- Privileged mint **ignores** the long fleet grant cookie. The shell tab is labeled with the privileged username.
+- Picker is on the same bar as Passkey/TOTP (and **+ Shell** after unlock).
+- Pick **Privileged · user**, complete 2FA if the bar still shows it, then **+ Shell**. Optional reason sits next to the picker — no second confirm button.
+- After 2FA the Passkey/TOTP controls hide. They only return if the short privileged proof expired (~90s).
+- The shell tab is labeled `username · priv`.
 - Jobs, Docker, backups, and host-deps always stay on **fleet**. Privileged is never the default console identity.
 - Demo: simulated fleet shell only — privileged mint is refused.
 - Leave privileged unset if you do not need break-glass. XSS on the herder origin is already shell-equivalent; a privileged key makes it root-equivalent. Keep `PIHERDER_SSH_CONSOLE` off when unused.

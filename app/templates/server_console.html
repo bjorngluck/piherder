@@ -2,7 +2,7 @@
 
 {% block content %}
 {# Bare terminal for popup iframe — no essays, no nav chrome. #}
-<div class="ch" id="console-host-app">
+<div class="ch{% if grant_active and not require_2fa_every_shell %} is-unlocked{% endif %}" id="console-host-app">
 
 {% if not console_enabled %}
 <div class="ch-banner banner-error">Console disabled.</div>
@@ -17,26 +17,10 @@
 </div>
 {% endif %}
 
-{# Slim chrome: 2FA first; tools only after step-up. Shell tabs live in the gate row. #}
+{# One gate row: identity always; 2FA XOR + Shell (never stacked). #}
 <div class="ch-gate" id="console-gate" data-testid="console-gate"
      {% if grant_active and not require_2fa_every_shell %}data-grant="1"{% endif %}>
-  <div class="ch-gate-row" id="console-2fa-row"
-       {% if grant_active and not require_2fa_every_shell %}style="display:none"{% endif %}>
-    {% if has_passkeys %}
-    <button type="button" id="console-passkey"
-            class="btn {% if prefer_passkey %}btn-accent{% else %}btn-secondary{% endif %} text-xs min-h-9 px-2"
-            data-testid="console-passkey">Passkey</button>
-    {% endif %}
-    {% if not require_passkey or not has_passkeys %}
-    <input id="console-totp" type="text" inputmode="numeric" autocomplete="one-time-code"
-           class="ch-totp font-mono" data-testid="console-totp" placeholder="TOTP"
-           {% if require_passkey and has_passkeys %}disabled{% endif %}>
-    {% endif %}
-    <span class="ch-2fa-hint text-muted" id="console-2fa-hint">Step-up required</span>
-  </div>
-  {# Hidden until 2FA / fleet grant — saves space before unlock #}
-  <div class="ch-gate-row ch-gate-main" id="console-main-row"
-       {% if not (grant_active and not require_2fa_every_shell) %}style="display:none"{% endif %}>
+  <div class="ch-gate-row" id="console-gate-row">
     {% if ssh_identities and ssh_identities|length > 1 %}
     <select id="console-identity" class="ch-identity" data-testid="console-identity" title="Connect as">
       {% for ident in ssh_identities %}
@@ -47,23 +31,38 @@
       </option>
       {% endfor %}
     </select>
+    <input id="console-priv-reason" type="text" maxlength="200" autocomplete="off"
+           class="ch-reason hidden" data-testid="console-priv-reason"
+           placeholder="Reason (optional)" title="Optional audit reason for privileged">
     {% endif %}
+    <span class="ch-2fa-group" id="console-2fa-group">
+      {% if has_passkeys %}
+      <button type="button" id="console-passkey"
+              class="btn {% if prefer_passkey %}btn-accent{% else %}btn-secondary{% endif %} text-xs ch-ctrl"
+              data-testid="console-passkey">Passkey</button>
+      {% endif %}
+      {% if not require_passkey or not has_passkeys %}
+      <input id="console-totp" type="text" inputmode="numeric" autocomplete="one-time-code"
+             class="ch-totp font-mono" data-testid="console-totp" placeholder="TOTP"
+             {% if require_passkey and has_passkeys %}disabled{% endif %}>
+      {% endif %}
+    </span>
     <button type="button" id="console-new-shell"
-            class="btn btn-accent text-xs min-h-9 px-2 ch-btn-compact" data-testid="console-new-shell"
+            class="btn btn-accent text-xs ch-ctrl ch-unlocked-only" data-testid="console-new-shell"
             title="New shell">+ Shell</button>
-    <div class="ch-shell-tabs" id="console-tabs" role="tablist" aria-label="Shells">
+    <div class="ch-shell-tabs ch-unlocked-only" id="console-tabs" role="tablist" aria-label="Shells">
       <span class="ch-tab-empty" id="console-tab-empty">Tap <strong>+ Shell</strong></span>
     </div>
-    <button type="button" id="console-tools-toggle" class="btn btn-secondary text-xs min-h-9 px-2 ch-btn-compact"
+    <button type="button" id="console-tools-toggle" class="btn btn-secondary text-xs ch-ctrl ch-unlocked-only"
             data-testid="console-tools-toggle" title="Font size and extras" aria-expanded="false">Aa</button>
     {% if not require_2fa_every_shell %}
-    <button type="button" id="console-revoke-grant" class="btn btn-secondary text-xs min-h-9 px-2 ch-btn-compact ch-hide-compact"
+    <button type="button" id="console-revoke-grant" class="btn btn-secondary text-xs ch-ctrl ch-unlocked-only ch-hide-compact"
             data-testid="console-revoke-grant" title="Require 2FA again">Lock</button>
     {% endif %}
-    <button type="button" id="console-chrome-toggle" class="btn btn-secondary text-xs min-h-9 px-2 ch-btn-compact ch-chrome-toggle"
+    <button type="button" id="console-chrome-toggle" class="btn btn-secondary text-xs ch-ctrl ch-unlocked-only ch-chrome-toggle"
             data-testid="console-chrome-toggle" title="Show or hide status" aria-expanded="false">···</button>
-    <span id="console-status" class="ch-status ch-status-collapsible" role="status"></span>
-    <span id="console-slot-info" class="ch-slots-inline ch-hide-compact"></span>
+    <span id="console-status" class="ch-status ch-status-collapsible ch-unlocked-only" role="status"></span>
+    <span id="console-slot-info" class="ch-slots-inline ch-hide-compact ch-unlocked-only"></span>
   </div>
   {# Font size / extras — hidden until Aa #}
   <div class="ch-tools hidden" id="console-tools" data-testid="console-tools">
@@ -80,14 +79,6 @@
   </div>
   <p id="console-gate-help" class="hidden" aria-hidden="true"></p>
   <p id="console-error" class="hidden text-sm text-danger ch-err" role="alert"></p>
-  <div id="console-priv-confirm" class="hidden ch-priv-confirm" data-testid="console-priv-confirm" hidden>
-    <p class="text-xs mb-2">Break-glass shell as <strong id="console-priv-user" class="font-mono"></strong>. Jobs stay on the fleet user. Account 2FA is required again — this is not host sudo.</p>
-    <input id="console-priv-reason" maxlength="200" placeholder="Reason (optional)" class="ch-totp" style="width:100%;margin-bottom:0.35rem">
-    <div class="flex flex-wrap gap-2">
-      <button type="button" id="console-priv-ok" class="btn btn-accent text-xs min-h-9 px-2" data-testid="console-priv-ok">Open privileged</button>
-      <button type="button" id="console-priv-cancel" class="btn btn-secondary text-xs min-h-9 px-2">Cancel</button>
-    </div>
-  </div>
 </div>
 
 <div id="console-workspace-shell" class="ch-workspace console-workspace-shell" data-testid="console-workspace">
@@ -232,24 +223,36 @@
     background: var(--color-surface, #12171e);
   }
   .ch-gate-row {
-    display: flex; flex-wrap: nowrap; gap: 0.25rem; align-items: center;
+    display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center;
     min-width: 0;
   }
-  .ch-gate-main { gap: 0.2rem; }
+  .ch-ctrl {
+    flex-shrink: 0; height: 2.25rem; min-height: 2.25rem; box-sizing: border-box;
+    padding-left: 0.5rem !important; padding-right: 0.5rem !important;
+    line-height: 1;
+  }
   .ch-btn-compact { flex-shrink: 0; padding-left: 0.4rem !important; padding-right: 0.4rem !important; }
-  .ch-2fa-hint { font-size: 0.68rem; margin-left: 0.15rem; white-space: nowrap; }
-  .ch-identity {
-    max-width: 9.5rem; min-height: 2.25rem; font-size: 0.68rem;
-    padding: 0.15rem 0.3rem; border-radius: 0.35rem;
+  .ch-2fa-group {
+    display: inline-flex; align-items: center; gap: 0.25rem; flex-shrink: 0;
+  }
+  .ch.is-unlocked:not(.is-reauth):not(.is-every) .ch-2fa-group { display: none !important; }
+  .ch:not(.is-unlocked) .ch-unlocked-only { display: none !important; }
+  .ch.is-reauth .ch-2fa-group,
+  .ch.is-every .ch-2fa-group { display: inline-flex !important; }
+  .ch.is-reauth:not(.is-every) .ch-unlocked-only { display: none !important; }
+  .ch-identity,
+  .ch-reason,
+  .ch-totp {
+    height: 2.25rem; min-height: 2.25rem; box-sizing: border-box;
+    font-size: 0.75rem; border-radius: 0.35rem;
     border: 1px solid var(--color-border, #333);
     background: var(--color-bg, #0b0f14); color: inherit;
-    flex-shrink: 1; min-width: 0;
+    padding: 0 0.4rem;
   }
-  .ch-priv-confirm {
-    padding: 0.4rem 0.15rem 0.15rem;
-    border-top: 1px dashed var(--color-border, #333);
-    margin-top: 0.2rem;
-  }
+  .ch-identity { max-width: 11rem; flex: 0 1 11rem; min-width: 7rem; }
+  .ch-reason { width: 9rem; flex: 0 1 9rem; min-width: 6rem; }
+  .ch-reason.hidden { display: none !important; }
+  .ch-totp { width: 6.5rem; }
   .ch-tools {
     display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center;
     padding: 0.25rem 0 0.1rem;
@@ -257,11 +260,6 @@
     margin-top: 0.2rem;
   }
   .ch-tools.hidden { display: none; }
-  .ch-totp {
-    width: 6.5rem; min-height: 2.25rem; padding: 0.25rem 0.4rem;
-    border: 1px solid var(--color-border, #333); border-radius: 0.35rem;
-    background: var(--color-bg, #0b0f14); color: inherit;
-  }
   .ch-status {
     font-size: 0.65rem; color: var(--color-muted);
     flex: 1 1 auto; min-width: 0; max-width: 10rem;
@@ -439,7 +437,7 @@
   var panesEl = document.getElementById('console-panes');
   var tabEmpty = document.getElementById('console-tab-empty');
   var totpIn = document.getElementById('console-totp');
-  var row2fa = document.getElementById('console-2fa-row');
+  var row2fa = document.getElementById('console-2fa-group');
   var helpEl = document.getElementById('console-gate-help');
   var statusEl = document.getElementById('console-status');
   var errEl = document.getElementById('console-error');
@@ -471,7 +469,6 @@
   var btnKeysMore = document.getElementById('console-keys-more');
   var slotInfo2 = document.getElementById('console-slot-info-2');
   var btnRevoke2 = document.getElementById('console-revoke-grant-2');
-  var rowMain = document.getElementById('console-main-row');
   var btnChromeToggle = document.getElementById('console-chrome-toggle');
   var chromeCompact = false;
   var toolsOpen = false;
@@ -479,11 +476,8 @@
   var statusHidden = true; // default: hide status strip after unlock (more terminal)
   var stepUpDone = !!(grantActive && !requireEvery);
   var identSel = document.getElementById('console-identity');
-  var privPanel = document.getElementById('console-priv-confirm');
   var privReason = document.getElementById('console-priv-reason');
-  var pendingPriv = false;
   var privNeed2fa = false;
-  var hint2fa = document.getElementById('console-2fa-hint');
   var popupMode = {{ 'true' if popup_mode else 'false' }};
   var scrollbackDefault = {{ (scrollback_default|default(2000))|int }};
   var windowMaxFallback = false;
@@ -1031,10 +1025,6 @@
     }
   }
 
-  function setMainChromeVisible(on) {
-    if (rowMain) rowMain.style.display = on ? '' : 'none';
-  }
-
   function selectedIdentity() {
     if (!identSel || identSel.selectedIndex < 0) {
       return { id: '', role: 'fleet', user: '' };
@@ -1050,27 +1040,21 @@
     return selectedIdentity().role === 'privileged';
   }
 
+  function syncReasonVisibility() {
+    if (!privReason) return;
+    var on = privilegedSelected();
+    privReason.classList.toggle('hidden', !on);
+  }
+
   function updateGateVisibility() {
-    // Hide +Shell / Lock / Aa until step-up; re-show 2FA when grant lost
     var unlocked = !!(grantActive || stepUpDone);
-    if (requireEvery) {
-      if (row2fa) row2fa.style.display = '';
-      setMainChromeVisible(stepUpDone);
-    } else {
-      // Privileged uses the confirm panel, not a second 2FA row — unless mint
-      // returned 2fa_required (short step-up proof expired).
-      var hide2fa = unlocked && !privNeed2fa;
-      if (row2fa) row2fa.style.display = hide2fa ? 'none' : '';
-      setMainChromeVisible(unlocked);
-    }
-    if (hint2fa) {
-      hint2fa.textContent = privNeed2fa
-        ? 'Privileged shell needs 2FA again'
-        : 'Step-up required';
-    }
     if (chRootEl) {
-      chRootEl.classList.toggle('is-status-hidden', statusHidden && unlocked);
+      chRootEl.classList.toggle('is-unlocked', unlocked);
+      chRootEl.classList.toggle('is-reauth', !!privNeed2fa);
+      chRootEl.classList.toggle('is-every', !!requireEvery);
+      chRootEl.classList.toggle('is-status-hidden', statusHidden && unlocked && !privNeed2fa);
     }
+    syncReasonVisibility();
     if (btnChromeToggle) {
       btnChromeToggle.classList.toggle('is-on', !statusHidden);
       btnChromeToggle.setAttribute('aria-expanded', statusHidden ? 'false' : 'true');
@@ -1607,7 +1591,7 @@
   function maybeAutoCompact() {
     // Compact when we have live shells (and no 2FA row) unless user forced tools open
     var live = shells.some(function (s) { return s.connected; });
-    var need2fa = row2fa && row2fa.style.display !== 'none' && !grantActive;
+    var need2fa = chRootEl && !chRootEl.classList.contains('is-unlocked');
     if (live && !need2fa && !toolsOpen) {
       setChromeCompact(true);
     }
@@ -1917,7 +1901,7 @@
     body.set('totp_code', (totpIn && totpIn.value) || '');
     if (ident.id) body.set('identity_id', ident.id);
     if (ident.role === 'privileged') {
-      body.set('confirm_privileged', pendingPriv ? '1' : '');
+      body.set('confirm_privileged', '1');
       body.set('reason', (privReason && privReason.value) || '');
     }
     var res = await fetch('/servers/' + serverId + '/console/ticket', {
@@ -1965,7 +1949,6 @@
     }
     stepUpDone = true;
     privNeed2fa = false;
-    hidePrivConfirm();
     if (data.grant_active && !requireEvery) {
       markFleetGrant();
       if (helpEl) helpEl.textContent = 'Step-up active for all hosts (~' + (data.grant_minutes || {{ grant_minutes }}) + ' min).';
@@ -2015,9 +1998,9 @@
       });
       var ver = await verRes.json().catch(function () { return {}; });
       if (!ver.ok) throw new Error(ver.detail || ver.error || 'Passkey verification failed');
+      var retryPriv = privNeed2fa;
       privNeed2fa = false;
       if (ver.ticket && ver.ws_path && !privilegedSelected()) {
-        // every-shell policy: open immediately with returned ticket (fleet)
         stepUpDone = true;
         updateGateVisibility();
         setStatus('Passkey OK — opening shell…');
@@ -2026,21 +2009,16 @@
       }
       if (ver.grant_active && !requireEvery) {
         markFleetGrant();
-        if (helpEl) helpEl.textContent = 'Passkey OK — all hosts until grant expires.';
       } else {
         stepUpDone = true;
         updateGateVisibility();
       }
-      if (privilegedSelected() && pendingPriv) {
+      if (retryPriv && privilegedSelected()) {
         setStatus('Passkey OK — opening privileged shell…');
         await openShell();
         return;
       }
-      setStatus(
-        privilegedSelected()
-          ? 'Passkey OK — + Shell, then confirm break-glass.'
-          : 'Passkey OK — click + Shell (works on every host).'
-      );
+      setStatus('Passkey OK — click + Shell.');
     } catch (e) {
       var msg = String((e && e.message) || e || 'Passkey failed');
       if (/not allowed|NotAllowedError/i.test(msg)) {
@@ -2360,33 +2338,10 @@
     attachShellSocket(sh, { type: 'auth', ticket: data.ticket }, { ws_path: data.ws_path });
   }
 
-  function hidePrivConfirm() {
-    pendingPriv = false;
-    if (privPanel) {
-      privPanel.classList.add('hidden');
-      privPanel.hidden = true;
-    }
-  }
-  function showPrivConfirm() {
-    pendingPriv = true;
-    var ident = selectedIdentity();
-    var who = document.getElementById('console-priv-user');
-    if (who) who.textContent = ident.user || 'privileged';
-    if (privPanel) {
-      privPanel.classList.remove('hidden');
-      privPanel.hidden = false;
-    }
-    updateGateVisibility();
-  }
-
   async function openShell() {
     setErr('');
     if (shells.length >= maxShells) {
       setErr('Maximum of ' + maxShells + ' shells for your account.');
-      return;
-    }
-    if (privilegedSelected() && !pendingPriv) {
-      showPrivConfirm();
       return;
     }
     setStatus('Minting ticket…');
@@ -2396,7 +2351,6 @@
     } catch (e) {
       setErr(String(e.message || e));
       setStatus('');
-      if (privilegedSelected()) privNeed2fa = true;
       updateGateVisibility();
       return;
     }
@@ -2542,20 +2496,12 @@
 
   if (btnNew) btnNew.addEventListener('click', openShell);
   if (identSel) identSel.addEventListener('change', function () {
-    hidePrivConfirm();
     privNeed2fa = false;
     updateGateVisibility();
     if (privilegedSelected()) {
-      setStatus('Privileged: + Shell, then confirm. Jobs stay on fleet.');
+      setStatus('Privileged: + Shell. Jobs stay on fleet.');
     }
   });
-  var btnPrivOk = document.getElementById('console-priv-ok');
-  var btnPrivCancel = document.getElementById('console-priv-cancel');
-  if (btnPrivOk) btnPrivOk.addEventListener('click', function () {
-    pendingPriv = true;
-    openShell();
-  });
-  if (btnPrivCancel) btnPrivCancel.addEventListener('click', hidePrivConfirm);
   if (btnMin) btnMin.addEventListener('click', minimizeActive);
   if (btnRest) btnRest.addEventListener('click', restoreMinimized);
   if (btnClose) btnClose.addEventListener('click', closeActive);
