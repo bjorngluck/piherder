@@ -147,3 +147,14 @@ def test_policy_summary_stable():
     s = cons.console_policy_summary(cons.clamp_console_policy({}))
     assert "idle=900" in s
     assert "bind_ip=1" in s
+    assert "priv=admin" in s
+
+
+def test_privileged_role_clamp_and_default():
+    assert cons.clamp_console_policy({})["console_privileged_role"] == "admin"
+    assert cons.clamp_console_policy({"console_privileged_role": "operator"})[
+        "console_privileged_role"
+    ] == "operator"
+    assert cons.clamp_console_policy({"console_privileged_role": "nope"})[
+        "console_privileged_role"
+    ] == "admin"

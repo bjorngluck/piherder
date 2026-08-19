@@ -40,6 +40,17 @@
     <button type="button" id="console-new-shell"
             class="btn btn-accent text-xs min-h-9 px-2 ch-btn-compact" data-testid="console-new-shell"
             title="New shell">+ Shell</button>
+    {% if ssh_identities and ssh_identities|length > 1 %}
+    <select id="console-identity" class="ch-identity" data-testid="console-identity" title="Connect as">
+      {% for ident in ssh_identities %}
+      <option value="{{ ident.id }}" data-role="{{ ident.role }}" data-user="{{ ident.username }}"
+              title="{{ ident.fingerprint or '' }}">
+        {% if ident.role == 'privileged' %}Privileged{% else %}Fleet{% endif %}
+        · {{ ident.username }}
+      </option>
+      {% endfor %}
+    </select>
+    {% endif %}
     <div class="ch-shell-tabs" id="console-tabs" role="tablist" aria-label="Shells">
       <span class="ch-tab-empty" id="console-tab-empty">Tap <strong>+ Shell</strong></span>
     </div>
@@ -69,6 +80,14 @@
   </div>
   <p id="console-gate-help" class="hidden" aria-hidden="true"></p>
   <p id="console-error" class="hidden text-sm text-danger ch-err" role="alert"></p>
+  <div id="console-priv-confirm" class="hidden ch-priv-confirm" data-testid="console-priv-confirm" hidden>
+    <p class="text-xs mb-2">Break-glass shell as <strong id="console-priv-user" class="font-mono"></strong>. Jobs stay on the fleet user. Account 2FA is required again — this is not host sudo.</p>
+    <input id="console-priv-reason" maxlength="200" placeholder="Reason (optional)" class="ch-totp" style="width:100%;margin-bottom:0.35rem">
+    <div class="flex flex-wrap gap-2">
+      <button type="button" id="console-priv-ok" class="btn btn-accent text-xs min-h-9 px-2" data-testid="console-priv-ok">Open privileged</button>
+      <button type="button" id="console-priv-cancel" class="btn btn-secondary text-xs min-h-9 px-2">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <div id="console-workspace-shell" class="ch-workspace console-workspace-shell" data-testid="console-workspace">
@@ -219,6 +238,18 @@
   .ch-gate-main { gap: 0.2rem; }
   .ch-btn-compact { flex-shrink: 0; padding-left: 0.4rem !important; padding-right: 0.4rem !important; }
   .ch-2fa-hint { font-size: 0.68rem; margin-left: 0.15rem; white-space: nowrap; }
+  .ch-identity {
+    max-width: 9.5rem; min-height: 2.25rem; font-size: 0.68rem;
+    padding: 0.15rem 0.3rem; border-radius: 0.35rem;
+    border: 1px solid var(--color-border, #333);
+    background: var(--color-bg, #0b0f14); color: inherit;
+    flex-shrink: 1; min-width: 0;
+  }
+  .ch-priv-confirm {
+    padding: 0.4rem 0.15rem 0.15rem;
+    border-top: 1px dashed var(--color-border, #333);
+    margin-top: 0.2rem;
+  }
   .ch-tools {
     display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center;
     padding: 0.25rem 0 0.1rem;
@@ -447,6 +478,10 @@
   var keysExtraOpen = false;
   var statusHidden = true; // default: hide status strip after unlock (more terminal)
   var stepUpDone = !!(grantActive && !requireEvery);
+  var identSel = document.getElementById('console-identity');
+  var privPanel = document.getElementById('console-priv-confirm');
+  var privReason = document.getElementById('console-priv-reason');
+  var pendingPriv = false;
   var popupMode = {{ 'true' if popup_mode else 'false' }};
   var scrollbackDefault = {{ (scrollback_default|default(2000))|int }};
   var windowMaxFallback = false;
@@ -998,15 +1033,30 @@
     if (rowMain) rowMain.style.display = on ? '' : 'none';
   }
 
+  function selectedIdentity() {
+    if (!identSel || identSel.selectedIndex < 0) {
+      return { id: '', role: 'fleet', user: '' };
+    }
+    var opt = identSel.options[identSel.selectedIndex];
+    return {
+      id: identSel.value || '',
+      role: (opt && opt.getAttribute('data-role')) || 'fleet',
+      user: (opt && opt.getAttribute('data-user')) || ''
+    };
+  }
+  function privilegedSelected() {
+    return selectedIdentity().role === 'privileged';
+  }
+
   function updateGateVisibility() {
     // Hide +Shell / Lock / Aa until step-up; re-show 2FA when grant lost
     var unlocked = !!(grantActive || stepUpDone);
     if (requireEvery) {
-      // Every shell needs 2FA input, but main tools appear after first success this page
       if (row2fa) row2fa.style.display = '';
       setMainChromeVisible(stepUpDone);
     } else {
-      if (row2fa) row2fa.style.display = grantActive ? 'none' : '';
+      var hide2fa = grantActive && !privilegedSelected();
+      if (row2fa) row2fa.style.display = hide2fa ? 'none' : '';
       setMainChromeVisible(unlocked);
     }
     if (chRootEl) {
@@ -1853,8 +1903,14 @@
   }
 
   async function mintTicket() {
+    var ident = selectedIdentity();
     var body = new URLSearchParams();
     body.set('totp_code', (totpIn && totpIn.value) || '');
+    if (ident.id) body.set('identity_id', ident.id);
+    if (ident.role === 'privileged') {
+      body.set('confirm_privileged', pendingPriv ? '1' : '');
+      body.set('reason', (privReason && privReason.value) || '');
+    }
     var res = await fetch('/servers/' + serverId + '/console/ticket', {
       method: 'POST',
       headers: {
@@ -1877,20 +1933,27 @@
         limit: 'Shell limit reached. Close a shell or wait.',
         rate: 'Too many attempts. Wait and try again.',
         cross_site: 'Blocked: console only works inside PiHerder (same origin).',
-        denied: data.detail || 'Denied.'
+        denied: data.detail || 'Denied.',
+        demo_privileged: 'Privileged console is disabled in demo.',
+        privileged_forbidden: data.detail || 'Privileged console is admin-only.',
+        privileged_confirm: 'Confirm break-glass before opening a privileged shell.',
+        identity_missing: 'SSH identity not found.'
       };
       // Grant cookie expired on server but UI still thought step-up was active
       if (data.error === '2fa_required' || data.error === '2fa_bad_code' ||
           data.error === 'passkey_required' || data.error === 'enroll_2fa') {
-        grantActive = false;
-        stepUpDone = requireEvery ? stepUpDone : false;
-        try { localStorage.removeItem(GRANT_LS); } catch (e0) {}
-        setChromeCompact(false);
+        if (!privilegedSelected()) {
+          grantActive = false;
+          stepUpDone = requireEvery ? stepUpDone : false;
+          try { localStorage.removeItem(GRANT_LS); } catch (e0) {}
+          setChromeCompact(false);
+        }
         updateGateVisibility();
       }
       throw new Error(map[data.error] || data.detail || ('Error: ' + (data.error || res.status)));
     }
     stepUpDone = true;
+    hidePrivConfirm();
     if (data.grant_active && !requireEvery) {
       markFleetGrant();
       if (helpEl) helpEl.textContent = 'Step-up active for all hosts (~' + (data.grant_minutes || {{ grant_minutes }}) + ' min).';
@@ -2267,15 +2330,41 @@
       return;
     }
     var label = 'Shell ' + nextN;
+    if (data && data.identity_role === 'privileged') {
+      label = (data.identity_username || 'privileged') + ' · ' + nextN;
+    }
     var sh = createShellUi(label);
     activate(sh.id);
     attachShellSocket(sh, { type: 'auth', ticket: data.ticket }, { ws_path: data.ws_path });
+  }
+
+  function hidePrivConfirm() {
+    pendingPriv = false;
+    if (privPanel) {
+      privPanel.classList.add('hidden');
+      privPanel.hidden = true;
+    }
+  }
+  function showPrivConfirm() {
+    pendingPriv = true;
+    var ident = selectedIdentity();
+    var who = document.getElementById('console-priv-user');
+    if (who) who.textContent = ident.user || 'privileged';
+    if (privPanel) {
+      privPanel.classList.remove('hidden');
+      privPanel.hidden = false;
+    }
+    updateGateVisibility();
   }
 
   async function openShell() {
     setErr('');
     if (shells.length >= maxShells) {
       setErr('Maximum of ' + maxShells + ' shells for your account.');
+      return;
+    }
+    if (privilegedSelected() && !pendingPriv) {
+      showPrivConfirm();
       return;
     }
     setStatus('Minting ticket…');
@@ -2432,6 +2521,17 @@
   }
 
   if (btnNew) btnNew.addEventListener('click', openShell);
+  if (identSel) identSel.addEventListener('change', function () {
+    hidePrivConfirm();
+    updateGateVisibility();
+  });
+  var btnPrivOk = document.getElementById('console-priv-ok');
+  var btnPrivCancel = document.getElementById('console-priv-cancel');
+  if (btnPrivOk) btnPrivOk.addEventListener('click', function () {
+    pendingPriv = true;
+    openShell();
+  });
+  if (btnPrivCancel) btnPrivCancel.addEventListener('click', hidePrivConfirm);
   if (btnMin) btnMin.addEventListener('click', minimizeActive);
   if (btnRest) btnRest.addEventListener('click', restoreMinimized);
   if (btnClose) btnClose.addEventListener('click', closeActive);

@@ -298,6 +298,15 @@ async def console_page(
 
     popup_mode = embed_mode or popup_q
 
+    from ..services import ssh_identities as ident_svc
+
+    ident_list = ident_svc.console_identities(session, server, demo=demo_sim)
+    can_priv = (not demo_sim) and cons.can_open_privileged(user) and any(
+        i.get("role") == ident_svc.ROLE_PRIVILEGED for i in ident_list
+    )
+    if not can_priv:
+        ident_list = [i for i in ident_list if i.get("role") != ident_svc.ROLE_PRIVILEGED]
+
     response = templates_mod.templates.TemplateResponse(
         request=request,
         name="server_console.html",
@@ -330,6 +339,8 @@ async def console_page(
             "popup_mode": popup_mode,
             "console_app": True,
             "embed_mode": embed_mode,
+            "ssh_identities": ident_list,
+            "can_privileged": can_priv,
         },
     )
     # Pin a console device id (HttpOnly) so tickets cannot be used from another browser
@@ -358,19 +369,33 @@ def _reject_cross_site(request: Request) -> Optional[JSONResponse]:
     return None
 
 
+def _parse_identity_id(raw: Optional[str]) -> Optional[int]:
+    s = (raw or "").strip()
+    if not s:
+        return None
+    try:
+        n = int(s)
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
 @router.post("/{server_id}/console/ticket")
 async def mint_console_ticket(
     request: Request,
     server_id: int,
     totp_code: str = Form(""),
+    identity_id: str = Form(""),
+    confirm_privileged: str = Form(""),
+    reason: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_console_user),
 ):
     """Mint single-use ticket; 2FA required unless a valid **fleet** grant cookie exists.
 
-    One step-up (passkey/TOTP) covers all hosts until the grant expires.
-    Ticket is returned in JSON only — never put on the WebSocket URL (log/Referer leak).
-    Demo (D5): no 2FA, no SSH cred check — simulated shell only.
+    Privileged (break-glass) identities ignore the fleet grant: extra confirm +
+    fresh 2FA every time. Ticket is returned in JSON only.
+    Demo (D5): no 2FA, no SSH cred check, privileged mint rejected.
     """
     blocked = _reject_cross_site(request)
     if blocked:
@@ -393,10 +418,81 @@ async def mint_console_ticket(
     except cons.ConsoleDisabled as e:
         return JSONResponse({"ok": False, "error": "disabled", "detail": str(e)}, status_code=403)
 
+    from ..services import ssh_identities as ident_svc
+
     demo_sim = cons.is_demo_console()
-    if not demo_sim and not (
+    ident = None
+    iid = _parse_identity_id(identity_id)
+    if iid:
+        ident = ident_svc.get_by_id(session, int(server_id), iid)
+        if ident is None:
+            return JSONResponse(
+                {"ok": False, "error": "identity_missing", "detail": "SSH identity not found"},
+                status_code=400,
+            )
+    else:
+        ident = ident_svc.ensure_fleet_identity(session, server)
+        session.commit()
+
+    privileged = ident is not None and ident.role == ident_svc.ROLE_PRIVILEGED
+    if privileged:
+        if demo_sim:
+            _audit(
+                session,
+                user_id=user.id,
+                server_id=server_id,
+                action="ssh_console_denied",
+                details=f"demo_privileged ip={ip}",
+                status="failed",
+            )
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "error": "demo_privileged",
+                    "detail": "Privileged console is disabled in demo.",
+                },
+                status_code=403,
+            )
+        if not cons.can_open_privileged(user):
+            _audit(
+                session,
+                user_id=user.id,
+                server_id=server_id,
+                action="ssh_console_denied",
+                details=f"privileged_rbac ip={ip} need={cons.privileged_role()}",
+                status="failed",
+            )
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "error": "privileged_forbidden",
+                    "detail": "Privileged console is limited to admins (see Settings → Console).",
+                },
+                status_code=403,
+            )
+        if (confirm_privileged or "").strip() not in ("1", "on", "true", "yes"):
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "error": "privileged_confirm",
+                    "detail": "Confirm break-glass before opening a privileged shell.",
+                },
+                status_code=400,
+            )
+        if not ident.enabled or not ident.private_key_encrypted:
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "error": "no_ssh",
+                    "detail": "Privileged identity has no stored key.",
+                },
+                status_code=400,
+            )
+
+    if not demo_sim and not privileged and not (
         getattr(server, "ssh_private_key_encrypted", None)
         or getattr(server, "ssh_password_encrypted", None)
+        or (ident and ident.private_key_encrypted)
     ):
         return JSONResponse(
             {
@@ -419,10 +515,35 @@ async def mint_console_ticket(
         device_id=device_id,
     )
     set_grant = False
+    stepup_used = False
+    set_stepup = False
 
     if demo_sim:
         has_grant = True
         set_grant = True
+    elif privileged:
+        # Fleet grant is not enough. TOTP on this POST or a just-issued step-up proof.
+        stepup_ok = cons.consume_stepup_proof(
+            request.cookies.get(cons.CONSOLE_STEPUP_COOKIE),
+            user_id=int(user.id),
+            session_version=sv,
+            client_ip=ip,
+            device_id=device_id,
+        )
+        if not stepup_ok:
+            ok, err = _verify_console_2fa(session, user, totp_code=totp_code)
+            if not ok:
+                _audit(
+                    session,
+                    user_id=user.id,
+                    server_id=server_id,
+                    action="ssh_console_denied",
+                    details=f"privileged 2FA failed ({err}) ip={ip}",
+                    status="failed",
+                )
+                return JSONResponse({"ok": False, "error": err}, status_code=403)
+        stepup_used = True
+        set_grant = not cons.require_2fa_every_shell()
     elif not has_grant:
         ok, err = _verify_console_2fa(session, user, totp_code=totp_code)
         if not ok:
@@ -436,7 +557,9 @@ async def mint_console_ticket(
             )
             return JSONResponse({"ok": False, "error": err}, status_code=403)
         set_grant = not cons.require_2fa_every_shell()
+        set_stepup = True
 
+    reason_s = (reason or "").strip()[:200]
     try:
         if cons.slots_remaining(int(user.id)) <= 0:
             return JSONResponse({"ok": False, "error": "limit"}, status_code=429)
@@ -446,6 +569,9 @@ async def mint_console_ticket(
             session_version=sv,
             client_ip=ip,
             device_id=device_id,
+            identity_id=int(ident.id) if ident and ident.id else None,
+            identity_role=ident.role if ident else None,
+            reason=reason_s if privileged else None,
         )
     except cons.ConsoleDisabled as e:
         return JSONResponse({"ok": False, "error": "disabled", "detail": str(e)}, status_code=403)
@@ -467,6 +593,10 @@ async def mint_console_ticket(
         "max_shells": cons.max_per_user(),
         "no_resume": True,
         "demo_console": demo_sim,
+        "identity_id": ident.id if ident else None,
+        "identity_role": ident.role if ident else "fleet",
+        "identity_label": ident.label if ident else "Fleet",
+        "identity_username": ident.username if ident else server.ssh_username,
     }
     response = JSONResponse(body)
     if cons.bind_device_enabled():
@@ -487,6 +617,19 @@ async def mint_console_ticket(
             cons.CONSOLE_GRANT_COOKIE,
             grant,
             **cookie_auth_kwargs(max_age=cons.grant_minutes() * 60),
+        )
+    if stepup_used:
+        response.delete_cookie(cons.CONSOLE_STEPUP_COOKIE, **cookie_delete_kwargs())
+    elif set_stepup:
+        response.set_cookie(
+            cons.CONSOLE_STEPUP_COOKIE,
+            cons.mint_stepup_proof(
+                user_id=int(user.id),
+                session_version=sv,
+                client_ip=ip,
+                device_id=device_id,
+            ),
+            **cookie_auth_kwargs(max_age=cons.STEPUP_SEC),
         )
     return response
 
@@ -626,6 +769,17 @@ async def console_webauthn_verify(
             grant,
             **cookie_auth_kwargs(max_age=cons.grant_minutes() * 60),
         )
+    stepup = cons.mint_stepup_proof(
+        user_id=int(user.id),
+        session_version=sv,
+        client_ip=ip,
+        device_id=device_id,
+    )
+    resp.set_cookie(
+        cons.CONSOLE_STEPUP_COOKIE,
+        stepup,
+        **cookie_auth_kwargs(max_age=cons.STEPUP_SEC),
+    )
     return resp
 
 
@@ -954,6 +1108,27 @@ async def console_websocket(websocket: WebSocket, server_id: int):
 
                 opened = datetime.utcnow()
                 demo_note = " demo_sim=1" if cons.is_demo_console() else ""
+                ident_note = ""
+                ident_row = None
+                from ..services import ssh_identities as ident_svc
+
+                iid = ticket_payload.get("iid")
+                if iid:
+                    ident_row = ident_svc.get_by_id(session, int(server_id), int(iid))
+                if (ticket_payload.get("role") or "") == ident_svc.ROLE_PRIVILEGED and (
+                    ident_row is None or ident_row.role != ident_svc.ROLE_PRIVILEGED
+                ):
+                    await websocket.send_text("\r\n*** Privileged identity is no longer available ***\r\n")
+                    await websocket.close(code=4403)
+                    return
+                if ident_row:
+                    ident_note = (
+                        f" identity={ident_row.role}:{ident_row.username}"
+                        f" fp={ident_row.key_fingerprint or '-'}"
+                    )
+                why = (ticket_payload.get("why") or "").strip()
+                if why:
+                    ident_note += f" reason={why[:200]}"
                 _audit(
                     session,
                     user_id=user.id,
@@ -962,19 +1137,10 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                     details=(
                         f"ip={ip or '?'} user={user.email} "
                         f"bind_ip={cons.bind_ip_enabled()} bind_device={cons.bind_device_enabled()}"
-                        f"{demo_note}"
+                        f"{demo_note}{ident_note}"
                     ),
                 )
-                server_snap = SimpleNamespace(
-                    id=server.id,
-                    name=server.name,
-                    hostname=server.hostname,
-                    ip_address=getattr(server, "ip_address", None),
-                    ssh_port=server.ssh_port,
-                    ssh_username=server.ssh_username,
-                    ssh_private_key_encrypted=server.ssh_private_key_encrypted,
-                    ssh_password_encrypted=server.ssh_password_encrypted,
-                )
+                server_snap = ident_svc.overlay_server_for_identity(server, ident_row)
 
         if not is_resume:
             # Production: Paramiko. Demo D5: in-process simulated shell (no TCP).

@@ -81,6 +81,7 @@ main @ v1.2.0 (+ v1.2.x patches)
 | 1 | Which policy stream is Must? | **Deep (signed 2026-08-18):** **P** + **T1–T6**. Force-2FA grace **0–60** days (home-lab). Destructive-job step-up stays Cap. |
 | 12 | W-cfg depth | **Deep (signed 2026-08-19):** idle / max / concurrency / ticket / hold / bind / revalidate / scrollback in Settings. Kill switch env-only. Factor knobs remain slice 1. Compose does not inject defaulted `PIHERDER_SSH_CONSOLE_*` or Settings cannot apply. |
 | 13 | L depth | **Deep (signed 2026-08-19):** L1–L6 on Servers + Docker + discovery list; L5 aliases; L4 chips compose with `q`; Servers `fav=1` sort; `GET /api/v1/servers` `q`/`limit`/`offset` (cap 100). Integrations / notifications / templates stay later. |
+| 14 | W-id depth | **Deep (signed 2026-08-19):** W-id1–9. Two roles only (`fleet` / `privileged`). Privileged console-only. Settings knob who may elevate (`admin` default, or `operator`). Privileged mint always re-prompts 2FA. Alembic `040_ssh_identities`. Dual-write `Server.ssh_*` as fleet cache. |
 | 2 | Host files kill switch | **`PIHERDER_HOST_FILES=false`** until **F2** is complete enough to turn on; demo stays off either way |
 | 3 | Files jail | **`docker_base_dir`** (expanded `~`) on Docker hosts; else SSH user home. Never `/`. HAOS out of thin slice |
 | 4 | Files thin-slice shape | **F2 only** — list / get / put. No mkdir / delete / rename this freeze |
@@ -99,7 +100,7 @@ main @ v1.2.0 (+ v1.2.x patches)
 ```text
 Phase 0  Finish v1.2.0 tag / Hub  ✅ done (v1.2.0)
     │
-Phase 1  Foundations (parallel)  ← P+T (slice 1), W-cfg (slice 2), L Deep (slice 3) landed
+Phase 1  Foundations (parallel)  ← P+T (slice 1), W-cfg (slice 2), L Deep (slice 3), W-id Deep (slice 4) landed
     ├─ L1 shared list chrome (per_page + pager + q)
     ├─ P1/P2 password-policy settings schema + safe defaults
     └─ W-id1/W-id2 model + migrate 1.x single key
@@ -108,7 +109,7 @@ Phase 2  Core Must
     ├─ L2 Servers · Docker · discovery  ← landed with slice 3 Deep
     ├─ P3–P5 copy + audit + docs
     ├─ T6 factor-agnostic account step-up
-    └─ W-id3–W-id6 Connect as… + test SSH
+    └─ W-id3–W-id6 Connect as… + test SSH  ← landed with slice 4 Deep
     │
 Phase 3  Should (after Must green)
     ├─ T1–T5 · W-cfg · A
@@ -183,8 +184,8 @@ Phase 4  Discover / Cap + freeze
 
 ### Stream **W-id** — Multi-identity host access (least-priv + privileged)
 
-**Today (1.2):** One SSH identity per server (`ssh_username` + one encrypted private key). Jobs and webshell both use that identity. Operators who want least-privilege fleet automation must either over-privilege the herder user or rekey manually outside the product.  
-**Wanted:** Model **multiple named identities** per host (start with two), pick which to use for **console** (and later optionally for specific job classes). **Discover** enrollment UX and sudo/capability notes during 1.3 design.
+**Today (slice 4 Deep landed):** `ServerSshIdentity` — one **fleet** row per host (jobs + default console; dual-written to `Server.ssh_*`) and optional **privileged** row (console-only). Console **Connect as…** with extra confirm + fresh 2FA. Settings → Console **who may elevate** (`admin` default / `operator`). Alembic `040`. Demo: fleet simulated only.  
+**Wanted:** Least-priv fleet user by default; privileged break-glass only when chosen. **Done** for Must core (custom 3rd role, jobs-on-privileged, auto-provision privileged user stay out).
 
 | ID | Item | Notes |
 |----|------|--------|
@@ -408,7 +409,7 @@ Host: rpi5-4  →  dest card Files
 
 | Priority | Streams | Bar |
 |----------|---------|-----|
-| **Must** | **P** + **T1–T6** (slice 1 **Deep**) · **L Deep** (slice 3 — Servers + Docker + discovery) · **W-id** core (fleet + privileged + Connect as…) | Operator-owned security policy (full) + scale lists + least-priv/privileged connect-as |
+| **Must** | **P** + **T1–T6** (slice 1 **Deep**) · **L Deep** (slice 3 — Servers + Docker + discovery) · **W-id Deep** (slice 4 — fleet + privileged + Connect as…) | Operator-owned security policy (full) + scale lists + least-priv/privileged connect-as |
 | **Should** | **W-cfg Deep** (timeouts/concurrency/bind in Settings; factor knobs landed with T3) · **A** · **W-audit** if spike green · **N2** built-in fleet board (after **N0**) · **F2** host Files list/get/put (after **F0** sign-off) | Console knobs + alerts + opt-in command audit + thin reporting + confined host file transfer |
 | **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-audit** spike · **W-mux** (screen/tmux, low priority) · **F** mkdir/delete/step-up · **AC-fg** · ACME · branding · CSP nonces | Promote only if Must green |
 
@@ -417,7 +418,7 @@ Success criteria:
 1. Admin can configure password policy; all password entry paths enforce it and show the same rules.  
 2. Account SSO unlink + passkey revoke accept **any enrolled 2FA** (**T6**). Admin can set force-2FA scope / grace **0–60** days / step-up windows / factor matrix / IdP-MFA opt-in (**T1–T5**, default fail-closed).  
 3. *(Should)* Console idle/max/concurrency/ticket/hold/bind/revalidate/scrollback adjustable in Settings without editing compose for common cases. `PIHERDER_SSH_CONSOLE` stays the env kill switch.  
-4. Host can store **fleet** + **privileged** SSH identities (separate keys/users); console offers **Connect as…**; jobs stay on fleet by default.  
+4. Host can store **fleet** + **privileged** SSH identities (separate keys/users); console offers **Connect as…**; jobs stay on fleet by default. **Done** (slice 4 Deep).  
 5. *(If W-audit promoted)* Opt-in command (± response) audit with redaction heuristics and retention; default off; wiki warns about residual secret capture.  
 6. *(Should)* Map/stack/cert-style alerts have documented severities and per-category tuning; channels respect filters.  
 7. Servers + Docker + discovery lists support page size + free-text filter without loading unbounded HTML. **Done** (slice 3 Deep).  
@@ -500,6 +501,7 @@ Success criteria:
 | 2026-08-19 | **Slice 2 Deep signed + landed:** W-cfg timeouts / concurrency / ticket / hold / bind / revalidate / scrollback in Settings → Console. Kill switch env-only. Compose no longer injects defaulted `PIHERDER_SSH_CONSOLE_*` knobs. |
 | 2026-08-19 | **Docs pass:** wiki Settings / console / env / upgrades / 2FA / roles / demo + ADMIN / ROADMAP / SECURITY / CONTRIBUTING aligned with slices 1–2. |
 | 2026-08-19 | **Slice 3 Deep signed + landed:** L list chrome on Servers + Docker + discovery. Shared cookie `ph_per_page`. API `/servers` capped at 100. |
+| 2026-08-19 | **Slice 4 Deep signed + landed:** W-id fleet + privileged identities, Connect as…, Settings privileged-role knob, Alembic `040_ssh_identities`. |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 
@@ -515,7 +517,7 @@ Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3�
 | 1 | Finish **v1.2.0** freeze / tag / Hub | **Done** — `v1.2.0` tagged · Hub multi-arch published |
 | 2 | Open **`v1.3.0-dev`** + lock Must/Should | **Done** 2026-08-18 |
 | 3 | Slice 1 Deep **P + T1–T6** | **Done** |
-| 4 | Spike **W-id** model + console ticket identity field (no UI polish) | Next Must after L |
+| 4 | Slice 4 Deep **W-id** (fleet + privileged + Connect as…) | **Done** |
 | 5 | Slice 3 Deep **L** (Servers + Docker + discovery) | **Done** |
 | 6 | Spike **W-audit0** PTY capture + redaction; promote or Cap | After W-id core |
 | 7 | Run **N0** insights discovery (one-pager) → **N2** | Phase 3 |

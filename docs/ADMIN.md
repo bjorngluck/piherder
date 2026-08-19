@@ -167,7 +167,7 @@ Audit: `sso_login`, `sso_login_failed`, `sso_link`, `sso_unlink`, `sso_user_prov
 
 **Where:** **Settings** → **Console** (same General tab, after Security). **Available from v1.3.**
 
-Idle timeout, max session, max shells per user / instance, ticket TTL, park hold, bind IP/device, revalidate interval, and xterm scrollback. Defaults match v1.2. Home-lab ceilings (idle ≤ 8h, max session ≤ 12h, 16/user, 64 global). Env wins when a `PIHERDER_SSH_CONSOLE_*` value is set and non-empty; the field shows as locked. **`PIHERDER_SSH_CONSOLE` stays the compose kill switch** (not a Settings checkbox). Grant window and 2FA factors stay on Security.
+Idle timeout, max session, max shells per user / instance, ticket TTL, park hold, bind IP/device, revalidate interval, xterm scrollback, and **who may open a privileged console** (`admin` default, or `operator`). Defaults match v1.2. Home-lab ceilings (idle ≤ 8h, max session ≤ 12h, 16/user, 64 global). Env wins when a `PIHERDER_SSH_CONSOLE_*` value is set and non-empty; the field shows as locked. **`PIHERDER_SSH_CONSOLE` stays the compose kill switch** (not a Settings checkbox). Grant window and 2FA factors stay on Security. Privileged **Connect as…** always re-prompts 2FA (the fleet grant is not enough).
 
 Live apply: idle / max / hold / revalidate on the next WS tick; ticket and bind on the next ticket; concurrency on the next new shell (no eviction). Demo writes 403. Audit: `console_policy_changed`.
 
@@ -566,7 +566,7 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **2FA** | Enable for admins (TOTP and/or passkeys); consider **Force 2FA** in Settings; revoke trusted devices if a device is lost |
 | **SSO** | Optional OIDC IdP; map groups carefully; keep break-glass local admin; see §3a |
 | **CSP (v1.2)** | Default on (`PIHERDER_CSP=true`). **Compiled Tailwind** (no Play / no `unsafe-eval`). `connect-src` is `'self'` + public origin / its `wss:` only. Console uses vendored xterm. Report-only: `PIHERDER_CSP_REPORT_ONLY=true`. See [SECURITY.md](../SECURITY.md). |
-| **Web SSH** | Default off (`PIHERDER_SSH_CONSOLE=false`); operator+ + passkey-preferred 2FA; floating popup + multi-host `/console`. Timeouts, concurrency, ticket/park, bind, and scrollback are **Settings → Console** (env still wins if set). Kill switch stays compose-only. Wiki: [web-ssh-console](../wiki/day-to-day/web-ssh-console.md) · env sample: [console-and-backup.env.example](console-and-backup.env.example) |
+| **Web SSH** | Default off (`PIHERDER_SSH_CONSOLE=false`); operator+ + passkey-preferred 2FA; floating popup + multi-host `/console`. Optional **privileged** identity is console-only (**Connect as…**, extra confirm + fresh 2FA; jobs stay on fleet). Timeouts, concurrency, ticket/park, bind, scrollback, and privileged RBAC are **Settings → Console** (env still wins if set). Kill switch stays compose-only. Wiki: [web-ssh-console](../wiki/day-to-day/web-ssh-console.md) · env sample: [console-and-backup.env.example](console-and-backup.env.example) |
 | **SSH host keys** | First successful **Test connection** **pins** the remote key (TOFU). Mismatch refuses. Reset the pin under SSH access after a rebuild. New hosts default SSH user **`pi`** (existing rows unchanged). |
 | **App port** | Compose binds **`127.0.0.1:8000`** only. Honour `X-Forwarded-For` / `CF-Connecting-IP` only from `PIHERDER_TRUSTED_PROXY_CIDRS`. |
 | **Password-reset URLs** | Built from **`PIHERDER_PUBLIC_URL` only** (Host / `X-Forwarded-Host` ignored). |

@@ -101,6 +101,7 @@ CONSOLE_ENV_KEYS: Tuple[Tuple[str, str], ...] = (
     ("console_scrollback", "PIHERDER_SSH_CONSOLE_SCROLLBACK"),
     ("console_bind_ip", "PIHERDER_SSH_CONSOLE_BIND_IP"),
     ("console_bind_device", "PIHERDER_SSH_CONSOLE_BIND_DEVICE"),
+    ("console_privileged_role", "PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE"),
 )
 
 
@@ -167,6 +168,41 @@ def _bool_knob(
     return bool(getattr(settings, pydantic_attr, default))
 
 
+PRIVILEGED_ROLE_DEFAULT = "admin"
+PRIVILEGED_ROLES = ("admin", "operator")
+CONSOLE_STEPUP_COOKIE = "console_stepup"
+STEPUP_SEC = 90
+
+
+def _clamp_privileged_role(raw: Any) -> str:
+    s = str(raw or "").strip().lower()
+    if s in ("operators", "operator+", "op"):
+        s = "operator"
+    if s in ("admins", "administrator"):
+        s = "admin"
+    return s if s in PRIVILEGED_ROLES else PRIVILEGED_ROLE_DEFAULT
+
+
+def _str_knob(
+    env_name: str,
+    setting_key: str,
+    pydantic_attr: str,
+    default: str,
+    allowed: tuple,
+) -> str:
+    raw: Any = default
+    if env_wins(env_name):
+        raw = getattr(settings, pydantic_attr, default)
+    else:
+        cfg = _settings_cfg()
+        if setting_key in cfg and cfg.get(setting_key) not in (None, ""):
+            raw = cfg.get(setting_key)
+        else:
+            raw = getattr(settings, pydantic_attr, default)
+    s = str(raw or default).strip().lower()
+    return s if s in allowed else default
+
+
 def _clamp_hold(raw: Any) -> int:
     try:
         n = int(raw)
@@ -212,6 +248,7 @@ def clamp_console_policy(raw: Dict[str, Any] | None = None) -> Dict[str, Any]:
         ),
         "console_bind_ip": _as_bool(src.get("console_bind_ip"), True),
         "console_bind_device": _as_bool(src.get("console_bind_device"), True),
+        "console_privileged_role": _clamp_privileged_role(src.get("console_privileged_role")),
     }
 
 
@@ -232,6 +269,7 @@ def effective_console_policy() -> Dict[str, Any]:
         "console_scrollback": default_scrollback(),
         "console_bind_ip": bind_ip_enabled(),
         "console_bind_device": bind_device_enabled(),
+        "console_privileged_role": privileged_role(),
         "enabled": console_enabled(),
         "grant_minutes": grant_minutes(),
     }
@@ -247,7 +285,8 @@ def console_policy_summary(data: Dict[str, Any] | None = None) -> str:
         f"ticket={p['console_ticket_sec']} hold={p['console_hold_sec']} "
         f"reval={p['console_revalidate_sec']} scroll={p['console_scrollback']} "
         f"bind_ip={int(bool(p['console_bind_ip']))} "
-        f"bind_dev={int(bool(p['console_bind_device']))}"
+        f"bind_dev={int(bool(p['console_bind_device']))} "
+        f"priv={p.get('console_privileged_role') or PRIVILEGED_ROLE_DEFAULT}"
     )
 
 
@@ -390,6 +429,29 @@ def bind_device_enabled() -> bool:
     )
 
 
+def privileged_role() -> str:
+    """admin (default) or operator — who may mint a privileged console ticket."""
+    return _str_knob(
+        "PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE",
+        "console_privileged_role",
+        "PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE",
+        PRIVILEGED_ROLE_DEFAULT,
+        PRIVILEGED_ROLES,
+    )
+
+
+def can_open_privileged(user) -> bool:
+    """RBAC for break-glass console. Demo never."""
+    if is_demo_console():
+        return False
+    from ..security.auth import ROLE_ADMIN, ROLE_OPERATOR, role_at_least, user_role
+
+    need = privileged_role()
+    if need == "operator":
+        return role_at_least(user, ROLE_OPERATOR)
+    return (user_role(user) or "") == ROLE_ADMIN
+
+
 def revalidate_sec() -> int:
     """How often to re-check session/IP/device during an open shell (seconds)."""
     return _int_knob(
@@ -472,12 +534,16 @@ def mint_ticket(
     session_version: int = 0,
     client_ip: Optional[str] = None,
     device_id: Optional[str] = None,
+    identity_id: Optional[int] = None,
+    identity_role: Optional[str] = None,
+    reason: Optional[str] = None,
 ) -> str:
     """
     Short-lived single-use ticket.
 
     Bound to session_version, and optionally IP + console device id so the
     WebSocket cannot be opened (or continued) from another browser/network.
+    Optional ``identity_id`` / ``identity_role`` select fleet vs privileged.
     """
     require_enabled()
     jti = secrets.token_urlsafe(16)
@@ -488,6 +554,14 @@ def mint_ticket(
         "sv": int(session_version),
         "jti": jti,
     }
+    if identity_id:
+        payload["iid"] = int(identity_id)
+    role = (identity_role or "").strip().lower()
+    if role in ("fleet", "privileged"):
+        payload["role"] = role
+    why = (reason or "").strip()[:200]
+    if why:
+        payload["why"] = why
     if bind_ip_enabled() and client_ip:
         payload["iph"] = _hash_binding(normalize_ip(client_ip))
     if bind_device_enabled() and device_id:
@@ -496,6 +570,64 @@ def mint_ticket(
         payload,
         expires_delta=timedelta(seconds=ticket_ttl_sec()),
     )
+
+
+def mint_stepup_proof(
+    *,
+    user_id: int,
+    session_version: int = 0,
+    client_ip: Optional[str] = None,
+    device_id: Optional[str] = None,
+) -> str:
+    """Short-lived proof that 2FA just succeeded (privileged mint, ~90s)."""
+    require_enabled()
+    payload: Dict[str, Any] = {
+        "console_stepup": True,
+        "sub": str(int(user_id)),
+        "sv": int(session_version),
+        "jti": secrets.token_urlsafe(12),
+    }
+    if bind_ip_enabled() and client_ip:
+        payload["iph"] = _hash_binding(normalize_ip(client_ip))
+    if bind_device_enabled() and device_id:
+        payload["did"] = _hash_binding(device_id)
+    return create_access_token(
+        payload,
+        expires_delta=timedelta(seconds=STEPUP_SEC),
+    )
+
+
+def consume_stepup_proof(
+    raw: Optional[str],
+    *,
+    user_id: int,
+    session_version: int,
+    client_ip: Optional[str] = None,
+    device_id: Optional[str] = None,
+) -> bool:
+    """Single-use 2FA proof for privileged mint. Fleet grant is not enough."""
+    if not raw:
+        return False
+    payload = decode_token_payload(raw)
+    if not payload or not payload.get("console_stepup"):
+        return False
+    try:
+        if int(payload.get("sub")) != int(user_id):
+            return False
+        if int(payload.get("sv", 0) or 0) != int(session_version):
+            return False
+        if bind_ip_enabled() and payload.get("iph"):
+            if _hash_binding(normalize_ip(client_ip)) != payload.get("iph"):
+                return False
+        if bind_device_enabled() and payload.get("did"):
+            if _hash_binding(device_id or "") != payload.get("did"):
+                return False
+    except (TypeError, ValueError):
+        return False
+    jti = str(payload.get("jti") or "")
+    if not jti:
+        return False
+    return _consume_jti("stepup:" + jti)
 
 
 def mint_grant(

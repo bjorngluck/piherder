@@ -1181,6 +1181,7 @@ async def save_console_policy(
     console_scrollback: int = Form(2000),
     console_bind_ip: Optional[str] = Form(None),
     console_bind_device: Optional[str] = Form(None),
+    console_privileged_role: str = Form("admin"),
     user: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
@@ -1201,6 +1202,7 @@ async def save_console_policy(
             "console_scrollback": console_scrollback,
             "console_bind_ip": _form_on(console_bind_ip),
             "console_bind_device": _form_on(console_bind_device),
+            "console_privileged_role": console_privileged_role,
         }
     )
     locks = cons.console_env_locks()

@@ -370,6 +370,26 @@
             {% if clocks.console_bind_device %}<span class="block text-xs text-muted mt-0.5">Locked by environment</span>{% endif %}
           </span>
         </label>
+        <fieldset class="space-y-2" data-testid="console-privileged-role">
+          <legend class="text-sm font-medium text-text">Who may open a privileged console</legend>
+          <p class="text-xs text-muted">Fleet shells stay operator+. Privileged is break-glass (Connect as…) and always re-prompts 2FA.</p>
+          {% set priv_role = cpol.console_privileged_role | default('admin') %}
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="radio" name="console_privileged_role" value="admin" class="mt-1"
+                   {% if priv_role != 'operator' %}checked{% endif %}
+                   {% if clocks.console_privileged_role %}disabled{% endif %}>
+            <span>Admin only <span class="text-xs text-muted">(default)</span></span>
+          </label>
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="radio" name="console_privileged_role" value="operator" class="mt-1"
+                   {% if priv_role == 'operator' %}checked{% endif %}
+                   {% if clocks.console_privileged_role %}disabled{% endif %}>
+            <span>Operator and admin</span>
+          </label>
+          {% if clocks.console_privileged_role %}
+          <span class="block text-xs text-muted">Locked by environment</span>
+          {% endif %}
+        </fieldset>
         <label class="block text-sm">
           <span class="block text-xs text-muted mb-1">Default xterm scrollback (lines, 500–50000)</span>
           <input type="number" name="console_scrollback" min="500" max="50000"

@@ -1,4 +1,5 @@
 from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import UniqueConstraint
 from datetime import datetime
 from typing import Optional, List, Any
 import json
@@ -289,6 +290,32 @@ class Server(SQLModel, table=True):
             return json.loads(self.excluded_projects)
         except Exception:
             return ["my-xmrig"]
+
+
+class ServerSshIdentity(SQLModel, table=True):
+    """Named SSH identity on a host (v1.3 W-id).
+
+    Two roles this freeze: ``fleet`` (jobs + default console) and optional
+    ``privileged`` (break-glass console only). ``Server.ssh_*`` remains the
+    fleet cache so existing job callers keep working.
+    """
+
+    __tablename__ = "serversshidentity"
+    __table_args__ = (
+        UniqueConstraint("server_id", "role", name="uq_serversshidentity_server_role"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    server_id: int = Field(foreign_key="server.id", index=True)
+    role: str = Field(max_length=16, index=True)  # fleet | privileged
+    label: str = Field(default="Fleet", max_length=32)
+    username: str = Field(max_length=64)
+    private_key_encrypted: Optional[str] = None
+    public_key: Optional[str] = None
+    key_fingerprint: Optional[str] = Field(default=None, max_length=128)
+    enabled: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class AuditLog(SQLModel, table=True):

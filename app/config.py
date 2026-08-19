@@ -119,6 +119,8 @@ class Settings(BaseSettings):
     # After WebSocket drop (app switch / tab sleep), keep SSH PTY parked this long
     # so the browser can resume. 0 = hold until idle/max session timeout.
     PIHERDER_SSH_CONSOLE_HOLD_SEC: int = 0
+    # Who may open a privileged (break-glass) console: admin | operator
+    PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE: str = "admin"
 
     # Content-Security-Policy (v1.2) — default on; Report-Only for staged rollouts
     PIHERDER_CSP: bool = True

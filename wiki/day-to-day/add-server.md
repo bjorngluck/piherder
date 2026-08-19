@@ -91,7 +91,7 @@ Empty filter: “No hosts match” + **Show all**.
 
 ## SSH access panel (detail)
 
-The wizard Connect step covers deploy / test / clear password. The full **SSH access** panel on the server page also has rotate key, least-priv scripts, and dependency re-check.
+The wizard Connect step covers deploy / test / clear password (one **fleet** identity). The full **SSH access** panel on the server page also has rotate key, least-priv scripts, dependency re-check, and an optional **privileged** identity for [Connect as…](web-ssh-console.md) (console only — jobs stay on fleet).
 
 Optional **Web SSH console** (browser terminal; flag off by default): [Web SSH console](web-ssh-console.md).
 
@@ -102,7 +102,8 @@ Optional **Web SSH console** (browser terminal; flag off by default): [Web SSH c
 | **Check dependencies** | Probes `rsync` / docker / apt for **enabled** features only | Failures become hints, not silent job fails later |
 | **Deploy key** | Installs public key into `authorized_keys`; verifies key-only login | Stops depending on passwords |
 | **Rotate key** | New keypair, deploy, swap only after verify succeeds | Safe rotation if a key may have leaked |
-| **Least-priv user** | Optional `piherder` user + limited sudoers (Pi OS / Ubuntu) | Limits blast radius of the herder account |
+| **Least-priv user** | Optional `piherder` user + limited sudoers (Pi OS / Ubuntu) | Limits blast radius of the **fleet** account |
+| **Privileged identity** | Optional second key/user (e.g. `piherder-admin`). Generate or paste a key, download the setup script, run it on the host, then **Test privileged** | Break-glass **Connect as…** only. Not “Run on host”. HAOS: skip |
 
 !!! tip "Clear stored passwords"
     After key auth works, clear any stored SSH password (wizard Connect or server edit) so secrets stay keys-only.

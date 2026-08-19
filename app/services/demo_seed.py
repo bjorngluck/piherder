@@ -581,6 +581,13 @@ def seed_demo_fleet(
         session.add(srv)
         session.commit()
         session.refresh(srv)
+        try:
+            from . import ssh_identities as ident_svc
+
+            ident_svc.ensure_fleet_identity(session, srv)
+            session.commit()
+        except Exception:
+            pass
         servers_by_key[spec["name"]] = srv
 
     # Integrations (no real secrets)
