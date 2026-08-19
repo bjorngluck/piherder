@@ -460,8 +460,8 @@ def format_audit_entry(log: dict) -> dict:
 
     started = log.get("started_at")
     finished = log.get("finished_at")
-    started_display = format_datetime_in_app_tz(started, "%b %d %H:%M") if started else "—"
-    finished_display = format_datetime_in_app_tz(finished, "%b %d %H:%M") if finished else None
+    started_display = format_datetime_in_app_tz(started, "%b %d %H:%M:%S") if started else "—"
+    finished_display = format_datetime_in_app_tz(finished, "%b %d %H:%M:%S") if finished else None
 
     actor_label = log.get("actor_label") or format_actor_label(
         user_label=log.get("user_label") or log.get("user_email"),

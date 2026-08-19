@@ -128,6 +128,33 @@ def _verify_console_2fa(
         # Pure digits that failed TOTP: still "bad code", not backup
     return False, "2fa_bad_code"
 
+
+# Challenge (show Passkey/TOTP) — not a failed attempt. Do not write Audit.
+_2FA_CHALLENGE = frozenset({"2fa_required", "enroll_2fa", "passkey_required"})
+
+
+def _audit_2fa_denied(
+    session: Session,
+    *,
+    user_id: Optional[int],
+    server_id: Optional[int],
+    err: str,
+    ip: str,
+    privileged: bool = False,
+) -> None:
+    if err in _2FA_CHALLENGE:
+        return
+    kind = "privileged 2FA" if privileged else "2FA"
+    _audit(
+        session,
+        user_id=user_id,
+        server_id=server_id,
+        action="ssh_console_denied",
+        details=f"{kind} failed ({err}) ip={ip}",
+        status="failed",
+    )
+
+
 @workspace_router.get("/console", response_class=HTMLResponse)
 async def console_workspace(
     request: Request,
@@ -533,13 +560,13 @@ async def mint_console_ticket(
         if not stepup_ok:
             ok, err = _verify_console_2fa(session, user, totp_code=totp_code)
             if not ok:
-                _audit(
+                _audit_2fa_denied(
                     session,
                     user_id=user.id,
                     server_id=server_id,
-                    action="ssh_console_denied",
-                    details=f"privileged 2FA failed ({err}) ip={ip}",
-                    status="failed",
+                    err=err,
+                    ip=ip,
+                    privileged=True,
                 )
                 return JSONResponse({"ok": False, "error": err}, status_code=403)
         stepup_used = True
@@ -547,13 +574,12 @@ async def mint_console_ticket(
     elif not has_grant:
         ok, err = _verify_console_2fa(session, user, totp_code=totp_code)
         if not ok:
-            _audit(
+            _audit_2fa_denied(
                 session,
                 user_id=user.id,
                 server_id=server_id,
-                action="ssh_console_denied",
-                details=f"2FA failed ({err}) ip={ip}",
-                status="failed",
+                err=err,
+                ip=ip,
             )
             return JSONResponse({"ok": False, "error": err}, status_code=403)
         set_grant = not cons.require_2fa_every_shell()
