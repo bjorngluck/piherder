@@ -20,7 +20,7 @@ Operators on a tablet or locked-down PC need a shell without exporting the herde
 |------|---------------|----------------------------|
 | **viewer** | No (except **public demo** — see below) | No |
 | **operator** | Yes (flag on + 2FA enrolled) | Only if Settings → Console allows **operator and admin** |
-| **admin** | Yes | Yes (default). Extra confirm + **fresh 2FA** every time |
+| **admin** | Yes | Yes (default). Extra confirm. 2FA again only if the short proof expired |
 
 ### Connect as… (v1.3)
 
@@ -33,7 +33,8 @@ Host: lab-core
 ```
 
 - Picker is hidden until a privileged identity exists and you are allowed to use it.
-- Privileged mint **ignores** the fleet grant cookie. Confirm the break-glass dialog (optional reason) and passkey/TOTP again.
+- Unlock once (passkey/TOTP), pick **Privileged · user**, **+ Shell**, confirm break-glass (optional reason). The Passkey/TOTP row should **not** come back if you just unlocked. It only returns if the short privileged proof expired (~90s) — then passkey/TOTP again.
+- Privileged mint **ignores** the long fleet grant cookie. The shell tab is labeled with the privileged username.
 - Jobs, Docker, backups, and host-deps always stay on **fleet**. Privileged is never the default console identity.
 - Demo: simulated fleet shell only — privileged mint is refused.
 - Leave privileged unset if you do not need break-glass. XSS on the herder origin is already shell-equivalent; a privileged key makes it root-equivalent. Keep `PIHERDER_SSH_CONSOLE` off when unused.
