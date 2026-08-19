@@ -181,22 +181,22 @@
   {# Filters: status + search are GET (server-side). Compose-set pills stay client-side. #}
   {% set _dst = docker_status|default('all') %}
   {% set _dq = 'q=' ~ (q|urlencode) ~ '&per_page=' ~ (per_page or 20) if q else 'per_page=' ~ (per_page or 20) %}
-  <div class="docker-filter-bar mb-3" id="docker-filter-bar">
-    <div class="docker-filter-chips" role="group" aria-label="Filter by status">
-      <a href="/servers/{{ server.id }}/docker?{{ _dq }}" class="docker-filter-chip {{ 'is-active' if _dst == 'all' else '' }}">All</a>
-      <a href="/servers/{{ server.id }}/docker?status=running&{{ _dq }}" class="docker-filter-chip {{ 'is-active' if _dst == 'running' else '' }}">Running</a>
-      <a href="/servers/{{ server.id }}/docker?status=stopped&{{ _dq }}" class="docker-filter-chip {{ 'is-active' if _dst == 'stopped' else '' }}">Stopped</a>
-      <a href="/servers/{{ server.id }}/docker?status=missing&{{ _dq }}" class="docker-filter-chip {{ 'is-active' if _dst == 'missing' else '' }}">Not created</a>
-      <a href="/servers/{{ server.id }}/docker?status=updates&{{ _dq }}" class="docker-filter-chip {{ 'is-active' if _dst == 'updates' else '' }}">Updates</a>
+  <div class="ops-list-filters docker-filter-bar mb-3" id="docker-filter-bar">
+    <div class="ops-list-filters-chips docker-filter-chips" role="group" aria-label="Filter by status">
+      <a href="/servers/{{ server.id }}/docker?{{ _dq }}" class="ops-type-chip docker-filter-chip {{ 'is-active' if _dst == 'all' else '' }}">All</a>
+      <a href="/servers/{{ server.id }}/docker?status=running&{{ _dq }}" class="ops-type-chip docker-filter-chip {{ 'is-active' if _dst == 'running' else '' }}">Running</a>
+      <a href="/servers/{{ server.id }}/docker?status=stopped&{{ _dq }}" class="ops-type-chip docker-filter-chip {{ 'is-active' if _dst == 'stopped' else '' }}">Stopped</a>
+      <a href="/servers/{{ server.id }}/docker?status=missing&{{ _dq }}" class="ops-type-chip docker-filter-chip {{ 'is-active' if _dst == 'missing' else '' }}">Not created</a>
+      <a href="/servers/{{ server.id }}/docker?status=updates&{{ _dq }}" class="ops-type-chip docker-filter-chip {{ 'is-active' if _dst == 'updates' else '' }}">Updates</a>
     </div>
-    <form method="get" action="/servers/{{ server.id }}/docker" class="docker-filter-search-form flex items-center gap-2 min-w-0" role="search">
+    <form method="get" action="/servers/{{ server.id }}/docker" class="ops-list-filters-search" role="search">
       {% if _dst and _dst != 'all' %}<input type="hidden" name="status" value="{{ _dst }}">{% endif %}
       <label class="sr-only" for="docker-filter-q">Filter stacks</label>
       <input type="search"
              id="docker-filter-q"
              name="q"
              value="{{ q or '' }}"
-             class="docker-filter-search"
+             class="ops-f-control ops-f-grow docker-filter-search"
              placeholder="Filter by name…"
              autocomplete="off"
              aria-label="Filter by service or container name"
