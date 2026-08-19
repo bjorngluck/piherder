@@ -38,7 +38,7 @@ Host: lab-core
 - Demo: simulated fleet shell only — privileged mint is refused.
 - Leave privileged unset if you do not need break-glass. XSS on the herder origin is already shell-equivalent; a privileged key makes it root-equivalent. Keep `PIHERDER_SSH_CONSOLE` off when unused.
 
-Add / rotate / test privileged under **SSH access** on the server page. Download the **setup script** and run it **on the host** (PiHerder will not auto-provision a root-capable user). HAOS: skip.
+Add / rotate / test privileged under **SSH access** on the server page. That panel shows **Fleet public key** and **Privileged public key** as separate boxes — copy the privileged line into `piherder-admin`’s `authorized_keys` (or use **Setup script**). Download the **setup script** and run it **on the host** (PiHerder will not auto-provision a root-capable user). HAOS: skip.
 
 Who may elevate: **Settings → Console → Who may open a privileged console** (`admin` default, or `operator`). Env lock: `PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE`.
 

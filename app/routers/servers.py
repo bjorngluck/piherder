@@ -756,21 +756,27 @@ async def server_detail(
     )
     server_dict["key_fingerprint"] = fleet_ident.key_fingerprint
     privileged_setup_script = ""
+    priv_pub = None
     if priv_ident and ssh_onboarding.is_real_public_key(priv_ident.public_key):
-        privileged_setup_script = ssh_onboarding.build_privileged_user_script(
-            priv_ident.username, priv_ident.public_key
-        )
+        priv_pub = priv_ident.public_key
     elif priv_ident and priv_ident.private_key_encrypted:
         try:
-            derived_p = ssh_onboarding.public_key_from_private(
+            priv_pub = ssh_onboarding.public_key_from_private(
                 ssh_service.get_private_key_plain(server, priv_ident),
                 comment=f"piherder-privileged@{server.hostname or server.name}",
             )
-            privileged_setup_script = ssh_onboarding.build_privileged_user_script(
-                priv_ident.username, derived_p
-            )
         except Exception:
-            pass
+            priv_pub = None
+    if priv_ident and priv_pub:
+        privileged_setup_script = ssh_onboarding.build_privileged_user_script(
+            priv_ident.username, priv_pub
+        )
+        server_dict["privileged_identity"]["public_key"] = priv_pub
+        server_dict["privileged_identity"]["has_real_public_key"] = True
+        if not server_dict["privileged_identity"].get("fingerprint"):
+            server_dict["privileged_identity"]["fingerprint"] = ident_svc.fingerprint_public(
+                priv_pub
+            )
 
     reboot_initiated = request.query_params.get("rebooted") == "1"
 

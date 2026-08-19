@@ -228,8 +228,13 @@ def test_http_add_privileged_and_detail_card(client):
     assert "identity_added" in (r.headers.get("location") or "")
     page = tc.get(f"/servers/{sid}", cookies=_cookie(uid))
     assert page.status_code == 200
+    assert 'data-testid="ssh-fleet-card"' in page.text
     assert 'data-testid="ssh-privileged-card"' in page.text
     assert "piherder-admin" in page.text
+    assert 'data-testid="ssh-fleet-pubkey"' in page.text
+    assert 'data-testid="ssh-privileged-pubkey"' in page.text
+    assert "Fleet public key" in page.text
+    assert "Privileged public key" in page.text
     with Session(engine) as s:
         row = s.exec(
             select(ServerSshIdentity).where(

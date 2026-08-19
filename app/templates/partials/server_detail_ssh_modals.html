@@ -37,10 +37,11 @@
       {% endif %}
     </div>
 
-    <div class="border border-border rounded p-3 mb-3 space-y-2">
-      <div class="text-sm font-medium">SSH username in {{ ph_brand() }}</div>
+    <div class="border border-border rounded p-3 mb-3 space-y-2" data-testid="ssh-fleet-card">
+      <div class="text-sm font-medium">Fleet identity (jobs + default console)</div>
       <p class="text-xs text-muted">
-        This is what Edit and all jobs use. Creating <code>piherder</code> on the host does <strong>not</strong> change this
+        User <code class="font-mono text-text">{{ server.ssh_username }}</code> — this is what Edit and all jobs use.
+        Creating <code>piherder</code> on the host does <strong>not</strong> change this
         unless you used <strong>Run on host</strong>, or set it here after a manual script.
       </p>
       <form method="post" action="/servers/{{ server.id }}/ssh/set-username" id="ssh-set-username-form" class="flex flex-wrap gap-2 items-end" autocomplete="off">
@@ -62,6 +63,18 @@
         </button>
         {% endif %}
       </form>
+      {% if server.has_real_public_key or server.ssh_public_key %}
+      <div>
+        <div class="text-xs text-muted mb-1">Fleet public key
+          {% if server.key_fingerprint or (server.fleet_identity and server.fleet_identity.fingerprint) %}
+          · <span class="font-mono break-all">{{ (server.fleet_identity.fingerprint if server.fleet_identity else none) or server.key_fingerprint }}</span>
+          {% endif %}
+        </div>
+        <textarea id="modal-pubkey" readonly data-testid="ssh-fleet-pubkey"
+                  class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-24 resize-y">{{ server.ssh_public_key or '' }}</textarea>
+        <button type="button" onclick="copyTextFrom('modal-pubkey', this)" class="btn btn-secondary text-sm min-h-11 mt-2">Copy fleet key</button>
+      </div>
+      {% endif %}
     </div>
 
     <div class="flex flex-wrap gap-2 mb-4">
@@ -69,7 +82,7 @@
             data-wait-title="Testing SSH access"
             data-wait-message="Connecting over SSH, then probing host tools (rsync, docker, apt) when login succeeds…">
         <button type="submit" class="btn btn-secondary min-h-11 text-sm"
-                title="Verify SSH login, then refresh host dependency checks">
+                title="Verify fleet SSH login, then refresh host dependency checks">
           Test connection
         </button>
       </form>
@@ -102,6 +115,18 @@
         {% endif %}
         · {% if server.privileged_identity.has_key %}key stored{% else %}<span class="text-warning">no private key</span>{% endif %}
       </p>
+      {% if server.privileged_identity.public_key %}
+      <div>
+        <div class="text-xs text-muted mb-1">Privileged public key
+          {% if server.privileged_identity.fingerprint %}
+          · <span class="font-mono break-all">{{ server.privileged_identity.fingerprint }}</span>
+          {% endif %}
+        </div>
+        <textarea id="modal-priv-pubkey" readonly data-testid="ssh-privileged-pubkey"
+                  class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-24 resize-y">{{ server.privileged_identity.public_key }}</textarea>
+        <button type="button" onclick="copyTextFrom('modal-priv-pubkey', this)" class="btn btn-secondary text-sm min-h-11 mt-2">Copy privileged key</button>
+      </div>
+      {% endif %}
       <div class="flex flex-wrap gap-2">
         <form method="post" action="/servers/{{ server.id }}/ssh/identities/{{ server.privileged_identity.id }}/test"
               data-wait-title="Testing privileged SSH"
@@ -231,21 +256,10 @@
       </p>
     </div>
 
-    {% if server.has_real_public_key or server.ssh_public_key %}
-    <div class="border-t border-border pt-3 mt-2">
-      <div class="text-sm font-medium mb-1">Public key</div>
-      <textarea id="modal-pubkey" readonly
-                class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-24 resize-y">{{ server.ssh_public_key or '' }}</textarea>
-      <div class="flex gap-2 mt-2">
-        <button type="button" onclick="copyTextFrom('modal-pubkey', this)" class="btn btn-secondary text-sm min-h-11">Copy key</button>
-      </div>
-    </div>
-    {% endif %}
-
     {% if key_install_script %}
     <div class="border-t border-border pt-3 mt-3">
-      <div class="text-sm font-medium mb-1">Manual install script</div>
-      <p class="text-xs text-muted mb-1">Run on the target host if Deploy is not possible.</p>
+      <div class="text-sm font-medium mb-1">Fleet — manual install script</div>
+      <p class="text-xs text-muted mb-1">Installs the <strong>fleet</strong> public key. Run on the target host if Deploy is not possible.</p>
       <textarea id="key-install-script" readonly class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-32 resize-y">{{ key_install_script }}</textarea>
       <button type="button" onclick="copyTextFrom('key-install-script', this)" class="btn btn-secondary text-sm min-h-11 mt-2">Copy script</button>
     </div>

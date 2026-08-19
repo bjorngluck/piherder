@@ -105,6 +105,8 @@ Optional **Web SSH console** (browser terminal; flag off by default): [Web SSH c
 | **Least-priv user** | Optional `piherder` user + limited sudoers (Pi OS / Ubuntu) | Limits blast radius of the **fleet** account |
 | **Privileged identity** | Optional second key/user (e.g. `piherder-admin`). Generate or paste a key, download the setup script, run it on the host, then **Test privileged** | Break-glass **Connect as…** only. Not “Run on host”. HAOS: skip |
 
+SSH access shows **two labeled public keys** when privileged exists: **Fleet public key** (jobs + default console) and **Privileged public key**. They are different keypairs. Copy the one that matches the user you are installing.
+
 !!! tip "Clear stored passwords"
     After key auth works, clear any stored SSH password (wizard Connect or server edit) so secrets stay keys-only.
 
