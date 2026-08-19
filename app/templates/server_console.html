@@ -32,14 +32,11 @@
            class="ch-totp font-mono" data-testid="console-totp" placeholder="TOTP"
            {% if require_passkey and has_passkeys %}disabled{% endif %}>
     {% endif %}
-    <span class="ch-2fa-hint text-muted">Step-up required</span>
+    <span class="ch-2fa-hint text-muted" id="console-2fa-hint">Step-up required</span>
   </div>
   {# Hidden until 2FA / fleet grant — saves space before unlock #}
   <div class="ch-gate-row ch-gate-main" id="console-main-row"
        {% if not (grant_active and not require_2fa_every_shell) %}style="display:none"{% endif %}>
-    <button type="button" id="console-new-shell"
-            class="btn btn-accent text-xs min-h-9 px-2 ch-btn-compact" data-testid="console-new-shell"
-            title="New shell">+ Shell</button>
     {% if ssh_identities and ssh_identities|length > 1 %}
     <select id="console-identity" class="ch-identity" data-testid="console-identity" title="Connect as">
       {% for ident in ssh_identities %}
@@ -51,6 +48,9 @@
       {% endfor %}
     </select>
     {% endif %}
+    <button type="button" id="console-new-shell"
+            class="btn btn-accent text-xs min-h-9 px-2 ch-btn-compact" data-testid="console-new-shell"
+            title="New shell">+ Shell</button>
     <div class="ch-shell-tabs" id="console-tabs" role="tablist" aria-label="Shells">
       <span class="ch-tab-empty" id="console-tab-empty">Tap <strong>+ Shell</strong></span>
     </div>
@@ -482,6 +482,8 @@
   var privPanel = document.getElementById('console-priv-confirm');
   var privReason = document.getElementById('console-priv-reason');
   var pendingPriv = false;
+  var privNeed2fa = false;
+  var hint2fa = document.getElementById('console-2fa-hint');
   var popupMode = {{ 'true' if popup_mode else 'false' }};
   var scrollbackDefault = {{ (scrollback_default|default(2000))|int }};
   var windowMaxFallback = false;
@@ -1055,9 +1057,16 @@
       if (row2fa) row2fa.style.display = '';
       setMainChromeVisible(stepUpDone);
     } else {
-      var hide2fa = grantActive && !privilegedSelected();
+      // Privileged uses the confirm panel, not a second 2FA row — unless mint
+      // returned 2fa_required (short step-up proof expired).
+      var hide2fa = unlocked && !privNeed2fa;
       if (row2fa) row2fa.style.display = hide2fa ? 'none' : '';
       setMainChromeVisible(unlocked);
+    }
+    if (hint2fa) {
+      hint2fa.textContent = privNeed2fa
+        ? 'Privileged shell needs 2FA again'
+        : 'Step-up required';
     }
     if (chRootEl) {
       chRootEl.classList.toggle('is-status-hidden', statusHidden && unlocked);
@@ -1942,7 +1951,9 @@
       // Grant cookie expired on server but UI still thought step-up was active
       if (data.error === '2fa_required' || data.error === '2fa_bad_code' ||
           data.error === 'passkey_required' || data.error === 'enroll_2fa') {
-        if (!privilegedSelected()) {
+        if (privilegedSelected()) {
+          privNeed2fa = true;
+        } else {
           grantActive = false;
           stepUpDone = requireEvery ? stepUpDone : false;
           try { localStorage.removeItem(GRANT_LS); } catch (e0) {}
@@ -1953,6 +1964,7 @@
       throw new Error(map[data.error] || data.detail || ('Error: ' + (data.error || res.status)));
     }
     stepUpDone = true;
+    privNeed2fa = false;
     hidePrivConfirm();
     if (data.grant_active && !requireEvery) {
       markFleetGrant();
@@ -2003,8 +2015,9 @@
       });
       var ver = await verRes.json().catch(function () { return {}; });
       if (!ver.ok) throw new Error(ver.detail || ver.error || 'Passkey verification failed');
-      if (ver.ticket && ver.ws_path) {
-        // every-shell policy: open immediately with returned ticket
+      privNeed2fa = false;
+      if (ver.ticket && ver.ws_path && !privilegedSelected()) {
+        // every-shell policy: open immediately with returned ticket (fleet)
         stepUpDone = true;
         updateGateVisibility();
         setStatus('Passkey OK — opening shell…');
@@ -2018,7 +2031,16 @@
         stepUpDone = true;
         updateGateVisibility();
       }
-      setStatus('Passkey OK — click + Shell (works on every host).');
+      if (privilegedSelected() && pendingPriv) {
+        setStatus('Passkey OK — opening privileged shell…');
+        await openShell();
+        return;
+      }
+      setStatus(
+        privilegedSelected()
+          ? 'Passkey OK — + Shell, then confirm break-glass.'
+          : 'Passkey OK — click + Shell (works on every host).'
+      );
     } catch (e) {
       var msg = String((e && e.message) || e || 'Passkey failed');
       if (/not allowed|NotAllowedError/i.test(msg)) {
@@ -2331,7 +2353,7 @@
     }
     var label = 'Shell ' + nextN;
     if (data && data.identity_role === 'privileged') {
-      label = (data.identity_username || 'privileged') + ' · ' + nextN;
+      label = (data.identity_username || 'privileged') + ' · priv';
     }
     var sh = createShellUi(label);
     activate(sh.id);
@@ -2374,10 +2396,8 @@
     } catch (e) {
       setErr(String(e.message || e));
       setStatus('');
-      // Always surface 2FA row when server demands step-up (grant may have expired)
-      if (!grantActive || requireEvery) {
-        if (row2fa) row2fa.style.display = '';
-      }
+      if (privilegedSelected()) privNeed2fa = true;
+      updateGateVisibility();
       return;
     }
     setStatus('Connecting…');
@@ -2523,7 +2543,11 @@
   if (btnNew) btnNew.addEventListener('click', openShell);
   if (identSel) identSel.addEventListener('change', function () {
     hidePrivConfirm();
+    privNeed2fa = false;
     updateGateVisibility();
+    if (privilegedSelected()) {
+      setStatus('Privileged: + Shell, then confirm. Jobs stay on fleet.');
+    }
   });
   var btnPrivOk = document.getElementById('console-priv-ok');
   var btnPrivCancel = document.getElementById('console-priv-cancel');
