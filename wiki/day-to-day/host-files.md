@@ -6,11 +6,13 @@ A **jailed SFTP browser** on each host: list one folder, download, upload (with 
 
 **Where:** host overview dest-card **Files** → `/servers/{id}/files`. Pin with ★ / jump host like Docker. Kill switch **`PIHERDER_HOST_FILES`** (default **off**). Operator+ only. Viewer never. Demo never.
 
+The page is a **file-manager window**: folder tree on the left, file list on the right (like Files / Explorer / Finder). Double-click a folder to open it, double-click a file to download, right-click or **⋯** for rename/delete. Drag files onto the list to upload; new items appear in the same window (no full reload). Phone hides the tree and shows the list.
+
 ## End-to-end: drop a sidecar
 
 1. Set `PIHERDER_HOST_FILES=true` in `.env` / compose and restart **web**.  
 2. Open a host → dest-card **Files** (operator). Jail is `docker_base_dir` when Docker is on, else that user’s home.  
-3. Browse into the stack folder. **Download** a log or **Upload** `config.yml` (confirm if the name exists).  
+3. Click folders in the tree or double-click them in the list. **Upload** or drop `config.yml` into the current folder (confirm if the name exists).  
 4. Optional: **Connect as… Privileged** (same elevate role as console) + TOTP, or reuse an existing console grant cookie — for paths outside the fleet jail (HAOS `/mnt/data`).  
 5. Check **Audit** for `host_file_put` (path, bytes, sha256 — never the body).
 
@@ -30,7 +32,7 @@ The web console is a PTY. Dropping a Frigate `config.yml`, a compose sidecar, or
 
 ## Identities (Connect as…)
 
-Default **fleet** (least-priv). Optional **privileged** — same Settings **who may elevate** as the console, extra confirm, **2FA** (TOTP on the Files page, or an existing console grant cookie). Jobs stay on fleet. API is **fleet only**.
+Default **fleet** (least-priv). Optional **privileged** — same Settings **who may elevate** as the console. Step-up is **Passkey first** (same as console) when you have one enrolled; authenticator TOTP is the fallback unless Settings requires passkey. An existing console grant cookie also unlocks privileged Files. Jobs stay on fleet. API is **fleet only**.
 
 | Identity | Jail |
 |----------|------|

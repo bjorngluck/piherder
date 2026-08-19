@@ -104,6 +104,26 @@ def test_files_operator_200_when_flag_on(files_client, monkeypatch):
     r = client.get(f"/servers/{ids['server']}/files", cookies=_cookie(ids["admin"]))
     assert r.status_code == 200
     assert 'data-testid="host-files-page"' in r.text
+    assert 'id="hf-win"' in r.text
+    assert 'id="hf-tree"' in r.text
+    assert 'id="hf-list"' in r.text
+
+
+def test_files_ls_json_flag_on(files_client, monkeypatch):
+    monkeypatch.setattr(hf.settings, "PIHERDER_HOST_FILES", True, raising=False)
+    monkeypatch.setattr(hf.settings, "PIHERDER_DEMO_MODE", False, raising=False)
+    client, ids = files_client
+    r = client.get(
+        f"/servers/{ids['server']}/files/ls",
+        cookies=_cookie(ids["admin"]),
+        headers={"Accept": "application/json", "X-PiHerder-Files": "1"},
+    )
+    # No live SSH in this fixture — jail listing talks to the host and must fail closed, not HTML.
+    assert r.status_code in (200, 400, 502)
+    if r.status_code == 200:
+        body = r.json()
+        assert body.get("ok") is True
+        assert "entries" in body
 
 
 def test_files_demo_403(files_client, monkeypatch):
@@ -113,6 +133,17 @@ def test_files_demo_403(files_client, monkeypatch):
     r = client.get(f"/servers/{ids['server']}/files", cookies=_cookie(ids["admin"]))
     assert r.status_code == 403
     assert "demo" in (r.json() or {}).get("detail", r.text).lower()
+
+
+def test_files_webauthn_options_same_origin_only(files_client, monkeypatch):
+    monkeypatch.setattr(hf.settings, "PIHERDER_HOST_FILES", True, raising=False)
+    monkeypatch.setattr(hf.settings, "PIHERDER_DEMO_MODE", False, raising=False)
+    client, ids = files_client
+    r = client.post(
+        f"/servers/{ids['server']}/files/webauthn/options",
+        cookies=_cookie(ids["admin"]),
+    )
+    assert r.status_code == 403
 
 
 def test_api_files_requires_scope(files_client, monkeypatch):
