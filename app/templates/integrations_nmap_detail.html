@@ -447,23 +447,23 @@
        data-testid="nmap-view-map">Map</a>
   </div>
   {% if dview != 'map' %}
-  <div class="nmap-filter-bar" role="search" aria-label="Filter devices" data-testid="nmap-devices-filter-bar">
-    <div class="nmap-filters" role="group" aria-label="Filter by state">
-      <a href="?{% if _nkeep %}{{ _nkeep }}{% else %}tab=devices{% endif %}" class="nmap-filter {% if not state_filter %}is-active{% endif %}"
-         data-testid="nmap-filter-all">All{% if device_stats %} <span class="nmap-filter-n">{{ device_stats.total }}</span>{% endif %}</a>
+  <div class="nmap-filter-bar ops-list-filters" role="search" aria-label="Filter devices" data-testid="nmap-devices-filter-bar">
+    <div class="nmap-filters ops-list-filters-chips" role="group" aria-label="Filter by state">
+      <a href="?{% if _nkeep %}{{ _nkeep }}{% else %}tab=devices{% endif %}" class="ops-type-chip nmap-filter {% if not state_filter %}is-active{% endif %}"
+         data-testid="nmap-filter-all">All{% if device_stats %} <span class="ops-type-chip-n nmap-filter-n">{{ device_stats.total }}</span>{% endif %}</a>
       {% for st, stlab in [('new','New'),('known','Known'),('linked','Linked'),('ignored','Hidden'),('stale','Offline')] %}
       {% set stcount = device_stats.get(st, 0) if device_stats else 0 %}
-      <a href="?{% if _nkeep %}{{ _nkeep }}&{% else %}tab=devices&{% endif %}state={{ st }}" class="nmap-filter {% if state_filter == st %}is-active{% endif %}"
+      <a href="?{% if _nkeep %}{{ _nkeep }}&{% else %}tab=devices&{% endif %}state={{ st }}" class="ops-type-chip nmap-filter {% if state_filter == st %}is-active{% endif %}"
          data-testid="nmap-filter-{{ st }}"
-         title="{% if st == 'new' %}Unreviewed inbox{% elif st == 'known' %}Reviewed / acknowledged{% elif st == 'ignored' %}Hidden from maps (Ignore) — still in DB{% elif st == 'stale' %}Not seen recently (offline flag — never auto-deleted; purge manually){% else %}{{ stlab }}{% endif %}">{{ stlab }}{% if device_stats %} <span class="nmap-filter-n">{{ stcount }}</span>{% endif %}</a>
+         title="{% if st == 'new' %}Unreviewed inbox{% elif st == 'known' %}Reviewed / acknowledged{% elif st == 'ignored' %}Hidden from maps (Ignore) — still in DB{% elif st == 'stale' %}Not seen recently (offline flag — never auto-deleted; purge manually){% else %}{{ stlab }}{% endif %}">{{ stlab }}{% if device_stats %} <span class="ops-type-chip-n nmap-filter-n">{{ stcount }}</span>{% endif %}</a>
       {% endfor %}
     </div>
-    <form method="get" class="nmap-filter-search-wrap flex items-center gap-2" role="search">
+    <form method="get" class="ops-list-filters-search nmap-filter-search-wrap" role="search">
       <input type="hidden" name="tab" value="devices">
       {% if state_filter %}<input type="hidden" name="state" value="{{ state_filter }}">{% endif %}
       <label class="sr-only" for="nmap-host-search">Filter hosts</label>
       <input type="search" id="nmap-host-search" name="q" value="{{ q or '' }}"
-             class="input nmap-filter-search text-sm"
+             class="ops-f-control ops-f-grow nmap-filter-search"
              placeholder="Filter by name, IP, MAC, type…"
              autocomplete="off" aria-label="Filter hosts"
              data-testid="nmap-devices-search">

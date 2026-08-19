@@ -95,28 +95,34 @@
 {% set fc = filter_counts or {} %}
 {% set f = filter or 'all' %}
 {% set _keep = keep_query|default('') %}
-<div class="server-filter-bar ops-type-chips mb-3" id="server-filter-bar" role="navigation" aria-label="Filter servers">
-  <a href="/servers{% if _keep %}?{{ _keep }}{% endif %}" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'all' else '' }}">
-    All <span class="server-filter-count ops-type-chip-n">{{ fc.get('all', 0) }}</span>
-  </a>
-  <a href="/servers?filter=attention{% if _keep %}&{{ _keep }}{% endif %}" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'attention' else '' }}">
-    Attention <span class="server-filter-count ops-type-chip-n">{{ fc.get('attention', 0) }}</span>
-  </a>
-  <a href="/servers?filter=os{% if _keep %}&{{ _keep }}{% endif %}" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'os' else '' }}">
-    OS <span class="server-filter-count ops-type-chip-n">{{ fc.get('os', 0) }}</span>
-  </a>
-  <a href="/servers?filter=reboot{% if _keep %}&{{ _keep }}{% endif %}" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'reboot' else '' }}">
-    Reboot <span class="server-filter-count ops-type-chip-n">{{ fc.get('reboot', 0) }}</span>
-  </a>
-  <a href="/servers?filter=containers{% if _keep %}&{{ _keep }}{% endif %}" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'containers' else '' }}">
-    Images <span class="server-filter-count ops-type-chip-n">{{ fc.get('containers', 0) }}</span>
-  </a>
-  <form method="get" action="/servers" class="server-list-search flex flex-wrap items-center gap-2 min-w-0 flex-1" role="search">
+<div class="ops-list-filters server-filter-bar" id="server-filter-bar">
+  <div class="ops-list-filters-chips" role="navigation" aria-label="Filter servers">
+    <a href="/servers{% if _keep %}?{{ _keep }}{% endif %}" class="ops-type-chip {{ 'is-active' if f == 'all' else '' }}">
+      All <span class="ops-type-chip-n">{{ fc.get('all', 0) }}</span>
+    </a>
+    <a href="/servers?filter=attention{% if _keep %}&{{ _keep }}{% endif %}" class="ops-type-chip {{ 'is-active' if f == 'attention' else '' }}">
+      Attention <span class="ops-type-chip-n">{{ fc.get('attention', 0) }}</span>
+    </a>
+    <a href="/servers?filter=os{% if _keep %}&{{ _keep }}{% endif %}" class="ops-type-chip {{ 'is-active' if f == 'os' else '' }}">
+      OS <span class="ops-type-chip-n">{{ fc.get('os', 0) }}</span>
+    </a>
+    <a href="/servers?filter=reboot{% if _keep %}&{{ _keep }}{% endif %}" class="ops-type-chip {{ 'is-active' if f == 'reboot' else '' }}">
+      Reboot <span class="ops-type-chip-n">{{ fc.get('reboot', 0) }}</span>
+    </a>
+    <a href="/servers?filter=containers{% if _keep %}&{{ _keep }}{% endif %}" class="ops-type-chip {{ 'is-active' if f == 'containers' else '' }}">
+      Images <span class="ops-type-chip-n">{{ fc.get('containers', 0) }}</span>
+    </a>
+    <a href="/servers{% if fav_toggle_query %}?{{ fav_toggle_query }}{% endif %}"
+       class="ops-type-chip {{ 'is-active' if fav else '' }}"
+       title="Pinned hosts first (does not hide the rest)"
+       data-testid="server-list-fav">Pins first</a>
+  </div>
+  <form method="get" action="/servers" class="ops-list-filters-search" role="search">
     {% if f and f != 'all' %}<input type="hidden" name="filter" value="{{ f }}">{% endif %}
     {% if fav %}<input type="hidden" name="fav" value="1">{% endif %}
     <label class="sr-only" for="server-list-q">Search hosts</label>
     <input type="search" id="server-list-q" name="q" value="{{ q or '' }}"
-           class="ops-f-control flex-1 min-w-[10rem]"
+           class="ops-f-control ops-f-grow"
            placeholder="Search name, host, IP…"
            autocomplete="off" data-testid="server-list-search">
     <select name="per_page" class="ops-f-control ops-f-narrow" aria-label="Per page"
@@ -125,10 +131,6 @@
       <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/pg</option>
       {% endfor %}
     </select>
-    <a href="/servers{% if fav_toggle_query %}?{{ fav_toggle_query }}{% endif %}"
-       class="server-filter-chip ops-type-chip {{ 'is-active' if fav else '' }}"
-       title="Pinned hosts first (does not hide the rest)"
-       data-testid="server-list-fav">Pins first</a>
   </form>
 </div>
 
