@@ -160,14 +160,12 @@ async def render_nmap_detail(request, session, user, integration: Integration):
         tab = "overview"
     if devices_view not in ("list", "map"):
         devices_view = "list"
+    from ..services import list_query as lq
+
     cfg = nmap_cfg.parse_nmap_config(integration)
     status = reg.parse_last_status(integration)
     online = worker_online()
     pack = vuln_pack_status()
-    all_devices = nmap_cfg.list_devices(session, integration.id) if tab in (
-        "devices",
-        "overview",
-    ) else []
     state_filter = (request.query_params.get("state") or "").strip() or None
     if state_filter and state_filter not in (
         "new",
@@ -177,13 +175,38 @@ async def render_nmap_detail(request, session, user, integration: Integration):
         "stale",
     ):
         state_filter = None
+    q = (request.query_params.get("q") or "").strip()
+    per_page = lq.per_page_from_request(request)
+    page = lq.page_from_request(request)
     # Stats always from unfiltered set (S4 filter chips stay honest)
-    device_stats = nmap_cfg.device_stats_from_rows(all_devices)
-    # State filter applies to list view only (map shows full LAN groups)
-    devices = all_devices
-    if tab == "devices" and devices_view == "list" and state_filter:
-        devices = [d for d in all_devices if d.state == state_filter]
-    device_rows = [nmap_cfg.device_list_item(d) for d in devices]
+    if tab in ("devices", "overview"):
+        nmap_cfg.apply_stale_device_states(session, integration_id=integration.id)
+        device_stats = nmap_cfg.device_stats_for_integration(session, integration.id)
+    else:
+        device_stats = {
+            "total": 0,
+            "new": 0,
+            "known": 0,
+            "linked": 0,
+            "ignored": 0,
+            "stale": 0,
+            "open_ports": 0,
+        }
+    devices: list = []
+    device_rows: list = []
+    total = 0
+    total_pages = 1
+    if tab == "devices" and devices_view == "list":
+        devices, total, total_pages, page = nmap_cfg.list_devices_page(
+            session,
+            integration.id,
+            state=state_filter,
+            q=q,
+            page=page,
+            per_page=per_page,
+            apply_stale=False,
+        )
+        device_rows = [nmap_cfg.device_list_item(d) for d in devices]
     runs = nmap_cfg.list_runs(session, integration.id) if tab in ("runs", "overview") else []
     schedules = (
         nmap_cfg.list_schedules(session, integration.id)
@@ -282,7 +305,7 @@ async def render_nmap_detail(request, session, user, integration: Integration):
     if tab == "schedules" and not edit_schedule:
         schedule_new = (request.query_params.get("new") or "").strip() == "1"
 
-    return templates_mod.templates.TemplateResponse(
+    resp = templates_mod.templates.TemplateResponse(
         request=request,
         name="integrations_nmap_detail.html",
         context={
@@ -300,6 +323,21 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             "device_rows": device_rows,
             "device_stats": device_stats,
             "state_filter": state_filter or "",
+            "q": q,
+            "page": page,
+            "per_page": per_page,
+            "per_page_choices": list(lq.PER_PAGE_CHOICES),
+            "total": total,
+            "total_pages": total_pages,
+            "pager_query": lq.query_string(
+                {
+                    "tab": "devices",
+                    "state": state_filter or "",
+                    "q": q,
+                    "per_page": per_page,
+                }
+            ),
+            "keep_query": lq.query_string({"q": q, "per_page": per_page, "tab": "devices"}),
             "runs": runs,
             "schedules": schedules,
             "edit_schedule": edit_schedule,
@@ -340,6 +378,7 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             **_pin_context_for_integration(session, user, integration),
         },
     )
+    return lq.attach_per_page_cookie(resp, per_page)
 
 
 @router.get("/integrations/new/nmap", response_class=HTMLResponse)

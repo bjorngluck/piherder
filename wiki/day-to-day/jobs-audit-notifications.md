@@ -72,7 +72,7 @@ A second start reuses the existing job (UI follows it; REST **409** with `alread
 ### Fleet Jobs UI
 
 - **Ops hero** at the top: dual-line pulse (running / queue / ok / fail + type chips) and app timezone caption  
-- Filters: server, status, type, **date range** with **7d / 30d / 90d / Clear** presets, per-page  
+- Filters: server, status, type, **date range** with **7d / 30d / 90d / Clear** presets, per-page **10 / 20 / 50 / 100** (cookie `ph_per_page` shared with Servers / Docker / discovery)  
 - Date presets use the **Settings timezone** calendar day (not the browser’s local midnight)  
 - **Active only** — pending + running  
 - Row → detail modal (summary, log tail, scheduled flag)  
@@ -114,7 +114,7 @@ Actors may be:
 
 Also audited with IP: **login** / **login failed** / **2FA**, and **API token** create/update/rotate/revoke. Free-text search matches IPs. Detail modal shows **IP**.
 
-Filter by user, server, token, action, status, **date range** (same **7d / 30d / 90d** presets as Jobs — app timezone), or free-text (includes IP).
+Filter by user, server, token, action, status, **date range** (same **7d / 30d / 90d** presets as Jobs — app timezone), or free-text (includes IP). Per-page is the same **10 / 20 / 50 / 100** cookie as Jobs.
 
 The Audit page uses the same **ops-hero** pattern: status bars, top action-type chips (as filter links), and the active timezone in the subtitle. On dense filter layouts the pulse can be **collapsed** (Hide pulse) so the filter row stays primary; detail rows open a branded **detail modal** (summary + snippet).
 

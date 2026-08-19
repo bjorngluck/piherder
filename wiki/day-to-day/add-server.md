@@ -16,8 +16,23 @@ Without a server record you have no place to store the encrypted SSH key, featur
 
 <figure class="ph-figure" markdown>
   ![Servers list](../assets/screenshots/server-list.png)
-  <figcaption>Servers list — filter chips, status from last checks, bulk bar when selected, ⋯ per host.</figcaption>
+  <figcaption>Servers list — filter chips, search, page size, status from last checks, bulk bar when selected, ⋯ per host.</figcaption>
 </figure>
+
+### Finding hosts on a large fleet {#servers-list-search}
+
+The Servers list (`/servers`) is **server-side**. Pulse counts stay fleet-wide.
+
+| Control | What it does |
+|---------|----------------|
+| Chips (All / Attention / OS / Reboot / Images) | Same as 1.2. Combine with search. |
+| Search box | Tokens match **name, hostname, IP, DNS name, SSH user**. `ha` also matches `homeassistant`; `pi-hole` matches `pihole`. |
+| Per page | **10 / 20 / 50 / 100** — remembered in cookie `ph_per_page` (same cookie as Jobs, Audit, Docker, discovery). |
+| Pins first | Sort pinned hosts to the top. Does **not** hide the rest. |
+| Reorder | Full fleet only (All + empty search). If you have a filter, search, or pager, Reorder opens `?reorder=1` (unpaged). |
+| Select all visible | **This page only** — not every host that matches the filter. |
+
+Empty filter: “No hosts match” + **Show all**.
 
 ---
 

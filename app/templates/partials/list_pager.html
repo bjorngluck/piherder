@@ -1,0 +1,18 @@
+{# Shared L1 pager. Expects page, total_pages, total, pager_query (no page=). #}
+{% set _path = pager_path|default(request.url.path) %}
+{% set _qs = pager_query|default('') %}
+{% if (total_pages and total_pages > 1) or (total and total > 0 and show_pager_when_single|default(false)) %}
+<div class="flex flex-wrap items-center justify-between gap-3 mt-3 mb-1 text-sm" data-testid="list-pager">
+  <div class="text-xs text-muted">
+    Page {{ page or 1 }} of {{ total_pages or 1 }} · {{ total or 0 }} total
+  </div>
+  <div class="flex flex-wrap gap-2">
+    {% if page and page > 1 %}
+    <a class="btn btn-secondary min-h-11 text-sm" href="{{ _path }}?{{ _qs }}{% if _qs %}&{% endif %}page={{ page - 1 }}" data-testid="list-pager-prev">← Prev</a>
+    {% endif %}
+    {% if page and total_pages and page < total_pages %}
+    <a class="btn btn-secondary min-h-11 text-sm" href="{{ _path }}?{{ _qs }}{% if _qs %}&{% endif %}page={{ page + 1 }}" data-testid="list-pager-next">Next →</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

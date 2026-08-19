@@ -200,10 +200,28 @@ def api_health(auth: ApiAuth = Depends(get_api_auth)):
 def list_servers(
     session: Session = Depends(get_session),
     auth: ApiAuth = Depends(get_api_auth),
+    q: str = "",
+    limit: int = 100,
+    offset: int = 0,
 ):
     auth.require(tok_svc.SCOPE_READ)
+    from ..services import list_query as lq
+
     rows = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
-    return {"servers": [_server_public(s) for s in rows]}
+    q = (q or "").strip()
+    if q:
+        rows = [s for s in rows if lq.match_server(s, q)]
+    total = len(rows)
+    lim = lq.clamp_api_limit(limit)
+    off = lq.parse_offset(offset)
+    page_rows = rows[off : off + lim]
+    return {
+        "servers": [_server_public(s) for s in page_rows],
+        "total": total,
+        "limit": lim,
+        "offset": off,
+        "q": q,
+    }
 
 
 @router.get("/servers/{server_id}", summary="Get server")

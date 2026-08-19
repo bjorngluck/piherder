@@ -239,7 +239,7 @@ Operators can mutate; viewers see read-only identity. Map view restores scroll a
 
 ## Devices → Map view {#devices-map-view}
 
-- Hosts grouped by **/24** (or IPv6 /64), with search filter.
+- Hosts grouped by **/24** (or IPv6 /64), with **client-side** search (map is not paged).
 - **List | Map** toggle on the Devices toolbar (shared stats strip).
 - **Click a host card** → edit modal (above). Stays on Map view.
 - **Show unlinked** (default on): include unlinked hosts (`new` / `known` / `stale`). Uncheck to keep only **linked** devices. Preference is browser-local (separate from Hosts map radar).
@@ -249,7 +249,7 @@ Operators can mutate; viewers see read-only identity. Map view restores scroll a
 
 ### Devices → List view
 
-- Shared filter bar: All / New / Known / Linked / **Hidden** / **Offline** + counts + search (search also matches last-seen / hidden tokens).
+- Shared filter bar: All / New / Known / Linked / **Hidden** / **Offline** + counts + **server-side** search (`q`) and pager (10 / 20 / 50 / 100, same `ph_per_page` cookie as Servers). Search matches IP, hostname, display name, MAC, vendor, OS, notes, kind (`ha` / `rpi` aliases). Chip counts stay fleet-wide.
 - Each row shows **Last seen** (relative; absolute in title) and state.
 - **Offline** = not seen recently (stale after ~14 days without `last_seen`; warning colour). Devices are **never auto-deleted**.
 - **Hide** (modal) = ignore — off Devices map and Hosts overlay; still in DB under **Hidden** (Unhide restores).

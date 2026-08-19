@@ -117,7 +117,7 @@ Base path: **`/api/v1`**
 
 | Method | Path | Scope | Description |
 |--------|------|-------|-------------|
-| `GET` | `/api/v1/servers` | `read` | List servers (includes `features` object) |
+| `GET` | `/api/v1/servers` | `read` | List servers (`features` object). Optional `q`, `limit` (default **100**, max 100), `offset`. Response includes `total`, `limit`, `offset`. Previously unbounded. |
 | `GET` | `/api/v1/servers/{id}` | `read` | One server |
 | `PATCH` | `/api/v1/servers/{id}/features` | `edit` | Toggle feature flags |
 

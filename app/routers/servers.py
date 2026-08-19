@@ -6,7 +6,7 @@ import json
 from typing import Optional, List
 from starlette.concurrency import run_in_threadpool
 from ..database import get_session, engine
-from ..models import Server, AuditLog, Job
+from ..models import Server, AuditLog, Job, UserFavourite
 from datetime import datetime
 from ..security import encryption
 import asyncio
@@ -63,13 +63,21 @@ async def list_servers(
     """Extremely lean Servers list - pure DB read.
     last_backup_at is populated by the worker on success.
     Optional filter: attention | os | reboot | containers
+    v1.3 L: q + per_page + fav sort. Pulse counts stay fleet-wide.
     """
+    from ..services import list_query as lq
+
     start = time.time()
     filt = (filter or "").strip().lower()
     if filt not in ("", "all", "attention", "os", "reboot", "containers"):
         filt = "all"
     if filt == "":
         filt = "all"
+    q = (request.query_params.get("q") or "").strip()
+    fav = (request.query_params.get("fav") or "").strip() in ("1", "true", "yes", "on")
+    reorder = (request.query_params.get("reorder") or "").strip() in ("1", "true", "yes")
+    per_page = lq.per_page_from_request(request)
+    page = lq.page_from_request(request)
 
     try:
         rows = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
@@ -122,6 +130,53 @@ async def list_servers(
         rows = [s for s in rows if s.reboot_pending]
     elif filt == "containers":
         rows = [s for s in rows if _has_cont(s)]
+
+    if q:
+        rows = [s for s in rows if lq.match_server(s, q)]
+
+    fav_ids: set[int] = set()
+    if user and getattr(user, "id", None):
+        try:
+            raw_favs = session.exec(
+                select(UserFavourite.server_id).where(
+                    UserFavourite.user_id == int(user.id),
+                    UserFavourite.server_id.is_not(None),
+                )
+            ).all()
+            for fid in raw_favs:
+                if isinstance(fid, tuple):
+                    fid = fid[0]
+                if fid is not None:
+                    fav_ids.add(int(fid))
+        except Exception:
+            fav_ids = set()
+    if fav and fav_ids:
+        rows = sorted(
+            rows,
+            key=lambda s: (
+                0 if getattr(s, "id", None) in fav_ids else 1,
+                int(getattr(s, "sort_order", 0) or 0),
+                (s.name or "").lower(),
+            ),
+        )
+
+    # Reorder needs the full All-list (no q). Chip/search still applied only when not reordering.
+    if reorder:
+        filt = "all"
+        q = ""
+        fav = False
+        try:
+            rows = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
+        except Exception:
+            rows = list(session.exec(select(Server).order_by(Server.name)).all())
+        total = len(rows)
+        total_pages = 1
+        page = 1
+        list_paged = False
+    else:
+        page_rows, total, total_pages, page = lq.page_slice(rows, page, per_page)
+        rows = page_rows
+        list_paged = total_pages > 1
 
     servers = []
     for row in rows:
@@ -192,11 +247,13 @@ async def list_servers(
     except Exception as e:
         logger.debug("nmap discovery chips skip: %s", e)
 
-    total = time.time() - start
-    if total > 0.3:
-        logger.warning(f"[list_servers] Total render took {total:.2f}s for {len(servers)} server(s)")
+    elapsed = time.time() - start
+    if elapsed > 0.3:
+        logger.warning(
+            f"[list_servers] Total render took {elapsed:.2f}s for {len(servers)} server(s)"
+        )
     else:
-        logger.debug(f"[list_servers] Total render took {total:.2f}s")
+        logger.debug(f"[list_servers] Total render took {elapsed:.2f}s")
 
     from ..security.auth import ROLE_OPERATOR, role_at_least
     from ..services import ssh_console as cons_svc
@@ -207,7 +264,20 @@ async def list_servers(
     # Production: operator+. Demo D5: shared viewer may open simulated console.
     can_console = console_on and (is_operator or demo_console)
 
-    return templates_mod.templates.TemplateResponse(
+    pager_extra = {"filter": filt, "fav": fav}
+    ctx_pager = lq.pager(
+        page=page,
+        per_page=per_page,
+        total=total,
+        total_pages=total_pages,
+        q=q,
+        extra=pager_extra,
+    )
+    keep_query = lq.query_string({"q": q, "per_page": per_page, "fav": fav})
+    fav_toggle_query = lq.query_string(
+        {"q": q, "per_page": per_page, "filter": filt, "fav": not fav}
+    )
+    resp = templates_mod.templates.TemplateResponse(
         request=request,
         name="server_list.html",
         context={
@@ -223,8 +293,17 @@ async def list_servers(
             "demo_console": demo_console,
             # Operator+ and feature flag — Servers list kebab + multi-select Console
             "can_console": can_console,
+            "q": q,
+            "fav": fav,
+            "reorder": reorder,
+            "list_paged": list_paged,
+            "fav_ids": fav_ids,
+            "keep_query": keep_query,
+            "fav_toggle_query": fav_toggle_query,
+            **ctx_pager,
         },
     )
+    return lq.attach_per_page_cookie(resp, per_page)
 
 
 @router.post("/bulk")

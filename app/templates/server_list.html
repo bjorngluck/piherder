@@ -22,7 +22,7 @@
     </p>
     <div class="ops-hero-actions">
       <button type="button" id="btn-reorder-toggle" class="btn btn-secondary text-xs min-h-9 px-2.5"
-              {% if filter and filter != 'all' %}title="Switch to All servers to reorder"{% endif %}>
+              {% if (filter and filter != 'all') or q or list_paged %}title="Reorder uses the full server list"{% endif %}>
         Reorder
       </button>
       <button type="button" onclick="location.reload()"
@@ -94,22 +94,42 @@
 
 {% set fc = filter_counts or {} %}
 {% set f = filter or 'all' %}
+{% set _keep = keep_query|default('') %}
 <div class="server-filter-bar ops-type-chips mb-3" id="server-filter-bar" role="navigation" aria-label="Filter servers">
-  <a href="/servers" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'all' else '' }}">
+  <a href="/servers{% if _keep %}?{{ _keep }}{% endif %}" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'all' else '' }}">
     All <span class="server-filter-count ops-type-chip-n">{{ fc.get('all', 0) }}</span>
   </a>
-  <a href="/servers?filter=attention" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'attention' else '' }}">
+  <a href="/servers?filter=attention{% if _keep %}&{{ _keep }}{% endif %}" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'attention' else '' }}">
     Attention <span class="server-filter-count ops-type-chip-n">{{ fc.get('attention', 0) }}</span>
   </a>
-  <a href="/servers?filter=os" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'os' else '' }}">
+  <a href="/servers?filter=os{% if _keep %}&{{ _keep }}{% endif %}" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'os' else '' }}">
     OS <span class="server-filter-count ops-type-chip-n">{{ fc.get('os', 0) }}</span>
   </a>
-  <a href="/servers?filter=reboot" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'reboot' else '' }}">
+  <a href="/servers?filter=reboot{% if _keep %}&{{ _keep }}{% endif %}" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'reboot' else '' }}">
     Reboot <span class="server-filter-count ops-type-chip-n">{{ fc.get('reboot', 0) }}</span>
   </a>
-  <a href="/servers?filter=containers" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'containers' else '' }}">
+  <a href="/servers?filter=containers{% if _keep %}&{{ _keep }}{% endif %}" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'containers' else '' }}">
     Images <span class="server-filter-count ops-type-chip-n">{{ fc.get('containers', 0) }}</span>
   </a>
+  <form method="get" action="/servers" class="server-list-search flex flex-wrap items-center gap-2 min-w-0 flex-1" role="search">
+    {% if f and f != 'all' %}<input type="hidden" name="filter" value="{{ f }}">{% endif %}
+    {% if fav %}<input type="hidden" name="fav" value="1">{% endif %}
+    <label class="sr-only" for="server-list-q">Search hosts</label>
+    <input type="search" id="server-list-q" name="q" value="{{ q or '' }}"
+           class="ops-f-control flex-1 min-w-[10rem]"
+           placeholder="Search name, host, IP…"
+           autocomplete="off" data-testid="server-list-search">
+    <select name="per_page" class="ops-f-control ops-f-narrow" aria-label="Per page"
+            onchange="this.form.submit()" data-testid="server-list-per-page">
+      {% for n in per_page_choices or [10, 20, 50, 100] %}
+      <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/pg</option>
+      {% endfor %}
+    </select>
+    <a href="/servers{% if fav_toggle_query %}?{{ fav_toggle_query }}{% endif %}"
+       class="server-filter-chip ops-type-chip {{ 'is-active' if fav else '' }}"
+       title="Pinned hosts first (does not hide the rest)"
+       data-testid="server-list-fav">Pins first</a>
+  </form>
 </div>
 
 {# Bulk selection: select-all always visible when list has rows; action buttons when selection > 0 #}
@@ -166,7 +186,9 @@
 
 {% if servers %}
 <div class="source-list fleet-status-list server-host-list" id="server-host-list"
-     data-filter="{{ f }}">
+     data-filter="{{ f }}"
+     data-q="{{ q or '' }}"
+     data-paged="{{ '1' if list_paged else '0' }}">
   {% for s in servers %}
   <div class="source-row fleet-status-row server-host-row {% if s.get('needs_attention') %}is-attention{% endif %}"
        data-server-id="{{ s.id }}"
@@ -267,13 +289,17 @@
   </div>
 </div>
 {% else %}
-<div class="card empty-state">
-  <p>No servers match this filter.</p>
-  <p class="empty-state-hint">Try <strong>All</strong> or another chip above.</p>
+<div class="card empty-state" data-testid="server-list-empty-filter">
+  <p>No hosts match this filter.</p>
+  <p class="empty-state-hint">Clear the search or pick another chip.</p>
   <div class="empty-state-actions">
     <a href="/servers" class="btn btn-secondary min-h-11">Show all</a>
   </div>
 </div>
+{% endif %}
+
+{% if servers and not reorder %}
+{% include "partials/list_pager.html" %}
 {% endif %}
 
 <!-- OS Patch options (from ⋯ menu) — upgrade XOR full-upgrade -->
@@ -961,13 +987,15 @@
   if (btnToggle) {
     btnToggle.addEventListener('click', async function () {
       var filt = list && list.getAttribute('data-filter');
-      if (!reorderMode && filt && filt !== 'all') {
+      var qv = list && list.getAttribute('data-q');
+      var paged = list && list.getAttribute('data-paged') === '1';
+      if (!reorderMode && ((filt && filt !== 'all') || qv || paged)) {
         var ok = true;
         if (window.PiHerderConfirm) {
           ok = await window.PiHerderConfirm.ask({
             title: 'Reorder servers',
-            message: 'Reorder works on the full server list. Switch to All now?',
-            confirmLabel: 'Switch to All'
+            message: 'Reorder works on the full server list (All, no search). Switch now?',
+            confirmLabel: 'Open full list'
           });
         }
         if (ok) window.location.href = '/servers?reorder=1';
