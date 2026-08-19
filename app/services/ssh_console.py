@@ -21,7 +21,7 @@ import secrets
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Tuple
 
 from ..config import settings
@@ -102,6 +102,9 @@ CONSOLE_ENV_KEYS: Tuple[Tuple[str, str], ...] = (
     ("console_bind_ip", "PIHERDER_SSH_CONSOLE_BIND_IP"),
     ("console_bind_device", "PIHERDER_SSH_CONSOLE_BIND_DEVICE"),
     ("console_privileged_role", "PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE"),
+    ("console_audit_mode", "PIHERDER_SSH_CONSOLE_AUDIT_MODE"),
+    ("console_audit_retention_days", "PIHERDER_SSH_CONSOLE_AUDIT_RETENTION_DAYS"),
+    ("console_audit_required", "PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED"),
 )
 
 
@@ -172,6 +175,9 @@ PRIVILEGED_ROLE_DEFAULT = "admin"
 PRIVILEGED_ROLES = ("admin", "operator")
 CONSOLE_STEPUP_COOKIE = "console_stepup"
 STEPUP_SEC = 90
+AUDIT_MODE_DEFAULT = "off"
+AUDIT_MODES = ("off", "commands", "commands_output")
+AUDIT_RETENTION_MIN, AUDIT_RETENTION_MAX, AUDIT_RETENTION_DEFAULT = 1, 90, 14
 
 
 def _clamp_privileged_role(raw: Any) -> str:
@@ -181,6 +187,12 @@ def _clamp_privileged_role(raw: Any) -> str:
     if s in ("admins", "administrator"):
         s = "admin"
     return s if s in PRIVILEGED_ROLES else PRIVILEGED_ROLE_DEFAULT
+
+
+def _clamp_audit_mode(raw: Any) -> str:
+    from .console_audit import clamp_mode
+
+    return clamp_mode(raw)
 
 
 def _str_knob(
@@ -249,6 +261,14 @@ def clamp_console_policy(raw: Dict[str, Any] | None = None) -> Dict[str, Any]:
         "console_bind_ip": _as_bool(src.get("console_bind_ip"), True),
         "console_bind_device": _as_bool(src.get("console_bind_device"), True),
         "console_privileged_role": _clamp_privileged_role(src.get("console_privileged_role")),
+        "console_audit_mode": _clamp_audit_mode(src.get("console_audit_mode")),
+        "console_audit_retention_days": _as_int(
+            src.get("console_audit_retention_days"),
+            AUDIT_RETENTION_DEFAULT,
+            AUDIT_RETENTION_MIN,
+            AUDIT_RETENTION_MAX,
+        ),
+        "console_audit_required": _as_bool(src.get("console_audit_required"), False),
     }
 
 
@@ -270,6 +290,9 @@ def effective_console_policy() -> Dict[str, Any]:
         "console_bind_ip": bind_ip_enabled(),
         "console_bind_device": bind_device_enabled(),
         "console_privileged_role": privileged_role(),
+        "console_audit_mode": audit_mode_setting(),
+        "console_audit_retention_days": audit_retention_days(),
+        "console_audit_required": audit_required(),
         "enabled": console_enabled(),
         "grant_minutes": grant_minutes(),
     }
@@ -286,7 +309,10 @@ def console_policy_summary(data: Dict[str, Any] | None = None) -> str:
         f"reval={p['console_revalidate_sec']} scroll={p['console_scrollback']} "
         f"bind_ip={int(bool(p['console_bind_ip']))} "
         f"bind_dev={int(bool(p['console_bind_device']))} "
-        f"priv={p.get('console_privileged_role') or PRIVILEGED_ROLE_DEFAULT}"
+        f"priv={p.get('console_privileged_role') or PRIVILEGED_ROLE_DEFAULT} "
+        f"audit={p.get('console_audit_mode') or AUDIT_MODE_DEFAULT} "
+        f"audit_req={int(bool(p.get('console_audit_required')))} "
+        f"audit_keep={p.get('console_audit_retention_days') or AUDIT_RETENTION_DEFAULT}"
     )
 
 
@@ -450,6 +476,46 @@ def can_open_privileged(user) -> bool:
     if need == "operator":
         return role_at_least(user, ROLE_OPERATOR)
     return (user_role(user) or "") == ROLE_ADMIN
+
+
+def audit_mode_setting() -> str:
+    """Stored / env mode before the required-on-all-sessions clamp."""
+    return _str_knob(
+        "PIHERDER_SSH_CONSOLE_AUDIT_MODE",
+        "console_audit_mode",
+        "PIHERDER_SSH_CONSOLE_AUDIT_MODE",
+        AUDIT_MODE_DEFAULT,
+        AUDIT_MODES,
+    )
+
+
+def audit_required() -> bool:
+    """When true, every live shell records commands (Off is treated as commands)."""
+    return _bool_knob(
+        "PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED",
+        "console_audit_required",
+        "PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED",
+        False,
+    )
+
+
+def audit_mode() -> str:
+    """Effective capture mode. Required + off → commands. Demo callers still skip persist."""
+    mode = audit_mode_setting()
+    if mode == AUDIT_MODE_DEFAULT and audit_required():
+        return "commands"
+    return mode
+
+
+def audit_retention_days() -> int:
+    return _int_knob(
+        "PIHERDER_SSH_CONSOLE_AUDIT_RETENTION_DAYS",
+        "console_audit_retention_days",
+        "PIHERDER_SSH_CONSOLE_AUDIT_RETENTION_DAYS",
+        AUDIT_RETENTION_DEFAULT,
+        AUDIT_RETENTION_MIN,
+        AUDIT_RETENTION_MAX,
+    )
 
 
 def revalidate_sec() -> int:
@@ -957,6 +1023,7 @@ class HeldConsole:
     server_hostname: str
     out_buf: bytearray = field(default_factory=bytearray)
     dead: bool = False
+    recorder: Any = None
 
     def append_out(self, data: bytes) -> None:
         if not data:
@@ -1060,6 +1127,30 @@ def claim_resume(
 
 def _destroy_held_resources(held: HeldConsole, *, release_slot_user: Optional[int]) -> None:
     held.dead = True
+    rec = getattr(held, "recorder", None)
+    if rec is not None and not getattr(rec, "finalized", True):
+        try:
+            from ..database import engine
+            from sqlmodel import Session as _Sess
+
+            from . import console_audit as ca
+            from .audit_write import make_audit_log
+
+            with _Sess(engine) as s:
+                ca.flush_recorder(s, rec, finalize=True)
+                s.add(
+                    make_audit_log(
+                        user_id=held.user_id,
+                        server_id=held.server_id,
+                        action="ssh_console_close",
+                        status="success",
+                        details=ca.close_details(rec, "park_end"),
+                        finished_at=datetime.utcnow(),
+                    )
+                )
+                s.commit()
+        except Exception:
+            pass
     try:
         if held.channel is not None:
             held.channel.close()
@@ -1157,12 +1248,24 @@ def drain_held_channel(held: HeldConsole) -> bool:
             if not data:
                 return False
             held.append_out(data)
+            rec = getattr(held, "recorder", None)
+            if rec is not None:
+                try:
+                    rec.feed_stdout(data)
+                except Exception:
+                    pass
             held.last_activity_mono = time.monotonic()
             progressed = True
         while ch.recv_stderr_ready():
             data = ch.recv_stderr(4096)
             if data:
                 held.append_out(data)
+                rec = getattr(held, "recorder", None)
+                if rec is not None:
+                    try:
+                        rec.feed_stdout(data)
+                    except Exception:
+                        pass
                 held.last_activity_mono = time.monotonic()
                 progressed = True
         del progressed

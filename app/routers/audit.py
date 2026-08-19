@@ -1,15 +1,16 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from sqlmodel import select, func
 
 from .. import templates as templates_mod
 from ..database import get_session
 from ..models import ApiToken, AuditLog, Server, User
-from ..security.auth import get_current_user
+from ..security.auth import ROLE_OPERATOR, get_current_user, get_operator_user, role_at_least
 from ..services.audit_format import format_audit_entry, format_actor_label
+from ..services.audit_write import make_audit_log
 from ..services.app_settings import calendar_today_in_app_tz
 from ..services import list_query as lq
 
@@ -234,7 +235,10 @@ async def audit_page(
                     )
                 except Exception:
                     pass
-                return format_audit_entry(d)
+                row = format_audit_entry(d)
+                tid = row.get("transcript_id")
+                row["transcript_readable"] = bool(tid) and role_at_least(user, ROLE_OPERATOR)
+                return row
 
             if hide_incomplete:
                 # Noise is computed in Python — fetch a window, filter, then page
@@ -315,3 +319,110 @@ async def audit_page(
         },
     )
     return lq.attach_per_page_cookie(resp, per_page)
+
+
+def _operator_transcript(session, user: User, transcript_id: int):
+    from ..services import console_audit as ca
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("console_transcript")
+    row = ca.load_transcript(session, int(transcript_id))
+    if row is None:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    return row, ca
+
+
+@router.get("/audit/console/{transcript_id}/json")
+async def console_transcript_json(
+    transcript_id: int,
+    user: User = Depends(get_operator_user),
+    session=Depends(get_session),
+):
+    row, ca = _operator_transcript(session, user, transcript_id)
+    meta = ca.public_meta(row, readable=True)
+    events = ca.decrypt_events(row) if meta.get("readable") else []
+    session.add(
+        make_audit_log(
+            user_id=user.id,
+            server_id=row.server_id,
+            action="ssh_console_transcript_viewed",
+            status="success",
+            details=f"transcript_id={row.id} cmds={row.command_count}",
+        )
+    )
+    session.commit()
+    return JSONResponse({"ok": True, "transcript": meta, "events": events})
+
+
+@router.get("/audit/console/{transcript_id}/download")
+async def console_transcript_download(
+    transcript_id: int,
+    user: User = Depends(get_operator_user),
+    session=Depends(get_session),
+):
+    row, ca = _operator_transcript(session, user, transcript_id)
+    events = ca.decrypt_events(row)
+    body = ca.events_as_text(events) or "(empty or purged)\n"
+    session.add(
+        make_audit_log(
+            user_id=user.id,
+            server_id=row.server_id,
+            action="ssh_console_transcript_downloaded",
+            status="success",
+            details=f"transcript_id={row.id} cmds={row.command_count} bytes={row.byte_count}",
+        )
+    )
+    session.commit()
+    filename = f"console-{int(transcript_id)}.txt"
+    return Response(
+        content=body.encode("utf-8"),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.get("/audit/console/{transcript_id}", response_class=HTMLResponse)
+async def console_transcript_page(
+    request: Request,
+    transcript_id: int,
+    user: User = Depends(get_operator_user),
+    session=Depends(get_session),
+):
+    row, ca = _operator_transcript(session, user, transcript_id)
+    meta = ca.public_meta(row, readable=True)
+    events = ca.decrypt_events(row) if meta.get("readable") else []
+    session.add(
+        make_audit_log(
+            user_id=user.id,
+            server_id=row.server_id,
+            action="ssh_console_transcript_viewed",
+            status="success",
+            details=f"transcript_id={row.id} cmds={row.command_count}",
+        )
+    )
+    session.commit()
+    server_name = None
+    if row.server_id:
+        srv = session.get(Server, row.server_id)
+        server_name = srv.name if srv else None
+    actor = None
+    if row.user_id:
+        u = session.get(User, row.user_id)
+        actor = (u.display_name or u.email) if u else None
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="audit_console.html",
+        context={
+            "title": f"Console transcript #{transcript_id}",
+            "user": user,
+            "row": row,
+            "meta": meta,
+            "events": events,
+            "server_name": server_name,
+            "actor": actor,
+            "body_text": ca.events_as_text(events),
+        },
+    )

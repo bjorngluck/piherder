@@ -318,6 +318,29 @@ class ServerSshIdentity(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class ConsoleTranscript(SQLModel, table=True):
+    """Encrypted command timeline for one web-console session (v1.3 W-audit)."""
+
+    __tablename__ = "consoletranscript"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    session_key: str = Field(max_length=64, unique=True, index=True)
+    audit_open_id: Optional[int] = None
+    audit_close_id: Optional[int] = None
+    user_id: Optional[int] = Field(default=None, index=True)
+    server_id: Optional[int] = Field(default=None, index=True)
+    identity_role: Optional[str] = Field(default=None, max_length=16)
+    identity_username: Optional[str] = Field(default=None, max_length=64)
+    mode: str = Field(default="commands", max_length=32)
+    command_count: int = 0
+    byte_count: int = 0
+    truncated: bool = False
+    body_encrypted: Optional[str] = None
+    purged_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class AuditLog(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: Optional[int] = Field(default=None, foreign_key="user.id")

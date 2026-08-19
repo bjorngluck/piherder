@@ -158,3 +158,26 @@ def test_privileged_role_clamp_and_default():
     assert cons.clamp_console_policy({"console_privileged_role": "nope"})[
         "console_privileged_role"
     ] == "admin"
+
+
+def test_audit_policy_defaults_and_required(_memory_settings):
+    p = cons.clamp_console_policy({})
+    assert p["console_audit_mode"] == "off"
+    assert p["console_audit_required"] is False
+    assert p["console_audit_retention_days"] == 14
+    cfg.save_settings({"console_audit_mode": "commands", "console_audit_required": True})
+    assert cons.audit_mode_setting() == "commands"
+    assert cons.audit_required() is True
+    assert cons.audit_mode() == "commands"
+    cfg.save_settings({"console_audit_mode": "off", "console_audit_required": True})
+    assert cons.audit_mode() == "commands"
+    s = cons.console_policy_summary()
+    assert "audit=" in s
+
+
+def test_audit_env_lock(monkeypatch, _memory_settings):
+    monkeypatch.setenv("PIHERDER_SSH_CONSOLE_AUDIT_MODE", "commands_output")
+    monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE_AUDIT_MODE", "commands_output")
+    locks = cons.console_env_locks()
+    assert locks["console_audit_mode"] is True
+    assert cons.audit_mode() == "commands_output"

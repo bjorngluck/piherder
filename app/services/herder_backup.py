@@ -639,6 +639,7 @@ def _build_backup_payload(
             "appsetting_raw",  # covered via herder_config JSON
             "nmap_xml_artifacts",  # DATA_ROOT/nmap binaries; paths may be host-local
             "rsync_trees",  # per-server backup product, not herder self-backup
+            "console_transcripts",  # Fernet shell text; DR is Postgres + master key
         ],
         "note": "Encrypted fields need the same PIHERDER_MASTER_KEY on restore. Jobs + nmap scan runs included (v5+).",
     }
@@ -1552,6 +1553,7 @@ def _fix_postgres_sequences() -> None:
         "nmapscanschedule",
         "nmapdevice",
         "nmapscriptresult",
+        "consoletranscript",
     ]
     with engine.connect() as conn:
         for table in tables:

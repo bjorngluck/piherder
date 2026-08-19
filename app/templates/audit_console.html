@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card p-5 mb-4" data-testid="console-transcript">
+  <div class="ph-detail-kicker">Audit · console</div>
+  <h1 class="text-lg font-semibold text-text mb-1">Transcript #{{ row.id }}</h1>
+  <p class="text-sm text-muted mb-4">
+    {% if server_name or row.server_id %}
+    Host:
+    {% if row.server_id %}
+    <a class="text-accent" href="/servers/{{ row.server_id }}">{{ server_name or ('#' ~ row.server_id) }}</a>
+    {% else %}{{ server_name }}{% endif %}
+    ·
+    {% endif %}
+    {{ actor or 'unknown operator' }}
+    {% if row.identity_role %} · {{ row.identity_role }}{% if row.identity_username %} ({{ row.identity_username }}){% endif %}{% endif %}
+    · {{ row.mode }}
+    · {{ row.command_count }} command{% if row.command_count != 1 %}s{% endif %}
+    {% if meta.purged %} · <strong>body expired</strong>{% endif %}
+    {% if row.truncated %} · truncated{% endif %}
+  </p>
+  <div class="flex flex-wrap gap-2 mb-4">
+    <a href="/audit" class="btn btn-secondary min-h-11 text-sm">Back to audit</a>
+    {% if meta.readable %}
+    <a href="/audit/console/{{ row.id }}/download" class="btn btn-accent min-h-11 text-sm"
+       data-testid="console-transcript-download">Download .txt</a>
+    {% endif %}
+  </div>
+  {% if meta.purged %}
+  <p class="text-sm text-muted" data-testid="console-transcript-purged">
+    Encrypted body expired (retention). {{ row.command_count }} commands were recorded.
+  </p>
+  {% else %}
+  <pre class="ph-detail-log font-mono text-xs whitespace-pre-wrap" data-testid="console-transcript-body">{{ body_text or '(empty)' }}</pre>
+  {% endif %}
+</div>
+{% endblock %}

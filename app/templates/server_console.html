@@ -62,6 +62,10 @@
     <button type="button" id="console-chrome-toggle" class="btn btn-secondary text-xs ch-ctrl ch-unlocked-only ch-chrome-toggle"
             data-testid="console-chrome-toggle" title="Show or hide status" aria-expanded="false">···</button>
     <span id="console-status" class="ch-status ch-status-collapsible ch-unlocked-only" role="status"></span>
+    {% if console_audit_mode|default('off') != 'off' and not demo_console|default(false) %}
+    <span id="console-audit-chip" class="ch-audit-chip ch-unlocked-only text-[10px] text-muted"
+          data-testid="console-audit-chip" title="This instance records console commands">command audit on</span>
+    {% endif %}
     <span id="console-slot-info" class="ch-slots-inline ch-hide-compact ch-unlocked-only"></span>
   </div>
   {# Font size / extras — hidden until Aa #}
@@ -78,6 +82,9 @@
     <span class="ch-slots-inline" id="console-slot-info-2"></span>
   </div>
   <p id="console-gate-help" class="hidden" aria-hidden="true"></p>
+  <p id="console-audit-off-warn" class="hidden text-xs text-muted" data-testid="console-audit-off-warn">
+    Command audit is off. This break-glass session will not record commands.
+  </p>
   <p id="console-error" class="hidden text-sm text-danger ch-err" role="alert"></p>
 </div>
 
@@ -479,6 +486,8 @@
   var privReason = document.getElementById('console-priv-reason');
   var privNeed2fa = false;
   var privReasonArmed = false;
+  var auditOn = {{ 'true' if console_audit_mode|default('off') != 'off' and not demo_console|default(false) else 'false' }};
+  var auditOffWarn = document.getElementById('console-audit-off-warn');
   var popupMode = {{ 'true' if popup_mode else 'false' }};
   var scrollbackDefault = {{ (scrollback_default|default(2000))|int }};
   var windowMaxFallback = false;
@@ -1068,6 +1077,10 @@
       chRootEl.classList.toggle('is-status-hidden', statusHidden && unlocked && !privNeed2fa);
     }
     syncReasonVisibility();
+    if (auditOffWarn) {
+      var showWarn = privilegedSelected() && !auditOn;
+      auditOffWarn.classList.toggle('hidden', !showWarn);
+    }
     if (btnChromeToggle) {
       btnChromeToggle.classList.toggle('is-on', !statusHidden);
       btnChromeToggle.setAttribute('aria-expanded', statusHidden ? 'false' : 'true');

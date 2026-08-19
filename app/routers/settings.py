@@ -1182,6 +1182,9 @@ async def save_console_policy(
     console_bind_ip: Optional[str] = Form(None),
     console_bind_device: Optional[str] = Form(None),
     console_privileged_role: str = Form("admin"),
+    console_audit_mode: str = Form("off"),
+    console_audit_retention_days: int = Form(14),
+    console_audit_required: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
@@ -1203,6 +1206,9 @@ async def save_console_policy(
             "console_bind_ip": _form_on(console_bind_ip),
             "console_bind_device": _form_on(console_bind_device),
             "console_privileged_role": console_privileged_role,
+            "console_audit_mode": console_audit_mode,
+            "console_audit_retention_days": console_audit_retention_days,
+            "console_audit_required": _form_on(console_audit_required),
         }
     )
     locks = cons.console_env_locks()

@@ -85,6 +85,8 @@ _ACTION_LABELS = {
     "ssh_console_open": "SSH console opened",
     "ssh_console_close": "SSH console closed",
     "ssh_console_denied": "SSH console denied",
+    "ssh_console_transcript_viewed": "Console transcript viewed",
+    "ssh_console_transcript_downloaded": "Console transcript downloaded",
     "user_trusted_device_revoked": "Trusted device revoked",
     "server_features_updated": "Feature flags updated",
     "api_token_created": "API token created",
@@ -451,6 +453,39 @@ def format_audit_entry(log: dict) -> dict:
 
     elif action in ("retention", "container_patch", "diagnostics"):
         summary = (snippet or details or action_label)[:140]
+
+    elif action in (
+        "ssh_console_open",
+        "ssh_console_close",
+        "ssh_console_denied",
+        "ssh_console_transcript_viewed",
+        "ssh_console_transcript_downloaded",
+    ):
+        from .console_audit import parse_kv_details
+
+        kv = parse_kv_details(details)
+        tid_raw = kv.get("transcript_id") or ""
+        try:
+            log["transcript_id"] = int(tid_raw) if tid_raw else None
+        except (TypeError, ValueError):
+            log["transcript_id"] = None
+        if action == "ssh_console_close" and log.get("transcript_id"):
+            cmds = kv.get("cmds") or "0"
+            if kv.get("purged") == "1":
+                summary = f"{cmds} commands · body expired"
+            else:
+                try:
+                    b = int(kv.get("bytes") or 0)
+                    summary = f"{cmds} commands · {human_size(b)}"
+                except (TypeError, ValueError):
+                    summary = f"{cmds} commands"
+        elif action == "ssh_console_open":
+            ident = kv.get("identity") or ""
+            aud = kv.get("audit") or ""
+            bits = [p for p in (ident, f"audit={aud}" if aud else "") if p]
+            summary = " · ".join(bits) if bits else (details[:140] or "Console opened")
+        else:
+            summary = details[:140] or action_label
 
     modal_body = snippet or details or "(no additional output)"
     if action == "os_patch" and isinstance(parsed, dict):

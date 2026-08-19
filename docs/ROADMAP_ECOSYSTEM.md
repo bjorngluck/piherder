@@ -87,7 +87,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-08-18):** **v1.3.0 train opened** on **`v1.3.0-dev`**. Must: **L** lists · **P** password policy · **T6** account step-up KI · **W-id** Connect as…. Should: **T** remainder · **W-cfg** · **A** · **N2** · **F2**. `main` stays patchable for **v1.2.x**. Package version stays `1.2.0` until freeze. See [PLAN_v1.3.0.md](PLAN_v1.3.0.md).
 
-**Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg: Settings → Console timeouts / concurrency / bind; kill switch env-only). **Slice 3 Deep landed** (L: Servers / Docker / discovery search + pager). **Slice 4 Deep landed** (W-id: fleet + privileged + Connect as…). Next: **W-audit0** spike (discover).
+**Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg: Settings → Console timeouts / concurrency / bind; kill switch env-only). **Slice 3 Deep landed** (L: Servers / Docker / discovery search + pager). **Slice 4 Deep landed** (W-id: fleet + privileged + Connect as…). **Slice 5 Deep landed** (W-audit: opt-in command audit). Next: **A** / **N0** / **F0**.
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.2.0` / `1.2` / `latest`.
 

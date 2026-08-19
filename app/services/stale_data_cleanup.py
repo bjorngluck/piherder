@@ -212,6 +212,7 @@ def run_stale_data_cleanup(
         "deleted_audit": 0,
         "deleted_nmap_runs": 0,
         "deleted_nmap_files": 0,
+        "purged_console_transcripts": 0,
         "status": "success",
     }
 
@@ -254,6 +255,23 @@ def run_stale_data_cleanup(
                     f"Deleted {n} audit row(s) older than {conf['audit_days']}d"
                 ),
             )
+        try:
+            from . import console_audit as ca
+            from . import ssh_console as cons
+
+            n = ca.purge_transcript_bodies(
+                session, older_than_days=cons.audit_retention_days()
+            )
+            result["purged_console_transcripts"] = n
+            merge_job_details(
+                session,
+                job_id,
+                status="running",
+                current="console_audit",
+                log_line=stamp_line(f"Purged {n} console transcript body(ies)"),
+            )
+        except Exception as e:
+            logger.debug("console transcript retention skipped: %s", e)
         if conf["nmap_enabled"]:
             nm = _delete_old_nmap_runs(session, conf["nmap_days"])
             result["deleted_nmap_runs"] = nm.get("runs", 0)

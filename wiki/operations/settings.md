@@ -84,6 +84,9 @@ The hero shows a **timezone identity card** (not a city name jammed into the orb
 | Bind to device cookie | on | HttpOnly `console_device` |
 | xterm scrollback | 2000 lines | 500–50000 |
 | Who may open a privileged console | Admin only | Admin only, or operator and admin. Fleet shells stay operator+. Privileged always re-prompts 2FA. Env lock: `PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE` |
+| Command audit | Off | Off · Commands only · Commands + truncated output. May capture secrets typed at the prompt; redaction is heuristic. Viewers cannot read transcripts. Demo never stores. Env: `PIHERDER_SSH_CONSOLE_AUDIT_MODE` |
+| Require on every session | Off | When on, live shells always record commands (Off is ignored) and refuse to open if recording cannot start. Env: `PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED` |
+| Transcript retention | 14 days | 1–90. Drops the encrypted body; the row still shows that a transcript existed. Env: `PIHERDER_SSH_CONSOLE_AUDIT_RETENTION_DAYS` |
 
 The **master enable** is still compose-only: `PIHERDER_SSH_CONSOLE` (default off). 2FA factors and the grant window stay on **Security policy** (two forms — do not move those checkboxes here).
 
