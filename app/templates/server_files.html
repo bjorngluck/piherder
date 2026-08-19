@@ -2,59 +2,276 @@
 
 {% block content %}
 {% set L = listing or {} %}
-{% set entries = L.entries or [] %}
 <style>
-  .hf-crumb { display: flex; flex-wrap: wrap; gap: 0.15rem 0.25rem; font-family: ui-monospace, monospace; font-size: 0.75rem; }
-  .hf-crumb a { color: var(--color-accent); text-decoration: none; }
-  .hf-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  .hf-table th, .hf-table td { padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-  .hf-table th { text-align: left; font-size: 0.68rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-  .hf-name { font-weight: 600; word-break: break-all; }
-  .hf-muted { color: var(--color-muted); font-size: 0.75rem; }
-  .hf-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-  .hf-row-card { display: none; }
-  .hf-prog { width: 100%; height: 0.45rem; margin-top: 0.4rem; }
-  .hf-secret { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-warning, #d97706); }
-  @media (max-width: 639px) {
-    .hf-table thead { display: none; }
-    .hf-table, .hf-table tbody, .hf-table tr, .hf-table td { display: block; width: 100%; }
-    .hf-table tr { padding: 0.65rem 0; border-bottom: 1px solid var(--color-border); }
-    .hf-table td { border: 0; padding: 0.15rem 0; }
-    .hf-actions { margin-top: 0.35rem; }
+  .hf-shell { display: flex; flex-direction: column; gap: 0.65rem; min-height: calc(100dvh - 7.5rem); }
+  .hf-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.75rem; font-size: 0.8rem; color: var(--color-muted); }
+  .hf-win {
+    flex: 1 1 auto;
+    min-height: 28rem;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+    overflow: hidden;
+    box-shadow: 0 8px 28px color-mix(in srgb, #000 12%, transparent);
+  }
+  .hf-win-bar {
+    display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+    padding: 0.45rem 0.7rem;
+    border-bottom: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-bg) 70%, var(--color-surface));
+  }
+  .hf-win-title { font-weight: 650; font-size: 0.95rem; min-width: 0; }
+  .hf-win-title small { display: block; font-weight: 500; font-size: 0.7rem; color: var(--color-muted); font-family: ui-monospace, monospace; }
+  .hf-win-bar .spacer { flex: 1 1 auto; }
+  .hf-toolbar {
+    display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
+    padding: 0.4rem 0.55rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .hf-path {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.15rem;
+    flex: 1 1 12rem; min-width: 0;
+    font-family: ui-monospace, monospace; font-size: 0.78rem;
+    padding: 0.25rem 0.45rem;
+    border: 1px solid var(--color-border); border-radius: 8px;
+    background: var(--color-bg);
+  }
+  .hf-path a { color: var(--color-accent); text-decoration: none; }
+  .hf-path a:hover { text-decoration: underline; }
+  .hf-panes { display: flex; flex: 1 1 auto; min-height: 18rem; }
+  .hf-tree {
+    width: 15.5rem; flex: 0 0 15.5rem;
+    border-right: 1px solid var(--color-border);
+    overflow: auto;
+    padding: 0.4rem 0.25rem 0.6rem;
+    background: color-mix(in srgb, var(--color-bg) 55%, var(--color-surface));
+  }
+  .hf-list {
+    flex: 1 1 auto; min-width: 0; overflow: auto; position: relative;
+  }
+  .hf-tree-row {
+    display: flex; align-items: center; gap: 0.15rem;
+    width: 100%; text-align: left;
+    padding: 0.22rem 0.3rem; border-radius: 6px;
+    border: 0; background: transparent; color: inherit;
+    cursor: pointer; font-size: 0.82rem;
+  }
+  .hf-tree-row:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+  .hf-tree-row.is-current { background: color-mix(in srgb, var(--color-accent) 18%, transparent); font-weight: 600; }
+  .hf-twist { width: 1.1rem; flex: 0 0 1.1rem; color: var(--color-muted); font-size: 0.7rem; }
+  .hf-tree-kids { margin-left: 0.85rem; }
+  .hf-cols {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) 5.5rem 8.5rem 2.4rem;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.68rem; color: var(--color-muted); font-weight: 650;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--color-border);
+    position: sticky; top: 0;
+    background: var(--color-surface);
+    z-index: 1;
+  }
+  .hf-item {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) 5.5rem 8.5rem 2.4rem;
+    gap: 0.35rem;
+    align-items: center;
+    padding: 0.42rem 0.75rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+    cursor: default; min-height: 2.6rem;
+  }
+  .hf-item:hover { background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
+  .hf-item.is-selected { background: color-mix(in srgb, var(--color-accent) 16%, transparent); }
+  .hf-item.is-dir { cursor: pointer; }
+  .hf-iname { display: flex; align-items: center; gap: 0.45rem; min-width: 0; font-weight: 600; }
+  .hf-iname span.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hf-ico { width: 1.15rem; text-align: center; flex-shrink: 0; }
+  .hf-meta { color: var(--color-muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+  .hf-secret { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-warning, #d97706); }
+  .hf-status {
+    display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;
+    padding: 0.35rem 0.7rem; font-size: 0.75rem; color: var(--color-muted);
+    border-top: 1px solid var(--color-border);
+    min-height: 2rem;
+  }
+  .hf-status .ok { color: var(--color-accent); }
+  .hf-status .err { color: var(--color-danger, #dc2626); }
+  .hf-empty { padding: 2.2rem 1rem; text-align: center; color: var(--color-muted); }
+  .hf-prog { width: 100%; height: 0.35rem; display: none; }
+  .hf-prog.is-on { display: block; }
+  .hf-drop {
+    display: none; position: absolute; inset: 0;
+    align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+    border: 2px dashed var(--color-accent); font-weight: 650; z-index: 2;
+  }
+  .hf-list.is-drag .hf-drop { display: flex; }
+  .hf-menu {
+    position: absolute; z-index: 20; min-width: 10rem;
+    border: 1px solid var(--color-border); border-radius: 8px;
+    background: var(--color-surface); padding: 0.25rem;
+    box-shadow: 0 10px 24px color-mix(in srgb, #000 18%, transparent);
+  }
+  .hf-menu button {
+    display: block; width: 100%; text-align: left; border: 0; background: transparent;
+    color: inherit; padding: 0.45rem 0.6rem; border-radius: 6px; font-size: 0.85rem; cursor: pointer;
+  }
+  .hf-menu button:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+  .hf-menu button.danger { color: var(--color-danger, #dc2626); }
+  @media (max-width: 719px) {
+    .hf-tree { display: none; }
+    .hf-item, .hf-cols { grid-template-columns: minmax(0, 1fr) 2.4rem; }
+    .hf-item .hf-meta, .hf-cols .hf-hide-sm { display: none; }
+    .hf-win { min-height: calc(100dvh - 9rem); }
   }
 </style>
 
-<section class="ops-hero ops-hero--host is-ok mb-4" data-testid="host-files-page">
-  <div class="ops-hero-main">
-    <div class="ops-hero-kicker host-kicker-line">
-      <span class="host-switcher-cluster">
-        <a href="/servers/{{ server.id }}" class="host-switcher-name-link"
-           data-testid="host-overview-link" title="Full server overview">{{ server.name }}</a>
-        {% if can_host_jump|default(false) %}
-        <button type="button" class="host-switcher-caret-btn" data-host-switch-open
-                data-testid="host-switcher-open"
-                title="Files on another host"
-                aria-label="Switch host for Files">
-          <span aria-hidden="true">▾</span>
-        </button>
-        {% endif %}
-      </span>
-      <span class="host-kicker-sep">·</span>
-      <span>Files</span>
-      {% include "partials/host_feature_nav.html" %}
-    </div>
-    <h1 class="ops-hero-title">Files</h1>
-    <p class="ops-hero-sub">
-      Jail <code class="text-[10px]">{{ L.jail or '—' }}</code>
-      · {{ role }}
-      · max upload {{ max_upload_h }}
-    </p>
-    <div class="ops-hero-actions">
-      <form method="get" action="/servers/{{ server.id }}/files" class="inline-flex items-center gap-2">
+<div class="hf-shell" data-testid="host-files-page"
+     data-server="{{ server.id }}"
+     data-identity="{{ role }}"
+     data-needs-stepup="{{ '1' if needs_stepup else '0' }}">
+
+  <div class="hf-kicker host-kicker-line">
+    <span class="host-switcher-cluster">
+      <a href="/servers/{{ server.id }}" class="host-switcher-name-link" data-testid="host-overview-link">{{ server.name }}</a>
+      {% if can_host_jump|default(false) %}
+      <button type="button" class="host-switcher-caret-btn" data-host-switch-open data-testid="host-switcher-open"
+              title="Files on another host" aria-label="Switch host for Files"><span aria-hidden="true">▾</span></button>
+      {% endif %}
+    </span>
+    <span class="host-kicker-sep">·</span>
+    <span>Files</span>
+    {% include "partials/host_feature_nav.html" %}
+    {% include "partials/host_switcher.html" %}
+  </div>
+
+  {% if needs_stepup %}
+  <div class="card p-4" data-testid="files-stepup">
+    <h2 class="font-semibold mb-1">Unlock privileged Files</h2>
+    <p class="text-sm text-muted mb-3">Same step-up as a privileged console. Passkey is preferred when you have one enrolled.</p>
+    <p id="hf-stepup-err" class="text-sm text-danger mb-2" hidden></p>
+    <div class="flex flex-wrap gap-2 items-end">
+      {% if has_passkeys %}
+      <button type="button" id="hf-passkey"
+              class="btn {% if prefer_passkey %}btn-accent{% else %}btn-secondary{% endif %} min-h-11"
+              data-testid="files-passkey">Passkey</button>
+      {% endif %}
+      {% if not require_passkey or not has_passkeys %}
+      <form method="post" action="/servers/{{ server.id }}/files/unlock" class="flex flex-wrap gap-2 items-end">
         <input type="hidden" name="p" value="{{ L.rel or '' }}">
-        <label class="text-xs text-muted">Connect as</label>
-        <select name="identity" class="bg-surface border border-border rounded px-2 min-h-11 text-sm" data-testid="files-identity"
-                onchange="this.form.submit()">
+        <label class="text-xs text-muted">Authenticator
+          <input name="totp_code" inputmode="numeric" autocomplete="one-time-code"
+                 class="block bg-surface border border-border rounded px-3 min-h-11" placeholder="TOTP">
+        </label>
+        <button class="btn {% if has_passkeys and prefer_passkey %}btn-secondary{% else %}btn-accent{% endif %} min-h-11" type="submit">Unlock</button>
+      </form>
+      {% elif require_passkey and has_passkeys %}
+      <p class="text-xs text-muted">This account requires a passkey for privileged Files (Settings → Security).</p>
+      {% endif %}
+    </div>
+  </div>
+  <script>
+  (function () {
+    var btn = document.getElementById('hf-passkey');
+    if (!btn) return;
+    var err = document.getElementById('hf-stepup-err');
+    var sid = {{ server.id }};
+    function showErr(m) {
+      err.hidden = false;
+      err.textContent = m;
+    }
+    function b64urlToBuf(b64url) {
+      var pad = '='.repeat((4 - (b64url.length % 4)) % 4);
+      var b64 = (b64url + pad).replace(/-/g, '+').replace(/_/g, '/');
+      var str = atob(b64);
+      var buf = new ArrayBuffer(str.length);
+      var view = new Uint8Array(buf);
+      for (var i = 0; i < str.length; i++) view[i] = str.charCodeAt(i);
+      return buf;
+    }
+    function bufToB64url(buf) {
+      var bytes = new Uint8Array(buf);
+      var s = '';
+      for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+      return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    function publicKeyCredentialToJSON(cred) {
+      var out = { id: cred.id, type: cred.type, rawId: bufToB64url(cred.rawId), response: {} };
+      if (cred.response) {
+        if (cred.response.clientDataJSON)
+          out.response.clientDataJSON = bufToB64url(cred.response.clientDataJSON);
+        if (cred.response.authenticatorData)
+          out.response.authenticatorData = bufToB64url(cred.response.authenticatorData);
+        if (cred.response.signature)
+          out.response.signature = bufToB64url(cred.response.signature);
+        if (cred.response.userHandle)
+          out.response.userHandle = cred.response.userHandle ? bufToB64url(cred.response.userHandle) : null;
+      }
+      return out;
+    }
+    btn.addEventListener('click', async function () {
+      err.hidden = true;
+      if (!window.PublicKeyCredential) {
+        showErr('Passkeys are not supported in this browser.');
+        return;
+      }
+      btn.disabled = true;
+      try {
+        var optRes = await fetch('/servers/' + sid + '/files/webauthn/options', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'PiHerderFiles' }
+        });
+        var optData = await optRes.json().catch(function () { return {}; });
+        if (!optRes.ok || !optData.ok) {
+          throw new Error(optData.detail || optData.error || 'Passkey options failed');
+        }
+        var opts = optData.options;
+        if (opts.publicKey) opts = opts.publicKey;
+        if (opts.challenge) opts.challenge = b64urlToBuf(opts.challenge);
+        if (opts.allowCredentials) {
+          opts.allowCredentials = opts.allowCredentials.map(function (c) {
+            return Object.assign({}, c, { id: b64urlToBuf(c.id) });
+          });
+        }
+        var cred = await navigator.credentials.get({ publicKey: opts });
+        if (!cred) throw new Error('Passkey cancelled');
+        var verRes = await fetch('/servers/' + sid + '/files/webauthn/verify', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'PiHerderFiles' },
+          body: JSON.stringify({ credential: publicKeyCredentialToJSON(cred) })
+        });
+        var ver = await verRes.json().catch(function () { return {}; });
+        if (!ver.ok) throw new Error(ver.detail || ver.error || 'Passkey verification failed');
+        var q = new URLSearchParams(window.location.search);
+        q.set('identity', 'privileged');
+        q.set('msg', 'unlocked');
+        window.location = '/servers/' + sid + '/files?' + q.toString();
+      } catch (e) {
+        var msg = String((e && e.message) || e || 'Passkey failed');
+        if (/not allowed|NotAllowedError/i.test(msg)) {
+          msg = 'Passkey cancelled or not allowed in this window.';
+        }
+        showErr(msg);
+        btn.disabled = false;
+      }
+    });
+  })();
+  </script>
+  {% else %}
+
+  <div class="hf-win" id="hf-win" role="application" aria-label="Remote files">
+    <div class="hf-win-bar">
+      <div class="hf-win-title">
+        Files
+        <small id="hf-jail">{{ L.jail or '—' }}</small>
+      </div>
+      <label class="text-xs text-muted">Connect as
+        <select id="hf-identity" class="bg-surface border border-border rounded px-2 min-h-10 text-sm" data-testid="files-identity">
           {% for ident in identities %}
           <option value="{{ ident.role }}" {% if ident.role == role %}selected{% endif %}
                   {% if ident.role == 'privileged' and not can_privileged %}disabled{% endif %}>
@@ -65,184 +282,368 @@
           <option value="fleet" selected>Fleet</option>
           {% endfor %}
         </select>
-      </form>
-      <a href="/servers/{{ server.id }}" class="btn btn-secondary min-h-11 text-sm">Server</a>
+      </label>
+      <span class="spacer"></span>
+      <a href="/servers/{{ server.id }}" class="btn btn-secondary text-xs min-h-10">Close</a>
     </div>
-    {% include "partials/host_switcher.html" %}
+    <div class="hf-toolbar">
+      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-up" title="Parent folder">↑ Up</button>
+      <nav class="hf-path" id="hf-path" aria-label="Path"></nav>
+      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-mkdir">New folder</button>
+      <button type="button" class="btn btn-accent text-xs min-h-10" id="hf-upload-btn" data-testid="files-upload">Upload</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-refresh" title="Reload this folder">↻</button>
+      <input id="hf-file" type="file" hidden>
+    </div>
+    <progress id="hf-prog" class="hf-prog" max="100" value="0"></progress>
+    <div class="hf-panes">
+      <aside class="hf-tree" id="hf-tree" aria-label="Folders"></aside>
+      <section class="hf-list" id="hf-list" tabindex="0">
+        <div class="hf-drop" id="hf-drop">Drop files to upload here</div>
+        <div class="hf-cols"><span>Name</span><span class="hf-hide-sm">Size</span><span class="hf-hide-sm">Modified</span><span></span></div>
+        <div id="hf-rows"></div>
+      </section>
+    </div>
+    <div class="hf-status"><span id="hf-status">Ready</span><span>Max upload {{ max_upload_h }} · drag files onto the list</span></div>
   </div>
-</section>
-
-{% if msg == 'uploaded' %}
-<p class="text-sm text-accent mb-3">Uploaded.</p>
-{% elif msg == 'mkdir' %}
-<p class="text-sm text-accent mb-3">Folder created.</p>
-{% elif msg == 'renamed' %}
-<p class="text-sm text-accent mb-3">Renamed.</p>
-{% elif msg == 'deleted' %}
-<p class="text-sm text-accent mb-3">Deleted.</p>
-{% elif msg == 'unlocked' %}
-<p class="text-sm text-accent mb-3">Privileged Files unlocked for this grant window.</p>
-{% endif %}
-{% if error %}
-<p class="text-sm text-danger mb-3" data-testid="files-error">{{ error }}</p>
-{% endif %}
-
-{% if needs_stepup %}
-<div class="card p-4 mb-4" data-testid="files-stepup">
-  <h2 class="font-semibold mb-1">Unlock privileged Files</h2>
-  <p class="text-sm text-muted mb-3">Same step-up as a privileged console. Enter a TOTP code, or complete passkey step-up in Console first (the grant cookie is shared).</p>
-  <form method="post" action="/servers/{{ server.id }}/files/unlock" class="flex flex-wrap gap-2 items-end">
-    <input type="hidden" name="p" value="{{ L.rel or '' }}">
-    <label class="text-xs text-muted">TOTP
-      <input name="totp_code" inputmode="numeric" autocomplete="one-time-code" class="block bg-surface border border-border rounded px-3 min-h-11" placeholder="123456">
-    </label>
-    <button class="btn btn-accent min-h-11" type="submit">Unlock</button>
-  </form>
+  {% endif %}
 </div>
-{% else %}
-
-<nav class="hf-crumb mb-3" aria-label="Path">
-  <a href="/servers/{{ server.id }}/files?identity={{ role }}">{{ L.jail or '/' }}</a>
-  {% for c in L.crumbs or [] %}
-  <span class="text-muted">/</span>
-  <a href="/servers/{{ server.id }}/files?identity={{ role }}&amp;p={{ c.rel | urlencode }}">{{ c.name }}</a>
-  {% endfor %}
-</nav>
-
-<div class="card p-3 mb-4">
-  <div class="flex flex-wrap gap-3 items-end">
-    <form id="hf-upload" method="post" action="/servers/{{ server.id }}/files/upload" enctype="multipart/form-data" class="flex flex-wrap gap-2 items-end">
-      <input type="hidden" name="p" value="{{ L.rel or '' }}">
-      <input type="hidden" name="identity" value="{{ role }}">
-      <label class="text-xs text-muted">Upload into this folder
-        <input id="hf-file" type="file" name="file" required class="block text-sm mt-1">
-      </label>
-      <button class="btn btn-accent min-h-11" type="submit" data-testid="files-upload">Upload</button>
-    </form>
-    <form method="post" action="/servers/{{ server.id }}/files/mkdir" class="flex flex-wrap gap-2 items-end">
-      <input type="hidden" name="p" value="{{ L.rel or '' }}">
-      <input type="hidden" name="identity" value="{{ role }}">
-      <label class="text-xs text-muted">New folder
-        <input name="name" required maxlength="255" class="block bg-surface border border-border rounded px-3 min-h-11" placeholder="logs">
-      </label>
-      <button class="btn btn-secondary min-h-11" type="submit">Create</button>
-    </form>
-  </div>
-  <progress id="hf-prog" class="hf-prog" max="100" value="0" hidden></progress>
-  <p id="hf-prog-label" class="hf-muted mt-1" hidden></p>
-</div>
-
-{% if not entries %}
-<p class="text-sm text-muted mb-4">This folder is empty.</p>
-{% else %}
-<table class="hf-table">
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Type</th>
-      <th>Size</th>
-      <th>Modified</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for e in entries %}
-    <tr>
-      <td>
-        {% if e.kind == 'dir' and not e.escaped %}
-        <a class="hf-name text-accent" href="/servers/{{ server.id }}/files?identity={{ role }}&amp;p={{ e.rel | urlencode }}">{{ e.name }}/</a>
-        {% elif e.kind == 'file' and not e.escaped %}
-        <span class="hf-name">{{ e.name }}</span>
-        {% else %}
-        <span class="hf-name">{{ e.name }}</span>
-        {% endif %}
-        {% if e.secretish %}<span class="hf-secret">secret</span>{% endif %}
-        {% if e.escaped %}<span class="hf-muted"> · symlink outside jail</span>{% endif %}
-      </td>
-      <td class="hf-muted">{{ e.kind }}</td>
-      <td class="hf-muted">{{ e.size_h or '—' }}</td>
-      <td class="hf-muted">{% if e.mtime %}{{ e.mtime | app_tz }}{% else %}—{% endif %}</td>
-      <td>
-        <div class="hf-actions">
-          {% if e.kind == 'file' and not e.escaped %}
-          <a class="btn btn-secondary text-xs min-h-11" href="/servers/{{ server.id }}/files/download?identity={{ role }}&amp;p={{ e.rel | urlencode }}">Download</a>
-          {% endif %}
-          {% if not e.escaped %}
-          <form method="post" action="/servers/{{ server.id }}/files/rename" class="inline-flex gap-1 items-center">
-            <input type="hidden" name="p" value="{{ L.rel or '' }}">
-            <input type="hidden" name="identity" value="{{ role }}">
-            <input type="hidden" name="src" value="{{ e.name }}">
-            <input name="dest" value="{{ e.name }}" maxlength="255" class="bg-surface border border-border rounded px-2 min-h-11 text-sm" style="max-width:10rem">
-            <button class="btn btn-secondary text-xs min-h-11" type="submit">Rename</button>
-          </form>
-          <form method="post" action="/servers/{{ server.id }}/files/delete"
-                data-confirm="Delete {{ e.name }}{% if e.kind == 'dir' %} (must be empty){% endif %}?"
-                data-confirm-title="Delete"
-                data-confirm-label="Delete"
-                data-confirm-danger>
-            <input type="hidden" name="p" value="{{ L.rel or '' }}">
-            <input type="hidden" name="identity" value="{{ role }}">
-            <input type="hidden" name="name" value="{{ e.name }}">
-            <button class="btn btn-secondary text-xs min-h-11" type="submit">Delete</button>
-          </form>
-          {% endif %}
-        </div>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% if L.truncated %}
-<p class="hf-muted mt-2">Listing truncated at 500 names.</p>
-{% endif %}
-{% endif %}
-{% endif %}
 
 <script>
 (function () {
-  var form = document.getElementById('hf-upload');
-  if (!form) return;
-  var file = document.getElementById('hf-file');
-  var bar = document.getElementById('hf-prog');
-  var lab = document.getElementById('hf-prog-label');
-  var existing = {{ existing_names | tojson }};
-  form.addEventListener('submit', function (ev) {
-    if (!file || !file.files || !file.files[0]) return;
-    var name = file.files[0].name.split(/[/\\\\]/).pop();
-    if (existing.indexOf(name) >= 0) {
-      if (!window.confirm('Replace ' + name + ' in this folder?')) {
-        ev.preventDefault();
-        return;
+  var root = document.querySelector('[data-testid="host-files-page"]');
+  if (!root || root.getAttribute('data-needs-stepup') === '1') return;
+  var sid = root.getAttribute('data-server');
+  var identity = root.getAttribute('data-identity') || 'fleet';
+  var boot = {{ listing_boot | tojson }};
+  var cache = {};
+  var current = (boot && boot.rel) || '';
+  var selected = null;
+  var menu = null;
+
+  function $(id) { return document.getElementById(id); }
+  function parentRel(rel) {
+    var p = (rel || '').replace(/\/+$/, '');
+    if (!p) return '';
+    var i = p.lastIndexOf('/');
+    return i < 0 ? '' : p.slice(0, i);
+  }
+  function setStatus(text, cls) {
+    var el = $('hf-status');
+    el.className = cls || '';
+    el.textContent = text;
+  }
+  function hdr() { return { 'X-PiHerder-Files': '1', 'Accept': 'application/json' }; }
+  function jsonErr(r) {
+    return r.json().then(function (j) { return (j && (j.detail || j.error || j.message)) || ('HTTP ' + r.status); }).catch(function () { return 'HTTP ' + r.status; });
+  }
+
+  function load(rel, push) {
+    current = rel || '';
+    selected = null;
+    hideMenu();
+    setStatus('Opening…');
+    var url = '/servers/' + sid + '/files/ls?identity=' + encodeURIComponent(identity) + '&p=' + encodeURIComponent(current);
+    return fetch(url, { headers: hdr(), credentials: 'same-origin' }).then(function (r) {
+      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(function (data) {
+      applyListing(data);
+      if (push !== false) {
+        var q = '?identity=' + encodeURIComponent(identity);
+        if (current) q += '&p=' + encodeURIComponent(current);
+        history.pushState({ rel: current, identity: identity }, '', '/servers/' + sid + '/files' + q);
+      }
+    }).catch(function (e) {
+      setStatus(e.message || String(e), 'err');
+    });
+  }
+
+  function applyListing(data) {
+    cache[data.rel || ''] = data;
+    current = data.rel || '';
+    $('hf-jail').textContent = data.jail || '—';
+    renderPath(data);
+    renderTree();
+    renderList(data);
+    var n = (data.entries || []).length;
+    var extra = data.truncated ? ' (truncated at 500)' : '';
+    setStatus((n || 'No') + ' item' + (n === 1 ? '' : 's') + extra + (data.msg ? ' · ' + data.msg : ''), data.msg ? 'ok' : '');
+    ensureAncestors(current);
+  }
+
+  function ensureAncestors(rel) {
+    var parts = (rel || '').split('/').filter(Boolean);
+    var acc = [];
+    var chain = [''];
+    for (var i = 0; i < parts.length - 1; i++) {
+      acc.push(parts[i]);
+      chain.push(acc.join('/'));
+    }
+    chain.forEach(function (r) {
+      if (cache[r]) return;
+      var url = '/servers/' + sid + '/files/ls?identity=' + encodeURIComponent(identity) + '&p=' + encodeURIComponent(r);
+      fetch(url, { headers: hdr(), credentials: 'same-origin' }).then(function (res) {
+        if (!res.ok) return null;
+        return res.json();
+      }).then(function (d) {
+        if (!d) return;
+        cache[d.rel || ''] = d;
+        renderTree();
+      }).catch(function () {});
+    });
+  }
+
+  function renderPath(data) {
+    var nav = $('hf-path');
+    nav.innerHTML = '';
+    function add(label, rel) {
+      var a = document.createElement('a');
+      a.href = '#';
+      a.textContent = label;
+      a.addEventListener('click', function (ev) { ev.preventDefault(); load(rel); });
+      nav.appendChild(a);
+    }
+    add(data.jail || '/', '');
+    (data.crumbs || []).forEach(function (c) {
+      var sep = document.createElement('span');
+      sep.textContent = ' / ';
+      sep.style.color = 'var(--color-muted)';
+      nav.appendChild(sep);
+      add(c.name, c.rel);
+    });
+  }
+
+  function icon(kind) {
+    if (kind === 'dir') return '📁';
+    if (kind === 'link') return '🔗';
+    return '📄';
+  }
+
+  function renderTree() {
+    var tree = $('hf-tree');
+    tree.innerHTML = '';
+    function node(rel, name, depth) {
+      var data = cache[rel];
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'hf-tree-row' + (rel === current ? ' is-current' : '');
+      row.style.paddingLeft = (0.3 + depth * 0.15) + 'rem';
+      var kids = (data && data.entries) ? data.entries.filter(function (e) { return e.kind === 'dir' && !e.escaped; }) : [];
+      var twist = document.createElement('span');
+      twist.className = 'hf-twist';
+      twist.textContent = data ? (kids.length ? '▾' : '·') : '▸';
+      row.appendChild(twist);
+      var lab = document.createElement('span');
+      lab.textContent = '📁 ' + name;
+      row.appendChild(lab);
+      row.addEventListener('click', function () { load(rel); });
+      tree.appendChild(row);
+      if (data) {
+        kids.forEach(function (e) { node(e.rel, e.name, depth + 1); });
       }
     }
-    ev.preventDefault();
-    var xhr = new XMLHttpRequest();
-    var fd = new FormData(form);
-    xhr.open('POST', form.action);
-    xhr.upload.onprogress = function (e) {
-      if (!e.lengthComputable) return;
-      bar.hidden = false;
-      lab.hidden = false;
-      var pct = Math.round((e.loaded / e.total) * 100);
-      bar.value = pct;
-      lab.textContent = 'Uploading… ' + pct + '%';
-    };
-    xhr.onload = function () {
-      if (xhr.status >= 200 && xhr.status < 400) {
-        lab.textContent = 'Writing to host…';
-        var loc = xhr.responseURL || form.action;
-        window.location = loc;
-      } else {
-        lab.hidden = false;
-        lab.textContent = 'Upload failed (' + xhr.status + ')';
+    var jailName = ($('hf-jail').textContent || 'jail').split('/').filter(Boolean).pop() || '/';
+    node('', jailName, 0);
+  }
+
+  function hideMenu() {
+    if (menu) { menu.remove(); menu = null; }
+  }
+
+  function showMenu(x, y, entry) {
+    hideMenu();
+    menu = document.createElement('div');
+    menu.className = 'hf-menu';
+    function item(label, fn, danger) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      if (danger) b.className = 'danger';
+      b.addEventListener('click', function () { hideMenu(); fn(); });
+      menu.appendChild(b);
+    }
+    if (entry.kind === 'dir' && !entry.escaped) item('Open', function () { load(entry.rel); });
+    if (entry.kind === 'file' && !entry.escaped) item('Download', function () { download(entry); });
+    if (!entry.escaped) {
+      item('Rename…', function () { rename(entry); });
+      item('Delete…', function () { del(entry); }, true);
+    }
+    document.body.appendChild(menu);
+    var w = menu.offsetWidth, h = menu.offsetHeight;
+    menu.style.left = Math.min(x, window.innerWidth - w - 8) + 'px';
+    menu.style.top = Math.min(y, window.innerHeight - h - 8) + 'px';
+  }
+
+  function renderList(data) {
+    var box = $('hf-rows');
+    box.innerHTML = '';
+    var entries = data.entries || [];
+    if (!entries.length) {
+      var empty = document.createElement('div');
+      empty.className = 'hf-empty';
+      empty.textContent = 'This folder is empty. Double-click a folder in the tree, or upload a file.';
+      box.appendChild(empty);
+      return;
+    }
+    entries.forEach(function (e) {
+      var row = document.createElement('div');
+      row.className = 'hf-item' + (e.kind === 'dir' ? ' is-dir' : '');
+      row.dataset.rel = e.rel;
+      var name = document.createElement('div');
+      name.className = 'hf-iname';
+      name.innerHTML = '<span class="hf-ico">' + icon(e.kind) + '</span><span class="nm"></span>';
+      name.querySelector('.nm').textContent = e.name + (e.kind === 'dir' ? '/' : '');
+      if (e.secretish) {
+        var b = document.createElement('span');
+        b.className = 'hf-secret';
+        b.textContent = 'secret';
+        name.appendChild(b);
       }
-    };
-    xhr.onerror = function () {
-      lab.hidden = false;
-      lab.textContent = 'Upload failed';
-    };
-    xhr.send(fd);
+      var size = document.createElement('div');
+      size.className = 'hf-meta hf-hide-sm';
+      size.textContent = e.kind === 'dir' ? '—' : (e.size_h || '—');
+      var mt = document.createElement('div');
+      mt.className = 'hf-meta hf-hide-sm';
+      mt.textContent = e.mtime_h || '—';
+      var more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'btn btn-secondary text-xs min-h-9';
+      more.textContent = '⋯';
+      more.title = 'Actions';
+      more.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        selected = e.rel;
+        showMenu(ev.clientX, ev.clientY, e);
+      });
+      row.appendChild(name);
+      row.appendChild(size);
+      row.appendChild(mt);
+      row.appendChild(more);
+      row.addEventListener('click', function () {
+        selected = e.rel;
+        Array.prototype.forEach.call(box.querySelectorAll('.hf-item'), function (n) { n.classList.remove('is-selected'); });
+        row.classList.add('is-selected');
+      });
+      row.addEventListener('dblclick', function () {
+        if (e.escaped) return;
+        if (e.kind === 'dir') load(e.rel);
+        else if (e.kind === 'file') download(e);
+      });
+      row.addEventListener('contextmenu', function (ev) {
+        ev.preventDefault();
+        selected = e.rel;
+        showMenu(ev.clientX, ev.clientY, e);
+      });
+      box.appendChild(row);
+    });
+  }
+
+  function download(e) {
+    window.location = '/servers/' + sid + '/files/download?identity=' + encodeURIComponent(identity) + '&p=' + encodeURIComponent(e.rel);
+  }
+
+  function postForm(path, fields) {
+    var fd = new FormData();
+    Object.keys(fields).forEach(function (k) { fd.append(k, fields[k]); });
+    fd.append('identity', identity);
+    fd.append('p', current);
+    return fetch('/servers/' + sid + '/files/' + path, {
+      method: 'POST',
+      headers: hdr(),
+      credentials: 'same-origin',
+      body: fd
+    }).then(function (r) {
+      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(function (data) {
+      applyListing(data);
+    });
+  }
+
+  function mkdir() {
+    var name = window.prompt('New folder name');
+    if (!name) return;
+    setStatus('Creating…');
+    postForm('mkdir', { name: name }).catch(function (e) { setStatus(e.message, 'err'); });
+  }
+
+  function rename(entry) {
+    var dest = window.prompt('Rename', entry.name);
+    if (!dest || dest === entry.name) return;
+    setStatus('Renaming…');
+    postForm('rename', { src: entry.name, dest: dest }).catch(function (e) { setStatus(e.message, 'err'); });
+  }
+
+  function del(entry) {
+    var extra = entry.kind === 'dir' ? ' (must be empty)' : '';
+    if (!window.confirm('Delete ' + entry.name + extra + '?')) return;
+    setStatus('Deleting…');
+    postForm('delete', { name: entry.name }).catch(function (e) { setStatus(e.message, 'err'); });
+  }
+
+  function uploadFiles(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    if (!files.length) return;
+    var i = 0;
+    function next() {
+      if (i >= files.length) { $('hf-prog').classList.remove('is-on'); return; }
+      var f = files[i++];
+      var names = ((cache[current] || {}).entries || []).map(function (e) { return e.name; });
+      if (names.indexOf(f.name) >= 0 && !window.confirm('Replace ' + f.name + ' in this folder?')) return next();
+      var fd = new FormData();
+      fd.append('file', f);
+      fd.append('p', current);
+      fd.append('identity', identity);
+      var xhr = new XMLHttpRequest();
+      var bar = $('hf-prog');
+      bar.classList.add('is-on');
+      bar.value = 0;
+      xhr.open('POST', '/servers/' + sid + '/files/upload');
+      xhr.setRequestHeader('X-PiHerder-Files', '1');
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.upload.onprogress = function (ev) {
+        if (ev.lengthComputable) bar.value = Math.round((ev.loaded / ev.total) * 100);
+        setStatus('Uploading ' + f.name + '… ' + bar.value + '%');
+      };
+      xhr.onload = function () {
+        if (xhr.status >= 200 && xhr.status < 400) {
+          try { applyListing(JSON.parse(xhr.responseText)); } catch (err) { load(current, false); }
+          next();
+        } else {
+          setStatus('Upload failed (' + xhr.status + ')', 'err');
+          bar.classList.remove('is-on');
+        }
+      };
+      xhr.onerror = function () { setStatus('Upload failed', 'err'); bar.classList.remove('is-on'); };
+      xhr.send(fd);
+    }
+    next();
+  }
+
+  $('hf-up').addEventListener('click', function () { load(parentRel(current)); });
+  $('hf-mkdir').addEventListener('click', mkdir);
+  $('hf-refresh').addEventListener('click', function () { load(current, false); });
+  $('hf-upload-btn').addEventListener('click', function () { $('hf-file').click(); });
+  $('hf-file').addEventListener('change', function () { uploadFiles(this.files); this.value = ''; });
+  $('hf-identity').addEventListener('change', function () {
+    window.location = '/servers/' + sid + '/files?identity=' + encodeURIComponent(this.value) + (current ? '&p=' + encodeURIComponent(current) : '');
   });
+
+  var list = $('hf-list');
+  list.addEventListener('dragover', function (ev) { ev.preventDefault(); list.classList.add('is-drag'); });
+  list.addEventListener('dragleave', function () { list.classList.remove('is-drag'); });
+  list.addEventListener('drop', function (ev) {
+    ev.preventDefault();
+    list.classList.remove('is-drag');
+    if (ev.dataTransfer && ev.dataTransfer.files) uploadFiles(ev.dataTransfer.files);
+  });
+  document.addEventListener('click', hideMenu);
+  window.addEventListener('popstate', function (ev) {
+    if (ev.state && typeof ev.state.rel === 'string') load(ev.state.rel, false);
+  });
+
+  if (boot && boot.entries) applyListing(boot);
+  else load(current, false);
 })();
 </script>
 {% endblock %}

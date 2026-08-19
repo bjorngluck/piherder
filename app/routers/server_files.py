@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 from datetime import datetime
 from typing import Optional
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from sqlmodel import Session
 
 from .. import templates as templates_mod
@@ -16,12 +17,14 @@ from ..database import get_session
 from ..models import Server, User
 from ..security.auth import (
     cookie_auth_kwargs,
+    cookie_delete_kwargs,
     get_operator_user,
     user_session_version,
 )
 from ..services import host_files as hf
 from ..services import ssh_console as cons
 from ..services import ssh_identities as idents
+from ..services import webauthn_svc as wa_svc
 from ..services.audit_write import make_audit_log
 from ..services.demo import demo_mode
 from ..services.nav_shortcuts import host_feature_context
@@ -132,6 +135,63 @@ def _get_server(session: Session, server_id: int) -> Server:
     return server
 
 
+def _wants_json(request: Request) -> bool:
+    if (request.headers.get("x-piherder-files") or "") == "1":
+        return True
+    acc = (request.headers.get("accept") or "").lower()
+    return "application/json" in acc and "text/html" not in acc
+
+
+def listing_public(listing: dict) -> dict:
+    from ..services.app_settings import format_datetime_in_app_tz
+
+    entries = []
+    for e in listing.get("entries") or []:
+        mt = e.get("mtime")
+        entries.append(
+            {
+                "name": e.get("name"),
+                "rel": e.get("rel") or "",
+                "kind": e.get("kind"),
+                "size": e.get("size"),
+                "size_h": e.get("size_h") or "",
+                "mtime_h": format_datetime_in_app_tz(mt, "%Y-%m-%d %H:%M") if mt else "",
+                "secretish": bool(e.get("secretish")),
+                "escaped": bool(e.get("escaped")),
+            }
+        )
+    return {
+        "ok": True,
+        "jail": listing.get("jail") or "",
+        "rel": listing.get("rel") or "",
+        "abs": listing.get("abs") or "",
+        "truncated": bool(listing.get("truncated")),
+        "crumbs": listing.get("crumbs") or [],
+        "entries": entries,
+    }
+
+
+def _ok_mutate(request: Request, server: Server, p: str, role: str, ident, msg: str):
+    if _wants_json(request):
+        try:
+            listing = hf.list_dir(server, p, role=role, identity=ident)
+            body = listing_public(listing)
+            body["msg"] = msg
+            return JSONResponse(body)
+        except hf.FilesError as e:
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "msg": msg,
+                    "error": e.message,
+                    "rel": p or "",
+                    "entries": [],
+                    "crumbs": [],
+                }
+            )
+    return _redirect(int(server.id), p=p, identity=role, msg=msg)
+
+
 @router.get("/{server_id}/files", response_class=HTMLResponse)
 async def files_page(
     server_id: int,
@@ -193,10 +253,20 @@ async def files_page(
 
     from ..security.auth import ROLE_OPERATOR, role_at_least
 
+    has_passkeys = False
+    try:
+        has_passkeys = bool(user and user.id and wa_svc.has_passkeys(session, int(user.id)))
+    except Exception:
+        has_passkeys = False
+
     id_rows = idents.list_for_server(session, int(server.id))
     identities = [idents.public_view(r) for r in id_rows]
     _nav = host_feature_context(session, int(user.id) if user else None, server, "files")
     existing = [e["name"] for e in listing.get("entries") or [] if e.get("kind") == "file"]
+    boot = listing_public(listing)
+    if list_error:
+        boot["error"] = list_error
+        boot["ok"] = False
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_files.html",
@@ -204,6 +274,7 @@ async def files_page(
             "title": f"{server.name} · Files",
             "server": server,
             "listing": listing,
+            "listing_boot": boot,
             "role": role,
             "identities": identities,
             "needs_stepup": needs_stepup,
@@ -211,12 +282,35 @@ async def files_page(
             "msg": request.query_params.get("msg") or "",
             "error": request.query_params.get("error") or list_error,
             "can_privileged": cons.can_open_privileged(user),
+            "has_passkeys": has_passkeys,
+            "prefer_passkey": cons.prefer_passkey(),
+            "require_passkey": cons.require_passkey_if_enrolled(),
             "existing_names": existing,
             "max_upload_h": hf.human_size(hf.max_upload_bytes()),
             "is_operator": role_at_least(user, ROLE_OPERATOR),
             **_nav,
         },
     )
+
+
+@router.get("/{server_id}/files/ls")
+async def files_ls(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    p: str = "",
+    identity: str = "fleet",
+):
+    """JSON directory listing for the explorer (no full-page reload)."""
+    _files_gate()
+    server = _get_server(session, server_id)
+    role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    try:
+        listing = hf.list_dir(server, p, role=role, identity=ident)
+    except hf.FilesError as e:
+        raise _http(e) from e
+    return JSONResponse(listing_public(listing))
 
 
 @router.post("/{server_id}/files/unlock")
@@ -259,6 +353,104 @@ async def files_unlock(
             device_id,
             **cookie_auth_kwargs(max_age=60 * 60 * 24 * 400),
         )
+    return resp
+
+
+@router.post("/{server_id}/files/webauthn/options")
+async def files_webauthn_options(
+    request: Request,
+    server_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Passkey options for privileged Files — does not require the console kill switch."""
+    _files_gate()
+    _get_server(session, server_id)
+    if not cons.can_open_privileged(user):
+        raise HTTPException(status_code=403, detail="Privileged files are not allowed for this role")
+    if not cons.same_site_browser_request(request):
+        return JSONResponse(
+            {"ok": False, "error": "cross_site", "detail": "Passkey step-up is same-origin only."},
+            status_code=403,
+        )
+    try:
+        options_json, chal = wa_svc.authentication_options_json(session, user)
+    except Exception as e:
+        return JSONResponse(
+            {"ok": False, "error": "passkey_unavailable", "detail": str(e)[:120]},
+            status_code=400,
+        )
+    resp = JSONResponse({"ok": True, "options": json.loads(options_json)})
+    resp.set_cookie(
+        wa_svc.CHALLENGE_COOKIE_AUTH,
+        chal,
+        **cookie_auth_kwargs(max_age=wa_svc.CHALLENGE_MINUTES * 60),
+    )
+    return resp
+
+
+@router.post("/{server_id}/files/webauthn/verify")
+async def files_webauthn_verify(
+    request: Request,
+    server_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Verify passkey and set the same grant cookie the console uses."""
+    _files_gate()
+    server = _get_server(session, server_id)
+    if not cons.can_open_privileged(user):
+        raise HTTPException(status_code=403, detail="Privileged files are not allowed for this role")
+    if not cons.same_site_browser_request(request):
+        return JSONResponse(
+            {"ok": False, "error": "cross_site", "detail": "Passkey step-up is same-origin only."},
+            status_code=403,
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "bad_json"}, status_code=400)
+    credential = body.get("credential") if isinstance(body, dict) else None
+    if not isinstance(credential, dict):
+        return JSONResponse({"ok": False, "error": "bad_credential"}, status_code=400)
+    chal = request.cookies.get(wa_svc.CHALLENGE_COOKIE_AUTH)
+    ip = client_ip_from_request(request) or ""
+    try:
+        wa_svc.verify_authentication(session, user, credential, chal)
+    except Exception as e:
+        _audit(
+            session,
+            user_id=user.id,
+            server_id=server.id,
+            action="host_file_denied",
+            details=f"passkey failed ip={ip} {str(e)[:80]}",
+            status="error",
+        )
+        return JSONResponse({"ok": False, "error": "2fa_bad_code", "detail": "Passkey verification failed"}, status_code=403)
+
+    sv = user_session_version(user)
+    device_id = cons.ensure_device_id(request.cookies.get(cons.CONSOLE_DEVICE_COOKIE))
+    grant = cons.mint_grant(
+        user_id=int(user.id),
+        server_id=int(server.id),
+        session_version=sv,
+        client_ip=ip,
+        device_id=device_id,
+        require_console=False,
+    )
+    resp = JSONResponse({"ok": True, "grant_active": True})
+    resp.delete_cookie(wa_svc.CHALLENGE_COOKIE_AUTH, **cookie_delete_kwargs())
+    if cons.bind_device_enabled():
+        resp.set_cookie(
+            cons.CONSOLE_DEVICE_COOKIE,
+            device_id,
+            **cookie_auth_kwargs(max_age=60 * 60 * 24 * 400),
+        )
+    resp.set_cookie(
+        cons.CONSOLE_GRANT_COOKIE,
+        grant,
+        **cookie_auth_kwargs(max_age=cons.grant_minutes() * 60),
+    )
     return resp
 
 
@@ -355,7 +547,7 @@ async def files_upload(
             f"sha256={result['sha256']} overwrite={int(result['overwrite'])}"
         ),
     )
-    return _redirect(server_id, p=p, identity=role, msg="uploaded")
+    return _ok_mutate(request, server, p, role, ident, "uploaded")
 
 
 @router.post("/{server_id}/files/mkdir")
@@ -390,7 +582,7 @@ async def files_mkdir(
         action="host_file_mkdir",
         details=f"identity={role} path={result['rel']}",
     )
-    return _redirect(server_id, p=p, identity=role, msg="mkdir")
+    return _ok_mutate(request, server, p, role, ident, "mkdir")
 
 
 @router.post("/{server_id}/files/rename")
@@ -426,7 +618,7 @@ async def files_rename(
         action="host_file_rename",
         details=f"identity={role} from={result['from']} to={result['to']}",
     )
-    return _redirect(server_id, p=p, identity=role, msg="renamed")
+    return _ok_mutate(request, server, p, role, ident, "renamed")
 
 
 @router.post("/{server_id}/files/delete")
@@ -462,4 +654,4 @@ async def files_delete(
         action="host_file_delete",
         details=f"identity={role} path={result['rel']}",
     )
-    return _redirect(server_id, p=p, identity=role, msg="deleted")
+    return _ok_mutate(request, server, p, role, ident, "deleted")
