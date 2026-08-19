@@ -11,10 +11,11 @@ from ..models import ApiToken, AuditLog, Server, User
 from ..security.auth import get_current_user
 from ..services.audit_format import format_audit_entry, format_actor_label
 from ..services.app_settings import calendar_today_in_app_tz
+from ..services import list_query as lq
 
 router = APIRouter()
 
-PER_PAGE_CHOICES = (10, 20, 50)
+PER_PAGE_CHOICES = lq.PER_PAGE_CHOICES
 
 
 def _parse_date_start(s: str | None):
@@ -31,16 +32,6 @@ def _parse_date_end(s: str | None):
     if d is None:
         return None
     return d + timedelta(days=1) - timedelta(microseconds=1)
-
-
-def _clamp_per_page(raw) -> int:
-    try:
-        n = int(raw or 20)
-    except Exception:
-        n = 20
-    if n in PER_PAGE_CHOICES:
-        return n
-    return min(PER_PAGE_CHOICES, key=lambda x: abs(x - n))
 
 
 def _apply_audit_filters(
@@ -122,11 +113,8 @@ async def audit_page(
         "by_action": [],
     }
     hide_incomplete = hide_noise not in ("0", "false", "no")
-    per_page = _clamp_per_page(per_page)
-    try:
-        page = max(1, int(page or 1))
-    except Exception:
-        page = 1
+    per_page = lq.per_page_from_request(request)
+    page = lq.page_from_request(request)
     total = 0
     total_pages = 1
     filter_token_label: str | None = None
@@ -286,7 +274,7 @@ async def audit_page(
         total_pages = 1
         page = 1
 
-    return templates_mod.templates.TemplateResponse(
+    resp = templates_mod.templates.TemplateResponse(
         request=request,
         name="audit.html",
         context={
@@ -326,3 +314,4 @@ async def audit_page(
             "pulse": pulse,
         },
     )
+    return lq.attach_per_page_cookie(resp, per_page)

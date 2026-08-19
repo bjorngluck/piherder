@@ -80,6 +80,7 @@ main @ v1.2.0 (+ v1.2.x patches)
 |---|----------|----------|
 | 1 | Which policy stream is Must? | **Deep (signed 2026-08-18):** **P** + **T1–T6**. Force-2FA grace **0–60** days (home-lab). Destructive-job step-up stays Cap. |
 | 12 | W-cfg depth | **Deep (signed 2026-08-19):** idle / max / concurrency / ticket / hold / bind / revalidate / scrollback in Settings. Kill switch env-only. Factor knobs remain slice 1. Compose does not inject defaulted `PIHERDER_SSH_CONSOLE_*` or Settings cannot apply. |
+| 13 | L depth | **Deep (signed 2026-08-19):** L1–L6 on Servers + Docker + discovery list; L5 aliases; L4 chips compose with `q`; Servers `fav=1` sort; `GET /api/v1/servers` `q`/`limit`/`offset` (cap 100). Integrations / notifications / templates stay later. |
 | 2 | Host files kill switch | **`PIHERDER_HOST_FILES=false`** until **F2** is complete enough to turn on; demo stays off either way |
 | 3 | Files jail | **`docker_base_dir`** (expanded `~`) on Docker hosts; else SSH user home. Never `/`. HAOS out of thin slice |
 | 4 | Files thin-slice shape | **F2 only** — list / get / put. No mkdir / delete / rename this freeze |
@@ -98,13 +99,13 @@ main @ v1.2.0 (+ v1.2.x patches)
 ```text
 Phase 0  Finish v1.2.0 tag / Hub  ✅ done (v1.2.0)
     │
-Phase 1  Foundations (parallel)  ← current; P+T (slice 1) and W-cfg (slice 2) landed
+Phase 1  Foundations (parallel)  ← P+T (slice 1), W-cfg (slice 2), L Deep (slice 3) landed
     ├─ L1 shared list chrome (per_page + pager + q)
     ├─ P1/P2 password-policy settings schema + safe defaults
     └─ W-id1/W-id2 model + migrate 1.x single key
     │
 Phase 2  Core Must
-    ├─ L2 Servers · Docker · discovery
+    ├─ L2 Servers · Docker · discovery  ← landed with slice 3 Deep
     ├─ P3–P5 copy + audit + docs
     ├─ T6 factor-agnostic account step-up
     └─ W-id3–W-id6 Connect as… + test SSH
@@ -283,18 +284,18 @@ Console open → Connect as: [ fleet (default) ▾ | elevated ]
 
 ### Stream **L** — Pagination, page size, free-text / semantic search filters
 
-**Today:** Jobs and Audit already use **per-page** + filters; many dense surfaces (Servers list, Docker services/stacks, discovery devices, templates, notifications, maps device lists) load large tables or cards with limited paging / inconsistent search.  
-**Wanted:** **App-wide list pattern** so fleets with many hosts and containers stay usable.
+**Today (slice 3 Deep landed):** Servers, Docker stacks, and discovery **list** share `list_query` chrome — `q`, `per_page` 10/20/50/100, cookie `ph_per_page`, pager. Jobs/Audit use the same clamp + 100. `GET /api/v1/servers` is bounded.  
+**Wanted:** **App-wide list pattern** so fleets with many hosts and containers stay usable. **Done** for the Must surfaces.
 
 | ID | Item | Notes |
 |----|------|--------|
-| L1 | Shared list chrome | `per_page` choices (e.g. 10/20/50/100), page controls, total count, remember preference (user or cookie) |
-| L2 | Priority surfaces | Servers list · server Docker (projects/services) · discovery devices · integrations lists · notifications · templates catalog · (extend jobs/audit consistency) |
-| L3 | Free-text filter | Case-insensitive match across name, hostname, IP, labels, project, image — same “search box” pattern as Audit |
-| L4 | Structured filters | Status, role/kind, host, unhealthy only, favourites first — composable query params |
-| L5 | “Semantic” search (pragmatic) | **Not** embedding ML day one: tokenised multi-field search + optional synonym/aliases (e.g. `ha` → homeassistant); document as **smart free-text**, not vector search |
-| L6 | Performance | Server-side limit/offset or keyset; avoid loading entire Docker inventory into the browser when possible |
-| L7 | API alignment | Optional `limit`/`offset`/`q` on list-ish `/api/v1` endpoints if still missing |
+| L1 | Shared list chrome | **Landed.** `per_page` 10/20/50/100, pager, cookie `ph_per_page` |
+| L2 | Priority surfaces | **Landed** for Servers · Docker · discovery list. Integrations / notifications / templates catalog remain later |
+| L3 | Free-text filter | **Landed.** Token AND across name, hostname, IP, project, image, MAC, … |
+| L4 | Structured filters | **Landed** on existing chips + Servers `fav=1` (pins first, does not hide) |
+| L5 | “Semantic” search (pragmatic) | **Landed.** Frozen aliases (`ha` → homeassistant, `pi-hole` → pihole, …). Not ML |
+| L6 | Performance | **Landed.** Page after filter. Docker pages **projects**. Discovery list uses SQL offset when `q` is empty. Map unpaged |
+| L7 | API alignment | **Thin landed.** `GET /api/v1/servers?q=&limit=&offset=` (default/max 100) + `total` |
 
 **Non-goals (L):** Full-text Postgres extensions required day one; client-only virtual scroll as the only strategy; Elasticsearch dependency.
 
@@ -407,7 +408,7 @@ Host: rpi5-4  →  dest card Files
 
 | Priority | Streams | Bar |
 |----------|---------|-----|
-| **Must** | **P** + **T1–T6** (slice 1 **Deep**) · **L** (Servers + Docker + discovery) · **W-id** core (fleet + privileged + Connect as…) | Operator-owned security policy (full) + scale lists + least-priv/privileged connect-as |
+| **Must** | **P** + **T1–T6** (slice 1 **Deep**) · **L Deep** (slice 3 — Servers + Docker + discovery) · **W-id** core (fleet + privileged + Connect as…) | Operator-owned security policy (full) + scale lists + least-priv/privileged connect-as |
 | **Should** | **W-cfg Deep** (timeouts/concurrency/bind in Settings; factor knobs landed with T3) · **A** · **W-audit** if spike green · **N2** built-in fleet board (after **N0**) · **F2** host Files list/get/put (after **F0** sign-off) | Console knobs + alerts + opt-in command audit + thin reporting + confined host file transfer |
 | **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-audit** spike · **W-mux** (screen/tmux, low priority) · **F** mkdir/delete/step-up · **AC-fg** · ACME · branding · CSP nonces | Promote only if Must green |
 
@@ -419,7 +420,7 @@ Success criteria:
 4. Host can store **fleet** + **privileged** SSH identities (separate keys/users); console offers **Connect as…**; jobs stay on fleet by default.  
 5. *(If W-audit promoted)* Opt-in command (± response) audit with redaction heuristics and retention; default off; wiki warns about residual secret capture.  
 6. *(Should)* Map/stack/cert-style alerts have documented severities and per-category tuning; channels respect filters.  
-7. Servers + Docker + discovery lists support page size + free-text filter without loading unbounded HTML.  
+7. Servers + Docker + discovery lists support page size + free-text filter without loading unbounded HTML. **Done** (slice 3 Deep).  
 8. *(If N promoted)* Operators have at least a **built-in fleet health board** of existing signals; custom layout is Cap.  
 9. *(If F promoted)* Operator can open **Files** on a Docker host, list the jail, download one file, upload one file; viewer cannot; path escape and oversize rejected; demo does not expose a real tree.
 
@@ -498,6 +499,7 @@ Success criteria:
 | 2026-08-18 | **Slice 1 landed** on `v1.3.0-dev`: Settings password policy + force-2FA scope/grace + step-up windows + factor matrix + T6 any-factor mutations + T4 IdP MFA opt-in (fail closed). |
 | 2026-08-19 | **Slice 2 Deep signed + landed:** W-cfg timeouts / concurrency / ticket / hold / bind / revalidate / scrollback in Settings → Console. Kill switch env-only. Compose no longer injects defaulted `PIHERDER_SSH_CONSOLE_*` knobs. |
 | 2026-08-19 | **Docs pass:** wiki Settings / console / env / upgrades / 2FA / roles / demo + ADMIN / ROADMAP / SECURITY / CONTRIBUTING aligned with slices 1–2. |
+| 2026-08-19 | **Slice 3 Deep signed + landed:** L list chrome on Servers + Docker + discovery. Shared cookie `ph_per_page`. API `/servers` capped at 100. |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 
@@ -512,9 +514,9 @@ Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3�
 |---|------|--------|
 | 1 | Finish **v1.2.0** freeze / tag / Hub | **Done** — `v1.2.0` tagged · Hub multi-arch published |
 | 2 | Open **`v1.3.0-dev`** + lock Must/Should | **Done** 2026-08-18 |
-| 3 | Slice 1 Deep **P + T1–T6** | **P landed** · T1–T6 this commit |
-| 4 | Spike **W-id** model + console ticket identity field (no UI polish) | After slice 1 |
-| 5 | Spike **L1** shared list chrome | After slice 1 |
+| 3 | Slice 1 Deep **P + T1–T6** | **Done** |
+| 4 | Spike **W-id** model + console ticket identity field (no UI polish) | Next Must after L |
+| 5 | Slice 3 Deep **L** (Servers + Docker + discovery) | **Done** |
 | 6 | Spike **W-audit0** PTY capture + redaction; promote or Cap | After W-id core |
 | 7 | Run **N0** insights discovery (one-pager) → **N2** | Phase 3 |
 | 8 | Run **F0** files sign-off → **F2** (flag off until ready) | Phase 3 |

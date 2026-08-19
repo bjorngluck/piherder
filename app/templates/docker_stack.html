@@ -5,11 +5,18 @@
    Inventory: fragment serves DB snapshot first; background refresh updates via poll.
    Manual full-page Refresh uses ?nocache=1 on /docker (not default HTMX load). #}
 {% set _refresh = request.query_params.get('refresh', refresh|default('120')) %}
+{% set _frag_qs = docker_keep|default('') %}
+{% if not _frag_qs %}
+  {% set _frag_qs = 'refresh=' ~ _refresh %}
+{% endif %}
+{% if page and 'page=' not in _frag_qs %}
+  {% set _frag_qs = _frag_qs ~ '&page=' ~ page %}
+{% endif %}
 
 {% if docker_shell|default(false) %}
 {# Stable shell — only HTMX attributes live here; never replaced by fragment #}
 <div id="docker-stack"
-     hx-get="/servers/{{ server.id }}/docker/stack-fragment?refresh={{ _refresh }}"
+     hx-get="/servers/{{ server.id }}/docker/stack-fragment?{{ _frag_qs }}"
      hx-trigger="load once, every {{ _refresh }}s"
      hx-swap="innerHTML">
   <div class="docker-stack-skeleton card p-6 text-center text-sm text-muted">
@@ -50,6 +57,14 @@
       <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
     </div>
     Collecting compose projects and containers from host via SSH…
+  </div>
+{% elif docker_filtered|default(false) and not projects and not orphan_containers %}
+  <div class="card empty-state" data-testid="docker-list-empty-filter">
+    <p>No stacks match this filter.</p>
+    <p class="empty-state-hint">Clear the search or pick another status chip.</p>
+    <div class="empty-state-actions">
+      <a href="/servers/{{ server.id }}/docker" class="btn btn-secondary min-h-11 text-sm">Show all stacks</a>
+    </div>
   </div>
 {% elif projects %}
   <div class="docker-stack-list">
@@ -565,6 +580,10 @@
     </div>
   </div>
   {% endif %}
+
+{% if (total_pages|default(1) > 1) or docker_filtered|default(false) %}
+{% include "partials/list_pager.html" %}
+{% endif %}
 
 {# While inventory is refreshing (or first load), re-fetch fragment every 2s until ready #}
 {% if inventory_poll_fast|default(false) or _refreshing %}

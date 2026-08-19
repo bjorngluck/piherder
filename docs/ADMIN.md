@@ -231,7 +231,9 @@ Scheduled apply/audit attribution shows as **system / scheduler** (no user id).
 
 ### Bulk actions (Servers list)
 
-**Where:** `/servers` — checkboxes + **Select all visible**. Toolbar appears when something is selected. Row **⋯** menus: open, backup, patch, Docker, settings (feature-gated). List status is **DB-backed** (last update checks / soft embeds) — no live SSH at render.
+**Where:** `/servers` — checkboxes + **Select all visible** (this **page** only). Toolbar appears when something is selected. Row **⋯** menus: open, backup, patch, Docker, settings (feature-gated). List status is **DB-backed** (last update checks / soft embeds) — no live SSH at render.
+
+**v1.3 list chrome:** search box (`q` on name / hostname / IP / DNS / SSH user, plus aliases like `ha` → homeassistant), page size **10 / 20 / 50 / 100** (cookie `ph_per_page`, shared with Jobs / Audit / Docker / discovery), **Pins first** sort. **Reorder** needs All + empty search (`?reorder=1` loads the full fleet). Same pager on Docker stacks and LAN Discovery **list** (map stays unpaged). `GET /api/v1/servers` is capped (`limit` default/max 100, `offset`, optional `q`) and returns `total`.
 
 | Action | Feature flag required on host |
 |--------|--------------------------------|

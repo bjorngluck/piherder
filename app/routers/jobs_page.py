@@ -16,9 +16,11 @@ from ..security.auth import get_current_user
 from ..services import jobs as job_service
 from ..services.app_settings import calendar_today_in_app_tz, format_datetime_in_app_tz
 
+from ..services import list_query as lq
+
 router = APIRouter()
 
-PER_PAGE_CHOICES = (10, 20, 50)
+PER_PAGE_CHOICES = lq.PER_PAGE_CHOICES
 
 
 def _parse_date_start(s: str | None):
@@ -36,16 +38,6 @@ def _parse_date_end(s: str | None):
     if d is None:
         return None
     return d + timedelta(days=1) - timedelta(microseconds=1)
-
-
-def _clamp_per_page(raw) -> int:
-    try:
-        n = int(raw or 20)
-    except Exception:
-        n = 20
-    if n in PER_PAGE_CHOICES:
-        return n
-    return min(PER_PAGE_CHOICES, key=lambda x: abs(x - n))
 
 
 @router.get("/jobs", response_class=HTMLResponse)
@@ -83,11 +75,8 @@ async def jobs_page(
     }
     sid: int | None = None
     only_active = active_only in ("1", "on", "true", "yes")
-    per_page = _clamp_per_page(per_page)
-    try:
-        page = max(1, int(page or 1))
-    except Exception:
-        page = 1
+    per_page = lq.per_page_from_request(request)
+    page = lq.page_from_request(request)
     df = _parse_date_start(date_from)
     dt = _parse_date_end(date_to)
 
@@ -198,7 +187,7 @@ async def jobs_page(
 
     total_pages = max(1, (total + per_page - 1) // per_page) if total else 1
 
-    return templates_mod.templates.TemplateResponse(
+    resp = templates_mod.templates.TemplateResponse(
         request=request,
         name="jobs.html",
         context={
@@ -225,6 +214,7 @@ async def jobs_page(
             "pulse": pulse,
         },
     )
+    return lq.attach_per_page_cookie(resp, per_page)
 
 
 @router.get("/jobs/{job_id}", response_class=JSONResponse)
