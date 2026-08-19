@@ -10,7 +10,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.database import get_session
 from app.main import app
-from app.models import Server, ServerSshIdentity, User
+from app.models import AuditLog, Server, ServerSshIdentity, User
 from app.security.auth import create_access_token, get_password_hash
 from app.services import app_settings as cfg
 from app.services import ssh as ssh_service
@@ -279,6 +279,11 @@ def test_http_privileged_mint_rules(client, monkeypatch):
     )
     assert r.status_code == 403
     assert r.json().get("error") in ("2fa_required", "enroll_2fa", "2fa_bad_code")
+    with Session(engine) as s:
+        denied = list(
+            s.exec(select(AuditLog).where(AuditLog.action == "ssh_console_denied")).all()
+        )
+        assert denied == [], "step-up challenge must not write a failed 2FA audit row"
 
     # Operator blocked when knob is admin
     cfg.save_settings({"console_privileged_role": "admin"})

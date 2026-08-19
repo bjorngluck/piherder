@@ -117,7 +117,7 @@ def test_backup_complete_summary_with_sizes(monkeypatch):
     assert "2 sources" in out["summary"]
     assert "MB" in out["summary"] or "1.5" in out["summary"] or "GB" in out["summary"]
     # SAST = UTC+2
-    assert "10:00" in out["started_at_display"]
+    assert "10:00:00" in out["started_at_display"]
     assert out["started_at"].endswith("Z")
     assert out["duration"] == "5m 30s"
     cfg.clear_cache()
