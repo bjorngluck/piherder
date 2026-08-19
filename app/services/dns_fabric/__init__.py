@@ -46,6 +46,7 @@ from .core import (  # noqa: F401
     build_access_path,
     build_access_path_for_record,
     host_focus_key,
+    discovery_focus_key,
     hosts_map_url,
     path_map_url,
     fabric_rack_for_server,

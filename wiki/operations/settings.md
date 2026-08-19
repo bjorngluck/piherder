@@ -2,7 +2,7 @@
 
 ## What this is
 
-**Settings** is the admin control plane for the **instance**: timezone, security policy, **console limits**, **SSO / OIDC**, fleet update-check defaults, **stale data cleanup**, **Alerts** (webhook + SMTP), PiHerder self-backup, stack Status, and API tokens.
+**Settings** is the admin control plane for the **instance**: timezone, security policy, **console limits**, **SSO / OIDC**, fleet update-check defaults, **stale data cleanup**, **Alerts** (policy + webhook + SMTP), PiHerder self-backup, stack Status, and API tokens.
 
 **Where:** top nav **Settings** → `/herder-backups` (tabs on one page; legacy path kept for bookmarks).
 
@@ -24,7 +24,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 4. Optional **General → SSO / OpenID Connect** when you have a BYO IdP — [SSO guide](../account-security/sso-oidc.md).  
 5. **PiHerder backup** → run once + schedule; store archive + master key offline.  
 6. **Status** → Check now until green.  
-7. Optional **Alerts** (webhook + SMTP) for outbound notifications and password recovery.  
+7. Optional **Alerts** — alert policy (mute / severity / debounce), webhook + SMTP, password recovery.  
 8. Optional **API** tokens for n8n/HA only if needed.  
 
 ---
@@ -34,7 +34,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 | Tab | Purpose |
 |-----|---------|
 | **General** | App timezone, **security policy**, **console limits**, **SSO / OIDC**, and **Stale data cleanup** |
-| **Alerts** | Outbound **webhook** + **SMTP** (alert mail, test send, forgot-password) — [details](alerts-email-webhooks.md) |
+| **Alerts** | **Alert policy** (per-category severity / mute / debounce) + outbound **webhook** + **SMTP** — [details](alerts-email-webhooks.md) |
 | **Fleet defaults** | Global OS / container update-check defaults (optional apply to all hosts) |
 | **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)) |
 | **Status** | Stack health: web, DB, Redis, Celery, scheduler, disk ([Status](status.md)) — admin |
@@ -124,7 +124,7 @@ Audit: `console_policy_changed`.
 | Trim old Jobs / Audit | Settings → **General** → Stale data cleanup |
 | Times show SAST / local | Settings → **General** → timezone |
 | n8n / HA automation | Settings → **API** · [API](api-tokens.md) |
-| Webhook / SMTP alerts | Settings → **Alerts** · [Alerts](alerts-email-webhooks.md) |
+| Alert policy / webhook / SMTP | Settings → **Alerts** · [Alerts](alerts-email-webhooks.md) |
 | Forgot password on login | Settings → **Alerts** (SMTP + toggle) · [Alerts](alerts-email-webhooks.md) |
 
 ## Not under Settings

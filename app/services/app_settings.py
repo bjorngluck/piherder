@@ -131,6 +131,9 @@ DEFAULTS: Dict[str, Any] = {
     "webhook_events_jobs": True,
     "webhook_events_backup": True,
     "webhook_min_severity": "warning",  # info|warning|critical
+    "webhook_notify_categories": [],  # empty = all (Stream A)
+    "smtp_notify_categories": [],
+    "alert_type_policy": {},  # {categories: {}, types: {}}
     # Cap H-lite — SMTP (password Fernet in smtp_password_encrypted)
     "smtp_enabled": False,
     "smtp_host": "",

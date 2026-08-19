@@ -67,6 +67,7 @@ def webhook_config() -> dict[str, Any]:
         "events_jobs": bool(cfg.get("webhook_events_jobs", True)),
         "events_backup": bool(cfg.get("webhook_events_backup", True)),
         "min_severity": (cfg.get("webhook_min_severity") or "warning").lower(),
+        "notify_categories": cfg.get("webhook_notify_categories"),
         "has_ui_url": bool(ui_url),
         "env_fallback": bool(env_url) and not (enabled and ui_url),
     }
@@ -91,8 +92,12 @@ def send_webhook(
     event: str = "notification",
     severity: str = "warning",
     extra: Optional[dict[str, Any]] = None,
+    notif_type: Optional[str] = None,
+    category: Optional[str] = None,
 ) -> dict[str, Any]:
     """POST JSON to configured webhook. event: notification|job|backup|test."""
+    from . import alert_policy as apol
+
     wc = webhook_config()
     if not wc["url"]:
         return {"ok": False, "error": "webhook not configured"}
@@ -104,6 +109,11 @@ def send_webhook(
         return {"ok": False, "skipped": True, "error": "backup disabled"}
     if event == "notification" and _rank(severity) < _rank(wc["min_severity"]):
         return {"ok": False, "skipped": True, "error": "below min severity"}
+    if event == "notification":
+        allow = apol.parse_allowlist(wc.get("notify_categories"))
+        cat = category or ((extra or {}).get("category") if extra else None)
+        if not apol.category_allowed(cat, allow):
+            return {"ok": False, "skipped": True, "error": "category filtered"}
 
     payload: dict[str, Any] = {
         "message": message,
@@ -114,6 +124,10 @@ def send_webhook(
     }
     if extra:
         payload.update(extra)
+    if notif_type and "type" not in payload:
+        payload["type"] = notif_type
+    if category and "category" not in payload:
+        payload["category"] = category
     headers = {"Content-Type": "application/json"}
     secret = wc.get("secret") or ""
     if secret:
@@ -147,6 +161,7 @@ def smtp_config() -> dict[str, Any]:
         "alert_to": (cfg.get("smtp_alert_to") or "").strip(),
         "alert_enabled": bool(cfg.get("smtp_alert_enabled")),
         "alert_min_severity": (cfg.get("smtp_alert_min_severity") or "warning").lower(),
+        "notify_categories": cfg.get("smtp_notify_categories"),
         "password_reset_enabled": bool(cfg.get("smtp_password_reset_enabled", True)),
     }
 
@@ -257,11 +272,18 @@ def maybe_email_notification(
     title: str,
     body: Optional[str] = None,
     link_url: Optional[str] = None,
+    notif_type: Optional[str] = None,
+    category: Optional[str] = None,
 ) -> None:
+    from . import alert_policy as apol
+
     sc = smtp_config()
     if not sc["alert_enabled"] or not smtp_ready():
         return
     if _rank(severity) < _rank(sc["alert_min_severity"]):
+        return
+    allow = apol.parse_allowlist(sc.get("notify_categories"))
+    if not apol.category_allowed(category, allow):
         return
     to = sc["alert_to"] or sc["from_email"]
     if not to:

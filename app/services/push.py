@@ -36,6 +36,13 @@ TYPE_PREF_FIELDS = {
     "container_updates": "container_updates",
     "herder_backup_failed": "herder_backup_failed",
     "integration_monitor_down": "integration_down",
+    "host_down": "integration_down",
+    "map_infra_down": "integration_down",
+    "nmap_new_device": "integration_down",
+    "nmap_device_offline": "integration_down",
+    "stack_container_down": "integration_down",
+    "stack_health": "herder_backup_failed",
+    "template_drift": "os_updates",
     # Cert alerts use master switch only if unmapped; map to critical-ish prefs
     "cert_deploy_failed": "backup_failed",
     "cert_verify_failed": "backup_failed",

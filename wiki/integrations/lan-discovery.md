@@ -88,6 +88,10 @@ Journey: [Operator scenarios — Journey H](../getting-started/operator-scenario
   <figcaption>Runs history — dense list (intensity, status, hosts, ports, Job link).</figcaption>
 </figure>
 
+## Alerts (v1.3)
+
+New devices and **offline** (stale last-seen) can open Alerts inbox rows. Webhooks get a **digest per scan** for new devices, not one POST each. Mute **LAN discovery** under Settings → Alerts → Alert policy before the first large CIDR scan. Port churn is not an alert. See [Alerts](../operations/alerts-email-webhooks.md).
+
 There are **two** maps:
 
 | Map | URL | What it shows |

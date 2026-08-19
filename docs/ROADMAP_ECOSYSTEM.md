@@ -273,7 +273,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Selectable hero stats (E9)** | **Discovery needed (post-1.0)** — user-selectable pulse metrics on ops heroes; preference model + metric registry. Non-committed roadmap only. |
 | **Templates catalog redesign (E11)** | **Discovery needed (H3 / post-1.0)** — table/filter layout, extra config files (e.g. CA Advisor). **0.9 stretch done:** OOTB / Yours badges + section groups. Full redesign separate. See [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md). |
 | **Password reset (G)** | **G2-lite in 1.0:** admin OOB Users recovery. **G1-lite in v1.1:** email self-reset when SMTP configured (Settings → Alerts). **G2-mail** invite/OTP polish → **v1.2**. |
-| **Email / channels (H)** | **H-lite + Wh-lite in v1.1** — Settings → Alerts (SMTP test + alert mail; webhook UI + event filters; env `WEBHOOK_*` fallback). Full multi-channel matrix → **v1.2**. |
+| **Email / channels (H)** | **H-lite + Wh-lite in v1.1** — Settings → Alerts (SMTP test + alert mail; webhook UI + event filters; env `WEBHOOK_*` fallback). **v1.3 Stream A:** per-category policy + map/discovery types + channel category allowlist. Full SIEM / PagerDuty stay out. |
 | **WebAuthn / passkeys** | **→ v1.2** — second-factor passkeys first; coexist with TOTP + backup codes. Not v1.1. |
 | **Favourites / shortcuts (J)** | **Shipped v1.1** — header ★ pins (host / app / integration). |
 | **Cross-host feature jump (K)** | **Shipped v1.1** — Jump host on Overview / Docker / Backups / Services. |

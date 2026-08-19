@@ -20,7 +20,7 @@ After a few years of “this CNAME points somewhere,” operators lose the pictu
 
 1. Connect [Pi-hole](pihole.md); set host FQDNs + manage A where appropriate.  
 2. On the Network hub, set **LAN subnet**, **gateway**, and public IP (or Lookup).  
-3. Optional: bind Router / Public IP Kuma monitors.  
+3. Optional: bind Router / Public IP Kuma monitors (these can raise **map infra** alerts when down).  
 4. **Import all from Pi-hole** or Adopt candidates.  
 5. Open **Hosts map** — confirm home ring vs cloud hosts.  
 6. Open **Path map** for a specific FQDN flow.  
@@ -437,7 +437,9 @@ Below path coverage, **Stack dependencies** lists **compose containers** from ho
 | **VisualServiceStack** | Visual group under one compose project | Presentation only |
 | **ContainerAnnotation** (+ tags) | Category override, visual stack, order, tag set | Herder backup |
 | `stack_container_order_json` | App settings | Dual-write fallback for order |
-| `stack_inventory_down_alerts` | App settings | Optional alert when Kuma-bound container is down in inventory |
+| `stack_inventory_down_alerts` | App settings | Optional alert when Kuma-bound container is down in inventory (same flag as Alert policy → Inventory) |
+
+**Alerts (v1.3):** Kuma **SSH** binds raise `host_down` with a Hosts-map focus (`?focus=n:host-{id}#map`). Service monitors stay `integration_monitor_down`. Gateway/WAN chips raise `map_infra_down`. Discovered-device focus is `n:host-d-{id}`. Tune or mute under [Settings → Alerts](../operations/alerts-email-webhooks.md) — herder does not ping hosts itself.
 
 Resolution also uses Pi-hole inventory, NPM poll cache + proxy_host binds, Kuma service binds, Docker inventory (compose graph v2), and stack deployments.
 

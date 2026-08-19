@@ -75,6 +75,7 @@ _ACTION_LABELS = {
     "password_policy_changed": "Password policy changed",
     "security_policy_changed": "Security policy changed",
     "console_policy_changed": "Console policy changed",
+    "alert_policy_changed": "Alert policy changed",
     "user_password_removed": "Password removed",
     "user_password_set": "Password set",
     "sso_login": "SSO login",

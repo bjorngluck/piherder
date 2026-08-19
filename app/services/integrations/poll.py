@@ -288,6 +288,12 @@ def _poll_kuma(db: Session, integration: Integration, *, notify: bool) -> dict[s
         if notify and b.role in (reg.ROLE_SSH, reg.ROLE_SERVICE):
             _notify_transition(db, integration, b, prev, new_state)
 
+    if notify and result.ok:
+        try:
+            _notify_map_infra(db, integration, result.monitors)
+        except Exception:
+            logger.debug("map infra notify skipped", exc_info=True)
+
     db.commit()
 
     # Opportunistic favicon discovery for service bindings missing a logo
@@ -305,6 +311,42 @@ def _poll_kuma(db: Session, integration: Integration, *, notify: bool) -> dict[s
         "dashboard_ids_resolved": len(id_map),
         "integration_id": integration.id,
     }
+
+
+def _notify_map_infra(db: Session, integration: Integration, monitors: list) -> None:
+    """Gateway / WAN Kuma chips on the Hosts map (Network settings)."""
+    try:
+        from ..app_settings import load_settings
+
+        cfg = load_settings()
+    except Exception:
+        return
+    iid = str(cfg.get("network_kuma_integration_id") or "").strip()
+    if iid.isdigit() and int(iid) != int(integration.id or 0):
+        return
+    slots = (
+        ("gateway", "network_gateway_kuma_external_id", "Gateway"),
+        ("wan", "network_public_kuma_external_id", "WAN"),
+    )
+    for slot, key, _label in slots:
+        ext = str(cfg.get(key) or "").strip()
+        if not ext:
+            notif_svc.resolve_map_infra(db, slot)
+            continue
+        mon = kuma.find_monitor(monitors, ext)
+        state = (getattr(mon, "status", None) or "").lower() if mon is not None else ""
+        if state == "down":
+            name = getattr(mon, "name", None) or ext
+            msg = ""
+            try:
+                msg = reg.binding_message_from_monitor(mon) or ""
+            except Exception:
+                msg = ""
+            notif_svc.notify_map_infra_down(
+                db, slot=slot, label=str(name), message=msg
+            )
+        else:
+            notif_svc.resolve_map_infra(db, slot)
 
 
 def _poll_grafana(
@@ -408,19 +450,34 @@ def _notify_transition(
     new_state: str,
 ) -> None:
     fp = f"kuma_down:{integration.id}:{binding.role}:{binding.external_id}"
-    server = db.get(Server, binding.server_id)
-    server_name = server.name if server else f"server {binding.server_id}"
+    server = db.get(Server, binding.server_id) if binding.server_id else None
+    server_name = server.name if server else (
+        f"server {binding.server_id}" if binding.server_id else "fleet"
+    )
     mon_label = binding.external_label or binding.external_id
-    kind = "SSH" if binding.role == reg.ROLE_SSH else "Service"
+    is_ssh = binding.role == reg.ROLE_SSH
+    kind = "SSH" if is_ssh else "Service"
+    ntype = "host_down" if is_ssh else "integration_monitor_down"
+    if is_ssh and binding.server_id:
+        try:
+            from ..dns_fabric.core import hosts_map_url
+
+            link = hosts_map_url(server_id=int(binding.server_id))
+        except Exception:
+            link = f"/dns/physical?focus=n:host-{int(binding.server_id)}#map"
+    elif binding.server_id:
+        link = f"/servers/{binding.server_id}"
+    else:
+        link = "/integrations"
 
     if new_state == "down" and prev != "down":
         notif_svc.upsert_notification(
             db,
             fingerprint=fp,
-            type="integration_monitor_down",
+            type=ntype,
             title=f"{server_name}: {kind} monitor down",
             body=f"Uptime Kuma «{mon_label}» is down ({integration.name}).",
-            link_url=f"/servers/{binding.server_id}" if binding.server_id else "/integrations",
+            link_url=link,
             severity="critical",
             server_id=binding.server_id,
             payload={

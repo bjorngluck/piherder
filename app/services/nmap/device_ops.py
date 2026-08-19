@@ -270,6 +270,22 @@ def apply_stale_device_states(
         n += 1
     if n:
         session.commit()
+        for d in rows:
+            if getattr(d, "id", None) is None:
+                continue
+            try:
+                from .. import notifications as notif_svc
+
+                label = (d.display_name or d.hostname or d.ip_address or "").strip()
+                notif_svc.notify_nmap_device_offline(
+                    session,
+                    device_id=int(d.id),
+                    integration_id=int(d.integration_id),
+                    label=label,
+                    ip=d.ip_address or "",
+                )
+            except Exception:
+                pass
     return n
 
 
@@ -389,6 +405,18 @@ def set_device_state(
     session.add(device)
     session.commit()
     session.refresh(device)
+    if getattr(device, "id", None) is not None and state in ("known", "linked", "ignored"):
+        try:
+            from .. import notifications as notif_svc
+
+            notif_svc.resolve_nmap_new_device(session, int(device.id))
+            if state != "stale":
+                notif_svc.resolve_nmap_device_offline(session, int(device.id))
+            notif_svc.resolve_nmap_new_digest_if_clear(
+                session, int(device.integration_id)
+            )
+        except Exception:
+            pass
     return device
 
 
@@ -415,6 +443,17 @@ def link_device(
     session.add(device)
     session.commit()
     session.refresh(device)
+    if getattr(device, "id", None) is not None:
+        try:
+            from .. import notifications as notif_svc
+
+            notif_svc.resolve_nmap_new_device(session, int(device.id))
+            notif_svc.resolve_nmap_device_offline(session, int(device.id))
+            notif_svc.resolve_nmap_new_digest_if_clear(
+                session, int(device.integration_id)
+            )
+        except Exception:
+            pass
     return device
 
 
