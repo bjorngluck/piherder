@@ -133,5 +133,6 @@ Least-priv sudoers may allow `/usr/sbin/reboot` (and common alternate paths). Pi
 ## Related
 
 - [Jobs, audit & notifications](jobs-audit-notifications.md)  
+- [Reports](reports.md) — OS patch applies and container image patches over time  
 - [Docker overview](../docker/overview.md)  
 - [Troubleshooting](../troubleshooting/index.md)  

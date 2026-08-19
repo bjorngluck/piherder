@@ -748,6 +748,15 @@ document.addEventListener('DOMContentLoaded', function() {
     <span class="dest-card-cta">Open Docker →</span>
   </a>
   {% endif %}
+  {% if files_enabled|default(false) %}
+  <a href="/servers/{{ server.id }}/files" class="card dest-card" data-testid="dest-card-files">
+    <div class="dest-card-title">Files</div>
+    <p class="dest-card-desc">
+      {% if files_jail %}Jail <code class="text-[10px]">{{ files_jail }}</code>{% else %}Browse, download, upload{% endif %}
+    </p>
+    <span class="dest-card-cta">Browse, download, upload →</span>
+  </a>
+  {% endif %}
   <a href="/servers/{{ server.id }}/services" class="card dest-card">
     <div class="dest-card-title">Services</div>
     <p class="dest-card-desc">

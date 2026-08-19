@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
@@ -303,6 +303,283 @@ def patch_server_features(
     session.commit()
     session.refresh(server)
     return {"ok": True, "changed": changed, "server": _server_public(server)}
+
+
+def _api_files_server(session: Session, server_id: int) -> Server:
+    from ..services import host_files as hf
+    from ..services.demo import demo_mode
+
+    if demo_mode() or not hf.files_enabled():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Host Files is disabled")
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404, detail="Server not found")
+    if not hf.files_supported(server):
+        raise HTTPException(400, detail="Host has no SSH identity for Files")
+    return server
+
+
+def _api_files_http(err) -> HTTPException:
+    code = getattr(err, "code", "") or ""
+    status_map = {"not_found": 404, "ssh": 502, "denied": 403, "escape": 400, "jail": 400}
+    return HTTPException(status_map.get(code, 400), detail=getattr(err, "message", str(err)))
+
+
+@router.get("/servers/{server_id}/files", summary="List a jail-relative directory (fleet)")
+def api_files_list(
+    server_id: int,
+    p: str = "",
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import host_files as hf
+    from ..services.audit_write import make_audit_log
+    from datetime import datetime as _dt
+
+    auth.require(tok_svc.SCOPE_FILES)
+    server = _api_files_server(session, server_id)
+    try:
+        listing = hf.list_dir(server, p, role=hf.ROLE_FLEET, identity=None)
+    except hf.FilesError as e:
+        raise _api_files_http(e) from e
+    session.add(
+        make_audit_log(
+            user_id=auth.user_id,
+            server_id=server.id,
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
+            action="host_file_list",
+            details=f"identity=fleet via=api dir={listing.get('rel') or '.'} count={len(listing.get('entries') or [])}",
+            started_at=_dt.utcnow(),
+            finished_at=_dt.utcnow(),
+        )
+    )
+    session.commit()
+    entries = []
+    for e in listing.get("entries") or []:
+        entries.append(
+            {
+                "name": e.get("name"),
+                "rel": e.get("rel"),
+                "kind": e.get("kind"),
+                "size": e.get("size"),
+                "secretish": e.get("secretish"),
+                "escaped": e.get("escaped"),
+            }
+        )
+    return {
+        "jail": listing.get("jail"),
+        "rel": listing.get("rel"),
+        "truncated": listing.get("truncated"),
+        "entries": entries,
+    }
+
+
+@router.get("/servers/{server_id}/files/download", summary="Download one file (fleet)")
+def api_files_download(
+    server_id: int,
+    p: str = "",
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    import hashlib as _hashlib
+    from datetime import datetime as _dt
+
+    from ..services import host_files as hf
+    from ..services.audit_write import make_audit_log
+
+    auth.require(tok_svc.SCOPE_FILES)
+    server = _api_files_server(session, server_id)
+    try:
+        info = hf.stat_file(server, p, role=hf.ROLE_FLEET)
+    except hf.FilesError as e:
+        raise _api_files_http(e) from e
+    hasher = _hashlib.sha256()
+    nbytes = 0
+
+    def gen():
+        nonlocal nbytes
+        try:
+            for chunk in hf.iter_file(server, p, role=hf.ROLE_FLEET):
+                hasher.update(chunk)
+                nbytes += len(chunk)
+                yield chunk
+        finally:
+            try:
+                session.add(
+                    make_audit_log(
+                        user_id=auth.user_id,
+                        server_id=server.id,
+                        api_token_id=auth.token_id,
+                        api_token_name=auth.token_name,
+                        action="host_file_get",
+                        details=f"identity=fleet via=api path={info.get('rel')} bytes={nbytes} sha256={hasher.hexdigest()}",
+                        started_at=_dt.utcnow(),
+                        finished_at=_dt.utcnow(),
+                    )
+                )
+                session.commit()
+            except Exception:
+                pass
+
+    filename = (info.get("rel") or "download").rsplit("/", 1)[-1]
+    return StreamingResponse(
+        gen(),
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/servers/{server_id}/files", summary="Upload one file (fleet)")
+async def api_files_upload(
+    server_id: int,
+    file: UploadFile = File(...),
+    p: str = Form(""),
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from datetime import datetime as _dt
+
+    from ..services import host_files as hf
+    from ..services.audit_write import make_audit_log
+
+    auth.require(tok_svc.SCOPE_FILES)
+    server = _api_files_server(session, server_id)
+    name = hf.sanitize_basename(file.filename or "upload.bin")
+    try:
+        result = hf.put_file(server, p, name, file.file, size=getattr(file, "size", None), role=hf.ROLE_FLEET)
+    except hf.FilesError as e:
+        raise _api_files_http(e) from e
+    session.add(
+        make_audit_log(
+            user_id=auth.user_id,
+            server_id=server.id,
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
+            action="host_file_put",
+            details=(
+                f"identity=fleet via=api path={result['rel']} bytes={result['bytes']} "
+                f"sha256={result['sha256']} overwrite={int(result['overwrite'])}"
+            ),
+            started_at=_dt.utcnow(),
+            finished_at=_dt.utcnow(),
+        )
+    )
+    session.commit()
+    return {"ok": True, "rel": result["rel"], "bytes": result["bytes"], "sha256": result["sha256"], "overwrite": result["overwrite"]}
+
+
+class FilesMkdirBody(BaseModel):
+    p: str = ""
+    name: str
+
+
+class FilesRenameBody(BaseModel):
+    p: str = ""
+    src: str
+    dest: str
+
+
+@router.post("/servers/{server_id}/files/mkdir", summary="Create a directory (fleet)")
+def api_files_mkdir(
+    server_id: int,
+    body: FilesMkdirBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from datetime import datetime as _dt
+
+    from ..services import host_files as hf
+    from ..services.audit_write import make_audit_log
+
+    auth.require(tok_svc.SCOPE_FILES)
+    server = _api_files_server(session, server_id)
+    try:
+        result = hf.mkdir(server, body.p, body.name, role=hf.ROLE_FLEET)
+    except hf.FilesError as e:
+        raise _api_files_http(e) from e
+    session.add(
+        make_audit_log(
+            user_id=auth.user_id,
+            server_id=server.id,
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
+            action="host_file_mkdir",
+            details=f"identity=fleet via=api path={result['rel']}",
+            started_at=_dt.utcnow(),
+            finished_at=_dt.utcnow(),
+        )
+    )
+    session.commit()
+    return {"ok": True, "rel": result["rel"]}
+
+
+@router.post("/servers/{server_id}/files/rename", summary="Rename in the current directory (fleet)")
+def api_files_rename(
+    server_id: int,
+    body: FilesRenameBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from datetime import datetime as _dt
+
+    from ..services import host_files as hf
+    from ..services.audit_write import make_audit_log
+
+    auth.require(tok_svc.SCOPE_FILES)
+    server = _api_files_server(session, server_id)
+    try:
+        result = hf.rename(server, body.p, body.src, body.dest, role=hf.ROLE_FLEET)
+    except hf.FilesError as e:
+        raise _api_files_http(e) from e
+    session.add(
+        make_audit_log(
+            user_id=auth.user_id,
+            server_id=server.id,
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
+            action="host_file_rename",
+            details=f"identity=fleet via=api from={result['from']} to={result['to']}",
+            started_at=_dt.utcnow(),
+            finished_at=_dt.utcnow(),
+        )
+    )
+    session.commit()
+    return {"ok": True, "from": result["from"], "to": result["to"]}
+
+
+@router.delete("/servers/{server_id}/files", summary="Delete a file or empty directory (fleet)")
+def api_files_delete(
+    server_id: int,
+    p: str = "",
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from datetime import datetime as _dt
+
+    from ..services import host_files as hf
+    from ..services.audit_write import make_audit_log
+
+    auth.require(tok_svc.SCOPE_FILES)
+    server = _api_files_server(session, server_id)
+    try:
+        result = hf.remove(server, p, role=hf.ROLE_FLEET)
+    except hf.FilesError as e:
+        raise _api_files_http(e) from e
+    session.add(
+        make_audit_log(
+            user_id=auth.user_id,
+            server_id=server.id,
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
+            action="host_file_delete",
+            details=f"identity=fleet via=api path={result['rel']}",
+            started_at=_dt.utcnow(),
+            finished_at=_dt.utcnow(),
+        )
+    )
+    session.commit()
+    return {"ok": True, "rel": result["rel"]}
 
 
 @router.get("/servers/{server_id}/jobs", summary="List jobs for a server")

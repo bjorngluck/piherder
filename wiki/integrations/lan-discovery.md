@@ -427,4 +427,5 @@ Web only **enqueues**. Cancel and progress follow the fleet Jobs UI (finished jo
 - [Add a server](../day-to-day/add-server.md) — promote path  
 - [Jobs, audit & notifications](../day-to-day/jobs-audit-notifications.md)  
 - [Settings — Stale data cleanup](../operations/settings.md#stale-data-cleanup) — optional purge of old nmap runs  
+- [Reports](../day-to-day/reports.md) — live devices per day (`hosts_up`, carry-forward)  
 - [Volumes](../operations/volumes.md)

@@ -703,13 +703,17 @@ def mint_grant(
     session_version: int = 0,
     client_ip: Optional[str] = None,
     device_id: Optional[str] = None,
+    require_console: bool = True,
 ) -> str:
     """Short-lived grant after successful 2FA — valid for **all hosts** (fleet-wide).
 
     One passkey/TOTP step-up covers multi-host console until the grant expires.
     ``server_id`` is recorded for audit only (not enforced on validation).
+    Host Files privileged unlock may mint the same cookie with
+    ``require_console=False`` (Files kill switch is separate).
     """
-    require_enabled()
+    if require_console:
+        require_enabled()
     payload: Dict[str, Any] = {
         "console_grant": True,
         "fleet": 1,  # all hosts

@@ -20,7 +20,7 @@ Three roles, lowest → highest privilege:
 | **operator** | Yes | Yes | No | No | No | No |
 | **admin** | Yes | Yes | Yes | Yes | Yes | Yes |
 
-**Fleet mutate** means starting backups, OS/container patch and checks, Docker compose actions, template deploy, integration binds, cert deploy, bulk servers actions, etc.
+**Fleet mutate** means starting backups, OS/container patch and checks, Docker compose actions, template deploy, integration binds, cert deploy, bulk servers actions, **Host Files** (list/upload/download when `PIHERDER_HOST_FILES` is on), etc. Viewers never see the Files dest-card (403). Privileged Files follows the same “who may elevate” knob as the console.
 
 **Control plane (admin only):** force 2FA, **console limits**, **SSO / OIDC** settings, app timezone, global update-check defaults, PiHerder self-backup run/restore/download/delete/schedule, stack Status, API tokens. Details: [Settings](../operations/settings.md) · [SSO](sso-oidc.md) · [Self-backup](../operations/self-backup.md).
 

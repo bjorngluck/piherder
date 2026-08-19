@@ -26,12 +26,64 @@
     <p class="text-xs text-muted mt-2">Used for display and schedule interpretation (including update checks).</p>
   </div>
 
-  <div class="card p-5 mb-4" id="settings-security">
-    <h2 class="font-semibold text-text mb-1">Security policy</h2>
-    <p class="text-xs text-muted mb-3">
-      Global account rules. Admin-created users always must set a new password on first login.
-    </p>
-    <form method="post" action="/herder-backups/security" class="space-y-4" data-testid="settings-password-policy">
+  {% set hub = settings_hub or {} %}
+  <div class="settings-hub-grid mb-4" data-testid="settings-hub">
+    <div class="card p-4 settings-hub-card" id="settings-security">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="font-semibold text-text m-0">Security policy</h2>
+          <p class="text-xs text-muted mt-1 break-words">{{ hub.security or 'Password and 2FA rules' }}</p>
+        </div>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+                data-open-settings-modal="security">Edit</button>
+      </div>
+    </div>
+    <div class="card p-4 settings-hub-card" id="settings-console" data-testid="settings-console">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="font-semibold text-text m-0">Console</h2>
+          <p class="text-xs text-muted mt-1 break-words">{{ hub.console or 'Web SSH timeouts and audit' }}</p>
+        </div>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+                data-open-settings-modal="console">Edit</button>
+      </div>
+    </div>
+    <div class="card p-4 settings-hub-card" id="settings-sso" data-testid="settings-sso">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="font-semibold text-text m-0">SSO / OpenID Connect</h2>
+          <p class="text-xs text-muted mt-1 break-words">{{ hub.sso or 'SSO off' }}</p>
+        </div>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+                data-open-settings-modal="sso">Edit</button>
+      </div>
+    </div>
+    <div class="card p-4 settings-hub-card" id="settings-cleanup">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="font-semibold text-text m-0">Stale data cleanup</h2>
+          <p class="text-xs text-muted mt-1 break-words">{{ hub.cleanup or 'Schedule off' }}</p>
+        </div>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+                data-open-settings-modal="cleanup">Edit</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-security-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="security" role="dialog" aria-modal="true" aria-labelledby="settings-security-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="settings-security-title" class="font-semibold text-text m-0">Security policy</h2>
+          <p class="text-xs text-muted mt-1">
+            Global account rules. Admin-created users always must set a new password on first login.
+          </p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+    <form method="post" action="/herder-backups/security" class="settings-sheet-form" data-testid="settings-password-policy">
+      <div class="settings-sheet-body space-y-4">
       <fieldset class="space-y-3">
         <legend class="text-sm font-medium text-text">Password rules</legend>
         <p class="text-xs text-muted">
@@ -226,29 +278,41 @@
                  placeholder="amr">
         </label>
       </fieldset>
-      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save security policy</button>
+      </div>
+      <div class="settings-sheet-foot">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full sm:w-auto">Save security policy</button>
+      </div>
     </form>
+    </div>
   </div>
 
   {% set cpol = console_pol or {} %}
   {% set clocks = console_locks or {} %}
-  <div class="card p-5 mb-4" id="settings-console" data-testid="settings-console">
-    <h2 class="font-semibold text-text mb-1">Console</h2>
-    <p class="text-xs text-muted mb-3">
-      Timeouts, concurrency, and binding for the web SSH console.
-      2FA factors and the grant window stay under
-      <a href="#settings-security" class="underline">Security policy</a>.
-      The master switch is compose-only
-      (<code class="font-mono">PIHERDER_SSH_CONSOLE</code>).
-    </p>
-    <p class="text-xs mb-3 {% if cpol.enabled %}text-text{% else %}text-muted{% endif %}">
+  <div id="settings-console-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="console" role="dialog" aria-modal="true" aria-labelledby="settings-console-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="settings-console-title" class="font-semibold text-text m-0">Console</h2>
+          <p class="text-xs text-muted mt-1">
+            Timeouts, concurrency, and binding for the web SSH console.
+            2FA factors and the grant window stay under
+            <a href="#settings-security" class="underline" data-open-settings-modal="security">Security policy</a>.
+            The master switch is compose-only
+            (<code class="font-mono">PIHERDER_SSH_CONSOLE</code>).
+          </p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+    <form method="post" action="/herder-backups/console" class="settings-sheet-form" data-testid="settings-console-form">
+      <div class="settings-sheet-body space-y-4">
+    <p class="text-xs {% if cpol.enabled %}text-text{% else %}text-muted{% endif %}">
       {% if cpol.enabled %}
       Console is <strong>on</strong>{% if demo_mode_on %} (demo / simulated){% endif %}.
       {% else %}
       Console is <strong>off</strong>. Set <code class="font-mono">PIHERDER_SSH_CONSOLE=true</code> and restart web.
       {% endif %}
     </p>
-    <form method="post" action="/herder-backups/console" class="space-y-4" data-testid="settings-console-form">
       <fieldset class="space-y-3">
         <legend class="text-sm font-medium text-text">Timeouts</legend>
         <div class="grid sm:grid-cols-2 gap-3">
@@ -456,24 +520,36 @@
           {% endif %}
         </label>
       </fieldset>
-      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save console policy</button>
+      </div>
+      <div class="settings-sheet-foot">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full sm:w-auto">Save console policy</button>
+      </div>
     </form>
+    </div>
   </div>
 
-  <div class="card p-5 mb-4" id="settings-sso" data-testid="settings-sso">
-    <h2 class="font-semibold text-text mb-1">SSO / OpenID Connect</h2>
-    <p class="text-xs text-muted mb-3">
-      BYO IdP (Authentik, Keycloak, Authelia, Google, Entra, …). Authorization code + PKCE.
-      Redirect URI (register at IdP):
-      <code class="font-mono text-[11px] break-all block mt-1">{{ oidc_redirect_uri or '' }}</code>
-    </p>
+  <div id="settings-sso-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="sso" role="dialog" aria-modal="true" aria-labelledby="settings-sso-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="settings-sso-title" class="font-semibold text-text m-0">SSO / OpenID Connect</h2>
+          <p class="text-xs text-muted mt-1">
+            BYO IdP (Authentik, Keycloak, Authelia, Google, Entra, …). Authorization code + PKCE.
+            Redirect URI (register at IdP):
+            <code class="font-mono text-[11px] break-all block mt-1">{{ oidc_redirect_uri or '' }}</code>
+          </p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+    <form method="post" action="/herder-backups/oidc" class="settings-sheet-form">
+      <div class="settings-sheet-body space-y-3">
     {% if request.query_params.get('oidc_saved') %}
-    <div class="banner-success border border-border rounded p-2 text-sm mb-3">SSO settings saved.</div>
+    <div class="banner-success border border-border rounded p-2 text-sm">SSO settings saved.</div>
     {% endif %}
     {% if request.query_params.get('oidc_error') %}
-    <div class="banner-error border border-border rounded p-2 text-sm mb-3">{{ request.query_params.get('oidc_error') }}</div>
+    <div class="banner-error border border-border rounded p-2 text-sm">{{ request.query_params.get('oidc_error') }}</div>
     {% endif %}
-    <form method="post" action="/herder-backups/oidc" class="space-y-3">
       <label class="flex items-start gap-2 min-h-11 text-sm">
         <input type="checkbox" name="oidc_enabled" value="1" class="mt-1"
                {% if cfg.oidc_enabled %}checked{% endif %}>
@@ -586,7 +662,10 @@
           <span class="block text-xs text-muted mt-0.5">Hides the password form (break-glass: disable this or use local recovery).</span>
         </span>
       </label>
-      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save SSO settings</button>
+      </div>
+      <div class="settings-sheet-foot">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full sm:w-auto">Save SSO settings</button>
+      </div>
     </form>
 
     {# Add group → role mapping modal (outside the form so nested forms are not an issue) #}
@@ -773,19 +852,28 @@
       syncEmpty();
     })();
     </script>
+    </div>
   </div>
 
-  <div class="card p-5 mb-4">
-    <h2 class="font-semibold text-text mb-1">Stale data cleanup</h2>
-    <p class="text-xs text-muted mb-3">
-      Opt-in purge of old <strong class="text-text">Jobs</strong> and <strong class="text-text">Audit</strong>
-      history (and optional nmap scan runs). Runs as a fleet job
-      (<code class="text-[10px]">stale_data_cleanup</code>) — same log panel as other jobs.
-      Defaults: <strong>30 days</strong>. Never deletes pending/running jobs.
-      Distinct from per-server backup file retention.
-    </p>
+  <div id="settings-cleanup-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="cleanup" role="dialog" aria-modal="true" aria-labelledby="settings-cleanup-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="settings-cleanup-title" class="font-semibold text-text m-0">Stale data cleanup</h2>
+          <p class="text-xs text-muted mt-1">
+            Opt-in purge of old <strong class="text-text">Jobs</strong> and <strong class="text-text">Audit</strong>
+            history (and optional nmap scan runs). Runs as a fleet job
+            (<code class="text-[10px]">stale_data_cleanup</code>) — same log panel as other jobs.
+            Defaults: <strong>30 days</strong>. Never deletes pending/running jobs.
+            Distinct from per-server backup file retention.
+          </p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
     {% set dc = data_cleanup or {} %}
-    <form method="post" action="/herder-backups/data-cleanup/config" class="space-y-3">
+    <form method="post" action="/herder-backups/data-cleanup/config" class="settings-sheet-form">
+      <div class="settings-sheet-body space-y-3">
       <label class="flex items-start gap-2 min-h-11 text-sm">
         <input type="checkbox" name="data_cleanup_enabled" value="1" class="mt-1"
                {% if dc.enabled %}checked{% endif %}>
@@ -848,29 +936,29 @@
         </div>
       </div>
 
-      <div class="flex flex-wrap gap-2">
-        <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save cleanup settings</button>
+      </div>
+      <div class="settings-sheet-foot">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full sm:w-auto">Save cleanup settings</button>
+        {% if data_cleanup_preview %}
+        <p class="text-xs text-muted mt-2 mb-0">
+          About
+          <strong class="text-text">{{ data_cleanup_preview.jobs }}</strong> jobs,
+          <strong class="text-text">{{ data_cleanup_preview.audit }}</strong> audit,
+          <strong class="text-text">{{ data_cleanup_preview.nmap_runs }}</strong> nmap runs
+          would purge now.
+        </p>
+        {% endif %}
+        <p class="text-xs text-muted mt-1 mb-0">
+          {% if data_cleanup_schedule_status == 'enabled' %}
+          <span class="text-accent">Schedule active{% if data_cleanup_next_run %} — next {{ data_cleanup_next_run }}{% endif %}.</span>
+          {% else %}
+          Schedule off — enable above or run manually.
+          {% endif %}
+        </p>
       </div>
     </form>
-
-    {% if data_cleanup_preview %}
-    <p class="text-xs text-muted mt-3">
-      With current settings, about
-      <strong class="text-text">{{ data_cleanup_preview.jobs }}</strong> jobs,
-      <strong class="text-text">{{ data_cleanup_preview.audit }}</strong> audit rows,
-      <strong class="text-text">{{ data_cleanup_preview.nmap_runs }}</strong> nmap runs
-      would be purged now.
-    </p>
-    {% endif %}
-    <p class="text-xs text-muted mt-2">
-      {% if data_cleanup_schedule_status == 'enabled' %}
-      <span class="text-accent">Schedule active{% if data_cleanup_next_run %} — next {{ data_cleanup_next_run }}{% endif %}.</span>
-      {% else %}
-      Schedule off — enable above or run manually.
-      {% endif %}
-    </p>
-
-    <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border">
+    <div class="settings-sheet-foot" style="border-top: none; padding-top: 0;">
+      <div class="flex flex-wrap gap-2">
       <form method="post" action="/herder-backups/data-cleanup/run"
             data-wait-title="Queueing dry-run"
             data-wait-message="Creating cleanup job…">
@@ -888,6 +976,8 @@
         <button type="submit" class="btn btn-accent min-h-11 text-sm">Run cleanup now</button>
       </form>
       <a href="/jobs?job_type=stale_data_cleanup" class="btn btn-secondary min-h-11 text-sm">Cleanup jobs</a>
+      </div>
+    </div>
     </div>
   </div>
   {% endif %}

@@ -127,6 +127,11 @@ class Settings(BaseSettings):
     # When true, every live shell records commands (Off is ignored). Demo still never stores.
     PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED: bool = False
 
+    # Host Files dest-card (v1.3 Stream F) — default OFF until operators opt in
+    PIHERDER_HOST_FILES: bool = False
+    # Upload cap (bytes). Code default 512 MiB; env may raise up to 2 GiB.
+    PIHERDER_HOST_FILES_MAX_BYTES: int = 512 * 1024 * 1024
+
     # Content-Security-Policy (v1.2) — default on; Report-Only for staged rollouts
     PIHERDER_CSP: bool = True
     PIHERDER_CSP_REPORT_ONLY: bool = False

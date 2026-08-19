@@ -8,6 +8,8 @@ Tools to **edit** compose (and related files) on a free-form host project, keep 
 
 Editing compose only over SSH loses history and audit. The editor records versions, can multi-file save, and runs deploy as a **job** with logs so operators see pull/up failures instead of silent “success.”
 
+For a one-off sidecar or log **without** opening the text editor, use [Host Files](../day-to-day/host-files.md) (jailed SFTP; flag off by default). `.env` in the compose editor is redacted until step-up; Files is a byte pipe (wiki-warn).
+
 ---
 
 ## End-to-end: small compose change

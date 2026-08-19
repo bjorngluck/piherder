@@ -149,6 +149,8 @@ All event times are **stored in UTC** and **rendered in the app timezone** from 
 
 **Why an inbox separate from Audit:** Audit is forever; the inbox is a short “todo” list for open problems.
 
+Job, nmap-run, and console-open **history** is aggregated on [Reports](reports.md) (backups, OS patches, LAN live, Docker deploys, console sessions).
+
 ## API
 
 Automation can list/trigger jobs with Bearer tokens — [API tokens](../operations/api-tokens.md).

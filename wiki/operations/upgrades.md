@@ -69,7 +69,9 @@ If you track the integration branch:
 4. If you previously relied on those vars in `.env` **and** compose interpolation, they will not reach the container until you add that one line to compose `environment` (env then **locks** the knob). Otherwise Settings apply.  
 5. Smoke: Settings → Security (password / 2FA) · Settings → Console (including **who may open privileged**) · one host **SSH access** (fleet identity still there; optional privileged card) · optional live shell if the flag is on.  
 6. Alembic **`040_ssh_identities`** copies each host’s existing username + key into a **fleet** identity. `Server.ssh_username` is unchanged. Jobs keep using fleet.  
-7. Alembic **`041_console_transcripts`** is empty until you turn on **Settings → Console → Command audit**. Default remains off.
+7. Alembic **`041_console_transcripts`** is empty until you turn on **Settings → Console → Command audit**. Default remains off.  
+8. **Host Files** is **off** until you set `PIHERDER_HOST_FILES=true` and restart web. Optional `PIHERDER_HOST_FILES_MAX_BYTES` (code default 512 MiB). [Host Files](../day-to-day/host-files.md).  
+9. **Reports** is on at `/reports` (no flag) — [Reports](../day-to-day/reports.md).
 
 Hub **`main` / 1.2.x** is unchanged until the 1.3 freeze.
 

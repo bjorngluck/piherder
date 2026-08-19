@@ -881,7 +881,7 @@ chmod 440 "$DROPIN"
 echo "Installed $DROPIN"
 {key_block}
 echo "Done. In PiHerder: SSH access → privileged identity → Test connection."
-echo "Jobs still use the fleet user — this account is console-only."
+echo "Jobs still use the fleet user — this account is console + Files (privileged)."
 """
 
 

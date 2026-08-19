@@ -95,6 +95,7 @@ def test_favicon_and_static_present(smoke_client):
 @pytest.mark.parametrize(
     "path",
     [
+        "/reports",
         "/servers",
         "/jobs",
         "/audit",
@@ -130,6 +131,7 @@ def test_api_v1_requires_bearer(smoke_client):
     "path",
     [
         "/",
+        "/reports",
         "/servers",
         "/jobs",
         "/audit",
@@ -170,10 +172,13 @@ def test_settings_general_admin_200(smoke_client):
     body = r.text.lower()
     # Stale data cleanup card (stream R) or timezone / general chrome
     assert "timezone" in body or "stale" in body or "general" in body or "settings" in body
+    assert 'data-testid="settings-hub"' in r.text
     assert 'data-testid="settings-password-policy"' in r.text
     assert 'data-testid="password-min-length"' in r.text
     assert 'data-testid="settings-console"' in r.text
     assert 'data-testid="console-idle-sec"' in r.text
+    assert 'data-open-settings-modal="security"' in r.text
+    assert 'data-settings-modal="console"' in r.text
 
 
 def test_admin_console_policy_save(smoke_client, monkeypatch):
@@ -285,3 +290,21 @@ def test_authenticated_root_dashboard(smoke_client):
     r = client.get("/", cookies=_auth_cookie(uid))
     assert r.status_code == 200
     assert "dashboard" in r.text.lower() or "server" in r.text.lower() or "fleet" in r.text.lower()
+    assert "/reports" in r.text
+
+
+def test_reports_board_viewer_200(smoke_client):
+    """Reports is backup + OS patch history, not status portlets."""
+    client, engine = smoke_client
+    with Session(engine) as session:
+        user = _make_user(session, role="viewer", email="viewer@smoke.test")
+        uid = user.id
+    r = client.get("/reports", cookies=_auth_cookie(uid))
+    assert r.status_code == 200
+    assert 'data-testid="reports-backups"' in r.text
+    assert 'data-testid="reports-os-patch"' in r.text
+    assert 'data-testid="reports-lan"' in r.text
+    assert 'data-testid="reports-docker"' in r.text
+    assert 'data-testid="reports-console"' in r.text
+    assert "Reports" in r.text
+    assert "report-card-alerts_by_severity" not in r.text

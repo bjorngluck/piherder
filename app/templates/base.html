@@ -212,6 +212,7 @@
       {# Alerts: bell only. Catalog → /catalog → Integrations (Settings-style tabs). #}
       {% set nav_items = [
         {"label": "Dashboard", "href": "/", "match": "exact"},
+        {"label": "Reports",   "href": "/reports", "match": "prefix"},
         {"label": "Servers",   "href": "/servers", "match": "prefix"},
         {"label": "Catalog",   "href": "/catalog", "match": "catalog"},
         {"label": "Jobs",      "href": "/jobs", "match": "prefix"},

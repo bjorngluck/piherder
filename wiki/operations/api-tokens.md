@@ -30,6 +30,7 @@ Authorization: Bearer ph_<secret>
 | `read` | Catalog, health, servers, jobs GET |
 | `jobs` | `POST …/servers/{id}/jobs` (start work units) |
 | `edit` | `PATCH …/features` (feature flags) |
+| `files` | Host Files (fleet identity only) — not in default scopes; privileged Files is UI-only |
 | `feature:backup` | Restrict `jobs` to backup-related types when any `feature:*` is set |
 | `feature:os` | OS patch / OS update-check jobs (apt **or** HAOS `ha` CLI when `os_type=haos`) |
 | `feature:docker` | Container patch / container update-check / stack check-deploy jobs |
