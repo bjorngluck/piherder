@@ -36,7 +36,7 @@ mkdocs build --strict
 | `service-templates/` | Deploy / from-host / secrets *(not named `templates/` — MkDocs reserves that)* |
 | `integrations/` | Kuma, Grafana, Pi-hole, NPM, certificates, Network maps, LAN discovery |
 | `account-security/` | RBAC, users, 2FA, SSO/OIDC, PWA |
-| `day-to-day/web-ssh-console.md` | Web SSH console (v1.2; flag-off) |
+| `day-to-day/web-ssh-console.md` | Web SSH console (flag-off; Settings → Console for limits) |
 | `operations/` | Settings, env, DR, API, metrics, multi-worker |
 | `troubleshooting/` | Common failures |
 | `developers/` | Setup, architecture, schema, testing, publish |

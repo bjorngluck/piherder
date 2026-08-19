@@ -176,9 +176,10 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | 1 | Account → **Add passkey** (+ TOTP still OK) | Second factor without an app-only story |
 | 2 | Optional Settings → **SSO** | BYO IdP; keep an admin password |
 | 3 | Leave `PIHERDER_SSH_CONSOLE=false` unless you need a browser shell | Default off; XSS on the herder origin is shell-equivalent when on |
-| 4 | If you enable it: operator + 2FA → Console → **+ Shell** | [Web SSH console](../day-to-day/web-ssh-console.md) |
-| 5 | **Test connection** pins the host key; reset only after a rebuild | TOFU — mismatch is refused |
-| 6 | Smoke the [v1.2 QA](../operations/qa-v1.2.0.md) identity + console rows if you turn these on | Optional surfaces — they stay off until you enable them |
+| 4 | If you enable it: **Settings → Console** for idle / max / slots; Security for 2FA grant | [Web SSH console](../day-to-day/web-ssh-console.md) · [Settings](../operations/settings.md#console) |
+| 5 | Then: operator + 2FA → Console → **+ Shell** | Same wiki |
+| 6 | **Test connection** pins the host key; reset only after a rebuild | TOFU — mismatch is refused |
+| 7 | Smoke the [v1.2 QA](../operations/qa-v1.2.0.md) identity + console rows if you turn these on | Optional surfaces — they stay off until you enable them |
 
 ---
 

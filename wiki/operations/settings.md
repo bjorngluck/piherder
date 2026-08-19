@@ -33,7 +33,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 | Tab | Purpose |
 |-----|---------|
-| **General** | App timezone, security policy (password rules, 2FA scope, step-up), **SSO / OIDC**, and **Stale data cleanup** |
+| **General** | App timezone, **security policy**, **console limits**, **SSO / OIDC**, and **Stale data cleanup** |
 | **Alerts** | Outbound **webhook** + **SMTP** (alert mail, test send, forgot-password) — [details](alerts-email-webhooks.md) |
 | **Fleet defaults** | Global OS / container update-check defaults (optional apply to all hosts) |
 | **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)) |
@@ -62,6 +62,33 @@ Cron fields across Settings (cleanup, fleet defaults, PiHerder backup) and host 
 ### General tab — timezone card
 
 The hero shows a **timezone identity card** (not a city name jammed into the orb): continent badge, city, `UTC±offset`, local clock, and full IANA id (e.g. `Africa/Johannesburg`).
+
+### Security policy {#security-policy}
+
+**Admin-only.** Password rules, who must enrol 2FA (off / admins / operators+ / everyone), grace **0–60** days, step-up windows (account / secrets / **console grant**), allowed factors, and the IdP-MFA login skip (default off). See [2FA](../account-security/two-factor.md).
+
+### Console {#console}
+
+**Admin-only.** **Available from v1.3** on `v1.3.0-dev`. Timeouts and session limits for the optional [web SSH console](../day-to-day/web-ssh-console.md).
+
+| Setting | Default | Range |
+|---------|---------|--------|
+| Idle timeout | 900s (15 min) | 60–28800 (8h). Also ends parked shells |
+| Max session | 3600s (1h) | 120–43200 (12h), forced ≥ idle |
+| Max shells per user | 4 | 1–16 (all hosts, including parked) |
+| Max shells instance-wide | 20 | 1–64, forced ≥ per-user |
+| Open-ticket TTL | 60s | 15–300 |
+| Park hold after WS drop | 0 | 0 = until idle/max; else 30–3600 |
+| Revalidate interval | 10s | 5–60 |
+| Bind to client IP | on | Off only if mobile NAT breaks reconnects |
+| Bind to device cookie | on | HttpOnly `console_device` |
+| xterm scrollback | 2000 lines | 500–50000 |
+
+The **master enable** is still compose-only: `PIHERDER_SSH_CONSOLE` (default off). 2FA factors and the grant window stay on **Security policy** (two forms — do not move those checkboxes here).
+
+A non-empty env var **locks** that knob (field shows read-only). Bundled compose does **not** inject defaults for these, or Settings cannot apply. Public demo **403s** writes. Lowering concurrency does **not** kick open shells.
+
+Audit: `console_policy_changed`.
 
 ### Stale data cleanup {#stale-data-cleanup}
 

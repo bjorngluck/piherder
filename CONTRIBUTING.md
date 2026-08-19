@@ -20,7 +20,7 @@ All contributions are offered under the **[MIT License](LICENSE)**. By submittin
 ## Getting Started
 
 - Read the [README](README.md) and [SPEC.md](SPEC.md) for project goals and design principles.
-- Current production: **[v1.2.0](docs/RELEASE_v1.2.0.md)**. Active train: **[v1.3.0](docs/PLAN_v1.3.0.md)** on `v1.3.0-dev`. Prior: [v1.1.1](docs/RELEASE_v1.1.1.md) · [v1.1.0](docs/RELEASE_v1.1.0.md) · [v1.0.0](docs/RELEASE_v1.0.0.md).
+- Current production: **[v1.2.0](docs/RELEASE_v1.2.0.md)**. Active train: **[v1.3.0](docs/PLAN_v1.3.0.md)** on `v1.3.0-dev` (slices 1–2 landed: operator security policy + console timeouts). Prior: [v1.1.1](docs/RELEASE_v1.1.1.md) · [v1.1.0](docs/RELEASE_v1.1.0.md) · [v1.0.0](docs/RELEASE_v1.0.0.md).
 - Look for issues tagged `good first issue` or `help wanted`.
 
 ## Documentation

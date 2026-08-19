@@ -5,7 +5,8 @@
 The **operator freeze checklist** for **PiHerder v1.2.0**. This is the current production line. Use the list to sign off a fleet upgrade or a fresh 1.2 install.
 
 Maintainer copy (same tests + post-tag steps): [docs/QA_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.2.0.md).  
-What shipped: [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md).
+What shipped: [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md).  
+**v1.3 train** (Settings password / 2FA / console limits) is documented in [PLAN_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/PLAN_v1.3.0.md) and [Settings](settings.md) — not this 1.2 freeze list.
 
 ## Why it exists
 

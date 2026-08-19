@@ -63,16 +63,17 @@ If you set `ALLOW_OPEN_REGISTRATION=true`, later self-registered accounts become
 
 1. Create operators/viewers via **Users → Create user** (modal + one-time credentials); share invite passwords carefully.  
 2. Optionally set **Who must enrol 2FA** under Settings → Security policy (everyone, operators+, or admins).  
-3. Optionally configure **SSO / OIDC** (Settings → General) once TLS and public URL are stable — [SSO guide](../account-security/sso-oidc.md). Keep at least one break-glass local admin password.
+3. Leave web SSH off unless you need it (`PIHERDER_SSH_CONSOLE`). If you turn it on, tune **Settings → Console** (idle / slots) — [web SSH](../day-to-day/web-ssh-console.md).  
+4. Optionally configure **SSO / OIDC** (Settings → General) once TLS and public URL are stable — [SSO guide](../account-security/sso-oidc.md). Keep at least one break-glass local admin password.
 
 <figure class="ph-figure" markdown>
   ![SSO login](../assets/screenshots/login-sso.png)
   <figcaption>Sign in after SSO is enabled — Continue with your IdP, plus password break-glass.</figcaption>
 </figure>  
-4. Per server: **Edit → Features** → then **Schedules** for checks → only then consider **apply** schedules. Remove a host later via **Edit → Remove**.  
-5. Prefer “only if updates” on apply schedules; start with a quiet weekly window.  
-6. For mobile push: trusted TLS + [PWA & Web Push](../account-security/pwa-push.md); open in-app alerts from the **bell**.  
-7. DR: Settings → PiHerder backup; keep `PIHERDER_MASTER_KEY` offline safe.
+5. Per server: **Edit → Features** → then **Schedules** for checks → only then consider **apply** schedules. Remove a host later via **Edit → Remove**.  
+6. Prefer “only if updates” on apply schedules; start with a quiet weekly window.  
+7. For mobile push: trusted TLS + [PWA & Web Push](../account-security/pwa-push.md); open in-app alerts from the **bell**.  
+8. DR: Settings → PiHerder backup; keep `PIHERDER_MASTER_KEY` offline safe.
 
 <figure class="ph-figure" markdown>
   ![Dashboard](../assets/screenshots/dashboard.png)

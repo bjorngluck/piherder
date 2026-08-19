@@ -42,7 +42,9 @@ flowchart TB
 | Concern | Location |
 |---------|----------|
 | Roles / middleware | `app/security/auth.py` |
-| Password policy | `app/services/password_policy.py` |
+| Password policy | `app/services/password_policy.py` · Settings Security |
+| Account / 2FA step-up policy | `app/services/account_stepup.py` · Settings Security |
+| Web SSH console | `app/services/ssh_console.py` · `app/routers/server_console.py` · Settings Console (timeouts) / Security (factors) |
 | Jobs / progress / exclusive types | `app/services/jobs/` (`service.py`; package preserves `patch.object` surface) |
 | Docker unused cleanup HTML | `app/services/docker_unused_html.py` |
 | Per-server backup lock | `app/services/server_job_lock.py` |

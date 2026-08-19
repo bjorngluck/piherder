@@ -59,7 +59,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - **Current production (Hub):** [docs/RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) — passkeys · SSO · web SSH · gated demo · full DB self-backup · security remediations
 - Prior: [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) · [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
-- **Active train:** [docs/PLAN_v1.3.0.md](docs/PLAN_v1.3.0.md) on `v1.3.0-dev` (operator policy · scale lists · multi-identity console · insights / host files thin slice)
+- **Active train:** [docs/PLAN_v1.3.0.md](docs/PLAN_v1.3.0.md) on `v1.3.0-dev` (password / 2FA policy and console timeouts landed · scale lists · Connect as… · insights / host files)
 - API reference: [docs/API.md](docs/API.md)
 
 ### Public demo (view-only)

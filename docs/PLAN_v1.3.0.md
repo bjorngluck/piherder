@@ -98,7 +98,7 @@ main @ v1.2.0 (+ v1.2.x patches)
 ```text
 Phase 0  Finish v1.2.0 tag / Hub  ✅ done (v1.2.0)
     │
-Phase 1  Foundations (parallel)  ← current
+Phase 1  Foundations (parallel)  ← current; P+T (slice 1) and W-cfg (slice 2) landed
     ├─ L1 shared list chrome (per_page + pager + q)
     ├─ P1/P2 password-policy settings schema + safe defaults
     └─ W-id1/W-id2 model + migrate 1.x single key
@@ -143,17 +143,17 @@ Phase 4  Discover / Cap + freeze
 
 ### Stream **T** — User-driven 2FA enforcement and step-up policy
 
-**Today:** Instance **Force 2FA** (enroll wall); login step-up when TOTP/passkey enrolled; secrets step-up cookie; webshell step-up with env knobs (`REQUIRE_2FA_EVERY_SHELL`, passkey prefer/require, backup codes). SSO shares the same 2FA helpers as password login.  
-**Wanted:** Operators configure **who must enroll**, **when step-up fires**, and **how long step-up grants last** — not only a binary force-2FA flag + env for console.
+**Today (slice 1 Deep landed):** Settings → Security owns force-2FA scope / grace **0–60** / trusted-device skip rules / step-up windows / factor matrix / IdP-MFA opt-in (fail closed). T6 any-factor mutations. Console factor knobs + grant window are here (not on the Console card). SSO shares the same 2FA helpers as password login.  
+**Wanted:** Operators configure **who must enroll**, **when step-up fires**, and **how long step-up grants last** — not only a binary force-2FA flag + env for console. **Done** for T1–T6 (destructive-job step-up stays Cap).
 
 | ID | Item | Notes |
 |----|------|--------|
-| T1 | Policy matrix in Settings → Security | Force 2FA (all users / admins only / operators+ / off); grace **0–60** days after enable (home-lab); optional trusted-device skip rules |
-| T2 | Step-up surfaces catalog | Document + configure: secrets view, sensitive account actions, console open, (optional) destructive jobs — each with re-auth window minutes |
-| T3 | Factor policy | Allow TOTP / passkey / backup codes for **login** vs **step-up** (e.g. console: passkey preferred / required; backup codes never for shell) |
-| T4 | Alignment with SSO | Keep “IdP MFA does not replace herder 2FA” unless an explicit admin option; no silent skip |
-| T5 | Audit + break-glass | Policy changes audited; sole-admin / recover path documented when force-2FA + lost factors |
-| T6 | Account mutation step-up is factor-agnostic | **Carry [KI-account-stepup-factors](RELEASE_v1.2.0.md#known-issues-ship-with-awareness).** SSO unlink/link: any enrolled 2FA (passkey step-up, TOTP, backup code) — not TOTP-only when TOTP is present. Passkey revoke: same helper (any other 2FA or remaining passkey), not password-only. Password remains the fallback when no 2FA is enrolled. |
+| T1 | Policy matrix in Settings → Security | **Landed.** Force 2FA (all users / admins only / operators+ / off); grace **0–60** days after enable (home-lab); optional trusted-device skip rules |
+| T2 | Step-up surfaces catalog | **Landed** for account / secrets / console windows. Destructive jobs stay Cap |
+| T3 | Factor policy | **Landed.** Login vs account vs secrets vs console × TOTP / passkey / backup |
+| T4 | Alignment with SSO | **Landed.** IdP MFA skip opt-in, default off, fail closed |
+| T5 | Audit + break-glass | **Landed.** `security_policy_changed`; recover-admin documented |
+| T6 | Account mutation step-up is factor-agnostic | **Landed.** [KI-account-stepup-factors](RELEASE_v1.2.0.md#known-issues-ship-with-awareness) closed on this train |
 
 **Non-goals (T):** Passwordless-only login day one (unless residual after 1.2); per-host 2FA (belongs with **AC-fg**).
 
@@ -163,16 +163,16 @@ Phase 4  Discover / Cap + freeze
 
 ### Stream **W-cfg** — Configurable console timeouts, 2FA step-up, session limits
 
-**Today:** Webshell limits are largely **env-only** (`PIHERDER_SSH_CONSOLE_*`: idle, max session, ticket TTL, max per user / global, grant minutes, revalidate, every-shell 2FA, bind IP/device, scrollback). Flag default off.  
-**Wanted:** Safe **in-app Settings** (admin) for the knobs operators actually tune, with env as hard ceiling or bootstrap.
+**Today (slice 2 Deep landed):** Settings → **Console** owns idle, max session, concurrency, ticket TTL, park hold, bind IP/device, revalidate, scrollback. Factor knobs + grant window landed with **T** (Security card). Kill switch remains `PIHERDER_SSH_CONSOLE` (compose / env). Env wins when set and non-empty. Bundled compose does **not** inject defaulted `PIHERDER_SSH_CONSOLE_*` knobs. Flag default off.  
+**Wanted:** Safe **in-app Settings** (admin) for the knobs operators actually tune, with env as hard ceiling or bootstrap. **Done** (Deep).
 
 | ID | Item | Notes |
 |----|------|--------|
-| W1 | Settings → Console (or Security) panel | Idle timeout, max session length, max concurrent shells per user + global, ticket lifetime, step-up grant window |
-| W2 | 2FA step-up knobs in UI | Require 2FA every new shell; allow backup codes; prefer/require passkey — same semantics as env, stored in settings |
-| W3 | Precedence rules | Document: env kill switch still master; settings fill defaults; optional “env wins if set” for air-gapped deploys |
-| W4 | Live limits without restart | Prefer settings reload without full process restart where safe |
-| W5 | Wiki + DEMO | Demo keeps console off; document that public demo does not expose these knobs as a multi-tenant shell farm |
+| W1 | Settings → Console panel | **Landed.** Idle, max session, max per user + global, ticket TTL. Grant window stays on Security |
+| W2 | 2FA step-up knobs in UI | **Landed with slice 1 / T3.** Every-shell, backup codes, prefer/require passkey — do not move onto Console |
+| W3 | Precedence rules | **Landed.** Kill switch env-only; Settings fill defaults; env wins if set and non-empty |
+| W4 | Live limits without restart | **Landed.** Idle/max/hold/revalidate on next WS tick; concurrency on next new shell (no eviction) |
+| W5 | Wiki + DEMO | **Landed.** Demo 403 on write; not a multi-tenant shell farm |
 
 **Non-goals (W-cfg):** Session recording; dual-control console; raising global caps beyond a hard server ceiling (DoS).
 
@@ -497,6 +497,7 @@ Success criteria:
 | 2026-08-18 | **Slice 1 Deep signed.** Policy Must = **P + T1–T6**. Force-2FA grace **0–60** days (home-lab). Destructive-job step-up Cap. |
 | 2026-08-18 | **Slice 1 landed** on `v1.3.0-dev`: Settings password policy + force-2FA scope/grace + step-up windows + factor matrix + T6 any-factor mutations + T4 IdP MFA opt-in (fail closed). |
 | 2026-08-19 | **Slice 2 Deep signed + landed:** W-cfg timeouts / concurrency / ticket / hold / bind / revalidate / scrollback in Settings → Console. Kill switch env-only. Compose no longer injects defaulted `PIHERDER_SSH_CONSOLE_*` knobs. |
+| 2026-08-19 | **Docs pass:** wiki Settings / console / env / upgrades / 2FA / roles / demo + ADMIN / ROADMAP / SECURITY / CONTRIBUTING aligned with slices 1–2. |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 
