@@ -143,9 +143,9 @@ def connect_with_auth(
         raise RuntimeError(f"SSH connect failed to {host}: {e}") from e
 
 
-def test_connection_detail(server: Server) -> OnboardingResult:
+def test_connection_detail(server: Server, identity=None) -> OnboardingResult:
     try:
-        client = ssh_service.get_ssh_client(server)
+        client = ssh_service.get_ssh_client(server, identity)
         try:
             status, out, err = ssh_service.run_command(
                 client,
@@ -290,12 +290,19 @@ def _stored_password(server: Server) -> Optional[str]:
         return None
 
 
-def _ensure_server_key_material(server: Server) -> tuple[str, str]:
+def _ensure_server_key_material(server: Server, identity=None) -> tuple[str, str]:
     """Return (public_key, private_key_plain). Raises if incomplete."""
-    if not server.ssh_private_key_encrypted:
+    enc = None
+    pub = None
+    if identity is not None:
+        enc = getattr(identity, "private_key_encrypted", None)
+        pub = getattr(identity, "public_key", None)
+    if not enc:
+        enc = server.ssh_private_key_encrypted
+        pub = server.ssh_public_key
+    if not enc:
         raise RuntimeError("No SSH private key on this server — generate or upload a key first")
-    priv = ssh_service.get_private_key_plain(server)
-    pub = server.ssh_public_key
+    priv = encryption.decrypt_str(enc)
     if not is_real_public_key(pub):
         pub = public_key_from_private(priv, comment=f"piherder@{server.hostname or server.name}")
     return normalize_public_key(pub), priv
@@ -305,25 +312,32 @@ def deploy_public_key(
     server: Server,
     *,
     password_override: Optional[str] = None,
+    identity=None,
 ) -> OnboardingResult:
     """
-    Install server's public key on the remote host and verify key-only login.
+    Install public key on the remote host and verify key-only login.
     Uses existing key auth if it already works; otherwise password (override or stored).
+    Privileged identities never use the stored fleet password.
     """
     try:
-        pub, priv = _ensure_server_key_material(server)
+        pub, priv = _ensure_server_key_material(server, identity)
     except Exception as e:
         return OnboardingResult(ok=False, message=str(e))
 
+    username = None
+    if identity is not None:
+        username = (getattr(identity, "username", None) or "").strip() or None
+    privileged = (getattr(identity, "role", None) or "") == "privileged"
+
     # Prefer key-only path when it already works
-    key_ok = False
     try:
-        client = connect_with_auth(server, private_key_plain=priv, password=None)
+        client = connect_with_auth(
+            server, username=username, private_key_plain=priv, password=None
+        )
         try:
             install_info = install_authorized_key(client, pub)
         finally:
             client.close()
-        key_ok = True
         return OnboardingResult(
             ok=True,
             message="SSH key auth already works; authorized_keys checked",
@@ -334,9 +348,11 @@ def deploy_public_key(
             },
         )
     except Exception:
-        key_ok = False
+        pass
 
-    password = (password_override or "").strip() or _stored_password(server)
+    password = (password_override or "").strip() or None
+    if not password and not privileged:
+        password = _stored_password(server)
     if not password:
         return OnboardingResult(
             ok=False,
@@ -345,7 +361,9 @@ def deploy_public_key(
         )
 
     try:
-        client = connect_with_auth(server, private_key_plain=None, password=password)
+        client = connect_with_auth(
+            server, username=username, private_key_plain=None, password=password
+        )
         try:
             install_info = install_authorized_key(client, pub)
         finally:
@@ -355,7 +373,9 @@ def deploy_public_key(
 
     # Verify key-only
     try:
-        vclient = connect_with_auth(server, private_key_plain=priv, password=None)
+        vclient = connect_with_auth(
+            server, username=username, private_key_plain=priv, password=None
+        )
         vclient.close()
     except Exception as e:
         return OnboardingResult(
@@ -379,17 +399,23 @@ def rotate_keypair(
     server: Server,
     *,
     password_override: Optional[str] = None,
+    identity=None,
 ) -> OnboardingResult:
     """
     Generate new keypair, install new pubkey, verify with new private key,
     return material for DB swap. Does not modify the Server row.
     On verify failure, leaves DB unchanged; new pubkey may remain on host for retry.
     """
-    if not server.ssh_private_key_encrypted:
-        return OnboardingResult(ok=False, message="No existing private key to rotate from")
+    try:
+        old_pub_n, old_priv = _ensure_server_key_material(server, identity)
+    except Exception as e:
+        return OnboardingResult(ok=False, message=str(e) or "No existing private key to rotate from")
 
-    old_pub = server.ssh_public_key if is_real_public_key(server.ssh_public_key) else None
-    old_priv = ssh_service.get_private_key_plain(server)
+    old_pub = old_pub_n if is_real_public_key(old_pub_n) else None
+    username = None
+    if identity is not None:
+        username = (getattr(identity, "username", None) or "").strip() or None
+    privileged = (getattr(identity, "role", None) or "") == "privileged"
     if not old_pub:
         try:
             old_pub = public_key_from_private(old_priv, comment=f"piherder@{server.hostname or 'old'}")
@@ -401,11 +427,13 @@ def rotate_keypair(
 
     password = (password_override or "").strip() or None
     client = None
-    # Prefer current key; fall back to password
+    # Prefer current key; fall back to password (fleet stored password only)
     try:
-        client = connect_with_auth(server, private_key_plain=old_priv, password=None)
+        client = connect_with_auth(
+            server, username=username, private_key_plain=old_priv, password=None
+        )
     except Exception:
-        pw = password or _stored_password(server)
+        pw = password if password else (None if privileged else _stored_password(server))
         if not pw:
             return OnboardingResult(
                 ok=False,
@@ -413,7 +441,9 @@ def rotate_keypair(
                 details={"need_password": True},
             )
         try:
-            client = connect_with_auth(server, private_key_plain=None, password=pw)
+            client = connect_with_auth(
+                server, username=username, private_key_plain=None, password=pw
+            )
         except Exception as e:
             return OnboardingResult(ok=False, message=f"Connect for rotation failed: {e}")
 
@@ -430,7 +460,9 @@ def rotate_keypair(
 
     # Verify with NEW key only
     try:
-        vclient = connect_with_auth(server, private_key_plain=new_priv, password=None)
+        vclient = connect_with_auth(
+            server, username=username, private_key_plain=new_priv, password=None
+        )
         vclient.close()
     except Exception as e:
         return OnboardingResult(
@@ -443,7 +475,9 @@ def rotate_keypair(
     removed_old = False
     if old_pub and public_key_identity(old_pub) != public_key_identity(new_pub):
         try:
-            rclient = connect_with_auth(server, private_key_plain=new_priv, password=None)
+            rclient = connect_with_auth(
+                server, username=username, private_key_plain=new_priv, password=None
+            )
             try:
                 removed_old = remove_authorized_key(rclient, old_pub)
             finally:
@@ -774,6 +808,80 @@ echo "Installed $DROPIN"
 {key_block}
 echo "Done. Point PiHerder SSH username to: $USER_NAME"
 echo "Test: ssh -i <key> $USER_NAME@host"
+"""
+
+
+def build_privileged_user_script(username: str, public_key: str) -> str:
+    """Copy-paste host setup for a break-glass / privileged SSH user.
+
+    Not run from the herder. Creates the account, installs the herder public
+    key, and a full sudoers drop-in. HAOS / specialised images: skip.
+    """
+    user = re.sub(r"[^a-z0-9_-]", "", (username or "piherder-admin").lower()) or "piherder-admin"
+    if user in {"daemon", "nobody"}:
+        user = "piherder-admin"
+    sudoers = f"{user} ALL=(ALL) NOPASSWD: ALL\n"
+    sudoers_b64 = base64.b64encode(sudoers.encode()).decode("ascii")
+    key_block = ""
+    if is_real_public_key(public_key):
+        key_line = normalize_public_key(public_key)
+        key_b64 = base64.b64encode(key_line.encode()).decode("ascii")
+        key_block = f"""
+USER_HOME=$(getent passwd {user} | cut -d: -f6)
+mkdir -p "$USER_HOME/.ssh"
+chmod 700 "$USER_HOME/.ssh"
+AUTH="$USER_HOME/.ssh/authorized_keys"
+touch "$AUTH"
+KEY=$(printf '%s' '{key_b64}' | base64 -d)
+IDENT=$(echo "$KEY" | awk '{{print $1" "$2}}')
+if ! grep -Fq "$IDENT" "$AUTH" 2>/dev/null; then
+  printf '%s\\n' "$KEY" >> "$AUTH"
+fi
+chmod 600 "$AUTH"
+chown -R {user}:{user} "$USER_HOME/.ssh"
+"""
+    return f"""#!/bin/bash
+# PiHerder privileged (break-glass) user setup
+# Supported: Debian, Raspberry Pi OS, Ubuntu
+# NOT for HAOS / Alpine / specialised images.
+# Run as root on the HOST. PiHerder does not execute this remotely.
+# This grants NOPASSWD sudo — tighten sudoers if you do not want that.
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+  echo "Re-run as root (or: sudo bash $0)"
+  exec sudo -E bash "$0" "$@"
+fi
+
+USER_NAME={shlex.quote(user)}
+
+if ! id "$USER_NAME" >/dev/null 2>&1; then
+  if command -v adduser >/dev/null 2>&1; then
+    adduser --disabled-password --gecos "PiHerder privileged" "$USER_NAME"
+  else
+    useradd -m -s /bin/bash "$USER_NAME"
+  fi
+  echo "Created user $USER_NAME"
+else
+  echo "User $USER_NAME already exists"
+fi
+
+DROPIN="/etc/sudoers.d/piherder-privileged-${{USER_NAME}}"
+printf '%s' '{sudoers_b64}' | base64 -d > "${{DROPIN}}.tmp"
+chmod 440 "${{DROPIN}}.tmp"
+if command -v visudo >/dev/null 2>&1; then
+  if ! visudo -cf "${{DROPIN}}.tmp"; then
+    echo "ERROR: sudoers validation failed — not installing."
+    rm -f "${{DROPIN}}.tmp"
+    exit 1
+  fi
+fi
+mv "${{DROPIN}}.tmp" "$DROPIN"
+chmod 440 "$DROPIN"
+echo "Installed $DROPIN"
+{key_block}
+echo "Done. In PiHerder: SSH access → privileged identity → Test connection."
+echo "Jobs still use the fleet user — this account is console-only."
 """
 
 

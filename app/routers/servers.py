@@ -682,6 +682,10 @@ async def add_server(
     session.add(server)
     session.commit()
     session.refresh(server)
+    from ..services import ssh_identities as ident_svc
+
+    ident_svc.ensure_fleet_identity(session, server)
+    session.commit()
 
     auth_method = {"generate": "generated_key", "upload": "uploaded_key", "password": "password_auth"}.get(
         key_mode, key_mode
@@ -740,6 +744,33 @@ async def server_detail(
     server_dict["has_ssh_key"] = bool(server.ssh_private_key_encrypted)
     server_dict["has_ssh_password"] = bool(server.ssh_password_encrypted)
     server_dict["has_real_public_key"] = ssh_onboarding.is_real_public_key(server.ssh_public_key)
+
+    from ..services import ssh_identities as ident_svc
+
+    fleet_ident = ident_svc.ensure_fleet_identity(session, server)
+    session.commit()
+    priv_ident = ident_svc.get_by_role(session, int(server.id), ident_svc.ROLE_PRIVILEGED)
+    server_dict["fleet_identity"] = ident_svc.public_view(fleet_ident)
+    server_dict["privileged_identity"] = (
+        ident_svc.public_view(priv_ident) if priv_ident else None
+    )
+    server_dict["key_fingerprint"] = fleet_ident.key_fingerprint
+    privileged_setup_script = ""
+    if priv_ident and ssh_onboarding.is_real_public_key(priv_ident.public_key):
+        privileged_setup_script = ssh_onboarding.build_privileged_user_script(
+            priv_ident.username, priv_ident.public_key
+        )
+    elif priv_ident and priv_ident.private_key_encrypted:
+        try:
+            derived_p = ssh_onboarding.public_key_from_private(
+                ssh_service.get_private_key_plain(server, priv_ident),
+                comment=f"piherder-privileged@{server.hostname or server.name}",
+            )
+            privileged_setup_script = ssh_onboarding.build_privileged_user_script(
+                priv_ident.username, derived_p
+            )
+        except Exception:
+            pass
 
     reboot_initiated = request.query_params.get("rebooted") == "1"
 
@@ -996,6 +1027,7 @@ async def server_detail(
             "flash_detail": flash_detail,
             "key_install_script": key_install_script,
             "least_priv_script": least_priv_script,
+            "privileged_setup_script": privileged_setup_script,
             "compose_acl_script": compose_acl_script,
             "host_cleanup_script": host_cleanup_script,
             "docker_base_expanded": ssh_service.docker_base_expanded(server),
@@ -1359,6 +1391,9 @@ async def update_server(
         )
 
     session.add(server)
+    from ..services import ssh_identities as ident_svc
+
+    ident_svc.ensure_fleet_identity(session, server)
     session.commit()
 
     # Host DNS only when General form explicitly includes the DNS section

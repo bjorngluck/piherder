@@ -667,6 +667,8 @@ document.addEventListener('DOMContentLoaded', function() {
     After running it on the host, use <strong>Use piherder</strong> / <strong>Save username</strong> so {{ ph_brand() }} re-points.
   {% elif flash_msg == 'server_added' %}<strong>Server added.</strong> Open <strong>SSH access</strong> to deploy the public key or copy the install script.
   {% elif flash_msg == 'key_generated' %}<strong>Keypair generated.</strong> Use <strong>Deploy key</strong> (with password if needed) or the install script.
+  {% elif flash_msg == 'identity_added' %}<strong>Privileged identity stored.</strong> Download the setup script, run it on the host, then Test privileged.
+  {% elif flash_msg == 'identity_removed' %}<strong>Privileged identity removed</strong> from PiHerder. The host account was not deleted.
   {% elif flash_msg == 'dns_synced' %}<strong>Host DNS A record synced to Pi-hole</strong>
     {% if flash_detail %}— {{ flash_detail }} instance(s) OK{% endif %}.
     <a href="/dns" class="text-accent underline ml-1">Open Network</a>
@@ -691,6 +693,8 @@ document.addEventListener('DOMContentLoaded', function() {
   {% elif flash_error == 'key_rotate_fail' %}<strong>Key rotation failed.</strong> Previous key left in place.
   {% elif flash_error == 'key_rotate_confirm' %}<strong>Rotation cancelled.</strong> Type <code>rotate</code> in the confirm field.
   {% elif flash_error == 'provision_fail' %}<strong>Least-priv provision failed.</strong>
+  {% elif flash_error == 'identity_fail' %}<strong>SSH identity update failed.</strong>
+  {% elif flash_error == 'identity_missing' %}<strong>SSH identity not found.</strong>
   {% elif flash_error == 'confirm_name' %}<strong>Remove cancelled.</strong> Type the exact server name to confirm.
   {% elif flash_error == 'reboot_fail' %}<strong>Reboot failed.</strong> SSH/sudo could not run reboot on the host.
   {% else %}<strong>{{ flash_error }}</strong>{% endif %}

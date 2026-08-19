@@ -281,6 +281,9 @@ async def wizard_identity_post(
     session.add(server)
     session.commit()
     session.refresh(server)
+    from ..services import ssh_identities as ident_svc
+
+    ident_svc.ensure_fleet_identity(session, server)
 
     record_server_audit(
         session,
@@ -343,6 +346,9 @@ async def wizard_trust_post(
     server.ssh_public_key = pub
     server.ssh_password_encrypted = pw_enc
     session.add(server)
+    from ..services import ssh_identities as ident_svc
+
+    ident_svc.ensure_fleet_identity(session, server)
     auth_method = {
         "generate": "generated_key",
         "upload": "uploaded_key",

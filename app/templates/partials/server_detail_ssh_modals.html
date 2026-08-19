@@ -9,6 +9,13 @@
       <strong class="text-text font-mono">{{ server.ssh_username }}</strong>@{{ server.hostname }}:{{ server.ssh_port }}
       · {% if server.has_ssh_key %}key stored{% else %}<span class="text-warning">no private key</span>{% endif %}
       · {% if server.has_ssh_password %}password stored{% else %}no password{% endif %}
+      {% if server.key_fingerprint %}
+      · <span class="font-mono break-all">{{ server.key_fingerprint }}</span>
+      {% endif %}
+    </p>
+    <p class="text-xs text-muted mb-3">
+      Jobs always use the <strong class="text-text">fleet</strong> identity.
+      Privileged is break-glass console only (Connect as…).
     </p>
     <div class="border border-border rounded p-3 mb-3 text-xs">
       <div class="font-medium text-sm text-text mb-1">Pinned host key</div>
@@ -83,6 +90,85 @@
       <button type="button" onclick="document.getElementById('ssh-rotate-panel').classList.toggle('hidden')" class="btn btn-secondary min-h-11 text-sm">Rotate key</button>
       {% endif %}
       <button type="button" onclick="document.getElementById('ssh-provision-panel').classList.toggle('hidden')" class="btn btn-secondary min-h-11 text-sm">Least-priv user</button>
+    </div>
+
+    <div class="border border-border rounded p-3 mb-3 space-y-2" data-testid="ssh-privileged-card">
+      <div class="text-sm font-medium">Privileged identity (console only)</div>
+      {% if server.privileged_identity %}
+      <p class="text-xs text-muted">
+        <strong class="text-text font-mono">{{ server.privileged_identity.username }}</strong>
+        {% if server.privileged_identity.fingerprint %}
+        · <span class="font-mono break-all">{{ server.privileged_identity.fingerprint }}</span>
+        {% endif %}
+        · {% if server.privileged_identity.has_key %}key stored{% else %}<span class="text-warning">no private key</span>{% endif %}
+      </p>
+      <div class="flex flex-wrap gap-2">
+        <form method="post" action="/servers/{{ server.id }}/ssh/identities/{{ server.privileged_identity.id }}/test"
+              data-wait-title="Testing privileged SSH"
+              data-wait-message="Connecting as {{ server.privileged_identity.username }}…">
+          <button type="submit" class="btn btn-secondary min-h-11 text-sm" data-testid="ssh-privileged-test">Test privileged</button>
+        </form>
+        <button type="button" onclick="document.getElementById('ssh-priv-deploy-panel').classList.toggle('hidden')" class="btn btn-accent min-h-11 text-sm">Deploy key</button>
+        <button type="button" onclick="document.getElementById('ssh-priv-rotate-panel').classList.toggle('hidden')" class="btn btn-secondary min-h-11 text-sm">Rotate key</button>
+        {% if privileged_setup_script %}
+        <a class="btn btn-secondary min-h-11 text-sm" href="/servers/{{ server.id }}/ssh/identities/{{ server.privileged_identity.id }}/setup-script">Setup script</a>
+        {% endif %}
+        <button type="button" onclick="document.getElementById('ssh-priv-remove-panel').classList.toggle('hidden')" class="btn btn-secondary min-h-11 text-sm">Remove</button>
+      </div>
+      <div id="ssh-priv-deploy-panel" class="hidden border border-border rounded p-3 space-y-2">
+        <p class="text-xs text-muted">Installs this identity’s public key into <code>authorized_keys</code> for <code class="font-mono">{{ server.privileged_identity.username }}</code>. Uses a one-shot password for that user (not stored). Fleet password is not used.</p>
+        <form method="post" action="/servers/{{ server.id }}/ssh/identities/{{ server.privileged_identity.id }}/deploy" class="space-y-2">
+          <input type="password" name="ssh_password" placeholder="One-time password for {{ server.privileged_identity.username }}" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11" autocomplete="off">
+          <button type="submit" class="btn btn-accent min-h-11 text-sm">Deploy &amp; verify</button>
+        </form>
+      </div>
+      <div id="ssh-priv-rotate-panel" class="hidden border border-border rounded p-3 space-y-2">
+        <p class="text-xs text-muted">Generates a new key, installs it as {{ server.privileged_identity.username }}, verifies, then updates PiHerder. Type <code>rotate</code>.</p>
+        <form method="post" action="/servers/{{ server.id }}/ssh/identities/{{ server.privileged_identity.id }}/rotate" class="space-y-2"
+              data-confirm="Rotate privileged SSH key for {{ server.name }}?"
+              data-confirm-title="Rotate privileged key"
+              data-confirm-label="Rotate"
+              data-confirm-danger>
+          <input type="password" name="ssh_password" placeholder="Password only if current key cannot connect" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11" autocomplete="off">
+          <input name="confirm" required placeholder="type: rotate" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 font-mono">
+          <button type="submit" class="btn btn-secondary min-h-11 text-sm">Rotate key</button>
+        </form>
+      </div>
+      <div id="ssh-priv-remove-panel" class="hidden border border-border rounded p-3 space-y-2">
+        <p class="text-xs text-muted">Removes the privileged key from PiHerder only. The host account is left in place. Type the server name.</p>
+        <form method="post" action="/servers/{{ server.id }}/ssh/identities/{{ server.privileged_identity.id }}/remove" class="space-y-2"
+              data-confirm="Remove privileged identity from {{ server.name }}? The host user is not deleted."
+              data-confirm-title="Remove privileged identity"
+              data-confirm-label="Remove"
+              data-confirm-danger>
+          <input name="confirm_name" required placeholder="{{ server.name }}" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 font-mono" autocomplete="off">
+          <button type="submit" class="btn btn-secondary min-h-11 text-sm">Remove privileged identity</button>
+        </form>
+      </div>
+      {% else %}
+      <p class="text-xs text-muted">Optional. Separate user (e.g. <code class="font-mono">piherder-admin</code>) for Connect as… on the web console. Jobs stay on fleet.</p>
+      <form method="post" action="/servers/{{ server.id }}/ssh/identities/privileged" class="space-y-2" data-testid="ssh-privileged-add">
+        <div class="grid sm:grid-cols-2 gap-2">
+          <label class="block text-xs text-muted">Username
+            <input name="ssh_username" value="piherder-admin" required
+                   class="mt-0.5 w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </label>
+          <label class="block text-xs text-muted">Label
+            <input name="label" value="Privileged" maxlength="32"
+                   class="mt-0.5 w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+          </label>
+        </div>
+        <label class="block text-xs text-muted">Key
+          <select name="key_mode" class="mt-0.5 w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+            <option value="generate">Generate new keypair</option>
+            <option value="upload">Paste existing private key</option>
+          </select>
+        </label>
+        <textarea name="private_key" rows="4" placeholder="Paste PEM only if you chose upload — never shown again"
+                  class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono" autocomplete="off"></textarea>
+        <button type="submit" class="btn btn-accent min-h-11 text-sm">Add privileged identity</button>
+      </form>
+      {% endif %}
     </div>
 
     <div id="ssh-deploy-panel" class="hidden border border-border rounded p-3 mb-3 space-y-2">

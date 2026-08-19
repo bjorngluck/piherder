@@ -54,6 +54,7 @@ Idle, max session, concurrency, ticket, hold, bind, revalidate, scrollback, gran
 | `PIHERDER_SSH_CONSOLE_SCROLLBACK` | 2000 | Console |
 | `PIHERDER_SSH_CONSOLE_HOLD_SEC` | 0 | Console |
 | `PIHERDER_SSH_CONSOLE_GRANT_MIN` | 10 | Security — grant minutes |
+| `PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE` | `admin` | Console — who may **Connect as…** privileged (`admin` or `operator`) |
 
 | Variable | Purpose |
 |----------|---------|

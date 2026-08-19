@@ -83,6 +83,7 @@ The hero shows a **timezone identity card** (not a city name jammed into the orb
 | Bind to client IP | on | Off only if mobile NAT breaks reconnects |
 | Bind to device cookie | on | HttpOnly `console_device` |
 | xterm scrollback | 2000 lines | 500–50000 |
+| Who may open a privileged console | Admin only | Admin only, or operator and admin. Fleet shells stay operator+. Privileged always re-prompts 2FA. Env lock: `PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE` |
 
 The **master enable** is still compose-only: `PIHERDER_SSH_CONSOLE` (default off). 2FA factors and the grant window stay on **Security policy** (two forms — do not move those checkboxes here).
 

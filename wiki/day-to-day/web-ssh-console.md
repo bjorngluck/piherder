@@ -16,10 +16,31 @@ Operators on a tablet or locked-down PC need a shell without exporting the herde
 
 ## Who can use it
 
-| Role | Console |
-|------|---------|
-| **viewer** | No (except **public demo** — see below) |
-| **operator / admin** | Yes (when flag on + 2FA enrolled) |
+| Role | Fleet console | Privileged **Connect as…** |
+|------|---------------|----------------------------|
+| **viewer** | No (except **public demo** — see below) | No |
+| **operator** | Yes (flag on + 2FA enrolled) | Only if Settings → Console allows **operator and admin** |
+| **admin** | Yes | Yes (default). Extra confirm + **fresh 2FA** every time |
+
+### Connect as… (v1.3)
+
+Each host has a **fleet** identity (jobs + default shell) and may add a **privileged** identity (break-glass console only).
+
+```text
+Host: lab-core
+  ├─ fleet        user=piherder         ← jobs + default console
+  └─ privileged   user=piherder-admin   ← Connect as… only
+```
+
+- Picker is hidden until a privileged identity exists and you are allowed to use it.
+- Privileged mint **ignores** the fleet grant cookie. Confirm the break-glass dialog (optional reason) and passkey/TOTP again.
+- Jobs, Docker, backups, and host-deps always stay on **fleet**. Privileged is never the default console identity.
+- Demo: simulated fleet shell only — privileged mint is refused.
+- Leave privileged unset if you do not need break-glass. XSS on the herder origin is already shell-equivalent; a privileged key makes it root-equivalent. Keep `PIHERDER_SSH_CONSOLE` off when unused.
+
+Add / rotate / test privileged under **SSH access** on the server page. Download the **setup script** and run it **on the host** (PiHerder will not auto-provision a root-capable user). HAOS: skip.
+
+Who may elevate: **Settings → Console → Who may open a privileged console** (`admin` default, or `operator`). Env lock: `PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE`.
 
 ### Public demo (`PIHERDER_DEMO_MODE`)
 

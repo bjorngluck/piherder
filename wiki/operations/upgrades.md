@@ -59,7 +59,7 @@ SSO / passkeys / demo mode are **new optional surfaces** — they do not turn on
 
 ## 1.2 → 1.3 train (`v1.3.0-dev`)
 
-Package version stays **1.2.0** until freeze. No Alembic for policy Settings (JSON in `appsetting`).
+Package version stays **1.2.0** until freeze. Settings policy is JSON in `appsetting`. **Slice 4** adds Alembic **`040_ssh_identities`** (fleet + optional privileged SSH keys per host).
 
 If you track the integration branch:
 
@@ -67,7 +67,8 @@ If you track the integration branch:
 2. `git fetch && git checkout v1.3.0-dev && docker compose pull && docker compose up -d` (or rebuild local).  
 3. **Compose change:** bundled compose **no longer injects defaulted** `PIHERDER_SSH_CONSOLE_*` knobs (idle, max, bind, …). Only the master enable `PIHERDER_SSH_CONSOLE` stays in compose. Timeouts live in **Settings → Console**. 2FA / grant live in **Settings → Security**.  
 4. If you previously relied on those vars in `.env` **and** compose interpolation, they will not reach the container until you add that one line to compose `environment` (env then **locks** the knob). Otherwise Settings apply.  
-5. Smoke: Settings → Security (password / 2FA) · Settings → Console · optional live shell if the flag is on.
+5. Smoke: Settings → Security (password / 2FA) · Settings → Console (including **who may open privileged**) · one host **SSH access** (fleet identity still there; optional privileged card) · optional live shell if the flag is on.  
+6. Alembic **`040_ssh_identities`** copies each host’s existing username + key into a **fleet** identity. `Server.ssh_username` is unchanged. Jobs keep using fleet.
 
 Hub **`main` / 1.2.x** is unchanged until the 1.3 freeze.
 

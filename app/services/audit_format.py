@@ -26,6 +26,10 @@ _ACTION_LABELS = {
     "server_ssh_key_rotated": "SSH key rotated",
     "server_ssh_user_provisioned": "SSH user provisioned",
     "server_ssh_test": "SSH test",
+    "server_ssh_identity_added": "SSH identity added",
+    "server_ssh_identity_removed": "SSH identity removed",
+    "server_ssh_identity_rotated": "SSH identity rotated",
+    "server_ssh_identity_tested": "SSH identity tested",
     "server_host_deps": "Host dependency check",
     "server_backup_config": "Backup config",
     "server_backup_source_add": "Backup source added",
@@ -353,6 +357,14 @@ def format_audit_entry(log: dict) -> dict:
             nu = meta.get("new_username") or ""
             summary = msg or (f"User {nu}" if nu else "Least-priv user")
         elif action == "server_ssh_test":
+            summary = msg or ("OK" if status == "success" else "Failed")
+        elif action == "server_ssh_identity_added":
+            summary = msg or f"Privileged identity {meta.get('username') or ''}".strip()
+        elif action == "server_ssh_identity_removed":
+            summary = msg or "Privileged identity removed"
+        elif action == "server_ssh_identity_rotated":
+            summary = msg or "Privileged key rotated"
+        elif action == "server_ssh_identity_tested":
             summary = msg or ("OK" if status == "success" else "Failed")
         elif action == "server_password_set":
             summary = msg or "SSH password stored (encrypted)"

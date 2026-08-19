@@ -166,6 +166,13 @@ def _purge_server_children(session: Session, server_id: int, snapshot: dict[str,
     snapshot["port_annotations_removed"] = _count_delete(
         session.exec(select(PortAnnotation).where(PortAnnotation.server_id == server_id)).all()
     )
+    try:
+        from . import ssh_identities as ident_svc
+
+        snapshot["ssh_identities_removed"] = ident_svc.purge_for_server(session, server_id)
+    except Exception as e:
+        logger.warning(f"[lifecycle] ssh identities purge for server {server_id}: {e}")
+        snapshot["ssh_identities_removed"] = 0
     unlinked = 0
     for dev in session.exec(
         select(NmapDevice).where(NmapDevice.linked_server_id == server_id)
