@@ -121,6 +121,11 @@ class Settings(BaseSettings):
     PIHERDER_SSH_CONSOLE_HOLD_SEC: int = 0
     # Who may open a privileged (break-glass) console: admin | operator
     PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE: str = "admin"
+    # Command audit (v1.3 W-audit): off | commands | commands_output
+    PIHERDER_SSH_CONSOLE_AUDIT_MODE: str = "off"
+    PIHERDER_SSH_CONSOLE_AUDIT_RETENTION_DAYS: int = 14
+    # When true, every live shell records commands (Off is ignored). Demo still never stores.
+    PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED: bool = False
 
     # Content-Security-Policy (v1.2) — default on; Report-Only for staged rollouts
     PIHERDER_CSP: bool = True

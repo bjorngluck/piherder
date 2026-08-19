@@ -86,7 +86,7 @@ main @ v1.2.0 (+ v1.2.x patches)
 | 3 | Files jail | **`docker_base_dir`** (expanded `~`) on Docker hosts; else SSH user home. Never `/`. HAOS out of thin slice |
 | 4 | Files thin-slice shape | **F2 only** — list / get / put. No mkdir / delete / rename this freeze |
 | 5 | Insights freeze shape | **N0** one-pager then **N2** built-in fleet board. **N3** custom layout stays Cap |
-| 6 | Command audit | Spike **W-audit0** after W-id core; default **off**; demo never persists transcripts |
+| 6 | Command audit | **Deep (signed 2026-08-19):** W-audit0–6. Option A PTY tap. Default **off**. Optional **require on every session**. Own Fernet table (`041`). Privileged warns when off, still allows. Demo never persists. |
 | 7 | Host mux (`screen`/`tmux`) | Stay Cap · low priority — do not start |
 | 8 | **AC-fg** | Design note only this train. Three global roles remain. Implement only if Must is green **and** capacity |
 | 9 | CSP nonces | Cap (parked from 1.2). Do not block freeze |
@@ -117,7 +117,7 @@ Phase 3  Should (after Must green)
     └─ F0 sign-off → F2 (flag off until ready)
     │
 Phase 4  Discover / Cap + freeze
-    ├─ W-audit0 promote-or-Cap · N3 · AC-fg note
+    ├─ N3 · AC-fg note
     ├─ Docs + QA + screenshot pack for new surfaces
     └─ Version bump 1.3.0 · tag · Hub
 ```
@@ -216,8 +216,8 @@ Console open → Connect as: [ fleet (default) ▾ | elevated ]
 
 ### Stream **W-audit** — Command-level webshell audit (discover → optional ship)
 
-**Today (1.2):** Audit rows for console open / close / grant / deny (+ client IP, duration, actor). Interactive **command capture** was intentionally **best-effort / not promised** ([FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5).  
-**Wanted:** **Discover** a lower level of auditing: record **commands issued** via webshell and **responses** (or summaries), with **optional redaction** when passwords/secrets appear. Opt-in per instance or per session.
+**Today (slice 5 Deep landed):** Opt-in command audit via server-side PTY tap (option A). Settings default **off**; optional **require on every session**. Fernet `consoletranscript` (Alembic `041`). Audit expand + `/audit/console/{id}` + `.txt` download for operator+. Viewer never. Demo never persists. Privileged Connect as… **warns** when audit is off and still allows.  
+**Wanted:** Lower-level webshell audit with redaction. **Done** for the 1.3 thin bar (full ttyrec / video stay Cap).
 
 | ID | Item | Notes |
 |----|------|--------|
@@ -410,8 +410,8 @@ Host: rpi5-4  →  dest card Files
 | Priority | Streams | Bar |
 |----------|---------|-----|
 | **Must** | **P** + **T1–T6** (slice 1 **Deep**) · **L Deep** (slice 3 — Servers + Docker + discovery) · **W-id Deep** (slice 4 — fleet + privileged + Connect as…) | Operator-owned security policy (full) + scale lists + least-priv/privileged connect-as |
-| **Should** | **W-cfg Deep** (timeouts/concurrency/bind in Settings; factor knobs landed with T3) · **A** · **W-audit** if spike green · **N2** built-in fleet board (after **N0**) · **F2** host Files list/get/put (after **F0** sign-off) | Console knobs + alerts + opt-in command audit + thin reporting + confined host file transfer |
-| **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-audit** spike · **W-mux** (screen/tmux, low priority) · **F** mkdir/delete/step-up · **AC-fg** · ACME · branding · CSP nonces | Promote only if Must green |
+| **Should** | **W-cfg Deep** (timeouts/concurrency/bind in Settings; factor knobs landed with T3) · **A** · **W-audit Deep** (slice 5) · **N2** built-in fleet board (after **N0**) · **F2** host Files list/get/put (after **F0** sign-off) | Console knobs + alerts + opt-in command audit + thin reporting + confined host file transfer |
+| **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-mux** (screen/tmux, low priority) · **F** mkdir/delete/step-up · **AC-fg** · ACME · branding · CSP nonces | Promote only if Must green |
 
 Success criteria:
 
@@ -419,7 +419,7 @@ Success criteria:
 2. Account SSO unlink + passkey revoke accept **any enrolled 2FA** (**T6**). Admin can set force-2FA scope / grace **0–60** days / step-up windows / factor matrix / IdP-MFA opt-in (**T1–T5**, default fail-closed).  
 3. *(Should)* Console idle/max/concurrency/ticket/hold/bind/revalidate/scrollback adjustable in Settings without editing compose for common cases. `PIHERDER_SSH_CONSOLE` stays the env kill switch.  
 4. Host can store **fleet** + **privileged** SSH identities (separate keys/users); console offers **Connect as…**; jobs stay on fleet by default. **Done** (slice 4 Deep).  
-5. *(If W-audit promoted)* Opt-in command (± response) audit with redaction heuristics and retention; default off; wiki warns about residual secret capture.  
+5. Opt-in command (± truncated output) audit with redaction heuristics and retention; default off; optional require-on-every-session; wiki warns about residual secret capture. **Done** (slice 5 Deep).  
 6. *(Should)* Map/stack/cert-style alerts have documented severities and per-category tuning; channels respect filters.  
 7. Servers + Docker + discovery lists support page size + free-text filter without loading unbounded HTML. **Done** (slice 3 Deep).  
 8. *(If N promoted)* Operators have at least a **built-in fleet health board** of existing signals; custom layout is Cap.  
@@ -502,6 +502,7 @@ Success criteria:
 | 2026-08-19 | **Docs pass:** wiki Settings / console / env / upgrades / 2FA / roles / demo + ADMIN / ROADMAP / SECURITY / CONTRIBUTING aligned with slices 1–2. |
 | 2026-08-19 | **Slice 3 Deep signed + landed:** L list chrome on Servers + Docker + discovery. Shared cookie `ph_per_page`. API `/servers` capped at 100. |
 | 2026-08-19 | **Slice 4 Deep signed + landed:** W-id fleet + privileged identities, Connect as…, Settings privileged-role knob, Alembic `040_ssh_identities`. |
+| 2026-08-19 | **Slice 5 Deep signed + landed:** W-audit command audit (option A PTY tap, Fernet table `041`, Settings default off, optional require-all-sessions, privileged warn-when-off). |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 
@@ -519,7 +520,7 @@ Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3�
 | 3 | Slice 1 Deep **P + T1–T6** | **Done** |
 | 4 | Slice 4 Deep **W-id** (fleet + privileged + Connect as…) | **Done** |
 | 5 | Slice 3 Deep **L** (Servers + Docker + discovery) | **Done** |
-| 6 | Spike **W-audit0** PTY capture + redaction; promote or Cap | After W-id core |
+| 6 | Slice 5 Deep **W-audit** (opt-in commands ± truncated output; require-all-sessions option) | **Done** |
 | 7 | Run **N0** insights discovery (one-pager) → **N2** | Phase 3 |
 | 8 | Run **F0** files sign-off → **F2** (flag off until ready) | Phase 3 |
 

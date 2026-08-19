@@ -390,6 +390,61 @@
           <span class="block text-xs text-muted">Locked by environment</span>
           {% endif %}
         </fieldset>
+        <fieldset class="space-y-2" data-testid="console-audit-mode">
+          <legend class="text-sm font-medium text-text">Command audit</legend>
+          <p class="text-xs text-muted">
+            May capture secrets typed at the prompt. Redaction is heuristic, not a guarantee.
+            Default off. Demo never stores transcripts. Viewers cannot read them.
+          </p>
+          {% set amode = cpol.console_audit_mode | default('off') %}
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="radio" name="console_audit_mode" value="off" class="mt-1"
+                   {% if amode != 'commands' and amode != 'commands_output' %}checked{% endif %}
+                   {% if clocks.console_audit_mode %}disabled{% endif %}>
+            <span>Off <span class="text-xs text-muted">(default)</span></span>
+          </label>
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="radio" name="console_audit_mode" value="commands" class="mt-1"
+                   {% if amode == 'commands' %}checked{% endif %}
+                   {% if clocks.console_audit_mode %}disabled{% endif %}>
+            <span>Commands only</span>
+          </label>
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="radio" name="console_audit_mode" value="commands_output" class="mt-1"
+                   {% if amode == 'commands_output' %}checked{% endif %}
+                   {% if clocks.console_audit_mode %}disabled{% endif %}>
+            <span>Commands + truncated output</span>
+          </label>
+          {% if clocks.console_audit_mode %}
+          <span class="block text-xs text-muted">Locked by environment</span>
+          {% endif %}
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="checkbox" name="console_audit_required" value="1" class="mt-1"
+                   {% if cpol.console_audit_required %}checked{% endif %}
+                   {% if clocks.console_audit_required %}disabled{% endif %}
+                   data-testid="console-audit-required">
+            <span>
+              Require on every session
+              <span class="block text-xs text-muted">Cannot open a live shell unless commands are recorded. Off is ignored. Demo still never stores.</span>
+            </span>
+          </label>
+          {% if clocks.console_audit_required %}
+          <span class="block text-xs text-muted">Locked by environment</span>
+          {% endif %}
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Transcript retention (days, 1–90)</span>
+            <input type="number" name="console_audit_retention_days" min="1" max="90"
+                   value="{{ cpol.console_audit_retention_days | default(14) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="console-audit-retention"
+                   {% if clocks.console_audit_retention_days %}disabled{% endif %}>
+            {% if clocks.console_audit_retention_days %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% else %}
+            <span class="block text-xs text-muted mt-1">After this, the encrypted body is dropped. The row still shows that a transcript existed.</span>
+            {% endif %}
+          </label>
+        </fieldset>
         <label class="block text-sm">
           <span class="block text-xs text-muted mb-1">Default xterm scrollback (lines, 500–50000)</span>
           <input type="number" name="console_scrollback" min="500" max="50000"

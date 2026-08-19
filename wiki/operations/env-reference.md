@@ -55,6 +55,9 @@ Idle, max session, concurrency, ticket, hold, bind, revalidate, scrollback, gran
 | `PIHERDER_SSH_CONSOLE_HOLD_SEC` | 0 | Console |
 | `PIHERDER_SSH_CONSOLE_GRANT_MIN` | 10 | Security — grant minutes |
 | `PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE` | `admin` | Console — who may **Connect as…** privileged (`admin` or `operator`) |
+| `PIHERDER_SSH_CONSOLE_AUDIT_MODE` | `off` | Console — `off` / `commands` / `commands_output` |
+| `PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED` | false | Console — force command recording on every live shell |
+| `PIHERDER_SSH_CONSOLE_AUDIT_RETENTION_DAYS` | 14 | Console — drop transcript bodies after N days (1–90) |
 
 | Variable | Purpose |
 |----------|---------|

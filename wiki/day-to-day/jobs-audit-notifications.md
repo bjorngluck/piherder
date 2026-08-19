@@ -118,6 +118,10 @@ Filter by user, server, token, action, status, **date range** (same **7d / 30d /
 
 The Audit page uses the same **ops-hero** pattern: status bars, top action-type chips (as filter links), and the active timezone in the subtitle. On dense filter layouts the pulse can be **collapsed** (Hide pulse) so the filter row stays primary; detail rows open a branded **detail modal** (summary + snippet).
 
+### Console command transcripts (v1.3)
+
+When **Settings → Console → Command audit** is on, each finished web shell can attach a **command timeline** (Fernet-encrypted, not in Audit search). Open the `ssh_console_close` event: operator+ can expand the timeline, open `/audit/console/{id}`, or download `.txt`. Viewers see counts only (“transcript hidden”). Demo never stores bodies. Retention drops the ciphertext and keeps the fact that a transcript existed. See [Web SSH console](web-ssh-console.md#command-audit-v13).
+
 ### Backup lifecycle events
 
 Each backup job writes append-only phases:

@@ -59,7 +59,7 @@ def _audit(
     action: str,
     details: str,
     status: str = "success",
-) -> None:
+) -> Optional[int]:
     al = make_audit_log(
         user_id=user_id,
         server_id=server_id,
@@ -71,6 +71,8 @@ def _audit(
     )
     session.add(al)
     session.commit()
+    session.refresh(al)
+    return al.id
 
 
 def _verify_console_2fa(
@@ -368,6 +370,8 @@ async def console_page(
             "embed_mode": embed_mode,
             "ssh_identities": ident_list,
             "can_privileged": can_priv,
+            "console_audit_mode": cons.audit_mode(),
+            "console_audit_required": cons.audit_required(),
         },
     )
     # Pin a console device id (HttpOnly) so tickets cannot be used from another browser
@@ -985,6 +989,7 @@ async def console_websocket(websocket: WebSocket, server_id: int):
     is_resume = False
     started_mono = time.monotonic()
     last_activity = time.monotonic()
+    recorder = None
 
     def _ws_ip() -> str:
         """Same client IP resolution as HTTP (CF-Connecting-IP / XFF / peer)."""
@@ -1097,6 +1102,7 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                 resume_id = held.resume_id
                 opened = datetime.utcnow()
                 # Replay buffered output while detached
+                recorder = getattr(held, "recorder", None)
                 buffered = held.take_out()
                 if buffered:
                     try:
@@ -1155,7 +1161,9 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                 why = (ticket_payload.get("why") or "").strip()
                 if why:
                     ident_note += f" reason={why[:200]}"
-                _audit(
+                audit_mode = cons.audit_mode()
+                ident_note += f" audit={audit_mode}"
+                open_id = _audit(
                     session,
                     user_id=user.id,
                     server_id=server_id,
@@ -1166,6 +1174,37 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                         f"{demo_note}{ident_note}"
                     ),
                 )
+                if audit_mode != "off" and not cons.is_demo_console():
+                    try:
+                        from ..services import console_audit as ca
+
+                        recorder = ca.start_session(
+                            session,
+                            session_key=resume_id,
+                            user_id=int(user.id),
+                            server_id=int(server_id),
+                            identity_role=ticket_payload.get("role"),
+                            identity_username=(
+                                ident_row.username if ident_row else None
+                            ),
+                            audit_open_id=open_id,
+                            mode=audit_mode,
+                        )
+                    except Exception:
+                        logger.exception("console audit start failed")
+                        recorder = None
+                    if recorder is None and cons.audit_required():
+                        await websocket.send_text(
+                            "\r\n*** Command audit is required and could not start ***\r\n"
+                        )
+                        await websocket.close(code=4403)
+                        return
+                elif cons.audit_required() and not cons.is_demo_console():
+                    await websocket.send_text(
+                        "\r\n*** Command audit is required and could not start ***\r\n"
+                    )
+                    await websocket.close(code=4403)
+                    return
                 server_snap = ident_svc.overlay_server_for_identity(server, ident_row)
 
         if not is_resume:
@@ -1255,6 +1294,11 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                             stop.set()
                             break
                         last_activity = time.monotonic()
+                        if recorder is not None:
+                            try:
+                                recorder.feed_stdout(data)
+                            except Exception:
+                                pass
                         try:
                             await websocket.send_bytes(data)
                         except Exception:
@@ -1265,6 +1309,11 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                         data = channel.recv_stderr(4096)
                         if data:
                             last_activity = time.monotonic()
+                            if recorder is not None:
+                                try:
+                                    recorder.feed_stdout(data)
+                                except Exception:
+                                    pass
                             await websocket.send_bytes(data)
                     elif channel.exit_status_ready():
                         park_on_exit = False
@@ -1322,6 +1371,11 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                         channel.send(data)
                     except Exception:
                         await asyncio.to_thread(channel.send, data)
+                    if recorder is not None:
+                        try:
+                            recorder.feed_stdin(data)
+                        except Exception:
+                            pass
                 elif "text" in message and message["text"] is not None:
                     text_in = message["text"]
                     last_activity = time.monotonic()
@@ -1374,6 +1428,11 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                                         channel.send(raw)
                                     except Exception:
                                         await asyncio.to_thread(channel.send, raw)
+                                    if recorder is not None:
+                                        try:
+                                            recorder.feed_stdin(raw)
+                                        except Exception:
+                                            pass
                                 continue
                             # Unknown JSON control — do not dump into the PTY
                             continue
@@ -1383,6 +1442,11 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                         channel.send(text_in)
                     except Exception:
                         await asyncio.to_thread(channel.send, text_in)
+                    if recorder is not None:
+                        try:
+                            recorder.feed_stdin(text_in)
+                        except Exception:
+                            pass
         finally:
             stop.set()
             out_task.cancel()
@@ -1429,8 +1493,17 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                 last_activity_mono=last_activity,
                 held_at_mono=time.monotonic(),
                 server_hostname=server_hostname,
+                recorder=recorder,
             )
             cons.park_console(held)
+            if recorder is not None:
+                try:
+                    from ..services import console_audit as ca
+
+                    with Session(engine) as s:
+                        ca.flush_recorder(s, recorder, finalize=False)
+                except Exception:
+                    logger.debug("console audit park flush failed", exc_info=True)
             # Slot stays acquired; hold-watch drains output + enforces timeouts
             asyncio.create_task(_console_hold_watch(resume_id))
             client = None  # prevent close below
@@ -1471,25 +1544,43 @@ async def console_websocket(websocket: WebSocket, server_id: int):
             if user_id is not None and opened is not None and not is_resume:
                 try:
                     with Session(engine) as session:
+                        from ..services import console_audit as ca
+
+                        if recorder is not None:
+                            try:
+                                ca.flush_recorder(session, recorder, finalize=True)
+                            except Exception:
+                                logger.exception("console audit finalize failed")
                         dur = int((datetime.utcnow() - opened).total_seconds())
                         _audit(
                             session,
                             user_id=user_id,
                             server_id=server_id_i,
                             action="ssh_console_close",
-                            details=f"duration_sec={dur} ip={ip or '?'}",
+                            details=ca.close_details(
+                                recorder, f"duration_sec={dur} ip={ip or '?'}"
+                            ),
                         )
                 except Exception:
                     logger.exception("console close audit failed")
             elif user_id is not None and intentional_close:
                 try:
                     with Session(engine) as session:
+                        from ..services import console_audit as ca
+
+                        if recorder is not None:
+                            try:
+                                ca.flush_recorder(session, recorder, finalize=True)
+                            except Exception:
+                                logger.exception("console audit finalize failed")
                         _audit(
                             session,
                             user_id=user_id,
                             server_id=server_id_i,
                             action="ssh_console_close",
-                            details=f"bye ip={ip or '?'}",
+                            details=ca.close_details(
+                                recorder, f"bye ip={ip or '?'}"
+                            ),
                         )
                 except Exception:
                     pass

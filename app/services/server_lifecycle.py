@@ -173,6 +173,13 @@ def _purge_server_children(session: Session, server_id: int, snapshot: dict[str,
     except Exception as e:
         logger.warning(f"[lifecycle] ssh identities purge for server {server_id}: {e}")
         snapshot["ssh_identities_removed"] = 0
+    try:
+        from . import console_audit as ca
+
+        snapshot["console_transcripts_unlinked"] = ca.unlink_server(session, server_id)
+    except Exception as e:
+        logger.warning(f"[lifecycle] console transcripts unlink for server {server_id}: {e}")
+        snapshot["console_transcripts_unlinked"] = 0
     unlinked = 0
     for dev in session.exec(
         select(NmapDevice).where(NmapDevice.linked_server_id == server_id)

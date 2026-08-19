@@ -44,6 +44,28 @@ Add / rotate / test privileged under **SSH access** on the server page. That pan
 
 Who may elevate: **Settings → Console → Who may open a privileged console** (`admin` default, or `operator`). Env lock: `PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE`.
 
+### Command audit (v1.3)
+
+Optional. Default **off**. Settings → Console:
+
+| Mode | What is stored |
+|------|----------------|
+| Off | Session open/close only (same as 1.2) |
+| Commands only | Reconstructed command lines (best-effort) |
+| Commands + truncated output | Commands plus up to 2 KiB of following output each |
+
+**Require on every session** records commands on all live shells even if Off is selected (treated as commands). A shell that cannot start recording is refused. Demo still never stores transcripts.
+
+When recording, the console chrome shows **command audit on**. If audit is off and you pick privileged **Connect as…**, a warning notes that the break-glass session will not record commands (it still opens).
+
+After the shell ends: **Audit** → the close event → timeline, or **Open full** at `/audit/console/{id}` and download `.txt`. **operator+** only. Viewers see that a transcript existed, not the body. Search does not index the shell text.
+
+Redaction strips common `Password:` prompts and some token/PEM patterns. It is **not** a guarantee — `read -s`, editors, and pasted secrets as arguments can still land in the log. Not video, not `script(1)`, not dual-control. Interactive programs (vim, htop, tmux) will not look like a clean command list.
+
+Retention (default 14 days) drops the encrypted body and keeps counts. Full herder DR (Postgres + master key) holds bodies; JSON config-only backups skip them.
+
+Env locks: `PIHERDER_SSH_CONSOLE_AUDIT_MODE`, `PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED`, `PIHERDER_SSH_CONSOLE_AUDIT_RETENTION_DAYS`. Compose does not inject defaults.
+
 ### Public demo (`PIHERDER_DEMO_MODE`)
 
 The [public demo](../operations/demo-site.md) enables Console for the shared **viewer** account as a **simulated** shell only: same xterm UI, **no live SSH**, no network, no real keys, no 2FA step-up. Banner text says *demo / simulated*. Your self-hosted install is unchanged (flag off by default; operator+ + 2FA when enabled).

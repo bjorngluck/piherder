@@ -65,6 +65,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Stale job cleanup skipped: {e}")
 
+    try:
+        from .services.console_audit import purge_expired_now
+
+        n = purge_expired_now()
+        if n:
+            logger.info("Purged %s expired console transcript bodies", n)
+    except Exception as e:
+        logger.warning("Console transcript retention skipped: %s", e)
+
     # First boot: no default user. Empty DB → open /auth/register creates the admin;
     # registration then closes unless ALLOW_OPEN_REGISTRATION=true.
     # Demo mode: auto-seed shared admin + synthetic fleet when empty.

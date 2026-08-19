@@ -105,7 +105,8 @@ Demo must use **unique** Fernet/session secrets and never hold decryptable produ
   - Concurrent + idle + max session limits (Settings → Console; env wins if set); PEM never in browser; CSP allows **same-origin** console iframe only (`frame-ancestors 'self'`)
   - UI: floating popup per host; multi-host workspace at `/console` (inactive host tabs keep WebSockets via opacity, not `visibility:hidden`); compact chrome (Aa / ···); sticky Ctrl + common chords
   - **Known UX (mobile):** soft **Tab** IME leftovers improved in 1.2 QA (v12); residual exotic IMEs — **KI-console-mobile-soft-tab**; see wiki web-ssh-console Known issues
-  - Residual risk: XSS on herder origin is still shell-equivalent; IP bind can break mobile networks (turn off in Settings → Console, or set `PIHERDER_SSH_CONSOLE_BIND_IP=false` to lock)  
+  - Residual risk: XSS on herder origin is still shell-equivalent; IP bind can break mobile networks (turn off in Settings → Console, or set `PIHERDER_SSH_CONSOLE_BIND_IP=false` to lock)
+  - **Command audit** (v1.3, default **off**): server-side PTY tap, Fernet body, operator+ read, viewer 403, demo never stores. Redaction of password prompts / some tokens is heuristic — secrets can still be captured. Optional **require on every session** refuses a live shell if recording cannot start. JSON config-only herder backups skip transcript bodies.  
 
 
 - Put PiHerder behind trusted TLS; restrict network access where possible. Set `PIHERDER_PUBLIC_URL=https://…` so session cookies get the **Secure** flag (or force `COOKIE_SECURE=true`), OIDC redirect URIs match, and **email password-reset links** use that origin only (Host / `X-Forwarded-Host` are ignored).  
