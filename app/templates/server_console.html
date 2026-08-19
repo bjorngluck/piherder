@@ -478,6 +478,7 @@
   var identSel = document.getElementById('console-identity');
   var privReason = document.getElementById('console-priv-reason');
   var privNeed2fa = false;
+  var privReasonArmed = false;
   var popupMode = {{ 'true' if popup_mode else 'false' }};
   var scrollbackDefault = {{ (scrollback_default|default(2000))|int }};
   var windowMaxFallback = false;
@@ -1042,8 +1043,20 @@
 
   function syncReasonVisibility() {
     if (!privReason) return;
-    var on = privilegedSelected();
+    var on = privilegedSelected() && privReasonArmed;
     privReason.classList.toggle('hidden', !on);
+  }
+
+  function armPrivReason() {
+    privReasonArmed = true;
+    if (privReason) privReason.value = '';
+    syncReasonVisibility();
+  }
+
+  function dismissPrivReason() {
+    privReasonArmed = false;
+    if (privReason) privReason.value = '';
+    syncReasonVisibility();
   }
 
   function updateGateVisibility() {
@@ -1949,6 +1962,7 @@
     }
     stepUpDone = true;
     privNeed2fa = false;
+    if (ident.role === 'privileged') dismissPrivReason();
     if (data.grant_active && !requireEvery) {
       markFleetGrant();
       if (helpEl) helpEl.textContent = 'Step-up active for all hosts (~' + (data.grant_minutes || {{ grant_minutes }}) + ' min).';
@@ -2497,10 +2511,13 @@
   if (btnNew) btnNew.addEventListener('click', openShell);
   if (identSel) identSel.addEventListener('change', function () {
     privNeed2fa = false;
-    updateGateVisibility();
     if (privilegedSelected()) {
+      armPrivReason();
       setStatus('Privileged: + Shell. Jobs stay on fleet.');
+    } else {
+      dismissPrivReason();
     }
+    updateGateVisibility();
   });
   if (btnMin) btnMin.addEventListener('click', minimizeActive);
   if (btnRest) btnRest.addEventListener('click', restoreMinimized);

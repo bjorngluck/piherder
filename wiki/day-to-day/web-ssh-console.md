@@ -33,7 +33,7 @@ Host: lab-core
 ```
 
 - Picker is on the same bar as Passkey/TOTP (and **+ Shell** after unlock).
-- Pick **Privileged · user**, complete 2FA if the bar still shows it, then **+ Shell**. Optional reason sits next to the picker — no second confirm button.
+- Pick **Privileged · user**, complete 2FA if the bar still shows it, then **+ Shell**. Optional reason appears next to the picker until that shell opens (then it hides; it is stored on the audit row).
 - After 2FA the Passkey/TOTP controls hide. They only return if the short privileged proof expired (~90s).
 - The shell tab is labeled `username · priv`.
 - Jobs, Docker, backups, and host-deps always stay on **fleet**. Privileged is never the default console identity.
