@@ -161,7 +161,12 @@ def factor_allowed(surface: str, factor: str) -> bool:
 
 
 def env_wins(env_name: str) -> bool:
-    return env_name in os.environ
+    """True when the operator set a non-empty env value (air-gap lock).
+
+    Blank / missing does not lock — compose may pass empty passthroughs.
+    """
+    val = os.environ.get(env_name)
+    return val is not None and str(val).strip() != ""
 
 
 def console_require_2fa_every_shell() -> bool:

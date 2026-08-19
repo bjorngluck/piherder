@@ -2,7 +2,7 @@
 
 ## What this is
 
-**Settings** is the admin control plane for the **instance**: timezone, security policy, **SSO / OIDC**, fleet update-check defaults, **stale data cleanup**, **Alerts** (webhook + SMTP), PiHerder self-backup, stack Status, and API tokens.
+**Settings** is the admin control plane for the **instance**: timezone, security policy, **console limits**, **SSO / OIDC**, fleet update-check defaults, **stale data cleanup**, **Alerts** (webhook + SMTP), PiHerder self-backup, stack Status, and API tokens.
 
 **Where:** top nav **Settings** → `/herder-backups` (tabs on one page; legacy path kept for bookmarks).
 
@@ -10,7 +10,7 @@
 
 Day-to-day fleet work lives on Servers / Jobs / Catalog. Settings keeps **policy and DR** in one place so operators are not hunting for “where do I force 2FA?” or “where is the herder backup?”
 
-Settings is **admin-oriented** for stack and policy; operators still use Account for self-service. **Timezone, security policy, fleet defaults, stale data cleanup, PiHerder self-backup/restore, Status, and API tokens** require **admin** (UI tabs and POST routes). Non-admins see a short notice on General only.
+Settings is **admin-oriented** for stack and policy; operators still use Account for self-service. **Timezone, security policy, console limits, fleet defaults, stale data cleanup, PiHerder self-backup/restore, Status, and API tokens** require **admin** (UI tabs and POST routes). Non-admins see a short notice on General only.
 
 The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-style tabs under the hero. Switching tabs is **client-side** (URL `?tab=` updates without a full reload); the hero title, caption, and viz follow the active tab.
 
@@ -20,11 +20,12 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 1. **General** → set app **timezone** (Audit/Jobs clocks).  
 2. **General** → **Security policy**: password rules, who must enrol 2FA (optional grace 0–60 days), step-up windows.  
-3. Optional **General → SSO / OpenID Connect** when you have a BYO IdP — [SSO guide](../account-security/sso-oidc.md).  
-4. **PiHerder backup** → run once + schedule; store archive + master key offline.  
-5. **Status** → Check now until green.  
-6. Optional **Alerts** (webhook + SMTP) for outbound notifications and password recovery.  
-7. Optional **API** tokens for n8n/HA only if needed.  
+3. **General** → **Console**: idle / max session, concurrency, ticket, park hold, bind, scrollback (kill switch stays `PIHERDER_SSH_CONSOLE`).  
+4. Optional **General → SSO / OpenID Connect** when you have a BYO IdP — [SSO guide](../account-security/sso-oidc.md).  
+5. **PiHerder backup** → run once + schedule; store archive + master key offline.  
+6. **Status** → Check now until green.  
+7. Optional **Alerts** (webhook + SMTP) for outbound notifications and password recovery.  
+8. Optional **API** tokens for n8n/HA only if needed.  
 
 ---
 
@@ -87,6 +88,7 @@ The hero shows a **timezone identity card** (not a city name jammed into the orb
 | Is Redis/Celery healthy? | Settings → **Status** → Check now |
 | Nightly herder backup | Settings → **PiHerder backup** → schedule + path |
 | Force everyone onto 2FA | Settings → **General** → security policy |
+| Console idle / max shells | Settings → **General** → Console · [web SSH](../day-to-day/web-ssh-console.md) |
 | Connect Authentik / Keycloak / Entra | Settings → **General** → SSO · [SSO / OIDC](../account-security/sso-oidc.md) |
 | Trim old Jobs / Audit | Settings → **General** → Stale data cleanup |
 | Times show SAST / local | Settings → **General** → timezone |

@@ -79,36 +79,250 @@ def demo_console_allow_viewer() -> bool:
     return is_demo_console()
 
 
+# Home-lab ranges with a DoS ceiling (v1.3 slice 2). Floors match 1.2 helpers.
+IDLE_SEC_MIN, IDLE_SEC_MAX, IDLE_SEC_DEFAULT = 60, 28800, 900
+MAX_SEC_MIN, MAX_SEC_MAX, MAX_SEC_DEFAULT = 120, 43200, 3600
+PER_USER_MIN, PER_USER_MAX, PER_USER_DEFAULT = 1, 16, 4
+GLOBAL_MIN, GLOBAL_MAX, GLOBAL_DEFAULT = 1, 64, 20
+TICKET_SEC_MIN, TICKET_SEC_MAX, TICKET_SEC_DEFAULT = 15, 300, 60
+HOLD_SEC_MIN_POS, HOLD_SEC_MAX, HOLD_SEC_DEFAULT = 30, 3600, 0
+REVALIDATE_SEC_MIN, REVALIDATE_SEC_MAX, REVALIDATE_SEC_DEFAULT = 5, 60, 10
+SCROLLBACK_MIN, SCROLLBACK_MAX, SCROLLBACK_DEFAULT = 500, 50000, 2000
+
+# AppSetting key → env name (env wins when set and non-empty).
+CONSOLE_ENV_KEYS: Tuple[Tuple[str, str], ...] = (
+    ("console_idle_sec", "PIHERDER_SSH_CONSOLE_IDLE_SEC"),
+    ("console_max_sec", "PIHERDER_SSH_CONSOLE_MAX_SEC"),
+    ("console_max_per_user", "PIHERDER_SSH_CONSOLE_MAX_PER_USER"),
+    ("console_max_global", "PIHERDER_SSH_CONSOLE_MAX_GLOBAL"),
+    ("console_ticket_sec", "PIHERDER_SSH_CONSOLE_TICKET_SEC"),
+    ("console_hold_sec", "PIHERDER_SSH_CONSOLE_HOLD_SEC"),
+    ("console_revalidate_sec", "PIHERDER_SSH_CONSOLE_REVALIDATE_SEC"),
+    ("console_scrollback", "PIHERDER_SSH_CONSOLE_SCROLLBACK"),
+    ("console_bind_ip", "PIHERDER_SSH_CONSOLE_BIND_IP"),
+    ("console_bind_device", "PIHERDER_SSH_CONSOLE_BIND_DEVICE"),
+)
+
+
+def _settings_cfg() -> dict:
+    try:
+        from .app_settings import load_settings
+
+        return load_settings()
+    except Exception:
+        return {}
+
+
+def _as_int(value: Any, default: int, lo: int, hi: int) -> int:
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        n = default
+    return max(lo, min(hi, n))
+
+
+def _as_bool(value: Any, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return bool(value)
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return str(value).strip().lower() in ("1", "true", "on", "yes")
+
+
+def env_wins(env_name: str) -> bool:
+    from .account_stepup import env_wins as _ew
+
+    return _ew(env_name)
+
+
+def _int_knob(
+    env_name: str,
+    setting_key: str,
+    pydantic_attr: str,
+    default: int,
+    lo: int,
+    hi: int,
+) -> int:
+    if env_wins(env_name):
+        return _as_int(getattr(settings, pydantic_attr, default), default, lo, hi)
+    cfg = _settings_cfg()
+    if setting_key in cfg and cfg.get(setting_key) not in (None, ""):
+        return _as_int(cfg.get(setting_key), default, lo, hi)
+    return _as_int(getattr(settings, pydantic_attr, default), default, lo, hi)
+
+
+def _bool_knob(
+    env_name: str,
+    setting_key: str,
+    pydantic_attr: str,
+    default: bool,
+) -> bool:
+    if env_wins(env_name):
+        return bool(getattr(settings, pydantic_attr, default))
+    cfg = _settings_cfg()
+    if setting_key in cfg and cfg.get(setting_key) not in (None, ""):
+        return _as_bool(cfg.get(setting_key), default)
+    return bool(getattr(settings, pydantic_attr, default))
+
+
+def _clamp_hold(raw: Any) -> int:
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        n = HOLD_SEC_DEFAULT
+    if n <= 0:
+        return 0
+    return max(HOLD_SEC_MIN_POS, min(HOLD_SEC_MAX, n))
+
+
+def clamp_console_policy(raw: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    """Clamp a Settings payload (or defaults) to home-lab floors/ceilings."""
+    src = raw or {}
+    idle = _as_int(src.get("console_idle_sec"), IDLE_SEC_DEFAULT, IDLE_SEC_MIN, IDLE_SEC_MAX)
+    maxs = _as_int(src.get("console_max_sec"), MAX_SEC_DEFAULT, MAX_SEC_MIN, MAX_SEC_MAX)
+    if maxs < idle:
+        maxs = idle
+    per = _as_int(
+        src.get("console_max_per_user"), PER_USER_DEFAULT, PER_USER_MIN, PER_USER_MAX
+    )
+    glob = _as_int(
+        src.get("console_max_global"), GLOBAL_DEFAULT, GLOBAL_MIN, GLOBAL_MAX
+    )
+    if glob < per:
+        glob = per
+    return {
+        "console_idle_sec": idle,
+        "console_max_sec": maxs,
+        "console_max_per_user": per,
+        "console_max_global": glob,
+        "console_ticket_sec": _as_int(
+            src.get("console_ticket_sec"), TICKET_SEC_DEFAULT, TICKET_SEC_MIN, TICKET_SEC_MAX
+        ),
+        "console_hold_sec": _clamp_hold(src.get("console_hold_sec")),
+        "console_revalidate_sec": _as_int(
+            src.get("console_revalidate_sec"),
+            REVALIDATE_SEC_DEFAULT,
+            REVALIDATE_SEC_MIN,
+            REVALIDATE_SEC_MAX,
+        ),
+        "console_scrollback": _as_int(
+            src.get("console_scrollback"), SCROLLBACK_DEFAULT, SCROLLBACK_MIN, SCROLLBACK_MAX
+        ),
+        "console_bind_ip": _as_bool(src.get("console_bind_ip"), True),
+        "console_bind_device": _as_bool(src.get("console_bind_device"), True),
+    }
+
+
+def console_env_locks() -> Dict[str, bool]:
+    return {key: env_wins(env) for key, env in CONSOLE_ENV_KEYS}
+
+
+def effective_console_policy() -> Dict[str, Any]:
+    """Resolved knobs (env / Settings / defaults) plus enable flag."""
+    return {
+        "console_idle_sec": idle_sec(),
+        "console_max_sec": max_session_sec(),
+        "console_max_per_user": max_per_user(),
+        "console_max_global": max_global(),
+        "console_ticket_sec": ticket_ttl_sec(),
+        "console_hold_sec": hold_sec(),
+        "console_revalidate_sec": revalidate_sec(),
+        "console_scrollback": default_scrollback(),
+        "console_bind_ip": bind_ip_enabled(),
+        "console_bind_device": bind_device_enabled(),
+        "enabled": console_enabled(),
+        "grant_minutes": grant_minutes(),
+    }
+
+
+def console_policy_summary(data: Dict[str, Any] | None = None) -> str:
+    p = clamp_console_policy(data) if data is not None else clamp_console_policy(
+        effective_console_policy()
+    )
+    return (
+        f"idle={p['console_idle_sec']} max={p['console_max_sec']} "
+        f"user={p['console_max_per_user']} global={p['console_max_global']} "
+        f"ticket={p['console_ticket_sec']} hold={p['console_hold_sec']} "
+        f"reval={p['console_revalidate_sec']} scroll={p['console_scrollback']} "
+        f"bind_ip={int(bool(p['console_bind_ip']))} "
+        f"bind_dev={int(bool(p['console_bind_device']))}"
+    )
+
+
 def ticket_ttl_sec() -> int:
-    return max(15, int(getattr(settings, "PIHERDER_SSH_CONSOLE_TICKET_SEC", 60) or 60))
+    return _int_knob(
+        "PIHERDER_SSH_CONSOLE_TICKET_SEC",
+        "console_ticket_sec",
+        "PIHERDER_SSH_CONSOLE_TICKET_SEC",
+        TICKET_SEC_DEFAULT,
+        TICKET_SEC_MIN,
+        TICKET_SEC_MAX,
+    )
 
 
 def idle_sec() -> int:
-    return max(60, int(getattr(settings, "PIHERDER_SSH_CONSOLE_IDLE_SEC", 900) or 900))
+    return _int_knob(
+        "PIHERDER_SSH_CONSOLE_IDLE_SEC",
+        "console_idle_sec",
+        "PIHERDER_SSH_CONSOLE_IDLE_SEC",
+        IDLE_SEC_DEFAULT,
+        IDLE_SEC_MIN,
+        IDLE_SEC_MAX,
+    )
 
 
 def max_session_sec() -> int:
-    return max(120, int(getattr(settings, "PIHERDER_SSH_CONSOLE_MAX_SEC", 3600) or 3600))
+    raw = _int_knob(
+        "PIHERDER_SSH_CONSOLE_MAX_SEC",
+        "console_max_sec",
+        "PIHERDER_SSH_CONSOLE_MAX_SEC",
+        MAX_SEC_DEFAULT,
+        MAX_SEC_MIN,
+        MAX_SEC_MAX,
+    )
+    return max(raw, idle_sec())
 
 
 def max_per_user() -> int:
-    return max(1, int(getattr(settings, "PIHERDER_SSH_CONSOLE_MAX_PER_USER", 4) or 4))
+    return _int_knob(
+        "PIHERDER_SSH_CONSOLE_MAX_PER_USER",
+        "console_max_per_user",
+        "PIHERDER_SSH_CONSOLE_MAX_PER_USER",
+        PER_USER_DEFAULT,
+        PER_USER_MIN,
+        PER_USER_MAX,
+    )
 
 
 def max_global() -> int:
-    return max(1, int(getattr(settings, "PIHERDER_SSH_CONSOLE_MAX_GLOBAL", 20) or 20))
+    raw = _int_knob(
+        "PIHERDER_SSH_CONSOLE_MAX_GLOBAL",
+        "console_max_global",
+        "PIHERDER_SSH_CONSOLE_MAX_GLOBAL",
+        GLOBAL_DEFAULT,
+        GLOBAL_MIN,
+        GLOBAL_MAX,
+    )
+    return max(raw, max_per_user())
 
 
 def default_scrollback() -> int:
     """Default xterm scrollback lines (client can raise within UI caps)."""
-    return max(500, min(50000, int(getattr(settings, "PIHERDER_SSH_CONSOLE_SCROLLBACK", 2000) or 2000)))
+    return _int_knob(
+        "PIHERDER_SSH_CONSOLE_SCROLLBACK",
+        "console_scrollback",
+        "PIHERDER_SSH_CONSOLE_SCROLLBACK",
+        SCROLLBACK_DEFAULT,
+        SCROLLBACK_MIN,
+        SCROLLBACK_MAX,
+    )
 
 
 def grant_minutes() -> int:
     """How long a post-2FA console grant lasts (additional shells without re-TOTP)."""
-    import os
-
-    if "PIHERDER_SSH_CONSOLE_GRANT_MIN" in os.environ:
+    if env_wins("PIHERDER_SSH_CONSOLE_GRANT_MIN"):
         return max(2, int(getattr(settings, "PIHERDER_SSH_CONSOLE_GRANT_MIN", 10) or 10))
     try:
         from .account_stepup import stepup_minutes
@@ -159,16 +373,33 @@ def require_passkey_if_enrolled() -> bool:
 
 
 def bind_ip_enabled() -> bool:
-    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_BIND_IP", True))
+    return _bool_knob(
+        "PIHERDER_SSH_CONSOLE_BIND_IP",
+        "console_bind_ip",
+        "PIHERDER_SSH_CONSOLE_BIND_IP",
+        True,
+    )
 
 
 def bind_device_enabled() -> bool:
-    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_BIND_DEVICE", True))
+    return _bool_knob(
+        "PIHERDER_SSH_CONSOLE_BIND_DEVICE",
+        "console_bind_device",
+        "PIHERDER_SSH_CONSOLE_BIND_DEVICE",
+        True,
+    )
 
 
 def revalidate_sec() -> int:
     """How often to re-check session/IP/device during an open shell (seconds)."""
-    return max(5, int(getattr(settings, "PIHERDER_SSH_CONSOLE_REVALIDATE_SEC", 10) or 10))
+    return _int_knob(
+        "PIHERDER_SSH_CONSOLE_REVALIDATE_SEC",
+        "console_revalidate_sec",
+        "PIHERDER_SSH_CONSOLE_REVALIDATE_SEC",
+        REVALIDATE_SEC_DEFAULT,
+        REVALIDATE_SEC_MIN,
+        REVALIDATE_SEC_MAX,
+    )
 
 
 def hold_sec() -> int:
@@ -177,10 +408,12 @@ def hold_sec() -> int:
     0 (default) = hold until idle_sec from last activity or max_session_sec from start.
     Positive value caps the detached window (still also subject to idle/max).
     """
-    raw = int(getattr(settings, "PIHERDER_SSH_CONSOLE_HOLD_SEC", 0) or 0)
-    if raw <= 0:
-        return 0
-    return max(30, raw)
+    if env_wins("PIHERDER_SSH_CONSOLE_HOLD_SEC"):
+        return _clamp_hold(getattr(settings, "PIHERDER_SSH_CONSOLE_HOLD_SEC", 0) or 0)
+    cfg = _settings_cfg()
+    if "console_hold_sec" in cfg and cfg.get("console_hold_sec") not in (None, ""):
+        return _clamp_hold(cfg.get("console_hold_sec"))
+    return _clamp_hold(getattr(settings, "PIHERDER_SSH_CONSOLE_HOLD_SEC", 0) or 0)
 
 
 def require_enabled() -> None:

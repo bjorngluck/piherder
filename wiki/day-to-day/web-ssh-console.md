@@ -170,30 +170,38 @@ PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL=true  # re-2FA every New shell (no 
 | **Close shell (✕)** | End that PTY only (`bye`) |
 | **Lock** / **Aa → Lock step-up** | Clear fleet grant; next shell needs 2FA again |
 
-Default max **4** shells per user (`PIHERDER_SSH_CONSOLE_MAX_PER_USER`), shared across all hosts.
+Default max **4** shells per user (Settings → Console, or `PIHERDER_SSH_CONSOLE_MAX_PER_USER` if set), shared across all hosts.
 
 ---
 
-## Environment variables
+## Settings vs environment
+
+**Settings → Console** (admin) owns idle timeout, max session, concurrency, ticket TTL, park hold, bind IP/device, revalidate interval, and scrollback. **Settings → Security** owns the grant window and which 2FA factors count.
+
+**Env wins** when a variable is set and non-empty (air-gap lock). The field shows as read-only (“Locked by environment”). Blank env does not lock.
+
+**Master enable stays env-only:** `PIHERDER_SSH_CONSOLE` (default **off**). Public demo does not expose these knobs as a writable multi-tenant shell farm (Settings writes 403).
+
+Lowering concurrency does **not** kick open or parked shells — the next new shell is denied.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `PIHERDER_SSH_CONSOLE` | `false` | Master enable |
-| `PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL` | `false` | 2FA every New shell (no fleet grant) |
-| `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES` | `false` | Allow backup codes for step-up |
-| `PIHERDER_SSH_CONSOLE_PREFER_PASSKEY` | `true` | UI promotes passkey |
-| `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY` | `false` | Passkey only if enrolled |
-| `PIHERDER_SSH_CONSOLE_BIND_IP` | `true` | Bind ticket/shell to client IP |
-| `PIHERDER_SSH_CONSOLE_BIND_DEVICE` | `true` | Bind to `console_device` cookie |
-| `PIHERDER_SSH_CONSOLE_REVALIDATE_SEC` | `10` | Continuous check interval |
-| `PIHERDER_SSH_CONSOLE_TICKET_SEC` | `60` | Open-ticket TTL |
-| `PIHERDER_SSH_CONSOLE_IDLE_SEC` | `900` | Idle disconnect (also ends parked shells) |
-| `PIHERDER_SSH_CONSOLE_MAX_SEC` | `3600` | Max session length |
-| `PIHERDER_SSH_CONSOLE_MAX_PER_USER` | `4` | Concurrent shells / user (all hosts) |
-| `PIHERDER_SSH_CONSOLE_MAX_GLOBAL` | `20` | Instance-wide concurrent shells |
-| `PIHERDER_SSH_CONSOLE_SCROLLBACK` | `2000` | Default xterm scrollback lines |
-| `PIHERDER_SSH_CONSOLE_HOLD_SEC` | `0` | Max park after WS drop (`0` = idle/max only) |
-| `PIHERDER_SSH_CONSOLE_GRANT_MIN` | `10` | Fleet-wide multi-host grant after 2FA (minutes) |
+| `PIHERDER_SSH_CONSOLE` | `false` | Master enable (not a Settings checkbox) |
+| `PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL` | `false` | 2FA every New shell (no fleet grant) — also Settings → Security |
+| `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES` | `false` | Allow backup codes for step-up — also Settings |
+| `PIHERDER_SSH_CONSOLE_PREFER_PASSKEY` | `true` | UI promotes passkey — also Settings |
+| `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY` | `false` | Passkey only if enrolled — also Settings |
+| `PIHERDER_SSH_CONSOLE_BIND_IP` | `true` | Bind ticket/shell to client IP — also Settings → Console |
+| `PIHERDER_SSH_CONSOLE_BIND_DEVICE` | `true` | Bind to `console_device` cookie — also Settings |
+| `PIHERDER_SSH_CONSOLE_REVALIDATE_SEC` | `10` | Continuous check interval (5–60) — also Settings |
+| `PIHERDER_SSH_CONSOLE_TICKET_SEC` | `60` | Open-ticket TTL (15–300) — also Settings |
+| `PIHERDER_SSH_CONSOLE_IDLE_SEC` | `900` | Idle disconnect (60–28800); also ends parked shells — also Settings |
+| `PIHERDER_SSH_CONSOLE_MAX_SEC` | `3600` | Max session length (120–43200, ≥ idle) — also Settings |
+| `PIHERDER_SSH_CONSOLE_MAX_PER_USER` | `4` | Concurrent shells / user (1–16) — also Settings |
+| `PIHERDER_SSH_CONSOLE_MAX_GLOBAL` | `20` | Instance-wide concurrent shells (1–64, ≥ per-user) — also Settings |
+| `PIHERDER_SSH_CONSOLE_SCROLLBACK` | `2000` | Default xterm scrollback lines — also Settings |
+| `PIHERDER_SSH_CONSOLE_HOLD_SEC` | `0` | Max park after WS drop (`0` = idle/max only; else 30–3600) — also Settings |
+| `PIHERDER_SSH_CONSOLE_GRANT_MIN` | `10` | Fleet-wide multi-host grant after 2FA (minutes) — also Settings → Security |
 
 Also: keep **CSP** on in production (`PIHERDER_CSP=true`). Tailwind is compiled CSS — no Play CDN / no `unsafe-eval`.
 

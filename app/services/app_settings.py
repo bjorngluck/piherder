@@ -80,6 +80,17 @@ DEFAULTS: Dict[str, Any] = {
     "console_allow_backup_codes": False,
     "console_prefer_passkey": True,
     "console_require_passkey": False,
+    # v1.3 slice 2 Deep — W-cfg timeouts / concurrency (env wins if set)
+    "console_idle_sec": 900,
+    "console_max_sec": 3600,
+    "console_max_per_user": 4,
+    "console_max_global": 20,
+    "console_ticket_sec": 60,
+    "console_hold_sec": 0,
+    "console_revalidate_sec": 10,
+    "console_scrollback": 2000,
+    "console_bind_ip": True,
+    "console_bind_device": True,
     "oidc_idp_mfa_satisfies_login_2fa": False,
     "oidc_idp_mfa_claim": "amr",
     # Suggest host/service FQDNs as {slug}.{dns_base_domain}

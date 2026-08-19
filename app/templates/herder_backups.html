@@ -144,6 +144,9 @@
 {% if request.query_params.get('security_saved') %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4">Security policy saved.</div>
 {% endif %}
+{% if request.query_params.get('console_saved') %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">Console policy saved.</div>
+{% endif %}
 {% if tab == 'alerts' or request.query_params.get('tab') == 'alerts' %}
 {% if request.query_params.get('webhook_saved') %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4">Webhook settings saved.</div>
@@ -334,7 +337,7 @@
       ['token_secret', 'token_name', 'token_created', 'token_revoked',
        'token_updated', 'token_rotated',
        'backup_ok', 'file', 'restored', 'deleted', 'config_saved',
-       'security_saved', 'update_checks_saved', 'error'].forEach(function (k) {
+       'security_saved', 'console_saved', 'update_checks_saved', 'error'].forEach(function (k) {
         u.searchParams.delete(k);
       });
       window.history.replaceState({}, '', u.pathname + '?' + u.searchParams.toString());

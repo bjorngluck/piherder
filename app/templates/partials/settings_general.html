@@ -26,7 +26,7 @@
     <p class="text-xs text-muted mt-2">Used for display and schedule interpretation (including update checks).</p>
   </div>
 
-  <div class="card p-5 mb-4">
+  <div class="card p-5 mb-4" id="settings-security">
     <h2 class="font-semibold text-text mb-1">Security policy</h2>
     <p class="text-xs text-muted mb-3">
       Global account rules. Admin-created users always must set a new password on first login.
@@ -227,6 +227,161 @@
         </label>
       </fieldset>
       <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save security policy</button>
+    </form>
+  </div>
+
+  {% set cpol = console_pol or {} %}
+  {% set clocks = console_locks or {} %}
+  <div class="card p-5 mb-4" id="settings-console" data-testid="settings-console">
+    <h2 class="font-semibold text-text mb-1">Console</h2>
+    <p class="text-xs text-muted mb-3">
+      Timeouts, concurrency, and binding for the web SSH console.
+      2FA factors and the grant window stay under
+      <a href="#settings-security" class="underline">Security policy</a>.
+      The master switch is compose-only
+      (<code class="font-mono">PIHERDER_SSH_CONSOLE</code>).
+    </p>
+    <p class="text-xs mb-3 {% if cpol.enabled %}text-text{% else %}text-muted{% endif %}">
+      {% if cpol.enabled %}
+      Console is <strong>on</strong>{% if demo_mode_on %} (demo / simulated){% endif %}.
+      {% else %}
+      Console is <strong>off</strong>. Set <code class="font-mono">PIHERDER_SSH_CONSOLE=true</code> and restart web.
+      {% endif %}
+    </p>
+    <form method="post" action="/herder-backups/console" class="space-y-4" data-testid="settings-console-form">
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">Timeouts</legend>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Idle timeout (seconds, 60–28800)</span>
+            <input type="number" name="console_idle_sec" min="60" max="28800"
+                   value="{{ cpol.console_idle_sec | default(900) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="console-idle-sec"
+                   {% if clocks.console_idle_sec %}disabled{% endif %}>
+            {% if clocks.console_idle_sec %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% else %}
+            <span class="block text-xs text-muted mt-1">900 = 15 minutes. Also ends parked shells.</span>
+            {% endif %}
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Max session (seconds, 120–43200)</span>
+            <input type="number" name="console_max_sec" min="120" max="43200"
+                   value="{{ cpol.console_max_sec | default(3600) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="console-max-sec"
+                   {% if clocks.console_max_sec %}disabled{% endif %}>
+            {% if clocks.console_max_sec %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% else %}
+            <span class="block text-xs text-muted mt-1">3600 = 1 hour. Forced to be at least idle.</span>
+            {% endif %}
+          </label>
+        </div>
+      </fieldset>
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">Concurrency</legend>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Max shells per user (1–16)</span>
+            <input type="number" name="console_max_per_user" min="1" max="16"
+                   value="{{ cpol.console_max_per_user | default(4) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="console-max-per-user"
+                   {% if clocks.console_max_per_user %}disabled{% endif %}>
+            {% if clocks.console_max_per_user %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% endif %}
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Max shells instance-wide (1–64)</span>
+            <input type="number" name="console_max_global" min="1" max="64"
+                   value="{{ cpol.console_max_global | default(20) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="console-max-global"
+                   {% if clocks.console_max_global %}disabled{% endif %}>
+            {% if clocks.console_max_global %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% else %}
+            <span class="block text-xs text-muted mt-1">Forced to be at least per-user. Lowering does not kick open shells.</span>
+            {% endif %}
+          </label>
+        </div>
+      </fieldset>
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">Ticket and park</legend>
+        <div class="grid sm:grid-cols-3 gap-3">
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Open-ticket TTL (seconds, 15–300)</span>
+            <input type="number" name="console_ticket_sec" min="15" max="300"
+                   value="{{ cpol.console_ticket_sec | default(60) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   {% if clocks.console_ticket_sec %}disabled{% endif %}>
+            {% if clocks.console_ticket_sec %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% endif %}
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Park hold after drop (seconds)</span>
+            <input type="number" name="console_hold_sec" min="0" max="3600"
+                   value="{{ cpol.console_hold_sec | default(0) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   {% if clocks.console_hold_sec %}disabled{% endif %}>
+            {% if clocks.console_hold_sec %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% else %}
+            <span class="block text-xs text-muted mt-1">0 = until idle/max. Else 30–3600.</span>
+            {% endif %}
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Revalidate interval (seconds, 5–60)</span>
+            <input type="number" name="console_revalidate_sec" min="5" max="60"
+                   value="{{ cpol.console_revalidate_sec | default(10) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   {% if clocks.console_revalidate_sec %}disabled{% endif %}>
+            {% if clocks.console_revalidate_sec %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% endif %}
+          </label>
+        </div>
+      </fieldset>
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">Binding and scrollback</legend>
+        <p class="text-xs text-muted">
+          IP bind exists because XSS plus a stolen cookie is shell-equivalent.
+          Turn it off only if mobile NAT / CGNAT breaks reconnects.
+        </p>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="console_bind_ip" value="1" class="mt-1"
+                 {% if cpol.console_bind_ip is not defined or cpol.console_bind_ip %}checked{% endif %}
+                 {% if clocks.console_bind_ip %}disabled{% endif %}>
+          <span>
+            Bind tickets and live shells to client IP
+            {% if clocks.console_bind_ip %}<span class="block text-xs text-muted mt-0.5">Locked by environment</span>{% endif %}
+          </span>
+        </label>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="console_bind_device" value="1" class="mt-1"
+                 {% if cpol.console_bind_device is not defined or cpol.console_bind_device %}checked{% endif %}
+                 {% if clocks.console_bind_device %}disabled{% endif %}>
+          <span>
+            Bind tickets to the console device cookie
+            {% if clocks.console_bind_device %}<span class="block text-xs text-muted mt-0.5">Locked by environment</span>{% endif %}
+          </span>
+        </label>
+        <label class="block text-sm">
+          <span class="block text-xs text-muted mb-1">Default xterm scrollback (lines, 500–50000)</span>
+          <input type="number" name="console_scrollback" min="500" max="50000"
+                 value="{{ cpol.console_scrollback | default(2000) }}"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                 {% if clocks.console_scrollback %}disabled{% endif %}>
+          {% if clocks.console_scrollback %}
+          <span class="block text-xs text-muted mt-1">Locked by environment</span>
+          {% endif %}
+        </label>
+      </fieldset>
+      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save console policy</button>
     </form>
   </div>
 
