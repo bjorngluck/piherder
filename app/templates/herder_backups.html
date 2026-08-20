@@ -147,6 +147,9 @@
 {% if request.query_params.get('console_saved') %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4">Console policy saved.</div>
 {% endif %}
+{% if request.query_params.get('files_saved') %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">Files transfer cap saved.</div>
+{% endif %}
 {% if request.query_params.get('data_cleanup_saved') %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4">Stale data cleanup settings saved.</div>
 {% endif %}
@@ -478,7 +481,7 @@
       ['token_secret', 'token_name', 'token_created', 'token_revoked',
        'token_updated', 'token_rotated',
        'backup_ok', 'file', 'restored', 'deleted', 'config_saved',
-       'security_saved', 'console_saved', 'update_checks_saved', 'error'].forEach(function (k) {
+       'security_saved', 'console_saved', 'files_saved', 'update_checks_saved', 'error'].forEach(function (k) {
         u.searchParams.delete(k);
       });
       window.history.replaceState({}, '', u.pathname + '?' + u.searchParams.toString());

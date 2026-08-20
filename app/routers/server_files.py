@@ -300,6 +300,7 @@ async def files_page(
         name="server_files.html",
         context={
             "title": f"{server.name} · Files",
+            "user": user,
             "server": server,
             "listing": listing,
             "listing_boot": boot,
@@ -318,6 +319,7 @@ async def files_page(
             "is_operator": role_at_least(user, ROLE_OPERATOR),
             "has_grant": _has_grant(request, user),
             "docker_on": bool(getattr(server, "container_patch_enabled", False)),
+            "files_app": True,
             **_nav,
         },
     )
@@ -683,6 +685,29 @@ async def files_docker_containers(
     return JSONResponse({"ok": True, "containers": names})
 
 
+@router.get("/{server_id}/files/docker/mounts")
+async def files_docker_mounts(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    identity: str = "fleet",
+    container: str = "",
+):
+    _files_gate()
+    server = _get_server(session, server_id)
+    if not getattr(server, "container_patch_enabled", False):
+        raise HTTPException(status_code=400, detail="Docker is not enabled on this host")
+    role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    try:
+        mounts = hf.list_container_mounts(
+            server, container, role=role, identity=ident
+        )
+    except hf.FilesError as e:
+        raise _http(e) from e
+    return JSONResponse({"ok": True, "mounts": mounts, "container": container})
+
+
 @router.post("/{server_id}/files/docker/cp")
 async def files_docker_cp(
     server_id: int,
@@ -756,17 +781,6 @@ def _rels_from_names(p: str, names: list[str]) -> list[str]:
     return rels
 
 
-def _delete_zip_sources(server, rels: list[str], *, skip: str, role: str, ident) -> None:
-    skip_n = (skip or "").strip("/")
-    for rel in rels:
-        if (rel or "").strip("/") == skip_n:
-            continue
-        try:
-            hf.remove_tree(server, rel, role=role, identity=ident)
-        except hf.FilesError:
-            logger.exception("files zip delete source %s", rel)
-
-
 @router.post("/{server_id}/files/archive")
 async def files_archive(
     server_id: int,
@@ -776,7 +790,7 @@ async def files_archive(
     p: str = Form(""),
     identity: str = Form("fleet"),
     names: list[str] = Form(default=[]),
-    dest: str = Form("download"),
+    dest: str = Form("host"),
     name: str = Form(""),
     delete: str = Form(""),
 ):
@@ -784,45 +798,31 @@ async def files_archive(
     server = _get_server(session, server_id)
     role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
     rels = _rels_from_names(p, names)
-    want_host = str(dest or "").strip().lower() in ("host", "save", "remote")
+    want_download = str(dest or "").strip().lower() in ("download", "get")
     want_delete = str(delete or "").strip().lower() in ("1", "true", "on", "yes")
-    if want_host:
-        try:
-            result = hf.save_zip(
-                server, rels, p, name or None, role=role, identity=ident
-            )
-        except hf.FilesError as e:
-            raise _http(e) from e
-        zip_rel = result.get("rel") or ""
-        if want_delete:
-            _delete_zip_sources(server, rels, skip=zip_rel, role=role, ident=ident)
-        _audit(
-            session,
-            user_id=user.id,
-            server_id=server.id,
-            action="host_file_put",
-            details=(
-                f"identity={role} zip={zip_rel} names={len(rels)} "
-                f"save=host delete={int(want_delete)}"
-            ),
-        )
-        return _ok_mutate(request, server, p, role, ident, "zipped")
     try:
-        fname, body = hf.build_zip(
-            server, rels, role=role, identity=ident, dest_name=name or None
+        result = hf.zip_on_host(
+            server, rels, p, name or None, role=role, identity=ident
         )
     except hf.FilesError as e:
         raise _http(e) from e
+    zip_rel = result.get("rel") or ""
+    fname = result.get("name") or "files.zip"
+    # delete=1 means: after a successful download, remove the zip on the host
+    # (originals stay). Save-on-host never deletes.
+    want_delete_zip = want_download and want_delete
     _audit(
         session,
         user_id=user.id,
         server_id=server.id,
-        action="host_file_get",
+        action="host_file_put",
         details=(
-            f"identity={role} zip={fname} names={len(rels)} "
-            f"save=download delete={int(want_delete)}"
+            f"identity={role} zip={zip_rel} names={len(rels)} members={result.get('members')} "
+            f"on_host=1 download={int(want_download)} delete_zip={int(want_delete_zip)}"
         ),
     )
+    if not want_download:
+        return _ok_mutate(request, server, p, role, ident, "zipped")
     headers = {
         "Content-Disposition": f'attachment; filename="{fname}"',
         "X-Content-Type-Options": "nosniff",
@@ -831,14 +831,17 @@ async def files_archive(
     }
 
     def gen():
-        ok = False
+        finished = False
         try:
-            for chunk in body:
+            for chunk in hf.iter_file(server, zip_rel, role=role, identity=ident):
                 yield chunk
-            ok = True
+            finished = True
         finally:
-            if ok and want_delete:
-                _delete_zip_sources(server, rels, skip="", role=role, ident=ident)
+            if want_delete_zip and finished:
+                try:
+                    hf.remove_tree(server, zip_rel, role=role, identity=ident)
+                except Exception:
+                    logger.exception("files zip delete archive %s", zip_rel)
 
     return StreamingResponse(
         iterate_in_threadpool(gen()),

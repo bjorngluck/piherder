@@ -55,7 +55,7 @@ Status comes from **last check jobs** (and related caches) — not continuous SS
 
 ### Pins & host jump
 
-For multi-host fleets, pin frequent pages with the **★** next to feature titles / Network map cards, then open them from the header **★** menu. On a host feature page, use **Jump host** to stay on Docker/Backups/Services/**Files** while switching machines. Full guide: [Pins & host jump](navigation-pins.md). Host **Files** dest-card appears when `PIHERDER_HOST_FILES=true` ([Host Files](host-files.md)).
+For multi-host fleets, pin frequent pages with the **★** next to feature titles / Network map cards, then open them from the header **★** menu. On a host feature page, use **Jump host** to stay on Docker/Backups/Services/**Files** while switching machines. Full guide: [Pins & host jump](navigation-pins.md). Host **Files** button appears when `PIHERDER_HOST_FILES=true` ([Host Files](host-files.md)).
 
 | Pulse field | Source |
 |-------------|--------|

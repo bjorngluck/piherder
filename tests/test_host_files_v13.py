@@ -387,6 +387,25 @@ def test_symlink_escape_refused():
     assert e.value.code == "escape"
 
 
+def test_clamp_files_max_allows_12gib():
+    twelve = 12 * 1024 * 1024 * 1024
+    assert hf.clamp_files_max_bytes(twelve) == twelve
+    assert hf.clamp_files_max_bytes(64 * 1024 * 1024 * 1024) == hf.MAX_UPLOAD_CEILING
+    assert hf.clamp_files_max_bytes(100) == 100
+    assert hf.files_max_gib(twelve) == 12.0
+
+
+def test_max_upload_uses_settings_when_env_unlocked(monkeypatch):
+    twelve = 12 * 1024 * 1024 * 1024
+    monkeypatch.setattr(hf, "files_max_env_locked", lambda: False)
+
+    def _raw():
+        return {"files_max_bytes": twelve}
+
+    monkeypatch.setattr("app.services.app_settings._load_raw_from_db", _raw)
+    assert hf.max_upload_bytes() == twelve
+
+
 def test_upload_over_cap_rejected(monkeypatch):
     monkeypatch.setattr(hf, "MAX_UPLOAD_DEFAULT", 8)
     monkeypatch.setattr(hf.settings, "PIHERDER_HOST_FILES_MAX_BYTES", 8, raising=False)
@@ -402,6 +421,68 @@ def test_upload_over_cap_rejected(monkeypatch):
     # tmp must not remain
     assert "/home/piherder/docker/big.bin.tmp" not in fs.nodes
     assert "/home/piherder/docker/big.bin" not in fs.nodes
+
+
+def test_put_file_perm_denied_is_clear():
+    class DenySFTP(MemSFTP):
+        def open(self, path, mode="r"):
+            if "w" in str(mode):
+                raise PermissionError(13, "Permission denied")
+            return super().open(path, mode)
+
+    s = _server()
+    fs = DenySFTP()
+    fs.add_dir("/home/piherder/docker")
+    with pytest.raises(hf.FilesError) as e:
+        hf.put_file(s, "", "root.conf", io.BytesIO(b"x"), sftp=fs)
+    assert e.value.code == "denied"
+    assert "PermissionError" not in e.value.message
+    assert "Privileged" in e.value.message or "own" in e.value.message.lower()
+
+
+def test_put_file_privileged_retries_sudo_tee(monkeypatch):
+    class DenySFTP(MemSFTP):
+        def open(self, path, mode="r"):
+            if "w" in str(mode):
+                raise PermissionError(13, "Permission denied")
+            return super().open(path, mode)
+
+    s = _server()
+    fs = DenySFTP()
+    fs.add_dir("/home/piherder/docker")
+    ssh = SimpleNamespace()
+    wrote = {}
+
+    def exec_command(cmd, timeout=60):
+        wrote["cmd"] = cmd
+        stdin = io.BytesIO()
+        stdin.channel = SimpleNamespace(shutdown_write=lambda: None)
+        orig_write = stdin.write
+
+        def _w(data):
+            wrote["data"] = data
+            return orig_write(data)
+
+        stdin.write = _w
+        stdout = io.BytesIO(b"")
+        stdout.channel = SimpleNamespace(recv_exit_status=lambda: 0)
+        stderr = io.BytesIO(b"")
+        return stdin, stdout, stderr
+
+    ssh.exec_command = exec_command
+    out = hf.put_file(
+        s,
+        "",
+        "root.conf",
+        io.BytesIO(b"hello"),
+        role=hf.ROLE_PRIVILEGED,
+        sftp=fs,
+        client=ssh,
+    )
+    assert "sudo -n tee" in (wrote.get("cmd") or "")
+    assert wrote.get("data") == b"hello"
+    assert out["bytes"] == 5
+    assert out["sha256"]
 
 
 def test_put_file_progress_callback():
@@ -773,14 +854,27 @@ def test_zip_basename():
     assert hf.zip_basename("", ["a", "b"]) == "files.zip"
 
 
-def test_save_zip_on_host():
+def test_zip_on_host_uses_remote_zip(monkeypatch):
     import zipfile
 
     s = _server()
     fs = MemSFTP()
     fs.add_file("/home/piherder/docker/frigate/config.yml", b"ok")
-    out = hf.save_zip(s, ["frigate"], "", "frigate-bak", sftp=fs)
+    ssh = FakeSSH(uid="0")
+
+    def run(client, cmd, timeout=120):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("frigate/config.yml", b"ok")
+        fs.add_file("/home/piherder/docker/frigate-bak.zip", buf.getvalue())
+        return 0, "1\n", ""
+
+    monkeypatch.setattr(hf, "run_command", run)
+    out = hf.zip_on_host(
+        s, ["frigate"], "", "frigate-bak", sftp=fs, client=ssh
+    )
     assert out["name"] == "frigate-bak.zip"
+    assert out["members"] >= 1
     raw = bytes(fs.nodes["/home/piherder/docker/frigate-bak.zip"]["data"])
     with zipfile.ZipFile(io.BytesIO(raw)) as zf:
         assert any(n.endswith("config.yml") for n in zf.namelist())

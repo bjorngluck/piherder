@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import os
 import posixpath
 import re
 import shlex
@@ -59,8 +60,9 @@ IMAGE_TYPES = {
     ".bmp": "image/bmp",
 }
 MAX_UPLOAD_DEFAULT = 512 * 1024 * 1024
-MAX_UPLOAD_CEILING = 2 * 1024 * 1024 * 1024
+MAX_UPLOAD_CEILING = 32 * 1024 * 1024 * 1024  # 32 GiB (12 GiB ISO-sized copies)
 NAME_MAX = 255
+FILES_MAX_ENV = "PIHERDER_HOST_FILES_MAX_BYTES"
 
 # Privileged jail is / ; these are never useful as files and stay denied.
 VIRTUAL_DENY = ("/proc", "/sys", "/dev", "/run")
@@ -104,15 +106,46 @@ def files_enabled() -> bool:
     return bool(getattr(settings, "PIHERDER_HOST_FILES", False))
 
 
-def max_upload_bytes() -> int:
-    raw = getattr(settings, "PIHERDER_HOST_FILES_MAX_BYTES", None)
+def files_max_env_locked() -> bool:
+    v = os.environ.get(FILES_MAX_ENV)
+    return v is not None and str(v).strip() != ""
+
+
+def _as_bytes(raw: Any) -> Optional[int]:
+    if raw in (None, ""):
+        return None
     try:
-        n = int(raw) if raw not in (None, "") else MAX_UPLOAD_DEFAULT
+        n = int(raw)
     except (TypeError, ValueError):
-        n = MAX_UPLOAD_DEFAULT
-    if n <= 0:
+        return None
+    return n if n > 0 else None
+
+
+def clamp_files_max_bytes(raw: Any) -> int:
+    n = _as_bytes(raw)
+    if n is None:
         n = MAX_UPLOAD_DEFAULT
     return min(n, MAX_UPLOAD_CEILING)
+
+
+def files_max_gib(n: Optional[int] = None) -> float:
+    b = int(n) if n is not None else max_upload_bytes()
+    return round(b / float(1024 ** 3), 3)
+
+
+def max_upload_bytes() -> int:
+    if files_max_env_locked():
+        return clamp_files_max_bytes(os.environ.get(FILES_MAX_ENV))
+    stored = None
+    try:
+        from .app_settings import _load_raw_from_db
+
+        stored = _load_raw_from_db().get("files_max_bytes")
+    except Exception:
+        stored = None
+    if stored not in (None, ""):
+        return clamp_files_max_bytes(stored)
+    return clamp_files_max_bytes(getattr(settings, "PIHERDER_HOST_FILES_MAX_BYTES", None))
 
 
 def normalize_role(role: Optional[str]) -> str:
@@ -871,6 +904,7 @@ def put_file(
     role: str = ROLE_FLEET,
     identity: Any = None,
     sftp: Any = None,
+    client: Any = None,
     progress: Any = None,
 ) -> dict[str, Any]:
     name = sanitize_basename(filename)
@@ -885,7 +919,10 @@ def put_file(
     tmp = dest + ".tmp"
     hasher = hashlib.sha256()
     written = 0
-    with sftp_session(server, identity, sftp, pooled=False) as fs:
+    with sftp_session(
+        server, identity, sftp, pooled=False, with_client=True, client=client
+    ) as pair:
+        cli, fs = pair
         dest_dir = _assert_in_jail(dest_dir, server, role=role, identity=identity, sftp=fs)
         st = _lstat(fs, dest_dir)
         if _kind_from_mode(int(getattr(st, "st_mode", 0) or 0)) != "dir":
@@ -942,7 +979,14 @@ def put_file(
                 fs.remove(tmp)
             except Exception:
                 pass
-            raise FilesError("ssh", f"{type(e).__name__}: {e}"[:240]) from e
+            if _is_perm_denied(e):
+                body = _stream_bytes_for_retry(stream, hasher, written)
+                if role == ROLE_PRIVILEGED and cli is not None and body is not None:
+                    hasher, written = _put_via_sudo(cli, dest, body, cap=cap)
+                else:
+                    raise FilesError("denied", _write_denied_msg(role)) from e
+            else:
+                raise FilesError("ssh", f"{type(e).__name__}: {e}"[:240]) from e
     return {
         "jail": jail,
         "rel": rel_of(dest, jail),
@@ -1359,6 +1403,7 @@ def _zip_buffer(
     identity: Any = None,
     sftp: Any = None,
     dest_name: Optional[str] = None,
+    max_bytes: Optional[int] = None,
 ) -> tuple[str, Any]:
     """Build a zip in a spooled temp file. Caller must close the file."""
     import zipfile
@@ -1368,6 +1413,9 @@ def _zip_buffer(
         raise FilesError("invalid", "Nothing selected to zip")
     role = normalize_role(role)
     fname = zip_basename(dest_name, names)
+    cap = int(max_bytes) if max_bytes is not None else max_upload_bytes()
+    if cap <= 0:
+        cap = max_upload_bytes()
     buf = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
     total = 0
     try:
@@ -1391,8 +1439,11 @@ def _zip_buffer(
                         budget=budget,
                     ):
                         total += sz
-                        if total > max_upload_bytes():
-                            raise FilesError("too_large", "Zip contents exceed the transfer cap")
+                        if total > cap:
+                            raise FilesError(
+                                "too_large",
+                                f"Zip contents exceed {human_size(cap)}",
+                            )
                         if arc.endswith("/"):
                             zf.writestr(arc, b"")
                             continue
@@ -1428,7 +1479,13 @@ def build_zip(
 ) -> tuple[str, Iterator[bytes]]:
     """Zip one or more jail-relative files/folders. Returns (filename, byte iterator)."""
     fname, buf = _zip_buffer(
-        server, rels, role=role, identity=identity, sftp=sftp, dest_name=dest_name
+        server,
+        rels,
+        role=role,
+        identity=identity,
+        sftp=sftp,
+        dest_name=dest_name,
+        max_bytes=MAX_UPLOAD_CEILING,
     )
 
     def chunks() -> Iterator[bytes]:
@@ -1456,30 +1513,162 @@ def save_zip(
     role: str = ROLE_FLEET,
     identity: Any = None,
     sftp: Any = None,
+    client: Any = None,
 ) -> dict[str, Any]:
-    """Write a zip of ``rels`` into ``dest_dir`` on the host."""
-    fname, buf = _zip_buffer(
-        server, rels, role=role, identity=identity, sftp=sftp, dest_name=dest_name
+    """Zip on the host (not through the herder). Alias for ``zip_on_host``."""
+    return zip_on_host(
+        server,
+        rels,
+        dest_dir,
+        dest_name,
+        role=role,
+        identity=identity,
+        sftp=sftp,
+        client=client,
     )
-    try:
-        buf.seek(0, 2)
-        size = buf.tell()
-        buf.seek(0)
-        return put_file(
-            server,
-            dest_dir,
-            fname,
-            buf,
-            size=size,
-            role=role,
-            identity=identity,
-            sftp=sftp,
+
+
+_ZIP_PY = (
+    "import zipfile,sys\n"
+    "d,l=sys.argv[1],sys.argv[2]\n"
+    "z=zipfile.ZipFile(d,'w',zipfile.ZIP_DEFLATED,True)\n"
+    "n=0\n"
+    "for line in open(l,encoding='utf-8'):\n"
+    " p=line.strip()\n"
+    " if p:\n"
+    "  z.write(p); n+=1\n"
+    "z.close()\n"
+    "print(n)\n"
+)
+
+
+def zip_on_host(
+    server: Any,
+    rels: list[str],
+    dest_dir: str,
+    dest_name: Optional[str] = None,
+    *,
+    role: str = ROLE_FLEET,
+    identity: Any = None,
+    sftp: Any = None,
+    client: Any = None,
+) -> dict[str, Any]:
+    """Create a zip **on the host** with ``zip`` or ``python3``. Tree never hits the herder."""
+    names = [r.strip().strip("/") for r in (rels or []) if str(r).strip()]
+    if not names:
+        raise FilesError("invalid", "Nothing selected to zip")
+    role = normalize_role(role)
+    fname = zip_basename(dest_name, names)
+    jail, dest_dir_abs = resolve_logical(server, dest_dir, role=role, identity=identity)
+    dest_rel = (rel_of(dest_dir_abs, jail) + "/" + fname).strip("/")
+    list_rel = dest_rel + ".lst"
+    members: list[str] = []
+    with sftp_session(
+        server, identity, sftp, pooled=True, with_client=True, client=client
+    ) as pair:
+        cli, fs = pair
+        dest_dir_abs = _assert_in_jail(
+            dest_dir_abs, server, role=role, identity=identity, sftp=fs
         )
-    finally:
+        dest_abs = posix_norm(posixpath.join(dest_dir_abs, fname))
+        if not under_jail(dest_abs, jail) or is_denied(
+            dest_abs, server, role=role, identity=identity
+        ):
+            raise FilesError("escape" if not under_jail(dest_abs, jail) else "denied", "Path is blocked")
+        list_abs = dest_abs + ".lst"
+        budget = [0]
+        for rel in names:
+            if rel.rsplit("/", 1)[-1] == fname:
+                continue
+            _jail, abs_path = resolve_logical(server, rel, role=role, identity=identity)
+            for arc, src, _sz in _walk_files(
+                fs,
+                server,
+                jail=_jail,
+                abs_path=abs_path,
+                rel=rel.rsplit("/", 1)[-1] if rel else "files",
+                role=role,
+                identity=identity,
+                depth=0,
+                budget=budget,
+            ):
+                if arc.endswith("/"):
+                    continue
+                try:
+                    members.append(rel_of(src, jail))
+                except FilesError:
+                    continue
+        if not members:
+            raise FilesError("invalid", "Nothing to zip")
+        body = ("\n".join(members) + "\n").encode("utf-8")
+        with fs.open(list_abs, "wb") as fh:
+            fh.write(body)
         try:
-            buf.close()
+            fs.remove(dest_abs)
         except Exception:
             pass
+        jail_q = shlex.quote(jail)
+        zip_inner = (
+            f"cd {jail_q} && zip -q {shlex.quote(dest_rel)} -@ < {shlex.quote(list_rel)}"
+        )
+        py_inner = (
+            f"cd {jail_q} && python3 -c {shlex.quote(_ZIP_PY)} "
+            f"{shlex.quote(dest_rel)} {shlex.quote(list_rel)}"
+        )
+        as_root = _remote_is_root(cli, server, identity)
+        allow_sudo = role == ROLE_PRIVILEGED
+        attempts: list[tuple[str, str]] = [
+            ("plain", zip_inner),
+            ("plain", py_inner),
+        ]
+        if allow_sudo and not as_root:
+            attempts.extend(
+                [
+                    ("sudo", "sudo -n sh -c " + shlex.quote(zip_inner)),
+                    ("sudo", "sudo -n sh -c " + shlex.quote(py_inner)),
+                ]
+            )
+        last_err = "zip failed"
+        ok = False
+        if cli is None:
+            raise FilesError("ssh", "SSH session required to zip on the host")
+        for _how, cmd in attempts:
+            try:
+                status, out, err = run_command(cli, cmd, timeout=300)
+            except Exception as e:
+                last_err = f"{type(e).__name__}: {e}"[:200]
+                continue
+            if status != 0:
+                last_err = ((err or out or f"exit {status}") or "").strip()[:200]
+                continue
+            try:
+                st = _lstat(fs, dest_abs)
+                if _kind_from_mode(int(getattr(st, "st_mode", 0) or 0)) == "dir":
+                    last_err = "zip path is a directory"
+                    continue
+                ok = True
+                size = int(getattr(st, "st_size", 0) or 0)
+                break
+            except FilesError:
+                last_err = "zip reported ok but the file is missing"
+                continue
+        try:
+            fs.remove(list_abs)
+        except Exception:
+            pass
+        if not ok:
+            raise FilesError(
+                "ssh",
+                f"Could not zip on the host ({last_err}). Install zip or python3.",
+            )
+    return {
+        "jail": jail,
+        "rel": dest_rel,
+        "abs": dest_abs,
+        "name": fname,
+        "members": len(members),
+        "bytes": size,
+    }
 
 
 def unzip_into(
@@ -1605,6 +1794,75 @@ def parse_id_name(raw: Any, *, kind: str) -> str:
     if not _ID_NAME_RE.match(s):
         raise FilesError("invalid", f"Invalid {kind} name")
     return s
+
+
+def _write_denied_msg(role: str) -> str:
+    if role == ROLE_PRIVILEGED:
+        return (
+            "Cannot write this file. It is owned by another user, and "
+            "sudo -n failed (add NOPASSWD sudo for this privileged SSH user, "
+            "or connect as root)."
+        )
+    return (
+        "Cannot write this file — the fleet SSH user does not own it. "
+        "Switch to Privileged in ⋯ (needs passwordless sudo if that user is not root)."
+    )
+
+
+def _stream_bytes_for_retry(stream: BinaryIO, hasher: Any, written: int) -> Optional[bytes]:
+    """Return full body for a sudo retry, or None if the stream cannot be rewound."""
+    if written == 0:
+        try:
+            stream.seek(0)
+        except Exception:
+            pass
+        data = stream.read()
+        if isinstance(data, str):
+            data = data.encode("utf-8")
+        return bytes(data or b"")
+    try:
+        stream.seek(0)
+        data = stream.read()
+        if isinstance(data, str):
+            data = data.encode("utf-8")
+        return bytes(data or b"")
+    except Exception:
+        return None
+
+
+def _exec_write(client: Any, cmd: str, data: bytes, timeout: int = 60) -> tuple[int, str, str]:
+    stdin, stdout, stderr = client.exec_command(cmd, timeout=timeout)
+    try:
+        if data:
+            stdin.write(data)
+        stdin.channel.shutdown_write()
+    except Exception:
+        pass
+    out = stdout.read().decode(errors="replace")
+    err = stderr.read().decode(errors="replace")
+    status = stdout.channel.recv_exit_status()
+    return status, out, err
+
+
+def _put_via_sudo(client: Any, dest: str, data: bytes, *, cap: int) -> tuple[Any, int]:
+    """Write dest in place with ``sudo -n tee`` so root-owned files can be saved."""
+    if len(data) > cap:
+        raise FilesError("too_large", f"Upload exceeds {human_size(cap)}")
+    q = shlex.quote(dest)
+    cmd = f"sudo -n tee {q} >/dev/null"
+    try:
+        status, out, err = _exec_write(client, cmd, data, timeout=90)
+    except Exception as e:
+        raise FilesError("denied", _write_denied_msg(ROLE_PRIVILEGED)) from e
+    if status != 0:
+        last = ((err or out or f"exit {status}") or "").strip()[:200]
+        raise FilesError(
+            "denied",
+            f"{_write_denied_msg(ROLE_PRIVILEGED)} ({last or 'sudo tee failed'})",
+        )
+    hasher = hashlib.sha256()
+    hasher.update(data)
+    return hasher, len(data)
 
 
 def _is_perm_denied(exc: BaseException) -> bool:
@@ -2241,6 +2499,75 @@ def list_docker_volumes(
                     rel = ""
             out.append({"name": name, "mountpoint": mount, "rel": rel})
     return out
+
+
+def list_container_mounts(
+    server: Any,
+    container: str,
+    *,
+    role: str = ROLE_FLEET,
+    identity: Any = None,
+    sftp: Any = None,
+) -> list[dict[str, Any]]:
+    """Bind mounts and named volumes on one container (docker inspect Mounts)."""
+    import json
+
+    if not _docker_name_ok(container):
+        raise FilesError("invalid", "Invalid container name")
+    role = normalize_role(role)
+    jail, _root = resolve_logical(server, "", role=role, identity=identity)
+    with sftp_session(server, identity, sftp, with_client=True) as pair:
+        cli, _fs = pair
+        if cli is None:
+            raise FilesError("ssh", "SSH session required to inspect mounts")
+        cmd = (
+            "docker inspect "
+            + shlex.quote(container)
+            + " --format '{{json .Mounts}}'"
+        )
+        try:
+            status, raw, err = run_command(cli, cmd, timeout=20)
+        except Exception as e:
+            raise FilesError("ssh", f"{type(e).__name__}: {e}"[:240]) from e
+        if status != 0:
+            raise FilesError("ssh", (err or raw or "docker inspect failed")[:240])
+        try:
+            mounts = json.loads((raw or "").strip() or "[]")
+        except json.JSONDecodeError as e:
+            raise FilesError("ssh", "Could not parse docker inspect mounts") from e
+        if not isinstance(mounts, list):
+            mounts = []
+        out: list[dict[str, Any]] = []
+        for m in mounts:
+            if not isinstance(m, dict):
+                continue
+            kind = str(m.get("Type") or "bind").lower()
+            if kind == "tmpfs":
+                continue
+            source = str(m.get("Source") or "").strip()
+            dest = str(m.get("Destination") or m.get("Target") or "").strip()
+            name = str(m.get("Name") or "").strip()
+            host_path = posix_norm(source) if source else ""
+            rel = ""
+            in_jail = False
+            if host_path and host_path != "/" and under_jail(host_path, jail):
+                try:
+                    rel = rel_of(host_path, jail)
+                    in_jail = True
+                except FilesError:
+                    rel = ""
+            out.append(
+                {
+                    "kind": kind,
+                    "name": name,
+                    "source": source,
+                    "destination": dest,
+                    "rel": rel,
+                    "in_jail": in_jail,
+                    "rw": m.get("RW") is not False and m.get("ReadOnly") is not True,
+                }
+            )
+        return out
 
 
 def list_docker_containers(

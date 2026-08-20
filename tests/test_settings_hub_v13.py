@@ -22,6 +22,13 @@ def test_security_line_includes_password_and_2fa():
     assert "grace 7d" in line
 
 
+def test_files_line_off_and_on():
+    assert "off" in hub.files_line(enabled=False).lower()
+    on = hub.files_line(enabled=True, max_h="12.0 GiB", env_locked=True)
+    assert "12.0 GiB" in on
+    assert "env lock" in on
+
+
 def test_console_line_off_and_on():
     assert "off" in hub.console_line({"enabled": False}).lower()
     on = hub.console_line(

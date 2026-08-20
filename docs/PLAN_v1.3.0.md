@@ -57,7 +57,7 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 | Host SSH identities | At least **two** optional credentials per host: **fleet / least-priv** (default jobs + console + Files) + **privileged** (break-glass console + Files); separate Fernet keys |
 | Shell audit | **Opt-in**; default off; command/response is **discover → promote** |
 | Insights | **N2 history reports** at `/reports` (Jobs / nmap runs / console Audit) — not Grafana, not status portlets. **N3** Cap |
-| Host files | **F Deep** — dest-card explorer (edit/zip/perms/search/move/preview/folder upload/`.env` step-up; thin Docker volumes + `docker cp`). API `files` fleet list/get/put. Flag **off** until GA. Richer API → v1.4+ |
+| Host files | **F Deep** — host **Files** button + ops hero + explorer (edit/zip/perms/search/move/preview/folder upload/`.env` step-up; thin Docker volumes + `docker cp`). API `files` fleet list/get/put. Flag **off** until GA. Richer API → v1.4+ |
 
 ```text
 main @ v1.2.0 (+ v1.2.x patches)
@@ -356,9 +356,9 @@ Reuse, do **not** fork: Paramiko `open_sftp` + tmp+rename (`docker_versions.writ
 |----|------|--------|
 | F0 | **Discovery** (this capture) | Inventory above; pick jail, size cap, RBAC; decide Files dest-card vs Docker-only vs console accessory |
 | F1 | Shared confined SFTP helper | `list` / `stat` / `get` / `put` on one SSH session; resolve jail; reject `..`, NUL, symlink-escape; optional allow/deny prefixes (start from `backup_path_policy` + default OS denies) |
-| F2 | Host **Files** dest-card | `/servers/{id}/files` — explorer; download; upload + **progress**; **mkdir**; **rename** / **move**; **delete** (recursive); **edit**; **zip** / **unzip**; **chmod** / **chown**; **search** (names + contents); preview; folder upload; Docker volumes + `docker cp`. Pin/jump `FEATURE_META` (`files`). |
+| F2 | Host **Files** dest | Overview **Files** button (not a dest-card) · ops hero · `/servers/{id}/files` explorer; download; upload + **progress**; **mkdir**; **rename** / **move**; **delete** (recursive); **edit**; **zip** / **unzip**; **chmod** / **chown**; **search** (names + contents); preview ‹›; folder upload; Docker volumes + `docker cp`. Pin/jump `FEATURE_META` (`files`). |
 | F3 | Jail | **Fleet:** docker_base if Docker on, else home; never `/`. **Privileged:** `/` minus virtual FS. **HAOS in**. |
-| F4 | Caps + streaming | Default **512 MiB** (`PIHERDER_HOST_FILES_MAX_BYTES`, ceiling 2 GiB). Stream O(chunk); upload progress bar; attachment download; no inline. |
+| F4 | Caps + streaming | Default **512 MiB**. Settings → Files (ceiling **32 GiB**). Env `PIHERDER_HOST_FILES_MAX_BYTES` locks. Stream O(chunk); upload progress bar; attachment download; no inline. |
 | F5 | RBAC / demo / audit | operator+; viewer 403; demo off. Audit `host_file_*` path + bytes + sha256, never body. |
 | F6 | Secret-ish names | Show in listing. Open / edit / download / preview / content-search needs 2FA grant (same cookie as privileged Files). Compose editor still redacts `.env`. |
 | F7 | Identity | Default **fleet**. Optional **privileged** like console (same elevate RBAC + 2FA grant). API fleet-only (`files` scope). |
@@ -509,6 +509,7 @@ Success criteria:
 | 2026-08-20 | **F search / move / folder upload:** name search from current folder; SFTP move across dirs; webkitdirectory + drag-drop tree (zip-slip refused). |
 | 2026-08-20 | **F API expansions → v1.4+ under consideration** (zip/edit/chmod/recursive/privileged tokens). 1.3 API stays fleet list/get/put. |
 | 2026-08-20 | **F remaining UI:** content grep, image/hex preview, extra step-up for `.env`/PEM, thin Docker volumes + `docker cp` into the jail. |
+| 2026-08-20 | **F polish:** Files **button** (not dest-card); fleet **nav** (`user` in template); ops hero; ⋯-only extra actions; list scrolls in-pane; zip **on host**; Settings transfer cap (32 GiB); preview ‹›; privileged save via `sudo -n tee`. |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 

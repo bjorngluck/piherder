@@ -176,6 +176,7 @@ def test_settings_general_admin_200(smoke_client):
     assert 'data-testid="settings-password-policy"' in r.text
     assert 'data-testid="password-min-length"' in r.text
     assert 'data-testid="settings-console"' in r.text
+    assert 'data-testid="settings-files"' in r.text
     assert 'data-testid="console-idle-sec"' in r.text
     assert 'data-open-settings-modal="security"' in r.text
     assert 'data-settings-modal="console"' in r.text
