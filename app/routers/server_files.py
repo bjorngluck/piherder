@@ -42,6 +42,7 @@ _STATUS = {
     "privileged_forbidden": 403,
     "privileged_confirm": 403,
     "denied": 403,
+    "secret_confirm": 403,
     "not_found": 404,
     "too_large": 413,
     "binary": 415,
@@ -111,6 +112,15 @@ def _has_grant(request: Request, user: User) -> bool:
     )
 
 
+def _require_secret_grant(request: Request, user: User, rel: str) -> None:
+    base = (rel or "").replace("\\", "/").rsplit("/", 1)[-1]
+    if hf.is_secretish(base) and not _has_grant(request, user):
+        raise HTTPException(
+            status_code=403,
+            detail="secret_confirm",
+        )
+
+
 def _load_identity(
     session: Session,
     server: Server,
@@ -171,6 +181,8 @@ def listing_public(listing: dict) -> dict:
                 "group": e.get("group") or "",
                 "uid": e.get("uid"),
                 "gid": e.get("gid"),
+                "line": e.get("line"),
+                "snippet": e.get("snippet") or "",
             }
         )
     return {
@@ -183,6 +195,7 @@ def listing_public(listing: dict) -> dict:
         "entries": entries,
         "search": bool(listing.get("search")),
         "query": listing.get("query") or "",
+        "contents": bool(listing.get("contents")),
     }
 
 
@@ -303,6 +316,8 @@ async def files_page(
             "existing_names": existing,
             "max_upload_h": hf.human_size(hf.max_upload_bytes()),
             "is_operator": role_at_least(user, ROLE_OPERATOR),
+            "has_grant": _has_grant(request, user),
+            "docker_on": bool(getattr(server, "container_patch_enabled", False)),
             **_nav,
         },
     )
@@ -337,12 +352,22 @@ async def files_search(
     q: str = "",
     p: str = "",
     identity: str = "fleet",
+    contents: str = "",
 ):
     _files_gate()
     server = _get_server(session, server_id)
     role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    want_contents = str(contents or "").strip().lower() in ("1", "true", "on", "yes")
     try:
-        listing = hf.search(server, q, rel=p, role=role, identity=ident)
+        listing = hf.search(
+            server,
+            q,
+            rel=p,
+            role=role,
+            identity=ident,
+            contents=want_contents,
+            allow_secrets=_has_grant(request, user),
+        )
     except hf.FilesError as e:
         raise _http(e) from e
     return JSONResponse(listing_public(listing))
@@ -356,16 +381,18 @@ async def files_unlock(
     user: User = Depends(get_operator_user),
     totp_code: str = Form(""),
     p: str = Form(""),
+    identity: str = Form("privileged"),
 ):
     _files_gate()
     server = _get_server(session, server_id)
-    if not cons.can_open_privileged(user):
+    stay = hf.normalize_role(identity) if (identity or "").strip() else hf.ROLE_PRIVILEGED
+    if stay == hf.ROLE_PRIVILEGED and not cons.can_open_privileged(user):
         raise HTTPException(status_code=403, detail="Privileged files are not allowed for this role")
     from .server_console import _verify_console_2fa
 
     ok, err = _verify_console_2fa(session, user, totp_code=totp_code)
     if not ok:
-        return _redirect(server_id, p=p, identity="privileged", error=err or "2fa_required")
+        return _redirect(server_id, p=p, identity=stay, error=err or "2fa_required")
     ip = client_ip_from_request(request) or ""
     device_id = cons.ensure_device_id(request.cookies.get(cons.CONSOLE_DEVICE_COOKIE))
     grant = cons.mint_grant(
@@ -376,7 +403,7 @@ async def files_unlock(
         device_id=device_id,
         require_console=False,
     )
-    resp = _redirect(server_id, p=p, identity="privileged", msg="unlocked")
+    resp = _redirect(server_id, p=p, identity=stay, msg="unlocked")
     resp.set_cookie(
         cons.CONSOLE_GRANT_COOKIE,
         grant,
@@ -398,11 +425,9 @@ async def files_webauthn_options(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
-    """Passkey options for privileged Files — does not require the console kill switch."""
+    """Passkey options for Files step-up (privileged or secret-ish files)."""
     _files_gate()
     _get_server(session, server_id)
-    if not cons.can_open_privileged(user):
-        raise HTTPException(status_code=403, detail="Privileged files are not allowed for this role")
     if not cons.same_site_browser_request(request):
         return JSONResponse(
             {"ok": False, "error": "cross_site", "detail": "Passkey step-up is same-origin only."},
@@ -434,8 +459,6 @@ async def files_webauthn_verify(
     """Verify passkey and set the same grant cookie the console uses."""
     _files_gate()
     server = _get_server(session, server_id)
-    if not cons.can_open_privileged(user):
-        raise HTTPException(status_code=403, detail="Privileged files are not allowed for this role")
     if not cons.same_site_browser_request(request):
         return JSONResponse(
             {"ok": False, "error": "cross_site", "detail": "Passkey step-up is same-origin only."},
@@ -501,6 +524,7 @@ async def files_download(
     _files_gate()
     server = _get_server(session, server_id)
     role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    _require_secret_grant(request, user, p)
     hasher = hashlib.sha256()
     nbytes = 0
     rel = (p or "").strip()
@@ -560,11 +584,138 @@ async def files_content(
     _files_gate()
     server = _get_server(session, server_id)
     role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    _require_secret_grant(request, user, p)
     try:
         data = hf.read_text(server, p, role=role, identity=ident)
     except hf.FilesError as e:
         raise _http(e) from e
     return JSONResponse({"ok": True, **data})
+
+
+@router.get("/{server_id}/files/peek")
+async def files_peek(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    p: str = "",
+    identity: str = "fleet",
+):
+    _files_gate()
+    server = _get_server(session, server_id)
+    role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    _require_secret_grant(request, user, p)
+    try:
+        data = hf.peek_file(server, p, role=role, identity=ident)
+    except hf.FilesError as e:
+        raise _http(e) from e
+    return JSONResponse({"ok": True, **data})
+
+
+@router.get("/{server_id}/files/preview")
+async def files_preview(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    p: str = "",
+    identity: str = "fleet",
+):
+    _files_gate()
+    server = _get_server(session, server_id)
+    role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    _require_secret_grant(request, user, p)
+    try:
+        info = hf.peek_file(server, p, role=role, identity=ident)
+        chunks = hf.iter_preview(server, p, role=role, identity=ident)
+    except hf.FilesError as e:
+        raise _http(e) from e
+    media = info.get("media_type") or "application/octet-stream"
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "no-store",
+        "Content-Disposition": f'inline; filename="{info.get("name") or "preview"}"',
+    }
+    return StreamingResponse(
+        iterate_in_threadpool(chunks),
+        media_type=media,
+        headers=headers,
+    )
+
+
+@router.get("/{server_id}/files/docker/volumes")
+async def files_docker_volumes(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    identity: str = "fleet",
+):
+    _files_gate()
+    server = _get_server(session, server_id)
+    if not getattr(server, "container_patch_enabled", False):
+        raise HTTPException(status_code=400, detail="Docker is not enabled on this host")
+    role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    try:
+        vols = hf.list_docker_volumes(server, role=role, identity=ident)
+    except hf.FilesError as e:
+        raise _http(e) from e
+    return JSONResponse({"ok": True, "volumes": vols})
+
+
+@router.get("/{server_id}/files/docker/containers")
+async def files_docker_containers(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    identity: str = "fleet",
+):
+    _files_gate()
+    server = _get_server(session, server_id)
+    if not getattr(server, "container_patch_enabled", False):
+        raise HTTPException(status_code=400, detail="Docker is not enabled on this host")
+    role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    try:
+        names = hf.list_docker_containers(server, identity=ident)
+    except hf.FilesError as e:
+        raise _http(e) from e
+    return JSONResponse({"ok": True, "containers": names})
+
+
+@router.post("/{server_id}/files/docker/cp")
+async def files_docker_cp(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    p: str = Form(""),
+    identity: str = Form("fleet"),
+    container: str = Form(...),
+    src: str = Form(...),
+):
+    _files_gate()
+    server = _get_server(session, server_id)
+    if not getattr(server, "container_patch_enabled", False):
+        raise HTTPException(status_code=400, detail="Docker is not enabled on this host")
+    role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    try:
+        result = hf.docker_cp_into(
+            server, container, src, p, role=role, identity=ident
+        )
+    except hf.FilesError as e:
+        raise _http(e) from e
+    _audit(
+        session,
+        user_id=user.id,
+        server_id=server.id,
+        action="host_file_put",
+        details=(
+            f"identity={role} docker_cp container={result.get('container')} "
+            f"path={result.get('rel')}"
+        ),
+    )
+    return _ok_mutate(request, server, p, role, ident, "copied")
 
 
 @router.post("/{server_id}/files/save")
@@ -580,6 +731,7 @@ async def files_save(
     _files_gate()
     server = _get_server(session, server_id)
     role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    _require_secret_grant(request, user, p)
     try:
         result = hf.write_text(server, p, content, role=role, identity=ident)
     except hf.FilesError as e:

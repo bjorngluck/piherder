@@ -23,7 +23,7 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 4. Expand a project; open logs if needed.  
 5. **Check updates** vs **Deploy** when you want pull-only vs pull+up ([Updates](../day-to-day/updates-and-patching.md)).  
 6. For compose edits, use [Compose edit](compose-edit.md) (quick modal or full editor with history).  
-7. For a sidecar / log sitting next to the stack, use [Host Files](../day-to-day/host-files.md) (jailed SFTP; flag `PIHERDER_HOST_FILES`).  
+7. For a sidecar / log sitting next to the stack, or to copy a file out of a container, use [Host Files](../day-to-day/host-files.md) (jailed SFTP; flag `PIHERDER_HOST_FILES`).  
 
 ---
 

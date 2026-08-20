@@ -87,7 +87,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-08-18):** **v1.3.0 train opened** on **`v1.3.0-dev`**. Must: **L** lists · **P** password policy · **T6** account step-up KI · **W-id** Connect as…. Should: **T** remainder · **W-cfg** · **A** · **N2** · **F2**. `main` stays patchable for **v1.2.x**. Package version stays `1.2.0` until freeze. See [PLAN_v1.3.0.md](PLAN_v1.3.0.md).
 
-**Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg). **Slice 3 Deep landed** (L). **Slice 4 Deep landed** (W-id). **Slice 5 Deep landed** (W-audit). **Slice 6 Deep landed** (A). **Slice 7 N2:** `/reports` is history (backups, OS patches, LAN live, Docker, console) — not Grafana, not status portlets. **F Deep:** Host Files manager (flag off).
+**Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg). **Slice 3 Deep landed** (L). **Slice 4 Deep landed** (W-id). **Slice 5 Deep landed** (W-audit). **Slice 6 Deep landed** (A). **Slice 7 N2:** `/reports` is history (backups, OS patches, LAN live, Docker, console) — not Grafana, not status portlets. **F Deep (2026-08-20):** Host Files explorer (flag off): edit, zip, perms, search, move, folder upload, preview, `.env` step-up, thin Docker volumes/`docker cp`. API Files expansions → v1.4+ under consideration.
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.2.0` / `1.2` / `latest`.
 
@@ -280,7 +280,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Quick editor scope (L)** | **Lean no** for `.env`/sidecars in quick editor; full editor only — document in UI. Open discussion only. |
 | **Template fleet deployment overview (M)** | **Post-1.0** — which hosts/services have a given template (beyond stack-level badge). |
 | **Insights / custom dashboards (N)** | **→ v1.3 Stream N** — `/reports` history (Jobs / nmap runs / console Audit). N3 custom layout Cap. Not Grafana-in-herder. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
-| **Host files (F)** | **→ v1.3 Stream F Deep** — dest-card manager (list/get/put/mkdir/delete/rename), fleet + privileged, API `files`, 512 MiB stream; not WinSCP / `docker cp` / zmodem. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
+| **Host files (F)** | **→ v1.3 Stream F Deep** — dest-card explorer (edit/zip/perms/search/move/preview/folder upload/`.env` step-up; thin Docker volumes + `docker cp` into the jail). Fleet + privileged. API `files` fleet list/get/put only; richer API **under consideration v1.4+**. Not console zmodem. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
 | **Service migration (M)** | **→ v1.4 Stream M** — move one compose project host→host with dataset copy, fabric CNAME + both Pi-hole resolver restarts, TLS/Kuma validate, and per-project **host lock** (HAOS / hardware). Destructive wipe is a later sibling. [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md). |
 | **Web console host mux (`screen`/`tmux`)** | **Under consideration · low priority** — optional host-side multiplexer for durable reattach beyond herder soft-park. **→ v1.3 Stream W-mux** ([PLAN_v1.3.0.md](PLAN_v1.3.0.md)). Not in 1.2. |
 | **Git-rich service onboard (Q)** | **Post-1.0** — full git clone/pull; more files than compose + Dockerfile. |

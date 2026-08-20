@@ -27,6 +27,10 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Reports empty / history shorter than expected | [Reports](../day-to-day/reports.md) — needs finished Jobs / nmap runs / console Audit; [Cleanup](../operations/settings.md#stale-data-cleanup) can trim rows |
 | Files dest-card missing / 404 | Flag `PIHERDER_HOST_FILES` (default off). Viewer 403. [Host Files](../day-to-day/host-files.md) |
 | Files upload fails / too large | Default 512 MiB; stream through herder; raise `PIHERDER_HOST_FILES_MAX_BYTES` (ceiling 2 GiB) and any extra reverse-proxy body cap |
+| Files download stuck ~12 MiB | Dedicated SFTP + Caddy must not gzip `application/octet-stream` (`flush_interval -1`). Rebuild web + Caddy. [Host Files](../day-to-day/host-files.md) |
+| `.env` / PEM won’t open | Listing is allowed; open/download needs Passkey/TOTP (same grant as privileged Files). [Host Files](../day-to-day/host-files.md) |
+| chmod/chown permission denied | Connect as privileged. If that user is not root, add NOPASSWD for `chmod`/`chown`. [Host Files](../day-to-day/host-files.md) |
+| Docker volumes greyed out | Path is outside the current jail — **Connect as privileged**. `docker cp` copies **into** the current folder. |
 | Network map hosts not linked / cloud wrong | [Network maps](../integrations/dns-fabric.md) — set LAN/gateway/public IP; hard-refresh after rebuild |
 | Hosts map focus won’t clear on second click | Hard-refresh for latest `fabric-mesh.js`; click same node again or **Clear focus** |
 | Stack deps float away when Discovered is off | Hard-refresh `fabric-stack-expand.js`; fan re-anchors to compact layout |

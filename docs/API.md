@@ -78,7 +78,7 @@ Client IP resolution is enforced in the **backend** on every authenticated API r
 | `read` | `GET` catalog, health, servers, jobs |
 | `jobs` | `POST /api/v1/servers/{id}/jobs` |
 | `edit` | `PATCH /api/v1/servers/{id}/features` |
-| `files` | Host Files (fleet identity only): list / download / upload / mkdir / rename / delete. Not in default token scopes. Privileged Files is UI-only (2FA). |
+| `files` | Host Files (fleet identity only): list / download / upload / mkdir / rename / delete-empty. Not in default token scopes. Privileged Files, zip, edit, chmod, recursive delete stay **UI + 2FA**. Richer API Files is **under consideration for v1.4+**. |
 
 ### Feature allowlist scopes (optional)
 

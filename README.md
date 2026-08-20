@@ -33,7 +33,7 @@ Inspired by projects like [Nginx Proxy Manager](https://github.com/NginxProxyMan
 - PWA + Web Push notifications
 - RBAC, 2FA (TOTP + passkeys), optional SSO/OIDC, audit trail, self-backup with full DR
 - Optional in-browser **web SSH console** (off by default)
-- Optional **Host Files** jailed SFTP (off by default; `PIHERDER_HOST_FILES`)
+- Optional **Host Files** jailed SFTP explorer (off by default; `PIHERDER_HOST_FILES`)
 - Token REST API for automation (n8n, Home Assistant, etc.)
 
 ### Quick Start
@@ -61,7 +61,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - **Current production (Hub):** [docs/RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) — passkeys · SSO · web SSH · gated demo · full DB self-backup · security remediations
 - Prior: [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) · [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
-- **Active train:** [docs/PLAN_v1.3.0.md](docs/PLAN_v1.3.0.md) on `v1.3.0-dev` (password / 2FA policy · console timeouts · scale lists · Connect as… · alert policy · Reports · Host Files flag-off)
+- **Active train:** [docs/PLAN_v1.3.0.md](docs/PLAN_v1.3.0.md) on `v1.3.0-dev` (password / 2FA policy · console timeouts · scale lists · Connect as… · alert policy · Reports · Host Files explorer, flag-off)
 - API reference: [docs/API.md](docs/API.md)
 
 ### Public demo (view-only)

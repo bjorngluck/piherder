@@ -43,6 +43,21 @@ WALK_DEPTH_MAX = 24
 SEARCH_CAP = 200
 SEARCH_SCAN_MAX = 2000
 SEARCH_Q_MAX = 80
+CONTENT_HITS_MAX = 80
+CONTENT_LINE_MAX = 160
+PREVIEW_MAX = 8 * 1024 * 1024
+HEX_PREVIEW = 4096
+IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".bmp"}
+IMAGE_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".bmp": "image/bmp",
+}
 MAX_UPLOAD_DEFAULT = 512 * 1024 * 1024
 MAX_UPLOAD_CEILING = 2 * 1024 * 1024 * 1024
 NAME_MAX = 255
@@ -1122,6 +1137,25 @@ def looks_like_text(name: str, sample: bytes) -> bool:
         return False
 
 
+def is_image_name(name: str) -> bool:
+    base = (name or "").rsplit(".", 1)
+    ext = ("." + base[-1].lower()) if len(base) == 2 else ""
+    return ext in IMAGE_EXTS
+
+
+def image_media_type(name: str) -> str:
+    base = (name or "").rsplit(".", 1)
+    ext = ("." + base[-1].lower()) if len(base) == 2 else ""
+    return IMAGE_TYPES.get(ext, "application/octet-stream")
+
+
+def _hex_dump(data: bytes, limit: int = HEX_PREVIEW) -> tuple[str, str]:
+    raw = bytes(data or b"")[:limit]
+    hx = " ".join(f"{b:02x}" for b in raw)
+    ascii_ = "".join(chr(b) if 32 <= b < 127 else "." for b in raw)
+    return hx, ascii_
+
+
 def read_text(
     server: Any,
     rel: str,
@@ -1824,8 +1858,14 @@ def search(
     role: str = ROLE_FLEET,
     identity: Any = None,
     sftp: Any = None,
+    contents: bool = False,
+    allow_secrets: bool = False,
 ) -> dict[str, Any]:
-    """Case-insensitive name search under ``rel`` (default: current folder)."""
+    """Case-insensitive name search under ``rel`` (default: current folder).
+
+    ``contents=True`` also greps UTF-8 text files (512 KiB cap). Secret-ish
+    files are skipped unless ``allow_secrets``.
+    """
     q = (query or "").strip()
     if not q:
         raise FilesError("invalid", "Type something to search")
@@ -1836,11 +1876,12 @@ def search(
     hits: list[dict[str, Any]] = []
     truncated = False
     scanned = 0
+    content_n = 0
     users: dict[int, str] = {}
     groups: dict[int, str] = {}
 
     def _walk(fs: Any, abs_path: str, child_rel: str, depth: int) -> None:
-        nonlocal truncated, scanned
+        nonlocal truncated, scanned, content_n
         if truncated or len(hits) >= SEARCH_CAP:
             truncated = True
             return
@@ -1887,17 +1928,17 @@ def search(
                 child_abs, server, role=role, identity=identity
             ):
                 escaped = True
-            if needle in name.lower():
-                uid = getattr(cst, "st_uid", None)
-                gid = getattr(cst, "st_gid", None)
-                try:
-                    uid = int(uid) if uid is not None else None
-                except (TypeError, ValueError):
-                    uid = None
-                try:
-                    gid = int(gid) if gid is not None else None
-                except (TypeError, ValueError):
-                    gid = None
+            uid = getattr(cst, "st_uid", None)
+            gid = getattr(cst, "st_gid", None)
+            try:
+                uid = int(uid) if uid is not None else None
+            except (TypeError, ValueError):
+                uid = None
+            try:
+                gid = int(gid) if gid is not None else None
+            except (TypeError, ValueError):
+                gid = None
+            if needle in name.lower() and len(hits) < SEARCH_CAP:
                 hits.append(
                     _entry_dict(
                         name=name,
@@ -1913,6 +1954,51 @@ def search(
                         groups=groups,
                     )
                 )
+            if (
+                contents
+                and not escaped
+                and ckind == "file"
+                and content_n < CONTENT_HITS_MAX
+            ):
+                if is_secretish(name) and not allow_secrets:
+                    pass
+                else:
+                    sz = int(getattr(cst, "st_size", 0) or 0)
+                    if 0 < sz <= EDIT_MAX:
+                        try:
+                            with fs.open(child_abs, "rb") as fh:
+                                raw = fh.read(EDIT_MAX + 1)
+                            if isinstance(raw, str):
+                                raw = raw.encode("utf-8")
+                            raw = bytes(raw or b"")
+                            if looks_like_text(name, raw[:8000]):
+                                text = raw.decode("utf-8", errors="replace")
+                                per_file = 0
+                                for i, line in enumerate(text.splitlines()):
+                                    if needle not in line.lower():
+                                        continue
+                                    rec = _entry_dict(
+                                        name=name,
+                                        rel=rel_child,
+                                        kind="file",
+                                        size=sz,
+                                        mtime=getattr(cst, "st_mtime", None),
+                                        escaped=False,
+                                        mode=int(getattr(cst, "st_mode", 0) or 0),
+                                        uid=uid,
+                                        gid=gid,
+                                        users=users,
+                                        groups=groups,
+                                    )
+                                    rec["line"] = i + 1
+                                    rec["snippet"] = line.strip()[:CONTENT_LINE_MAX]
+                                    hits.append(rec)
+                                    content_n += 1
+                                    per_file += 1
+                                    if per_file >= 3 or content_n >= CONTENT_HITS_MAX:
+                                        break
+                        except Exception:
+                            pass
             if ckind == "dir" and not escaped:
                 _walk(fs, child_abs, rel_child, depth + 1)
 
@@ -1936,6 +2022,7 @@ def search(
         "entries": hits,
         "crumbs": crumbs,
         "search": True,
+        "contents": bool(contents),
     }
 
 
@@ -2002,3 +2089,215 @@ def move_many(
         "dest": rel_of(dest_dir, jail),
         "moved": moved,
     }
+
+
+def peek_file(
+    server: Any,
+    rel: str,
+    *,
+    role: str = ROLE_FLEET,
+    identity: Any = None,
+    sftp: Any = None,
+) -> dict[str, Any]:
+    """Small sample for the preview overlay (image flag or hex)."""
+    role = normalize_role(role)
+    jail, abs_path = resolve_logical(server, rel, role=role, identity=identity)
+    with sftp_session(server, identity, sftp) as fs:
+        path = _assert_in_jail(abs_path, server, role=role, identity=identity, sftp=fs)
+        st = _lstat(fs, path)
+        kind = _kind_from_mode(int(getattr(st, "st_mode", 0) or 0))
+        if kind == "link":
+            target = _normalize_remote(fs, path)
+            if not under_jail(target, jail) or is_denied(target, server, role=role, identity=identity):
+                raise FilesError("escape", "Symlink leaves the jail")
+            path = target
+            st = _lstat(fs, path)
+            kind = _kind_from_mode(int(getattr(st, "st_mode", 0) or 0))
+        if kind == "dir":
+            raise FilesError("is_dir", "Not a file")
+        size = int(getattr(st, "st_size", 0) or 0)
+        name = path.rsplit("/", 1)[-1]
+        with fs.open(path, "rb") as fh:
+            sample = fh.read(HEX_PREVIEW)
+        if isinstance(sample, str):
+            sample = sample.encode("utf-8")
+        sample = bytes(sample or b"")
+        hx, ascii_ = _hex_dump(sample)
+        return {
+            "rel": rel_of(path, jail),
+            "name": name,
+            "size": size,
+            "size_h": human_size(size),
+            "is_image": is_image_name(name),
+            "is_text": looks_like_text(name, sample),
+            "media_type": image_media_type(name) if is_image_name(name) else "application/octet-stream",
+            "hex": hx,
+            "ascii": ascii_,
+            "secretish": is_secretish(name),
+        }
+
+
+def iter_preview(
+    server: Any,
+    rel: str,
+    *,
+    role: str = ROLE_FLEET,
+    identity: Any = None,
+    sftp: Any = None,
+) -> Iterator[bytes]:
+    """Stream an image (or small file) for in-browser preview. Caps at PREVIEW_MAX."""
+    role = normalize_role(role)
+    jail, abs_path = resolve_logical(server, rel, role=role, identity=identity)
+    with sftp_session(server, identity, sftp, pooled=False) as fs:
+        path = _assert_in_jail(abs_path, server, role=role, identity=identity, sftp=fs)
+        st = _lstat(fs, path)
+        kind = _kind_from_mode(int(getattr(st, "st_mode", 0) or 0))
+        if kind == "link":
+            target = _normalize_remote(fs, path)
+            if not under_jail(target, jail) or is_denied(target, server, role=role, identity=identity):
+                raise FilesError("escape", "Symlink leaves the jail")
+            path = target
+            st = _lstat(fs, path)
+            kind = _kind_from_mode(int(getattr(st, "st_mode", 0) or 0))
+        if kind == "dir":
+            raise FilesError("is_dir", "Not a file")
+        size = int(getattr(st, "st_size", 0) or 0)
+        if size > PREVIEW_MAX:
+            raise FilesError("too_large", f"Preview is limited to {human_size(PREVIEW_MAX)} — download instead")
+        written = 0
+        with fs.open(path, "rb") as fh:
+            while True:
+                chunk = fh.read(CHUNK)
+                if not chunk:
+                    break
+                if isinstance(chunk, str):
+                    chunk = chunk.encode("utf-8")
+                written += len(chunk)
+                if written > PREVIEW_MAX:
+                    raise FilesError("too_large", f"Preview is limited to {human_size(PREVIEW_MAX)}")
+                yield bytes(chunk)
+
+
+def _docker_name_ok(name: str) -> bool:
+    return bool(re.match(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$", name or ""))
+
+
+def parse_container_path(raw: str) -> str:
+    s = (raw or "").replace("\\", "/").strip()
+    if not s or "\x00" in s:
+        raise FilesError("invalid", "Invalid container path")
+    parts = [p for p in s.split("/") if p and p != "."]
+    if any(p == ".." for p in parts):
+        raise FilesError("escape", "Container path must not contain ..")
+    if len(parts) > WALK_DEPTH_MAX:
+        raise FilesError("escape", "Container path is too deep")
+    joined = "/".join(parts)
+    if s.startswith("/"):
+        return "/" + joined if joined else "/"
+    return joined or s
+
+
+def list_docker_volumes(
+    server: Any,
+    *,
+    role: str = ROLE_FLEET,
+    identity: Any = None,
+    sftp: Any = None,
+) -> list[dict[str, Any]]:
+    """Named volumes on the host (docker volume ls). Open path needs privileged jail."""
+    role = normalize_role(role)
+    jail, _ = resolve_logical(server, "", role=role, identity=identity)
+    out: list[dict[str, Any]] = []
+    with sftp_session(server, identity, sftp, with_client=True) as pair:
+        cli, _fs = pair
+        if cli is None:
+            raise FilesError("ssh", "SSH session required to list volumes")
+        try:
+            status, raw, err = run_command(cli, "docker volume ls -q", timeout=20)
+        except Exception as e:
+            raise FilesError("ssh", f"{type(e).__name__}: {e}"[:240]) from e
+        if status != 0:
+            raise FilesError("ssh", (err or raw or "docker volume ls failed")[:240])
+        names = [n.strip() for n in (raw or "").splitlines() if n.strip()][:200]
+        for name in names:
+            if not _docker_name_ok(name):
+                continue
+            try:
+                st, mp, _e = run_command(
+                    cli,
+                    "docker volume inspect "
+                    + shlex.quote(name)
+                    + " --format '{{.Mountpoint}}'",
+                    timeout=12,
+                )
+            except Exception:
+                continue
+            mount = (mp or "").strip()
+            rel = ""
+            if mount and under_jail(posix_norm(mount), jail):
+                try:
+                    rel = rel_of(posix_norm(mount), jail)
+                except FilesError:
+                    rel = ""
+            out.append({"name": name, "mountpoint": mount, "rel": rel})
+    return out
+
+
+def list_docker_containers(
+    server: Any,
+    *,
+    identity: Any = None,
+    sftp: Any = None,
+) -> list[str]:
+    with sftp_session(server, identity, sftp, with_client=True) as pair:
+        cli, _fs = pair
+        if cli is None:
+            raise FilesError("ssh", "SSH session required to list containers")
+        try:
+            status, raw, err = run_command(
+                cli, "docker ps -a --format '{{.Names}}'", timeout=20
+            )
+        except Exception as e:
+            raise FilesError("ssh", f"{type(e).__name__}: {e}"[:240]) from e
+        if status != 0:
+            raise FilesError("ssh", (err or raw or "docker ps failed")[:240])
+        return [n.strip() for n in (raw or "").splitlines() if n.strip() and _docker_name_ok(n.strip())][:200]
+
+
+def docker_cp_into(
+    server: Any,
+    container: str,
+    src: str,
+    dest_dir: str,
+    *,
+    role: str = ROLE_FLEET,
+    identity: Any = None,
+    sftp: Any = None,
+) -> dict[str, Any]:
+    """``docker cp`` a container path into a jail-relative folder."""
+    if not _docker_name_ok(container):
+        raise FilesError("invalid", "Invalid container name")
+    src_path = parse_container_path(src)
+    dest_name = sanitize_basename(src_path.rsplit("/", 1)[-1] or "copy")
+    role = normalize_role(role)
+    jail, dest_abs_dir = resolve_logical(server, dest_dir, role=role, identity=identity)
+    dest_abs = posix_norm(posixpath.join(dest_abs_dir, dest_name))
+    if not under_jail(dest_abs, jail) or is_denied(dest_abs, server, role=role, identity=identity):
+        raise FilesError("escape" if not under_jail(dest_abs, jail) else "denied", "Path is blocked")
+    with sftp_session(server, identity, sftp, with_client=True, pooled=False) as pair:
+        cli, fs = pair
+        dest_abs_dir = _assert_in_jail(dest_abs_dir, server, role=role, identity=identity, sftp=fs)
+        dest_abs = posix_norm(posixpath.join(dest_abs_dir, dest_name))
+        if not under_jail(dest_abs, jail):
+            raise FilesError("escape", "Path is outside the jail")
+        if cli is None:
+            raise FilesError("ssh", "SSH session required for docker cp")
+        spec = f"{container}:{src_path}"
+        cmd = f"docker cp {shlex.quote(spec)} {shlex.quote(dest_abs)}"
+        try:
+            status, _out, err = run_command(cli, cmd, timeout=120)
+        except Exception as e:
+            raise FilesError("ssh", f"{type(e).__name__}: {e}"[:240]) from e
+        if status != 0:
+            raise FilesError("ssh", (err or "docker cp failed")[:240])
+    return {"rel": rel_of(dest_abs, jail), "name": dest_name, "container": container}

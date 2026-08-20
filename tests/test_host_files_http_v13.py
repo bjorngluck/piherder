@@ -122,6 +122,9 @@ def test_files_operator_200_when_flag_on(files_client, monkeypatch):
     assert 'id="hf-folder"' in r.text
     assert 'id="hf-move-box"' in r.text
     assert 'id="hf-zip-box"' in r.text
+    assert 'id="hf-q-contents"' in r.text
+    assert 'id="hf-preview"' in r.text
+    assert 'id="hf-docker-btn"' in r.text
 
 
 def test_files_ls_json_flag_on(files_client, monkeypatch):
