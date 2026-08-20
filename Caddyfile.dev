@@ -14,18 +14,28 @@
 :80 {
 	# Client IP for API token allowlists (backend reads XFF / X-Real-IP)
 	reverse_proxy web:8000 {
+		flush_interval -1
 		header_up X-Real-IP {remote_host}
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto {scheme}
 		header_up X-Forwarded-Host {host}
 	}
-	encode gzip
+	encode gzip {
+		match {
+			header Content-Type text*
+			header Content-Type application/javascript*
+			header Content-Type application/json*
+			header Content-Type application/xml*
+			header Content-Type image/svg+xml*
+		}
+	}
 }
 
 :443 {
 	tls internal
 
 	reverse_proxy web:8000 {
+		flush_interval -1
 		header_up X-Real-IP {remote_host}
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto https
@@ -37,5 +47,13 @@
 		X-Frame-Options "DENY"
 		Referrer-Policy "no-referrer-when-downgrade"
 	}
-	encode gzip
+	encode gzip {
+		match {
+			header Content-Type text*
+			header Content-Type application/javascript*
+			header Content-Type application/json*
+			header Content-Type application/xml*
+			header Content-Type image/svg+xml*
+		}
+	}
 }

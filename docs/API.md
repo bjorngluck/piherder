@@ -126,7 +126,7 @@ Base path: **`/api/v1`**
 | `POST` | `/api/v1/servers/{id}/files` | `files` | Multipart upload (`file`, `p`) |
 | `POST` | `/api/v1/servers/{id}/files/mkdir` | `files` | JSON `{p, name}` |
 | `POST` | `/api/v1/servers/{id}/files/rename` | `files` | JSON `{p, src, dest}` |
-| `DELETE` | `/api/v1/servers/{id}/files?p=` | `files` | Delete file or empty directory |
+| `DELETE` | `/api/v1/servers/{id}/files?p=` | `files` | Delete file or empty directory (recursive delete is UI-only) |
 
 **Server object (summary)**
 

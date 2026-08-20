@@ -107,6 +107,21 @@ def test_files_operator_200_when_flag_on(files_client, monkeypatch):
     assert 'id="hf-win"' in r.text
     assert 'id="hf-tree"' in r.text
     assert 'id="hf-list"' in r.text
+    assert 'id="hf-busy"' in r.text
+    assert 'id="hf-prompt"' in r.text
+    assert 'id="hf-editor"' in r.text
+    assert 'id="hf-zip"' in r.text
+    assert 'id="hf-unzip"' in r.text
+    assert 'id="hf-edit"' in r.text
+    assert 'id="hf-all"' in r.text
+    assert 'id="hf-rm"' in r.text
+    assert 'id="hf-perms"' in r.text
+    assert 'id="hf-perms-box"' in r.text
+    assert 'id="hf-q"' in r.text
+    assert 'id="hf-move"' in r.text
+    assert 'id="hf-folder"' in r.text
+    assert 'id="hf-move-box"' in r.text
+    assert 'id="hf-zip-box"' in r.text
 
 
 def test_files_ls_json_flag_on(files_client, monkeypatch):
