@@ -296,6 +296,7 @@ _ADMIN_ONLY_PREFIXES = (
     "/herder-backups/config",
     "/herder-backups/security",
     "/herder-backups/console",
+    "/herder-backups/files",
     "/herder-backups/update-checks",
     "/herder-backups/timezone",
     "/herder-backups/delete",

@@ -86,12 +86,24 @@ def alert_policy_line(alert_policy_ui: Mapping[str, Any] | None = None) -> str:
     return f"{len(on)} on · {len(muted)} muted"
 
 
+def files_line(*, enabled: bool = False, max_h: str = "", env_locked: bool = False) -> str:
+    if not enabled:
+        return "Off (compose PIHERDER_HOST_FILES)"
+    bits = [f"transfer {max_h or '512 MiB'}"]
+    if env_locked:
+        bits.append("env lock")
+    return " · ".join(bits)
+
+
 def hub_context(
     *,
     cfg: Mapping[str, Any] | None = None,
     console_pol: Mapping[str, Any] | None = None,
     data_cleanup: Mapping[str, Any] | None = None,
     alert_policy_ui: Mapping[str, Any] | None = None,
+    files_enabled: bool = False,
+    files_max_h: str = "",
+    files_max_locked: bool = False,
 ) -> dict[str, str]:
     return {
         "security": security_line(cfg),
@@ -99,4 +111,5 @@ def hub_context(
         "sso": sso_line(cfg),
         "cleanup": cleanup_line(data_cleanup),
         "alert_policy": alert_policy_line(alert_policy_ui),
+        "files": files_line(enabled=files_enabled, max_h=files_max_h, env_locked=files_max_locked),
     }

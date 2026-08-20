@@ -214,6 +214,7 @@ async def settings_page(
     if (
         qp.get("security_saved")
         or qp.get("console_saved")
+        or qp.get("files_saved")
         or qp.get("data_cleanup_saved")
         or qp.get("data_cleanup_queued")
     ):
@@ -438,6 +439,7 @@ async def settings_page(
 
     from ..services import alert_channels as alert_ch
     from ..services import alert_policy as apol
+    from ..services import host_files as hf
     from ..services import settings_hub as shub
     from ..services import ssh_console as cons
 
@@ -453,6 +455,8 @@ async def settings_page(
     )
     alert_policy_ui = apol.ui_state()
     console_pol = cons.effective_console_policy()
+    files_max_bytes = hf.max_upload_bytes()
+    files_max_locked = hf.files_max_env_locked()
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -493,11 +497,20 @@ async def settings_page(
             "password_policy_text": pwpol.policy_rules_text(),
             "console_pol": console_pol,
             "console_locks": cons.console_env_locks(),
+            "files_enabled": hf.files_enabled(),
+            "files_max_bytes": files_max_bytes,
+            "files_max_gib": hf.files_max_gib(files_max_bytes),
+            "files_max_h": hf.human_size(files_max_bytes),
+            "files_max_locked": files_max_locked,
+            "files_max_ceiling_h": hf.human_size(hf.MAX_UPLOAD_CEILING),
             "settings_hub": shub.hub_context(
                 cfg=cfg,
                 console_pol=console_pol,
                 data_cleanup=data_cleanup,
                 alert_policy_ui=alert_policy_ui,
+                files_enabled=hf.files_enabled(),
+                files_max_h=hf.human_size(files_max_bytes),
+                files_max_locked=files_max_locked,
             ),
         },
     )
@@ -1263,6 +1276,49 @@ async def save_console_policy(
         session.commit()
     return RedirectResponse(
         _settings_url("general", console_saved="1"), status_code=303
+    )
+
+
+@router.post("/herder-backups/files")
+async def save_files_policy(
+    files_max_gib: str = Form("0.5"),
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    from ..services import host_files as hf
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_files")
+    if hf.files_max_env_locked():
+        return RedirectResponse(
+            _settings_url("general", files_saved="1"), status_code=303
+        )
+    try:
+        gib = float(str(files_max_gib).strip() or "0.5")
+    except (TypeError, ValueError):
+        gib = 0.5
+    n = hf.clamp_files_max_bytes(int(gib * (1024 ** 3)))
+    before = hf.human_size(hf.max_upload_bytes())
+    try:
+        app_cfg.save_settings({"files_max_bytes": n})
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("general", error=str(e)[:120]), status_code=303
+        )
+    after = hf.human_size(hf.max_upload_bytes())
+    if after != before:
+        session.add(
+            make_audit_log(
+                user_id=user.id,
+                action="files_policy_changed",
+                status="success",
+                details=f"max {before} → {after}",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        session.commit()
+    return RedirectResponse(
+        _settings_url("general", files_saved="1"), status_code=303
     )
 
 

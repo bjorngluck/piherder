@@ -32,7 +32,7 @@
   <link rel="stylesheet" href="/static/css/dns-hub.css?v=20260725-split">
   <link rel="stylesheet" href="/static/css/ops.css?v=20260819-list-chips">
   <link rel="stylesheet" href="/static/css/ops-auth.css?v=20260718-order6">
-  <link rel="stylesheet" href="/static/css/ops-pages.css?v=20260819-list-chips">
+  <link rel="stylesheet" href="/static/css/ops-pages.css?v=20260820-files-hero">
 
   <!-- Apply saved theme ASAP (before paint) so the page doesn't flash light → dark -->
   <script>
@@ -143,7 +143,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
-<body class="bg-bg{% if not user %} is-auth-chrome{% endif %}{% if popup_mode %} is-console-popup{% endif %}{% if console_app %} is-console-app{% endif %}">
+<body class="bg-bg{% if not user %} is-auth-chrome{% endif %}{% if popup_mode %} is-console-popup{% endif %}{% if console_app %} is-console-app{% endif %}{% if files_app %} is-files-app{% endif %}">
   {# Console workspace / embed: hide fleet chrome; full-viewport terminal app. #}
   <style>
     body.is-console-popup .nav-header,
@@ -174,6 +174,34 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+    }
+    /* Host Files: keep the real fleet nav. Only the file list scrolls. */
+    html:has(body.is-files-app),
+    body.is-files-app {
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+    }
+    body.is-files-app {
+      display: flex;
+      flex-direction: column;
+    }
+    body.is-files-app .nav-header {
+      flex: 0 0 auto;
+      position: relative;
+      z-index: 50;
+    }
+    body.is-files-app > footer {
+      display: none;
+    }
+    body.is-files-app main {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding-top: 0.75rem !important;
+      padding-bottom: 0.75rem !important;
     }
   </style>
   <nav class="nav-header">

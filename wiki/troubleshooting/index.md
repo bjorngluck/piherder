@@ -25,12 +25,14 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Drift after intentional host edit (keep change) | [Deploy — Accept host as desired](../service-templates/deploy.md#redeploy-ops-deployment-page) |
 | Fleet Services empty | [Dashboard & Services](../day-to-day/dashboard-and-services.md) — bind Kuma monitors |
 | Reports empty / history shorter than expected | [Reports](../day-to-day/reports.md) — needs finished Jobs / nmap runs / console Audit; [Cleanup](../operations/settings.md#stale-data-cleanup) can trim rows |
-| Files dest-card missing / 404 | Flag `PIHERDER_HOST_FILES` (default off). Viewer 403. [Host Files](../day-to-day/host-files.md) |
-| Files upload fails / too large | Default 512 MiB; stream through herder; raise `PIHERDER_HOST_FILES_MAX_BYTES` (ceiling 2 GiB) and any extra reverse-proxy body cap |
+| Files button missing / 404 | Flag `PIHERDER_HOST_FILES` (default off). Viewer 403. [Host Files](../day-to-day/host-files.md) |
+| Files upload fails / too large | Default 512 MiB; **Settings → Files** (ceiling 32 GiB) or lock with `PIHERDER_HOST_FILES_MAX_BYTES`; raise any extra reverse-proxy body cap / timeout |
 | Files download stuck ~12 MiB | Dedicated SFTP + Caddy must not gzip `application/octet-stream` (`flush_interval -1`). Rebuild web + Caddy. [Host Files](../day-to-day/host-files.md) |
 | `.env` / PEM won’t open | Listing is allowed; open/download needs Passkey/TOTP (same grant as privileged Files). [Host Files](../day-to-day/host-files.md) |
-| chmod/chown permission denied | Connect as privileged. If that user is not root, add NOPASSWD for `chmod`/`chown`. [Host Files](../day-to-day/host-files.md) |
-| Docker volumes greyed out | Path is outside the current jail — **Connect as privileged**. `docker cp` copies **into** the current folder. |
+| chmod/chown permission denied | ⋯ → **Privileged**. If that user is not root, add NOPASSWD for `chmod`/`chown`. [Host Files](../day-to-day/host-files.md) |
+| Files editor save fails / Permission denied | Root-owned files: privileged identity retries with `sudo -n tee`. The editor bar shows the reason. Add NOPASSWD `tee` or use a root privileged identity. [Host Files](../day-to-day/host-files.md) |
+| Docker mounts greyed out | Host path is outside the current jail — ⋯ → **Privileged** (named volumes live under `/var/lib/docker/volumes`). Bind mounts under the project folder work on fleet. |
+| Zip failed on the host | Zip runs **on the Pi** (`zip` or `python3`). Install one of those, or check disk space. The tree is not pulled through PiHerder. |
 | Network map hosts not linked / cloud wrong | [Network maps](../integrations/dns-fabric.md) — set LAN/gateway/public IP; hard-refresh after rebuild |
 | Hosts map focus won’t clear on second click | Hard-refresh for latest `fabric-mesh.js`; click same node again or **Clear focus** |
 | Stack deps float away when Discovered is off | Hard-refresh `fabric-stack-expand.js`; fan re-anchors to compact layout |

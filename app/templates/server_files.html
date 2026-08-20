@@ -3,11 +3,22 @@
 {% block content %}
 {% set L = listing or {} %}
 <style>
-  .hf-shell { display: flex; flex-direction: column; gap: 0.65rem; min-height: calc(100dvh - 7.5rem); }
-  .hf-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.75rem; font-size: 0.8rem; color: var(--color-muted); }
+  .hf-page {
+    display: flex; flex-direction: column; gap: 0.65rem;
+    flex: 1 1 auto; min-height: 0; height: 100%; overflow: hidden;
+  }
+  .hf-page > .ops-hero { flex: 0 0 auto; margin-bottom: 0; }
+  .hf-shell {
+    display: flex; flex-direction: column; gap: 0.5rem;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+    overflow: hidden;
+  }
   .hf-win {
     flex: 1 1 auto;
-    min-height: 28rem;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     position: relative;
@@ -17,20 +28,18 @@
     overflow: hidden;
     box-shadow: 0 8px 28px color-mix(in srgb, #000 12%, transparent);
   }
-  .hf-win-bar {
-    display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
-    padding: 0.45rem 0.7rem;
-    border-bottom: 1px solid var(--color-border);
-    background: color-mix(in srgb, var(--color-bg) 70%, var(--color-surface));
-  }
-  .hf-win-title { font-weight: 650; font-size: 0.95rem; min-width: 0; }
-  .hf-win-title small { display: block; font-weight: 500; font-size: 0.7rem; color: var(--color-muted); font-family: ui-monospace, monospace; }
-  .hf-win-bar .spacer { flex: 1 1 auto; }
+  .spacer { flex: 1 1 auto; }
   .hf-toolbar {
     display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
     padding: 0.4rem 0.55rem;
     border-bottom: 1px solid var(--color-border);
+    flex: 0 0 auto;
   }
+  .hf-tree-toggle { display: none; }
+  .hf-selbar {
+    background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  }
+  .hf-selbar[hidden] { display: none !important; }
   .hf-path {
     display: flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.15rem;
     flex: 1 1 12rem; min-width: 0;
@@ -41,16 +50,18 @@
   }
   .hf-path a { color: var(--color-accent); text-decoration: none; }
   .hf-path a:hover { text-decoration: underline; }
-  .hf-panes { display: flex; flex: 1 1 auto; min-height: 18rem; }
+  .hf-panes { display: flex; flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; }
   .hf-tree {
     width: 15.5rem; flex: 0 0 15.5rem;
     border-right: 1px solid var(--color-border);
     overflow: auto;
+    min-height: 0;
     padding: 0.4rem 0.25rem 0.6rem;
     background: color-mix(in srgb, var(--color-bg) 55%, var(--color-surface));
   }
+  .hf-tree-scrim { display: none; }
   .hf-list {
-    flex: 1 1 auto; min-width: 0; overflow: auto; position: relative;
+    flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; position: relative;
   }
   .hf-tree-row {
     display: flex; align-items: center; gap: 0.15rem;
@@ -65,7 +76,7 @@
   .hf-tree-kids { margin-left: 0.85rem; }
   .hf-cols {
     display: grid;
-    grid-template-columns: 1.5rem minmax(8rem, 1fr) 5.5rem 7.2rem 8.5rem 2.4rem;
+    grid-template-columns: 2rem minmax(8rem, 1fr) 5.5rem 7.2rem 8.5rem 2.4rem;
     gap: 0.35rem;
     padding: 0.35rem 0.75rem;
     font-size: 0.68rem; color: var(--color-muted); font-weight: 650;
@@ -74,10 +85,11 @@
     position: sticky; top: 0;
     background: var(--color-surface);
     z-index: 1;
+    align-items: center;
   }
   .hf-item {
     display: grid;
-    grid-template-columns: 1.5rem minmax(8rem, 1fr) 5.5rem 7.2rem 8.5rem 2.4rem;
+    grid-template-columns: 2rem minmax(8rem, 1fr) 5.5rem 7.2rem 8.5rem 2.4rem;
     gap: 0.35rem;
     align-items: center;
     padding: 0.42rem 0.75rem;
@@ -100,23 +112,40 @@
     flex: 1 1 auto; min-height: 0; overflow: auto;
     display: flex; align-items: center; justify-content: center;
     padding: 0.75rem; background: var(--color-code-bg, var(--color-bg));
+    position: relative;
   }
+  .hf-preview-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    z-index: 2; width: 2.6rem; height: 2.6rem; border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+    color: inherit; font-size: 1.4rem; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .hf-preview-nav:hover { background: var(--color-surface); border-color: var(--color-accent); }
+  .hf-preview-nav[hidden] { display: none !important; }
+  .hf-preview-nav--l { left: 0.6rem; }
+  .hf-preview-nav--r { right: 0.6rem; }
+  .hf-editor-err { font-size: 0.75rem; color: var(--color-danger, #dc2626); max-width: 22rem; }
   .hf-preview-body img { max-width: 100%; max-height: 100%; object-fit: contain; }
   .hf-preview-hex {
     width: 100%; margin: 0; white-space: pre-wrap; word-break: break-all;
     font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.45;
     padding: 0.75rem;
   }
-  .hf-q-wrap { display: flex; align-items: center; gap: 0.35rem; flex: 0 1 16rem; min-width: 8rem; }
+  .hf-q-wrap { display: flex; align-items: center; gap: 0.35rem; flex: 0 1 18rem; min-width: 9rem; flex-wrap: nowrap; }
   .hf-q-wrap .hf-q { flex: 1 1 auto; width: auto; min-width: 6rem; }
+  .hf-q-contents { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; flex-shrink: 0; font-size: 0.75rem; color: var(--color-muted); }
   .hf-ico { width: 1.15rem; text-align: center; flex-shrink: 0; }
   .hf-meta { color: var(--color-muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
   .hf-secret { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-warning, #d97706); }
   .hf-status {
-    display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;
+    display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: nowrap;
     padding: 0.35rem 0.7rem; font-size: 0.75rem; color: var(--color-muted);
     border-top: 1px solid var(--color-border);
     min-height: 2rem;
+    flex: 0 0 auto;
+    align-items: center;
   }
   .hf-status .ok { color: var(--color-accent); }
   .hf-status .err { color: var(--color-danger, #dc2626); }
@@ -263,7 +292,9 @@
   .hf-editor-body .tok-number  { color: var(--color-syntax-number) !important; }
   .hf-editor-body .tok-bool    { color: var(--color-syntax-bool) !important; }
   .hf-editor-body .tok-punct   { color: var(--color-muted) !important; }
-  .hf-chk { width: 1rem; height: 1rem; }
+  .hf-chk { width: 1rem; height: 1rem; flex-shrink: 0; margin: 0; }
+  .hf-upload-choices { display: grid; gap: 0.45rem; margin: 0.75rem 0 1rem; }
+  .hf-upload-choices button { width: 100%; text-align: left; }
   .hf-q {
     width: 11rem; min-width: 7rem; flex: 0 1 14rem;
     font-size: 0.82rem; padding: 0.25rem 0.55rem;
@@ -286,15 +317,46 @@
   }
   .hf-menu button:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
   .hf-menu button.danger { color: var(--color-danger, #dc2626); }
+  @media (min-width: 720px) {
+    .hf-item, .hf-cols { grid-template-columns: 2rem minmax(8rem, 1fr) 5.5rem 7.2rem 8.5rem; }
+    .hf-row-more { display: none; }
+  }
   @media (max-width: 719px) {
-    .hf-tree { display: none; }
-    .hf-item, .hf-cols { grid-template-columns: 1.5rem minmax(0, 1fr) 2.4rem; }
+    .hf-tree-toggle { display: inline-flex; }
+    .hf-tree-scrim {
+      display: none; position: absolute; inset: 0; z-index: 24;
+      background: color-mix(in srgb, #000 42%, transparent); border: 0;
+    }
+    .hf-win.is-tree .hf-tree-scrim { display: block; }
+    .hf-tree {
+      display: block;
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: min(18.5rem, 86vw); flex: none; z-index: 25;
+      transform: translateX(-105%);
+      transition: transform 0.2s ease;
+      box-shadow: 8px 0 28px color-mix(in srgb, #000 22%, transparent);
+      border-right: 1px solid var(--color-border);
+    }
+    .hf-win.is-tree .hf-tree { transform: translateX(0); }
+    .hf-item, .hf-cols { grid-template-columns: 2rem minmax(0, 1fr) 2.4rem; }
     .hf-item .hf-meta, .hf-cols .hf-hide-sm { display: none; }
-    .hf-win { min-height: calc(100dvh - 9rem); }
+    .hf-win { border-radius: 10px; }
+    .hf-toolbar { padding: 0.35rem 0.4rem; }
+    .hf-q-wrap { flex: 1 1 100%; min-width: 0; }
+    .hf-selbar .btn { min-height: 2.35rem; font-size: 0.75rem; padding: 0 0.55rem; }
   }
 </style>
 
-<div class="hf-shell" data-testid="host-files-page"
+{% set _ents = L.entries or [] %}
+{% set _n = _ents|length %}
+{% set _ident_lab = 'Privileged' if role == 'privileged' else 'Fleet' %}
+{% set ns = namespace(user=server.ssh_username) %}
+{% for ident in identities %}
+  {% if ident.role == role and ident.username %}{% set ns.user = ident.username %}{% endif %}
+{% endfor %}
+{% set _ident_user = ns.user %}
+{% set _fhealth = 'busy' if needs_stepup else ('warn' if list_error else 'ok') %}
+<div class="hf-page" data-testid="host-files-page"
      data-server="{{ server.id }}"
      data-identity="{{ role }}"
      data-needs-stepup="{{ '1' if needs_stepup else '0' }}"
@@ -302,19 +364,60 @@
      data-docker="{{ '1' if docker_on else '0' }}"
      data-has-passkeys="{{ '1' if has_passkeys else '0' }}">
 
-  <div class="hf-kicker host-kicker-line">
-    <span class="host-switcher-cluster">
-      <a href="/servers/{{ server.id }}" class="host-switcher-name-link" data-testid="host-overview-link">{{ server.name }}</a>
-      {% if can_host_jump|default(false) %}
-      <button type="button" class="host-switcher-caret-btn" data-host-switch-open data-testid="host-switcher-open"
-              title="Files on another host" aria-label="Switch host for Files"><span aria-hidden="true">▾</span></button>
-      {% endif %}
-    </span>
-    <span class="host-kicker-sep">·</span>
-    <span>Files</span>
-    {% include "partials/host_feature_nav.html" %}
-    {% include "partials/host_switcher.html" %}
-  </div>
+  <section class="ops-hero ops-hero--files is-{{ _fhealth }}" data-testid="files-hero">
+    <div class="ops-hero-main">
+      <div class="ops-hero-kicker host-kicker-line">
+        <span class="host-switcher-cluster">
+          <a href="/servers/{{ server.id }}" class="host-switcher-name-link" data-testid="host-overview-link"
+             title="Full server overview">{{ server.name }}</a>
+          {% if can_host_jump|default(false) %}
+          <button type="button" class="host-switcher-caret-btn" data-host-switch-open data-testid="host-switcher-open"
+                  title="Files on another host" aria-label="Switch host for Files"><span aria-hidden="true">▾</span></button>
+          {% endif %}
+        </span>
+        <span class="host-kicker-sep">·</span>
+        <span>Files</span>
+        {% include "partials/host_feature_nav.html" %}
+      </div>
+      <h1 class="ops-hero-title">Files</h1>
+      <p class="ops-hero-sub">
+        {{ server.hostname }}
+        · {{ _ident_lab }} ({{ _ident_user }})
+        · jailed SFTP
+        ·
+        {% if needs_stepup %}
+        <span class="ops-hero-status ops-hero-status--run">unlock</span>
+        {% elif list_error %}
+        <span class="ops-hero-status ops-hero-status--warn">error</span>
+        {% else %}
+        <span class="ops-hero-status ops-hero-status--ok">ready</span>
+        {% endif %}
+      </p>
+      <div class="ops-hero-actions">
+        <a href="/servers/{{ server.id }}" class="btn btn-secondary min-h-11 text-sm">Server</a>
+        {% if docker_on %}
+        <a href="/servers/{{ server.id }}/docker" class="btn btn-secondary min-h-11 text-sm">Docker</a>
+        {% endif %}
+        <a href="/dns/physical?focus=n:host-{{ server.id }}#map" class="btn btn-secondary min-h-11 text-sm">Hosts map</a>
+      </div>
+      {% include "partials/host_switcher.html" %}
+    </div>
+    <div class="ops-hero-viz">
+      <div class="files-hero-folders" aria-hidden="true">
+        <span class="ff-back"></span>
+        <span class="ff-front"><span class="ff-tab"></span></span>
+        <div class="ff-core">
+          <div class="ff-n" id="hf-hero-n">{{ _n }}</div>
+          <div class="ff-l">items</div>
+        </div>
+      </div>
+      <div class="ops-pulse-stats">
+        <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ _ident_lab }}</span><span class="ops-pulse-l">identity</span></div>
+        <div class="ops-pulse-stat"><span class="ops-pulse-n text-xs" style="font-size:0.75rem">{{ max_upload_h }}</span><span class="ops-pulse-l">cap</span></div>
+      </div>
+      <p class="ops-pulse-caption">Browse, edit, zip on this host</p>
+    </div>
+  </section>
 
   {% if needs_stepup %}
   <div class="card p-4" data-testid="files-stepup">
@@ -432,54 +535,46 @@
   </script>
   {% else %}
 
-  <div class="hf-win" id="hf-win" role="application" aria-label="Remote files">
-    <div class="hf-win-bar">
-      <div class="hf-win-title">
-        Files
-        <small id="hf-jail">{{ L.jail or '—' }}</small>
-      </div>
-      <label class="text-xs text-muted">Connect as
-        <select id="hf-identity" class="bg-surface border border-border rounded px-2 min-h-10 text-sm" data-testid="files-identity">
-          {% for ident in identities %}
-          <option value="{{ ident.role }}" {% if ident.role == role %}selected{% endif %}
-                  {% if ident.role == 'privileged' and not can_privileged %}disabled{% endif %}>
-            {% if ident.role == 'privileged' %}Privileged{% else %}Fleet{% endif %}
-            ({{ ident.username }})
-          </option>
-          {% else %}
-          <option value="fleet" selected>Fleet</option>
-          {% endfor %}
-        </select>
-      </label>
-      <span class="spacer"></span>
-      <a href="/servers/{{ server.id }}" class="btn btn-secondary text-xs min-h-10">Close</a>
-    </div>
+  <div class="hf-shell">
+  <div class="hf-win" id="hf-win" role="application" aria-label="Remote files" data-jail="{{ L.jail or '' }}">
     <div class="hf-toolbar">
-      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-up" title="Parent folder">↑ Up</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-10 hf-tree-toggle" id="hf-tree-toggle" title="Folders">Folders</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-up" title="Parent folder">↑</button>
       <nav class="hf-path" id="hf-path" aria-label="Path"></nav>
       <span class="hf-q-wrap">
-        <input id="hf-q" class="hf-q" type="search" placeholder="Search this folder…" autocomplete="off" data-testid="files-search">
-        <label class="text-xs text-muted" title="Also search inside text files"><input type="checkbox" id="hf-q-contents" class="hf-chk"> Contents</label>
+        <input id="hf-q" class="hf-q" type="search" placeholder="Search" autocomplete="off" data-testid="files-search">
+        <label class="hf-q-contents" title="Grep inside UTF-8 files"><input type="checkbox" id="hf-q-contents" class="hf-chk"> In files</label>
+        <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-q-go">Search</button>
       </span>
-      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-mkdir">New folder</button>
       <button type="button" class="btn btn-accent text-xs min-h-10" id="hf-upload-btn" data-testid="files-upload">Upload</button>
-      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-folder-btn" title="Upload a local folder tree">Folder</button>
-      {% if docker_on %}
-      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-docker-btn" title="Named volumes and docker cp">Docker</button>
-      {% endif %}
+      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-more" title="More actions">⋯</button>
+      <input id="hf-file" type="file" hidden multiple>
+      <input id="hf-folder" type="file" hidden webkitdirectory directory multiple>
+      <select id="hf-identity" hidden data-testid="files-identity" aria-label="SSH identity">
+        {% for ident in identities %}
+        <option value="{{ ident.role }}" {% if ident.role == role %}selected{% endif %}
+                {% if ident.role == 'privileged' and not can_privileged %}disabled{% endif %}>
+          {% if ident.role == 'privileged' %}Privileged{% else %}Fleet{% endif %}
+          ({{ ident.username }})
+        </option>
+        {% else %}
+        <option value="fleet" selected>Fleet</option>
+        {% endfor %}
+      </select>
+      <iframe name="hf-dl" id="hf-dl" title="Download" hidden></iframe>
+    </div>
+    <div class="hf-toolbar hf-selbar" id="hf-selbar" hidden>
+      <span id="hf-selcount" class="text-xs text-muted">0 selected</span>
       <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-edit" disabled>Edit</button>
       <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-zip" disabled>Zip</button>
       <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-unzip" disabled>Extract</button>
       <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-move" disabled>Move</button>
       <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-perms" disabled>Permissions</button>
       <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-rm" disabled>Delete</button>
-      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-refresh" title="Reload this folder">↻</button>
-      <input id="hf-file" type="file" hidden multiple>
-      <input id="hf-folder" type="file" hidden webkitdirectory directory multiple>
-      <iframe name="hf-dl" id="hf-dl" title="Download" hidden></iframe>
     </div>
     <progress id="hf-prog" class="hf-prog" max="100" value="0"></progress>
     <div class="hf-panes">
+      <button type="button" class="hf-tree-scrim" id="hf-tree-scrim" aria-label="Close folders"></button>
       <aside class="hf-tree" id="hf-tree" aria-label="Folders"></aside>
       <section class="hf-list" id="hf-list" tabindex="0">
         <div class="hf-drop" id="hf-drop">Drop files or folders to upload here</div>
@@ -490,12 +585,16 @@
         <div id="hf-rows"></div>
       </section>
     </div>
-    <div class="hf-status"><span id="hf-status">Ready</span><span>Max upload {{ max_upload_h }} · tap a name to open · row to select · long-press for actions</span></div>
+    <div class="hf-status">
+      <span id="hf-status">Ready</span>
+      <span>Max {{ max_upload_h }}</span>
+    </div>
     <div class="hf-busy" id="hf-busy" aria-live="polite"><span class="hf-spinner"></span><span id="hf-busy-label">Working…</span></div>
     <div class="hf-editor" id="hf-editor" data-testid="files-editor">
       <div class="hf-editor-bar">
         <strong id="hf-editor-name">Edit</strong>
         <span id="hf-editor-pos" class="hf-editor-pos"></span>
+        <span id="hf-editor-err" class="hf-editor-err" hidden></span>
         <span class="spacer"></span>
         <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-editor-wrap" title="Toggle wrap">Wrap</button>
         <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-editor-cancel">Close</button>
@@ -570,15 +669,15 @@
     </div>
     <div class="hf-prompt" id="hf-zip-box" role="dialog" aria-modal="true" data-testid="files-zip">
       <div class="hf-prompt-card wide">
-        <h3 class="font-semibold mb-1">Zip</h3>
+        <h3 class="font-semibold mb-1">Zip on the host</h3>
         <p id="hf-zip-hint" class="text-xs text-muted mb-3"></p>
+        <p class="text-xs text-muted mb-2">Creates the <code>.zip</code> <strong>on this host</strong> (the tree does not go through PiHerder). Needs <code>zip</code> or <code>python3</code> on the machine.</p>
         <label class="text-xs text-muted">Name
           <input id="hf-zip-name" maxlength="255" class="w-full bg-surface border border-border rounded px-3 min-h-11 font-mono mb-2" placeholder="files.zip">
         </label>
-        <label class="hf-radio"><input type="radio" name="hf-zip-dest" value="host" checked> Save in this folder on the host</label>
-        <label class="hf-radio"><input type="radio" name="hf-zip-dest" value="download"> Download to this browser</label>
-        <label class="hf-radio" id="hf-zip-del-row"><input type="checkbox" id="hf-zip-delete" class="hf-chk"> Delete the selected files after a successful zip</label>
-        <p class="text-xs text-muted mb-3">Delete is useful after a download — the zip is yours, the originals leave the host.</p>
+        <label class="hf-radio"><input type="checkbox" id="hf-zip-dl" class="hf-chk"> Also download a copy</label>
+        <label class="hf-radio" id="hf-zip-del-row" hidden><input type="checkbox" id="hf-zip-delete" class="hf-chk"> Remove the zip from the host after download</label>
+        <p class="text-xs text-muted mb-3" id="hf-zip-del-help" hidden>Originals stay. After the download finishes, PiHerder deletes only the <code>.zip</code> it just created on the host.</p>
         <div class="flex justify-end gap-2">
           <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-zip-cancel">Cancel</button>
           <button type="button" class="btn btn-accent min-h-11 text-sm" id="hf-zip-ok">Zip</button>
@@ -594,8 +693,10 @@
         <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-preview-close">Close</button>
       </div>
       <div class="hf-preview-body" id="hf-preview-body">
+        <button type="button" class="hf-preview-nav hf-preview-nav--l" id="hf-preview-prev" title="Previous file" hidden>‹</button>
         <img id="hf-preview-img" alt="Preview" hidden>
         <pre id="hf-preview-hex" class="hf-preview-hex" hidden></pre>
+        <button type="button" class="hf-preview-nav hf-preview-nav--r" id="hf-preview-next" title="Next file" hidden>›</button>
       </div>
     </div>
     <div class="hf-prompt" id="hf-secret-box" role="dialog" aria-modal="true">
@@ -618,26 +719,43 @@
         </div>
       </div>
     </div>
-    <div class="hf-prompt" id="hf-docker-box" role="dialog" aria-modal="true" data-testid="files-docker">
-      <div class="hf-prompt-card wide">
-        <h3 class="font-semibold mb-1">Docker</h3>
-        <p class="text-xs text-muted mb-2">Named volumes open in Files when the path is in this jail (privileged `/` usually). Copy pulls a container path into the <strong>current folder</strong>.</p>
-        <p id="hf-docker-err" class="text-sm text-danger mb-2" hidden></p>
-        <div class="text-xs font-semibold mb-1">Volumes</div>
-        <div id="hf-docker-vols" class="hf-move-tree mb-3"></div>
-        <div class="text-xs font-semibold mb-1">Copy from container</div>
-        <label class="text-xs text-muted">Container
-          <select id="hf-docker-ctr" class="w-full bg-surface border border-border rounded px-3 min-h-11 mb-2"></select>
-        </label>
-        <label class="text-xs text-muted">Path in container
-          <input id="hf-docker-src" class="w-full bg-surface border border-border rounded px-3 min-h-11 font-mono mb-3" placeholder="/data/config.yml">
-        </label>
-        <div class="flex justify-end gap-2">
-          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-docker-cancel">Close</button>
-          <button type="button" class="btn btn-accent min-h-11 text-sm" id="hf-docker-cp">Copy here</button>
+    <div class="hf-prompt" id="hf-upload-box" role="dialog" aria-modal="true" data-testid="files-upload-box">
+      <div class="hf-prompt-card">
+        <h3 class="font-semibold mb-1">Upload</h3>
+        <p class="text-xs text-muted">Pick files, a folder, or drop a mix onto the list. Browsers cannot select files and folders in one system dialog.</p>
+        <div class="hf-upload-choices">
+          <button type="button" class="btn btn-accent min-h-11 text-sm" id="hf-upload-files">Files…</button>
+          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-upload-folder">Folder…</button>
+        </div>
+        <div class="flex justify-end">
+          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-upload-cancel">Cancel</button>
         </div>
       </div>
     </div>
+    <div class="hf-prompt" id="hf-docker-box" role="dialog" aria-modal="true" data-testid="files-docker">
+      <div class="hf-prompt-card wide">
+        <h3 class="font-semibold mb-1">Docker mounts</h3>
+        <p class="text-xs text-muted mb-2">Pick a <strong>container</strong> to see its <strong>named volumes</strong> and <strong>bind mounts</strong> (host folder → container path). Browse opens that host path in this file manager — same edit/zip/search as any other folder. Named volumes usually live under <code>/var/lib/docker/volumes/…/_data</code> and need <strong>privileged</strong> Files. Bind mounts under the Docker project folder work on fleet.</p>
+        <p id="hf-docker-err" class="text-sm text-danger mb-2" hidden></p>
+        <label class="text-xs text-muted">Container
+          <select id="hf-docker-ctr" class="w-full bg-surface border border-border rounded px-3 min-h-11 mb-2"></select>
+        </label>
+        <div class="text-xs font-semibold mb-1">Mounts</div>
+        <div id="hf-docker-vols" class="hf-move-tree mb-3"></div>
+        <details class="mb-3">
+          <summary class="text-xs text-muted cursor-pointer">Copy a path that is not mounted (<code>docker cp</code>)</summary>
+          <p class="text-xs text-muted mt-1 mb-2">Pulls a file/folder from inside the container filesystem into the <strong>current folder</strong>.</p>
+          <label class="text-xs text-muted">Path in container
+            <input id="hf-docker-src" class="w-full bg-surface border border-border rounded px-3 min-h-11 font-mono mb-2" placeholder="/etc/hostname">
+          </label>
+          <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-docker-cp">Copy into this folder</button>
+        </details>
+        <div class="flex justify-end gap-2">
+          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-docker-cancel">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
   </div>
   {% endif %}
 </div>
@@ -774,11 +892,13 @@
     searching = !!data.search;
     if (!searching) cache[data.rel || ''] = data;
     current = data.rel || '';
-    $('hf-jail').textContent = data.jail || '—';
+    if ($('hf-win') && data.jail) $('hf-win').setAttribute('data-jail', data.jail);
+    closeTree();
     renderPath(data);
     renderTree();
     renderList(data);
     var n = (data.entries || []).length;
+    if ($('hf-hero-n') && !data.search) $('hf-hero-n').textContent = String(n);
     var extra = data.truncated ? (data.search ? ' (truncated)' : ' (truncated at 500)') : '';
     if (data.search) {
       setStatus((n || 'No') + ' match' + (n === 1 ? '' : 'es') + ' for “' + (data.query || '') + '”' + extra, '');
@@ -899,8 +1019,20 @@
         kids.forEach(function (e) { node(e.rel, e.name, depth + 1); });
       }
     }
-    var jailName = ($('hf-jail').textContent || 'jail').split('/').filter(Boolean).pop() || '/';
-    node('', jailName, 0);
+    node('', jailLabel(), 0);
+  }
+
+  function jailLabel() {
+    var j = ($('hf-win') && $('hf-win').getAttribute('data-jail')) || '';
+    return j.split('/').filter(Boolean).pop() || '/';
+  }
+  function closeTree() {
+    var win = $('hf-win');
+    if (win) win.classList.remove('is-tree');
+  }
+  function toggleTree() {
+    var win = $('hf-win');
+    if (win) win.classList.toggle('is-tree');
   }
 
   function hideMenu() {
@@ -968,6 +1100,9 @@
     if ($('hf-perms')) $('hf-perms').disabled = items.length === 0 || items.every(function (e) { return e.escaped; });
     if ($('hf-move')) $('hf-move').disabled = items.length === 0 || items.every(function (e) { return e.escaped; });
     if ($('hf-rm')) $('hf-rm').disabled = items.length === 0;
+    var bar = $('hf-selbar');
+    if (bar) bar.hidden = items.length === 0;
+    if ($('hf-selcount')) $('hf-selcount').textContent = items.length ? (items.length + ' selected') : '';
     var all = $('hf-all');
     if (all) {
       all.checked = listEntries.length > 0 && items.length === listEntries.length;
@@ -1064,7 +1199,7 @@
       mt.textContent = e.mtime_h || '—';
       var more = document.createElement('button');
       more.type = 'button';
-      more.className = 'btn btn-secondary text-xs min-h-9';
+      more.className = 'btn btn-secondary text-xs min-h-9 hf-row-more';
       more.textContent = '⋯';
       more.title = 'Actions';
       more.addEventListener('click', function (ev) {
@@ -1234,6 +1369,28 @@
     $('hf-preview-img').removeAttribute('src');
     previewEntry = null;
   }
+  function previewSiblings() {
+    return listEntries.filter(function (e) {
+      return e && e.kind === 'file' && !e.escaped;
+    });
+  }
+  function previewStep(delta) {
+    var sibs = previewSiblings();
+    if (!previewEntry || sibs.length < 2) return;
+    var idx = -1;
+    for (var i = 0; i < sibs.length; i++) {
+      if (sibs[i].rel === previewEntry.rel) { idx = i; break; }
+    }
+    if (idx < 0) return;
+    var next = sibs[(idx + delta + sibs.length) % sibs.length];
+    if (next) openPreview(next);
+  }
+  function syncPreviewNav() {
+    var n = previewSiblings().length;
+    var show = n > 1 && previewEntry;
+    if ($('hf-preview-prev')) $('hf-preview-prev').hidden = !show;
+    if ($('hf-preview-next')) $('hf-preview-next').hidden = !show;
+  }
   function openPreview(e) {
     if (e.secretish && !hasGrant) { showSecret(function () { openPreview(e); }); return; }
     previewEntry = e;
@@ -1260,6 +1417,7 @@
         hex.textContent = (j.hex || '') + (j.ascii ? '\n\n' + j.ascii : '');
       }
       $('hf-preview').classList.add('is-on');
+      syncPreviewNav();
     }).catch(function (err) {
       busy(false);
       if (isSecretErr(err.message)) { showSecret(function () { openPreview(e); }); return; }
@@ -1364,6 +1522,7 @@
       editorRel = j.rel || e.rel;
       editorOrig = j.text || '';
       editorDirty = false;
+      setEditorErr('');
       $('hf-editor-name').textContent = j.name || e.name;
       $('hf-editor-ta').value = editorOrig;
       $('hf-editor').classList.add('is-on');
@@ -1379,8 +1538,20 @@
       setStatus(err.message || String(err), 'err');
     });
   }
+  function setEditorErr(msg) {
+    var el = $('hf-editor-err');
+    if (!el) return;
+    if (msg) {
+      el.hidden = false;
+      el.textContent = msg;
+    } else {
+      el.hidden = true;
+      el.textContent = '';
+    }
+  }
   function saveEditor() {
     if (!editorRel) return;
+    setEditorErr('');
     busy(true, 'Saving…');
     var fd = new FormData();
     fd.append('p', editorRel);
@@ -1397,10 +1568,13 @@
       updateEditorView();
       if (data && data.entries) applyListing(data);
       busy(false);
+      setEditorErr('');
       setStatus('Saved ' + (editorRel.split('/').pop() || ''), 'ok');
     }).catch(function (err) {
       busy(false);
-      setStatus(err.message || String(err), 'err');
+      var msg = err.message || String(err);
+      setEditorErr(msg);
+      setStatus(msg, 'err');
     });
   }
   function onEditorKey(ev) {
@@ -1476,9 +1650,9 @@
       : ('Zip ' + items.length + ' items');
     var guess = items.length === 1 ? (items[0].name.replace(/\/+$/, '') + '.zip') : 'files.zip';
     nameEl.value = guess;
-    var host = document.querySelector('input[name="hf-zip-dest"][value="host"]');
-    if (host) host.checked = true;
-    $('hf-zip-delete').checked = false;
+    if ($('hf-zip-dl')) $('hf-zip-dl').checked = false;
+    if ($('hf-zip-delete')) $('hf-zip-delete').checked = false;
+    syncZipDest();
     $('hf-zip-box').classList.add('is-on');
     setTimeout(function () { try { nameEl.focus(); nameEl.select(); } catch (err) {} }, 20);
   }
@@ -1486,13 +1660,21 @@
     var box = $('hf-zip-box');
     if (box) box.classList.remove('is-on');
   }
+  function syncZipDest() {
+    var download = !!( $('hf-zip-dl') && $('hf-zip-dl').checked );
+    var row = $('hf-zip-del-row');
+    var help = $('hf-zip-del-help');
+    if (row) row.hidden = !download;
+    if (help) help.hidden = !download;
+    if (download && $('hf-zip-delete')) $('hf-zip-delete').checked = true;
+    if (!download && $('hf-zip-delete')) $('hf-zip-delete').checked = false;
+  }
   function doZip() {
     var items = selItems();
     if (!items.length) return;
     var name = ($('hf-zip-name').value || '').trim() || 'files.zip';
-    var destEl = document.querySelector('input[name="hf-zip-dest"]:checked');
-    var dest = destEl ? destEl.value : 'host';
-    var del = !!($('hf-zip-delete').checked);
+    var dest = ( $('hf-zip-dl') && $('hf-zip-dl').checked ) ? 'download' : 'host';
+    var del = dest === 'download' && !!($('hf-zip-delete').checked);
     var go = function () {
       closeZip();
       var fd = new FormData();
@@ -1535,18 +1717,18 @@
         a.click();
         setTimeout(function () { try { URL.revokeObjectURL(a.href); a.remove(); } catch (err) {} }, 4000);
         busy(false);
-        setStatus('Downloading ' + out.fname, 'ok');
-        if (del) load(current, false);
+        setStatus(del ? ('Downloaded ' + out.fname + ' · zip removed on host') : ('Downloading ' + out.fname), 'ok');
+        load(current, false);
       }).catch(function (err) {
         busy(false);
         setStatus(err.message || String(err), 'err');
       });
     };
     if (del) {
-      confirmAct('Zip, then permanently delete the ' + items.length + ' selected item(s) on the host?', {
-        title: 'Zip and delete',
-        confirmLabel: 'Zip and delete',
-        danger: true
+      confirmAct('Download the zip, then delete that zip file on the host? The selected files stay.', {
+        title: 'Download and remove zip',
+        confirmLabel: 'Download and remove zip',
+        danger: false
       }).then(function (ok) { if (ok) go(); });
     } else {
       go();
@@ -1689,7 +1871,7 @@
     hint.textContent = items.length === 1
       ? (items[0].name + (items[0].kind === 'dir' ? '/' : ''))
       : (items.length + ' items selected');
-    if (!priv) hint.textContent += ' · Connect as privileged to change owner, or chmod files you do not own.';
+    if (!priv) hint.textContent += ' · Switch the status-bar identity to Privileged to change owner, or chmod files you do not own.';
     var modes = items.map(function (e) { return e.mode_h || ''; }).filter(Boolean);
     var sameMode = modes.length && modes.every(function (m) { return m === modes[0]; });
     var modeEl = $('hf-perms-mode');
@@ -1734,7 +1916,7 @@
       return;
     }
     if ((owner || group) && identity !== 'privileged') {
-      setStatus('Ownership requires privileged Files — use Connect as…', 'err');
+      setStatus('Ownership requires privileged Files — switch identity in the status bar', 'err');
       return;
     }
     var go = function () {
@@ -1895,8 +2077,7 @@
       tree.appendChild(row);
       if (data) kids.forEach(function (e) { node(e.rel, e.name, depth + 1); });
     }
-    var jailName = ($('hf-jail').textContent || 'jail').split('/').filter(Boolean).pop() || '/';
-    node('', jailName, 0);
+    node('', jailLabel(), 0);
   }
   function doMove(destRel, overwrite) {
     var items = selItems().filter(function (e) { return !e.escaped; });
@@ -2058,20 +2239,34 @@
   }
 
   $('hf-up').addEventListener('click', function () { load(parentRel(current)); });
-  $('hf-mkdir').addEventListener('click', mkdir);
-  $('hf-refresh').addEventListener('click', function () { load(current, false); });
-  $('hf-upload-btn').addEventListener('click', function () { $('hf-file').click(); });
-  if ($('hf-folder-btn')) $('hf-folder-btn').addEventListener('click', function () { $('hf-folder').click(); });
+  function openUpload() {
+    var box = $('hf-upload-box');
+    if (box) box.classList.add('is-on');
+  }
+  function closeUpload() {
+    var box = $('hf-upload-box');
+    if (box) box.classList.remove('is-on');
+  }
+  $('hf-upload-btn').addEventListener('click', openUpload);
+  if ($('hf-upload-cancel')) $('hf-upload-cancel').addEventListener('click', closeUpload);
+  if ($('hf-upload-files')) $('hf-upload-files').addEventListener('click', function () {
+    closeUpload();
+    $('hf-file').click();
+  });
+  if ($('hf-upload-folder')) $('hf-upload-folder').addEventListener('click', function () {
+    closeUpload();
+    $('hf-folder').click();
+  });
+  if ($('hf-tree-toggle')) $('hf-tree-toggle').addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    toggleTree();
+  });
+  if ($('hf-tree-scrim')) $('hf-tree-scrim').addEventListener('click', closeTree);
   if ($('hf-folder')) $('hf-folder').addEventListener('change', function () {
     uploadItems(filesFromList(this.files), current);
     this.value = '';
   });
   if ($('hf-q')) {
-    $('hf-q').addEventListener('input', function () {
-      var q = this.value;
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(function () { runSearch(q); }, 280);
-    });
     $('hf-q').addEventListener('keydown', function (ev) {
       if (ev.key === 'Escape') {
         ev.preventDefault();
@@ -2081,11 +2276,13 @@
       }
       if (ev.key === 'Enter') {
         ev.preventDefault();
-        clearTimeout(searchTimer);
         runSearch(this.value);
       }
     });
   }
+  if ($('hf-q-go')) $('hf-q-go').addEventListener('click', function () {
+    runSearch(($('hf-q') && $('hf-q').value) || '');
+  });
   if ($('hf-move')) $('hf-move').addEventListener('click', openMove);
   if ($('hf-move-cancel')) $('hf-move-cancel').addEventListener('click', closeMove);
   if ($('hf-move-ok')) $('hf-move-ok').addEventListener('click', function () { doMove(moveDest, false); });
@@ -2096,10 +2293,40 @@
   if ($('hf-zip')) $('hf-zip').addEventListener('click', zipSel);
   if ($('hf-zip-cancel')) $('hf-zip-cancel').addEventListener('click', closeZip);
   if ($('hf-zip-ok')) $('hf-zip-ok').addEventListener('click', doZip);
-  if ($('hf-q-contents')) $('hf-q-contents').addEventListener('change', function () {
-    if ($('hf-q') && $('hf-q').value.trim()) runSearch($('hf-q').value);
+  if ($('hf-zip-dl')) $('hf-zip-dl').addEventListener('change', syncZipDest);
+  if ($('hf-more')) $('hf-more').addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    hideMenu();
+    menu = document.createElement('div');
+    menu.className = 'hf-menu';
+    function item(label, fn) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.addEventListener('click', function () { hideMenu(); fn(); });
+      menu.appendChild(b);
+    }
+    item('New folder', mkdir);
+    if (dockerOn) item('Docker mounts…', openDocker);
+    item('Refresh', function () { load(current, false); });
+    var idSel = $('hf-identity');
+    if (idSel && idSel.options && idSel.options.length > 1) {
+      for (var i = 0; i < idSel.options.length; i++) {
+        (function (opt) {
+          if (opt.disabled) return;
+          var mark = opt.value === identity ? '✓ ' : '';
+          item(mark + opt.textContent.trim(), function () { switchIdentity(opt.value); });
+        })(idSel.options[i]);
+      }
+    }
+    document.body.appendChild(menu);
+    var r = $('hf-more').getBoundingClientRect();
+    menu.style.left = Math.max(8, r.right - menu.offsetWidth) + 'px';
+    menu.style.top = (r.bottom + 4) + 'px';
   });
   if ($('hf-preview-close')) $('hf-preview-close').addEventListener('click', closePreview);
+  if ($('hf-preview-prev')) $('hf-preview-prev').addEventListener('click', function () { previewStep(-1); });
+  if ($('hf-preview-next')) $('hf-preview-next').addEventListener('click', function () { previewStep(1); });
   if ($('hf-preview-dl')) $('hf-preview-dl').addEventListener('click', function () {
     if (previewEntry) download(previewEntry);
   });
@@ -2141,47 +2368,70 @@
     box.classList.add('is-on');
     var vols = $('hf-docker-vols');
     var sel = $('hf-docker-ctr');
-    vols.innerHTML = 'Loading…';
+    vols.innerHTML = 'Pick a container.';
     sel.innerHTML = '';
-    fetch('/servers/' + sid + '/files/docker/volumes?identity=' + encodeURIComponent(identity), {
-      headers: hdr(), credentials: 'same-origin'
-    }).then(function (r) {
-      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
-      return r.json();
-    }).then(function (j) {
-      vols.innerHTML = '';
-      (j.volumes || []).forEach(function (v) {
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'hf-tree-row';
-        b.textContent = '💾 ' + v.name + (v.rel ? '' : ' (outside jail — use privileged)');
-        b.disabled = !v.rel;
-        b.addEventListener('click', function () {
-          if (!v.rel) return;
-          closeDocker();
-          load(v.rel);
+    function loadMounts(name) {
+      vols.innerHTML = 'Loading mounts…';
+      if (!name) { vols.textContent = 'Pick a container.'; return; }
+      fetch('/servers/' + sid + '/files/docker/mounts?identity=' + encodeURIComponent(identity)
+        + '&container=' + encodeURIComponent(name), {
+        headers: hdr(), credentials: 'same-origin'
+      }).then(function (r) {
+        if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+        return r.json();
+      }).then(function (j) {
+        vols.innerHTML = '';
+        var mounts = j.mounts || [];
+        if (!mounts.length) {
+          vols.textContent = 'No bind mounts or named volumes on this container.';
+          return;
+        }
+        mounts.forEach(function (v) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'hf-tree-row';
+          var kind = v.kind === 'volume' ? 'named volume' : 'bind';
+          var host = v.source || v.name || '—';
+          var dest = v.destination || '';
+          var extra = v.in_jail ? '' : (identity === 'privileged'
+            ? ' (not in this jail)'
+            : ' — switch to Privileged to browse');
+          b.textContent = (v.kind === 'volume' ? '💾 ' : '📁 ') + kind + ': '
+            + (v.name ? v.name + ' ' : '') + host + (dest ? ' → ' + dest : '') + extra;
+          b.disabled = !v.rel;
+          b.title = host;
+          b.addEventListener('click', function () {
+            if (!v.rel) return;
+            closeDocker();
+            load(v.rel);
+          });
+          vols.appendChild(b);
         });
-        vols.appendChild(b);
+      }).catch(function (e) {
+        vols.textContent = e.message || String(e);
       });
-      if (!(j.volumes || []).length) vols.textContent = 'No named volumes.';
-    }).catch(function (e) {
-      vols.textContent = e.message || String(e);
-    });
+    }
+    sel.onchange = function () { loadMounts(sel.value); };
     fetch('/servers/' + sid + '/files/docker/containers?identity=' + encodeURIComponent(identity), {
       headers: hdr(), credentials: 'same-origin'
     }).then(function (r) {
       if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
       return r.json();
     }).then(function (j) {
+      var opt0 = document.createElement('option');
+      opt0.value = '';
+      opt0.textContent = 'Select a container…';
+      sel.appendChild(opt0);
       (j.containers || []).forEach(function (n) {
         var o = document.createElement('option');
         o.value = n;
         o.textContent = n;
         sel.appendChild(o);
       });
-    }).catch(function () {});
+    }).catch(function (e) {
+      vols.textContent = e.message || String(e);
+    });
   }
-  if ($('hf-docker-btn')) $('hf-docker-btn').addEventListener('click', openDocker);
   if ($('hf-docker-cancel')) $('hf-docker-cancel').addEventListener('click', closeDocker);
   if ($('hf-docker-cp')) $('hf-docker-cp').addEventListener('click', function () {
     var ctr = ($('hf-docker-ctr').value || '').trim();
@@ -2239,9 +2489,10 @@
     $('hf-editor-ta').addEventListener('keydown', onEditorKey);
   }
   $('hf-file').addEventListener('change', function () { uploadFiles(this.files); this.value = ''; });
-  $('hf-identity').addEventListener('change', function () {
-    window.location = '/servers/' + sid + '/files?identity=' + encodeURIComponent(this.value) + (current ? '&p=' + encodeURIComponent(current) : '');
-  });
+  function switchIdentity(role) {
+    if (!role || role === identity) return;
+    window.location = '/servers/' + sid + '/files?identity=' + encodeURIComponent(role) + (current ? '&p=' + encodeURIComponent(current) : '');
+  }
 
   var list = $('hf-list');
   list.addEventListener('dragover', function (ev) { ev.preventDefault(); list.classList.add('is-drag'); });
@@ -2264,15 +2515,37 @@
       return;
     }
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    if ($('hf-preview') && $('hf-preview').classList.contains('is-on') && ev.key === 'Escape') {
-      ev.preventDefault();
-      closePreview();
-      return;
+    if ($('hf-preview') && $('hf-preview').classList.contains('is-on')) {
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        closePreview();
+        return;
+      }
+      if (ev.key === 'ArrowLeft') {
+        ev.preventDefault();
+        previewStep(-1);
+        return;
+      }
+      if (ev.key === 'ArrowRight') {
+        ev.preventDefault();
+        previewStep(1);
+        return;
+      }
     }
     if (ev.key === 'Escape' && $('hf-secret-box') && $('hf-secret-box').classList.contains('is-on')) {
       ev.preventDefault();
       pendingSecret = null;
       closeSecret();
+      return;
+    }
+    if (ev.key === 'Escape' && $('hf-win') && $('hf-win').classList.contains('is-tree')) {
+      ev.preventDefault();
+      closeTree();
+      return;
+    }
+    if (ev.key === 'Escape' && $('hf-upload-box') && $('hf-upload-box').classList.contains('is-on')) {
+      ev.preventDefault();
+      closeUpload();
       return;
     }
     if (ev.key === 'Escape' && $('hf-docker-box') && $('hf-docker-box').classList.contains('is-on')) {

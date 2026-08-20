@@ -20,7 +20,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 1. **General** → set app **timezone** (Audit/Jobs clocks).  
 2. **General** → **Security policy**: password rules, who must enrol 2FA (optional grace 0–60 days), step-up windows.  
-3. **General** → **Console**: idle / max session, concurrency, ticket, park hold, bind, scrollback (kill switch stays `PIHERDER_SSH_CONSOLE`). Host **Files** is **not** a Settings card — env `PIHERDER_HOST_FILES` ([Host Files](../day-to-day/host-files.md)). Privileged Files uses the same “who may elevate” knob as the console.  
+3. **General** → **Console**: idle / max session, concurrency, ticket, park hold, bind, scrollback (kill switch stays `PIHERDER_SSH_CONSOLE`). **General** → **Files**: transfer cap (default 512 MiB, ceiling 32 GiB). Kill switch stays env `PIHERDER_HOST_FILES` ([Host Files](../day-to-day/host-files.md)). Privileged Files uses the same “who may elevate” knob as the console.  
 4. Optional **General → SSO / OpenID Connect** when you have a BYO IdP — [SSO guide](../account-security/sso-oidc.md).  
 5. **PiHerder backup** → run once + schedule; store archive + master key offline.  
 6. **Status** → Check now until green.  
@@ -33,7 +33,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 | Tab | Purpose |
 |-----|---------|
-| **General** | Timezone (inline) plus a **hub** of summary cards — Security, Console, SSO, Cleanup. **Edit** opens the full form in a modal |
+| **General** | Timezone (inline) plus a **hub** of summary cards — Security, Console, **Files** (transfer cap), SSO, Cleanup. **Edit** opens the full form in a modal |
 | **Alerts** | **Alert policy** (per-category severity / mute / debounce) + outbound **webhook** + **SMTP** — [details](alerts-email-webhooks.md) |
 | **Fleet defaults** | Global OS / container update-check defaults (optional apply to all hosts) |
 | **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)) |

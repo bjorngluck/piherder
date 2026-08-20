@@ -39,7 +39,7 @@ x-piherder-app-env: &piherder-app-env
   # Optional PIHERDER_SSH_CONSOLE_* overrides (idle, max, bind, grant, …) win
   # when set; do not list them here with defaults or Settings cannot apply.
   PIHERDER_SSH_CONSOLE: ${PIHERDER_SSH_CONSOLE:-false}
-  # Host Files dest-card — default off. Do not inject PIHERDER_HOST_FILES_MAX_BYTES
+  # Host Files button — default off. Do not inject PIHERDER_HOST_FILES_MAX_BYTES
   # here with a default or operators cannot rely on the code default (512 MiB).
   PIHERDER_HOST_FILES: ${PIHERDER_HOST_FILES:-false}
   # Content-Security-Policy (v1.2) — default on; Report-Only for staged tighten
