@@ -91,6 +91,24 @@
   .hf-iname span.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hf-iname:hover span.nm { text-decoration: underline; }
   .hf-radio { display: flex; align-items: flex-start; gap: 0.45rem; margin: 0.4rem 0; font-size: 0.85rem; }
+  .hf-preview {
+    display: none; position: absolute; inset: 0; z-index: 36;
+    flex-direction: column; background: var(--color-surface);
+  }
+  .hf-preview.is-on { display: flex; }
+  .hf-preview-body {
+    flex: 1 1 auto; min-height: 0; overflow: auto;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0.75rem; background: var(--color-code-bg, var(--color-bg));
+  }
+  .hf-preview-body img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .hf-preview-hex {
+    width: 100%; margin: 0; white-space: pre-wrap; word-break: break-all;
+    font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.45;
+    padding: 0.75rem;
+  }
+  .hf-q-wrap { display: flex; align-items: center; gap: 0.35rem; flex: 0 1 16rem; min-width: 8rem; }
+  .hf-q-wrap .hf-q { flex: 1 1 auto; width: auto; min-width: 6rem; }
   .hf-ico { width: 1.15rem; text-align: center; flex-shrink: 0; }
   .hf-meta { color: var(--color-muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
   .hf-secret { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-warning, #d97706); }
@@ -279,7 +297,10 @@
 <div class="hf-shell" data-testid="host-files-page"
      data-server="{{ server.id }}"
      data-identity="{{ role }}"
-     data-needs-stepup="{{ '1' if needs_stepup else '0' }}">
+     data-needs-stepup="{{ '1' if needs_stepup else '0' }}"
+     data-has-grant="{{ '1' if has_grant else '0' }}"
+     data-docker="{{ '1' if docker_on else '0' }}"
+     data-has-passkeys="{{ '1' if has_passkeys else '0' }}">
 
   <div class="hf-kicker host-kicker-line">
     <span class="host-switcher-cluster">
@@ -436,10 +457,16 @@
     <div class="hf-toolbar">
       <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-up" title="Parent folder">↑ Up</button>
       <nav class="hf-path" id="hf-path" aria-label="Path"></nav>
-      <input id="hf-q" class="hf-q" type="search" placeholder="Search this folder…" autocomplete="off" data-testid="files-search">
+      <span class="hf-q-wrap">
+        <input id="hf-q" class="hf-q" type="search" placeholder="Search this folder…" autocomplete="off" data-testid="files-search">
+        <label class="text-xs text-muted" title="Also search inside text files"><input type="checkbox" id="hf-q-contents" class="hf-chk"> Contents</label>
+      </span>
       <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-mkdir">New folder</button>
       <button type="button" class="btn btn-accent text-xs min-h-10" id="hf-upload-btn" data-testid="files-upload">Upload</button>
       <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-folder-btn" title="Upload a local folder tree">Folder</button>
+      {% if docker_on %}
+      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-docker-btn" title="Named volumes and docker cp">Docker</button>
+      {% endif %}
       <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-edit" disabled>Edit</button>
       <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-zip" disabled>Zip</button>
       <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-unzip" disabled>Extract</button>
@@ -558,6 +585,59 @@
         </div>
       </div>
     </div>
+    <div class="hf-preview" id="hf-preview" data-testid="files-preview">
+      <div class="hf-editor-bar">
+        <strong id="hf-preview-name">Preview</strong>
+        <span id="hf-preview-meta" class="hf-editor-pos"></span>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-preview-dl">Download</button>
+        <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-preview-close">Close</button>
+      </div>
+      <div class="hf-preview-body" id="hf-preview-body">
+        <img id="hf-preview-img" alt="Preview" hidden>
+        <pre id="hf-preview-hex" class="hf-preview-hex" hidden></pre>
+      </div>
+    </div>
+    <div class="hf-prompt" id="hf-secret-box" role="dialog" aria-modal="true">
+      <div class="hf-prompt-card">
+        <h3 class="font-semibold mb-1">Unlock secret file</h3>
+        <p class="text-xs text-muted mb-3">`.env`, keys, and PEMs need the same 2FA grant as privileged Files. Listing is still allowed.</p>
+        <p id="hf-secret-err" class="text-sm text-danger mb-2" hidden></p>
+        <div class="flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-accent min-h-11 text-sm" id="hf-secret-passkey">Passkey</button>
+        </div>
+        <form id="hf-secret-totp" class="flex flex-wrap gap-2 items-end">
+          <label class="text-xs text-muted">Authenticator
+            <input name="totp_code" inputmode="numeric" autocomplete="one-time-code"
+                   class="block bg-surface border border-border rounded px-3 min-h-11" placeholder="TOTP">
+          </label>
+          <button class="btn btn-secondary min-h-11 text-sm" type="submit">Unlock</button>
+        </form>
+        <div class="flex justify-end mt-3">
+          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-secret-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div class="hf-prompt" id="hf-docker-box" role="dialog" aria-modal="true" data-testid="files-docker">
+      <div class="hf-prompt-card wide">
+        <h3 class="font-semibold mb-1">Docker</h3>
+        <p class="text-xs text-muted mb-2">Named volumes open in Files when the path is in this jail (privileged `/` usually). Copy pulls a container path into the <strong>current folder</strong>.</p>
+        <p id="hf-docker-err" class="text-sm text-danger mb-2" hidden></p>
+        <div class="text-xs font-semibold mb-1">Volumes</div>
+        <div id="hf-docker-vols" class="hf-move-tree mb-3"></div>
+        <div class="text-xs font-semibold mb-1">Copy from container</div>
+        <label class="text-xs text-muted">Container
+          <select id="hf-docker-ctr" class="w-full bg-surface border border-border rounded px-3 min-h-11 mb-2"></select>
+        </label>
+        <label class="text-xs text-muted">Path in container
+          <input id="hf-docker-src" class="w-full bg-surface border border-border rounded px-3 min-h-11 font-mono mb-3" placeholder="/data/config.yml">
+        </label>
+        <div class="flex justify-end gap-2">
+          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-docker-cancel">Close</button>
+          <button type="button" class="btn btn-accent min-h-11 text-sm" id="hf-docker-cp">Copy here</button>
+        </div>
+      </div>
+    </div>
   </div>
   {% endif %}
 </div>
@@ -568,6 +648,11 @@
   if (!root || root.getAttribute('data-needs-stepup') === '1') return;
   var sid = root.getAttribute('data-server');
   var identity = root.getAttribute('data-identity') || 'fleet';
+  var hasGrant = root.getAttribute('data-has-grant') === '1';
+  var dockerOn = root.getAttribute('data-docker') === '1';
+  var hasPasskeys = root.getAttribute('data-has-passkeys') === '1';
+  var pendingSecret = null;
+  var previewEntry = null;
   var boot = {{ listing_boot | tojson }};
   var cache = {};
   var current = (boot && boot.rel) || '';
@@ -641,7 +726,17 @@
   }
   function hdr() { return { 'X-PiHerder-Files': '1', 'Accept': 'application/json' }; }
   function jsonErr(r) {
-    return r.json().then(function (j) { return (j && (j.detail || j.error || j.message)) || ('HTTP ' + r.status); }).catch(function () { return 'HTTP ' + r.status; });
+    return r.json().then(function (j) {
+      var d = j && (j.detail || j.error || j.message);
+      if (Array.isArray(d)) d = (d[0] && d[0].msg) || JSON.stringify(d);
+      return d || ('HTTP ' + r.status);
+    }).catch(function () { return 'HTTP ' + r.status; });
+  }
+  function isSecretErr(msg) {
+    return /secret_confirm/i.test(String(msg || ''));
+  }
+  function isImageName(name) {
+    return /\.(png|jpe?g|gif|webp|svg|ico|bmp)$/i.test(name || '');
   }
 
   function load(rel, push) {
@@ -826,7 +921,10 @@
     }
     if (entry.kind === 'dir' && !entry.escaped) item('Open', function () { load(entry.rel); });
     if (entry.kind === 'file' && !entry.escaped) {
-      if (!/\.zip$/i.test(entry.name)) item('Edit', function () { openEditor(entry); });
+      if (isImageName(entry.name)) item('Preview', function () { openPreview(entry); });
+      else if (!/\.zip$/i.test(entry.name)) item('Edit', function () { openEditor(entry); });
+      if (!isImageName(entry.name) && !/\.zip$/i.test(entry.name))
+        item('Preview', function () { openPreview(entry); });
       item('Download', function () { download(entry); });
     }
     if (selItems().length) item('Zip selection', function () { zipSel(); });
@@ -947,6 +1045,13 @@
         b.textContent = 'secret';
         name.appendChild(b);
       }
+      if (e.snippet) {
+        var sn = document.createElement('span');
+        sn.className = 'hf-secret';
+        sn.style.color = 'var(--color-muted)';
+        sn.textContent = 'L' + (e.line || '?') + ' ' + e.snippet;
+        name.appendChild(sn);
+      }
       var size = document.createElement('div');
       size.className = 'hf-meta hf-hide-sm';
       size.textContent = e.kind === 'dir' ? '—' : (e.size_h || '—');
@@ -982,12 +1087,7 @@
       var holdTimer = null;
       var holdFired = false;
       var holdX = 0, holdY = 0;
-      function openEntry() {
-        if (e.escaped) return;
-        if (e.kind === 'dir') load(e.rel);
-        else if (/\.zip$/i.test(e.name)) unzipOne(e);
-        else editOrDownload(e);
-      }
+      function openEntry() { openAny(e); }
       function selectRow(ev) {
         if (ev && ev.shiftKey && lastSel >= 0) {
           selected = {};
@@ -1050,8 +1150,121 @@
     });
   }
 
+  function openAny(e) {
+    if (!e || e.escaped) return;
+    if (e.kind === 'dir') load(e.rel);
+    else if (/\.zip$/i.test(e.name)) unzipOne(e);
+    else if (isImageName(e.name)) openPreview(e);
+    else openEditor(e);
+  }
   function editOrDownload(e) {
-    openEditor(e);
+    openAny(e);
+  }
+  function showSecret(retry) {
+    pendingSecret = retry;
+    var box = $('hf-secret-box');
+    var pk = $('hf-secret-passkey');
+    if (pk) pk.style.display = hasPasskeys ? '' : 'none';
+    var err = $('hf-secret-err');
+    if (err) { err.hidden = true; err.textContent = ''; }
+    if (box) box.classList.add('is-on');
+  }
+  function closeSecret() {
+    var box = $('hf-secret-box');
+    if (box) box.classList.remove('is-on');
+  }
+  function afterSecret() {
+    hasGrant = true;
+    root.setAttribute('data-has-grant', '1');
+    closeSecret();
+    var fn = pendingSecret;
+    pendingSecret = null;
+    if (fn) fn();
+  }
+  function runPasskey(done) {
+    if (!window.PublicKeyCredential) {
+      throw new Error('Passkeys are not supported in this browser.');
+    }
+    function b64urlToBuf(b64url) {
+      var pad = '='.repeat((4 - (b64url.length % 4)) % 4);
+      var b64 = (b64url + pad).replace(/-/g, '+').replace(/_/g, '/');
+      var str = atob(b64);
+      var buf = new ArrayBuffer(str.length);
+      var view = new Uint8Array(buf);
+      for (var i = 0; i < str.length; i++) view[i] = str.charCodeAt(i);
+      return buf;
+    }
+    function bufToB64url(buf) {
+      var bytes = new Uint8Array(buf);
+      var s = '';
+      for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+      return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    return fetch('/servers/' + sid + '/files/webauthn/options', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'PiHerderFiles' }
+    }).then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }); }).then(function (x) {
+      if (!x.r.ok || !x.j.ok) throw new Error(x.j.detail || x.j.error || 'Passkey options failed');
+      var opts = x.j.options;
+      if (opts.publicKey) opts = opts.publicKey;
+      if (opts.challenge) opts.challenge = b64urlToBuf(opts.challenge);
+      if (opts.allowCredentials) {
+        opts.allowCredentials = opts.allowCredentials.map(function (c) {
+          return Object.assign({}, c, { id: b64urlToBuf(c.id) });
+        });
+      }
+      return navigator.credentials.get({ publicKey: opts });
+    }).then(function (cred) {
+      if (!cred) throw new Error('Passkey cancelled');
+      var out = { id: cred.id, type: cred.type, rawId: bufToB64url(cred.rawId), response: {} };
+      if (cred.response.clientDataJSON) out.response.clientDataJSON = bufToB64url(cred.response.clientDataJSON);
+      if (cred.response.authenticatorData) out.response.authenticatorData = bufToB64url(cred.response.authenticatorData);
+      if (cred.response.signature) out.response.signature = bufToB64url(cred.response.signature);
+      if (cred.response.userHandle) out.response.userHandle = cred.response.userHandle ? bufToB64url(cred.response.userHandle) : null;
+      return fetch('/servers/' + sid + '/files/webauthn/verify', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'PiHerderFiles' },
+        body: JSON.stringify({ credential: out })
+      });
+    }).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.ok) throw new Error(j.detail || j.error || 'Passkey verification failed'); }); })
+      .then(function () { if (done) done(); });
+  }
+  function closePreview() {
+    $('hf-preview').classList.remove('is-on');
+    $('hf-preview-img').removeAttribute('src');
+    previewEntry = null;
+  }
+  function openPreview(e) {
+    if (e.secretish && !hasGrant) { showSecret(function () { openPreview(e); }); return; }
+    previewEntry = e;
+    busy(true, 'Opening preview…');
+    fetch('/servers/' + sid + '/files/peek?identity=' + encodeURIComponent(identity) + '&p=' + encodeURIComponent(e.rel), {
+      headers: hdr(), credentials: 'same-origin'
+    }).then(function (r) {
+      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(function (j) {
+      busy(false);
+      $('hf-preview-name').textContent = j.name || e.name;
+      $('hf-preview-meta').textContent = (j.size_h || '') + (j.is_image ? ' · image' : ' · bytes');
+      var img = $('hf-preview-img');
+      var hex = $('hf-preview-hex');
+      if (j.is_image) {
+        hex.hidden = true;
+        img.hidden = false;
+        img.src = '/servers/' + sid + '/files/preview?identity=' + encodeURIComponent(identity) + '&p=' + encodeURIComponent(e.rel);
+      } else {
+        img.hidden = true;
+        img.removeAttribute('src');
+        hex.hidden = false;
+        hex.textContent = (j.hex || '') + (j.ascii ? '\n\n' + j.ascii : '');
+      }
+      $('hf-preview').classList.add('is-on');
+    }).catch(function (err) {
+      busy(false);
+      if (isSecretErr(err.message)) { showSecret(function () { openPreview(e); }); return; }
+      setStatus(err.message || String(err), 'err');
+    });
   }
   function editorOpen() {
     return $('hf-editor') && $('hf-editor').classList.contains('is-on');
@@ -1158,8 +1371,9 @@
       try { $('hf-editor-ta').focus(); } catch (err) {}
     }).catch(function (err) {
       busy(false);
+      if (isSecretErr(err.message)) { showSecret(function () { openEditor(e); }); return; }
       if (/binary|too_large|does not look|not UTF-8/i.test(err.message || '')) {
-        download(e);
+        openPreview(e);
         return;
       }
       setStatus(err.message || String(err), 'err');
@@ -1384,6 +1598,7 @@
     });
   }
   function download(e) {
+    if (e.secretish && !hasGrant) { showSecret(function () { download(e); }); return; }
     setStatus('Downloading ' + e.name + '… use the browser download bar for progress');
     var iframe = document.createElement('iframe');
     iframe.style.display = 'none';
@@ -1620,6 +1835,7 @@
     busy(true, 'Searching…');
     var url = '/servers/' + sid + '/files/search?identity=' + encodeURIComponent(identity)
       + '&p=' + encodeURIComponent(current) + '&q=' + encodeURIComponent(q);
+    if ($('hf-q-contents') && $('hf-q-contents').checked) url += '&contents=1';
     fetch(url, { headers: hdr(), credentials: 'same-origin' }).then(function (r) {
       if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
       return r.json();
@@ -1880,6 +2096,106 @@
   if ($('hf-zip')) $('hf-zip').addEventListener('click', zipSel);
   if ($('hf-zip-cancel')) $('hf-zip-cancel').addEventListener('click', closeZip);
   if ($('hf-zip-ok')) $('hf-zip-ok').addEventListener('click', doZip);
+  if ($('hf-q-contents')) $('hf-q-contents').addEventListener('change', function () {
+    if ($('hf-q') && $('hf-q').value.trim()) runSearch($('hf-q').value);
+  });
+  if ($('hf-preview-close')) $('hf-preview-close').addEventListener('click', closePreview);
+  if ($('hf-preview-dl')) $('hf-preview-dl').addEventListener('click', function () {
+    if (previewEntry) download(previewEntry);
+  });
+  if ($('hf-secret-cancel')) $('hf-secret-cancel').addEventListener('click', function () {
+    pendingSecret = null;
+    closeSecret();
+  });
+  if ($('hf-secret-passkey')) $('hf-secret-passkey').addEventListener('click', function () {
+    var err = $('hf-secret-err');
+    var btn = $('hf-secret-passkey');
+    btn.disabled = true;
+    if (err) err.hidden = true;
+    runPasskey(afterSecret).catch(function (e) {
+      btn.disabled = false;
+      if (err) { err.hidden = false; err.textContent = e.message || String(e); }
+    });
+  });
+  if ($('hf-secret-totp')) $('hf-secret-totp').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var fd = new FormData(this);
+    fd.append('p', current);
+    fd.append('identity', identity);
+    fetch('/servers/' + sid + '/files/unlock', {
+      method: 'POST', credentials: 'same-origin', body: fd, redirect: 'manual'
+    }).then(function () { afterSecret(); }).catch(function (e) {
+      var err = $('hf-secret-err');
+      if (err) { err.hidden = false; err.textContent = e.message || String(e); }
+    });
+  });
+  function closeDocker() {
+    var box = $('hf-docker-box');
+    if (box) box.classList.remove('is-on');
+  }
+  function openDocker() {
+    var box = $('hf-docker-box');
+    var err = $('hf-docker-err');
+    if (err) { err.hidden = true; err.textContent = ''; }
+    if (!box) return;
+    box.classList.add('is-on');
+    var vols = $('hf-docker-vols');
+    var sel = $('hf-docker-ctr');
+    vols.innerHTML = 'Loading…';
+    sel.innerHTML = '';
+    fetch('/servers/' + sid + '/files/docker/volumes?identity=' + encodeURIComponent(identity), {
+      headers: hdr(), credentials: 'same-origin'
+    }).then(function (r) {
+      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(function (j) {
+      vols.innerHTML = '';
+      (j.volumes || []).forEach(function (v) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'hf-tree-row';
+        b.textContent = '💾 ' + v.name + (v.rel ? '' : ' (outside jail — use privileged)');
+        b.disabled = !v.rel;
+        b.addEventListener('click', function () {
+          if (!v.rel) return;
+          closeDocker();
+          load(v.rel);
+        });
+        vols.appendChild(b);
+      });
+      if (!(j.volumes || []).length) vols.textContent = 'No named volumes.';
+    }).catch(function (e) {
+      vols.textContent = e.message || String(e);
+    });
+    fetch('/servers/' + sid + '/files/docker/containers?identity=' + encodeURIComponent(identity), {
+      headers: hdr(), credentials: 'same-origin'
+    }).then(function (r) {
+      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(function (j) {
+      (j.containers || []).forEach(function (n) {
+        var o = document.createElement('option');
+        o.value = n;
+        o.textContent = n;
+        sel.appendChild(o);
+      });
+    }).catch(function () {});
+  }
+  if ($('hf-docker-btn')) $('hf-docker-btn').addEventListener('click', openDocker);
+  if ($('hf-docker-cancel')) $('hf-docker-cancel').addEventListener('click', closeDocker);
+  if ($('hf-docker-cp')) $('hf-docker-cp').addEventListener('click', function () {
+    var ctr = ($('hf-docker-ctr').value || '').trim();
+    var src = ($('hf-docker-src').value || '').trim();
+    var err = $('hf-docker-err');
+    if (!ctr || !src) {
+      if (err) { err.hidden = false; err.textContent = 'Container and path are required'; }
+      return;
+    }
+    closeDocker();
+    postForm('docker/cp', { container: ctr, src: src }, 'Copying from ' + ctr + '…').catch(function (e) {
+      setStatus(e.message, 'err');
+    });
+  });
   if ($('hf-zip-name')) $('hf-zip-name').addEventListener('keydown', function (ev) {
     if (ev.key === 'Enter') { ev.preventDefault(); doZip(); }
     if (ev.key === 'Escape') { ev.preventDefault(); closeZip(); }
@@ -1948,6 +2264,22 @@
       return;
     }
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if ($('hf-preview') && $('hf-preview').classList.contains('is-on') && ev.key === 'Escape') {
+      ev.preventDefault();
+      closePreview();
+      return;
+    }
+    if (ev.key === 'Escape' && $('hf-secret-box') && $('hf-secret-box').classList.contains('is-on')) {
+      ev.preventDefault();
+      pendingSecret = null;
+      closeSecret();
+      return;
+    }
+    if (ev.key === 'Escape' && $('hf-docker-box') && $('hf-docker-box').classList.contains('is-on')) {
+      ev.preventDefault();
+      closeDocker();
+      return;
+    }
     if (ev.key === 'Escape' && $('hf-zip-box') && $('hf-zip-box').classList.contains('is-on')) {
       ev.preventDefault();
       closeZip();

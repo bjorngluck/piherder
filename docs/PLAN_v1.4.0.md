@@ -31,7 +31,9 @@ Wanted pipeline (operator, 2026-08-17):
 
 This is the parked H2.5 / SPEC item **“Service migrate host→host; destructive service remove”** — named **service migration**. Destructive wipe stays a **later** sibling, not the 1.4 Must.
 
-**Parked here (do not start on 1.2 / 1.3):** live zero-downtime cutover, NPM proxy-host rewrite, auto hardware detection as the only lock, `docker cp` volume browser, cross-arch image rebuild.
+**Parked here (do not start on 1.2 / 1.3):** live zero-downtime cutover, NPM proxy-host rewrite, auto hardware detection as the only lock, cross-arch image rebuild.
+
+**Under consideration (from 1.3 Files, not Must for 1.4):** richer **API Files** — token zip / edit / chmod / recursive delete / privileged identity. 1.3 keeps fleet list/get/put/mkdir/rename/empty-delete in the browser-adjacent API; extra verbs stay UI + 2FA. Promote only if operators actually automate Files.
 
 ---
 
@@ -219,6 +221,7 @@ Success criteria (draft):
 | Date | Note |
 |------|------|
 | 2026-08-17 | Opened from operator request during 1.2 QA / Authentik TLS work. Feature name **service migration**. Pipeline + HAOS / Frigate host-lock captured. H2.5 + SPEC item promoted to this train. Discovery of compose / rsync / fabric / restartdns / TLS / Kuma primitives recorded. **Not** a 1.3 add. |
+| 2026-08-20 | **Under consideration:** 1.3 Files API expansions (zip/edit/chmod/recursive delete/privileged tokens). Thin Docker volume browse + `docker cp` into the jail shipped in 1.3 UI, not as the migrate copy engine. |
 
 ---
 

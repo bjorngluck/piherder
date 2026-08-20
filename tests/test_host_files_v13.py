@@ -784,3 +784,44 @@ def test_save_zip_on_host():
     raw = bytes(fs.nodes["/home/piherder/docker/frigate-bak.zip"]["data"])
     with zipfile.ZipFile(io.BytesIO(raw)) as zf:
         assert any(n.endswith("config.yml") for n in zf.namelist())
+
+
+def test_search_contents():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/frigate/config.yml", b"mqtt:\n  host: core.local\n")
+    fs.add_file("/home/piherder/docker/.env", b"SECRET=core.local\n")
+    names_only = hf.search(s, "config", sftp=fs)
+    assert any(e["name"] == "config.yml" for e in names_only["entries"])
+    hits = hf.search(s, "core.local", contents=True, sftp=fs)
+    snippets = [e.get("snippet") for e in hits["entries"] if e.get("snippet")]
+    assert any("core.local" in (t or "") for t in snippets)
+    secret_skip = hf.search(s, "SECRET", contents=True, allow_secrets=False, sftp=fs)
+    assert not any(e.get("name") == ".env" and e.get("snippet") for e in secret_skip["entries"])
+    secret_ok = hf.search(s, "SECRET", contents=True, allow_secrets=True, sftp=fs)
+    assert any(e.get("name") == ".env" and e.get("snippet") for e in secret_ok["entries"])
+
+
+def test_peek_and_image_name():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/blob.bin", b"\x00\x01\xffABC")
+    fs.add_file("/home/piherder/docker/pic.png", b"\x89PNG\r\n")
+    peek = hf.peek_file(s, "blob.bin", sftp=fs)
+    assert peek["is_image"] is False
+    assert "00 01 ff" in peek["hex"]
+    assert hf.is_image_name("pic.png")
+    img = hf.peek_file(s, "pic.png", sftp=fs)
+    assert img["is_image"] is True
+    chunks = b"".join(hf.iter_preview(s, "pic.png", sftp=fs))
+    assert chunks.startswith(b"\x89PNG")
+
+
+def test_parse_container_path():
+    assert hf.parse_container_path("/data/db") == "/data/db"
+    with pytest.raises(hf.FilesError):
+        hf.parse_container_path("/data/../etc/passwd")
+    with pytest.raises(hf.FilesError):
+        hf.parse_container_path("a/../../x")
+    assert hf._docker_name_ok("frigate")
+    assert not hf._docker_name_ok("frigate;rm")
