@@ -4,12 +4,15 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import threading
 from datetime import datetime
+from queue import Queue
 from typing import Optional
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
+from starlette.concurrency import iterate_in_threadpool
 from sqlmodel import Session
 
 from .. import templates as templates_mod
@@ -38,7 +41,11 @@ _STATUS = {
     "demo": 403,
     "privileged_forbidden": 403,
     "privileged_confirm": 403,
+    "denied": 403,
     "not_found": 404,
+    "too_large": 413,
+    "binary": 415,
+    "exists": 409,
     "ssh": 502,
 }
 
@@ -158,6 +165,12 @@ def listing_public(listing: dict) -> dict:
                 "mtime_h": format_datetime_in_app_tz(mt, "%Y-%m-%d %H:%M") if mt else "",
                 "secretish": bool(e.get("secretish")),
                 "escaped": bool(e.get("escaped")),
+                "mode_h": e.get("mode_h") or "",
+                "owner_h": e.get("owner_h") or "",
+                "owner": e.get("owner") or "",
+                "group": e.get("group") or "",
+                "uid": e.get("uid"),
+                "gid": e.get("gid"),
             }
         )
     return {
@@ -168,6 +181,8 @@ def listing_public(listing: dict) -> dict:
         "truncated": bool(listing.get("truncated")),
         "crumbs": listing.get("crumbs") or [],
         "entries": entries,
+        "search": bool(listing.get("search")),
+        "query": listing.get("query") or "",
     }
 
 
@@ -308,6 +323,26 @@ async def files_ls(
     role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
     try:
         listing = hf.list_dir(server, p, role=role, identity=ident)
+    except hf.FilesError as e:
+        raise _http(e) from e
+    return JSONResponse(listing_public(listing))
+
+
+@router.get("/{server_id}/files/search")
+async def files_search(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    q: str = "",
+    p: str = "",
+    identity: str = "fleet",
+):
+    _files_gate()
+    server = _get_server(session, server_id)
+    role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    try:
+        listing = hf.search(server, q, rel=p, role=role, identity=ident)
     except hf.FilesError as e:
         raise _http(e) from e
     return JSONResponse(listing_public(listing))
@@ -466,12 +501,13 @@ async def files_download(
     _files_gate()
     server = _get_server(session, server_id)
     role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    hasher = hashlib.sha256()
+    nbytes = 0
+    rel = (p or "").strip()
     try:
         info = hf.stat_file(server, p, role=role, identity=ident)
     except hf.FilesError as e:
         raise _http(e) from e
-    hasher = hashlib.sha256()
-    nbytes = 0
 
     def gen():
         nonlocal nbytes
@@ -488,19 +524,336 @@ async def files_download(
                     server_id=server.id,
                     action="host_file_get",
                     details=(
-                        f"identity={role} path={info.get('rel')} "
+                        f"identity={role} path={info.get('rel') or rel} "
                         f"bytes={nbytes} sha256={hasher.hexdigest()}"
                     ),
                 )
             except Exception:
                 logger.exception("files download audit")
 
-    filename = (info.get("rel") or "download").rsplit("/", 1)[-1]
+    filename = (info.get("rel") or rel or "download").rsplit("/", 1)[-1] or "download"
     headers = {
         "Content-Disposition": f'attachment; filename="{filename}"',
         "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "no-store, no-transform",
+        "X-Accel-Buffering": "no",
     }
-    return StreamingResponse(gen(), media_type="application/octet-stream", headers=headers)
+    size = info.get("size")
+    if size is not None and int(size) >= 0:
+        headers["Content-Length"] = str(int(size))
+    return StreamingResponse(
+        iterate_in_threadpool(gen()),
+        media_type="application/octet-stream",
+        headers=headers,
+    )
+
+
+@router.get("/{server_id}/files/content")
+async def files_content(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    p: str = "",
+    identity: str = "fleet",
+):
+    _files_gate()
+    server = _get_server(session, server_id)
+    role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    try:
+        data = hf.read_text(server, p, role=role, identity=ident)
+    except hf.FilesError as e:
+        raise _http(e) from e
+    return JSONResponse({"ok": True, **data})
+
+
+@router.post("/{server_id}/files/save")
+async def files_save(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    p: str = Form(""),
+    identity: str = Form("fleet"),
+    content: str = Form(""),
+):
+    _files_gate()
+    server = _get_server(session, server_id)
+    role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    try:
+        result = hf.write_text(server, p, content, role=role, identity=ident)
+    except hf.FilesError as e:
+        raise _http(e) from e
+    _audit(
+        session,
+        user_id=user.id,
+        server_id=server.id,
+        action="host_file_put",
+        details=f"identity={role} path={result.get('rel')} bytes={result.get('bytes')} edit=1",
+    )
+    return _ok_mutate(request, server, (p or "").rpartition("/")[0], role, ident, "saved")
+
+
+def _rels_from_names(p: str, names: list[str]) -> list[str]:
+    rels = []
+    for n in names or []:
+        n = (n or "").strip().strip("/")
+        if not n:
+            continue
+        rels.append(n if not p else f"{p.strip('/')}/{n}")
+    return rels
+
+
+def _delete_zip_sources(server, rels: list[str], *, skip: str, role: str, ident) -> None:
+    skip_n = (skip or "").strip("/")
+    for rel in rels:
+        if (rel or "").strip("/") == skip_n:
+            continue
+        try:
+            hf.remove_tree(server, rel, role=role, identity=ident)
+        except hf.FilesError:
+            logger.exception("files zip delete source %s", rel)
+
+
+@router.post("/{server_id}/files/archive")
+async def files_archive(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    p: str = Form(""),
+    identity: str = Form("fleet"),
+    names: list[str] = Form(default=[]),
+    dest: str = Form("download"),
+    name: str = Form(""),
+    delete: str = Form(""),
+):
+    _files_gate()
+    server = _get_server(session, server_id)
+    role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    rels = _rels_from_names(p, names)
+    want_host = str(dest or "").strip().lower() in ("host", "save", "remote")
+    want_delete = str(delete or "").strip().lower() in ("1", "true", "on", "yes")
+    if want_host:
+        try:
+            result = hf.save_zip(
+                server, rels, p, name or None, role=role, identity=ident
+            )
+        except hf.FilesError as e:
+            raise _http(e) from e
+        zip_rel = result.get("rel") or ""
+        if want_delete:
+            _delete_zip_sources(server, rels, skip=zip_rel, role=role, ident=ident)
+        _audit(
+            session,
+            user_id=user.id,
+            server_id=server.id,
+            action="host_file_put",
+            details=(
+                f"identity={role} zip={zip_rel} names={len(rels)} "
+                f"save=host delete={int(want_delete)}"
+            ),
+        )
+        return _ok_mutate(request, server, p, role, ident, "zipped")
+    try:
+        fname, body = hf.build_zip(
+            server, rels, role=role, identity=ident, dest_name=name or None
+        )
+    except hf.FilesError as e:
+        raise _http(e) from e
+    _audit(
+        session,
+        user_id=user.id,
+        server_id=server.id,
+        action="host_file_get",
+        details=(
+            f"identity={role} zip={fname} names={len(rels)} "
+            f"save=download delete={int(want_delete)}"
+        ),
+    )
+    headers = {
+        "Content-Disposition": f'attachment; filename="{fname}"',
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "no-store, no-transform",
+        "X-Accel-Buffering": "no",
+    }
+
+    def gen():
+        ok = False
+        try:
+            for chunk in body:
+                yield chunk
+            ok = True
+        finally:
+            if ok and want_delete:
+                _delete_zip_sources(server, rels, skip="", role=role, ident=ident)
+
+    return StreamingResponse(
+        iterate_in_threadpool(gen()),
+        media_type="application/zip",
+        headers=headers,
+    )
+
+
+@router.post("/{server_id}/files/unzip")
+async def files_unzip(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    p: str = Form(""),
+    identity: str = Form("fleet"),
+    name: str = Form(...),
+):
+    _files_gate()
+    server = _get_server(session, server_id)
+    role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    zip_rel = "/".join(x for x in ((p or "").strip("/"), name) if x)
+    try:
+        result = hf.unzip_into(server, zip_rel, p, role=role, identity=ident)
+    except hf.FilesError as e:
+        raise _http(e) from e
+    _audit(
+        session,
+        user_id=user.id,
+        server_id=server.id,
+        action="host_file_put",
+        details=f"identity={role} unzip={zip_rel} files={result.get('files')} bytes={result.get('bytes')}",
+    )
+    return _ok_mutate(request, server, p, role, ident, "unzipped")
+
+
+@router.post("/{server_id}/files/rm")
+async def files_rm(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    p: str = Form(""),
+    identity: str = Form("fleet"),
+    names: list[str] = Form(default=[]),
+):
+    _files_gate()
+    server = _get_server(session, server_id)
+    role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    totals = {"files": 0, "dirs": 0}
+    try:
+        for n in names or []:
+            rel = "/".join(x for x in ((p or "").strip("/"), n) if x)
+            out = hf.remove_tree(server, rel, role=role, identity=ident)
+            totals["files"] += int(out.get("files") or 0)
+            totals["dirs"] += int(out.get("dirs") or 0)
+    except hf.FilesError as e:
+        raise _http(e) from e
+    _audit(
+        session,
+        user_id=user.id,
+        server_id=server.id,
+        action="host_file_delete",
+        details=f"identity={role} rm={len(names or [])} files={totals['files']} dirs={totals['dirs']}",
+    )
+    return _ok_mutate(request, server, p, role, ident, "deleted")
+
+
+@router.post("/{server_id}/files/perms")
+async def files_perms(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    p: str = Form(""),
+    identity: str = Form("fleet"),
+    names: list[str] = Form(default=[]),
+    mode: str = Form(""),
+    owner: str = Form(""),
+    group: str = Form(""),
+    recursive: str = Form(""),
+):
+    _files_gate()
+    server = _get_server(session, server_id)
+    rec = str(recursive or "").strip().lower() in ("1", "true", "on", "yes")
+    want_owner = bool((owner or "").strip() or (group or "").strip())
+    role_asked = hf.normalize_role(identity)
+    if want_owner and role_asked != hf.ROLE_PRIVILEGED:
+        raise HTTPException(
+            status_code=403,
+            detail="Ownership requires privileged Files (Connect as…)",
+        )
+    role, ident = _load_identity(
+        session, server, user, request, identity, need_grant=True
+    )
+    rels = []
+    for n in names or []:
+        n = (n or "").strip().strip("/")
+        if not n:
+            continue
+        rels.append(n if not p else f"{p.strip('/')}/{n}")
+    try:
+        result = hf.apply_perms(
+            server,
+            rels,
+            mode=mode,
+            owner=owner,
+            group=group,
+            recursive=rec,
+            role=role,
+            identity=ident,
+        )
+    except hf.FilesError as e:
+        raise _http(e) from e
+    _audit(
+        session,
+        user_id=user.id,
+        server_id=server.id,
+        action="host_file_chmod",
+        details=(
+            f"identity={role} names={len(rels)} mode={result.get('mode') or '-'} "
+            f"owner={result.get('owner') or '-'} group={result.get('group') or '-'} "
+            f"recursive={int(rec)} changed={result.get('changed')} sudo={int(bool(result.get('sudo')))}"
+        ),
+    )
+    return _ok_mutate(request, server, p, role, ident, "permissions updated")
+
+
+@router.post("/{server_id}/files/move")
+async def files_move(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    p: str = Form(""),
+    identity: str = Form("fleet"),
+    dest: str = Form(...),
+    names: list[str] = Form(default=[]),
+    overwrite: str = Form(""),
+):
+    _files_gate()
+    server = _get_server(session, server_id)
+    role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    ow = str(overwrite or "").strip().lower() in ("1", "true", "on", "yes")
+    rels = []
+    for n in names or []:
+        n = (n or "").strip().strip("/")
+        if not n:
+            continue
+        rels.append(n if not p else f"{p.strip('/')}/{n}")
+    try:
+        result = hf.move_many(
+            server, rels, dest, overwrite=ow, role=role, identity=ident
+        )
+    except hf.FilesError as e:
+        raise _http(e) from e
+    _audit(
+        session,
+        user_id=user.id,
+        server_id=server.id,
+        action="host_file_rename",
+        details=(
+            f"identity={role} move={len(rels)} dest={result.get('dest')} "
+            f"moved={result.get('moved')} overwrite={int(ow)}"
+        ),
+    )
+    return _ok_mutate(request, server, result.get("dest") or dest, role, ident, "moved")
 
 
 @router.post("/{server_id}/files/upload")
@@ -512,42 +865,136 @@ async def files_upload(
     file: UploadFile = File(...),
     p: str = Form(""),
     identity: str = Form("fleet"),
+    rel_path: str = Form(""),
 ):
     _files_gate()
     server = _get_server(session, server_id)
     role, ident = _load_identity(session, server, user, request, identity, need_grant=True)
+    put_dir = p
     name = hf.sanitize_basename(file.filename or "upload.bin")
+    nested = (rel_path or "").strip()
+    if nested:
+        try:
+            parts = hf.parse_nested_rel(nested)
+        except hf.FilesError as e:
+            raise _http(e) from e
+        if not parts:
+            raise HTTPException(status_code=400, detail="Invalid folder path")
+        name = parts[-1]
+        parent = "/".join(x for x in ((p or "").strip("/"), *parts[:-1]) if x)
+        if parts[:-1]:
+            try:
+                hf.ensure_dir(server, parent, role=role, identity=ident)
+            except hf.FilesError as e:
+                raise _http(e) from e
+        put_dir = parent
+    total = getattr(file, "size", None)
     try:
-        result = hf.put_file(
-            server,
-            p,
-            name,
-            file.file,
-            size=getattr(file, "size", None),
-            role=role,
-            identity=ident,
-        )
-    except hf.FilesError as e:
+        total = int(total) if total not in (None, "") else None
+    except (TypeError, ValueError):
+        total = None
+
+    if not _wants_json(request):
+        try:
+            result = hf.put_file(
+                server,
+                put_dir,
+                name,
+                file.file,
+                size=total,
+                role=role,
+                identity=ident,
+            )
+        except hf.FilesError as e:
+            _audit(
+                session,
+                user_id=user.id,
+                server_id=server.id,
+                action="host_file_put",
+                details=f"identity={role} path={p}/{name} error={e.code}",
+                status="error",
+            )
+            raise _http(e) from e
         _audit(
             session,
             user_id=user.id,
             server_id=server.id,
             action="host_file_put",
-            details=f"identity={role} path={p}/{name} error={e.code}",
-            status="error",
+            details=(
+                f"identity={role} path={result['rel']} bytes={result['bytes']} "
+                f"sha256={result['sha256']} overwrite={int(result['overwrite'])}"
+            ),
         )
-        raise _http(e) from e
-    _audit(
-        session,
-        user_id=user.id,
-        server_id=server.id,
-        action="host_file_put",
-        details=(
-            f"identity={role} path={result['rel']} bytes={result['bytes']} "
-            f"sha256={result['sha256']} overwrite={int(result['overwrite'])}"
-        ),
-    )
-    return _ok_mutate(request, server, p, role, ident, "uploaded")
+        return _ok_mutate(request, server, p, role, ident, "uploaded")
+
+    q: Queue = Queue()
+
+    def progress(written: int, tot: int) -> None:
+        q.put(("sftp", written, tot))
+
+    def worker() -> None:
+        try:
+            result = hf.put_file(
+                server,
+                put_dir,
+                name,
+                file.file,
+                size=total,
+                role=role,
+                identity=ident,
+                progress=progress,
+            )
+            listing = hf.list_dir(server, p, role=role, identity=ident)
+            q.put(("done", result, listing))
+        except Exception as e:
+            q.put(("err", e))
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    def gen():
+        while True:
+            item = q.get()
+            if item[0] == "sftp":
+                yield json.dumps(
+                    {"phase": "sftp", "written": item[1], "total": item[2] or 0}
+                ) + "\n"
+            elif item[0] == "done":
+                result, listing = item[1], item[2]
+                _audit(
+                    session,
+                    user_id=user.id,
+                    server_id=server.id,
+                    action="host_file_put",
+                    details=(
+                        f"identity={role} path={result['rel']} bytes={result['bytes']} "
+                        f"sha256={result['sha256']} overwrite={int(result['overwrite'])}"
+                    ),
+                )
+                body = listing_public(listing)
+                body["msg"] = "uploaded"
+                yield json.dumps(body) + "\n"
+                return
+            else:
+                err = item[1]
+                if isinstance(err, hf.FilesError):
+                    _audit(
+                        session,
+                        user_id=user.id,
+                        server_id=server.id,
+                        action="host_file_put",
+                        details=f"identity={role} path={p}/{name} error={err.code}",
+                        status="error",
+                    )
+                    yield json.dumps(
+                        {"ok": False, "error": err.message, "code": err.code}
+                    ) + "\n"
+                else:
+                    yield json.dumps(
+                        {"ok": False, "error": str(err)[:200], "code": "ssh"}
+                    ) + "\n"
+                return
+
+    return StreamingResponse(gen(), media_type="application/x-ndjson")
 
 
 @router.post("/{server_id}/files/mkdir")

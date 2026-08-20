@@ -27,11 +27,13 @@ def _server(**kw):
 
 
 class _Attr:
-    def __init__(self, filename, mode, size=0, mtime=1.0):
+    def __init__(self, filename, mode, size=0, mtime=1.0, uid=1000, gid=1000):
         self.filename = filename
         self.st_mode = mode
         self.st_size = size
         self.st_mtime = mtime
+        self.st_uid = uid
+        self.st_gid = gid
 
 
 class MemSFTP:
@@ -40,8 +42,17 @@ class MemSFTP:
     def __init__(self):
         now = time.time()
         self.nodes: dict[str, dict] = {
-            "/": {"kind": "dir", "mode": stat.S_IFDIR | 0o755, "mtime": now, "data": b""},
+            "/": {
+                "kind": "dir",
+                "mode": stat.S_IFDIR | 0o755,
+                "mtime": now,
+                "data": b"",
+                "uid": 0,
+                "gid": 0,
+            },
         }
+        self.chmod_fail: set[str] = set()
+        self.chown_fail: set[str] = set()
         self.links: dict[str, str] = {}
 
     def _norm(self, path: str) -> str:
@@ -61,6 +72,8 @@ class MemSFTP:
                     "mode": stat.S_IFDIR | 0o755,
                     "mtime": time.time(),
                     "data": b"",
+                    "uid": 1000,
+                    "gid": 1000,
                 }
 
     def add_file(self, path: str, data: bytes) -> None:
@@ -71,6 +84,8 @@ class MemSFTP:
             "mode": stat.S_IFREG | 0o644,
             "mtime": time.time(),
             "data": bytes(data),
+            "uid": 1000,
+            "gid": 1000,
         }
 
     def add_link(self, path: str, target: str) -> None:
@@ -81,6 +96,8 @@ class MemSFTP:
             "mode": stat.S_IFLNK | 0o777,
             "mtime": time.time(),
             "data": b"",
+            "uid": 1000,
+            "gid": 1000,
         }
         self.links[path] = target
 
@@ -100,6 +117,8 @@ class MemSFTP:
             st_mode=n["mode"],
             st_size=len(n.get("data") or b""),
             st_mtime=n["mtime"],
+            st_uid=int(n.get("uid", 1000)),
+            st_gid=int(n.get("gid", 1000)),
             filename=posixpath.basename(path),
         )
 
@@ -119,6 +138,8 @@ class MemSFTP:
                         n["mode"],
                         len(n.get("data") or b""),
                         n["mtime"],
+                        uid=int(n.get("uid", 1000)),
+                        gid=int(n.get("gid", 1000)),
                     )
                 )
         return out
@@ -137,6 +158,8 @@ class MemSFTP:
                 "mode": stat.S_IFREG | 0o644,
                 "mtime": time.time(),
                 "data": bytearray(),
+                "uid": 1000,
+                "gid": 1000,
             }
             self.nodes[path] = node
 
@@ -184,6 +207,44 @@ class MemSFTP:
         self.nodes[dst] = self.nodes.pop(src)
         if src in self.links:
             self.links[dst] = self.links.pop(src)
+
+    def chmod(self, path: str, mode: int):
+        path = self._norm(path)
+        if path in self.chmod_fail:
+            raise PermissionError("denied")
+        n = self.nodes.get(path)
+        if not n:
+            raise FileNotFoundError(path)
+        ftype = n["mode"] & 0o170000
+        n["mode"] = ftype | (int(mode) & 0o7777)
+
+    def chown(self, path: str, uid: int, gid: int):
+        path = self._norm(path)
+        if path in self.chown_fail:
+            raise PermissionError("denied")
+        n = self.nodes.get(path)
+        if not n:
+            raise FileNotFoundError(path)
+        n["uid"] = int(uid)
+        n["gid"] = int(gid)
+
+
+class FakeSSH:
+    def __init__(self, uid="0", status=0):
+        self.cmds: list[str] = []
+        self.uid = uid
+        self.status = status
+
+    def exec_command(self, cmd, timeout=None):
+        self.cmds.append(cmd)
+        out = self.uid + "\n" if cmd.strip() == "id -u" else ""
+        stdin = SimpleNamespace()
+        stdout = SimpleNamespace(
+            read=lambda: out.encode(),
+            channel=SimpleNamespace(recv_exit_status=lambda: self.status),
+        )
+        stderr = SimpleNamespace(read=lambda: b"")
+        return stdin, stdout, stderr
 
 
 def test_jail_docker_host_fleet():
@@ -343,7 +404,383 @@ def test_upload_over_cap_rejected(monkeypatch):
     assert "/home/piherder/docker/big.bin" not in fs.nodes
 
 
+def test_put_file_progress_callback():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_dir("/home/piherder/docker")
+    seen = []
+    data = b"x" * (1024 * 64)
+    hf.put_file(s, "", "blob.bin", io.BytesIO(data), size=len(data), sftp=fs, progress=lambda n, t: seen.append((n, t)))
+    assert seen
+    assert seen[-1][0] == len(data)
+
+
+def test_sftp_pool_reuses_session(monkeypatch):
+    hf.drop_sftp_pool()
+    opens = {"n": 0}
+
+    class FakeClient:
+        def __init__(self):
+            opens["n"] += 1
+            self._sftp = MemSFTP()
+            self._sftp.add_dir("/home/piherder/docker")
+            self._alive = True
+
+        def open_sftp(self):
+            return self._sftp
+
+        def get_transport(self):
+            t = SimpleNamespace()
+            t.is_active = lambda: self._alive
+            t.set_keepalive = lambda *a, **k: None
+            return t
+
+        def close(self):
+            self._alive = False
+
+    monkeypatch.setattr(hf, "get_ssh_client", lambda server, identity=None: FakeClient())
+    s = _server(id=42)
+    hf.list_dir(s, "")
+    hf.list_dir(s, "")
+    assert opens["n"] == 1
+    hf.drop_sftp_pool()
+
+
 def test_haos_supported_and_files_supported():
     s = _server(os_type="haos", container_patch_enabled=False, ssh_username="root")
     assert hf.files_supported(s) is True
     assert hf.jail_path(s) == "/root"
+
+
+def test_looks_like_text():
+    assert hf.looks_like_text("config.yml", b"image: nginx\n")
+    assert hf.looks_like_text("notes.txt", b"hello")
+    assert not hf.looks_like_text("blob.bin", b"\x00\x01\x02")
+    assert not hf.looks_like_text("x.dat", b"\xff\xfe\x00\x01")
+
+
+def test_read_write_text():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/frigate/config.yml", b"ok: 1\n")
+    data = hf.read_text(s, "frigate/config.yml", sftp=fs)
+    assert data["text"] == "ok: 1\n"
+    assert data["name"] == "config.yml"
+    hf.write_text(s, "frigate/config.yml", "ok: 2\n", sftp=fs)
+    data2 = hf.read_text(s, "frigate/config.yml", sftp=fs)
+    assert data2["text"] == "ok: 2\n"
+
+
+def test_read_text_rejects_binary_and_large():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/a.bin", b"\x00\x01\x02")
+    with pytest.raises(hf.FilesError) as e:
+        hf.read_text(s, "a.bin", sftp=fs)
+    assert e.value.code == "binary"
+    fs.add_file("/home/piherder/docker/big.yml", b"x" * (hf.EDIT_MAX + 1))
+    with pytest.raises(hf.FilesError) as e2:
+        hf.read_text(s, "big.yml", sftp=fs)
+    assert e2.value.code == "too_large"
+
+
+def test_safe_zip_name_refuses_slip():
+    with pytest.raises(hf.FilesError) as e:
+        hf._safe_zip_name("../etc/passwd")
+    assert e.value.code == "escape"
+    with pytest.raises(hf.FilesError):
+        hf._safe_zip_name("/tmp/evil")
+    with pytest.raises(hf.FilesError):
+        hf._safe_zip_name("foo/../../etc")
+    assert hf._safe_zip_name("nested/hello.txt") == "nested/hello.txt"
+    assert hf._safe_zip_name("./a/b") == "a/b"
+
+
+def test_unzip_and_zip_roundtrip():
+    import zipfile
+
+    s = _server()
+    fs = MemSFTP()
+    fs.add_dir("/home/piherder/docker")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("nested/hello.txt", b"hi")
+        zf.writestr("sidecar.yml", b"x: 1\n")
+    fs.add_file("/home/piherder/docker/pack.zip", buf.getvalue())
+    out = hf.unzip_into(s, "pack.zip", "", sftp=fs)
+    assert out["files"] == 2
+    assert fs.nodes["/home/piherder/docker/nested/hello.txt"]["data"] == b"hi"
+    assert fs.nodes["/home/piherder/docker/sidecar.yml"]["data"] == b"x: 1\n"
+    fname, chunks = hf.build_zip(s, ["nested", "sidecar.yml"], sftp=fs)
+    assert fname.endswith(".zip")
+    raw = b"".join(chunks)
+    with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+        names = set(zf.namelist())
+        assert any(n.endswith("hello.txt") for n in names)
+        assert "sidecar.yml" in names
+        assert zf.read([n for n in names if n.endswith("hello.txt")][0]) == b"hi"
+
+
+def test_unzip_refuses_zip_slip():
+    import zipfile
+
+    s = _server()
+    fs = MemSFTP()
+    fs.add_dir("/home/piherder/docker")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("../etc/passwd", b"nope")
+    fs.add_file("/home/piherder/docker/bad.zip", buf.getvalue())
+    with pytest.raises(hf.FilesError) as e:
+        hf.unzip_into(s, "bad.zip", "", sftp=fs)
+    assert e.value.code == "escape"
+    assert "/etc/passwd" not in fs.nodes
+    assert "/home/piherder/etc/passwd" not in fs.nodes
+
+
+def test_remove_tree_deletes_folder():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/frigate/logs/a.log", b"x")
+    fs.add_file("/home/piherder/docker/frigate/config.yml", b"y")
+    out = hf.remove_tree(s, "frigate", sftp=fs)
+    assert out["files"] >= 2
+    assert "/home/piherder/docker/frigate" not in fs.nodes
+    assert "/home/piherder/docker/frigate/config.yml" not in fs.nodes
+    with pytest.raises(hf.FilesError) as e:
+        hf.remove_tree(s, "", sftp=fs)
+    assert e.value.code == "denied"
+
+
+def test_list_includes_mode_and_owner():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/a.yml", b"x")
+    listing = hf.list_dir(s, "", sftp=fs)
+    e = [x for x in listing["entries"] if x["name"] == "a.yml"][0]
+    assert e["mode_h"] == "644"
+    assert e["owner_h"] == "1000:1000"
+
+
+def test_parse_mode_and_names():
+    assert hf.parse_mode("644") == 0o644
+    assert hf.parse_mode("0755") == 0o755
+    with pytest.raises(hf.FilesError):
+        hf.parse_mode("999")
+    with pytest.raises(hf.FilesError):
+        hf.parse_mode("rwx")
+    assert hf.parse_id_name("www-data", kind="owner") == "www-data"
+    assert hf.parse_id_name("1000", kind="owner") == "1000"
+    with pytest.raises(hf.FilesError):
+        hf.parse_id_name("root;rm", kind="owner")
+    with pytest.raises(hf.FilesError):
+        hf.parse_id_name("../x", kind="group")
+
+
+def test_chmod_sftp_owned_file():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/a.yml", b"x")
+    out = hf.apply_perms(s, ["a.yml"], mode="600", sftp=fs)
+    assert out["changed"] == 1
+    assert stat.S_IMODE(fs.nodes["/home/piherder/docker/a.yml"]["mode"]) == 0o600
+
+
+def test_chown_requires_privileged():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/a.yml", b"x")
+    with pytest.raises(hf.FilesError) as e:
+        hf.apply_perms(s, ["a.yml"], owner="root", sftp=fs)
+    assert e.value.code == "privileged_forbidden"
+
+
+def test_chmod_denied_on_fleet_falls_through_to_hint():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/a.yml", b"x")
+    fs.chmod_fail.add("/home/piherder/docker/a.yml")
+    with pytest.raises(hf.FilesError) as e:
+        hf.apply_perms(s, ["a.yml"], mode="600", sftp=fs)
+    assert e.value.code == "denied"
+    assert "privileged" in e.value.message.lower()
+
+
+def test_privileged_chmod_uses_sudo_when_sftp_denied():
+    s = _server()
+    fs = MemSFTP()
+    rel = "home/piherder/docker/a.yml"
+    fs.add_file("/home/piherder/docker/a.yml", b"x")
+    fs.chmod_fail.add("/home/piherder/docker/a.yml")
+    ssh = FakeSSH(uid="1000")
+    ident = SimpleNamespace(username="deploy")
+    out = hf.apply_perms(
+        s,
+        [rel],
+        mode="640",
+        role="privileged",
+        identity=ident,
+        sftp=fs,
+        client=ssh,
+    )
+    assert out["sudo"] is True
+    joined = " ".join(ssh.cmds)
+    assert "sudo -n chmod 640 --" in joined
+    assert "/home/piherder/docker/a.yml" in joined
+
+
+def test_privileged_chown_named_user_uses_sudo():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/a.yml", b"x")
+    ssh = FakeSSH(uid="1000")
+    ident = SimpleNamespace(username="deploy")
+    out = hf.apply_perms(
+        s,
+        ["home/piherder/docker/a.yml"],
+        owner="www-data",
+        group="www-data",
+        role="privileged",
+        identity=ident,
+        sftp=fs,
+        client=ssh,
+    )
+    assert out["changed"] == 1
+    assert any("chown" in c and "www-data:www-data" in c for c in ssh.cmds)
+
+
+def test_chmod_numeric_chown_via_sftp():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/a.yml", b"x")
+    ident = SimpleNamespace(username="root")
+    out = hf.apply_perms(
+        s,
+        ["home/piherder/docker/a.yml"],
+        owner="0",
+        group="0",
+        role="privileged",
+        identity=ident,
+        sftp=fs,
+    )
+    assert out["changed"] == 1
+    assert fs.nodes["/home/piherder/docker/a.yml"]["uid"] == 0
+    assert fs.nodes["/home/piherder/docker/a.yml"]["gid"] == 0
+
+
+def test_chmod_refuses_jail_root():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_dir("/home/piherder/docker")
+    with pytest.raises(hf.FilesError) as e:
+        hf.apply_perms(s, ["."], mode="755", sftp=fs)
+    assert e.value.code == "denied"
+
+
+def test_chmod_recursive_folder():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/frigate/config.yml", b"x")
+    out = hf.apply_perms(s, ["frigate"], mode="750", recursive=True, sftp=fs)
+    assert out["changed"] >= 2
+    assert stat.S_IMODE(fs.nodes["/home/piherder/docker/frigate"]["mode"]) == 0o750
+    assert stat.S_IMODE(fs.nodes["/home/piherder/docker/frigate/config.yml"]["mode"]) == 0o750
+
+
+def test_search_names_under_folder():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/frigate/config.yml", b"x")
+    fs.add_file("/home/piherder/docker/frigate/logs/app.log", b"y")
+    fs.add_file("/home/piherder/docker/other.txt", b"z")
+    out = hf.search(s, "config", sftp=fs)
+    names = [e["name"] for e in out["entries"]]
+    assert "config.yml" in names
+    assert out["search"] is True
+    nested = hf.search(s, "app.log", rel="frigate", sftp=fs)
+    assert any(e["name"] == "app.log" for e in nested["entries"])
+    with pytest.raises(hf.FilesError):
+        hf.search(s, "", sftp=fs)
+
+
+def test_ensure_dir_and_nested_rel():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_dir("/home/piherder/docker")
+    out = hf.ensure_dir(s, "photos/2024", sftp=fs)
+    assert "/home/piherder/docker/photos/2024" in fs.nodes
+    assert out["created"] == 2
+    again = hf.ensure_dir(s, "photos/2024", sftp=fs)
+    assert again["created"] == 0
+    assert hf.parse_nested_rel("photos/2024/a.jpg") == ["photos", "2024", "a.jpg"]
+    with pytest.raises(hf.FilesError):
+        hf.parse_nested_rel("../etc/passwd")
+    with pytest.raises(hf.FilesError):
+        hf.parse_nested_rel("/tmp/evil")
+
+
+def test_move_across_folders():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/frigate/config.yml", b"x")
+    hf.ensure_dir(s, "archive", sftp=fs)
+    out = hf.move_many(s, ["frigate/config.yml"], "archive", sftp=fs)
+    assert out["moved"] == 1
+    assert "/home/piherder/docker/archive/config.yml" in fs.nodes
+    assert "/home/piherder/docker/frigate/config.yml" not in fs.nodes
+
+
+def test_move_into_self_refused():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/a/b/x.txt", b"x")
+    with pytest.raises(hf.FilesError) as e:
+        hf.move_many(s, ["a"], "a/b", sftp=fs)
+    assert e.value.code == "denied"
+
+
+def test_move_overwrite_file():
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/src/a.txt", b"new")
+    fs.add_file("/home/piherder/docker/dst/a.txt", b"old")
+    with pytest.raises(hf.FilesError) as e:
+        hf.move_many(s, ["src/a.txt"], "dst", sftp=fs)
+    assert e.value.code == "exists"
+    hf.move_many(s, ["src/a.txt"], "dst", overwrite=True, sftp=fs)
+    assert fs.nodes["/home/piherder/docker/dst/a.txt"]["data"] == b"new"
+
+
+def test_parse_getent_and_owner_names():
+    users = hf.parse_getent("pi:x:1000:1000:Pi:/home/pi:/bin/bash\nwww-data:x:33:33::/var/www:/usr/sbin/nologin\n")
+    assert users[1000] == "pi"
+    assert users[33] == "www-data"
+    groups = hf.parse_getent("pi:x:1000:\ndocker:x:995:pi\n")
+    uid, gid, owner, group, owner_h = hf._owner_fields(1000, 1000, users, groups)
+    assert owner == "pi"
+    assert group == "pi"
+    assert owner_h == "pi:pi"
+    _u, _g, owner2, group2, h2 = hf._owner_fields(33, 995, users, groups)
+    assert owner2 == "www-data"
+    assert group2 == "docker"
+    assert h2 == "www-data:docker"
+
+
+def test_zip_basename():
+    assert hf.zip_basename("backup") == "backup.zip"
+    assert hf.zip_basename("backup.ZIP") == "backup.ZIP"
+    assert hf.zip_basename(None, ["frigate/config.yml"]) == "config.yml.zip"
+    assert hf.zip_basename("", ["a", "b"]) == "files.zip"
+
+
+def test_save_zip_on_host():
+    import zipfile
+
+    s = _server()
+    fs = MemSFTP()
+    fs.add_file("/home/piherder/docker/frigate/config.yml", b"ok")
+    out = hf.save_zip(s, ["frigate"], "", "frigate-bak", sftp=fs)
+    assert out["name"] == "frigate-bak.zip"
+    raw = bytes(fs.nodes["/home/piherder/docker/frigate-bak.zip"]["data"])
+    with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+        assert any(n.endswith("config.yml") for n in zf.namelist())

@@ -84,7 +84,7 @@ main @ v1.2.0 (+ v1.2.x patches)
 | 14 | W-id depth | **Deep (signed 2026-08-19):** W-id1–9. Two roles only (`fleet` / `privileged`). Privileged console-only. Settings knob who may elevate (`admin` default, or `operator`). Privileged mint always re-prompts 2FA. Alembic `040_ssh_identities`. Dual-write `Server.ssh_*` as fleet cache. |
 | 2 | Host files kill switch | **`PIHERDER_HOST_FILES=false`** until **F** is complete enough to turn on; demo stays off either way |
 | 3 | Files jail | **Fleet:** docker_base if Docker on, else home; never `/`. **Privileged:** `/` minus `/proc` `/sys` `/dev` `/run`. **HAOS in** (SSH/SFTP). |
-| 4 | Files manager verbs | list / get / put / **mkdir** / **delete** (empty dir) / **rename** (same dir). chmod/zip/search/edit stay Cap. |
+| 4 | Files manager verbs | list / get / put / **mkdir** / **delete** (incl. recursive folder) / **rename** / **move** / **edit** / **zip** / **unzip** / **chmod** / **chown** / **search** (names) / **folder upload**. |
 | 5 | Insights freeze shape | **Revised 2026-08-19:** N2 is **Job/scan/console history** at `/reports` (backups, OS patches, LAN live, Docker deploys, console). Status portlets rejected. **N3** Cap |
 | 6 | Command audit | **Deep (signed 2026-08-19):** W-audit0–6. Option A PTY tap. Default **off**. Optional **require on every session**. Own Fernet table (`041`). Privileged warns when off, still allows. Demo never persists. |
 | 7 | Host mux (`screen`/`tmux`) | Stay Cap · low priority — do not start |
@@ -350,13 +350,13 @@ Console open → Connect as: [ fleet (default) ▾ | elevated ]
 
 Reuse, do **not** fork: Paramiko `open_sftp` + tmp+rename (`docker_versions.write_project_files`) · `expand_remote_path` · `backup_path_policy` (deny prefixes, no `..`, allow list) · dest-card + `FEATURE_META` nav · avatar size-cap pattern · console RBAC (operator+, viewer 403, demo kill switch) · `.env` redaction in the compose editor (`env_file_ui`).
 
-**Wanted (F Deep, signed 2026-08-19):** Operators drop a compose sidecar, a Frigate config, or pull a **large** log without leaving for `scp`. Manager verbs + Connect as… + API + 512 MiB streamed uploads. Not WinSCP-in-herder (no chmod/zip/search/edit).
+**Wanted (F Deep, signed 2026-08-19; edit/zip/chmod/search/move/folder-upload 2026-08-20):** Operators drop a compose sidecar, a Frigate config, or pull a **large** log without leaving for `scp`. Manager verbs + Connect as… + API + 512 MiB streamed uploads + in-page text edit + zip/unzip + chmod/chown + name search + move + folder upload. Not WinSCP-in-herder (no content grep / `docker cp`).
 
 | ID | Item | Notes |
 |----|------|--------|
 | F0 | **Discovery** (this capture) | Inventory above; pick jail, size cap, RBAC; decide Files dest-card vs Docker-only vs console accessory |
 | F1 | Shared confined SFTP helper | `list` / `stat` / `get` / `put` on one SSH session; resolve jail; reject `..`, NUL, symlink-escape; optional allow/deny prefixes (start from `backup_path_policy` + default OS denies) |
-| F2 | Host **Files** dest-card | `/servers/{id}/files` — breadcrumb + listing; download; upload + **progress**; **mkdir**; **rename**; **delete** empty dir. Pin/jump `FEATURE_META` (`files`). |
+| F2 | Host **Files** dest-card | `/servers/{id}/files` — explorer; download; upload + **progress**; **mkdir**; **rename** / **move**; **delete** (recursive); **edit**; **zip** / **unzip**; **chmod** / **chown**; **search**; folder upload. Pin/jump `FEATURE_META` (`files`). |
 | F3 | Jail | **Fleet:** docker_base if Docker on, else home; never `/`. **Privileged:** `/` minus virtual FS. **HAOS in**. |
 | F4 | Caps + streaming | Default **512 MiB** (`PIHERDER_HOST_FILES_MAX_BYTES`, ceiling 2 GiB). Stream O(chunk); upload progress bar; attachment download; no inline. |
 | F5 | RBAC / demo / audit | operator+; viewer 403; demo off. Audit `host_file_*` path + bytes + sha256, never body. |
@@ -376,7 +376,7 @@ Host: rpi5-4  →  dest card Files
     └─ [New folder…]  [Upload file…  progress]
 ```
 
-**Discovery exit criteria:** F0 review 2026-08-19: manager verbs (not list/get/put-only); HAOS in; privileged Connect as…; API `files`; 512 MiB + progress. Still reject `docker cp` / zmodem / chmod / zip / recursive delete at freeze.
+**Discovery exit criteria:** F0 review 2026-08-19: manager verbs (not list/get/put-only); HAOS in; privileged Connect as…; API `files`; 512 MiB + progress. **Promoted 2026-08-20:** in-page edit, zip/unzip, recursive delete, multi-select, chmod/chown, name search, move, folder upload. Still reject `docker cp` / zmodem.
 
 **Security notes:**
 
@@ -390,13 +390,10 @@ Host: rpi5-4  →  dest card Files
 
 | Defer | Why |
 |-------|-----|
-| chmod/chown, multi-select, folder zip, move across dirs | Product of its own; this freeze is list/get/put/mkdir/rename/delete-empty |
-| In-browser edit of arbitrary files | Compose / Dockerfile editor already exists; do not fork it |
 | Binary / image preview, media gallery | Download only |
-| Recursive tree + search | List one dir |
+| Content search (grep inside files) | Name search only |
 | Console drag-drop / zmodem / `scp` from xterm | Separate from PTY; high XSS/DoS surface |
 | `docker cp` / named-volume browser | Different trust + path model |
-| Recursive upload / unzip-on-host | Zip-slip; confined-archive lessons from herder restore |
 | Custom map icon pack (**M5**) | Adjacent upload, different store (`DATA_ROOT`) |
 | Cert PEM file-picker | Nice polish on existing paste form — not this stream |
 | Git-rich onboard (**Q**) | Already post-1.0 |
@@ -411,7 +408,7 @@ Host: rpi5-4  →  dest card Files
 |----------|---------|-----|
 | **Must** | **P** + **T1–T6** (slice 1 **Deep**) · **L Deep** (slice 3 — Servers + Docker + discovery) · **W-id Deep** (slice 4 — fleet + privileged + Connect as…) | Operator-owned security policy (full) + scale lists + least-priv/privileged connect-as |
 | **Should** | **W-cfg Deep** · **A** · **W-audit Deep** (slice 5) · **N2** `/reports` history (after **N0**) · **F Deep** host Files manager (after **F0** sign-off) | Console knobs + alerts + opt-in command audit + thin reporting + confined host file transfer |
-| **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-mux** (screen/tmux, low priority) · **F** chmod/zip/recursive-delete/`.env` step-up · **AC-fg** · ACME · branding · CSP nonces | Promote only if Must green |
+| **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-mux** (screen/tmux, low priority) · **F** `.env` extra step-up · **AC-fg** · ACME · branding · CSP nonces | Promote only if Must green |
 
 Success criteria:
 
@@ -477,7 +474,7 @@ Success criteria:
 - Guaranteeing redaction catches every secret typed at a shell  
 - Auto-enumerating all OS users on a host as “identities”  
 - **Full custom BI** (arbitrary SQL/PromQL, multi-page analytics, Grafana replacement) — **N** is discover + thin slice only  
-- **Full remote file manager** (WinSCP clone, `docker cp`, console zmodem, unzip-on-host) — **F** is discover + confined list/get/put only  
+- **Full remote file manager** (WinSCP clone, `docker cp`, console zmodem) — **F** is confined SFTP in the jail (edit/zip/unzip/chmod in; `docker cp` out)  
 - **Service migration** (move a compose project host→host with dataset + DNS + TLS/Kuma) — **→ v1.4** ([PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md))  
 - Weakening public **demo** into a multi-user admin sandbox  
 
@@ -508,6 +505,9 @@ Success criteria:
 | 2026-08-19 | **N0 signed:** Reports lives at `/reports` (not on `/`). Status portlets **rejected**. Grafana never sees dest size, patch rates, LAN census, Docker deploys, or console time. |
 | 2026-08-19 | **Slice 7 N2/N4:** `/reports` history: backups, OS patches, LAN live, Docker deploys/patches, console sessions (7/30/90d). Status portlets not shown. Docs/wiki aligned. Next after test: review plan → **F0**. |
 | 2026-08-19 | **F0 review → F Deep:** manager verbs (mkdir/delete/rename), HAOS in, privileged Connect as…, API `files` (fleet), 512 MiB streamed uploads + progress. Flag still off. |
+| 2026-08-20 | **F promoted:** in-page text edit (compose-editor feel, 512 KiB), zip of files/folders, unzip with zip-slip refusal, multi-select, recursive delete. |
+| 2026-08-20 | **F chmod/chown:** privileged Files; SFTP first; `sudo -n` if that identity is not root. Fleet may chmod files it owns. |
+| 2026-08-20 | **F search / move / folder upload:** name search from current folder; SFTP move across dirs; webkitdirectory + drag-drop tree (zip-slip refused). |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 
