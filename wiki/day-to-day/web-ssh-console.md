@@ -8,7 +8,7 @@ Optional **in-browser SSH terminal** to a managed host. The private key stays on
 
 **Train:** v1.2 Stream **W** · security bar is intentionally high.
 
-**Not GNU `screen` / `tmux` by default.** Each console is a direct SSH PTY. Soft resume parks on the herder, not on the host. You can still run `screen`/`tmux` yourself if installed. Optional product default mux is a later, low-priority idea ([PLAN_v1.3.0 W-mux](https://github.com/bjorngluck/piherder/blob/v1.2.0-dev/docs/PLAN_v1.3.0.md)).
+**Not GNU `screen` / `tmux` by default.** Each console is a direct SSH PTY. Soft resume parks on the herder, not on the host. You can still run `screen`/`tmux` yourself if installed. Optional product default mux is a later, low-priority idea ([PLAN_v1.3.0 W-mux](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/PLAN_v1.3.0.md)).
 
 ## Why it exists
 
@@ -16,10 +16,55 @@ Operators on a tablet or locked-down PC need a shell without exporting the herde
 
 ## Who can use it
 
-| Role | Console |
-|------|---------|
-| **viewer** | No (except **public demo** — see below) |
-| **operator / admin** | Yes (when flag on + 2FA enrolled) |
+| Role | Fleet console | Privileged **Connect as…** |
+|------|---------------|----------------------------|
+| **viewer** | No (except **public demo** — see below) | No |
+| **operator** | Yes (flag on + 2FA enrolled) | Only if Settings → Console allows **operator and admin** |
+| **admin** | Yes | Yes (default). Extra confirm. 2FA again only if the short proof expired |
+
+### Connect as… (v1.3)
+
+Each host has a **fleet** identity (jobs + default shell) and may add a **privileged** identity (break-glass **console** and **[Files](host-files.md)**).
+
+```text
+Host: lab-core
+  ├─ fleet        user=piherder         ← jobs + default console
+  └─ privileged   user=piherder-admin   ← Connect as… only
+```
+
+- Picker is on the same bar as Passkey/TOTP (and **+ Shell** after unlock).
+- Pick **Privileged · user**, complete 2FA if the bar still shows it, then **+ Shell**. Optional reason appears next to the picker until that shell opens (then it hides; it is stored on the audit row).
+- After 2FA the Passkey/TOTP controls hide. They only return if the short privileged proof expired (~90s).
+- The shell tab is labeled `username · priv`.
+- Jobs, Docker, backups, and host-deps always stay on **fleet**. Privileged is never the default console identity. **Files** defaults to fleet and can **Connect as…** privileged (same 2FA grant cookie).
+- Demo: simulated fleet shell only — privileged mint is refused.
+- Leave privileged unset if you do not need break-glass. XSS on the herder origin is already shell-equivalent; a privileged key makes it root-equivalent. Keep `PIHERDER_SSH_CONSOLE` off when unused.
+
+Add / rotate / test privileged under **SSH access** on the server page. That panel shows **Fleet public key** and **Privileged public key** as separate boxes — copy the privileged line into `piherder-admin`’s `authorized_keys` (or use **Setup script**). Download the **setup script** and run it **on the host** (PiHerder will not auto-provision a root-capable user). HAOS: skip.
+
+Who may elevate: **Settings → Console → Who may open a privileged console** (`admin` default, or `operator`). Env lock: `PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE`.
+
+### Command audit (v1.3)
+
+Optional. Default **off**. Settings → Console:
+
+| Mode | What is stored |
+|------|----------------|
+| Off | Session open/close only (same as 1.2) |
+| Commands only | Reconstructed command lines (best-effort) |
+| Commands + truncated output | Commands plus up to 2 KiB of following output each |
+
+**Require on every session** records commands on all live shells even if Off is selected (treated as commands). A shell that cannot start recording is refused. Demo still never stores transcripts.
+
+When recording, the console chrome shows **command audit on**. If audit is off and you pick privileged **Connect as…**, a warning notes that the break-glass session will not record commands (it still opens).
+
+After the shell ends: **Audit** → the close event → timeline, or **Open full** at `/audit/console/{id}` and download `.txt`. **operator+** only. Viewers see that a transcript existed, not the body. Search does not index the shell text.
+
+Redaction strips common `Password:` prompts and some token/PEM patterns. It is **heuristic and imperfect** — never treat a transcript as secret-free. `read -s`, editors, `sudo`, and secrets pasted as arguments can still land in the log. Not video, not `script(1)`, not dual-control. Interactive programs (vim, htop, tmux) will not look like a clean command list. Leave audit **off** unless you accept that residual.
+
+Retention (default 14 days) drops the encrypted body and keeps counts. Full herder DR (Postgres + master key) holds bodies; JSON config-only backups skip them.
+
+Env locks: `PIHERDER_SSH_CONSOLE_AUDIT_MODE`, `PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED`, `PIHERDER_SSH_CONSOLE_AUDIT_RETENTION_DAYS`. Compose does not inject defaults.
 
 ### Public demo (`PIHERDER_DEMO_MODE`)
 
@@ -117,7 +162,7 @@ Path completion still depends on the **remote SSH user’s** home (least-priv `p
 
 | Control | Behaviour |
 |---------|-----------|
-| Kill switch | `PIHERDER_SSH_CONSOLE=false` by default |
+| Kill switch | `PIHERDER_SSH_CONSOLE=false` by default (compose / env only — not a Settings checkbox) |
 | In-app only | Same-origin mint (Origin/Referer); cross-site rejected; CSP `frame-ancestors 'self'` / `frame-src 'self'` for same-origin popup iframe only |
 | No ticket in URL | Ticket in the **first WebSocket message** only |
 | Single-use open ticket | Cannot mint a second WS with the same ticket |
@@ -126,11 +171,11 @@ Path completion still depends on the **remote SSH user’s** home (least-priv `p
 | Session binding | Login **`session_version`** — logout / password change / admin session revoke kills shells |
 | IP binding | Default on; resume may allow IP change if **device** cookie still matches (mobile networks) |
 | Device binding | HttpOnly **`console_device`** cookie |
-| Continuous revalidation | Every ~10s while attached |
+| Continuous revalidation | Default every 10s while attached (Settings → Console, 5–60s) |
 | Fleet 2FA grant | One step-up for all hosts; UI re-prompts when the cookie expires |
 | 2FA methods | **Passkey preferred**; TOTP app OK; **backup codes rejected by default** |
 | CSP | Compiled Tailwind (no `unsafe-eval`); xterm under `/static/vendor/xterm/`; `connect-src` is `'self'` + public origin / its `wss:` only |
-| Limits | Concurrent + idle + max session; PEM never in browser |
+| Limits | Concurrent + idle + max session from **Settings → Console**; PEM never in browser |
 
 **Residual risk:** XSS on the PiHerder origin can act as the logged-in user — **and is shell-equivalent when this flag is on**. Prefer HTTPS; leave the flag off when unused. Host SSH uses the **pinned host key** (same TOFU as Test connection).
 
@@ -144,7 +189,7 @@ When the browser suspends the tab or drops the WebSocket:
 4. Resume is **not** attempted while a multi-host iframe is the inactive tab (avoids burning the resume token).  
 5. Still ends on **idle** / **max session** / explicit close / logout.
 
-Optional hard cap on park window: `PIHERDER_SSH_CONSOLE_HOLD_SEC` (default **0** = until idle/max only).
+Optional hard cap on park window: **Settings → Console → Park hold** (default **0** = until idle/max only). Env `PIHERDER_SSH_CONSOLE_HOLD_SEC` locks the same knob when set.
 
 ### 2FA recommendations
 
@@ -152,12 +197,9 @@ Optional hard cap on park window: `PIHERDER_SSH_CONSOLE_HOLD_SEC` (default **0**
 |--------|---------|
 | **Passkey (WebAuthn)** | Preferred |
 | **TOTP app** | Accepted |
-| **Backup codes** | **Not accepted** unless `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES=true` |
+| **Backup codes** | **Not accepted** unless Settings → Security allows them (or `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES=true` locks that on) |
 
-```bash
-PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY=true          # if passkeys enrolled, TOTP alone fails
-PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL=true  # re-2FA every New shell (no fleet grant)
-```
+Tune in **Settings → Security** (prefer / require passkey, every-new-shell 2FA, backup codes). Set the matching `PIHERDER_SSH_CONSOLE_*` env only to **lock** a value.
 
 ---
 
@@ -170,30 +212,38 @@ PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL=true  # re-2FA every New shell (no 
 | **Close shell (✕)** | End that PTY only (`bye`) |
 | **Lock** / **Aa → Lock step-up** | Clear fleet grant; next shell needs 2FA again |
 
-Default max **4** shells per user (`PIHERDER_SSH_CONSOLE_MAX_PER_USER`), shared across all hosts.
+Default max **4** shells per user (Settings → Console, or `PIHERDER_SSH_CONSOLE_MAX_PER_USER` if set), shared across all hosts.
 
 ---
 
-## Environment variables
+## Settings vs environment
+
+**Settings → Console** (admin) owns idle timeout, max session, concurrency, ticket TTL, park hold, bind IP/device, revalidate interval, and scrollback. **Settings → Security** owns the grant window and which 2FA factors count.
+
+**Env wins** when a variable is set and non-empty (air-gap lock). The field shows as read-only (“Locked by environment”). Blank env does not lock.
+
+**Master enable stays env-only:** `PIHERDER_SSH_CONSOLE` (default **off**). Public demo does not expose these knobs as a writable multi-tenant shell farm (Settings writes 403).
+
+Lowering concurrency does **not** kick open or parked shells — the next new shell is denied.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `PIHERDER_SSH_CONSOLE` | `false` | Master enable |
-| `PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL` | `false` | 2FA every New shell (no fleet grant) |
-| `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES` | `false` | Allow backup codes for step-up |
-| `PIHERDER_SSH_CONSOLE_PREFER_PASSKEY` | `true` | UI promotes passkey |
-| `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY` | `false` | Passkey only if enrolled |
-| `PIHERDER_SSH_CONSOLE_BIND_IP` | `true` | Bind ticket/shell to client IP |
-| `PIHERDER_SSH_CONSOLE_BIND_DEVICE` | `true` | Bind to `console_device` cookie |
-| `PIHERDER_SSH_CONSOLE_REVALIDATE_SEC` | `10` | Continuous check interval |
-| `PIHERDER_SSH_CONSOLE_TICKET_SEC` | `60` | Open-ticket TTL |
-| `PIHERDER_SSH_CONSOLE_IDLE_SEC` | `900` | Idle disconnect (also ends parked shells) |
-| `PIHERDER_SSH_CONSOLE_MAX_SEC` | `3600` | Max session length |
-| `PIHERDER_SSH_CONSOLE_MAX_PER_USER` | `4` | Concurrent shells / user (all hosts) |
-| `PIHERDER_SSH_CONSOLE_MAX_GLOBAL` | `20` | Instance-wide concurrent shells |
-| `PIHERDER_SSH_CONSOLE_SCROLLBACK` | `2000` | Default xterm scrollback lines |
-| `PIHERDER_SSH_CONSOLE_HOLD_SEC` | `0` | Max park after WS drop (`0` = idle/max only) |
-| `PIHERDER_SSH_CONSOLE_GRANT_MIN` | `10` | Fleet-wide multi-host grant after 2FA (minutes) |
+| `PIHERDER_SSH_CONSOLE` | `false` | Master enable (not a Settings checkbox) |
+| `PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL` | `false` | 2FA every New shell (no fleet grant) — also Settings → Security |
+| `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES` | `false` | Allow backup codes for step-up — also Settings |
+| `PIHERDER_SSH_CONSOLE_PREFER_PASSKEY` | `true` | UI promotes passkey — also Settings |
+| `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY` | `false` | Passkey only if enrolled — also Settings |
+| `PIHERDER_SSH_CONSOLE_BIND_IP` | `true` | Bind ticket/shell to client IP — also Settings → Console |
+| `PIHERDER_SSH_CONSOLE_BIND_DEVICE` | `true` | Bind to `console_device` cookie — also Settings |
+| `PIHERDER_SSH_CONSOLE_REVALIDATE_SEC` | `10` | Continuous check interval (5–60) — also Settings |
+| `PIHERDER_SSH_CONSOLE_TICKET_SEC` | `60` | Open-ticket TTL (15–300) — also Settings |
+| `PIHERDER_SSH_CONSOLE_IDLE_SEC` | `900` | Idle disconnect (60–28800); also ends parked shells — also Settings |
+| `PIHERDER_SSH_CONSOLE_MAX_SEC` | `3600` | Max session length (120–43200, ≥ idle) — also Settings |
+| `PIHERDER_SSH_CONSOLE_MAX_PER_USER` | `4` | Concurrent shells / user (1–16) — also Settings |
+| `PIHERDER_SSH_CONSOLE_MAX_GLOBAL` | `20` | Instance-wide concurrent shells (1–64, ≥ per-user) — also Settings |
+| `PIHERDER_SSH_CONSOLE_SCROLLBACK` | `2000` | Default xterm scrollback lines — also Settings |
+| `PIHERDER_SSH_CONSOLE_HOLD_SEC` | `0` | Max park after WS drop (`0` = idle/max only; else 30–3600) — also Settings |
+| `PIHERDER_SSH_CONSOLE_GRANT_MIN` | `10` | Fleet-wide multi-host grant after 2FA (minutes) — also Settings → Security |
 
 Also: keep **CSP** on in production (`PIHERDER_CSP=true`). Tailwind is compiled CSS — no Play CDN / no `unsafe-eval`.
 
@@ -214,3 +264,4 @@ Full catalog: [Environment reference](../operations/env-reference.md) · sample:
 - [Environment reference](../operations/env-reference.md)  
 - [SECURITY.md](https://github.com/bjorngluck/piherder/blob/main/SECURITY.md)  
 - [Add a server](add-server.md) (SSH key first)  
+- [Reports](reports.md) — console sessions, privileged opens, duration (from Audit)  

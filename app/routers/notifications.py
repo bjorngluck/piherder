@@ -1,4 +1,5 @@
 from typing import Optional
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -7,6 +8,8 @@ from sqlmodel import Session, select
 from ..database import get_session
 from ..models import User, Server, Notification
 from ..security.auth import get_current_user
+from ..services import alert_policy as apol
+from ..services import list_query as lq
 from ..services import notifications as notif_svc
 from .. import templates as templates_mod
 
@@ -21,6 +24,8 @@ async def notifications_page(
     status: str = "open",
     type: str = "",
     server_id: Optional[str] = None,
+    severity: str = "",
+    category: str = "",
 ):
     sid = None
     if server_id and server_id.strip():
@@ -30,13 +35,27 @@ async def notifications_page(
             sid = None
     status_filter = status if status in ("open", "dismissed", "resolved", "all") else "open"
     st = None if status_filter == "all" else status_filter
-    rows = notif_svc.list_notifications(
+    sev = (severity or "").strip().lower()
+    if sev not in apol.SEVERITIES:
+        sev = ""
+    cat = (category or "").strip()
+    valid_cats = set(apol.CATEGORY_IDS) | {"other"}
+    if cat not in valid_cats:
+        cat = ""
+    type_f = (type or "").strip()
+    per_page = lq.per_page_from_request(request)
+    page = lq.page_from_request(request)
+    matched = notif_svc.list_notifications(
         session,
         status=st,
-        type=type or None,
+        type=type_f or None,
         server_id=sid,
-        limit=150,
+        severity=sev or None,
+        category=cat or None,
+        limit=5000,
     )
+    page_rows, total, total_pages, page = lq.page_slice(matched, page, per_page)
+    rows = page_rows
     servers = list(session.exec(select(Server).order_by(Server.name)).all())
     server_map = {s.id: s.name for s in servers}
     items = []
@@ -91,15 +110,35 @@ async def notifications_page(
     except Exception:
         pulse["open"] = open_n
         pulse["total"] = open_n
+    by_category: dict = {}
+    for n in matched:
+        t = n.type or "other"
+        pulse["by_type"][t] = pulse["by_type"].get(t, 0) + 1
+        c = apol.category_of(n.type)
+        by_category[c] = by_category.get(c, 0) + 1
+    pulse["by_category"] = by_category
     for n in rows:
         d = n.model_dump()
         d["server_name"] = server_map.get(n.server_id) if n.server_id else None
+        d["category"] = apol.category_of(n.type)
+        d["type_label"] = apol.label_of(n.type)
         items.append(d)
         pulse["shown"] += 1
-        t = n.type or "other"
-        pulse["by_type"][t] = pulse["by_type"].get(t, 0) + 1
 
-    return templates_mod.templates.TemplateResponse(
+    pager = lq.pager(
+        page=page,
+        per_page=per_page,
+        total=total,
+        total_pages=total_pages,
+        extra={
+            "status": status_filter,
+            "type": type_f,
+            "server_id": sid or "",
+            "severity": sev,
+            "category": cat,
+        },
+    )
+    resp = templates_mod.templates.TemplateResponse(
         request=request,
         name="notifications.html",
         context={
@@ -108,12 +147,18 @@ async def notifications_page(
             "items": items,
             "servers": servers,
             "status": status_filter,
-            "type_filter": type,
+            "type_filter": type_f,
             "server_id": sid,
+            "severity_filter": sev,
+            "category_filter": cat,
             "open_count": open_n,
             "pulse": pulse,
+            "catalog_types": apol.CATALOG,
+            "alert_categories": apol.CATEGORIES,
+            **pager,
         },
     )
+    return lq.attach_per_page_cookie(resp, per_page)
 
 
 @router.get("/notifications/count")
@@ -167,3 +212,49 @@ async def dismiss_all(
 ):
     notif_svc.dismiss_all(session, user)
     return RedirectResponse("/notifications", status_code=303)
+
+
+@router.post("/notifications/dismiss-matching")
+async def dismiss_matching(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    status: str = "open",
+    type: str = "",
+    server_id: Optional[str] = None,
+    severity: str = "",
+    category: str = "",
+):
+    del status  # matching bulk is always open
+    sid = None
+    if server_id and str(server_id).strip():
+        try:
+            sid = int(server_id)
+        except ValueError:
+            sid = None
+    sev = (severity or "").strip().lower()
+    if sev not in apol.SEVERITIES:
+        sev = ""
+    cat = (category or "").strip()
+    n = notif_svc.dismiss_matching(
+        session,
+        user,
+        type=(type or "").strip() or None,
+        server_id=sid,
+        severity=sev or None,
+        category=cat or None,
+    )
+    q = urlencode(
+        {
+            k: v
+            for k, v in {
+                "dismissed": "1",
+                "type": type or "",
+                "server_id": sid or "",
+                "severity": sev,
+                "category": cat,
+                "n": n,
+            }.items()
+            if v not in ("", None)
+        }
+    )
+    return RedirectResponse(f"/notifications?{q}" if q else "/notifications", status_code=303)

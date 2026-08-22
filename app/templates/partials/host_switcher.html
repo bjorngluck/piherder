@@ -11,6 +11,7 @@
 {% if host_feature == 'backups' %}{% set _suffix = '/backups' %}
 {% elif host_feature == 'docker' %}{% set _suffix = '/docker' %}
 {% elif host_feature == 'services' %}{% set _suffix = '/services' %}
+{% elif host_feature == 'files' %}{% set _suffix = '/files' %}
 {% endif %}
 
 <div id="host-switcher-modal"

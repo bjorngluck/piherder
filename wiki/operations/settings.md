@@ -2,7 +2,7 @@
 
 ## What this is
 
-**Settings** is the admin control plane for the **instance**: timezone, security policy, **SSO / OIDC**, fleet update-check defaults, **stale data cleanup**, **Alerts** (webhook + SMTP), PiHerder self-backup, stack Status, and API tokens.
+**Settings** is the admin control plane for the **instance**: timezone, security policy, **console limits**, **SSO / OIDC**, fleet update-check defaults, **stale data cleanup**, **Alerts** (policy + webhook + SMTP), PiHerder self-backup, stack Status, and API tokens.
 
 **Where:** top nav **Settings** → `/herder-backups` (tabs on one page; legacy path kept for bookmarks).
 
@@ -10,7 +10,7 @@
 
 Day-to-day fleet work lives on Servers / Jobs / Catalog. Settings keeps **policy and DR** in one place so operators are not hunting for “where do I force 2FA?” or “where is the herder backup?”
 
-Settings is **admin-oriented** for stack and policy; operators still use Account for self-service. **Timezone, security policy, fleet defaults, stale data cleanup, PiHerder self-backup/restore, Status, and API tokens** require **admin** (UI tabs and POST routes). Non-admins see a short notice on General only.
+Settings is **admin-oriented** for stack and policy; operators still use Account for self-service. **Timezone, security policy, console limits, fleet defaults, stale data cleanup, PiHerder self-backup/restore, Status, and API tokens** require **admin** (UI tabs and POST routes). Non-admins see a short notice on General only.
 
 The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-style tabs under the hero. Switching tabs is **client-side** (URL `?tab=` updates without a full reload); the hero title, caption, and viz follow the active tab.
 
@@ -19,12 +19,13 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 ## End-to-end: harden a new instance
 
 1. **General** → set app **timezone** (Audit/Jobs clocks).  
-2. **General** → enable **force 2FA** if everyone should enrol.  
-3. Optional **General → SSO / OpenID Connect** when you have a BYO IdP — [SSO guide](../account-security/sso-oidc.md).  
-4. **PiHerder backup** → run once + schedule; store archive + master key offline.  
-5. **Status** → Check now until green.  
-6. Optional **Alerts** (webhook + SMTP) for outbound notifications and password recovery.  
-7. Optional **API** tokens for n8n/HA only if needed.  
+2. **General** → **Security policy**: password rules, who must enrol 2FA (optional grace 0–60 days), step-up windows.  
+3. **General** → **Console**: idle / max session, concurrency, ticket, park hold, bind, scrollback (kill switch stays `PIHERDER_SSH_CONSOLE`). **General** → **Files**: transfer cap (default 512 MiB, ceiling 32 GiB). Kill switch stays env `PIHERDER_HOST_FILES` ([Host Files](../day-to-day/host-files.md)). Privileged Files uses the same “who may elevate” knob as the console.  
+4. Optional **General → SSO / OpenID Connect** when you have a BYO IdP — [SSO guide](../account-security/sso-oidc.md).  
+5. **PiHerder backup** → run once + schedule; store archive + master key offline.  
+6. **Status** → Check now until green.  
+7. Optional **Alerts** — alert policy (mute / severity / debounce), webhook + SMTP, password recovery.  
+8. Optional **API** tokens for n8n/HA only if needed.  
 
 ---
 
@@ -32,8 +33,8 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 | Tab | Purpose |
 |-----|---------|
-| **General** | App timezone, security policy (force 2FA), **SSO / OIDC**, and **Stale data cleanup** |
-| **Alerts** | Outbound **webhook** + **SMTP** (alert mail, test send, forgot-password) — [details](alerts-email-webhooks.md) |
+| **General** | Timezone (inline) plus a **hub** of summary cards — Security, Console, **Files** (transfer cap), SSO, Cleanup. **Edit** opens the full form in a modal |
+| **Alerts** | **Alert policy** (per-category severity / mute / debounce) + outbound **webhook** + **SMTP** — [details](alerts-email-webhooks.md) |
 | **Fleet defaults** | Global OS / container update-check defaults (optional apply to all hosts) |
 | **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)) |
 | **Status** | Stack health: web, DB, Redis, Celery, scheduler, disk ([Status](status.md)) — admin |
@@ -58,9 +59,70 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 Cron fields across Settings (cleanup, fleet defaults, PiHerder backup) and host feature schedules show a short English line under the expression (e.g. “Daily at 04:30”) plus common presets where a select is offered. The stored value remains standard 5-field cron in the app timezone.
 
+### General tab — hub + modals
+
+Timezone stays on the page (hero clock). **Security policy**, **Console**, **Files**, **SSO**, and **Stale data cleanup** are **summary cards** (one line of live state) with **Edit**. The full form opens in a modal — same POST URLs as before. Bookmarks still work: `?tab=general#settings-console` opens the Console modal. On a phone, Edit is a **full-height sheet**: title and Save stay put, only the form body scrolls.
+
+<figure class="ph-figure" markdown>
+  ![Settings General hub](../assets/screenshots/settings-hub.png)
+  <figcaption>Settings → General — summary cards (Security, Console, Files, SSO, Cleanup) plus timezone.</figcaption>
+</figure>
+
+**Alerts → Alert policy** uses the same pattern (summary + Edit modal). Webhook and SMTP stay on the Alerts tab.
+
 ### General tab — timezone card
 
 The hero shows a **timezone identity card** (not a city name jammed into the orb): continent badge, city, `UTC±offset`, local clock, and full IANA id (e.g. `Africa/Johannesburg`).
+
+### Security policy {#security-policy}
+
+**Admin-only.** Password rules, who must enrol 2FA (off / admins / operators+ / everyone), grace **0–60** days, step-up windows (account / secrets / **console grant**), allowed factors, and the IdP-MFA login skip (default off). See [2FA](../account-security/two-factor.md).
+
+<figure class="ph-figure" markdown>
+  ![Settings Security](../assets/screenshots/settings-security.png)
+  <figcaption>Settings → General → Security — password rules, force-2FA scope, grace, step-up windows.</figcaption>
+</figure>
+
+### Console {#console}
+
+**Admin-only.** **Available from v1.3.** Timeouts and session limits for the optional [web SSH console](../day-to-day/web-ssh-console.md).
+
+<figure class="ph-figure" markdown>
+  ![Settings Console](../assets/screenshots/settings-console.png)
+  <figcaption>Settings → General → Console — idle / slots, who may elevate, command audit (default off).</figcaption>
+</figure>
+
+| Setting | Default | Range |
+|---------|---------|--------|
+| Idle timeout | 900s (15 min) | 60–28800 (8h). Also ends parked shells |
+| Max session | 3600s (1h) | 120–43200 (12h), forced ≥ idle |
+| Max shells per user | 4 | 1–16 (all hosts, including parked) |
+| Max shells instance-wide | 20 | 1–64, forced ≥ per-user |
+| Open-ticket TTL | 60s | 15–300 |
+| Park hold after WS drop | 0 | 0 = until idle/max; else 30–3600 |
+| Revalidate interval | 10s | 5–60 |
+| Bind to client IP | on | Off only if mobile NAT breaks reconnects |
+| Bind to device cookie | on | HttpOnly `console_device` |
+| xterm scrollback | 2000 lines | 500–50000 |
+| Who may open a privileged console | Admin only | Admin only, or operator and admin. Fleet shells stay operator+. Privileged always re-prompts 2FA. Env lock: `PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE` |
+| Command audit | Off | Off · Commands only · Commands + truncated output. May capture secrets typed at the prompt; redaction is heuristic. Viewers cannot read transcripts. Demo never stores. Env: `PIHERDER_SSH_CONSOLE_AUDIT_MODE` |
+| Require on every session | Off | When on, live shells always record commands (Off is ignored) and refuse to open if recording cannot start. Env: `PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED` |
+| Transcript retention | 14 days | 1–90. Drops the encrypted body; the row still shows that a transcript existed. Env: `PIHERDER_SSH_CONSOLE_AUDIT_RETENTION_DAYS` |
+
+The **master enable** is still compose-only: `PIHERDER_SSH_CONSOLE` (default off). 2FA factors and the grant window stay on **Security policy** (two forms — do not move those checkboxes here).
+
+A non-empty env var **locks** that knob (field shows read-only). Bundled compose does **not** inject defaults for these, or Settings cannot apply. Public demo **403s** writes. Lowering concurrency does **not** kick open shells.
+
+Audit: `console_policy_changed`.
+
+### Files {#files}
+
+**Admin-only.** Transfer cap for the optional [Host Files](../day-to-day/host-files.md) manager (default **512 MiB**, ceiling **32 GiB**). The kill switch stays env `PIHERDER_HOST_FILES`. A non-empty `PIHERDER_HOST_FILES_MAX_BYTES` **locks** the cap.
+
+<figure class="ph-figure" markdown>
+  ![Settings Files](../assets/screenshots/settings-files.png)
+  <figcaption>Settings → General → Files — transfer cap (kill switch is compose env).</figcaption>
+</figure>
 
 ### Stale data cleanup {#stale-data-cleanup}
 
@@ -75,6 +137,8 @@ The hero shows a **timezone identity card** (not a city name jammed into the orb
 
 **Run now** enqueues Job type `stale_data_cleanup` (preview counts in the card). Admin-only. Removing a **server** still **keeps** unlinked Jobs/Audit by default — time purge is the bulk growth control ([Remove a server](../day-to-day/remove-server.md)).
 
+[Reports](../day-to-day/reports.md) reads these same rows. Purging Jobs shortens backup / OS / Docker history; purging Audit shortens console sessions; purging nmap runs shortens LAN live.
+
 <figure class="ph-figure" markdown>
   ![Stale data cleanup](../assets/screenshots/settings-stale-cleanup.png)
   <figcaption>Settings → General → Stale data cleanup — opt-in Jobs / Audit / nmap retention.</figcaption>
@@ -87,17 +151,19 @@ The hero shows a **timezone identity card** (not a city name jammed into the orb
 | Is Redis/Celery healthy? | Settings → **Status** → Check now |
 | Nightly herder backup | Settings → **PiHerder backup** → schedule + path |
 | Force everyone onto 2FA | Settings → **General** → security policy |
+| Console idle / max shells | Settings → **General** → Console · [web SSH](../day-to-day/web-ssh-console.md) |
 | Connect Authentik / Keycloak / Entra | Settings → **General** → SSO · [SSO / OIDC](../account-security/sso-oidc.md) |
 | Trim old Jobs / Audit | Settings → **General** → Stale data cleanup |
 | Times show SAST / local | Settings → **General** → timezone |
 | n8n / HA automation | Settings → **API** · [API](api-tokens.md) |
-| Webhook / SMTP alerts | Settings → **Alerts** · [Alerts](alerts-email-webhooks.md) |
+| Alert policy / webhook / SMTP | Settings → **Alerts** · [Alerts](alerts-email-webhooks.md) |
 | Forgot password on login | Settings → **Alerts** (SMTP + toggle) · [Alerts](alerts-email-webhooks.md) |
 
 ## Not under Settings
 
 | Feature | Where |
 |---------|--------|
+| Reports (backup / patch / LAN / Docker / console history) | Nav **Reports** (`/reports`) |
 | Catalog (integrations, certs, templates, network) | Nav **Catalog** |
 | Users | Avatar → **Users** (admin) |
 | Account / 2FA / SSO link / push | Avatar → **Account** |

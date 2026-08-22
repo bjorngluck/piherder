@@ -72,7 +72,7 @@ A second start reuses the existing job (UI follows it; REST **409** with `alread
 ### Fleet Jobs UI
 
 - **Ops hero** at the top: dual-line pulse (running / queue / ok / fail + type chips) and app timezone caption  
-- Filters: server, status, type, **date range** with **7d / 30d / 90d / Clear** presets, per-page  
+- Filters: server, status, type, **date range** with **7d / 30d / 90d / Clear** presets, per-page **10 / 20 / 50 / 100** (cookie `ph_per_page` shared with Servers / Docker / discovery)  
 - Date presets use the **Settings timezone** calendar day (not the browser’s local midnight)  
 - **Active only** — pending + running  
 - Row → detail modal (summary, log tail, scheduled flag)  
@@ -114,9 +114,13 @@ Actors may be:
 
 Also audited with IP: **login** / **login failed** / **2FA**, and **API token** create/update/rotate/revoke. Free-text search matches IPs. Detail modal shows **IP**.
 
-Filter by user, server, token, action, status, **date range** (same **7d / 30d / 90d** presets as Jobs — app timezone), or free-text (includes IP).
+Filter by user, server, token, action, status, **date range** (same **7d / 30d / 90d** presets as Jobs — app timezone), or free-text (includes IP). Per-page is the same **10 / 20 / 50 / 100** cookie as Jobs.
 
 The Audit page uses the same **ops-hero** pattern: status bars, top action-type chips (as filter links), and the active timezone in the subtitle. On dense filter layouts the pulse can be **collapsed** (Hide pulse) so the filter row stays primary; detail rows open a branded **detail modal** (summary + snippet).
+
+### Console command transcripts (v1.3)
+
+When **Settings → Console → Command audit** is on, each finished web shell can attach a **command timeline** (Fernet-encrypted, not in Audit search). Open the `ssh_console_close` event: operator+ can expand the timeline, open `/audit/console/{id}`, or download `.txt`. Viewers see counts only (“transcript hidden”). Demo never stores bodies. Retention drops the ciphertext and keeps the fact that a transcript existed. See [Web SSH console](web-ssh-console.md#command-audit-v13).
 
 ### Backup lifecycle events
 
@@ -144,6 +148,8 @@ All event times are **stored in UTC** and **rendered in the app timezone** from 
 - Dismiss is **idempotent** if already closed  
 
 **Why an inbox separate from Audit:** Audit is forever; the inbox is a short “todo” list for open problems.
+
+Job, nmap-run, and console-open **history** is aggregated on [Reports](reports.md) (backups, OS patches, LAN live, Docker deploys, console sessions).
 
 ## API
 

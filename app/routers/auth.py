@@ -19,6 +19,7 @@ from ..security.auth import (
     create_pending_2fa_token,
     create_account_stepup_token,
     account_stepup_active,
+    account_stepup_minutes,
     ACCOUNT_STEPUP_COOKIE,
     ACCOUNT_STEPUP_MINUTES,
     get_password_hash,
@@ -279,6 +280,7 @@ async def forgot_password_submit(
 
 @router.get("/reset-password", response_class=HTMLResponse)
 async def reset_password_page(request: Request, token: str = ""):
+    from ..services import password_policy as pwpol
     from ..services.demo import redirect_if_demo
 
     blocked = redirect_if_demo("/auth/login")
@@ -292,6 +294,7 @@ async def reset_password_page(request: Request, token: str = ""):
             "title": "Reset password",
             "token": tok,
             "error": request.query_params.get("error") or "",
+            **pwpol.template_vars(),
         },
     )
 
@@ -428,8 +431,14 @@ async def login(
         wa_svc.user_requires_2fa_stepup(session, user)
         and not getattr(user, "must_change_password", False)
     ):
+        from ..services.account_stepup import login_trusted_skip_2fa
+
         raw_trusted = read_trusted_device_token(request.cookies, user.id)
-        if raw_trusted and find_valid_trusted_device(session, user.id, raw_trusted):
+        if (
+            login_trusted_skip_2fa()
+            and raw_trusted
+            and find_valid_trusted_device(session, user.id, raw_trusted)
+        ):
             _touch_last_login(session, user)
             _audit(session, user.id, "user_login", "Login (trusted device, 2FA skipped)")
             token = create_user_access_token(user)
@@ -516,17 +525,25 @@ async def two_factor_submit(
         return RedirectResponse("/auth/login", status_code=303)
 
     # TOTP / backup codes only on this form path (passkeys use /auth/2fa/webauthn/*)
-    if not wa_svc.totp_active(user):
-        return RedirectResponse("/auth/2fa?error=use_passkey", status_code=303)
+    from ..services.account_stepup import factor_allowed
+
+    if not wa_svc.totp_active(user) or not factor_allowed("login", "totp"):
+        if wa_svc.has_passkeys(session, int(user.id)) and factor_allowed("login", "passkey"):
+            return RedirectResponse("/auth/2fa?error=use_passkey", status_code=303)
+        if not factor_allowed("login", "backup"):
+            return RedirectResponse("/auth/2fa?error=use_passkey", status_code=303)
 
     code = (code or "").strip()
     ok = False
     if code:
         try:
-            secret = decrypt_totp_secret(user.totp_secret_encrypted)
-            if verify_totp_code(secret, code):
-                ok = True
-            elif consume_backup_code(session, user.id, code):
+            if factor_allowed("login", "totp") and wa_svc.totp_active(user):
+                secret = decrypt_totp_secret(user.totp_secret_encrypted)
+                if verify_totp_code(secret, code):
+                    ok = True
+            if not ok and factor_allowed("login", "backup") and consume_backup_code(
+                session, user.id, code
+            ):
                 ok = True
         except Exception:
             ok = False
@@ -694,7 +711,7 @@ async def register_page(request: Request, session: Session = Depends(get_session
                     "for you (Users → Create user), or to send an invite."
                 ),
                 "closed": True,
-                "password_policy_text": pwpol.policy_rules_text(),
+                **pwpol.template_vars(),
             },
         )
     return templates_mod.templates.TemplateResponse(
@@ -702,7 +719,7 @@ async def register_page(request: Request, session: Session = Depends(get_session
         name="register.html",
         context={
             "title": "Register",
-            "password_policy_text": pwpol.policy_rules_text(),
+            **pwpol.template_vars(),
         },
     )
 
@@ -734,7 +751,7 @@ async def register(
             context={
                 "title": "Register",
                 "error": "Too many registration attempts. Wait a few minutes and try again.",
-                "password_policy_text": pwpol.policy_rules_text(),
+                **pwpol.template_vars(),
             },
         )
 
@@ -749,7 +766,7 @@ async def register(
                     "for you (Users → Create user)."
                 ),
                 "closed": True,
-                "password_policy_text": pwpol.policy_rules_text(),
+                **pwpol.template_vars(),
             },
         )
 
@@ -761,7 +778,7 @@ async def register(
             context={
                 "title": "Register",
                 "error": "User with that email already exists",
-                "password_policy_text": pwpol.policy_rules_text(),
+                **pwpol.template_vars(),
             },
         )
 
@@ -773,7 +790,7 @@ async def register(
             context={
                 "title": "Register",
                 "error": pol_err or "Password does not meet policy",
-                "password_policy_text": pwpol.policy_rules_text(),
+                **pwpol.template_vars(),
             },
         )
     try:
@@ -794,7 +811,7 @@ async def register(
         return templates_mod.templates.TemplateResponse(
             request=request,
             name="register.html",
-            context={"title": "Register", "error": msg}
+            context={"title": "Register", "error": msg, **pwpol.template_vars()},
         )
 
 
@@ -1015,7 +1032,7 @@ async def account_page(
             "public_url": settings.PIHERDER_PUBLIC_URL,
             "push_sent": push_sent,
             "account_pulse": account_pulse,
-            "password_policy_text": pwpol.policy_rules_text(),
+            **pwpol.template_vars(),
             "oidc_enabled": False if is_demo else oidc.oidc_enabled(),
             "oidc_display_name": oidc.oidc_display_name(),
             "oidc_identities": [] if is_demo else oidc_rows,
@@ -1024,7 +1041,7 @@ async def account_page(
             "has_totp": wa_svc.totp_active(user),
             "has_passkeys": bool(passkeys),
             "account_stepup_active": account_stepup_active(request, user),
-            "account_stepup_minutes": ACCOUNT_STEPUP_MINUTES,
+            "account_stepup_minutes": account_stepup_minutes(),
         },
     )
     # One-shot: codes were in the cookie; drop it so refresh does not re-show.
@@ -1054,10 +1071,10 @@ async def update_profile(
 
     if email_changed:
         if not current_password or not verify_password(current_password, user.hashed_password):
-            return RedirectResponse("/auth/account?error=password_required", status_code=303)
+            return RedirectResponse("/auth/account?error=password_required#account-profile", status_code=303)
         taken = session.exec(select(User).where(User.email == email)).first()
         if taken and taken.id != user.id:
-            return RedirectResponse("/auth/account?error=email_taken", status_code=303)
+            return RedirectResponse("/auth/account?error=email_taken#account-profile", status_code=303)
         user.email = email
         _audit(session, user.id, "user_email_changed", f"Email changed to {email}")
 
@@ -1086,12 +1103,12 @@ async def change_password(
         return blocked
 
     if not verify_password(current_password, user.hashed_password):
-        return RedirectResponse("/auth/account?error=bad_password", status_code=303)
+        return RedirectResponse("/auth/account?error=bad_password#account-password", status_code=303)
     if new_password != confirm_password:
-        return RedirectResponse("/auth/account?error=password_mismatch", status_code=303)
+        return RedirectResponse("/auth/account?error=password_mismatch#account-password", status_code=303)
     ok, _err = pwpol.validate_password(new_password or "")
     if not ok:
-        return RedirectResponse("/auth/account?error=password_policy", status_code=303)
+        return RedirectResponse("/auth/account?error=password_policy#account-password", status_code=303)
 
     from ..services.user_admin import bump_session_version
 
@@ -1191,7 +1208,7 @@ async def two_factor_start(
     if blocked:
         return blocked
     if user.totp_enabled:
-        return RedirectResponse("/auth/account?error=2fa_already", status_code=303)
+        return RedirectResponse("/auth/account?error=2fa_already#account-2fa", status_code=303)
     secret = generate_totp_secret()
     user.totp_secret_encrypted = encrypt_totp_secret(secret)
     user.totp_enabled = False
@@ -1201,7 +1218,7 @@ async def two_factor_start(
 
     # Secret is stored encrypted on the user; QR is generated on the account page (SVG).
     # Optional short-lived cookie helps if DB read is delayed; not used for QR (size limits).
-    response = RedirectResponse("/auth/account?msg=2fa_setup", status_code=303)
+    response = RedirectResponse("/auth/account?msg=2fa_setup#account-2fa", status_code=303)
     response.set_cookie(
         "totp_setup_secret",
         secret,
@@ -1228,9 +1245,9 @@ async def two_factor_confirm(
         except Exception:
             secret = None
     if not secret:
-        return RedirectResponse("/auth/account?error=2fa_no_setup", status_code=303)
+        return RedirectResponse("/auth/account?error=2fa_no_setup#account-2fa", status_code=303)
     if not verify_totp_code(secret, code):
-        return RedirectResponse("/auth/account?error=2fa_bad_code", status_code=303)
+        return RedirectResponse("/auth/account?error=2fa_bad_code#account-2fa", status_code=303)
 
     user.totp_secret_encrypted = encrypt_totp_secret(secret)
     user.totp_enabled = True
@@ -1254,7 +1271,8 @@ async def two_factor_confirm(
 
 @router.post("/account/2fa/disable")
 async def two_factor_disable(
-    current_password: str = Form(...),
+    request: Request,
+    current_password: str = Form(""),
     code: str = Form(""),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
@@ -1262,13 +1280,20 @@ async def two_factor_disable(
     blocked = _demo_account_block()
     if blocked:
         return blocked
-    if not verify_password(current_password, user.hashed_password):
-        return RedirectResponse("/auth/account?error=bad_password", status_code=303)
-    if user.totp_enabled and user.totp_secret_encrypted:
-        secret = decrypt_totp_secret(user.totp_secret_encrypted)
-        code_ok = verify_totp_code(secret, code) if code else False
-        if not code_ok and not (code and consume_backup_code(session, user.id, code)):
-            return RedirectResponse("/auth/account?error=2fa_bad_code", status_code=303)
+    from ..services.account_stepup import verify_stepup
+
+    ok, err = verify_stepup(
+        session,
+        user,
+        password=current_password or None,
+        totp_code=code or None,
+        request=request,
+        surface="account",
+    )
+    if not ok:
+        return RedirectResponse(
+            f"/auth/account?error={err or '2fa_required'}#account-2fa", status_code=303
+        )
 
     user.totp_enabled = False
     user.totp_secret_encrypted = None
@@ -1288,29 +1313,34 @@ async def two_factor_disable(
 
 @router.post("/account/2fa/backup-codes")
 async def regenerate_backup_codes(
-    current_password: str = Form(...),
+    request: Request,
+    current_password: str = Form(""),
     code: str = Form(""),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """Regenerate backup codes — requires current password + live 2FA (TOTP or unused backup)."""
+    """Regenerate backup codes — any enrolled 2FA (not password alone)."""
     blocked = _demo_account_block()
     if blocked:
         return blocked
     if not user.totp_enabled:
-        return RedirectResponse("/auth/account?error=2fa_off", status_code=303)
-    if not verify_password(current_password, user.hashed_password):
-        return RedirectResponse("/auth/account?error=bad_password", status_code=303)
-    # Step-up 2FA: password alone must not be enough to mint new recovery codes.
-    secret = None
-    if user.totp_secret_encrypted:
-        try:
-            secret = decrypt_totp_secret(user.totp_secret_encrypted)
-        except Exception:
-            secret = None
-    code_ok = bool(secret and code and verify_totp_code(secret, code))
-    if not code_ok and not (code and consume_backup_code(session, user.id, code)):
-        return RedirectResponse("/auth/account?error=2fa_bad_code", status_code=303)
+        return RedirectResponse("/auth/account?error=2fa_off#account-2fa", status_code=303)
+    from ..services.account_stepup import verify_stepup
+    from ..services import webauthn_svc as wa_svc
+
+    # Password alone must not mint recovery codes when 2FA is enrolled.
+    ok, err = verify_stepup(
+        session,
+        user,
+        password=None if wa_svc.user_has_2fa(session, user) else (current_password or None),
+        totp_code=code or None,
+        request=request,
+        surface="account",
+    )
+    if not ok:
+        return RedirectResponse(
+            f"/auth/account?error={err or '2fa_required'}#account-2fa", status_code=303
+        )
     codes = generate_backup_codes()
     replace_backup_codes(session, user.id, codes)
     revoke_all_trusted_devices(session, user.id)
@@ -1471,22 +1501,24 @@ async def account_webauthn_stepup_verify(
         {
             "ok": True,
             "redirect": "/auth/account?msg=stepup_ok#account-stepup-box",
-            "minutes": ACCOUNT_STEPUP_MINUTES,
+            "minutes": account_stepup_minutes(),
         }
     )
     resp.delete_cookie(wa_svc.CHALLENGE_COOKIE_AUTH, **cookie_delete_kwargs())
     resp.set_cookie(
         ACCOUNT_STEPUP_COOKIE,
         create_account_stepup_token(user.id),
-        **cookie_auth_kwargs(max_age=ACCOUNT_STEPUP_MINUTES * 60),
+        **cookie_auth_kwargs(max_age=account_stepup_minutes() * 60),
     )
     return resp
 
 
 @router.post("/account/webauthn/{cred_id}/revoke")
 async def webauthn_revoke(
+    request: Request,
     cred_id: int,
-    current_password: str = Form(...),
+    current_password: str = Form(""),
+    totp_code: str = Form(""),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
@@ -1494,10 +1526,20 @@ async def webauthn_revoke(
     if blocked:
         return blocked
     from ..services import webauthn_svc as wa_svc
+    from ..services.account_stepup import verify_stepup
 
-    if not verify_password(current_password, user.hashed_password):
+    ok, err = verify_stepup(
+        session,
+        user,
+        password=current_password or None,
+        totp_code=totp_code or None,
+        request=request,
+        surface="account",
+    )
+    if not ok:
         return RedirectResponse(
-            "/auth/account?error=bad_password#account-passkeys", status_code=303
+            f"/auth/account?error={err or '2fa_required'}#account-passkeys",
+            status_code=303,
         )
     row = wa_svc.get_credential(session, cred_id, int(user.id))
     if not row:
@@ -1600,8 +1642,7 @@ async def force_password_page(
             "title": "Set a new password",
             "user": user,
             "error": request.query_params.get("error"),
-            "password_policy_text": pwpol.policy_rules_text(),
-            "password_min_length": pwpol.MIN_LENGTH,
+            **pwpol.template_vars(),
         },
     )
 
@@ -1647,8 +1688,11 @@ async def force_2fa_page(
     session: Session = Depends(get_session),
 ):
     from ..security.auth import user_has_second_factor
+    from ..services.account_stepup import force_2fa_applies
 
-    if not force_2fa_required() or user_has_second_factor(session, user):
+    if not force_2fa_applies(user, request=request, session=session) or user_has_second_factor(
+        session, user
+    ):
         return RedirectResponse("/", status_code=303)
     return templates_mod.templates.TemplateResponse(
         request=request,

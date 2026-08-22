@@ -21,7 +21,7 @@ import secrets
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Tuple
 
 from ..config import settings
@@ -79,67 +79,455 @@ def demo_console_allow_viewer() -> bool:
     return is_demo_console()
 
 
+# Home-lab ranges with a DoS ceiling (v1.3 slice 2). Floors match 1.2 helpers.
+IDLE_SEC_MIN, IDLE_SEC_MAX, IDLE_SEC_DEFAULT = 60, 28800, 900
+MAX_SEC_MIN, MAX_SEC_MAX, MAX_SEC_DEFAULT = 120, 43200, 3600
+PER_USER_MIN, PER_USER_MAX, PER_USER_DEFAULT = 1, 16, 4
+GLOBAL_MIN, GLOBAL_MAX, GLOBAL_DEFAULT = 1, 64, 20
+TICKET_SEC_MIN, TICKET_SEC_MAX, TICKET_SEC_DEFAULT = 15, 300, 60
+HOLD_SEC_MIN_POS, HOLD_SEC_MAX, HOLD_SEC_DEFAULT = 30, 3600, 0
+REVALIDATE_SEC_MIN, REVALIDATE_SEC_MAX, REVALIDATE_SEC_DEFAULT = 5, 60, 10
+SCROLLBACK_MIN, SCROLLBACK_MAX, SCROLLBACK_DEFAULT = 500, 50000, 2000
+
+# AppSetting key → env name (env wins when set and non-empty).
+CONSOLE_ENV_KEYS: Tuple[Tuple[str, str], ...] = (
+    ("console_idle_sec", "PIHERDER_SSH_CONSOLE_IDLE_SEC"),
+    ("console_max_sec", "PIHERDER_SSH_CONSOLE_MAX_SEC"),
+    ("console_max_per_user", "PIHERDER_SSH_CONSOLE_MAX_PER_USER"),
+    ("console_max_global", "PIHERDER_SSH_CONSOLE_MAX_GLOBAL"),
+    ("console_ticket_sec", "PIHERDER_SSH_CONSOLE_TICKET_SEC"),
+    ("console_hold_sec", "PIHERDER_SSH_CONSOLE_HOLD_SEC"),
+    ("console_revalidate_sec", "PIHERDER_SSH_CONSOLE_REVALIDATE_SEC"),
+    ("console_scrollback", "PIHERDER_SSH_CONSOLE_SCROLLBACK"),
+    ("console_bind_ip", "PIHERDER_SSH_CONSOLE_BIND_IP"),
+    ("console_bind_device", "PIHERDER_SSH_CONSOLE_BIND_DEVICE"),
+    ("console_privileged_role", "PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE"),
+    ("console_audit_mode", "PIHERDER_SSH_CONSOLE_AUDIT_MODE"),
+    ("console_audit_retention_days", "PIHERDER_SSH_CONSOLE_AUDIT_RETENTION_DAYS"),
+    ("console_audit_required", "PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED"),
+)
+
+
+def _settings_cfg() -> dict:
+    try:
+        from .app_settings import load_settings
+
+        return load_settings()
+    except Exception:
+        return {}
+
+
+def _as_int(value: Any, default: int, lo: int, hi: int) -> int:
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        n = default
+    return max(lo, min(hi, n))
+
+
+def _as_bool(value: Any, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return bool(value)
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return str(value).strip().lower() in ("1", "true", "on", "yes")
+
+
+def env_wins(env_name: str) -> bool:
+    from .account_stepup import env_wins as _ew
+
+    return _ew(env_name)
+
+
+def _int_knob(
+    env_name: str,
+    setting_key: str,
+    pydantic_attr: str,
+    default: int,
+    lo: int,
+    hi: int,
+) -> int:
+    if env_wins(env_name):
+        return _as_int(getattr(settings, pydantic_attr, default), default, lo, hi)
+    cfg = _settings_cfg()
+    if setting_key in cfg and cfg.get(setting_key) not in (None, ""):
+        return _as_int(cfg.get(setting_key), default, lo, hi)
+    return _as_int(getattr(settings, pydantic_attr, default), default, lo, hi)
+
+
+def _bool_knob(
+    env_name: str,
+    setting_key: str,
+    pydantic_attr: str,
+    default: bool,
+) -> bool:
+    if env_wins(env_name):
+        return bool(getattr(settings, pydantic_attr, default))
+    cfg = _settings_cfg()
+    if setting_key in cfg and cfg.get(setting_key) not in (None, ""):
+        return _as_bool(cfg.get(setting_key), default)
+    return bool(getattr(settings, pydantic_attr, default))
+
+
+PRIVILEGED_ROLE_DEFAULT = "admin"
+PRIVILEGED_ROLES = ("admin", "operator")
+CONSOLE_STEPUP_COOKIE = "console_stepup"
+STEPUP_SEC = 90
+AUDIT_MODE_DEFAULT = "off"
+AUDIT_MODES = ("off", "commands", "commands_output")
+AUDIT_RETENTION_MIN, AUDIT_RETENTION_MAX, AUDIT_RETENTION_DEFAULT = 1, 90, 14
+
+
+def _clamp_privileged_role(raw: Any) -> str:
+    s = str(raw or "").strip().lower()
+    if s in ("operators", "operator+", "op"):
+        s = "operator"
+    if s in ("admins", "administrator"):
+        s = "admin"
+    return s if s in PRIVILEGED_ROLES else PRIVILEGED_ROLE_DEFAULT
+
+
+def _clamp_audit_mode(raw: Any) -> str:
+    from .console_audit import clamp_mode
+
+    return clamp_mode(raw)
+
+
+def _str_knob(
+    env_name: str,
+    setting_key: str,
+    pydantic_attr: str,
+    default: str,
+    allowed: tuple,
+) -> str:
+    raw: Any = default
+    if env_wins(env_name):
+        raw = getattr(settings, pydantic_attr, default)
+    else:
+        cfg = _settings_cfg()
+        if setting_key in cfg and cfg.get(setting_key) not in (None, ""):
+            raw = cfg.get(setting_key)
+        else:
+            raw = getattr(settings, pydantic_attr, default)
+    s = str(raw or default).strip().lower()
+    return s if s in allowed else default
+
+
+def _clamp_hold(raw: Any) -> int:
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        n = HOLD_SEC_DEFAULT
+    if n <= 0:
+        return 0
+    return max(HOLD_SEC_MIN_POS, min(HOLD_SEC_MAX, n))
+
+
+def clamp_console_policy(raw: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    """Clamp a Settings payload (or defaults) to home-lab floors/ceilings."""
+    src = raw or {}
+    idle = _as_int(src.get("console_idle_sec"), IDLE_SEC_DEFAULT, IDLE_SEC_MIN, IDLE_SEC_MAX)
+    maxs = _as_int(src.get("console_max_sec"), MAX_SEC_DEFAULT, MAX_SEC_MIN, MAX_SEC_MAX)
+    if maxs < idle:
+        maxs = idle
+    per = _as_int(
+        src.get("console_max_per_user"), PER_USER_DEFAULT, PER_USER_MIN, PER_USER_MAX
+    )
+    glob = _as_int(
+        src.get("console_max_global"), GLOBAL_DEFAULT, GLOBAL_MIN, GLOBAL_MAX
+    )
+    if glob < per:
+        glob = per
+    return {
+        "console_idle_sec": idle,
+        "console_max_sec": maxs,
+        "console_max_per_user": per,
+        "console_max_global": glob,
+        "console_ticket_sec": _as_int(
+            src.get("console_ticket_sec"), TICKET_SEC_DEFAULT, TICKET_SEC_MIN, TICKET_SEC_MAX
+        ),
+        "console_hold_sec": _clamp_hold(src.get("console_hold_sec")),
+        "console_revalidate_sec": _as_int(
+            src.get("console_revalidate_sec"),
+            REVALIDATE_SEC_DEFAULT,
+            REVALIDATE_SEC_MIN,
+            REVALIDATE_SEC_MAX,
+        ),
+        "console_scrollback": _as_int(
+            src.get("console_scrollback"), SCROLLBACK_DEFAULT, SCROLLBACK_MIN, SCROLLBACK_MAX
+        ),
+        "console_bind_ip": _as_bool(src.get("console_bind_ip"), True),
+        "console_bind_device": _as_bool(src.get("console_bind_device"), True),
+        "console_privileged_role": _clamp_privileged_role(src.get("console_privileged_role")),
+        "console_audit_mode": _clamp_audit_mode(src.get("console_audit_mode")),
+        "console_audit_retention_days": _as_int(
+            src.get("console_audit_retention_days"),
+            AUDIT_RETENTION_DEFAULT,
+            AUDIT_RETENTION_MIN,
+            AUDIT_RETENTION_MAX,
+        ),
+        "console_audit_required": _as_bool(src.get("console_audit_required"), False),
+    }
+
+
+def console_env_locks() -> Dict[str, bool]:
+    return {key: env_wins(env) for key, env in CONSOLE_ENV_KEYS}
+
+
+def effective_console_policy() -> Dict[str, Any]:
+    """Resolved knobs (env / Settings / defaults) plus enable flag."""
+    return {
+        "console_idle_sec": idle_sec(),
+        "console_max_sec": max_session_sec(),
+        "console_max_per_user": max_per_user(),
+        "console_max_global": max_global(),
+        "console_ticket_sec": ticket_ttl_sec(),
+        "console_hold_sec": hold_sec(),
+        "console_revalidate_sec": revalidate_sec(),
+        "console_scrollback": default_scrollback(),
+        "console_bind_ip": bind_ip_enabled(),
+        "console_bind_device": bind_device_enabled(),
+        "console_privileged_role": privileged_role(),
+        "console_audit_mode": audit_mode_setting(),
+        "console_audit_retention_days": audit_retention_days(),
+        "console_audit_required": audit_required(),
+        "enabled": console_enabled(),
+        "grant_minutes": grant_minutes(),
+    }
+
+
+def console_policy_summary(data: Dict[str, Any] | None = None) -> str:
+    p = clamp_console_policy(data) if data is not None else clamp_console_policy(
+        effective_console_policy()
+    )
+    return (
+        f"idle={p['console_idle_sec']} max={p['console_max_sec']} "
+        f"user={p['console_max_per_user']} global={p['console_max_global']} "
+        f"ticket={p['console_ticket_sec']} hold={p['console_hold_sec']} "
+        f"reval={p['console_revalidate_sec']} scroll={p['console_scrollback']} "
+        f"bind_ip={int(bool(p['console_bind_ip']))} "
+        f"bind_dev={int(bool(p['console_bind_device']))} "
+        f"priv={p.get('console_privileged_role') or PRIVILEGED_ROLE_DEFAULT} "
+        f"audit={p.get('console_audit_mode') or AUDIT_MODE_DEFAULT} "
+        f"audit_req={int(bool(p.get('console_audit_required')))} "
+        f"audit_keep={p.get('console_audit_retention_days') or AUDIT_RETENTION_DEFAULT}"
+    )
+
+
 def ticket_ttl_sec() -> int:
-    return max(15, int(getattr(settings, "PIHERDER_SSH_CONSOLE_TICKET_SEC", 60) or 60))
+    return _int_knob(
+        "PIHERDER_SSH_CONSOLE_TICKET_SEC",
+        "console_ticket_sec",
+        "PIHERDER_SSH_CONSOLE_TICKET_SEC",
+        TICKET_SEC_DEFAULT,
+        TICKET_SEC_MIN,
+        TICKET_SEC_MAX,
+    )
 
 
 def idle_sec() -> int:
-    return max(60, int(getattr(settings, "PIHERDER_SSH_CONSOLE_IDLE_SEC", 900) or 900))
+    return _int_knob(
+        "PIHERDER_SSH_CONSOLE_IDLE_SEC",
+        "console_idle_sec",
+        "PIHERDER_SSH_CONSOLE_IDLE_SEC",
+        IDLE_SEC_DEFAULT,
+        IDLE_SEC_MIN,
+        IDLE_SEC_MAX,
+    )
 
 
 def max_session_sec() -> int:
-    return max(120, int(getattr(settings, "PIHERDER_SSH_CONSOLE_MAX_SEC", 3600) or 3600))
+    raw = _int_knob(
+        "PIHERDER_SSH_CONSOLE_MAX_SEC",
+        "console_max_sec",
+        "PIHERDER_SSH_CONSOLE_MAX_SEC",
+        MAX_SEC_DEFAULT,
+        MAX_SEC_MIN,
+        MAX_SEC_MAX,
+    )
+    return max(raw, idle_sec())
 
 
 def max_per_user() -> int:
-    return max(1, int(getattr(settings, "PIHERDER_SSH_CONSOLE_MAX_PER_USER", 4) or 4))
+    return _int_knob(
+        "PIHERDER_SSH_CONSOLE_MAX_PER_USER",
+        "console_max_per_user",
+        "PIHERDER_SSH_CONSOLE_MAX_PER_USER",
+        PER_USER_DEFAULT,
+        PER_USER_MIN,
+        PER_USER_MAX,
+    )
 
 
 def max_global() -> int:
-    return max(1, int(getattr(settings, "PIHERDER_SSH_CONSOLE_MAX_GLOBAL", 20) or 20))
+    raw = _int_knob(
+        "PIHERDER_SSH_CONSOLE_MAX_GLOBAL",
+        "console_max_global",
+        "PIHERDER_SSH_CONSOLE_MAX_GLOBAL",
+        GLOBAL_DEFAULT,
+        GLOBAL_MIN,
+        GLOBAL_MAX,
+    )
+    return max(raw, max_per_user())
 
 
 def default_scrollback() -> int:
     """Default xterm scrollback lines (client can raise within UI caps)."""
-    return max(500, min(50000, int(getattr(settings, "PIHERDER_SSH_CONSOLE_SCROLLBACK", 2000) or 2000)))
+    return _int_knob(
+        "PIHERDER_SSH_CONSOLE_SCROLLBACK",
+        "console_scrollback",
+        "PIHERDER_SSH_CONSOLE_SCROLLBACK",
+        SCROLLBACK_DEFAULT,
+        SCROLLBACK_MIN,
+        SCROLLBACK_MAX,
+    )
 
 
 def grant_minutes() -> int:
     """How long a post-2FA console grant lasts (additional shells without re-TOTP)."""
-    return max(2, int(getattr(settings, "PIHERDER_SSH_CONSOLE_GRANT_MIN", 10) or 10))
+    if env_wins("PIHERDER_SSH_CONSOLE_GRANT_MIN"):
+        return max(2, int(getattr(settings, "PIHERDER_SSH_CONSOLE_GRANT_MIN", 10) or 10))
+    try:
+        from .account_stepup import stepup_minutes
+
+        return max(2, stepup_minutes("console"))
+    except Exception:
+        return max(2, int(getattr(settings, "PIHERDER_SSH_CONSOLE_GRANT_MIN", 10) or 10))
 
 
 def require_2fa_every_shell() -> bool:
     """If true, never skip 2FA via grant cookie (each New shell re-prompts)."""
-    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL", False))
+    try:
+        from .account_stepup import console_require_2fa_every_shell
+
+        return console_require_2fa_every_shell()
+    except Exception:
+        return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL", False))
 
 
 def allow_backup_codes() -> bool:
     """Backup codes are weak for shell step-up (paper/stolen codes). Default off."""
-    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES", False))
+    try:
+        from .account_stepup import console_allow_backup_codes
+
+        return console_allow_backup_codes()
+    except Exception:
+        return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES", False))
 
 
 def prefer_passkey() -> bool:
     """UI + messaging prefer WebAuthn when the user has a passkey enrolled."""
-    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_PREFER_PASSKEY", True))
+    try:
+        from .account_stepup import console_prefer_passkey
+
+        return console_prefer_passkey()
+    except Exception:
+        return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_PREFER_PASSKEY", True))
 
 
 def require_passkey_if_enrolled() -> bool:
     """If true and user has passkeys, reject TOTP for console (passkey only)."""
-    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY", False))
+    try:
+        from .account_stepup import console_require_passkey
+
+        return console_require_passkey()
+    except Exception:
+        return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY", False))
 
 
 def bind_ip_enabled() -> bool:
-    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_BIND_IP", True))
+    return _bool_knob(
+        "PIHERDER_SSH_CONSOLE_BIND_IP",
+        "console_bind_ip",
+        "PIHERDER_SSH_CONSOLE_BIND_IP",
+        True,
+    )
 
 
 def bind_device_enabled() -> bool:
-    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_BIND_DEVICE", True))
+    return _bool_knob(
+        "PIHERDER_SSH_CONSOLE_BIND_DEVICE",
+        "console_bind_device",
+        "PIHERDER_SSH_CONSOLE_BIND_DEVICE",
+        True,
+    )
+
+
+def privileged_role() -> str:
+    """admin (default) or operator — who may mint a privileged console ticket."""
+    return _str_knob(
+        "PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE",
+        "console_privileged_role",
+        "PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE",
+        PRIVILEGED_ROLE_DEFAULT,
+        PRIVILEGED_ROLES,
+    )
+
+
+def can_open_privileged(user) -> bool:
+    """RBAC for break-glass console. Demo never."""
+    if is_demo_console():
+        return False
+    from ..security.auth import ROLE_ADMIN, ROLE_OPERATOR, role_at_least, user_role
+
+    need = privileged_role()
+    if need == "operator":
+        return role_at_least(user, ROLE_OPERATOR)
+    return (user_role(user) or "") == ROLE_ADMIN
+
+
+def audit_mode_setting() -> str:
+    """Stored / env mode before the required-on-all-sessions clamp."""
+    return _str_knob(
+        "PIHERDER_SSH_CONSOLE_AUDIT_MODE",
+        "console_audit_mode",
+        "PIHERDER_SSH_CONSOLE_AUDIT_MODE",
+        AUDIT_MODE_DEFAULT,
+        AUDIT_MODES,
+    )
+
+
+def audit_required() -> bool:
+    """When true, every live shell records commands (Off is treated as commands)."""
+    return _bool_knob(
+        "PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED",
+        "console_audit_required",
+        "PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED",
+        False,
+    )
+
+
+def audit_mode() -> str:
+    """Effective capture mode. Required + off → commands. Demo callers still skip persist."""
+    mode = audit_mode_setting()
+    if mode == AUDIT_MODE_DEFAULT and audit_required():
+        return "commands"
+    return mode
+
+
+def audit_retention_days() -> int:
+    return _int_knob(
+        "PIHERDER_SSH_CONSOLE_AUDIT_RETENTION_DAYS",
+        "console_audit_retention_days",
+        "PIHERDER_SSH_CONSOLE_AUDIT_RETENTION_DAYS",
+        AUDIT_RETENTION_DEFAULT,
+        AUDIT_RETENTION_MIN,
+        AUDIT_RETENTION_MAX,
+    )
 
 
 def revalidate_sec() -> int:
     """How often to re-check session/IP/device during an open shell (seconds)."""
-    return max(5, int(getattr(settings, "PIHERDER_SSH_CONSOLE_REVALIDATE_SEC", 10) or 10))
+    return _int_knob(
+        "PIHERDER_SSH_CONSOLE_REVALIDATE_SEC",
+        "console_revalidate_sec",
+        "PIHERDER_SSH_CONSOLE_REVALIDATE_SEC",
+        REVALIDATE_SEC_DEFAULT,
+        REVALIDATE_SEC_MIN,
+        REVALIDATE_SEC_MAX,
+    )
 
 
 def hold_sec() -> int:
@@ -148,10 +536,12 @@ def hold_sec() -> int:
     0 (default) = hold until idle_sec from last activity or max_session_sec from start.
     Positive value caps the detached window (still also subject to idle/max).
     """
-    raw = int(getattr(settings, "PIHERDER_SSH_CONSOLE_HOLD_SEC", 0) or 0)
-    if raw <= 0:
-        return 0
-    return max(30, raw)
+    if env_wins("PIHERDER_SSH_CONSOLE_HOLD_SEC"):
+        return _clamp_hold(getattr(settings, "PIHERDER_SSH_CONSOLE_HOLD_SEC", 0) or 0)
+    cfg = _settings_cfg()
+    if "console_hold_sec" in cfg and cfg.get("console_hold_sec") not in (None, ""):
+        return _clamp_hold(cfg.get("console_hold_sec"))
+    return _clamp_hold(getattr(settings, "PIHERDER_SSH_CONSOLE_HOLD_SEC", 0) or 0)
 
 
 def require_enabled() -> None:
@@ -210,12 +600,16 @@ def mint_ticket(
     session_version: int = 0,
     client_ip: Optional[str] = None,
     device_id: Optional[str] = None,
+    identity_id: Optional[int] = None,
+    identity_role: Optional[str] = None,
+    reason: Optional[str] = None,
 ) -> str:
     """
     Short-lived single-use ticket.
 
     Bound to session_version, and optionally IP + console device id so the
     WebSocket cannot be opened (or continued) from another browser/network.
+    Optional ``identity_id`` / ``identity_role`` select fleet vs privileged.
     """
     require_enabled()
     jti = secrets.token_urlsafe(16)
@@ -226,6 +620,14 @@ def mint_ticket(
         "sv": int(session_version),
         "jti": jti,
     }
+    if identity_id:
+        payload["iid"] = int(identity_id)
+    role = (identity_role or "").strip().lower()
+    if role in ("fleet", "privileged"):
+        payload["role"] = role
+    why = (reason or "").strip()[:200]
+    if why:
+        payload["why"] = why
     if bind_ip_enabled() and client_ip:
         payload["iph"] = _hash_binding(normalize_ip(client_ip))
     if bind_device_enabled() and device_id:
@@ -236,6 +638,64 @@ def mint_ticket(
     )
 
 
+def mint_stepup_proof(
+    *,
+    user_id: int,
+    session_version: int = 0,
+    client_ip: Optional[str] = None,
+    device_id: Optional[str] = None,
+) -> str:
+    """Short-lived proof that 2FA just succeeded (privileged mint, ~90s)."""
+    require_enabled()
+    payload: Dict[str, Any] = {
+        "console_stepup": True,
+        "sub": str(int(user_id)),
+        "sv": int(session_version),
+        "jti": secrets.token_urlsafe(12),
+    }
+    if bind_ip_enabled() and client_ip:
+        payload["iph"] = _hash_binding(normalize_ip(client_ip))
+    if bind_device_enabled() and device_id:
+        payload["did"] = _hash_binding(device_id)
+    return create_access_token(
+        payload,
+        expires_delta=timedelta(seconds=STEPUP_SEC),
+    )
+
+
+def consume_stepup_proof(
+    raw: Optional[str],
+    *,
+    user_id: int,
+    session_version: int,
+    client_ip: Optional[str] = None,
+    device_id: Optional[str] = None,
+) -> bool:
+    """Single-use 2FA proof for privileged mint. Fleet grant is not enough."""
+    if not raw:
+        return False
+    payload = decode_token_payload(raw)
+    if not payload or not payload.get("console_stepup"):
+        return False
+    try:
+        if int(payload.get("sub")) != int(user_id):
+            return False
+        if int(payload.get("sv", 0) or 0) != int(session_version):
+            return False
+        if bind_ip_enabled() and payload.get("iph"):
+            if _hash_binding(normalize_ip(client_ip)) != payload.get("iph"):
+                return False
+        if bind_device_enabled() and payload.get("did"):
+            if _hash_binding(device_id or "") != payload.get("did"):
+                return False
+    except (TypeError, ValueError):
+        return False
+    jti = str(payload.get("jti") or "")
+    if not jti:
+        return False
+    return _consume_jti("stepup:" + jti)
+
+
 def mint_grant(
     *,
     user_id: int,
@@ -243,13 +703,17 @@ def mint_grant(
     session_version: int = 0,
     client_ip: Optional[str] = None,
     device_id: Optional[str] = None,
+    require_console: bool = True,
 ) -> str:
     """Short-lived grant after successful 2FA — valid for **all hosts** (fleet-wide).
 
     One passkey/TOTP step-up covers multi-host console until the grant expires.
     ``server_id`` is recorded for audit only (not enforced on validation).
+    Host Files privileged unlock may mint the same cookie with
+    ``require_console=False`` (Files kill switch is separate).
     """
-    require_enabled()
+    if require_console:
+        require_enabled()
     payload: Dict[str, Any] = {
         "console_grant": True,
         "fleet": 1,  # all hosts
@@ -563,6 +1027,7 @@ class HeldConsole:
     server_hostname: str
     out_buf: bytearray = field(default_factory=bytearray)
     dead: bool = False
+    recorder: Any = None
 
     def append_out(self, data: bytes) -> None:
         if not data:
@@ -666,6 +1131,30 @@ def claim_resume(
 
 def _destroy_held_resources(held: HeldConsole, *, release_slot_user: Optional[int]) -> None:
     held.dead = True
+    rec = getattr(held, "recorder", None)
+    if rec is not None and not getattr(rec, "finalized", True):
+        try:
+            from ..database import engine
+            from sqlmodel import Session as _Sess
+
+            from . import console_audit as ca
+            from .audit_write import make_audit_log
+
+            with _Sess(engine) as s:
+                ca.flush_recorder(s, rec, finalize=True)
+                s.add(
+                    make_audit_log(
+                        user_id=held.user_id,
+                        server_id=held.server_id,
+                        action="ssh_console_close",
+                        status="success",
+                        details=ca.close_details(rec, "park_end"),
+                        finished_at=datetime.utcnow(),
+                    )
+                )
+                s.commit()
+        except Exception:
+            pass
     try:
         if held.channel is not None:
             held.channel.close()
@@ -763,12 +1252,24 @@ def drain_held_channel(held: HeldConsole) -> bool:
             if not data:
                 return False
             held.append_out(data)
+            rec = getattr(held, "recorder", None)
+            if rec is not None:
+                try:
+                    rec.feed_stdout(data)
+                except Exception:
+                    pass
             held.last_activity_mono = time.monotonic()
             progressed = True
         while ch.recv_stderr_ready():
             data = ch.recv_stderr(4096)
             if data:
                 held.append_out(data)
+                rec = getattr(held, "recorder", None)
+                if rec is not None:
+                    try:
+                        rec.feed_stdout(data)
+                    except Exception:
+                        pass
                 held.last_activity_mono = time.monotonic()
                 progressed = True
         del progressed

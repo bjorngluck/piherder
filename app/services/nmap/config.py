@@ -228,6 +228,127 @@ def list_devices(
     return rows[: max(1, min(2000, limit))]
 
 
+def device_matches_q(device: NmapDevice, q: str) -> bool:
+    from ..list_query import matches
+    from .device_classify import profile_dict_from_device
+
+    prof: dict[str, Any] = {}
+    try:
+        prof = profile_dict_from_device(device) or {}
+    except Exception:
+        prof = {}
+    return matches(
+        q,
+        device.ip_address,
+        device.hostname,
+        device.display_name,
+        device.mac_address,
+        device.mac_vendor,
+        device.os_summary,
+        device.notes,
+        device.map_role,
+        device.kind_override,
+        prof.get("kind"),
+        prof.get("label"),
+        prof.get("short"),
+    )
+
+
+def device_stats_for_integration(session: Session, integration_id: int) -> dict[str, int]:
+    """Chip counts without building list HTML (GROUP BY state)."""
+    from sqlalchemy import func
+
+    from .device_ops import _count_open_ports
+
+    by: dict[str, int] = {
+        "total": 0,
+        "new": 0,
+        "known": 0,
+        "linked": 0,
+        "ignored": 0,
+        "stale": 0,
+        "open_ports": 0,
+    }
+    rows = session.exec(
+        select(NmapDevice.state, func.count())
+        .where(NmapDevice.integration_id == integration_id)
+        .group_by(NmapDevice.state)
+    ).all()
+    for row in rows:
+        if isinstance(row, tuple):
+            state, n = row[0], row[1]
+        else:
+            state, n = row
+        st = (state or "new").strip() or "new"
+        n = int(n or 0)
+        by["total"] += n
+        if st in by:
+            by[st] += n
+    port_rows = session.exec(
+        select(NmapDevice.ports_json).where(NmapDevice.integration_id == integration_id)
+    ).all()
+    for pj in port_rows:
+        if isinstance(pj, tuple):
+            pj = pj[0]
+        by["open_ports"] += _count_open_ports(pj)
+    return by
+
+
+def list_devices_page(
+    session: Session,
+    integration_id: int,
+    *,
+    state: str | None = None,
+    q: str = "",
+    page: int = 1,
+    per_page: int = 20,
+    apply_stale: bool = True,
+) -> tuple[list[NmapDevice], int, int, int]:
+    """Paged discovery list. Empty q uses SQL offset; q filters in process."""
+    from sqlalchemy import func
+
+    from .. import list_query as lq
+
+    if apply_stale:
+        from .device_ops import apply_stale_device_states
+
+        apply_stale_device_states(session, integration_id=integration_id)
+
+    cond = [NmapDevice.integration_id == integration_id]
+    if state:
+        cond.append(NmapDevice.state == state)
+    q = (q or "").strip()
+    if q:
+        rows = list(
+            session.exec(
+                select(NmapDevice).where(*cond).order_by(NmapDevice.ip_address)
+            ).all()
+        )
+        rows = [d for d in rows if device_matches_q(d, q)]
+        return lq.page_slice(rows, page, per_page)
+
+    total_raw = session.exec(
+        select(func.count()).select_from(NmapDevice).where(*cond)
+    ).one()
+    if isinstance(total_raw, tuple):
+        total_raw = total_raw[0]
+    total = int(total_raw or 0)
+    per = per_page if per_page > 0 else lq.PER_PAGE_DEFAULT
+    total_pages = max(1, (total + per - 1) // per) if total else 1
+    page = min(max(1, int(page or 1)), total_pages)
+    offset = (page - 1) * per
+    rows = list(
+        session.exec(
+            select(NmapDevice)
+            .where(*cond)
+            .order_by(NmapDevice.ip_address)
+            .offset(offset)
+            .limit(per)
+        ).all()
+    )
+    return rows, total, total_pages, page
+
+
 
 # --- Re-exports (device lifecycle + Hosts fabric projection) ---
 from .device_ops import (  # noqa: E402

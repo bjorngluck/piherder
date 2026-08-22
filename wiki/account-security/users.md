@@ -29,17 +29,19 @@ The page uses the shared **ops-hero** (role / 2FA coverage pulse). Each user car
 
 1. Open **Create user** (header button) — form is a modal.  
 2. Enter email and role (viewer / operator / admin).  
-3. **Generate** password (or set manually). Strength meter + policy apply.  
+3. **Generate** password (or set manually). Strength meter + **needs …** hints follow the live Settings policy (min length, special character, etc.). Same meter on **Reset password**, **Reset access**, Account change, first-login, and self-service forgot-password.  
 4. After submit, a confirmation modal shows login URL, email, temporary password, and invite text — **shown once**. Copy before closing.  
 5. New users have **`must_change_password`** until first reset.
 
 ### Password policy
 
+Default rules (unless an admin changes them):
+
 - ≥ **10** characters  
 - Upper + lower + digit  
 - At most **72 Latin letters/digits** (emoji/symbols count as more)  
 
-Configurable admin policy (custom min length / character classes) is not available yet.
+**Available from v1.3:** an admin can change min/max length and required character classes under **Settings → General → Security policy**. The floor is 8 characters; the ceiling is 72. Register, account, and this Create user form all show the same live rules.
 
 ## Roles and delete
 

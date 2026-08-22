@@ -48,6 +48,51 @@ DEFAULTS: Dict[str, Any] = {
     "force_2fa": False,
     # Require TOTP enabled to deploy templates / view deployment secrets
     "template_require_2fa": False,
+    # v1.3 Stream P — instance password policy (floors applied in password_policy)
+    "password_min_length": 10,
+    "password_max_length": 72,
+    "password_require_upper": True,
+    "password_require_lower": True,
+    "password_require_digit": True,
+    "password_require_special": False,
+    # v1.3 slice 1 Deep — T1–T4
+    "force_2fa_scope": "off",  # off | admins | operators | all
+    "force_2fa_grace_days": 0,  # 0–60 (home-lab)
+    "force_2fa_grace_since": "",
+    "force_2fa_trusted_skip_enroll": False,
+    "login_trusted_skip_2fa": True,
+    "stepup_account_minutes": 5,
+    "stepup_secrets_minutes": 10,
+    "stepup_console_minutes": 10,
+    "factor_login_totp": True,
+    "factor_login_passkey": True,
+    "factor_login_backup": True,
+    "factor_account_totp": True,
+    "factor_account_passkey": True,
+    "factor_account_backup": True,
+    "factor_secrets_totp": True,
+    "factor_secrets_passkey": True,
+    "factor_secrets_backup": False,
+    "factor_console_totp": True,
+    "factor_console_passkey": True,
+    "factor_console_backup": False,
+    "console_require_2fa_every_shell": False,
+    "console_allow_backup_codes": False,
+    "console_prefer_passkey": True,
+    "console_require_passkey": False,
+    # v1.3 slice 2 Deep — W-cfg timeouts / concurrency (env wins if set)
+    "console_idle_sec": 900,
+    "console_max_sec": 3600,
+    "console_max_per_user": 4,
+    "console_max_global": 20,
+    "console_ticket_sec": 60,
+    "console_hold_sec": 0,
+    "console_revalidate_sec": 10,
+    "console_scrollback": 2000,
+    "console_bind_ip": True,
+    "console_bind_device": True,
+    "oidc_idp_mfa_satisfies_login_2fa": False,
+    "oidc_idp_mfa_claim": "amr",
     # Suggest host/service FQDNs as {slug}.{dns_base_domain}
     "dns_base_domain": "",
     # Network map (hosts map): LAN topology + public edge
@@ -86,6 +131,9 @@ DEFAULTS: Dict[str, Any] = {
     "webhook_events_jobs": True,
     "webhook_events_backup": True,
     "webhook_min_severity": "warning",  # info|warning|critical
+    "webhook_notify_categories": [],  # empty = all (Stream A)
+    "smtp_notify_categories": [],
+    "alert_type_policy": {},  # {categories: {}, types: {}}
     # Cap H-lite — SMTP (password Fernet in smtp_password_encrypted)
     "smtp_enabled": False,
     "smtp_host": "",

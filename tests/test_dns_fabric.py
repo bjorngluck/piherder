@@ -25,6 +25,8 @@ def test_host_focus_key_and_map_urls():
     # Deep links land on the map panel (#map), not list-first chrome
     assert fabric.hosts_map_url() == "/dns/physical#map"
     assert fabric.hosts_map_url(server_id=3) == "/dns/physical?focus=n:host-3#map"
+    assert fabric.hosts_map_url(discovery_id=9) == "/dns/physical?focus=n:host-d-9#map"
+    assert fabric.discovery_focus_key(9) == "n:host-d-9"
     assert fabric.hosts_map_url(path_id=12) == "/dns/physical?focus=12#map"
     assert fabric.path_map_url() == "/dns/logical#map"
     assert fabric.path_map_url(path_id=12) == "/dns/logical?focus=12#map"

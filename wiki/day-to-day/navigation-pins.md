@@ -8,7 +8,7 @@
 |---------|----------------|
 | **Pin ★** | Save a host feature, app page, or Catalog integration to the header **★** menu |
 | **★ menu** | One-tap jump to your pins — grouped **Host · App · Integrations** |
-| **Host jump** | On Overview / Docker / Backups / Services: switch to the **same feature** on another host |
+| **Host jump** | On Overview / Docker / Backups / Services / **Files**: switch to the **same feature** on another host |
 
 Pins are **per user** (stored in Postgres). They are not shared fleet settings.
 
@@ -20,7 +20,7 @@ With many Pis, operators bounce between “this host’s Docker”, “Hosts map
 
 ## End-to-end: pin what you use every day
 
-1. Open a host **Docker** (or Backups / Services / Overview) page.  
+1. Open a host **Docker** (or Backups / Services / Files / Overview) page.  
 2. Click the **star** next to the feature title to pin.  
 3. Open **Catalog → Network** and pin **Hosts map** / **Path map** (star on the hub card or map chrome).  
 4. Optional: pin a Catalog integration (star next to the integration name).  

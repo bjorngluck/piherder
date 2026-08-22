@@ -23,6 +23,7 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 4. Expand a project; open logs if needed.  
 5. **Check updates** vs **Deploy** when you want pull-only vs pull+up ([Updates](../day-to-day/updates-and-patching.md)).  
 6. For compose edits, use [Compose edit](compose-edit.md) (quick modal or full editor with history).  
+7. For a sidecar / log sitting next to the stack, or to copy a file out of a container, use [Host Files](../day-to-day/host-files.md) (jailed SFTP; flag `PIHERDER_HOST_FILES`).  
 
 ---
 
@@ -37,7 +38,7 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 
 | Action | Notes |
 |--------|--------|
-| Browse projects / containers | From inventory snapshot ([Inventory](inventory.md)); containers as **dense rows** (not a wide table) |
+| Browse projects / containers | From inventory snapshot ([Inventory](inventory.md)); **search + status chips + pager** are server-side (see below); containers as **dense rows** |
 | Runtime stack / Path map | Project **Stack** / **Path map** pills → Network stack panel + map expand ([Network maps](../integrations/dns-fabric.md#runtime-stack-detail-altitude)) |
 | Logs | Per container / service (modal or full page). Multi-service projects: pick a service **or All services** (project-level `docker compose logs`). Live SSE requires a **signed-in** session |
 | **Stop / Start / Restart all** | Project ⋯ menu → confirm → **Job** with live log (`docker_stack_stop` / `_start` / `_restart`) — **operator+** |
@@ -65,7 +66,13 @@ One **directory** under the Docker base dir is still **one** project in the Dock
 | `docker-compose.override.yml` | Compose auto-merge — multi-file editor, not a separate set |
 | `docker-compose.<name>.yml` | **Compose set** (e.g. `docker-compose.e2e.yml` → set **e2e**) |
 
-**UI:** under the project header, pills **All · main · e2e · …** filter which services are listed. This is **not** a second stack card.
+**UI:** under the project header, pills **All · main · e2e · …** filter which services are listed **inside a visible project**. This is **not** a second stack card and stays **client-side**.
+
+### Filter and page stacks {#docker-list-filter}
+
+Status chips (All / Running / Stopped / Not created / Updates) and the name box are **GET query params** (`q`, `status`, `page`, `per_page`). A project stays if its name **or** any service/image matches the search (same aliases as Servers — `ha` → Home Assistant). Page size is the shared **10 / 20 / 50 / 100** cookie. Hero totals stay the unfiltered inventory.
+
+HTMX refresh keeps the query so filters do not reset. `?project=foo` after Deploy still jumps to that stack. Compose-set pills are unchanged.
 
 **Deploy:** project ⋯ → **Deploy** runs the whole project (default Compose resolution). **Deploy \<set\> set** runs `docker compose -f <that-file> up -d` still under the **same** project name / directory.
 
@@ -99,3 +106,4 @@ Only **one** stack mutation runs at a time per host (shared lane with Deploy and
 - [Inventory cache](inventory.md)  
 - [Compose edit & deploy](compose-edit.md)  
 - [Service templates](../service-templates/overview.md)  
+- [Reports](../day-to-day/reports.md) — deploy / patch job history (running-now is last inventory only)  

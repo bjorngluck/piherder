@@ -8,6 +8,7 @@ Capability:
   read   — GET fleet / jobs / meta
   jobs   — POST job triggers
   edit   — PATCH server feature flags (and future config writes)
+  files  — Host Files (fleet identity only; list/get/put/mkdir/rename/delete)
 
 Feature allowlist (optional; if none listed, all features allowed):
   feature:backup — backup / retention jobs + toggle backup feature
@@ -34,7 +35,8 @@ TOKEN_BYTES = 32
 SCOPE_READ = "read"
 SCOPE_JOBS = "jobs"
 SCOPE_EDIT = "edit"
-CAPABILITY_SCOPES = frozenset({SCOPE_READ, SCOPE_JOBS, SCOPE_EDIT})
+SCOPE_FILES = "files"
+CAPABILITY_SCOPES = frozenset({SCOPE_READ, SCOPE_JOBS, SCOPE_EDIT, SCOPE_FILES})
 
 # Feature scopes (restrict which server features a token may act on)
 FEATURE_BACKUP = "feature:backup"
@@ -84,6 +86,7 @@ SCOPE_HELP = {
     SCOPE_READ: "List servers, jobs, and API meta (GET)",
     SCOPE_JOBS: "Trigger backup / patch / update-check jobs (POST)",
     SCOPE_EDIT: "Change server feature flags (PATCH)",
+    SCOPE_FILES: "Host Files list / download / upload / mkdir / rename / delete (fleet identity only)",
     FEATURE_BACKUP: "Limit jobs/edits to the Backups feature",
     FEATURE_OS: "Limit jobs/edits to the OS patch feature",
     FEATURE_DOCKER: "Limit jobs/edits to Docker / containers feature",
@@ -592,6 +595,12 @@ def api_meta_dict() -> dict:
             {"method": "POST", "path": "/api/v1/servers/{id}/jobs", "scope": "jobs", "summary": "Trigger job"},
             {"method": "GET", "path": "/api/v1/jobs", "scope": "read", "summary": "List jobs"},
             {"method": "GET", "path": "/api/v1/jobs/{id}", "scope": "read", "summary": "Job detail"},
+            {"method": "GET", "path": "/api/v1/servers/{id}/files", "scope": "files", "summary": "List a jail-relative directory (fleet)"},
+            {"method": "GET", "path": "/api/v1/servers/{id}/files/download", "scope": "files", "summary": "Download one file (fleet)"},
+            {"method": "POST", "path": "/api/v1/servers/{id}/files", "scope": "files", "summary": "Upload one file (fleet)"},
+            {"method": "POST", "path": "/api/v1/servers/{id}/files/mkdir", "scope": "files", "summary": "Create a directory (fleet)"},
+            {"method": "POST", "path": "/api/v1/servers/{id}/files/rename", "scope": "files", "summary": "Rename in the current directory (fleet)"},
+            {"method": "DELETE", "path": "/api/v1/servers/{id}/files", "scope": "files", "summary": "Delete a file or empty directory (fleet)"},
         ],
         "job_types": sorted(JOB_FEATURE_KEY.keys()),
         "docs": {

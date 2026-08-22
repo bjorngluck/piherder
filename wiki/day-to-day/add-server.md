@@ -16,8 +16,23 @@ Without a server record you have no place to store the encrypted SSH key, featur
 
 <figure class="ph-figure" markdown>
   ![Servers list](../assets/screenshots/server-list.png)
-  <figcaption>Servers list — filter chips, status from last checks, bulk bar when selected, ⋯ per host.</figcaption>
+  <figcaption>Servers list — filter chips, search, page size, status from last checks, bulk bar when selected, ⋯ per host.</figcaption>
 </figure>
+
+### Finding hosts on a large fleet {#servers-list-search}
+
+The Servers list (`/servers`) is **server-side**. Pulse counts stay fleet-wide.
+
+| Control | What it does |
+|---------|----------------|
+| Chips (All / Attention / OS / Reboot / Images) | Same as 1.2. Combine with search. |
+| Search box | Tokens match **name, hostname, IP, DNS name, SSH user**. `ha` also matches `homeassistant`; `pi-hole` matches `pihole`. |
+| Per page | **10 / 20 / 50 / 100** — remembered in cookie `ph_per_page` (same cookie as Jobs, Audit, Docker, discovery). |
+| Pins first | Sort pinned hosts to the top. Does **not** hide the rest. |
+| Reorder | Full fleet only (All + empty search). If you have a filter, search, or pager, Reorder opens `?reorder=1` (unpaged). |
+| Select all visible | **This page only** — not every host that matches the filter. |
+
+Empty filter: “No hosts match” + **Show all**.
 
 ---
 
@@ -76,7 +91,7 @@ Without a server record you have no place to store the encrypted SSH key, featur
 
 ## SSH access panel (detail)
 
-The wizard Connect step covers deploy / test / clear password. The full **SSH access** panel on the server page also has rotate key, least-priv scripts, and dependency re-check.
+The wizard Connect step covers deploy / test / clear password (one **fleet** identity). The full **SSH access** panel on the server page also has rotate key, least-priv scripts, dependency re-check, and an optional **privileged** identity for [Connect as…](web-ssh-console.md) (console only — jobs stay on fleet).
 
 Optional **Web SSH console** (browser terminal; flag off by default): [Web SSH console](web-ssh-console.md).
 
@@ -87,7 +102,10 @@ Optional **Web SSH console** (browser terminal; flag off by default): [Web SSH c
 | **Check dependencies** | Probes `rsync` / docker / apt for **enabled** features only | Failures become hints, not silent job fails later |
 | **Deploy key** | Installs public key into `authorized_keys`; verifies key-only login | Stops depending on passwords |
 | **Rotate key** | New keypair, deploy, swap only after verify succeeds | Safe rotation if a key may have leaked |
-| **Least-priv user** | Optional `piherder` user + limited sudoers (Pi OS / Ubuntu) | Limits blast radius of the herder account |
+| **Least-priv user** | Optional `piherder` user + limited sudoers (Pi OS / Ubuntu) | Limits blast radius of the **fleet** account |
+| **Privileged identity** | Optional second key/user (e.g. `piherder-admin`). Generate or paste a key, download the setup script, run it on the host, then **Test privileged** | Break-glass **Connect as…** only. Not “Run on host”. HAOS: skip |
+
+SSH access shows **two labeled public keys** when privileged exists: **Fleet public key** (jobs + default console) and **Privileged public key**. They are different keypairs. Copy the one that matches the user you are installing.
 
 !!! tip "Clear stored passwords"
     After key auth works, clear any stored SSH password (wizard Connect or server edit) so secrets stay keys-only.

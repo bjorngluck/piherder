@@ -12,7 +12,9 @@ from app.services import nav_shortcuts as nav
 def test_feature_href_and_label():
     assert nav.feature_href(3, "docker") == "/servers/3/docker"
     assert nav.feature_href(3, "overview") == "/servers/3"
+    assert nav.feature_href(3, "files") == "/servers/3/files"
     assert nav.feature_label("backups") == "Backups"
+    assert nav.feature_label("files") == "Files"
     with pytest.raises(ValueError):
         nav.normalize_feature("nope")
 

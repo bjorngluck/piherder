@@ -495,6 +495,96 @@
       transparent 55%),
     linear-gradient(145deg, var(--color-surface) 0%, var(--color-bg) 100%);
 }
+.ops-hero--files.is-ok {
+  background:
+    radial-gradient(100% 90% at 100% 0%,
+      color-mix(in srgb, var(--color-accent) 16%, transparent) 0%,
+      transparent 55%),
+    linear-gradient(145deg, var(--color-surface) 0%, var(--color-bg) 100%);
+}
+.ops-hero--files.is-busy {
+  background:
+    radial-gradient(100% 90% at 100% 0%,
+      color-mix(in srgb, #2563eb 16%, transparent) 0%,
+      transparent 55%),
+    linear-gradient(145deg, var(--color-surface) 0%, var(--color-bg) 100%);
+}
+.ops-hero--files.is-warn {
+  background:
+    radial-gradient(100% 90% at 100% 0%,
+      color-mix(in srgb, var(--color-warning, #d97706) 16%, transparent) 0%,
+      transparent 55%),
+    linear-gradient(145deg, var(--color-surface) 0%, var(--color-bg) 100%);
+}
+.files-hero-folders {
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: 0 auto 0.15rem;
+  position: relative;
+}
+.files-hero-folders .ff-back,
+.files-hero-folders .ff-front {
+  position: absolute;
+  left: 50%;
+  border-radius: 0.45rem 0.45rem 0.4rem 0.4rem;
+  border: 1.5px solid color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+}
+.files-hero-folders .ff-back {
+  width: 2.55rem;
+  height: 1.85rem;
+  top: 0.55rem;
+  transform: translateX(-58%) rotate(-12deg);
+  opacity: 0.7;
+}
+.files-hero-folders .ff-front {
+  width: 2.85rem;
+  height: 2.05rem;
+  top: 1.15rem;
+  transform: translateX(-42%);
+  box-shadow: 0 6px 16px -10px color-mix(in srgb, #000 40%, transparent);
+}
+.files-hero-folders .ff-tab {
+  position: absolute;
+  left: 0.2rem;
+  top: -0.42rem;
+  width: 1.05rem;
+  height: 0.42rem;
+  border-radius: 0.25rem 0.25rem 0 0;
+  background: color-mix(in srgb, var(--color-accent) 55%, var(--color-primary));
+}
+.files-hero-folders .ff-core {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 0.35rem;
+  z-index: 1;
+}
+.files-hero-folders .ff-n {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.files-hero-folders .ff-l {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  font-weight: 700;
+}
+@media (max-width: 767.98px) {
+  .ops-hero-viz > .files-hero-folders {
+    margin: 0;
+    flex: 0 0 auto;
+    width: 3.6rem;
+    height: 3.6rem;
+  }
+}
 .host-hero-chip {
   display: inline-flex;
   align-items: center;
@@ -1042,13 +1132,22 @@ html.dark .ph-file-badge--config,
 .nmap-filter-bar,
 .nmap-map-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.65rem 1rem;
-  padding: 0.55rem 0.85rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  padding: 0.55rem 0.75rem;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   background: var(--color-surface);
+}
+@media (min-width: 640px) {
+  .nmap-filter-bar,
+  .nmap-map-toolbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+  }
 }
 .nmap-map-toggle {
   display: inline-flex;
@@ -1081,19 +1180,30 @@ html.dark .ph-file-badge--config,
 }
 .nmap-filter-search-wrap,
 .nmap-map-search-wrap {
-  flex: 1 1 14rem;
-  min-width: 11rem;
-  max-width: 22rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  width: 100%;
   display: flex;
   align-items: center;
+  gap: 0.4rem;
+}
+@media (min-width: 640px) {
+  .nmap-filter-search-wrap,
+  .nmap-map-search-wrap {
+    flex: 1 1 14rem;
+    max-width: 28rem;
+    width: auto;
+  }
 }
 .nmap-filter-search,
 .nmap-map-search {
   width: 100%;
-  min-height: 2.5rem;
-  height: 2.5rem;
-  line-height: 1.25;
+  min-height: 2.25rem;
+  height: 2.25rem;
+  line-height: 1.2;
   margin: 0;
+  box-sizing: border-box;
 }
 /* Empty state after client-side filter hides all rows/cards */
 .nmap-filter-empty {
@@ -1245,45 +1355,16 @@ html.dark .ph-file-badge--config,
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.35rem;
   flex: 1 1 auto;
   min-width: 0;
 }
-.nmap-filter {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.5rem;
-  padding: 0 0.7rem;
-  border-radius: 999px;
-  border: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-bg) 40%, var(--color-surface));
-  font-size: 0.75rem;
-  color: var(--color-muted);
-  text-decoration: none;
-}
-.nmap-filter:hover { color: var(--color-text); border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border)); }
-.nmap-filter.is-active {
-  color: var(--color-text);
-  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
-  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
-  font-weight: 600;
-}
-/* Chips sit inside bordered bar — quieter inactive chips */
+/* Size/format: ops.css .ops-type-chip family. Quiet fill inside the bordered bar. */
 .nmap-filter-bar .nmap-filter {
   background: transparent;
 }
 .nmap-filter-bar .nmap-filter.is-active {
   background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
-}
-.nmap-filter-n {
-  margin-left: 0.25rem;
-  font-size: 0.65rem;
-  font-weight: 600;
-  opacity: 0.75;
-  font-variant-numeric: tabular-nums;
-}
-.nmap-filter.is-active .nmap-filter-n {
-  opacity: 1;
 }
 .nmap-host-meta {
   display: flex;

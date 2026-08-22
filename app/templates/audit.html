@@ -250,6 +250,14 @@ const AUDIT_LOGS = {{ logs | tojson | safe }};
     </div>
     <div class="ph-detail-log-label">Output / details</div>
     <pre id="audit-details-content" class="ph-detail-log">—</pre>
+    <div id="audit-transcript-wrap" class="hidden mt-3">
+      <div class="flex flex-wrap items-center gap-2 mb-2">
+        <span class="text-xs text-muted">Console commands</span>
+        <a id="audit-transcript-full" class="text-xs text-accent underline" href="#">Open full</a>
+        <a id="audit-transcript-dl" class="text-xs text-accent underline" href="#">Download</a>
+      </div>
+      <pre id="audit-transcript-body" class="ph-detail-log text-xs">—</pre>
+    </div>
   </div>
 </div>
 
@@ -323,6 +331,46 @@ function showAuditDetailsModal(log) {
     }
   } catch (_) {}
   pre.textContent = content;
+
+  var wrap = document.getElementById('audit-transcript-wrap');
+  var tpre = document.getElementById('audit-transcript-body');
+  var tfull = document.getElementById('audit-transcript-full');
+  var tdl = document.getElementById('audit-transcript-dl');
+  if (wrap) wrap.classList.add('hidden');
+  var tid = log.transcript_id;
+  if (tid && wrap && tpre) {
+    wrap.classList.remove('hidden');
+    if (tfull) tfull.href = '/audit/console/' + encodeURIComponent(tid);
+    if (tdl) tdl.href = '/audit/console/' + encodeURIComponent(tid) + '/download';
+    if (!log.transcript_readable) {
+      tpre.textContent = 'Transcript hidden.';
+      if (tdl) tdl.classList.add('hidden');
+    } else {
+      if (tdl) tdl.classList.remove('hidden');
+      tpre.textContent = 'Loading…';
+      fetch('/audit/console/' + encodeURIComponent(tid) + '/json', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data || !data.ok) {
+            tpre.textContent = (data && data.detail) || 'Could not load transcript.';
+            return;
+          }
+          if (data.transcript && data.transcript.purged) {
+            tpre.textContent = (data.transcript.command_count || 0) + ' commands were recorded. Body expired (retention).';
+            return;
+          }
+          var ev = data.events || [];
+          var lines = [];
+          for (var i = 0; i < ev.length; i++) {
+            var e = ev[i] || {};
+            if (e.kind === 'cmd') lines.push('$ ' + (e.text || ''));
+            else if (e.kind === 'out') lines.push((e.text || '').split('\n').map(function (ln) { return '| ' + ln; }).join('\n'));
+          }
+          tpre.textContent = lines.join('\n') || '(empty)';
+        })
+        .catch(function () { tpre.textContent = 'Could not load transcript.'; });
+    }
+  }
 
   modal.classList.remove('hidden');
   modal.classList.add('flex');

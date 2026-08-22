@@ -40,6 +40,15 @@ templates.env.globals["user_has_avatar"] = _avatar_svc.user_has_avatar
 templates.env.globals["avatar_img_url"] = _avatar_svc.avatar_img_url
 
 
+def _password_policy_vars():
+    from .services import password_policy as pwpol
+
+    return pwpol.template_vars()
+
+
+templates.env.globals["password_policy_vars"] = _password_policy_vars
+
+
 def _app_tz_filter(dt, fmt="%Y-%m-%d %H:%M"):
     """Render UTC-stored times in the Settings timezone (datetime or ISO string)."""
     return format_datetime_in_app_tz(dt, fmt)
@@ -74,6 +83,13 @@ def _fromjson_filter(value):
 
 
 templates.env.filters["fromjson"] = _fromjson_filter
+
+
+def _tojson_filter(value):
+    return Markup(json.dumps(value))
+
+
+templates.env.filters["tojson"] = _tojson_filter
 
 # About / update banner (soft-fail; cached GitHub check)
 from . import version_info as _vi

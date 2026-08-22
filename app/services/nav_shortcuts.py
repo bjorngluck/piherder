@@ -24,6 +24,7 @@ FEATURE_META: dict[str, dict[str, str]] = {
     "backups": {"label": "Backups", "suffix": "/backups"},
     "docker": {"label": "Docker", "suffix": "/docker"},
     "services": {"label": "Services", "suffix": "/services"},
+    "files": {"label": "Files", "suffix": "/files"},
 }
 
 # App-level pages (stable keys only).
@@ -104,6 +105,8 @@ def server_has_feature(server: Server, feature: str | None) -> bool:
         return bool(getattr(server, "backup_enabled", False))
     if f == "services":
         # Host services page is always available; useful when Docker is off (HAOS).
+        return True
+    if f == "files":
         return True
     return True
 

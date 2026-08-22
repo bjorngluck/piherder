@@ -2,7 +2,8 @@
 
 ## What this is
 
-The **Dashboard** (`/`) is the home page after login: a **fleet health at a glance** view.  
+The **Dashboard** (`/`) is the home page after login: a **fleet health at a glance** view (hosts, attention, services down, alert count, maps pulse).  
+**Reports** (`/reports`, nav after **Catalog**) is **history** Grafana never sees: backups, OS patches, LAN live-per-day, Docker deploys/patches, console sessions — see [Reports](reports.md).  
 **Fleet Services** (`/services`) is a separate page: an icon grid of apps monitored via **Uptime Kuma** bindings.
 
 ## Why it exists
@@ -47,14 +48,14 @@ The dashboard answers those from **last check jobs and caches** (not a full SSH 
 | OS / container summary cards | Aggregate package/image update counts | Fleet-wide patch pressure |
 | **Needs attention** table | Only hosts that need work; Open / Docker shortcuts | Act without hunting |
 | **Network maps** panel | Constellation + named/mapped/NPM counts | Homelab topology entry |
-| **Quick links** | Servers, notifications, audit, Settings, Pi-hole, Certificates, Catalog | Frequent destinations |
+| **Quick links** | Reports (history), Servers, notifications, audit, Settings, Pi-hole, Certificates, Catalog | Frequent destinations |
 | **Hosts map / Path map** links | `/dns/physical#map` · `/dns/logical#map` | Open the SVG graph (not list-only) |
 
 Status comes from **last check jobs** (and related caches) — not continuous SSH on every open. The Network maps panel uses a **cheap pulse** (counts only), not a full SVG build.
 
 ### Pins & host jump
 
-For multi-host fleets, pin frequent pages with the **★** next to feature titles / Network map cards, then open them from the header **★** menu. On a host feature page, use **Jump host** to stay on Docker/Backups/Services while switching machines. Full guide: [Pins & host jump](navigation-pins.md).
+For multi-host fleets, pin frequent pages with the **★** next to feature titles / Network map cards, then open them from the header **★** menu. On a host feature page, use **Jump host** to stay on Docker/Backups/Services/**Files** while switching machines. Full guide: [Pins & host jump](navigation-pins.md). Host **Files** button appears when `PIHERDER_HOST_FILES=true` ([Host Files](host-files.md)).
 
 | Pulse field | Source |
 |-------------|--------|
@@ -96,6 +97,7 @@ Per-host view: **Server → Services** (`/servers/{id}/services`) — same card 
 
 ## Related
 
+- [Reports](reports.md) — backup dest, OS patches, LAN census, Docker deploys, console sessions  
 - [Updates & patching](updates-and-patching.md) — what “attention” means  
 - [Jobs, audit & notifications](jobs-audit-notifications.md)  
 - [Uptime Kuma](../integrations/uptime-kuma.md)  

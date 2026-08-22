@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 from ..models import IntegrationBinding, Server
 from . import docker_inventory as inv_svc
 from . import notifications as notif_svc
+from . import alert_policy as apol
 from .app_settings import load_settings
 from .integrations import registry as reg
 
@@ -21,16 +22,19 @@ logger = logging.getLogger(__name__)
 
 
 def inventory_down_alerts_enabled() -> bool:
-    """App setting stack_inventory_down_alerts — default on."""
+    """Policy for stack_container_down, with 1.2 stack_inventory_down_alerts fallback."""
     try:
-        v = load_settings().get("stack_inventory_down_alerts")
-        if v is None or v == "":
-            return True
-        if isinstance(v, bool):
-            return v
-        return str(v).strip().lower() in ("1", "true", "yes", "on")
+        return apol.inventory_down_alerts_enabled()
     except Exception:
-        return True
+        try:
+            v = load_settings().get("stack_inventory_down_alerts")
+            if v is None or v == "":
+                return True
+            if isinstance(v, bool):
+                return v
+            return str(v).strip().lower() in ("1", "true", "yes", "on")
+        except Exception:
+            return True
 
 
 def _bindings_by_server(session: Session, server_id: int) -> list[IntegrationBinding]:

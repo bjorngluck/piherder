@@ -88,6 +88,10 @@ Journey: [Operator scenarios — Journey H](../getting-started/operator-scenario
   <figcaption>Runs history — dense list (intensity, status, hosts, ports, Job link).</figcaption>
 </figure>
 
+## Alerts (v1.3)
+
+New devices and **offline** (stale last-seen) can open Alerts inbox rows. Webhooks get a **digest per scan** for new devices, not one POST each. Mute **LAN discovery** under Settings → Alerts → Alert policy before the first large CIDR scan. Port churn is not an alert. See [Alerts](../operations/alerts-email-webhooks.md).
+
 There are **two** maps:
 
 | Map | URL | What it shows |
@@ -239,7 +243,7 @@ Operators can mutate; viewers see read-only identity. Map view restores scroll a
 
 ## Devices → Map view {#devices-map-view}
 
-- Hosts grouped by **/24** (or IPv6 /64), with search filter.
+- Hosts grouped by **/24** (or IPv6 /64), with **client-side** search (map is not paged).
 - **List | Map** toggle on the Devices toolbar (shared stats strip).
 - **Click a host card** → edit modal (above). Stays on Map view.
 - **Show unlinked** (default on): include unlinked hosts (`new` / `known` / `stale`). Uncheck to keep only **linked** devices. Preference is browser-local (separate from Hosts map radar).
@@ -249,7 +253,7 @@ Operators can mutate; viewers see read-only identity. Map view restores scroll a
 
 ### Devices → List view
 
-- Shared filter bar: All / New / Known / Linked / **Hidden** / **Offline** + counts + search (search also matches last-seen / hidden tokens).
+- Shared filter bar: All / New / Known / Linked / **Hidden** / **Offline** + counts + **server-side** search (`q`) and pager (10 / 20 / 50 / 100, same `ph_per_page` cookie as Servers). Search matches IP, hostname, display name, MAC, vendor, OS, notes, kind (`ha` / `rpi` aliases). Chip counts stay fleet-wide.
 - Each row shows **Last seen** (relative; absolute in title) and state.
 - **Offline** = not seen recently (stale after ~14 days without `last_seen`; warning colour). Devices are **never auto-deleted**.
 - **Hide** (modal) = ignore — off Devices map and Hosts overlay; still in DB under **Hidden** (Unhide restores).
@@ -423,4 +427,5 @@ Web only **enqueues**. Cancel and progress follow the fleet Jobs UI (finished jo
 - [Add a server](../day-to-day/add-server.md) — promote path  
 - [Jobs, audit & notifications](../day-to-day/jobs-audit-notifications.md)  
 - [Settings — Stale data cleanup](../operations/settings.md#stale-data-cleanup) — optional purge of old nmap runs  
+- [Reports](../day-to-day/reports.md) — live devices per day (`hosts_up`, carry-forward)  
 - [Volumes](../operations/volumes.md)

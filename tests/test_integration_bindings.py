@@ -38,8 +38,9 @@ def test_notify_transition_down_and_up(monkeypatch):
 
     def fake_upsert(session, **kwargs):
         calls["upsert"] += 1
-        assert kwargs["type"] == "integration_monitor_down"
+        assert kwargs["type"] == "host_down"
         assert "down" in kwargs["title"].lower() or "SSH" in kwargs["title"]
+        assert "focus=n:host-" in (kwargs.get("link_url") or "")
         return MagicMock()
 
     def fake_resolve(session, fp):

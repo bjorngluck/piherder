@@ -6,7 +6,7 @@ A **read-mostly** integration that inventories Grafana dashboards and places **d
 
 ## Why it exists
 
-Metrics usually already live in Grafana. PiHerder should not re-implement dashboards; it should put the right dashboard **one click away** from the host or container you are looking at, with host/container variables filled in.
+Metrics usually already live in Grafana. PiHerder should not re-implement host CPU/disk/container graphs. Backup dest, OS patches, LAN census, Docker deploys, and console sessions never appear in Grafana — those live on [Reports](../day-to-day/reports.md).
 
 PiHerder does **not** have to deploy Grafana (you may still use the Grafana template for a new instance).
 
@@ -73,3 +73,8 @@ Grafana variables need the **`var-`** prefix (`var-job=…`).
 - Expanded row links (mobile-friendly)
 
 Without a token you can still deep-link by pasting dashboard UIDs; inventory list will be empty.
+
+## Related
+
+- [Reports](../day-to-day/reports.md) — PiHerder job / scan / console history (not host graphs)  
+- [Dashboard & Services](../day-to-day/dashboard-and-services.md)

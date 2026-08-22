@@ -95,3 +95,5 @@ Retention cleanup is a separate job type (`retention`) driven by configured keep
 ## Troubleshooting
 
 [Backups stuck or failing](../troubleshooting/backups.md)
+
+Success/fail over time and dest-size growth: [Reports](reports.md).

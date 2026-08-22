@@ -1997,42 +1997,13 @@ body.server-reorder-active #bulk-hint {
   display: none !important;
 }
 
-/* Servers list filter chips */
+/* Servers list filter bar — pill size lives in ops.css (.ops-type-chip family) */
 .server-filter-bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 1rem;
-}
-.server-filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-height: 2.25rem;
-  padding: 0.25rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: 9999px;
-  background: var(--color-surface);
-  color: var(--color-muted);
-  font-size: 0.8rem;
-  text-decoration: none;
-  line-height: 1.2;
-}
-.server-filter-chip:hover {
-  color: var(--color-text);
-  border-color: var(--color-muted);
-  text-decoration: none;
-}
-.server-filter-chip.is-active {
-  background: color-mix(in srgb, var(--color-primary, #c8102e) 12%, var(--color-surface));
-  border-color: var(--color-primary, #c8102e);
-  color: var(--color-text);
-  font-weight: 600;
-}
-.server-filter-count {
-  font-size: 0.7rem;
-  font-weight: 600;
-  opacity: 0.85;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
 }
 .server-row.is-attention {
   box-shadow: inset 3px 0 0 var(--color-warning, #e6a817);
@@ -2632,49 +2603,33 @@ body.server-reorder-active #bulk-hint {
   margin-top: 1rem;
 }
 
-/* Filter bar */
+/* Filter bar — pill size in ops.css; search matches .ops-f-control */
 .docker-filter-bar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
 }
 .docker-filter-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
-}
-.docker-filter-chip {
-  min-height: 2rem;
-  padding: 0.25rem 0.65rem;
-  border: 1px solid var(--color-border);
-  border-radius: 9999px;
-  background: var(--color-surface);
-  color: var(--color-muted);
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-.docker-filter-chip:hover {
-  border-color: var(--color-muted);
-  color: var(--color-text);
-}
-.docker-filter-chip.is-active {
-  background: var(--accent-subtle-bg, rgba(0, 166, 81, 0.12));
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-  font-weight: 600;
+  align-items: center;
+  gap: 0.35rem;
 }
 .docker-filter-search {
-  flex: 1 1 10rem;
-  min-width: 8rem;
-  max-width: 16rem;
-  min-height: 2rem;
-  padding: 0.3rem 0.65rem;
+  flex: 1 1 12rem;
+  min-width: 0;
+  max-width: none;
+  min-height: 2.25rem;
+  height: 2.25rem;
+  padding: 0.35rem 0.55rem;
   border: 1px solid var(--color-border);
   border-radius: 8px;
   background: var(--color-surface);
   color: var(--color-text);
   font-size: 0.8rem;
+  line-height: 1.2;
+  box-sizing: border-box;
 }
 .docker-filter-search:focus {
   outline: 2px solid var(--color-accent);

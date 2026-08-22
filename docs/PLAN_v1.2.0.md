@@ -1,6 +1,6 @@
 # PiHerder v1.2.0 — big identity + webshell + gated demo
 
-**Status:** **Tagged** — current production — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md)  
+**Status:** **Tagged** — prior production — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · prefer [v1.3.0](RELEASE_v1.3.0.md)  
 **Date opened:** 2026-08-08 · **Freeze:** 2026-08-12 · **Tagged:** 2026-08-18  
 **Git branch:** `v1.2.0-dev` (integration) · merge → `main` → tag `v1.2.0`  
 **Package / image version:** `1.2.0`  
@@ -396,7 +396,7 @@ Phase 4  Freeze
 - Public ungated demo with shared password  
 - Video session recording / dual-control console (command transcripts are 1.3 **discover**, not 1.2)  
 
-**Planning capture (while 1.2 finishes):** [PLAN_v1.3.0.md](PLAN_v1.3.0.md) — do not implement on `v1.2.0-dev` unless pulled as an explicit exception.
+**Next train (opened 2026-08-18):** [PLAN_v1.3.0.md](PLAN_v1.3.0.md) on `v1.3.0-dev`.
 
 ---
 

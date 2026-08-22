@@ -1,0 +1,2712 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% set L = listing or {} %}
+<style>
+  .hf-page {
+    display: flex; flex-direction: column; gap: 0.65rem;
+    flex: 1 1 auto; min-height: 0; height: 100%; overflow: hidden;
+  }
+  .hf-page > .ops-hero { flex: 0 0 auto; margin-bottom: 0; }
+  .hf-page.is-max > .ops-hero { display: none; }
+  .hf-page.is-max { gap: 0; }
+  .hf-max-btn { flex: 0 0 auto; padding-left: 0.5rem; padding-right: 0.5rem; }
+  .hf-max-btn svg { display: block; }
+  .hf-shell {
+    display: flex; flex-direction: column; gap: 0.5rem;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+    overflow: hidden;
+  }
+  .hf-win {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+    overflow: hidden;
+    box-shadow: 0 8px 28px color-mix(in srgb, #000 12%, transparent);
+  }
+  .spacer { flex: 1 1 auto; }
+  .hf-toolbar {
+    display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
+    padding: 0.4rem 0.55rem;
+    border-bottom: 1px solid var(--color-border);
+    flex: 0 0 auto;
+  }
+  .hf-tree-toggle { display: none; }
+  .hf-selbar {
+    background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  }
+  .hf-selbar[hidden] { display: none !important; }
+  .hf-path {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.15rem;
+    flex: 1 1 12rem; min-width: 0;
+    font-family: ui-monospace, monospace; font-size: 0.78rem;
+    padding: 0.25rem 0.45rem;
+    border: 1px solid var(--color-border); border-radius: 8px;
+    background: var(--color-bg);
+  }
+  .hf-path a { color: var(--color-accent); text-decoration: none; }
+  .hf-path a:hover { text-decoration: underline; }
+  .hf-path-sep {
+    color: var(--color-accent);
+    user-select: none;
+    margin: 0 0.12rem;
+    font-weight: 650;
+  }
+  .hf-panes { display: flex; flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; }
+  .hf-tree {
+    width: 15.5rem; flex: 0 0 15.5rem;
+    border-right: 1px solid var(--color-border);
+    overflow: auto;
+    min-height: 0;
+    padding: 0.4rem 0.25rem 0.6rem;
+    background: color-mix(in srgb, var(--color-bg) 55%, var(--color-surface));
+  }
+  .hf-tree-scrim { display: none; }
+  .hf-list {
+    flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; position: relative;
+  }
+  .hf-tree-row {
+    display: flex; align-items: center; gap: 0.15rem;
+    width: 100%; text-align: left;
+    padding: 0.22rem 0.3rem; border-radius: 6px;
+    border: 0; background: transparent; color: inherit;
+    cursor: pointer; font-size: 0.82rem;
+  }
+  .hf-tree-row:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+  .hf-tree-row.is-current { background: color-mix(in srgb, var(--color-accent) 18%, transparent); font-weight: 600; }
+  .hf-twist { width: 1.1rem; flex: 0 0 1.1rem; color: var(--color-muted); font-size: 0.7rem; }
+  .hf-tree-kids { margin-left: 0.85rem; }
+  .hf-cols {
+    display: grid;
+    grid-template-columns: 2rem minmax(8rem, 1fr) 5.5rem 7.2rem 8.5rem 2.4rem;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.68rem; color: var(--color-muted); font-weight: 650;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--color-border);
+    position: sticky; top: 0;
+    background: var(--color-surface);
+    z-index: 1;
+    align-items: center;
+  }
+  .hf-item {
+    display: grid;
+    grid-template-columns: 2rem minmax(8rem, 1fr) 5.5rem 7.2rem 8.5rem 2.4rem;
+    gap: 0.35rem;
+    align-items: center;
+    padding: 0.42rem 0.75rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+    cursor: default; min-height: 2.6rem;
+  }
+  .hf-item:hover { background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
+  .hf-item.is-selected { background: color-mix(in srgb, var(--color-accent) 16%, transparent); }
+  .hf-item.is-dir { cursor: pointer; }
+  .hf-iname { display: flex; align-items: center; gap: 0.45rem; min-width: 0; font-weight: 600; cursor: pointer; }
+  .hf-iname span.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hf-iname:hover span.nm { text-decoration: underline; }
+  .hf-radio { display: flex; align-items: flex-start; gap: 0.45rem; margin: 0.4rem 0; font-size: 0.85rem; }
+  .hf-preview {
+    display: none; position: absolute; inset: 0; z-index: 36;
+    flex-direction: column; background: var(--color-surface);
+  }
+  .hf-preview.is-on { display: flex; }
+  .hf-preview-body {
+    flex: 1 1 auto; min-height: 0; overflow: auto;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0.75rem; background: var(--color-code-bg, var(--color-bg));
+    position: relative;
+  }
+  .hf-preview-busy {
+    position: absolute; inset: 0; z-index: 3;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0.55rem;
+    background: color-mix(in srgb, var(--color-surface) 78%, transparent);
+    font-weight: 650;
+    pointer-events: none;
+  }
+  .hf-preview-busy[hidden] { display: none !important; }
+  .hf-preview-img.is-loading { opacity: 0.28; }
+  .hf-preview-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    z-index: 4; width: 2.6rem; height: 2.6rem; border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+    color: inherit; font-size: 1.4rem; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .hf-preview-nav:hover { background: var(--color-surface); border-color: var(--color-accent); }
+  .hf-preview-nav[hidden] { display: none !important; }
+  .hf-preview-nav--l { left: 0.6rem; }
+  .hf-preview-nav--r { right: 0.6rem; }
+  .hf-editor-err { font-size: 0.75rem; color: var(--color-danger, #dc2626); max-width: 22rem; }
+  .hf-preview-body img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .hf-preview-hex {
+    width: 100%; margin: 0; white-space: pre-wrap; word-break: break-all;
+    font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.45;
+    padding: 0.75rem;
+  }
+  .hf-q-wrap { display: flex; align-items: center; gap: 0.35rem; flex: 0 1 18rem; min-width: 9rem; flex-wrap: nowrap; }
+  .hf-q-wrap .hf-q { flex: 1 1 auto; width: auto; min-width: 6rem; }
+  .hf-q-contents { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; flex-shrink: 0; font-size: 0.75rem; color: var(--color-muted); }
+  .hf-ico { width: 1.15rem; text-align: center; flex-shrink: 0; }
+  .hf-meta { color: var(--color-muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+  .hf-secret { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-warning, #d97706); }
+  .hf-status {
+    display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: nowrap;
+    padding: 0.35rem 0.7rem; font-size: 0.75rem; color: var(--color-muted);
+    border-top: 1px solid var(--color-border);
+    min-height: 2rem;
+    flex: 0 0 auto;
+    align-items: center;
+  }
+  .hf-status .ok { color: var(--color-accent); }
+  .hf-status .err { color: var(--color-danger, #dc2626); }
+  .hf-empty { padding: 2.2rem 1rem; text-align: center; color: var(--color-muted); }
+  .hf-prog { width: 100%; height: 0.35rem; display: none; }
+  .hf-prog.is-on { display: block; }
+  .hf-drop {
+    display: none; position: absolute; inset: 0;
+    align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+    border: 2px dashed var(--color-accent); font-weight: 650; z-index: 2;
+  }
+  .hf-list.is-drag .hf-drop { display: flex; }
+  .hf-menu {
+    position: fixed; z-index: 80; min-width: 10rem;
+    border: 1px solid var(--color-border); border-radius: 8px;
+    background: var(--color-surface); padding: 0.25rem;
+    box-shadow: 0 10px 24px color-mix(in srgb, #000 18%, transparent);
+  }
+  .hf-busy, .hf-prompt {
+    display: none; position: absolute; inset: 0; z-index: 45;
+    align-items: center; justify-content: center; flex-direction: column; gap: 0.55rem;
+    background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+    font-weight: 650;
+  }
+  .hf-win.is-busy .hf-busy { display: flex; }
+  .hf-prompt.is-on { display: flex; z-index: 50; background: color-mix(in srgb, #000 48%, transparent); }
+  .hf-prompt-card {
+    width: min(24rem, calc(100% - 1.5rem));
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    border-radius: 12px; padding: 1rem 1.1rem;
+    box-shadow: 0 12px 32px color-mix(in srgb, #000 22%, transparent);
+  }
+  .hf-prompt-card.wide { width: min(30rem, calc(100% - 1.5rem)); }
+  .hf-bits {
+    display: grid; grid-template-columns: 2.2rem repeat(3, 1fr);
+    gap: 0.2rem 0.35rem; align-items: center;
+    font-size: 0.78rem; margin: 0.35rem 0 0.7rem;
+  }
+  .hf-bits label { display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
+  .hf-bits .hd { color: var(--color-muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .hf-spinner {
+    width: 1.45rem; height: 1.45rem;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-accent);
+    border-radius: 50%;
+    animation: hf-spin 0.7s linear infinite;
+  }
+  @keyframes hf-spin { to { transform: rotate(360deg); } }
+  .hf-editor {
+    display: none; position: absolute; inset: 0; z-index: 35;
+    flex-direction: column; background: var(--color-surface);
+  }
+  .hf-editor.is-on { display: flex; }
+  .hf-editor-bar {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    padding: 0.45rem 0.7rem; border-bottom: 1px solid var(--color-border);
+    flex: 0 0 auto;
+  }
+  .hf-editor-bar strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hf-editor-pos { font-size: 0.72rem; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+  .hf-editor-body {
+    flex: 1 1 auto; min-height: 0; position: relative;
+    --ce-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --ce-size: 13px;
+    --ce-lh: 1.5;
+    --ce-pad-y: 12px;
+    --ce-pad-x: 12px;
+    --ce-pad-left: 16px;
+    --ce-gutter-w: 2.75rem;
+    font-family: var(--ce-font);
+    font-size: var(--ce-size);
+    line-height: var(--ce-lh);
+    font-variant-ligatures: none;
+    background: var(--color-code-bg, var(--color-bg));
+    color: var(--color-code-text, var(--color-text));
+  }
+  .hf-editor-body .gutter {
+    font-family: var(--ce-font) !important;
+    font-size: var(--ce-size) !important;
+    line-height: calc(var(--ce-size) * var(--ce-lh)) !important;
+    user-select: none;
+    border-right: 1px solid var(--color-code-border, var(--color-border));
+    position: absolute !important;
+    left: 0; top: 0; bottom: 0;
+    width: var(--ce-gutter-w) !important;
+    box-sizing: border-box;
+    z-index: 30;
+    padding: var(--ce-pad-y) 6px var(--ce-pad-y) 0 !important;
+    overflow: hidden;
+    background: var(--color-code-bg, var(--color-bg));
+    color: var(--color-muted);
+  }
+  .hf-editor-body .gutter .ln {
+    min-height: calc(var(--ce-size) * var(--ce-lh));
+    height: calc(var(--ce-size) * var(--ce-lh));
+    line-height: calc(var(--ce-size) * var(--ce-lh));
+    display: block;
+    text-align: right;
+    padding: 0 4px 0 0;
+    box-sizing: border-box;
+  }
+  .hf-editor-body pre.hf-highlight,
+  .hf-editor-body textarea.hf-editor-ta {
+    font-family: var(--ce-font) !important;
+    font-size: var(--ce-size) !important;
+    line-height: calc(var(--ce-size) * var(--ce-lh)) !important;
+    tab-size: 2 !important;
+    border: 0 !important;
+    outline: none !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    padding: var(--ce-pad-y) var(--ce-pad-x) var(--ce-pad-y) var(--ce-pad-left) !important;
+    position: absolute !important;
+    left: var(--ce-gutter-w); right: 0; top: 0; bottom: 0;
+    white-space: pre;
+    overflow-x: auto !important;
+    overflow-y: scroll !important;
+  }
+  .hf-editor-body pre.hf-highlight {
+    pointer-events: none;
+    z-index: 10;
+    color: var(--color-code-text, var(--color-text)) !important;
+    background: transparent !important;
+  }
+  .hf-editor-body textarea.hf-editor-ta {
+    z-index: 20;
+    resize: none;
+    color: transparent !important;
+    background: transparent !important;
+    caret-color: var(--color-accent) !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+  }
+  .hf-editor-body.is-wrapping pre.hf-highlight,
+  .hf-editor-body.is-wrapping textarea.hf-editor-ta {
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+  .hf-editor-body .tok-comment { color: var(--color-muted) !important; }
+  .hf-editor-body .tok-key     { color: var(--color-accent) !important; }
+  .hf-editor-body .tok-string  { color: var(--color-warning) !important; }
+  .hf-editor-body .tok-number  { color: var(--color-syntax-number) !important; }
+  .hf-editor-body .tok-bool    { color: var(--color-syntax-bool) !important; }
+  .hf-editor-body .tok-punct   { color: var(--color-muted) !important; }
+  .hf-chk { width: 1rem; height: 1rem; flex-shrink: 0; margin: 0; }
+  .hf-upload-choices { display: grid; gap: 0.45rem; margin: 0.75rem 0 1rem; }
+  .hf-upload-choices button { width: 100%; text-align: left; }
+  .hf-q {
+    width: 11rem; min-width: 7rem; flex: 0 1 14rem;
+    font-size: 0.82rem; padding: 0.25rem 0.55rem;
+    border: 1px solid var(--color-border); border-radius: 8px;
+    background: var(--color-bg); color: inherit; min-height: 2.5rem;
+  }
+  .hf-move-tree {
+    max-height: 14rem; overflow: auto; width: 100%;
+    border: 1px solid var(--color-border); border-radius: 8px;
+    margin: 0.4rem 0 0.75rem; padding: 0.25rem;
+    background: var(--color-bg);
+  }
+  .hf-tree-row.is-drop, .hf-tree-row.is-pick {
+    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+    outline: 1px dashed var(--color-accent);
+  }
+  .hf-menu button {
+    display: block; width: 100%; text-align: left; border: 0; background: transparent;
+    color: inherit; padding: 0.45rem 0.6rem; border-radius: 6px; font-size: 0.85rem; cursor: pointer;
+  }
+  .hf-menu button:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+  .hf-menu button.danger { color: var(--color-danger, #dc2626); }
+  @media (min-width: 720px) {
+    .hf-item, .hf-cols { grid-template-columns: 2rem minmax(8rem, 1fr) 5.5rem 7.2rem 8.5rem; }
+    .hf-row-more { display: none; }
+  }
+  @media (max-width: 719px) {
+    .hf-tree-toggle { display: inline-flex; }
+    .hf-tree-scrim {
+      display: none; position: absolute; inset: 0; z-index: 24;
+      background: color-mix(in srgb, #000 42%, transparent); border: 0;
+    }
+    .hf-win.is-tree .hf-tree-scrim { display: block; }
+    .hf-tree {
+      display: block;
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: min(18.5rem, 86vw); flex: none; z-index: 25;
+      transform: translateX(-105%);
+      transition: transform 0.2s ease;
+      box-shadow: 8px 0 28px color-mix(in srgb, #000 22%, transparent);
+      border-right: 1px solid var(--color-border);
+    }
+    .hf-win.is-tree .hf-tree { transform: translateX(0); }
+    .hf-item, .hf-cols { grid-template-columns: 2rem minmax(0, 1fr) 2.4rem; }
+    .hf-item .hf-meta, .hf-cols .hf-hide-sm { display: none; }
+    .hf-win { border-radius: 10px; }
+    .hf-toolbar { padding: 0.35rem 0.4rem; }
+    .hf-q-wrap { flex: 1 1 100%; min-width: 0; }
+    .hf-selbar .btn { min-height: 2.35rem; font-size: 0.75rem; padding: 0 0.55rem; }
+  }
+</style>
+
+{% set _ents = L.entries or [] %}
+{% set _n = _ents|length %}
+{% set _ident_lab = 'Privileged' if role == 'privileged' else 'Fleet' %}
+{% set ns = namespace(user=server.ssh_username) %}
+{% for ident in identities %}
+  {% if ident.role == role and ident.username %}{% set ns.user = ident.username %}{% endif %}
+{% endfor %}
+{% set _ident_user = ns.user %}
+{% set _fhealth = 'busy' if needs_stepup else ('warn' if list_error else 'ok') %}
+<div class="hf-page" data-testid="host-files-page"
+     data-server="{{ server.id }}"
+     data-identity="{{ role }}"
+     data-needs-stepup="{{ '1' if needs_stepup else '0' }}"
+     data-has-grant="{{ '1' if has_grant else '0' }}"
+     data-docker="{{ '1' if docker_on else '0' }}"
+     data-has-passkeys="{{ '1' if has_passkeys else '0' }}">
+
+  <section class="ops-hero ops-hero--files is-{{ _fhealth }}" data-testid="files-hero">
+    <div class="ops-hero-main">
+      <div class="ops-hero-kicker host-kicker-line">
+        <span class="host-switcher-cluster">
+          <a href="/servers/{{ server.id }}" class="host-switcher-name-link" data-testid="host-overview-link"
+             title="Full server overview">{{ server.name }}</a>
+          {% if can_host_jump|default(false) %}
+          <button type="button" class="host-switcher-caret-btn" data-host-switch-open data-testid="host-switcher-open"
+                  title="Files on another host" aria-label="Switch host for Files"><span aria-hidden="true">▾</span></button>
+          {% endif %}
+        </span>
+        <span class="host-kicker-sep">·</span>
+        <span>Files</span>
+        {% include "partials/host_feature_nav.html" %}
+      </div>
+      <h1 class="ops-hero-title">Files</h1>
+      <p class="ops-hero-sub">
+        {{ server.hostname }}
+        · {{ _ident_lab }} ({{ _ident_user }})
+        ·
+        {% if role == 'privileged' %}
+        <span title="This account can browse almost the whole host. System folders stay off-limits.">Elevated access</span>
+        {% else %}
+        <span title="This account can only see the Docker project folder, or that user’s home — not the rest of the host.">Limited access</span>
+        {% endif %}
+        ·
+        {% if needs_stepup %}
+        <span class="ops-hero-status ops-hero-status--run">unlock</span>
+        {% elif list_error %}
+        <span class="ops-hero-status ops-hero-status--warn">error</span>
+        {% else %}
+        <span class="ops-hero-status ops-hero-status--ok">ready</span>
+        {% endif %}
+      </p>
+      <div class="ops-hero-actions">
+        <a href="/servers/{{ server.id }}" class="btn btn-secondary min-h-11 text-sm">Server</a>
+        {% if docker_on %}
+        <a href="/servers/{{ server.id }}/docker" class="btn btn-secondary min-h-11 text-sm">Docker</a>
+        {% endif %}
+        <a href="/dns/physical?focus=n:host-{{ server.id }}#map" class="btn btn-secondary min-h-11 text-sm">Hosts map</a>
+      </div>
+      {% include "partials/host_switcher.html" %}
+    </div>
+    <div class="ops-hero-viz">
+      <div class="files-hero-folders" aria-hidden="true">
+        <span class="ff-back"></span>
+        <span class="ff-front"><span class="ff-tab"></span></span>
+        <div class="ff-core">
+          <div class="ff-n" id="hf-hero-n">{{ _n }}</div>
+          <div class="ff-l">items</div>
+        </div>
+      </div>
+      <div class="ops-pulse-stats">
+        <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ _ident_lab }}</span><span class="ops-pulse-l">identity</span></div>
+        <div class="ops-pulse-stat"><span class="ops-pulse-n text-xs" style="font-size:0.75rem">{{ max_upload_h }}</span><span class="ops-pulse-l">cap</span></div>
+      </div>
+      <p class="ops-pulse-caption">Browse, edit, zip on this host</p>
+    </div>
+  </section>
+
+  {% if needs_stepup %}
+  <div class="card p-4" data-testid="files-stepup">
+    <h2 class="font-semibold mb-1">Unlock privileged Files</h2>
+    <p class="text-sm text-muted mb-3">Same step-up as a privileged console. Passkey is preferred when you have one enrolled.</p>
+    <p id="hf-stepup-err" class="text-sm text-danger mb-2" hidden></p>
+    <div class="flex flex-wrap gap-2 items-end">
+      {% if has_passkeys %}
+      <button type="button" id="hf-passkey"
+              class="btn {% if prefer_passkey %}btn-accent{% else %}btn-secondary{% endif %} min-h-11"
+              data-testid="files-passkey">Passkey</button>
+      {% endif %}
+      {% if not require_passkey or not has_passkeys %}
+      <form method="post" action="/servers/{{ server.id }}/files/unlock" class="flex flex-wrap gap-2 items-end">
+        <input type="hidden" name="p" value="{{ L.rel or '' }}">
+        <label class="text-xs text-muted">Authenticator
+          <input name="totp_code" inputmode="numeric" autocomplete="one-time-code"
+                 class="block bg-surface border border-border rounded px-3 min-h-11" placeholder="TOTP">
+        </label>
+        <button class="btn {% if has_passkeys and prefer_passkey %}btn-secondary{% else %}btn-accent{% endif %} min-h-11" type="submit">Unlock</button>
+      </form>
+      {% elif require_passkey and has_passkeys %}
+      <p class="text-xs text-muted">This account requires a passkey for privileged Files (Settings → Security).</p>
+      {% endif %}
+    </div>
+  </div>
+  <script>
+  (function () {
+    var btn = document.getElementById('hf-passkey');
+    if (!btn) return;
+    var err = document.getElementById('hf-stepup-err');
+    var sid = {{ server.id }};
+    function showErr(m) {
+      err.hidden = false;
+      err.textContent = m;
+    }
+    function b64urlToBuf(b64url) {
+      var pad = '='.repeat((4 - (b64url.length % 4)) % 4);
+      var b64 = (b64url + pad).replace(/-/g, '+').replace(/_/g, '/');
+      var str = atob(b64);
+      var buf = new ArrayBuffer(str.length);
+      var view = new Uint8Array(buf);
+      for (var i = 0; i < str.length; i++) view[i] = str.charCodeAt(i);
+      return buf;
+    }
+    function bufToB64url(buf) {
+      var bytes = new Uint8Array(buf);
+      var s = '';
+      for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+      return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    function publicKeyCredentialToJSON(cred) {
+      var out = { id: cred.id, type: cred.type, rawId: bufToB64url(cred.rawId), response: {} };
+      if (cred.response) {
+        if (cred.response.clientDataJSON)
+          out.response.clientDataJSON = bufToB64url(cred.response.clientDataJSON);
+        if (cred.response.authenticatorData)
+          out.response.authenticatorData = bufToB64url(cred.response.authenticatorData);
+        if (cred.response.signature)
+          out.response.signature = bufToB64url(cred.response.signature);
+        if (cred.response.userHandle)
+          out.response.userHandle = cred.response.userHandle ? bufToB64url(cred.response.userHandle) : null;
+      }
+      return out;
+    }
+    btn.addEventListener('click', async function () {
+      err.hidden = true;
+      if (!window.PublicKeyCredential) {
+        showErr('Passkeys are not supported in this browser.');
+        return;
+      }
+      btn.disabled = true;
+      try {
+        var optRes = await fetch('/servers/' + sid + '/files/webauthn/options', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'PiHerderFiles' }
+        });
+        var optData = await optRes.json().catch(function () { return {}; });
+        if (!optRes.ok || !optData.ok) {
+          throw new Error(optData.detail || optData.error || 'Passkey options failed');
+        }
+        var opts = optData.options;
+        if (opts.publicKey) opts = opts.publicKey;
+        if (opts.challenge) opts.challenge = b64urlToBuf(opts.challenge);
+        if (opts.allowCredentials) {
+          opts.allowCredentials = opts.allowCredentials.map(function (c) {
+            return Object.assign({}, c, { id: b64urlToBuf(c.id) });
+          });
+        }
+        var cred = await navigator.credentials.get({ publicKey: opts });
+        if (!cred) throw new Error('Passkey cancelled');
+        var verRes = await fetch('/servers/' + sid + '/files/webauthn/verify', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'PiHerderFiles' },
+          body: JSON.stringify({ credential: publicKeyCredentialToJSON(cred) })
+        });
+        var ver = await verRes.json().catch(function () { return {}; });
+        if (!ver.ok) throw new Error(ver.detail || ver.error || 'Passkey verification failed');
+        var q = new URLSearchParams(window.location.search);
+        q.set('identity', 'privileged');
+        q.set('msg', 'unlocked');
+        window.location = '/servers/' + sid + '/files?' + q.toString();
+      } catch (e) {
+        var msg = String((e && e.message) || e || 'Passkey failed');
+        if (/not allowed|NotAllowedError/i.test(msg)) {
+          msg = 'Passkey cancelled or not allowed in this window.';
+        }
+        showErr(msg);
+        btn.disabled = false;
+      }
+    });
+  })();
+  </script>
+  {% else %}
+
+  <div class="hf-shell">
+  <div class="hf-win" id="hf-win" role="application" aria-label="Remote files" data-jail="{{ L.jail or '' }}">
+    <div class="hf-toolbar">
+      <button type="button" class="btn btn-secondary text-xs min-h-10 hf-tree-toggle" id="hf-tree-toggle" title="Folders">Folders</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-up" title="Parent folder">↑</button>
+      <nav class="hf-path" id="hf-path" aria-label="Path"></nav>
+      <span class="hf-q-wrap">
+        <input id="hf-q" class="hf-q" type="search" placeholder="Search" autocomplete="off" data-testid="files-search">
+        <label class="hf-q-contents" title="Grep inside UTF-8 files"><input type="checkbox" id="hf-q-contents" class="hf-chk"> In files</label>
+        <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-q-go">Search</button>
+      </span>
+      <button type="button" class="btn btn-accent text-xs min-h-10" id="hf-upload-btn" data-testid="files-upload">Upload</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-more" title="More actions">⋯</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-10 hf-max-btn" id="hf-max"
+              data-testid="files-maximize" title="Maximize file list" aria-pressed="false" aria-label="Maximize">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/>
+        </svg>
+      </button>
+      <input id="hf-file" type="file" hidden multiple>
+      <input id="hf-folder" type="file" hidden webkitdirectory directory multiple>
+      <select id="hf-identity" hidden data-testid="files-identity" aria-label="SSH identity">
+        {% for ident in identities %}
+        <option value="{{ ident.role }}" {% if ident.role == role %}selected{% endif %}
+                {% if ident.role == 'privileged' and not can_privileged %}disabled{% endif %}>
+          {% if ident.role == 'privileged' %}Privileged{% else %}Fleet{% endif %}
+          ({{ ident.username }})
+        </option>
+        {% else %}
+        <option value="fleet" selected>Fleet</option>
+        {% endfor %}
+      </select>
+      <iframe name="hf-dl" id="hf-dl" title="Download" hidden></iframe>
+    </div>
+    <div class="hf-toolbar hf-selbar" id="hf-selbar" hidden>
+      <span id="hf-selcount" class="text-xs text-muted">0 selected</span>
+      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-edit" disabled>Edit</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-zip" disabled>Zip</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-unzip" disabled>Extract</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-move" disabled>Move</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-perms" disabled>Permissions</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-rm" disabled>Delete</button>
+    </div>
+    <progress id="hf-prog" class="hf-prog" max="100" value="0"></progress>
+    <div class="hf-panes">
+      <button type="button" class="hf-tree-scrim" id="hf-tree-scrim" aria-label="Close folders"></button>
+      <aside class="hf-tree" id="hf-tree" aria-label="Folders"></aside>
+      <section class="hf-list" id="hf-list" tabindex="0">
+        <div class="hf-drop" id="hf-drop">Drop files or folders to upload here</div>
+        <div class="hf-cols">
+          <label title="Select all"><input type="checkbox" class="hf-chk" id="hf-all"></label>
+          <span>Name</span><span class="hf-hide-sm">Size</span><span class="hf-hide-sm">Perms</span><span class="hf-hide-sm">Modified</span><span></span>
+        </div>
+        <div id="hf-rows"></div>
+      </section>
+    </div>
+    <div class="hf-status">
+      <span id="hf-status">Ready</span>
+      <span>Max {{ max_upload_h }}</span>
+    </div>
+    <div class="hf-busy" id="hf-busy" aria-live="polite"><span class="hf-spinner"></span><span id="hf-busy-label">Working…</span></div>
+    <div class="hf-editor" id="hf-editor" data-testid="files-editor">
+      <div class="hf-editor-bar">
+        <strong id="hf-editor-name">Edit</strong>
+        <span id="hf-editor-pos" class="hf-editor-pos"></span>
+        <span id="hf-editor-err" class="hf-editor-err" hidden></span>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-editor-wrap" title="Toggle wrap">Wrap</button>
+        <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-editor-cancel">Close</button>
+        <button type="button" class="btn btn-accent text-xs min-h-10" id="hf-editor-save">Save</button>
+      </div>
+      <div class="hf-editor-body code-surface" id="hf-editor-body">
+        <div id="hf-gutter" class="gutter" aria-hidden="true"></div>
+        <pre id="hf-highlight" class="hf-highlight" aria-hidden="true"></pre>
+        <textarea id="hf-editor-ta" class="hf-editor-ta" spellcheck="false" wrap="off"></textarea>
+      </div>
+    </div>
+    <div class="hf-prompt" id="hf-prompt" role="dialog" aria-modal="true">
+      <div class="hf-prompt-card">
+        <h3 id="hf-prompt-title" class="font-semibold mb-2">Name</h3>
+        <input id="hf-prompt-input" maxlength="255" class="w-full bg-surface border border-border rounded px-3 min-h-11 mb-3">
+        <div class="flex justify-end gap-2">
+          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-prompt-cancel">Cancel</button>
+          <button type="button" class="btn btn-accent min-h-11 text-sm" id="hf-prompt-ok">OK</button>
+        </div>
+      </div>
+    </div>
+    <div class="hf-prompt" id="hf-perms-box" role="dialog" aria-modal="true" data-testid="files-perms">
+      <div class="hf-prompt-card wide">
+        <h3 class="font-semibold mb-1">Permissions</h3>
+        <p id="hf-perms-hint" class="text-xs text-muted mb-3"></p>
+        <label class="text-xs text-muted">Mode (octal)
+          <input id="hf-perms-mode" maxlength="4" class="w-full bg-surface border border-border rounded px-3 min-h-11 font-mono" placeholder="644">
+        </label>
+        <div class="hf-bits" id="hf-perms-bits">
+          <span></span><span class="hd">Read</span><span class="hd">Write</span><span class="hd">Exec</span>
+          <span class="hd">User</span>
+          <label><input type="checkbox" data-bit="256" class="hf-chk"></label>
+          <label><input type="checkbox" data-bit="128" class="hf-chk"></label>
+          <label><input type="checkbox" data-bit="64" class="hf-chk"></label>
+          <span class="hd">Group</span>
+          <label><input type="checkbox" data-bit="32" class="hf-chk"></label>
+          <label><input type="checkbox" data-bit="16" class="hf-chk"></label>
+          <label><input type="checkbox" data-bit="8" class="hf-chk"></label>
+          <span class="hd">Other</span>
+          <label><input type="checkbox" data-bit="4" class="hf-chk"></label>
+          <label><input type="checkbox" data-bit="2" class="hf-chk"></label>
+          <label><input type="checkbox" data-bit="1" class="hf-chk"></label>
+        </div>
+        <div class="grid gap-2 mb-3" style="grid-template-columns: 1fr 1fr;">
+          <label class="text-xs text-muted">Owner (name or uid)
+            <input id="hf-perms-owner" maxlength="32" class="w-full bg-surface border border-border rounded px-3 min-h-11" placeholder="pi or www-data">
+          </label>
+          <label class="text-xs text-muted">Group (name or gid)
+            <input id="hf-perms-group" maxlength="32" class="w-full bg-surface border border-border rounded px-3 min-h-11" placeholder="pi">
+          </label>
+        </div>
+        <label class="text-sm flex items-center gap-2 mb-3" id="hf-perms-rec-row">
+          <input type="checkbox" id="hf-perms-rec" class="hf-chk"> Apply to folder contents
+        </label>
+        <p class="text-xs text-muted mb-3">Owner and group accept <strong>names</strong> (<code>pi</code>, <code>www-data</code>) or numeric ids. Ownership (and files you do not own) need <strong>privileged</strong> Files. If that SSH user is not root, PiHerder uses <code>sudo -n chown</code>.</p>
+        <div class="flex justify-end gap-2">
+          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-perms-cancel">Cancel</button>
+          <button type="button" class="btn btn-accent min-h-11 text-sm" id="hf-perms-ok">Apply</button>
+        </div>
+      </div>
+    </div>
+    <div class="hf-prompt" id="hf-move-box" role="dialog" aria-modal="true" data-testid="files-move">
+      <div class="hf-prompt-card wide">
+        <h3 class="font-semibold mb-1">Move to</h3>
+        <p id="hf-move-hint" class="text-xs text-muted mb-2"></p>
+        <div id="hf-move-tree" class="hf-move-tree" aria-label="Destination folder"></div>
+        <div class="flex justify-end gap-2">
+          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-move-cancel">Cancel</button>
+          <button type="button" class="btn btn-accent min-h-11 text-sm" id="hf-move-ok">Move</button>
+        </div>
+      </div>
+    </div>
+    <div class="hf-prompt" id="hf-zip-box" role="dialog" aria-modal="true" data-testid="files-zip">
+      <div class="hf-prompt-card wide">
+        <h3 class="font-semibold mb-1">Zip on the host</h3>
+        <p id="hf-zip-hint" class="text-xs text-muted mb-3"></p>
+        <p class="text-xs text-muted mb-2">Creates the <code>.zip</code> <strong>on this host</strong> (the tree does not go through PiHerder). Needs <code>zip</code> or <code>python3</code> on the machine.</p>
+        <label class="text-xs text-muted">Name
+          <input id="hf-zip-name" maxlength="255" class="w-full bg-surface border border-border rounded px-3 min-h-11 font-mono mb-2" placeholder="files.zip">
+        </label>
+        <label class="hf-radio"><input type="checkbox" id="hf-zip-dl" class="hf-chk"> Also download a copy</label>
+        <label class="hf-radio" id="hf-zip-del-row" hidden><input type="checkbox" id="hf-zip-delete" class="hf-chk"> Remove the zip from the host after download</label>
+        <p class="text-xs text-muted mb-3" id="hf-zip-del-help" hidden>Originals stay. After the download finishes, PiHerder deletes only the <code>.zip</code> it just created on the host.</p>
+        <div class="flex justify-end gap-2">
+          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-zip-cancel">Cancel</button>
+          <button type="button" class="btn btn-accent min-h-11 text-sm" id="hf-zip-ok">Zip</button>
+        </div>
+      </div>
+    </div>
+    <div class="hf-preview" id="hf-preview" data-testid="files-preview">
+      <div class="hf-editor-bar">
+        <strong id="hf-preview-name">Preview</strong>
+        <span id="hf-preview-meta" class="hf-editor-pos"></span>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-preview-dl">Download</button>
+        <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-preview-close">Close</button>
+      </div>
+      <div class="hf-preview-body" id="hf-preview-body">
+        <button type="button" class="hf-preview-nav hf-preview-nav--l" id="hf-preview-prev" title="Previous file" hidden>‹</button>
+        <img id="hf-preview-img" class="hf-preview-img" alt="Preview" hidden>
+        <pre id="hf-preview-hex" class="hf-preview-hex" hidden></pre>
+        <button type="button" class="hf-preview-nav hf-preview-nav--r" id="hf-preview-next" title="Next file" hidden>›</button>
+        <div class="hf-preview-busy" id="hf-preview-busy" hidden data-testid="files-preview-busy">
+          <span class="hf-spinner"></span>
+          <span id="hf-preview-busy-label">Loading…</span>
+        </div>
+      </div>
+    </div>
+    <div class="hf-prompt" id="hf-secret-box" role="dialog" aria-modal="true">
+      <div class="hf-prompt-card">
+        <h3 class="font-semibold mb-1">Unlock secret file</h3>
+        <p class="text-xs text-muted mb-3">`.env`, keys, and PEMs need the same 2FA grant as privileged Files. Listing is still allowed.</p>
+        <p id="hf-secret-err" class="text-sm text-danger mb-2" hidden></p>
+        <div class="flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-accent min-h-11 text-sm" id="hf-secret-passkey">Passkey</button>
+        </div>
+        <form id="hf-secret-totp" class="flex flex-wrap gap-2 items-end">
+          <label class="text-xs text-muted">Authenticator
+            <input name="totp_code" inputmode="numeric" autocomplete="one-time-code"
+                   class="block bg-surface border border-border rounded px-3 min-h-11" placeholder="TOTP">
+          </label>
+          <button class="btn btn-secondary min-h-11 text-sm" type="submit">Unlock</button>
+        </form>
+        <div class="flex justify-end mt-3">
+          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-secret-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div class="hf-prompt" id="hf-upload-box" role="dialog" aria-modal="true" data-testid="files-upload-box">
+      <div class="hf-prompt-card">
+        <h3 class="font-semibold mb-1">Upload</h3>
+        <p class="text-xs text-muted">Pick files, a folder, or drop a mix onto the list. Browsers cannot select files and folders in one system dialog.</p>
+        <div class="hf-upload-choices">
+          <button type="button" class="btn btn-accent min-h-11 text-sm" id="hf-upload-files">Files…</button>
+          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-upload-folder">Folder…</button>
+        </div>
+        <div class="flex justify-end">
+          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-upload-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div class="hf-prompt" id="hf-docker-box" role="dialog" aria-modal="true" data-testid="files-docker">
+      <div class="hf-prompt-card wide">
+        <h3 class="font-semibold mb-1">Docker mounts</h3>
+        <p class="text-xs text-muted mb-2">Pick a <strong>container</strong> to see its <strong>named volumes</strong> and <strong>bind mounts</strong> (host folder → container path). Browse opens that host path in this file manager — same edit/zip/search as any other folder. Named volumes usually live under <code>/var/lib/docker/volumes/…/_data</code> and need <strong>privileged</strong> Files. Bind mounts under the Docker project folder work on fleet.</p>
+        <p id="hf-docker-err" class="text-sm text-danger mb-2" hidden></p>
+        <label class="text-xs text-muted">Container
+          <select id="hf-docker-ctr" class="w-full bg-surface border border-border rounded px-3 min-h-11 mb-2"></select>
+        </label>
+        <div class="text-xs font-semibold mb-1">Mounts</div>
+        <div id="hf-docker-vols" class="hf-move-tree mb-3"></div>
+        <details class="mb-3">
+          <summary class="text-xs text-muted cursor-pointer">Copy a path that is not mounted (<code>docker cp</code>)</summary>
+          <p class="text-xs text-muted mt-1 mb-2">Pulls a file/folder from inside the container filesystem into the <strong>current folder</strong>.</p>
+          <label class="text-xs text-muted">Path in container
+            <input id="hf-docker-src" class="w-full bg-surface border border-border rounded px-3 min-h-11 font-mono mb-2" placeholder="/etc/hostname">
+          </label>
+          <button type="button" class="btn btn-secondary text-xs min-h-10" id="hf-docker-cp">Copy into this folder</button>
+        </details>
+        <div class="flex justify-end gap-2">
+          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="hf-docker-cancel">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  var root = document.querySelector('[data-testid="host-files-page"]');
+  if (!root || root.getAttribute('data-needs-stepup') === '1') return;
+  var sid = root.getAttribute('data-server');
+  var identity = root.getAttribute('data-identity') || 'fleet';
+  var hasGrant = root.getAttribute('data-has-grant') === '1';
+  var dockerOn = root.getAttribute('data-docker') === '1';
+  var hasPasskeys = root.getAttribute('data-has-passkeys') === '1';
+  var pendingSecret = null;
+  var previewEntry = null;
+  var previewGen = 0;
+  var boot = {{ listing_boot | tojson }};
+  var cache = {};
+  var current = (boot && boot.rel) || '';
+  var selected = {};
+  var lastSel = -1;
+  var listEntries = [];
+  var editorRel = '';
+  var editorOrig = '';
+  var editorDirty = false;
+  var editorWrap = false;
+  var searching = false;
+  var searchTimer = null;
+  var moveDest = '';
+  var menu = null;
+  var navGen = 0;
+  var promptWait = null;
+
+  function $(id) { return document.getElementById(id); }
+  function parentRel(rel) {
+    var p = (rel || '').replace(/\/+$/, '');
+    if (!p) return '';
+    var i = p.lastIndexOf('/');
+    return i < 0 ? '' : p.slice(0, i);
+  }
+  function setStatus(text, cls) {
+    var el = $('hf-status');
+    el.className = cls || '';
+    el.textContent = text;
+  }
+  function busy(on, label) {
+    var win = $('hf-win');
+    var lab = $('hf-busy-label');
+    if (lab && label) lab.textContent = label;
+    if (win) win.classList.toggle('is-busy', !!on);
+  }
+  var FILES_MAX_KEY = 'piherder-files-max';
+  function isFilesMax() {
+    return root.classList.contains('is-max');
+  }
+  function setFilesMax(on) {
+    on = !!on;
+    root.classList.toggle('is-max', on);
+    document.body.classList.toggle('is-files-max', on);
+    var btn = $('hf-max');
+    if (btn) {
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.setAttribute('aria-label', on ? 'Restore' : 'Maximize');
+      btn.title = on ? 'Restore hero' : 'Maximize file list';
+      btn.innerHTML = on
+        ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 3v6H3M15 3v6h6M9 21v-6H3M15 21v-6h6"/></svg>'
+        : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>';
+    }
+    try { localStorage.setItem(FILES_MAX_KEY, on ? '1' : '0'); } catch (e) {}
+  }
+  function showPreviewBusy(on, label) {
+    var el = $('hf-preview-busy');
+    if (!el) return;
+    el.hidden = !on;
+    var lab = $('hf-preview-busy-label');
+    if (lab && label) lab.textContent = label;
+  }
+  function confirmAct(message, opts) {
+    opts = opts || {};
+    if (window.PiHerderConfirm && typeof window.PiHerderConfirm.ask === 'function') {
+      return window.PiHerderConfirm.ask({
+        title: opts.title || 'Please confirm',
+        message: message,
+        confirmLabel: opts.confirmLabel || 'Confirm',
+        danger: !!opts.danger
+      });
+    }
+    return Promise.resolve(window.confirm(message));
+  }
+  function askName(title, initial) {
+    return new Promise(function (resolve) {
+      var box = $('hf-prompt');
+      var input = $('hf-prompt-input');
+      var ttl = $('hf-prompt-title');
+      if (!box || !input) {
+        resolve(window.prompt(title, initial || ''));
+        return;
+      }
+      if (promptWait) promptWait(null);
+      promptWait = resolve;
+      if (ttl) ttl.textContent = title;
+      input.value = initial || '';
+      box.classList.add('is-on');
+      setTimeout(function () { try { input.focus(); input.select(); } catch (e) {} }, 20);
+    });
+  }
+  function closePrompt(value) {
+    var box = $('hf-prompt');
+    if (box) box.classList.remove('is-on');
+    var r = promptWait;
+    promptWait = null;
+    if (r) r(value);
+  }
+  function hdr() { return { 'X-PiHerder-Files': '1', 'Accept': 'application/json' }; }
+  function jsonErr(r) {
+    return r.json().then(function (j) {
+      var d = j && (j.detail || j.error || j.message);
+      if (Array.isArray(d)) d = (d[0] && d[0].msg) || JSON.stringify(d);
+      return d || ('HTTP ' + r.status);
+    }).catch(function () { return 'HTTP ' + r.status; });
+  }
+  function isSecretErr(msg) {
+    return /secret_confirm/i.test(String(msg || ''));
+  }
+  function isImageName(name) {
+    return /\.(png|jpe?g|gif|webp|svg|ico|bmp)$/i.test(name || '');
+  }
+
+  function load(rel, push) {
+    var g = ++navGen;
+    current = rel || '';
+    selected = {};
+    lastSel = -1;
+    searching = false;
+    if ($('hf-q') && document.activeElement !== $('hf-q')) $('hf-q').value = '';
+    hideMenu();
+    busy(true, 'Opening folder…');
+    setStatus('Opening…');
+    var url = '/servers/' + sid + '/files/ls?identity=' + encodeURIComponent(identity) + '&p=' + encodeURIComponent(current);
+    return fetch(url, { headers: hdr(), credentials: 'same-origin' }).then(function (r) {
+      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(function (data) {
+      if (g !== navGen) return;
+      applyListing(data);
+      busy(false);
+      if (push !== false) {
+        var q = '?identity=' + encodeURIComponent(identity);
+        if (current) q += '&p=' + encodeURIComponent(current);
+        history.pushState({ rel: current, identity: identity }, '', '/servers/' + sid + '/files' + q);
+      }
+      prefetchKids(data, g);
+    }).catch(function (e) {
+      if (g !== navGen) return;
+      busy(false);
+      setStatus(e.message || String(e), 'err');
+    });
+  }
+
+  function applyListing(data) {
+    searching = !!data.search;
+    if (!searching) cache[data.rel || ''] = data;
+    current = data.rel || '';
+    if ($('hf-win') && data.jail) $('hf-win').setAttribute('data-jail', data.jail);
+    closeTree();
+    renderPath(data);
+    renderTree();
+    renderList(data);
+    var n = (data.entries || []).length;
+    if ($('hf-hero-n') && !data.search) $('hf-hero-n').textContent = String(n);
+    var extra = data.truncated ? (data.search ? ' (truncated)' : ' (truncated at 500)') : '';
+    if (data.search) {
+      setStatus((n || 'No') + ' match' + (n === 1 ? '' : 'es') + ' for “' + (data.query || '') + '”' + extra, '');
+    } else {
+      setStatus((n || 'No') + ' item' + (n === 1 ? '' : 's') + extra + (data.msg ? ' · ' + data.msg : ''), data.msg ? 'ok' : '');
+    }
+    ensureAncestors(current);
+  }
+
+  function ensureAncestors(rel) {
+    var parts = (rel || '').split('/').filter(Boolean);
+    var acc = [];
+    var chain = [''];
+    for (var i = 0; i < parts.length - 1; i++) {
+      acc.push(parts[i]);
+      chain.push(acc.join('/'));
+    }
+    chain.forEach(function (r) {
+      if (cache[r]) return;
+      var url = '/servers/' + sid + '/files/ls?identity=' + encodeURIComponent(identity) + '&p=' + encodeURIComponent(r);
+      fetch(url, { headers: hdr(), credentials: 'same-origin' }).then(function (res) {
+        if (!res.ok) return null;
+        return res.json();
+      }).then(function (d) {
+        if (!d) return;
+        cache[d.rel || ''] = d;
+        renderTree();
+      }).catch(function () {});
+    });
+  }
+
+  function prefetchKids(data, g) {
+    var dirs = (data.entries || []).filter(function (e) {
+      return e.kind === 'dir' && !e.escaped && !cache[e.rel];
+    }).slice(0, 6);
+    function next(i) {
+      if (g !== navGen || i >= dirs.length) return;
+      var e = dirs[i];
+      var url = '/servers/' + sid + '/files/ls?identity=' + encodeURIComponent(identity) + '&p=' + encodeURIComponent(e.rel);
+      fetch(url, { headers: hdr(), credentials: 'same-origin' }).then(function (res) {
+        if (!res.ok) return null;
+        return res.json();
+      }).then(function (d) {
+        if (g !== navGen || !d) { next(i + 1); return; }
+        cache[d.rel || ''] = d;
+        renderTree();
+        next(i + 1);
+      }).catch(function () { next(i + 1); });
+    }
+    next(0);
+  }
+
+  function renderPath(data) {
+    var nav = $('hf-path');
+    nav.innerHTML = '';
+    var jail = (data.jail || '/').replace(/\/+$/, '') || '/';
+    function add(label, rel) {
+      var a = document.createElement('a');
+      a.href = '#';
+      a.textContent = label;
+      a.addEventListener('click', function (ev) { ev.preventDefault(); load(rel); });
+      nav.appendChild(a);
+    }
+    function addSep() {
+      var sep = document.createElement('span');
+      sep.className = 'hf-path-sep';
+      sep.textContent = '/';
+      sep.setAttribute('aria-hidden', 'true');
+      nav.appendChild(sep);
+    }
+    add(jail, '');
+    (data.crumbs || []).forEach(function (c, i) {
+      // Jail "/" already ends the path; do not paint a second slash (//home/…).
+      if (!(jail === '/' && i === 0)) addSep();
+      add(c.name, c.rel);
+    });
+  }
+
+  function icon(kind) {
+    if (kind === 'dir') return '📁';
+    if (kind === 'link') return '🔗';
+    return '📄';
+  }
+
+  function renderTree() {
+    var tree = $('hf-tree');
+    tree.innerHTML = '';
+    function node(rel, name, depth) {
+      var data = cache[rel];
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'hf-tree-row' + (rel === current ? ' is-current' : '');
+      row.style.paddingLeft = (0.3 + depth * 0.15) + 'rem';
+      var kids = (data && data.entries) ? data.entries.filter(function (e) { return e.kind === 'dir' && !e.escaped; }) : [];
+      var twist = document.createElement('span');
+      twist.className = 'hf-twist';
+      twist.textContent = data ? (kids.length ? '▾' : '·') : '▸';
+      row.appendChild(twist);
+      var lab = document.createElement('span');
+      lab.textContent = '📁 ' + name;
+      row.appendChild(lab);
+      row.addEventListener('click', function () { load(rel); });
+      row.addEventListener('dragover', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        row.classList.add('is-drop');
+      });
+      row.addEventListener('dragleave', function () { row.classList.remove('is-drop'); });
+      row.addEventListener('drop', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        row.classList.remove('is-drop');
+        var types = ev.dataTransfer && ev.dataTransfer.types ? Array.prototype.slice.call(ev.dataTransfer.types) : [];
+        if (types.indexOf('application/x-piherder-files') >= 0) {
+          doMove(rel, false);
+          return;
+        }
+        collectDropped(ev.dataTransfer, function (items) {
+          if (items.length) uploadItems(items, rel);
+        });
+      });
+      tree.appendChild(row);
+      if (data) {
+        kids.forEach(function (e) { node(e.rel, e.name, depth + 1); });
+      }
+    }
+    node('', jailLabel(), 0);
+  }
+
+  function jailLabel() {
+    var j = ($('hf-win') && $('hf-win').getAttribute('data-jail')) || '';
+    return j.split('/').filter(Boolean).pop() || '/';
+  }
+  function closeTree() {
+    var win = $('hf-win');
+    if (win) win.classList.remove('is-tree');
+  }
+  function toggleTree() {
+    var win = $('hf-win');
+    if (win) win.classList.toggle('is-tree');
+  }
+
+  function hideMenu() {
+    if (menu) { menu.remove(); menu = null; }
+  }
+
+  function showMenu(x, y, entry) {
+    hideMenu();
+    menu = document.createElement('div');
+    menu.className = 'hf-menu';
+    function item(label, fn, danger) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      if (danger) b.className = 'danger';
+      b.addEventListener('click', function () { hideMenu(); fn(); });
+      menu.appendChild(b);
+    }
+    if (entry.kind === 'dir' && !entry.escaped) item('Open', function () { load(entry.rel); });
+    if (entry.kind === 'file' && !entry.escaped) {
+      if (isImageName(entry.name)) item('Preview', function () { openPreview(entry); });
+      else if (!/\.zip$/i.test(entry.name)) item('Edit', function () { openEditor(entry); });
+      if (!isImageName(entry.name) && !/\.zip$/i.test(entry.name))
+        item('Preview', function () { openPreview(entry); });
+      item('Download', function () { download(entry); });
+    }
+    if (selItems().length) item('Zip selection', function () { zipSel(); });
+    if (entry.kind === 'file' && /\.zip$/i.test(entry.name)) item('Extract here', function () { unzipOne(entry); });
+    if (!entry.escaped) {
+      item('Move to…', function () { openMove(); });
+      item('Permissions…', function () { openPerms(); });
+      item('Rename…', function () { rename(entry); });
+      item('Delete…', function () { delSel(); }, true);
+    }
+    document.body.appendChild(menu);
+    var w = menu.offsetWidth, h = menu.offsetHeight;
+    var left = x;
+    var top = y;
+    if (left + w > window.innerWidth - 8) left = Math.max(8, window.innerWidth - w - 8);
+    if (top + h > window.innerHeight - 8) top = Math.max(8, y - h);
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+  }
+
+  function selItems() {
+    return listEntries.filter(function (e) { return selected[e.rel]; });
+  }
+  function appendSel(fd) {
+    var items = selItems();
+    if (searching) {
+      fd.append('p', '');
+      items.forEach(function (e) { fd.append('names', e.rel); });
+    } else {
+      fd.append('p', current);
+      items.forEach(function (e) { fd.append('names', e.name); });
+    }
+    return items;
+  }
+  function updateSelBar() {
+    var items = selItems();
+    var one = items.length === 1 ? items[0] : null;
+    if ($('hf-edit')) $('hf-edit').disabled = !(one && one.kind === 'file' && !one.escaped && !/\.zip$/i.test(one.name));
+    if ($('hf-zip')) $('hf-zip').disabled = items.length === 0;
+    if ($('hf-unzip')) $('hf-unzip').disabled = !(one && one.kind === 'file' && /\.zip$/i.test(one.name));
+    if ($('hf-perms')) $('hf-perms').disabled = items.length === 0 || items.every(function (e) { return e.escaped; });
+    if ($('hf-move')) $('hf-move').disabled = items.length === 0 || items.every(function (e) { return e.escaped; });
+    if ($('hf-rm')) $('hf-rm').disabled = items.length === 0;
+    var bar = $('hf-selbar');
+    if (bar) bar.hidden = items.length === 0;
+    if ($('hf-selcount')) $('hf-selcount').textContent = items.length ? (items.length + ' selected') : '';
+    var all = $('hf-all');
+    if (all) {
+      all.checked = listEntries.length > 0 && items.length === listEntries.length;
+      all.indeterminate = items.length > 0 && items.length < listEntries.length;
+    }
+  }
+  function setSel(rel, on) {
+    if (on) selected[rel] = true;
+    else delete selected[rel];
+  }
+  function selectRange(from, to) {
+    var a = Math.min(from, to), b = Math.max(from, to);
+    for (var i = a; i <= b; i++) {
+      if (listEntries[i]) setSel(listEntries[i].rel, true);
+    }
+  }
+  function paintSel() {
+    Array.prototype.forEach.call(document.querySelectorAll('#hf-rows .hf-item'), function (n, i) {
+      var e = listEntries[i];
+      n.classList.toggle('is-selected', !!(e && selected[e.rel]));
+      var c = n.querySelector('.hf-chk');
+      if (c) c.checked = !!(e && selected[e.rel]);
+    });
+    updateSelBar();
+  }
+
+  function renderList(data) {
+    var box = $('hf-rows');
+    box.innerHTML = '';
+    listEntries = data.entries || [];
+    selected = {};
+    lastSel = -1;
+    updateSelBar();
+    if (!listEntries.length) {
+      var empty = document.createElement('div');
+      empty.className = 'hf-empty';
+      empty.textContent = searching
+        ? 'No matches in this folder tree.'
+        : 'This folder is empty. Tap a folder name to open it, or upload a file.';
+      box.appendChild(empty);
+      return;
+    }
+    listEntries.forEach(function (e, idx) {
+      var row = document.createElement('div');
+      row.className = 'hf-item' + (e.kind === 'dir' ? ' is-dir' : '');
+      row.dataset.rel = e.rel;
+      row.draggable = true;
+      row.addEventListener('dragstart', function (ev) {
+        if (!selected[e.rel]) {
+          selected = {};
+          setSel(e.rel, true);
+          lastSel = idx;
+          paintSel();
+        }
+        ev.dataTransfer.setData('application/x-piherder-files', '1');
+        ev.dataTransfer.effectAllowed = 'move';
+      });
+      var chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.className = 'hf-chk';
+      chk.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        setSel(e.rel, chk.checked);
+        lastSel = idx;
+        paintSel();
+      });
+      var name = document.createElement('div');
+      name.className = 'hf-iname';
+      name.innerHTML = '<span class="hf-ico">' + icon(e.kind) + '</span><span class="nm"></span>';
+      name.querySelector('.nm').textContent = e.name + (e.kind === 'dir' ? '/' : '');
+      name.title = e.kind === 'dir' ? 'Open folder' : 'Open / edit';
+      if (e.secretish) {
+        var b = document.createElement('span');
+        b.className = 'hf-secret';
+        b.textContent = 'secret';
+        name.appendChild(b);
+      }
+      if (e.snippet) {
+        var sn = document.createElement('span');
+        sn.className = 'hf-secret';
+        sn.style.color = 'var(--color-muted)';
+        sn.textContent = 'L' + (e.line || '?') + ' ' + e.snippet;
+        name.appendChild(sn);
+      }
+      var size = document.createElement('div');
+      size.className = 'hf-meta hf-hide-sm';
+      size.textContent = e.kind === 'dir' ? '—' : (e.size_h || '—');
+      var perms = document.createElement('div');
+      perms.className = 'hf-meta hf-hide-sm';
+      perms.title = (e.mode_h || '') + (e.owner_h ? '  ' + e.owner_h : '');
+      perms.textContent = ((e.mode_h || '—') + (e.owner_h ? ' ' + e.owner_h : '')).trim() || '—';
+      var mt = document.createElement('div');
+      mt.className = 'hf-meta hf-hide-sm';
+      mt.textContent = e.mtime_h || '—';
+      var more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'btn btn-secondary text-xs min-h-9 hf-row-more';
+      more.textContent = '⋯';
+      more.title = 'Actions';
+      more.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        if (!selected[e.rel]) {
+          selected = {};
+          setSel(e.rel, true);
+          lastSel = idx;
+          paintSel();
+        }
+        var r = more.getBoundingClientRect();
+        showMenu(r.right - 8, r.bottom + 4, e);
+      });
+      row.appendChild(chk);
+      row.appendChild(name);
+      row.appendChild(size);
+      row.appendChild(perms);
+      row.appendChild(mt);
+      row.appendChild(more);
+      var holdTimer = null;
+      var holdFired = false;
+      var holdX = 0, holdY = 0;
+      function openEntry() { openAny(e); }
+      function selectRow(ev) {
+        if (ev && ev.shiftKey && lastSel >= 0) {
+          selected = {};
+          selectRange(lastSel, idx);
+        } else if (ev && (ev.ctrlKey || ev.metaKey)) {
+          setSel(e.rel, !selected[e.rel]);
+          lastSel = idx;
+        } else {
+          selected = {};
+          setSel(e.rel, true);
+          lastSel = idx;
+        }
+        paintSel();
+      }
+      name.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        if (holdFired) return;
+        openEntry();
+      });
+      row.addEventListener('click', function (ev) {
+        if (holdFired) { ev.preventDefault(); ev.stopPropagation(); return; }
+        selectRow(ev);
+      });
+      row.addEventListener('dblclick', function (ev) {
+        ev.preventDefault();
+        if (holdFired) return;
+        openEntry();
+      });
+      row.addEventListener('pointerdown', function (ev) {
+        if (ev.pointerType !== 'touch') return;
+        holdFired = false;
+        holdX = ev.clientX;
+        holdY = ev.clientY;
+        clearTimeout(holdTimer);
+        holdTimer = setTimeout(function () {
+          holdFired = true;
+          selectRow(null);
+          showMenu(holdX, holdY, e);
+        }, 480);
+      });
+      row.addEventListener('pointerup', function () { clearTimeout(holdTimer); });
+      row.addEventListener('pointercancel', function () { clearTimeout(holdTimer); });
+      row.addEventListener('pointermove', function (ev) {
+        if (!holdTimer) return;
+        if (Math.abs(ev.clientX - holdX) > 12 || Math.abs(ev.clientY - holdY) > 12) {
+          clearTimeout(holdTimer);
+          holdTimer = null;
+        }
+      });
+      row.addEventListener('contextmenu', function (ev) {
+        ev.preventDefault();
+        if (!selected[e.rel]) {
+          selected = {};
+          setSel(e.rel, true);
+          paintSel();
+        }
+        showMenu(ev.clientX, ev.clientY, e);
+      });
+      box.appendChild(row);
+    });
+  }
+
+  function openAny(e) {
+    if (!e || e.escaped) return;
+    if (e.kind === 'dir') load(e.rel);
+    else if (/\.zip$/i.test(e.name)) unzipOne(e);
+    else if (isImageName(e.name)) openPreview(e);
+    else openEditor(e);
+  }
+  function editOrDownload(e) {
+    openAny(e);
+  }
+  function showSecret(retry) {
+    pendingSecret = retry;
+    var box = $('hf-secret-box');
+    var pk = $('hf-secret-passkey');
+    if (pk) pk.style.display = hasPasskeys ? '' : 'none';
+    var err = $('hf-secret-err');
+    if (err) { err.hidden = true; err.textContent = ''; }
+    if (box) box.classList.add('is-on');
+  }
+  function closeSecret() {
+    var box = $('hf-secret-box');
+    if (box) box.classList.remove('is-on');
+  }
+  function afterSecret() {
+    hasGrant = true;
+    root.setAttribute('data-has-grant', '1');
+    closeSecret();
+    var fn = pendingSecret;
+    pendingSecret = null;
+    if (fn) fn();
+  }
+  function runPasskey(done) {
+    if (!window.PublicKeyCredential) {
+      throw new Error('Passkeys are not supported in this browser.');
+    }
+    function b64urlToBuf(b64url) {
+      var pad = '='.repeat((4 - (b64url.length % 4)) % 4);
+      var b64 = (b64url + pad).replace(/-/g, '+').replace(/_/g, '/');
+      var str = atob(b64);
+      var buf = new ArrayBuffer(str.length);
+      var view = new Uint8Array(buf);
+      for (var i = 0; i < str.length; i++) view[i] = str.charCodeAt(i);
+      return buf;
+    }
+    function bufToB64url(buf) {
+      var bytes = new Uint8Array(buf);
+      var s = '';
+      for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+      return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    return fetch('/servers/' + sid + '/files/webauthn/options', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'PiHerderFiles' }
+    }).then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }); }).then(function (x) {
+      if (!x.r.ok || !x.j.ok) throw new Error(x.j.detail || x.j.error || 'Passkey options failed');
+      var opts = x.j.options;
+      if (opts.publicKey) opts = opts.publicKey;
+      if (opts.challenge) opts.challenge = b64urlToBuf(opts.challenge);
+      if (opts.allowCredentials) {
+        opts.allowCredentials = opts.allowCredentials.map(function (c) {
+          return Object.assign({}, c, { id: b64urlToBuf(c.id) });
+        });
+      }
+      return navigator.credentials.get({ publicKey: opts });
+    }).then(function (cred) {
+      if (!cred) throw new Error('Passkey cancelled');
+      var out = { id: cred.id, type: cred.type, rawId: bufToB64url(cred.rawId), response: {} };
+      if (cred.response.clientDataJSON) out.response.clientDataJSON = bufToB64url(cred.response.clientDataJSON);
+      if (cred.response.authenticatorData) out.response.authenticatorData = bufToB64url(cred.response.authenticatorData);
+      if (cred.response.signature) out.response.signature = bufToB64url(cred.response.signature);
+      if (cred.response.userHandle) out.response.userHandle = cred.response.userHandle ? bufToB64url(cred.response.userHandle) : null;
+      return fetch('/servers/' + sid + '/files/webauthn/verify', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'PiHerderFiles' },
+        body: JSON.stringify({ credential: out })
+      });
+    }).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.ok) throw new Error(j.detail || j.error || 'Passkey verification failed'); }); })
+      .then(function () { if (done) done(); });
+  }
+  function closePreview() {
+    previewGen += 1;
+    $('hf-preview').classList.remove('is-on');
+    var img = $('hf-preview-img');
+    img.removeAttribute('src');
+    img.classList.remove('is-loading');
+    showPreviewBusy(false);
+    previewEntry = null;
+  }
+  function previewSiblings() {
+    return listEntries.filter(function (e) {
+      return e && e.kind === 'file' && !e.escaped;
+    });
+  }
+  function previewStep(delta) {
+    var sibs = previewSiblings();
+    if (!previewEntry || sibs.length < 2) return;
+    var idx = -1;
+    for (var i = 0; i < sibs.length; i++) {
+      if (sibs[i].rel === previewEntry.rel) { idx = i; break; }
+    }
+    if (idx < 0) return;
+    var next = sibs[(idx + delta + sibs.length) % sibs.length];
+    if (next) openPreview(next);
+  }
+  function syncPreviewNav() {
+    var n = previewSiblings().length;
+    var show = n > 1 && previewEntry;
+    if ($('hf-preview-prev')) $('hf-preview-prev').hidden = !show;
+    if ($('hf-preview-next')) $('hf-preview-next').hidden = !show;
+  }
+  function openPreview(e) {
+    if (e.secretish && !hasGrant) { showSecret(function () { openPreview(e); }); return; }
+    var gen = ++previewGen;
+    previewEntry = e;
+    $('hf-preview').classList.add('is-on');
+    $('hf-preview-name').textContent = e.name || 'Preview';
+    $('hf-preview-meta').textContent = 'Loading…';
+    showPreviewBusy(true, 'Loading…');
+    syncPreviewNav();
+    var img = $('hf-preview-img');
+    var hex = $('hf-preview-hex');
+    img.classList.add('is-loading');
+    fetch('/servers/' + sid + '/files/peek?identity=' + encodeURIComponent(identity) + '&p=' + encodeURIComponent(e.rel), {
+      headers: hdr(), credentials: 'same-origin'
+    }).then(function (r) {
+      if (gen !== previewGen) return null;
+      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(function (j) {
+      if (gen !== previewGen || !j) return;
+      $('hf-preview-name').textContent = j.name || e.name;
+      $('hf-preview-meta').textContent = (j.size_h || '') + (j.is_image ? ' · image' : ' · bytes');
+      if (j.is_image) {
+        hex.hidden = true;
+        hex.textContent = '';
+        img.hidden = false;
+        function finishImg() {
+          if (gen !== previewGen) return;
+          img.classList.remove('is-loading');
+          showPreviewBusy(false);
+        }
+        img.onload = finishImg;
+        img.onerror = function () {
+          if (gen !== previewGen) return;
+          img.classList.remove('is-loading');
+          showPreviewBusy(false);
+          setStatus('Preview failed to load', 'err');
+          $('hf-preview-meta').textContent = 'failed';
+        };
+        showPreviewBusy(true, 'Loading image…');
+        img.src = '/servers/' + sid + '/files/preview?identity=' + encodeURIComponent(identity) + '&p=' + encodeURIComponent(e.rel) + '&_=' + gen;
+        if (img.complete && img.naturalWidth) finishImg();
+      } else {
+        img.hidden = true;
+        img.removeAttribute('src');
+        img.classList.remove('is-loading');
+        hex.hidden = false;
+        hex.textContent = (j.hex || '') + (j.ascii ? '\n\n' + j.ascii : '');
+        showPreviewBusy(false);
+      }
+    }).catch(function (err) {
+      if (gen !== previewGen) return;
+      showPreviewBusy(false);
+      img.classList.remove('is-loading');
+      if (isSecretErr(err.message)) { showSecret(function () { openPreview(e); }); return; }
+      setStatus(err.message || String(err), 'err');
+      $('hf-preview-meta').textContent = 'failed';
+    });
+  }
+  function editorOpen() {
+    return $('hf-editor') && $('hf-editor').classList.contains('is-on');
+  }
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+  function highlightText(text) {
+    var h = escapeHtml(text || '');
+    h = h.replace(/"(?:[^"\\]|\\.)*"/g, '<span class="tok-string">$&</span>');
+    h = h.replace(/'(?:[^'\\]|\\.)*'/g, '<span class="tok-string">$&</span>');
+    h = h.replace(/(?<=[:\-\s\[,{]|^)(-?\d+(?:\.\d+)?)\b/g, '<span class="tok-number">$1</span>');
+    h = h.replace(/\b(true|false|null|yes|no|on|off|True|False|Null)\b/g, '<span class="tok-bool">$1</span>');
+    h = h.replace(/(#.*)$/gm, '<span class="tok-comment">$1</span>');
+    h = h.replace(/^(\s*)([-:|>])(?=\s|$)/gm, '$1<span class="tok-punct">$2</span>');
+    h = h.replace(/^(\s*)([A-Za-z_][A-Za-z0-9_.-]*)(\s*):/gm, '$1<span class="tok-key">$2</span>$3:');
+    return h;
+  }
+  function updateEditorView() {
+    var ta = $('hf-editor-ta');
+    var g = $('hf-gutter');
+    var p = $('hf-highlight');
+    if (!ta || !g || !p) return;
+    var val = ta.value || '';
+    var n = val.split('\n').length;
+    var html = '';
+    for (var i = 1; i <= n; i++) html += '<div class="ln">' + i + '</div>';
+    g.innerHTML = html;
+    try {
+      p.innerHTML = highlightText(val) + '\n';
+      ta.style.color = 'transparent';
+    } catch (err) {
+      p.textContent = val + '\n';
+      ta.style.color = 'var(--color-code-text)';
+    }
+    editorDirty = val !== editorOrig;
+    var saveBtn = $('hf-editor-save');
+    if (saveBtn) saveBtn.textContent = editorDirty ? 'Save' : 'Saved';
+    updateEditorPos();
+    syncEditorScroll();
+  }
+  function syncEditorScroll() {
+    var ta = $('hf-editor-ta');
+    var g = $('hf-gutter');
+    var p = $('hf-highlight');
+    if (!ta) return;
+    if (p) { p.scrollTop = ta.scrollTop; p.scrollLeft = ta.scrollLeft; }
+    if (g) g.scrollTop = ta.scrollTop;
+  }
+  function updateEditorPos() {
+    var ta = $('hf-editor-ta');
+    var el = $('hf-editor-pos');
+    if (!ta || !el) return;
+    var val = ta.value || '';
+    var pos = ta.selectionStart || 0;
+    var before = val.slice(0, pos);
+    var line = before.split('\n').length;
+    var col = pos - (before.lastIndexOf('\n') + 1) + 1;
+    el.textContent = 'Ln ' + line + ', Col ' + col + (editorDirty ? ' · unsaved' : '');
+  }
+  function applyEditorWrap(on) {
+    editorWrap = !!on;
+    var body = $('hf-editor-body');
+    var ta = $('hf-editor-ta');
+    var btn = $('hf-editor-wrap');
+    if (body) body.classList.toggle('is-wrapping', editorWrap);
+    if (ta) ta.setAttribute('wrap', editorWrap ? 'soft' : 'off');
+    if (btn) btn.classList.toggle('btn-accent', editorWrap);
+    updateEditorView();
+  }
+  function closeEditor(force) {
+    if (!force && editorDirty) {
+      confirmAct('Discard unsaved changes?', {
+        title: 'Close editor',
+        confirmLabel: 'Discard',
+        danger: true
+      }).then(function (ok) { if (ok) closeEditor(true); });
+      return;
+    }
+    $('hf-editor').classList.remove('is-on');
+    editorRel = '';
+    editorOrig = '';
+    editorDirty = false;
+  }
+  function openEditor(e) {
+    busy(true, 'Opening editor…');
+    fetch('/servers/' + sid + '/files/content?identity=' + encodeURIComponent(identity) + '&p=' + encodeURIComponent(e.rel), {
+      headers: hdr(), credentials: 'same-origin'
+    }).then(function (r) {
+      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(function (j) {
+      busy(false);
+      editorRel = j.rel || e.rel;
+      editorOrig = j.text || '';
+      editorDirty = false;
+      setEditorErr('');
+      $('hf-editor-name').textContent = j.name || e.name;
+      $('hf-editor-ta').value = editorOrig;
+      $('hf-editor').classList.add('is-on');
+      applyEditorWrap(editorWrap);
+      try { $('hf-editor-ta').focus(); } catch (err) {}
+    }).catch(function (err) {
+      busy(false);
+      if (isSecretErr(err.message)) { showSecret(function () { openEditor(e); }); return; }
+      if (/binary|too_large|does not look|not UTF-8/i.test(err.message || '')) {
+        openPreview(e);
+        return;
+      }
+      setStatus(err.message || String(err), 'err');
+    });
+  }
+  function setEditorErr(msg) {
+    var el = $('hf-editor-err');
+    if (!el) return;
+    if (msg) {
+      el.hidden = false;
+      el.textContent = msg;
+    } else {
+      el.hidden = true;
+      el.textContent = '';
+    }
+  }
+  function saveEditor() {
+    if (!editorRel) return;
+    setEditorErr('');
+    busy(true, 'Saving…');
+    var fd = new FormData();
+    fd.append('p', editorRel);
+    fd.append('identity', identity);
+    fd.append('content', $('hf-editor-ta').value);
+    fetch('/servers/' + sid + '/files/save', {
+      method: 'POST', headers: hdr(), credentials: 'same-origin', body: fd
+    }).then(function (r) {
+      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(function (data) {
+      editorOrig = $('hf-editor-ta').value;
+      editorDirty = false;
+      updateEditorView();
+      if (data && data.entries) applyListing(data);
+      busy(false);
+      setEditorErr('');
+      setStatus('Saved ' + (editorRel.split('/').pop() || ''), 'ok');
+    }).catch(function (err) {
+      busy(false);
+      var msg = err.message || String(err);
+      setEditorErr(msg);
+      setStatus(msg, 'err');
+    });
+  }
+  function onEditorKey(ev) {
+    var ta = $('hf-editor-ta');
+    if (!ta) return;
+    if ((ev.ctrlKey || ev.metaKey) && (ev.key === 's' || ev.key === 'S')) {
+      ev.preventDefault();
+      saveEditor();
+      return;
+    }
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      closeEditor(false);
+      return;
+    }
+    var val = ta.value;
+    var start = ta.selectionStart;
+    var end = ta.selectionEnd;
+    if (ev.key === 'Tab') {
+      ev.preventDefault();
+      var insert = '  ';
+      var shift = ev.shiftKey;
+      if (start === end) {
+        if (shift) {
+          var beforeCursor = val.substring(0, start);
+          var afterCursor = val.substring(end);
+          var match = beforeCursor.match(/(\s{0,2})$/);
+          if (match && match[1]) {
+            var toRemove = match[1].length;
+            ta.value = beforeCursor.substring(0, beforeCursor.length - toRemove) + afterCursor;
+            ta.selectionStart = ta.selectionEnd = start - toRemove;
+          }
+        } else {
+          ta.value = val.substring(0, start) + insert + val.substring(end);
+          ta.selectionStart = ta.selectionEnd = start + insert.length;
+        }
+      } else {
+        var selected = val.substring(start, end);
+        var lines = selected.split('\n').map(function (line) {
+          return shift ? line.replace(/^(\s{0,2})/, '') : insert + line;
+        });
+        var indented = lines.join('\n');
+        ta.value = val.substring(0, start) + indented + val.substring(end);
+        ta.selectionStart = start;
+        ta.selectionEnd = start + indented.length;
+      }
+      updateEditorView();
+    } else if (ev.key === 'Enter' && !ev.shiftKey) {
+      ev.preventDefault();
+      var before = val.substring(0, start);
+      var after = val.substring(end);
+      var lastNl = before.lastIndexOf('\n');
+      var currLine = before.substring(lastNl + 1);
+      var indentMatch = currLine.match(/^(\s*)/);
+      var indent = indentMatch ? indentMatch[1] : '';
+      var trimmed = currLine.trim();
+      if (trimmed.endsWith(':') || trimmed === '-' || trimmed.indexOf('- ') === 0) {
+        indent += '  ';
+      }
+      var nl = '\n' + indent;
+      ta.value = before + nl + after;
+      ta.selectionStart = ta.selectionEnd = start + nl.length;
+      updateEditorView();
+    }
+  }
+  function zipSel() {
+    var items = selItems();
+    if (!items.length) return;
+    var hint = $('hf-zip-hint');
+    var nameEl = $('hf-zip-name');
+    hint.textContent = items.length === 1
+      ? ('Zip ' + items[0].name + (items[0].kind === 'dir' ? '/' : ''))
+      : ('Zip ' + items.length + ' items');
+    var guess = items.length === 1 ? (items[0].name.replace(/\/+$/, '') + '.zip') : 'files.zip';
+    nameEl.value = guess;
+    if ($('hf-zip-dl')) $('hf-zip-dl').checked = false;
+    if ($('hf-zip-delete')) $('hf-zip-delete').checked = false;
+    syncZipDest();
+    $('hf-zip-box').classList.add('is-on');
+    setTimeout(function () { try { nameEl.focus(); nameEl.select(); } catch (err) {} }, 20);
+  }
+  function closeZip() {
+    var box = $('hf-zip-box');
+    if (box) box.classList.remove('is-on');
+  }
+  function syncZipDest() {
+    var download = !!( $('hf-zip-dl') && $('hf-zip-dl').checked );
+    var row = $('hf-zip-del-row');
+    var help = $('hf-zip-del-help');
+    if (row) row.hidden = !download;
+    if (help) help.hidden = !download;
+    if (download && $('hf-zip-delete')) $('hf-zip-delete').checked = true;
+    if (!download && $('hf-zip-delete')) $('hf-zip-delete').checked = false;
+  }
+  function doZip() {
+    var items = selItems();
+    if (!items.length) return;
+    var name = ($('hf-zip-name').value || '').trim() || 'files.zip';
+    var dest = ( $('hf-zip-dl') && $('hf-zip-dl').checked ) ? 'download' : 'host';
+    var del = dest === 'download' && !!($('hf-zip-delete').checked);
+    var go = function () {
+      closeZip();
+      var fd = new FormData();
+      fd.append('identity', identity);
+      fd.append('dest', dest);
+      fd.append('name', name);
+      if (del) fd.append('delete', '1');
+      appendSel(fd);
+      if (dest === 'host') {
+        busy(true, 'Zipping on host…');
+        fetch('/servers/' + sid + '/files/archive', {
+          method: 'POST', headers: hdr(), credentials: 'same-origin', body: fd
+        }).then(function (r) {
+          if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+          return r.json();
+        }).then(function (data) {
+          applyListing(data);
+          busy(false);
+          setStatus(del ? 'Zipped and removed originals' : 'Saved ' + name + ' on the host', 'ok');
+        }).catch(function (err) {
+          busy(false);
+          setStatus(err.message || String(err), 'err');
+        });
+        return;
+      }
+      busy(true, 'Zipping for download…');
+      fetch('/servers/' + sid + '/files/archive', {
+        method: 'POST', credentials: 'same-origin', body: fd
+      }).then(function (r) {
+        if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+        var cd = r.headers.get('Content-Disposition') || '';
+        var m = /filename="([^"]+)"/.exec(cd);
+        var fname = (m && m[1]) || name;
+        return r.blob().then(function (blob) { return { blob: blob, fname: fname }; });
+      }).then(function (out) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(out.blob);
+        a.download = out.fname;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { try { URL.revokeObjectURL(a.href); a.remove(); } catch (err) {} }, 4000);
+        busy(false);
+        setStatus(del ? ('Downloaded ' + out.fname + ' · zip removed on host') : ('Downloading ' + out.fname), 'ok');
+        load(current, false);
+      }).catch(function (err) {
+        busy(false);
+        setStatus(err.message || String(err), 'err');
+      });
+    };
+    if (del) {
+      confirmAct('Download the zip, then delete that zip file on the host? The selected files stay.', {
+        title: 'Download and remove zip',
+        confirmLabel: 'Download and remove zip',
+        danger: false
+      }).then(function (ok) { if (ok) go(); });
+    } else {
+      go();
+    }
+  }
+  function unzipOne(e) {
+    confirmAct('Extract ' + e.name + ' into this folder? Paths that leave the folder are refused.', {
+      title: 'Extract zip',
+      confirmLabel: 'Extract'
+    }).then(function (ok) {
+      if (!ok) return;
+      postForm('unzip', { name: e.name }, 'Extracting ' + e.name + '…').catch(function (err) {
+        setStatus(err.message, 'err');
+      });
+    });
+  }
+  function delSel() {
+    var items = selItems();
+    if (!items.length) return;
+    var extra = items.some(function (e) { return e.kind === 'dir'; }) ? ' Folders are removed with their contents.' : '';
+    confirmAct('Delete ' + items.length + ' item(s)?' + extra, {
+      title: 'Delete',
+      confirmLabel: 'Delete',
+      danger: true
+    }).then(function (ok) {
+      if (!ok) return;
+      postFormMulti('rm', items.map(function (e) { return searching ? e.rel : e.name; }), 'Deleting…', searching ? '' : current).catch(function (err) {
+        setStatus(err.message, 'err');
+      });
+    });
+  }
+  function postFormMulti(path, names, label, p) {
+    busy(true, label || 'Working…');
+    var fd = new FormData();
+    fd.append('identity', identity);
+    fd.append('p', p == null ? current : p);
+    names.forEach(function (n) { fd.append('names', n); });
+    return fetch('/servers/' + sid + '/files/' + path, {
+      method: 'POST', headers: hdr(), credentials: 'same-origin', body: fd
+    }).then(function (r) {
+      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(function (data) {
+      applyListing(data);
+      busy(false);
+    }).catch(function (e) {
+      busy(false);
+      throw e;
+    });
+  }
+  function download(e) {
+    if (e.secretish && !hasGrant) { showSecret(function () { download(e); }); return; }
+    setStatus('Downloading ' + e.name + '… use the browser download bar for progress');
+    var iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.src = '/servers/' + sid + '/files/download?identity=' + encodeURIComponent(identity) + '&p=' + encodeURIComponent(e.rel);
+    document.body.appendChild(iframe);
+    setTimeout(function () {
+      try { iframe.remove(); } catch (err) {}
+      setStatus('Download finished or still running in the browser for ' + e.name, 'ok');
+    }, 120000);
+  }
+
+  function postForm(path, fields, label) {
+    busy(true, label || 'Working…');
+    var fd = new FormData();
+    Object.keys(fields).forEach(function (k) { fd.append(k, fields[k]); });
+    fd.append('identity', identity);
+    fd.append('p', current);
+    return fetch('/servers/' + sid + '/files/' + path, {
+      method: 'POST',
+      headers: hdr(),
+      credentials: 'same-origin',
+      body: fd
+    }).then(function (r) {
+      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(function (data) {
+      applyListing(data);
+      busy(false);
+    }).catch(function (e) {
+      busy(false);
+      throw e;
+    });
+  }
+
+  function mkdir() {
+    askName('New folder', '').then(function (name) {
+      name = (name || '').trim();
+      if (!name) return;
+      setStatus('Creating folder…');
+      postForm('mkdir', { name: name }, 'Creating ' + name + '…').catch(function (e) { setStatus(e.message, 'err'); });
+    });
+  }
+
+  function rename(entry) {
+    askName('Rename', entry.name).then(function (dest) {
+      dest = (dest || '').trim();
+      if (!dest || dest === entry.name) return;
+      setStatus('Renaming…');
+      postForm('rename', { src: entry.name, dest: dest }, 'Renaming…').catch(function (e) { setStatus(e.message, 'err'); });
+    });
+  }
+
+  function del(entry) {
+    selected = {};
+    setSel(entry.rel, true);
+    paintSel();
+    delSel();
+  }
+
+  var permsBitsLock = false;
+  function permsBits() {
+    return Array.prototype.slice.call(document.querySelectorAll('#hf-perms-bits input[data-bit]'));
+  }
+  function modeFromBits() {
+    var n = 0;
+    permsBits().forEach(function (c) {
+      if (c.checked) n |= parseInt(c.getAttribute('data-bit'), 10);
+    });
+    return n.toString(8).padStart(3, '0');
+  }
+  function bitsFromMode(oct) {
+    var n = parseInt(String(oct || ''), 8);
+    if (!isFinite(n)) n = 0;
+    permsBitsLock = true;
+    permsBits().forEach(function (c) {
+      var bit = parseInt(c.getAttribute('data-bit'), 10);
+      c.checked = (n & bit) === bit;
+    });
+    permsBitsLock = false;
+  }
+  function openPerms() {
+    var items = selItems().filter(function (e) { return !e.escaped; });
+    if (!items.length) return;
+    var box = $('hf-perms-box');
+    var hint = $('hf-perms-hint');
+    var priv = identity === 'privileged';
+    hint.textContent = items.length === 1
+      ? (items[0].name + (items[0].kind === 'dir' ? '/' : ''))
+      : (items.length + ' items selected');
+    if (!priv) hint.textContent += ' · Switch the status-bar identity to Privileged to change owner, or chmod files you do not own.';
+    var modes = items.map(function (e) { return e.mode_h || ''; }).filter(Boolean);
+    var sameMode = modes.length && modes.every(function (m) { return m === modes[0]; });
+    var modeEl = $('hf-perms-mode');
+    modeEl.value = sameMode ? modes[0] : '';
+    bitsFromMode(modeEl.value);
+    function ownOf(e) {
+      if (e.owner) return e.owner;
+      return ((e.owner_h || '').split(':')[0] || '');
+    }
+    function grpOf(e) {
+      if (e.group) return e.group;
+      var p = (e.owner_h || '').split(':');
+      return p.length > 1 ? p[1] : '';
+    }
+    var owners = items.map(ownOf);
+    var groups = items.map(grpOf);
+    var sameOwner = owners.length && owners.every(function (o) { return o === owners[0]; });
+    var sameGroup = groups.length && groups.every(function (o) { return o === groups[0]; });
+    $('hf-perms-owner').value = sameOwner ? (owners[0] || '') : '';
+    $('hf-perms-group').value = sameGroup ? (groups[0] || '') : '';
+    $('hf-perms-owner').disabled = !priv;
+    $('hf-perms-group').disabled = !priv;
+    var hasDir = items.some(function (e) { return e.kind === 'dir'; });
+    $('hf-perms-rec').checked = false;
+    $('hf-perms-rec-row').style.display = hasDir ? '' : 'none';
+    box.classList.add('is-on');
+    setTimeout(function () { try { modeEl.focus(); modeEl.select(); } catch (e) {} }, 20);
+  }
+  function closePerms() {
+    var box = $('hf-perms-box');
+    if (box) box.classList.remove('is-on');
+  }
+  function applyPerms() {
+    var items = selItems().filter(function (e) { return !e.escaped; });
+    if (!items.length) return;
+    var mode = ($('hf-perms-mode').value || '').trim();
+    var owner = ($('hf-perms-owner').value || '').trim();
+    var group = ($('hf-perms-group').value || '').trim();
+    var rec = !!($('hf-perms-rec').checked);
+    if (!mode && !owner && !group) {
+      setStatus('Set a mode, owner, or group', 'err');
+      return;
+    }
+    if ((owner || group) && identity !== 'privileged') {
+      setStatus('Ownership requires privileged Files — switch identity in the status bar', 'err');
+      return;
+    }
+    var go = function () {
+      closePerms();
+      busy(true, 'Updating permissions…');
+      var fd = new FormData();
+      fd.append('identity', identity);
+      appendSel(fd);
+      if (mode) fd.append('mode', mode);
+      if (owner) fd.append('owner', owner);
+      if (group) fd.append('group', group);
+      if (rec) fd.append('recursive', '1');
+      fetch('/servers/' + sid + '/files/perms', {
+        method: 'POST', headers: hdr(), credentials: 'same-origin', body: fd
+      }).then(function (r) {
+        if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+        return r.json();
+      }).then(function (data) {
+        applyListing(data);
+        busy(false);
+        setStatus('Permissions updated', 'ok');
+      }).catch(function (err) {
+        busy(false);
+        setStatus(err.message || String(err), 'err');
+      });
+    };
+    if (rec) {
+      confirmAct('Apply permissions to these folders and everything inside them?', {
+        title: 'Recursive chmod/chown',
+        confirmLabel: 'Apply',
+        danger: true
+      }).then(function (ok) { if (ok) go(); });
+    } else {
+      go();
+    }
+  }
+
+  function filesFromList(fileList) {
+    return Array.prototype.slice.call(fileList || []).map(function (f) {
+      return { file: f, rel: (f.webkitRelativePath || f.name || '').replace(/\\/g, '/') };
+    });
+  }
+  function collectDropped(dt, cb) {
+    if (!dt) { cb([]); return; }
+    var items = dt.items;
+    var canEntry = items && items.length && items[0] && typeof items[0].webkitGetAsEntry === 'function';
+    if (!canEntry) {
+      cb(filesFromList(dt.files));
+      return;
+    }
+    var out = [];
+    var pending = 1;
+    function done() {
+      pending -= 1;
+      if (pending <= 0) cb(out);
+    }
+    function walk(entry, prefix) {
+      if (!entry) return;
+      if (entry.isFile) {
+        pending += 1;
+        entry.file(function (f) {
+          var rel = prefix ? (prefix + '/' + f.name) : (f.webkitRelativePath || f.name);
+          out.push({ file: f, rel: String(rel || f.name).replace(/\\/g, '/') });
+          done();
+        }, function () { done(); });
+      } else if (entry.isDirectory) {
+        var reader = entry.createReader();
+        pending += 1;
+        (function readBatch() {
+          reader.readEntries(function (ents) {
+            if (!ents || !ents.length) { done(); return; }
+            ents.forEach(function (child) {
+              walk(child, prefix ? prefix + '/' + entry.name : entry.name);
+            });
+            readBatch();
+          }, function () { done(); });
+        })();
+      }
+    }
+    for (var i = 0; i < items.length; i++) {
+      var ent = items[i].webkitGetAsEntry();
+      if (ent) walk(ent, '');
+      else if (items[i].kind === 'file') {
+        var f = items[i].getAsFile();
+        if (f) out.push({ file: f, rel: f.name });
+      }
+    }
+    done();
+  }
+  function runSearch(q) {
+    q = (q || '').trim();
+    if (!q) {
+      searching = false;
+      load(current, false);
+      return;
+    }
+    var g = ++navGen;
+    busy(true, 'Searching…');
+    var url = '/servers/' + sid + '/files/search?identity=' + encodeURIComponent(identity)
+      + '&p=' + encodeURIComponent(current) + '&q=' + encodeURIComponent(q);
+    if ($('hf-q-contents') && $('hf-q-contents').checked) url += '&contents=1';
+    fetch(url, { headers: hdr(), credentials: 'same-origin' }).then(function (r) {
+      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(function (data) {
+      if (g !== navGen) return;
+      applyListing(data);
+      busy(false);
+    }).catch(function (e) {
+      if (g !== navGen) return;
+      busy(false);
+      setStatus(e.message || String(e), 'err');
+    });
+  }
+  function openMove() {
+    var items = selItems().filter(function (e) { return !e.escaped; });
+    if (!items.length) return;
+    moveDest = current;
+    $('hf-move-hint').textContent = 'Move ' + items.length + ' item(s). Pick a folder in the tree.';
+    renderMoveTree();
+    $('hf-move-box').classList.add('is-on');
+  }
+  function closeMove() {
+    var box = $('hf-move-box');
+    if (box) box.classList.remove('is-on');
+  }
+  function renderMoveTree() {
+    var tree = $('hf-move-tree');
+    if (!tree) return;
+    tree.innerHTML = '';
+    function node(rel, name, depth) {
+      var data = cache[rel];
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'hf-tree-row' + (rel === moveDest ? ' is-pick' : '');
+      row.style.paddingLeft = (0.3 + depth * 0.15) + 'rem';
+      var kids = (data && data.entries) ? data.entries.filter(function (e) { return e.kind === 'dir' && !e.escaped; }) : [];
+      var twist = document.createElement('span');
+      twist.className = 'hf-twist';
+      twist.textContent = data ? (kids.length ? '▾' : '·') : '▸';
+      row.appendChild(twist);
+      var lab = document.createElement('span');
+      lab.textContent = '📁 ' + name;
+      row.appendChild(lab);
+      row.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        moveDest = rel;
+        if (!cache[rel]) {
+          fetch('/servers/' + sid + '/files/ls?identity=' + encodeURIComponent(identity) + '&p=' + encodeURIComponent(rel), {
+            headers: hdr(), credentials: 'same-origin'
+          }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+            if (d && !d.search) { cache[d.rel || ''] = d; renderMoveTree(); }
+          }).catch(function () {});
+        } else {
+          renderMoveTree();
+        }
+      });
+      tree.appendChild(row);
+      if (data) kids.forEach(function (e) { node(e.rel, e.name, depth + 1); });
+    }
+    node('', jailLabel(), 0);
+  }
+  function doMove(destRel, overwrite) {
+    var items = selItems().filter(function (e) { return !e.escaped; });
+    if (!items.length) return;
+    if (items.some(function (e) { return e.rel === destRel || (destRel && destRel.indexOf(e.rel + '/') === 0); })) {
+      setStatus('Cannot move a folder into itself', 'err');
+      return;
+    }
+    closeMove();
+    busy(true, 'Moving…');
+    var fd = new FormData();
+    fd.append('identity', identity);
+    fd.append('dest', destRel || '');
+    if (overwrite) fd.append('overwrite', '1');
+    appendSel(fd);
+    fetch('/servers/' + sid + '/files/move', {
+      method: 'POST', headers: hdr(), credentials: 'same-origin', body: fd
+    }).then(function (r) {
+      if (r.status === 409) {
+        busy(false);
+        return r.json().then(function (j) {
+          var msg = (j && (j.detail || j.error)) || 'Already exists';
+          return confirmAct(msg + '. Replace existing files?', {
+            title: 'Replace',
+            confirmLabel: 'Replace',
+            danger: true
+          }).then(function (ok) {
+            if (ok) doMove(destRel, true);
+            else throw new Error(msg);
+          });
+        });
+      }
+      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(function (data) {
+      if (!data) return;
+      applyListing(data);
+      busy(false);
+      setStatus('Moved', 'ok');
+    }).catch(function (err) {
+      busy(false);
+      if (err && err.message) setStatus(err.message, 'err');
+    });
+  }
+  function uploadFiles(fileList) {
+    uploadItems(filesFromList(fileList), current);
+  }
+  function uploadItems(items, destRel) {
+    items = (items || []).filter(function (it) { return it && it.file; });
+    if (!items.length) return;
+    if (items.length > 2000) {
+      setStatus('Folder has more than 2000 files', 'err');
+      return;
+    }
+    destRel = destRel == null ? current : destRel;
+    var i = 0;
+    var collide = items.filter(function (it) {
+      var rel = it.rel || it.file.name;
+      if (rel.indexOf('/') >= 0) return false;
+      var names = ((cache[destRel] || {}).entries || []).map(function (e) { return e.name; });
+      return names.indexOf(it.file.name) >= 0;
+    });
+    var startAll = function () {
+    function next() {
+      if (i >= items.length) {
+        $('hf-prog').classList.remove('is-on');
+        busy(false);
+        load(destRel, destRel !== current);
+        return;
+      }
+      var it = items[i++];
+      var f = it.file;
+      var rel = (it.rel || f.name || '').replace(/\\/g, '/');
+      var start = function () {
+        busy(true, 'Sending to PiHerder… ' + i + '/' + items.length);
+        var fd = new FormData();
+        fd.append('file', f);
+        fd.append('p', destRel);
+        fd.append('identity', identity);
+        if (rel && rel.indexOf('/') >= 0) fd.append('rel_path', rel);
+        var xhr = new XMLHttpRequest();
+        var bar = $('hf-prog');
+        var lab = $('hf-busy-label');
+        bar.classList.add('is-on');
+        bar.value = 0;
+        function humanBytes(n) {
+          n = Number(n) || 0;
+          if (n < 1024) return Math.round(n) + ' B';
+          if (n < 1048576) return (n / 1024).toFixed(1) + ' KiB';
+          if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MiB';
+          return (n / 1073741824).toFixed(2) + ' GiB';
+        }
+        function lastJsonLine(text) {
+          var lines = (text || '').split('\n');
+          for (var li = lines.length - 1; li >= 0; li--) {
+            var line = lines[li].trim();
+            if (!line) continue;
+            try { return JSON.parse(line); } catch (e) {}
+          }
+          return null;
+        }
+        xhr.open('POST', '/servers/' + sid + '/files/upload');
+        xhr.setRequestHeader('X-PiHerder-Files', '1');
+        xhr.setRequestHeader('Accept', 'application/x-ndjson, application/json');
+        xhr.upload.onprogress = function (ev) {
+          if (!ev.lengthComputable) return;
+          var pct = Math.round((ev.loaded / ev.total) * 100);
+          bar.value = Math.min(49, Math.round(pct / 2));
+          var msg = 'Sending to PiHerder… ' + humanBytes(ev.loaded) + ' / ' + humanBytes(ev.total);
+          setStatus(msg);
+          if (lab) lab.textContent = msg;
+        };
+        xhr.upload.onload = function () {
+          var msg = 'Writing to host…';
+          setStatus(msg);
+          if (lab) lab.textContent = msg;
+        };
+        xhr.onprogress = function () {
+          var j = lastJsonLine(xhr.responseText);
+          if (!j || j.phase !== 'sftp') return;
+          var tot = j.total || f.size || 0;
+          var pct = tot ? Math.round((j.written / tot) * 100) : 0;
+          bar.value = 50 + Math.round(pct / 2);
+          var msg = 'Writing to host… ' + humanBytes(j.written) + (tot ? ' / ' + humanBytes(tot) : '');
+          setStatus(msg);
+          if (lab) lab.textContent = msg;
+        };
+        xhr.onload = function () {
+          var j = lastJsonLine(xhr.responseText);
+          if (xhr.status >= 200 && xhr.status < 400 && j && j.ok !== false && j.entries) {
+            if (i >= items.length) applyListing(j);
+            next();
+          } else {
+            busy(false);
+            $('hf-prog').classList.remove('is-on');
+            setStatus((j && (j.error || j.detail)) || ('Upload failed (' + xhr.status + ')'), 'err');
+          }
+        };
+        xhr.onerror = function () {
+          busy(false);
+          $('hf-prog').classList.remove('is-on');
+          setStatus('Upload failed', 'err');
+        };
+        xhr.send(fd);
+      };
+      start();
+    }
+    if (collide.length) {
+      confirmAct('Replace ' + collide.length + ' existing file(s) in this folder?', {
+        title: 'Replace files',
+        confirmLabel: 'Replace',
+        danger: true
+      }).then(function (ok) { if (ok) next(); });
+    } else {
+      next();
+    }
+    };
+    startAll();
+  }
+
+  $('hf-up').addEventListener('click', function () { load(parentRel(current)); });
+  function openUpload() {
+    var box = $('hf-upload-box');
+    if (box) box.classList.add('is-on');
+  }
+  function closeUpload() {
+    var box = $('hf-upload-box');
+    if (box) box.classList.remove('is-on');
+  }
+  $('hf-upload-btn').addEventListener('click', openUpload);
+  if ($('hf-upload-cancel')) $('hf-upload-cancel').addEventListener('click', closeUpload);
+  if ($('hf-upload-files')) $('hf-upload-files').addEventListener('click', function () {
+    closeUpload();
+    $('hf-file').click();
+  });
+  if ($('hf-upload-folder')) $('hf-upload-folder').addEventListener('click', function () {
+    closeUpload();
+    $('hf-folder').click();
+  });
+  if ($('hf-tree-toggle')) $('hf-tree-toggle').addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    toggleTree();
+  });
+  if ($('hf-tree-scrim')) $('hf-tree-scrim').addEventListener('click', closeTree);
+  if ($('hf-folder')) $('hf-folder').addEventListener('change', function () {
+    uploadItems(filesFromList(this.files), current);
+    this.value = '';
+  });
+  if ($('hf-q')) {
+    $('hf-q').addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        this.value = '';
+        searching = false;
+        load(current, false);
+      }
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        runSearch(this.value);
+      }
+    });
+  }
+  if ($('hf-q-go')) $('hf-q-go').addEventListener('click', function () {
+    runSearch(($('hf-q') && $('hf-q').value) || '');
+  });
+  if ($('hf-move')) $('hf-move').addEventListener('click', openMove);
+  if ($('hf-move-cancel')) $('hf-move-cancel').addEventListener('click', closeMove);
+  if ($('hf-move-ok')) $('hf-move-ok').addEventListener('click', function () { doMove(moveDest, false); });
+  if ($('hf-edit')) $('hf-edit').addEventListener('click', function () {
+    var items = selItems();
+    if (items.length === 1) openEditor(items[0]);
+  });
+  if ($('hf-zip')) $('hf-zip').addEventListener('click', zipSel);
+  if ($('hf-zip-cancel')) $('hf-zip-cancel').addEventListener('click', closeZip);
+  if ($('hf-zip-ok')) $('hf-zip-ok').addEventListener('click', doZip);
+  if ($('hf-zip-dl')) $('hf-zip-dl').addEventListener('change', syncZipDest);
+  if ($('hf-more')) $('hf-more').addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    hideMenu();
+    menu = document.createElement('div');
+    menu.className = 'hf-menu';
+    function item(label, fn) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.addEventListener('click', function () { hideMenu(); fn(); });
+      menu.appendChild(b);
+    }
+    item('New folder', mkdir);
+    if (dockerOn) item('Docker mounts…', openDocker);
+    item('Refresh', function () { load(current, false); });
+    item(isFilesMax() ? 'Restore hero' : 'Maximize', function () { setFilesMax(!isFilesMax()); });
+    var idSel = $('hf-identity');
+    if (idSel && idSel.options && idSel.options.length > 1) {
+      for (var i = 0; i < idSel.options.length; i++) {
+        (function (opt) {
+          if (opt.disabled) return;
+          var mark = opt.value === identity ? '✓ ' : '';
+          item(mark + opt.textContent.trim(), function () { switchIdentity(opt.value); });
+        })(idSel.options[i]);
+      }
+    }
+    document.body.appendChild(menu);
+    var r = $('hf-more').getBoundingClientRect();
+    menu.style.left = Math.max(8, r.right - menu.offsetWidth) + 'px';
+    menu.style.top = (r.bottom + 4) + 'px';
+  });
+  if ($('hf-preview-close')) $('hf-preview-close').addEventListener('click', closePreview);
+  if ($('hf-preview-prev')) $('hf-preview-prev').addEventListener('click', function () { previewStep(-1); });
+  if ($('hf-preview-next')) $('hf-preview-next').addEventListener('click', function () { previewStep(1); });
+  if ($('hf-preview-dl')) $('hf-preview-dl').addEventListener('click', function () {
+    if (previewEntry) download(previewEntry);
+  });
+  if ($('hf-secret-cancel')) $('hf-secret-cancel').addEventListener('click', function () {
+    pendingSecret = null;
+    closeSecret();
+  });
+  if ($('hf-secret-passkey')) $('hf-secret-passkey').addEventListener('click', function () {
+    var err = $('hf-secret-err');
+    var btn = $('hf-secret-passkey');
+    btn.disabled = true;
+    if (err) err.hidden = true;
+    runPasskey(afterSecret).catch(function (e) {
+      btn.disabled = false;
+      if (err) { err.hidden = false; err.textContent = e.message || String(e); }
+    });
+  });
+  if ($('hf-secret-totp')) $('hf-secret-totp').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var fd = new FormData(this);
+    fd.append('p', current);
+    fd.append('identity', identity);
+    fetch('/servers/' + sid + '/files/unlock', {
+      method: 'POST', credentials: 'same-origin', body: fd, redirect: 'manual'
+    }).then(function () { afterSecret(); }).catch(function (e) {
+      var err = $('hf-secret-err');
+      if (err) { err.hidden = false; err.textContent = e.message || String(e); }
+    });
+  });
+  function closeDocker() {
+    var box = $('hf-docker-box');
+    if (box) box.classList.remove('is-on');
+  }
+  function openDocker() {
+    var box = $('hf-docker-box');
+    var err = $('hf-docker-err');
+    if (err) { err.hidden = true; err.textContent = ''; }
+    if (!box) return;
+    box.classList.add('is-on');
+    var vols = $('hf-docker-vols');
+    var sel = $('hf-docker-ctr');
+    vols.innerHTML = 'Pick a container.';
+    sel.innerHTML = '';
+    function loadMounts(name) {
+      vols.innerHTML = 'Loading mounts…';
+      if (!name) { vols.textContent = 'Pick a container.'; return; }
+      fetch('/servers/' + sid + '/files/docker/mounts?identity=' + encodeURIComponent(identity)
+        + '&container=' + encodeURIComponent(name), {
+        headers: hdr(), credentials: 'same-origin'
+      }).then(function (r) {
+        if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+        return r.json();
+      }).then(function (j) {
+        vols.innerHTML = '';
+        var mounts = j.mounts || [];
+        if (!mounts.length) {
+          vols.textContent = 'No bind mounts or named volumes on this container.';
+          return;
+        }
+        mounts.forEach(function (v) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'hf-tree-row';
+          var kind = v.kind === 'volume' ? 'named volume' : 'bind';
+          var host = v.source || v.name || '—';
+          var dest = v.destination || '';
+          var extra = v.in_jail ? '' : (identity === 'privileged'
+            ? ' (not in this jail)'
+            : ' — switch to Privileged to browse');
+          b.textContent = (v.kind === 'volume' ? '💾 ' : '📁 ') + kind + ': '
+            + (v.name ? v.name + ' ' : '') + host + (dest ? ' → ' + dest : '') + extra;
+          b.disabled = !v.rel;
+          b.title = host;
+          b.addEventListener('click', function () {
+            if (!v.rel) return;
+            closeDocker();
+            load(v.rel);
+          });
+          vols.appendChild(b);
+        });
+      }).catch(function (e) {
+        vols.textContent = e.message || String(e);
+      });
+    }
+    sel.onchange = function () { loadMounts(sel.value); };
+    fetch('/servers/' + sid + '/files/docker/containers?identity=' + encodeURIComponent(identity), {
+      headers: hdr(), credentials: 'same-origin'
+    }).then(function (r) {
+      if (!r.ok) return jsonErr(r).then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(function (j) {
+      var opt0 = document.createElement('option');
+      opt0.value = '';
+      opt0.textContent = 'Select a container…';
+      sel.appendChild(opt0);
+      (j.containers || []).forEach(function (n) {
+        var o = document.createElement('option');
+        o.value = n;
+        o.textContent = n;
+        sel.appendChild(o);
+      });
+    }).catch(function (e) {
+      vols.textContent = e.message || String(e);
+    });
+  }
+  if ($('hf-docker-cancel')) $('hf-docker-cancel').addEventListener('click', closeDocker);
+  if ($('hf-docker-cp')) $('hf-docker-cp').addEventListener('click', function () {
+    var ctr = ($('hf-docker-ctr').value || '').trim();
+    var src = ($('hf-docker-src').value || '').trim();
+    var err = $('hf-docker-err');
+    if (!ctr || !src) {
+      if (err) { err.hidden = false; err.textContent = 'Container and path are required'; }
+      return;
+    }
+    closeDocker();
+    postForm('docker/cp', { container: ctr, src: src }, 'Copying from ' + ctr + '…').catch(function (e) {
+      setStatus(e.message, 'err');
+    });
+  });
+  if ($('hf-zip-name')) $('hf-zip-name').addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') { ev.preventDefault(); doZip(); }
+    if (ev.key === 'Escape') { ev.preventDefault(); closeZip(); }
+  });
+  if ($('hf-unzip')) $('hf-unzip').addEventListener('click', function () {
+    var items = selItems();
+    if (items.length === 1) unzipOne(items[0]);
+  });
+  if ($('hf-rm')) $('hf-rm').addEventListener('click', delSel);
+  if ($('hf-perms')) $('hf-perms').addEventListener('click', openPerms);
+  if ($('hf-perms-cancel')) $('hf-perms-cancel').addEventListener('click', closePerms);
+  if ($('hf-perms-ok')) $('hf-perms-ok').addEventListener('click', applyPerms);
+  if ($('hf-perms-mode')) {
+    $('hf-perms-mode').addEventListener('input', function () {
+      bitsFromMode(this.value);
+    });
+    $('hf-perms-mode').addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); applyPerms(); }
+      if (ev.key === 'Escape') { ev.preventDefault(); closePerms(); }
+    });
+  }
+  permsBits().forEach(function (c) {
+    c.addEventListener('change', function () {
+      if (permsBitsLock) return;
+      $('hf-perms-mode').value = modeFromBits();
+    });
+  });
+  if ($('hf-all')) $('hf-all').addEventListener('change', function () {
+    selected = {};
+    if (this.checked) listEntries.forEach(function (e) { setSel(e.rel, true); });
+    paintSel();
+  });
+  if ($('hf-editor-save')) $('hf-editor-save').addEventListener('click', saveEditor);
+  if ($('hf-editor-cancel')) $('hf-editor-cancel').addEventListener('click', function () { closeEditor(false); });
+  if ($('hf-editor-wrap')) $('hf-editor-wrap').addEventListener('click', function () { applyEditorWrap(!editorWrap); });
+  if ($('hf-editor-ta')) {
+    $('hf-editor-ta').addEventListener('input', updateEditorView);
+    $('hf-editor-ta').addEventListener('scroll', syncEditorScroll);
+    $('hf-editor-ta').addEventListener('keyup', updateEditorPos);
+    $('hf-editor-ta').addEventListener('click', updateEditorPos);
+    $('hf-editor-ta').addEventListener('keydown', onEditorKey);
+  }
+  $('hf-file').addEventListener('change', function () { uploadFiles(this.files); this.value = ''; });
+  function switchIdentity(role) {
+    if (!role || role === identity) return;
+    window.location = '/servers/' + sid + '/files?identity=' + encodeURIComponent(role) + (current ? '&p=' + encodeURIComponent(current) : '');
+  }
+
+  var list = $('hf-list');
+  list.addEventListener('dragover', function (ev) { ev.preventDefault(); list.classList.add('is-drag'); });
+  list.addEventListener('dragleave', function () { list.classList.remove('is-drag'); });
+  list.addEventListener('drop', function (ev) {
+    ev.preventDefault();
+    list.classList.remove('is-drag');
+    collectDropped(ev.dataTransfer, function (items) {
+      if (items.length) uploadItems(items, current);
+    });
+  });
+  document.addEventListener('click', hideMenu);
+  document.addEventListener('keydown', function (ev) {
+    if (editorOpen()) return;
+    var tag = (ev.target && ev.target.tagName) || '';
+    if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'f' || ev.key === 'F') && $('hf-q')) {
+      ev.preventDefault();
+      $('hf-q').focus();
+      $('hf-q').select();
+      return;
+    }
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if ($('hf-preview') && $('hf-preview').classList.contains('is-on')) {
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        closePreview();
+        return;
+      }
+      if (ev.key === 'ArrowLeft') {
+        ev.preventDefault();
+        previewStep(-1);
+        return;
+      }
+      if (ev.key === 'ArrowRight') {
+        ev.preventDefault();
+        previewStep(1);
+        return;
+      }
+    }
+    if (ev.key === 'Escape' && $('hf-secret-box') && $('hf-secret-box').classList.contains('is-on')) {
+      ev.preventDefault();
+      pendingSecret = null;
+      closeSecret();
+      return;
+    }
+    if (ev.key === 'Escape' && $('hf-win') && $('hf-win').classList.contains('is-tree')) {
+      ev.preventDefault();
+      closeTree();
+      return;
+    }
+    if (ev.key === 'Escape' && $('hf-upload-box') && $('hf-upload-box').classList.contains('is-on')) {
+      ev.preventDefault();
+      closeUpload();
+      return;
+    }
+    if (ev.key === 'Escape' && $('hf-docker-box') && $('hf-docker-box').classList.contains('is-on')) {
+      ev.preventDefault();
+      closeDocker();
+      return;
+    }
+    if (ev.key === 'Escape' && $('hf-zip-box') && $('hf-zip-box').classList.contains('is-on')) {
+      ev.preventDefault();
+      closeZip();
+      return;
+    }
+    if (ev.key === 'Escape' && $('hf-move-box') && $('hf-move-box').classList.contains('is-on')) {
+      ev.preventDefault();
+      closeMove();
+      return;
+    }
+    if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'a' || ev.key === 'A')) {
+      ev.preventDefault();
+      selected = {};
+      listEntries.forEach(function (e) { setSel(e.rel, true); });
+      paintSel();
+      return;
+    }
+    if (ev.key === 'Escape' && $('hf-perms-box') && $('hf-perms-box').classList.contains('is-on')) {
+      ev.preventDefault();
+      closePerms();
+      return;
+    }
+    if (ev.key === 'Delete' || ev.key === 'Backspace') {
+      if (selItems().length) {
+        ev.preventDefault();
+        delSel();
+      }
+    }
+    if (ev.key === 'Enter' && selItems().length === 1) {
+      var one = selItems()[0];
+      if (one.kind === 'dir') load(one.rel);
+      else if (/\.zip$/i.test(one.name)) unzipOne(one);
+      else editOrDownload(one);
+    }
+  });
+  var pOk = $('hf-prompt-ok');
+  var pCancel = $('hf-prompt-cancel');
+  var pInput = $('hf-prompt-input');
+  if (pOk) pOk.addEventListener('click', function () { closePrompt(($('hf-prompt-input').value || '').trim()); });
+  if (pCancel) pCancel.addEventListener('click', function () { closePrompt(null); });
+  if (pInput) pInput.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') { ev.preventDefault(); closePrompt((pInput.value || '').trim()); }
+    if (ev.key === 'Escape') { ev.preventDefault(); closePrompt(null); }
+  });
+  window.addEventListener('popstate', function (ev) {
+    if (ev.state && typeof ev.state.rel === 'string') load(ev.state.rel, false);
+  });
+
+  if ($('hf-max')) $('hf-max').addEventListener('click', function () { setFilesMax(!isFilesMax()); });
+  try {
+    if (localStorage.getItem(FILES_MAX_KEY) === '1') setFilesMax(true);
+  } catch (e) {}
+
+  if (boot && boot.entries) applyListing(boot);
+  else load(current, false);
+})();
+</script>
+{% endblock %}

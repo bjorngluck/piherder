@@ -34,9 +34,12 @@ COPY requirements.lock.txt ./
 RUN pip install --upgrade pip setuptools wheel && \
     pip install --require-hashes -r requirements.lock.txt
 
-# Project source + install without re-resolving dependencies
+# Project source + install without re-resolving dependencies.
+# --no-build-isolation: setuptools/wheel already in the image from the lockfile.
+# Isolated builds fetch PyPI again and hang when the Docker bridge has no egress
+# (demo VPS). Host-network build still required for uncached apt / lockfile / CDNs.
 COPY . .
-RUN pip install --no-deps -e .
+RUN pip install --no-deps --no-build-isolation -e .
 
 # Vendor HTMX / Alpine / xterm (needs internet unless already in the context).
 # Tailwind is a committed compiled stylesheet — no Play / no cdn.tailwindcss.com.

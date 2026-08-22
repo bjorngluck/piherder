@@ -46,6 +46,7 @@
 	@from_cf header CF-Connecting-IP *
 	handle @from_cf {
 		reverse_proxy web:8000 {
+			flush_interval -1
 			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
 			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
 			header_up CF-Connecting-IP {http.request.header.CF-Connecting-IP}
@@ -55,6 +56,7 @@
 	}
 	handle {
 		reverse_proxy web:8000 {
+			flush_interval -1
 			header_up X-Real-IP {remote_host}
 			header_up X-Forwarded-For {remote_host}
 			header_up X-Forwarded-Proto https
@@ -67,7 +69,17 @@
 		X-Frame-Options "SAMEORIGIN"
 		Referrer-Policy "no-referrer-when-downgrade"
 	}
-	encode gzip
+	# Do not gzip file downloads — buffering stalls SFTP streams around ~12 MiB.
+	encode gzip {
+		match {
+			header Content-Type text*
+			header Content-Type application/javascript*
+			header Content-Type application/json*
+			header Content-Type application/xml*
+			header Content-Type application/xhtml+xml*
+			header Content-Type image/svg+xml*
+		}
+	}
 }
 
 # Catch-all HTTPS: wrong Host / bare IP / unknown SNI → do not proxy to the app.

@@ -6,7 +6,7 @@ The knobs that live in **`.env`** (not the Settings UI): encryption keys, public
 
 ## Why `.env` vs Settings
 
-Secrets and process-level config must be available **before** the app boots. Policy that belongs in the database (timezone, force 2FA, schedules) lives under [Settings](settings.md) so it rides along with self-backup.
+Secrets and process-level config must be available **before** the app boots. Policy that belongs in the database (timezone, force 2FA, console timeouts, schedules) lives under [Settings](settings.md) so it rides along with self-backup.
 
 Full commented catalog: [`.env.example`](https://github.com/bjorngluck/piherder/blob/main/.env.example) in the repo. Copy to `.env`.
 
@@ -33,22 +33,35 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 | `PIHERDER_PUBLIC_URL` | Canonical origin (include `:8443` if mapped); HTTPS enables Secure cookies; **OIDC redirect** base `{PUBLIC_URL}/auth/oidc/callback`; CSP `upgrade-insecure-requests` when https |
 | `PIHERDER_CSP` | **true** (default) — send Content-Security-Policy. Scripts are **self-hosted** (compiled Tailwind, no Play CDN, **no `unsafe-eval`**). `connect-src` is `'self'` plus `PIHERDER_PUBLIC_URL` / its `wss:` — **no** wildcard `ws:`/`wss:`. Inline script/style still allowed (1.3 nonces). |
 | `PIHERDER_CSP_REPORT_ONLY` | **false** (default) — if true, send Report-Only CSP instead of enforcing |
-| `PIHERDER_SSH_CONSOLE` | **false** (default) — enable web SSH console (operator+ / 2FA; in-app only) |
-| `PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL` | **false** — each New shell needs fresh TOTP/passkey (no grant reuse) |
-| `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES` | **false** — backup codes rejected for console step-up (prefer passkey/TOTP) |
-| `PIHERDER_SSH_CONSOLE_PREFER_PASSKEY` | **true** — UI promotes WebAuthn when enrolled |
-| `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY` | **false** — if true and user has passkeys, TOTP alone is rejected |
-| `PIHERDER_SSH_CONSOLE_BIND_IP` | **true** — ticket + live shell bound to client IP |
-| `PIHERDER_SSH_CONSOLE_BIND_DEVICE` | **true** — ticket bound to HttpOnly `console_device` cookie |
-| `PIHERDER_SSH_CONSOLE_REVALIDATE_SEC` | **10** — how often open shells re-check session/IP/device |
-| `PIHERDER_SSH_CONSOLE_TICKET_SEC` | **60** — single-use open-ticket TTL |
-| `PIHERDER_SSH_CONSOLE_IDLE_SEC` | **900** — idle disconnect (also ends parked shells) |
-| `PIHERDER_SSH_CONSOLE_MAX_SEC` | **3600** — max session length |
-| `PIHERDER_SSH_CONSOLE_MAX_PER_USER` | **4** — concurrent shells per user (all hosts) |
-| `PIHERDER_SSH_CONSOLE_MAX_GLOBAL` | **20** — concurrent shells instance-wide |
-| `PIHERDER_SSH_CONSOLE_SCROLLBACK` | **2000** — default browser terminal scrollback lines |
-| `PIHERDER_SSH_CONSOLE_HOLD_SEC` | **0** — after WebSocket drop, park PTY this many seconds (`0` = until idle/max only) |
-| `PIHERDER_SSH_CONSOLE_GRANT_MIN` | **10** — fleet-wide multi-host grant after 2FA (minutes); covers all hosts until expiry or Lock |
+| `PIHERDER_SSH_CONSOLE` | **false** (default) — **master enable** for web SSH (operator+ / 2FA; in-app only). Not a Settings checkbox. |
+| `PIHERDER_HOST_FILES` | **false** (default) — **master enable** for host Files (operator+; jailed SFTP). Not a Settings checkbox. [Host Files](../day-to-day/host-files.md). Optional `PIHERDER_HOST_FILES_MAX_BYTES` **locks** the cap (otherwise **Settings → Files**, default 512 MiB, ceiling 32 GiB) — do not inject a compose default. |
+
+Idle, max session, concurrency, ticket, hold, bind, revalidate, scrollback, grant, and 2FA factor knobs live in **Settings** ([Console](settings.md#console) + Security). Set a **non-empty** env value to **lock** that knob (air-gap). Bundled compose does **not** inject defaults for these, or Settings cannot apply. Names if you lock:
+
+| Optional lock | Settings default | Locks |
+|---------------|------------------|--------|
+| `PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL` | false | Security — every new shell |
+| `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES` | false | Security — backup codes |
+| `PIHERDER_SSH_CONSOLE_PREFER_PASSKEY` | true | Security |
+| `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY` | false | Security |
+| `PIHERDER_SSH_CONSOLE_BIND_IP` | true | Console |
+| `PIHERDER_SSH_CONSOLE_BIND_DEVICE` | true | Console |
+| `PIHERDER_SSH_CONSOLE_REVALIDATE_SEC` | 10 | Console |
+| `PIHERDER_SSH_CONSOLE_TICKET_SEC` | 60 | Console |
+| `PIHERDER_SSH_CONSOLE_IDLE_SEC` | 900 | Console |
+| `PIHERDER_SSH_CONSOLE_MAX_SEC` | 3600 | Console |
+| `PIHERDER_SSH_CONSOLE_MAX_PER_USER` | 4 | Console |
+| `PIHERDER_SSH_CONSOLE_MAX_GLOBAL` | 20 | Console |
+| `PIHERDER_SSH_CONSOLE_SCROLLBACK` | 2000 | Console |
+| `PIHERDER_SSH_CONSOLE_HOLD_SEC` | 0 | Console |
+| `PIHERDER_SSH_CONSOLE_GRANT_MIN` | 10 | Security — grant minutes |
+| `PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE` | `admin` | Console — who may **Connect as…** privileged (`admin` or `operator`) |
+| `PIHERDER_SSH_CONSOLE_AUDIT_MODE` | `off` | Console — `off` / `commands` / `commands_output` |
+| `PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED` | false | Console — force command recording on every live shell |
+| `PIHERDER_SSH_CONSOLE_AUDIT_RETENTION_DAYS` | 14 | Console — drop transcript bodies after N days (1–90) |
+
+| Variable | Purpose |
+|----------|---------|
 | `PIHERDER_BACKUP_VANISHED_RETRIES` | **1** — extra rsync attempts on vanished files |
 | `PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC` | **5** — delay before vanished retry |
 | `PIHERDER_BACKUP_VANISHED_SOFT_OK` | **true** — treat final vanished exit as soft success |
@@ -156,4 +169,5 @@ docker compose --profile nmap up -d celery-worker-nmap
 - [LAN Discovery](../integrations/lan-discovery.md)  
 - [Volumes](volumes.md)  
 - [ADMIN.md — production env](https://github.com/bjorngluck/piherder/blob/main/docs/ADMIN.md)  
-- [v1.2.0 QA / sign-off](qa-v1.2.0.md)
+- [v1.3.0 QA](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.3.0.md) (maintainer `docs/` — not this wiki)  
+- [v1.2.0 QA / sign-off](qa-v1.2.0.md) (prior)

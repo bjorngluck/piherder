@@ -241,7 +241,7 @@ Not abandoned — scheduled as paths. Items may move between 1.2 and 1.3 as the 
 
 ### v1.3 path
 
-Full planning capture: **[PLAN_v1.3.0.md](PLAN_v1.3.0.md)** (opened 2026-08-10; train not open).
+Full plan: **[PLAN_v1.3.0.md](PLAN_v1.3.0.md)** — **Active** on `v1.3.0-dev` (opened 2026-08-18).
 
 | Theme | Items |
 |-------|--------|
