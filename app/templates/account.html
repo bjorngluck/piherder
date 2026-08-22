@@ -361,11 +361,11 @@
         </div>
         <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
       </div>
+    {% if oidc_identities %}
       <div class="settings-sheet-body space-y-3">
     {% if error %}
     <div class="banner-error border border-border rounded p-3 text-sm" role="alert">{% include "partials/account_error_text.html" %}</div>
     {% endif %}
-    {% if oidc_identities %}
     <ul class="space-y-3 list-none pl-0">
       {% for idn in oidc_identities %}
       <li class="border border-border rounded-lg p-3 space-y-2">
@@ -377,16 +377,24 @@
       </li>
       {% endfor %}
     </ul>
+      </div>
     {% else %}
-    <form method="post" action="/auth/oidc/link" class="space-y-3">
+    <form method="post" action="/auth/oidc/link" class="settings-sheet-form" data-testid="sso-link-form">
+      <div class="settings-sheet-body space-y-3">
+    {% if error %}
+    <div class="banner-error border border-border rounded p-3 text-sm" role="alert">{% include "partials/account_error_text.html" %}</div>
+    {% endif %}
       {% set show_password = true %}
       {% include "partials/account_stepup_confirm.html" %}
-      <button type="submit" class="btn btn-accent min-h-11 text-sm" data-testid="sso-link">
+      </div>
+      <div class="settings-sheet-foot">
+      <button type="submit" class="btn btn-accent min-h-11 text-sm" data-testid="sso-link"
+              {% if has_2fa and has_passkeys and not has_totp and not account_stepup_active %}disabled title="Confirm passkey first"{% endif %}>
         Link {{ oidc_display_name or 'SSO' }}
       </button>
+      </div>
     </form>
     {% endif %}
-      </div>
     </div>
   </div>
     {% for idn in oidc_identities %}

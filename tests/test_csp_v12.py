@@ -8,6 +8,7 @@ def test_build_csp_core_directives(monkeypatch):
     monkeypatch.setattr(hdr.settings, "PIHERDER_PUBLIC_URL", "https://ph.example.com:8443")
     csp = hdr.build_csp()
     assert "default-src 'self'" in csp
+    assert "form-action 'self'" in csp
     assert "object-src 'none'" in csp
     assert "frame-ancestors 'self'" in csp
     assert "frame-src 'self'" in csp

@@ -76,7 +76,7 @@ Redirect URI for the IdP is shown on the Settings card (same as above).
 |------|----------------|
 | **SSO → local (auto)** | Login with IdP; if `(issuer, subject)` unknown but **email matches** one active local user → **auto-link** + login |
 | **SSO → new user (JIT)** | No match → create user with role from map (or default), password login **off**, SSO linked |
-| **Local → SSO (explicit)** | Signed in → **Account → Connected accounts → Link …** (confirm password or 2FA when required) |
+| **Local → SSO (explicit)** | Signed in → **Account → Connected accounts → Link …** (confirm passkey or authenticator, then Link). Browser goes to the IdP; after consent you return linked. |
 
 <figure class="ph-figure" markdown>
   ![Connected accounts](../assets/screenshots/account-sso.png)

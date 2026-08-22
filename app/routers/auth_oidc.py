@@ -1,7 +1,7 @@
 """OIDC / SSO routes (v1.2 Stream S)."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -13,8 +13,10 @@ from ..models import User
 from ..security.auth import (
     cookie_auth_kwargs,
     cookie_delete_kwargs,
+    create_access_token,
     create_pending_2fa_token,
     create_user_access_token,
+    decode_token_payload,
     find_valid_trusted_device,
     get_current_user,
     post_login_path,
@@ -31,6 +33,9 @@ from ..services.request_ip import client_ip_from_request
 router = APIRouter()
 
 PENDING_COOKIE = "pending_2fa"
+# One-shot: POST /oidc/link verified step-up; GET then 303s to the IdP.
+# Browser CSP form-action 'self' blocks a *form* 303 straight to Authentik.
+LINK_OK_COOKIE = "oidc_link_ok"
 
 
 def _audit(
@@ -75,6 +80,31 @@ def _set_oidc_state_cookie(response: RedirectResponse, value: str) -> None:
 
 def _clear_oidc_state(response: RedirectResponse) -> None:
     response.delete_cookie(oidc.STATE_COOKIE, **cookie_delete_kwargs())
+
+
+def _set_link_ok_cookie(response: RedirectResponse, user_id: int) -> None:
+    token = create_access_token(
+        {"sub": str(user_id), "oidc_link": True},
+        expires_delta=timedelta(minutes=2),
+    )
+    response.set_cookie(
+        LINK_OK_COOKIE,
+        token,
+        **cookie_auth_kwargs(max_age=120),
+    )
+
+
+def _link_ok_valid(request: Request, user: User) -> bool:
+    raw = request.cookies.get(LINK_OK_COOKIE)
+    if not raw:
+        return False
+    payload = decode_token_payload(raw)
+    if not payload or not payload.get("oidc_link"):
+        return False
+    try:
+        return int(payload.get("sub")) == int(user.id)
+    except (TypeError, ValueError):
+        return False
 
 
 def _account_redir(
@@ -192,18 +222,20 @@ async def oidc_link_start(
         return blocked
     if not oidc.oidc_enabled():
         return _account_redir(error="sso_disabled")
-    # GET is start-only when the user has no 2FA. Enrolled users must POST
-    # (password / TOTP / passkey) — ``?ok=1`` is not a step-up.
-    if wa_svc.user_has_2fa(session, user):
+    # Enrolled 2FA: GET is allowed only after POST step-up (one-shot cookie).
+    # Without 2FA, GET may start the IdP (session already proved identity).
+    if wa_svc.user_has_2fa(session, user) and not _link_ok_valid(request, user):
         return _account_redir(error="sso_2fa_link")
     try:
         url, state_cookie = oidc.build_authorize_url(mode="link", user_id=int(user.id))
     except oidc.OidcConfigError as e:
         return RedirectResponse(
-            f"/auth/account?error=sso_config&detail={str(e)[:80]}", status_code=303
+            f"/auth/account?error=sso_config&detail={str(e)[:80]}#account-sso",
+            status_code=303,
         )
     response = RedirectResponse(url, status_code=303)
     _set_oidc_state_cookie(response, state_cookie)
+    response.delete_cookie(LINK_OK_COOKIE, **cookie_delete_kwargs())
     return response
 
 
@@ -231,14 +263,10 @@ async def oidc_link_start_post(
     )
     if not ok:
         return _account_redir(error=err or "sso_2fa_link")
-    try:
-        url, state_cookie = oidc.build_authorize_url(mode="link", user_id=int(user.id))
-    except oidc.OidcConfigError as e:
-        return RedirectResponse(
-            f"/auth/account?error=sso_config&detail={str(e)[:80]}", status_code=303
-        )
-    response = RedirectResponse(url, status_code=303)
-    _set_oidc_state_cookie(response, state_cookie)
+    # Same-origin 303 first. A form POST that 303s straight to Authentik is
+    # blocked by Content-Security-Policy form-action 'self' (login uses GET).
+    response = RedirectResponse("/auth/oidc/link", status_code=303)
+    _set_link_ok_cookie(response, int(user.id))
     return response
 
 
