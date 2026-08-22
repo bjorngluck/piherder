@@ -104,38 +104,8 @@
 {% endif %}
 
 {% if error %}
-<div class="banner-error border border-border rounded p-3 text-sm mb-4">
-  {% if error == 'password_required' %}Current password required to change email.
-  {% elif error == 'email_taken' %}That email is already in use.
-  {% elif error == 'bad_password' %}Current password is incorrect.
-  {% elif error == 'password_short' %}New password is too short.
-  {% elif error == 'password_policy' %}Password must be at least 10 characters with upper, lower, and a digit.
-  {% elif error == 'password_mismatch' %}New passwords do not match.
-  {% elif error == '2fa_already' %}2FA is already enabled.
-  {% elif error == '2fa_no_setup' %}Start 2FA setup first.
-  {% elif error == '2fa_bad_code' %}Invalid authenticator or backup code.
-  {% elif error == '2fa_off' %}Enable 2FA first.
-  {% elif error == 'passkey_not_found' %}Passkey not found.
-  {% elif error == 'passkey_failed' %}Passkey registration failed. Try again.
-  {% elif error == 'sso_disabled' %}SSO is not enabled on this instance.
-  {% elif error == 'sso_config' %}SSO is misconfigured. Ask an administrator.
-  {% elif error == 'sso_token' %}SSO completed at the identity provider, but PiHerder could not validate the identity token. Check the Issuer URL in Settings → SSO.
-  {% elif error == 'sso_email' %}SSO did not provide a verified email.
-  {% elif error == 'sso_domain' %}That email domain is not allowed for SSO.
-  {% elif error == 'sso_2fa_link' %}Confirm with 2FA (or password) before linking SSO.
-  {% elif error == 'sso_required' %}Link an SSO account before removing your password.
-  {% elif error == 'sso_not_found' %}SSO link not found.
-  {% elif error == 'sso_link_conflict' %}That SSO identity is already linked to another account.
-  {% elif error == '2fa_required' %}Authenticator or backup code required.
-  {% elif error == 'demo_locked' %}
-  Shared demo (viewer) — password and 2FA stay locked so one visitor cannot lock others out.
-  {% elif error == 'use_passkey' %}This account uses a passkey — confirm with passkey first (button on this page), then submit.
-  {% elif error == 'use_change_password' %}Use Change password when a local password is already enabled.
-  {% elif error == 'push_vapid' %}Web Push is not available on the server.
-  {% elif error == 'push_no_device' %}No device subscribed yet — use “Enable on this device” first.
-  {% elif error == 'push_test_failed' %}Test push failed (subscription may be expired — try enable again).
-  {% elif error.startswith('avatar:') %}{{ error[7:] }}
-  {% else %}{{ error }}{% endif %}
+<div class="banner-error border border-border rounded p-3 text-sm mb-4" role="alert">
+  {% include "partials/account_error_text.html" %}
 </div>
 {% endif %}
 
@@ -151,66 +121,112 @@
 </div>
 {% endif %}
 
-<div class="account-card-grid">
-  <!-- Profile -->
-  <div class="card p-5 sm:p-6 space-y-4 account-card">
-    <h2 class="font-semibold text-text">Profile</h2>
-    <form method="post" action="/auth/account/profile" class="space-y-3">
-      <div>
-        <label class="block text-sm text-muted mb-1">Display name</label>
-        <input name="display_name" type="text" value="{{ user.display_name or '' }}"
-               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11"
-               placeholder="Optional">
+<div class="settings-hub-grid account-hub-grid mb-4" data-testid="account-hub">
+  <div class="card p-4 settings-hub-card" id="account-profile">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <h2 class="font-semibold text-text m-0">Profile</h2>
+        <p class="text-xs text-muted mt-1 break-words">{{ user.display_name or 'No display name' }} · {{ user.email }}</p>
       </div>
-      <div>
-        <label class="block text-sm text-muted mb-1">Email</label>
-        <input name="email" type="email" value="{{ user.email }}" required
-               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
-      </div>
-      <div>
-        <label class="block text-sm text-muted mb-1">Current password <span class="text-xs">(required only when changing email)</span></label>
-        <input name="current_password" type="password" autocomplete="current-password"
-               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
-      </div>
-      <button type="submit" class="btn btn-accent min-h-11 text-sm">Save profile</button>
-    </form>
-  </div>
-
-  <!-- Avatar -->
-  <div class="card p-5 sm:p-6 space-y-3 account-card">
-    <h2 class="font-semibold text-text">Profile picture</h2>
-    <div class="flex items-center gap-4">
-      {% if user_has_avatar(user) %}
-      <img src="{{ avatar_img_url(user) }}" alt="" class="w-16 h-16 rounded-full object-cover border border-border">
-      {% else %}
-      <div class="w-16 h-16 rounded-full bg-surface border border-border flex items-center justify-center text-2xl">
-        {{ (user.display_name or user.email)[0].upper() }}
-      </div>
-      {% endif %}
-      <div class="text-xs text-muted">JPEG, PNG, or WebP · max 2 MB</div>
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+              data-open-settings-modal="profile">Edit</button>
     </div>
-    <form method="post" action="/auth/account/avatar" enctype="multipart/form-data" class="flex flex-wrap gap-2 items-center">
-      <input type="file" name="file" accept="image/jpeg,image/png,image/webp" required class="text-sm">
-      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Upload</button>
-    </form>
-    {% if user_has_avatar(user) or user.avatar_path %}
-    <form method="post" action="/auth/account/avatar/delete">
-      <button type="submit" class="btn btn-danger min-h-11 text-sm">Remove avatar</button>
-    </form>
-    {% endif %}
+  </div>
+  <div class="card p-4 settings-hub-card" id="account-avatar">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <h2 class="font-semibold text-text m-0">Profile picture</h2>
+        <p class="text-xs text-muted mt-1 break-words">{% if user_has_avatar(user) %}Photo uploaded{% else %}Letter avatar{% endif %} · JPEG / PNG / WebP · max 2 MB</p>
+      </div>
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+              data-open-settings-modal="avatar">Edit</button>
+    </div>
+  </div>
+  <div id="account-profile-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="profile" role="dialog" aria-modal="true" aria-labelledby="account-profile-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="account-profile-title" class="font-semibold text-text m-0">Profile</h2>
+          <p class="text-xs text-muted mt-1">Display name and email. Current password is required only when changing email.</p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+      <form method="post" action="/auth/account/profile" class="settings-sheet-form">
+        <div class="settings-sheet-body space-y-3">
+          <div>
+            <label class="block text-sm text-muted mb-1">Display name</label>
+            <input name="display_name" type="text" value="{{ user.display_name or '' }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11"
+                   placeholder="Optional">
+          </div>
+          <div>
+            <label class="block text-sm text-muted mb-1">Email</label>
+            <input name="email" type="email" value="{{ user.email }}" required
+                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+          </div>
+          <div>
+            <label class="block text-sm text-muted mb-1">Current password <span class="text-xs">(required only when changing email)</span></label>
+            <input name="current_password" type="password" autocomplete="current-password"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+          </div>
+        </div>
+        <div class="settings-sheet-foot">
+          <button type="submit" class="btn btn-accent min-h-11 text-sm">Save profile</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div id="account-avatar-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="avatar" role="dialog" aria-modal="true" aria-labelledby="account-avatar-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="account-avatar-title" class="font-semibold text-text m-0">Profile picture</h2>
+          <p class="text-xs text-muted mt-1">JPEG, PNG, or WebP · max 2 MB</p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+      <div class="settings-sheet-body space-y-3">
+        <div class="flex items-center gap-4">
+          {% if user_has_avatar(user) %}
+          <img src="{{ avatar_img_url(user) }}" alt="" class="w-16 h-16 rounded-full object-cover border border-border">
+          {% else %}
+          <div class="w-16 h-16 rounded-full bg-surface border border-border flex items-center justify-center text-2xl">
+            {{ (user.display_name or user.email)[0].upper() }}
+          </div>
+          {% endif %}
+        </div>
+        <form method="post" action="/auth/account/avatar" enctype="multipart/form-data" class="flex flex-wrap gap-2 items-center">
+          <input type="file" name="file" accept="image/jpeg,image/png,image/webp" required class="text-sm">
+          <button type="submit" class="btn btn-secondary min-h-11 text-sm">Upload</button>
+        </form>
+        {% if user_has_avatar(user) or user.avatar_path %}
+        <form method="post" action="/auth/account/avatar/delete">
+          <button type="submit" class="btn btn-danger min-h-11 text-sm">Remove avatar</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
   </div>
 
   {% if has_2fa and has_passkeys %}
-  <div class="card p-4 sm:p-5 space-y-2 account-card" id="account-stepup-box" data-testid="account-stepup-box">
-    <h2 class="font-semibold text-text text-sm">Step-up confirmation</h2>
-    {% if account_stepup_active %}
-    <p class="text-sm text-accent">Passkey step-up is active for ~{{ account_stepup_minutes }} minutes. Sensitive Account actions do not need a TOTP code until it expires.</p>
-    {% else %}
-    <p class="text-xs text-muted">Use a passkey instead of an authenticator code for SSO link/unlink and password remove/set.</p>
-    <button type="button" id="account-stepup-passkey" class="btn btn-accent text-sm min-h-11"
-            data-testid="account-stepup-passkey">Confirm with passkey</button>
-    <p id="account-stepup-err" class="hidden text-sm banner-error border border-border rounded p-2" role="alert"></p>
-    {% endif %}
+  <div class="card p-4 settings-hub-card" id="account-stepup-box" data-testid="account-stepup-box">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <h2 class="font-semibold text-text m-0">Step-up confirmation</h2>
+        {% if account_stepup_active %}
+        <p class="text-xs text-accent mt-1">Passkey step-up active for ~{{ account_stepup_minutes }} minutes.</p>
+        {% else %}
+        <p class="text-xs text-muted mt-1">Use a passkey instead of TOTP for SSO and password remove/set.</p>
+        {% endif %}
+      </div>
+      {% if not account_stepup_active %}
+      <button type="button" class="btn btn-accent text-xs min-h-9 px-2.5 shrink-0"
+              data-account-stepup-passkey data-testid="account-stepup-passkey">Confirm</button>
+      {% endif %}
+    </div>
+    <p id="account-stepup-err" class="hidden text-sm banner-error border border-border rounded p-2 mt-2" data-account-stepup-err role="alert"></p>
   </div>
   {% endif %}
 
@@ -222,15 +238,38 @@
   </div>
   {% endif %}
 
-  <!-- Password -->
-  <div class="card p-5 sm:p-6 space-y-3 account-card">
-    <h2 class="font-semibold text-text">Password</h2>
-    {% if _demo %}
-    <p class="text-sm text-muted">Password change is disabled on the shared demo login.</p>
-    {% else %}
-    <p class="text-xs text-muted">{{ password_policy_text or 'At least 10 characters with upper, lower, and a digit. Use at most 72 Latin letters/digits.' }}</p>
+  <div class="card p-4 settings-hub-card" id="account-password">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <h2 class="font-semibold text-text m-0">Password</h2>
+        <p class="text-xs text-muted mt-1 break-words">
+          {% if _demo %}Locked on shared demo
+          {% elif password_login_enabled %}Local password on · {{ password_policy_text }}
+          {% else %}SSO only — set a break-glass password anytime{% endif %}
+        </p>
+      </div>
+      {% if not _demo %}
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+              data-open-settings-modal="password">Edit</button>
+      {% endif %}
+    </div>
+  </div>
+  <div id="account-password-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="password" role="dialog" aria-modal="true" aria-labelledby="account-password-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="account-password-title" class="font-semibold text-text m-0">Password</h2>
+          <p class="text-xs text-muted mt-1">{{ password_policy_text }}</p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+      <div class="settings-sheet-body space-y-3">
+    {% if error %}
+    <div class="banner-error border border-border rounded p-3 text-sm" role="alert">{% include "partials/account_error_text.html" %}</div>
+    {% endif %}
     {% if password_login_enabled %}
-    <form method="post" action="/auth/account/password" class="space-y-3" id="account-password-form">
+    <form method="post" action="/auth/account/password" class="space-y-3" id="account-password-form" data-pw-form>
       <div>
         <label class="block text-sm text-muted mb-1">Current password</label>
         <input name="current_password" type="password" required autocomplete="current-password"
@@ -238,16 +277,20 @@
       </div>
       <div>
         <label class="block text-sm text-muted mb-1">New password</label>
-        <input name="new_password" id="account-new-password" type="password" required minlength="10" autocomplete="new-password"
+        <input name="new_password" id="account-new-password" type="password" required data-pw-input
+               minlength="{{ password_min_length or 10 }}" maxlength="{{ password_max_length or 72 }}"
+               autocomplete="new-password"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
-        <div class="pw-strength mt-2">
-          <div class="pw-strength-bar"><div class="pw-strength-fill" id="account-pw-fill"></div></div>
-          <div class="text-[10px] text-muted mt-1" id="account-pw-label">Strength</div>
+        <div class="pw-strength mt-2" data-pw-meter data-pw-for="account-new-password">
+          <div class="pw-strength-bar"><div class="pw-strength-fill" id="account-pw-fill" data-pw-fill></div></div>
+          <div class="text-[10px] text-muted mt-1" id="account-pw-label" data-pw-label>Strength</div>
         </div>
       </div>
       <div>
         <label class="block text-sm text-muted mb-1">Confirm new password</label>
-        <input name="confirm_password" type="password" required minlength="10" autocomplete="new-password"
+        <input name="confirm_password" type="password" required
+               minlength="{{ password_min_length or 10 }}" maxlength="{{ password_max_length or 72 }}"
+               autocomplete="new-password"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
       </div>
       <button type="submit" class="btn btn-accent min-h-11 text-sm">Change password</button>
@@ -256,149 +299,164 @@
     <form method="post" action="/auth/account/password/remove" class="space-y-2 border-t border-border pt-3 mt-2"
           onsubmit="return confirm('Remove local password? You will sign in with SSO only until you set a password again.');">
       <p class="text-xs text-muted">Optional: remove password and use SSO only (keep a break-glass password if you can).</p>
-      {% if has_2fa and account_stepup_active %}
-      <p class="text-xs text-muted">Passkey step-up active — submit to remove password.</p>
-      {% elif has_2fa and has_totp %}
-      <div>
-        <label class="block text-sm text-muted mb-1">Authenticator or backup code{% if has_passkeys %} (or confirm with passkey first){% endif %}</label>
-        <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
-               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11"
-               {% if not has_passkeys %}required{% endif %}>
-      </div>
-      {% elif has_2fa and has_passkeys %}
-      <p class="text-xs text-muted">Confirm with <strong class="text-text">passkey</strong> (step-up card) first, then submit.</p>
-      {% else %}
-      <div>
-        <label class="block text-sm text-muted mb-1">Current password</label>
-        <input name="current_password" type="password" required autocomplete="current-password"
-               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
-      </div>
-      {% endif %}
+      {% set show_password = true %}
+      {% include "partials/account_stepup_confirm.html" %}
       <button type="submit" class="btn btn-danger min-h-11 text-sm">Remove password</button>
     </form>
     {% endif %}
     {% else %}
     <p class="text-sm text-muted">Password login is off. You sign in with SSO. Set a password anytime for break-glass access.</p>
-    <form method="post" action="/auth/account/password/set" class="space-y-3" id="account-password-form">
+    <form method="post" action="/auth/account/password/set" class="space-y-3" id="account-password-form" data-pw-form>
       <div>
         <label class="block text-sm text-muted mb-1">New password</label>
-        <input name="new_password" id="account-new-password" type="password" required minlength="10" autocomplete="new-password"
+        <input name="new_password" id="account-new-password" type="password" required data-pw-input
+               minlength="{{ password_min_length or 10 }}" maxlength="{{ password_max_length or 72 }}"
+               autocomplete="new-password"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
-        <div class="pw-strength mt-2">
-          <div class="pw-strength-bar"><div class="pw-strength-fill" id="account-pw-fill"></div></div>
-          <div class="text-[10px] text-muted mt-1" id="account-pw-label">Strength</div>
+        <div class="pw-strength mt-2" data-pw-meter data-pw-for="account-new-password">
+          <div class="pw-strength-bar"><div class="pw-strength-fill" id="account-pw-fill" data-pw-fill></div></div>
+          <div class="text-[10px] text-muted mt-1" id="account-pw-label" data-pw-label>Strength</div>
         </div>
       </div>
       <div>
         <label class="block text-sm text-muted mb-1">Confirm new password</label>
-        <input name="confirm_password" type="password" required minlength="10" autocomplete="new-password"
+        <input name="confirm_password" type="password" required
+               minlength="{{ password_min_length or 10 }}" maxlength="{{ password_max_length or 72 }}"
+               autocomplete="new-password"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
       </div>
-      {% if has_2fa and account_stepup_active %}
-      <p class="text-xs text-muted">Passkey step-up active — submit to set password.</p>
-      {% elif has_2fa and has_totp %}
-      <div>
-        <label class="block text-sm text-muted mb-1">Authenticator or backup code{% if has_passkeys %} (or confirm with passkey first){% endif %}</label>
-        <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
-               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11"
-               {% if not has_passkeys %}required{% endif %}>
-      </div>
-      {% elif has_2fa and has_passkeys %}
-      <p class="text-xs text-muted">Confirm with passkey (step-up card) first, then submit.</p>
-      {% endif %}
+      {% set show_password = false %}
+      {% include "partials/account_stepup_confirm.html" %}
       <button type="submit" class="btn btn-accent min-h-11 text-sm">Set password</button>
     </form>
     {% endif %}
     <p class="text-xs text-muted">Self-hosted recovery: change password while logged in, or use <strong class="text-text">Forgot password</strong> on the sign-in page when an admin has enabled SMTP under Settings → Alerts. Admins can also reset access from Users.</p>
-    {% endif %}{# not _demo #}
+      </div>
+    </div>
   </div>
 
-  <!-- Connected accounts (SSO) -->
   {% if oidc_enabled %}
-  <div class="card p-5 sm:p-6 space-y-4 account-card" id="account-sso" data-testid="account-sso">
-    <h2 class="font-semibold text-text">Connected accounts (SSO)</h2>
-    <p class="text-sm text-muted">
-      Link {{ oidc_display_name or 'SSO' }} to this account, or connect automatically the first time you sign in with the same verified email.
-      PiHerder 2FA (TOTP / passkeys) still applies after SSO when enrolled.
-    </p>
+  <div class="card p-4 settings-hub-card" id="account-sso" data-testid="account-sso">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <h2 class="font-semibold text-text m-0">Connected accounts (SSO)</h2>
+        <p class="text-xs text-muted mt-1 break-words">
+          {% if oidc_identities %}Linked · {{ oidc_identities[0].issuer_host or oidc_display_name or 'SSO' }}
+          {% else %}Not linked · {{ oidc_display_name or 'SSO' }}{% endif %}
+        </p>
+      </div>
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+              data-open-settings-modal="sso">Edit</button>
+    </div>
+  </div>
+  <div id="account-sso-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="sso" role="dialog" aria-modal="true" aria-labelledby="account-sso-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="account-sso-title" class="font-semibold text-text m-0">Connected accounts (SSO)</h2>
+          <p class="text-xs text-muted mt-1">
+            Link {{ oidc_display_name or 'SSO' }} with the same verified email. PiHerder 2FA still applies after SSO when enrolled.
+          </p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+      <div class="settings-sheet-body space-y-3">
+    {% if error %}
+    <div class="banner-error border border-border rounded p-3 text-sm" role="alert">{% include "partials/account_error_text.html" %}</div>
+    {% endif %}
     {% if oidc_identities %}
     <ul class="space-y-3 list-none pl-0">
       {% for idn in oidc_identities %}
       <li class="border border-border rounded-lg p-3 space-y-2">
         <div class="text-sm font-medium text-text">{{ idn.issuer_host or idn.issuer }}</div>
         <div class="text-xs text-muted font-mono truncate">{{ idn.email_at_link or idn.subject }}</div>
-        <form method="post" action="/auth/oidc/unlink" class="space-y-2"
-              onsubmit="return confirm('Unlink this SSO identity?');">
-          <input type="hidden" name="identity_id" value="{{ idn.id }}">
-          {% if has_2fa and account_stepup_active %}
-          <p class="text-xs text-muted">Using passkey step-up for this action.</p>
-          {% elif has_2fa and has_totp %}
-          <div>
-            <label class="block text-xs text-muted mb-1">Authenticator or backup code{% if has_passkeys %} (or confirm with passkey first){% endif %}</label>
-            <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
-                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11"
-                   {% if not has_passkeys %}required{% endif %}>
-          </div>
-          {% elif has_2fa and has_passkeys %}
-          <p class="text-xs text-muted">Confirm with passkey (step-up card) first, then Unlink.</p>
-          {% elif password_login_enabled %}
-          <div>
-            <label class="block text-xs text-muted mb-1">Current password</label>
-            <input name="current_password" type="password" required autocomplete="current-password"
-                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
-          </div>
-          {% endif %}
-          {% if not password_login_enabled %}
-          <p class="text-xs text-warning">Set a local password below before unlink completes (same form).</p>
-          <div>
-            <label class="block text-xs text-muted mb-1">New password (required to unlink)</label>
-            <input name="new_password" type="password" required minlength="10" autocomplete="new-password"
-                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
-          </div>
-          <div>
-            <label class="block text-xs text-muted mb-1">Confirm new password</label>
-            <input name="confirm_password" type="password" required minlength="10" autocomplete="new-password"
-                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
-          </div>
-          {% endif %}
-          <button type="submit" class="btn btn-danger min-h-11 text-sm">Unlink</button>
-        </form>
+        <button type="button" class="btn btn-danger min-h-11 text-sm"
+                data-open-settings-modal="sso-unlink-{{ idn.id }}"
+                data-testid="sso-unlink-open">Unlink…</button>
       </li>
       {% endfor %}
     </ul>
     {% else %}
     <form method="post" action="/auth/oidc/link" class="space-y-3">
-      {% if has_2fa and account_stepup_active %}
-      <p class="text-xs text-muted">Using passkey step-up for this action.</p>
-      {% elif has_2fa and has_totp %}
-      <div>
-        <label class="block text-sm text-muted mb-1">Authenticator or backup code{% if has_passkeys %} (or confirm with passkey first){% endif %}</label>
-        <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
-               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11"
-               {% if not has_passkeys %}required{% endif %}>
-      </div>
-      {% elif has_2fa and has_passkeys %}
-      <p class="text-xs text-muted">Confirm with passkey (step-up card) first, then Link.</p>
-      {% elif password_login_enabled %}
-      <div>
-        <label class="block text-sm text-muted mb-1">Current password</label>
-        <input name="current_password" type="password" required autocomplete="current-password"
-               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
-      </div>
-      {% endif %}
+      {% set show_password = true %}
+      {% include "partials/account_stepup_confirm.html" %}
       <button type="submit" class="btn btn-accent min-h-11 text-sm" data-testid="sso-link">
         Link {{ oidc_display_name or 'SSO' }}
       </button>
     </form>
     {% endif %}
+      </div>
+    </div>
   </div>
+    {% for idn in oidc_identities %}
+    <div id="account-sso-unlink-{{ idn.id }}" class="hidden fixed inset-0 z-[60] bg-black/70 settings-sheet-overlay"
+         data-settings-modal="sso-unlink-{{ idn.id }}" role="dialog" aria-modal="true"
+         aria-labelledby="account-sso-unlink-title-{{ idn.id }}">
+      <div class="modal-content settings-sheet card ph-modal-brand">
+        <div class="settings-sheet-head">
+          <div class="min-w-0 pr-2">
+            <h2 id="account-sso-unlink-title-{{ idn.id }}" class="font-semibold text-text m-0">Unlink SSO account</h2>
+            <p class="text-xs text-muted mt-1">Removes the PiHerder link only — the IdP account is not deleted.</p>
+          </div>
+          <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+        </div>
+        <form method="post" action="/auth/oidc/unlink" class="settings-sheet-form" data-testid="sso-unlink-form">
+          <div class="settings-sheet-body space-y-3">
+            {% if error %}
+            <div class="banner-error border border-border rounded p-3 text-sm" role="alert">{% include "partials/account_error_text.html" %}</div>
+            {% endif %}
+            <input type="hidden" name="identity_id" value="{{ idn.id }}">
+            <p class="text-sm text-text">
+              Unlink <strong>{{ idn.issuer_host or idn.issuer }}</strong>
+              <span class="block text-xs text-muted font-mono mt-1 truncate">{{ idn.email_at_link or idn.subject }}</span>
+            </p>
+            {% if password_login_enabled %}
+            <p class="text-xs text-muted">After unlink you sign in with your PiHerder password (and 2FA if enrolled).</p>
+            {% else %}
+            <p class="text-xs text-warning">Set a local password below before unlink completes — otherwise this account would have no login method.</p>
+            {% endif %}
+            {% set show_password = password_login_enabled %}
+            {% include "partials/account_stepup_confirm.html" %}
+            {% if not password_login_enabled %}
+            <div>
+              <label class="block text-sm text-muted mb-1">New password (required to unlink)</label>
+              <input name="new_password" id="sso-unlink-pw-{{ idn.id }}" type="password" required data-pw-input
+                     minlength="{{ password_min_length or 10 }}" maxlength="{{ password_max_length or 72 }}"
+                     autocomplete="new-password"
+                     class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+              <div class="pw-strength mt-2" data-pw-meter data-pw-for="sso-unlink-pw-{{ idn.id }}">
+                <div class="pw-strength-bar"><div class="pw-strength-fill" data-pw-fill></div></div>
+                <div class="text-[10px] text-muted mt-1" data-pw-label>Strength</div>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm text-muted mb-1">Confirm new password</label>
+              <input name="confirm_password" type="password" required
+                     minlength="{{ password_min_length or 10 }}" maxlength="{{ password_max_length or 72 }}"
+                     autocomplete="new-password"
+                     class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+            </div>
+            {% endif %}
+          </div>
+          <div class="settings-sheet-foot flex flex-wrap gap-2">
+            <button type="button" class="btn btn-secondary min-h-11 text-sm" data-open-settings-modal="sso">Cancel</button>
+            <button type="submit" class="btn btn-danger min-h-11 text-sm"
+                    data-testid="sso-unlink-confirm"
+                    {% if has_2fa and has_passkeys and not has_totp and not account_stepup_active %}disabled title="Confirm passkey first"{% endif %}>
+              Unlink SSO
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
   {% endif %}
   {% if has_passkeys and not account_stepup_active %}
   <script>
   (function () {
-    var btn = document.getElementById('account-stepup-passkey');
-    var errEl = document.getElementById('account-stepup-err');
-    if (!btn) return;
+    var buttons = document.querySelectorAll('[data-account-stepup-passkey]');
+    if (!buttons.length) return;
     function b64urlToBuf(b64url) {
       var pad = '='.repeat((4 - (b64url.length % 4)) % 4);
       var b64 = (b64url + pad).replace(/-/g, '+').replace(/_/g, '/');
@@ -440,96 +498,90 @@
         },
       };
     }
-    function showErr(msg) {
-      if (!errEl) return;
-      errEl.textContent = msg || 'Passkey failed';
-      errEl.classList.remove('hidden');
+    function bindStepup(btn) {
+      btn.addEventListener('click', async function () {
+        var root = btn.closest('[data-settings-modal]') || document.getElementById('account-stepup-box') || document.body;
+        var errEl = (root && root.querySelector('[data-account-stepup-err]')) || document.getElementById('account-stepup-err');
+        function showErr(msg) {
+          if (!errEl) return;
+          errEl.textContent = msg || 'Passkey failed';
+          errEl.classList.remove('hidden');
+        }
+        if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
+        if (!window.PublicKeyCredential) {
+          showErr('Passkeys not supported in this browser.');
+          return;
+        }
+        var prev = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Waiting for authenticator…';
+        try {
+          var optRes = await fetch('/auth/account/webauthn/stepup/options', {
+            method: 'POST', headers: { 'Accept': 'application/json' }, credentials: 'same-origin',
+          });
+          var optBody = await optRes.json();
+          if (!optBody.ok) throw new Error(optBody.error || 'Could not start passkey step-up');
+          var assertion = await navigator.credentials.get({
+            publicKey: prepareRequestOptions(optBody.publicKey),
+          });
+          if (!assertion) throw new Error('Passkey cancelled');
+          var verRes = await fetch('/auth/account/webauthn/stepup/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ credential: credentialToJSON(assertion) }),
+          });
+          var verBody = await verRes.json();
+          if (!verBody.ok) throw new Error(verBody.error || 'Passkey verification failed');
+          var hash = root && root.id ? '#' + root.id : '#account-sso';
+          window.location.href = '/auth/account?msg=stepup_ok' + hash;
+        } catch (e) {
+          showErr((e && e.message) ? e.message : 'Passkey failed');
+          btn.disabled = false;
+          btn.textContent = prev;
+        }
+      });
     }
-    btn.addEventListener('click', async function () {
-      if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
-      if (!window.PublicKeyCredential) {
-        showErr('Passkeys not supported in this browser.');
-        return;
-      }
-      var prev = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = 'Waiting for authenticator…';
-      try {
-        var optRes = await fetch('/auth/account/webauthn/stepup/options', {
-          method: 'POST', headers: { 'Accept': 'application/json' }, credentials: 'same-origin',
-        });
-        var optBody = await optRes.json();
-        if (!optBody.ok) throw new Error(optBody.error || 'Could not start passkey step-up');
-        var assertion = await navigator.credentials.get({
-          publicKey: prepareRequestOptions(optBody.publicKey),
-        });
-        if (!assertion) throw new Error('Passkey cancelled');
-        var verRes = await fetch('/auth/account/webauthn/stepup/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ credential: credentialToJSON(assertion) }),
-        });
-        var verBody = await verRes.json();
-        if (!verBody.ok) throw new Error(verBody.error || 'Passkey verification failed');
-        window.location.href = verBody.redirect || '/auth/account?msg=stepup_ok#account-stepup-box';
-      } catch (e) {
-        showErr((e && e.message) ? e.message : 'Passkey failed');
-        btn.disabled = false;
-        btn.textContent = prev;
-      }
-    });
+    buttons.forEach(bindStepup);
   })();
   </script>
   {% endif %}
-  <script>
-  (function () {
-    const input = document.getElementById('account-new-password');
-    const fill = document.getElementById('account-pw-fill');
-    const label = document.getElementById('account-pw-label');
-    if (!input || !fill) return;
-    function score(p) {
-      if (!p) return 0;
-      let s = 0;
-      if (p.length >= 10) s++;
-      if (p.length >= 14) s++;
-      let c = 0;
-      if (/[a-z]/.test(p)) c++;
-      if (/[A-Z]/.test(p)) c++;
-      if (/[0-9]/.test(p)) c++;
-      if (/[^A-Za-z0-9]/.test(p)) c++;
-      if (c >= 3) s++;
-      if (c >= 4 && p.length >= 10) s++;
-      return Math.min(4, s);
-    }
-    const labels = ['very weak', 'weak', 'fair', 'good', 'strong'];
-    function upd() {
-      const s = score(input.value || '');
-      fill.style.width = (s * 25) + '%';
-      fill.dataset.score = String(s);
-      if (label) label.textContent = 'Strength: ' + labels[s];
-    }
-    input.addEventListener('input', upd);
-    upd();
-  })();
-  </script>
 
   {% if _demo %}
-  <div class="card p-5 sm:p-6 space-y-3 account-card" data-testid="demo-2fa-locked">
-    <h2 class="font-semibold text-text">Passkeys &amp; 2FA</h2>
-    <p class="text-sm text-muted">
-      Disabled on the shared demo account so one visitor cannot lock others out of login.
-    </p>
+  <div class="card p-4 settings-hub-card" data-testid="demo-2fa-locked">
+    <h2 class="font-semibold text-text m-0">Passkeys &amp; 2FA</h2>
+    <p class="text-xs text-muted mt-1">Disabled on the shared demo account so one visitor cannot lock others out of login.</p>
   </div>
   {% else %}
-  <!-- Passkeys (WebAuthn) -->
-  <div class="card p-5 sm:p-6 space-y-4 account-card" id="account-passkeys">
-    <h2 class="font-semibold text-text">Passkeys</h2>
-    <p class="text-sm text-muted">
-      Second factor after your password (Face ID, Touch ID, Windows Hello, or a security key).
-      Coexists with authenticator-app 2FA. Requires HTTPS (or localhost) matching
-      <code class="text-xs">{{ webauthn_rp_id or 'your hostname' }}</code>.
-    </p>
+  <div class="card p-4 settings-hub-card" id="account-passkeys">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <h2 class="font-semibold text-text m-0">Passkeys</h2>
+        <p class="text-xs text-muted mt-1 break-words">
+          {{ passkeys|length if passkeys else 0 }} registered · Face ID / security key after password
+        </p>
+      </div>
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+              data-open-settings-modal="passkeys">Edit</button>
+    </div>
+  </div>
+  <div id="account-passkeys-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="passkeys" role="dialog" aria-modal="true" aria-labelledby="account-passkeys-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="account-passkeys-title" class="font-semibold text-text m-0">Passkeys</h2>
+          <p class="text-xs text-muted mt-1">
+            Second factor after your password. HTTPS (or localhost) matching
+            <code class="text-xs">{{ webauthn_rp_id or 'your hostname' }}</code>.
+          </p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+      <div class="settings-sheet-body space-y-3">
+    {% if error %}
+    <div class="banner-error border border-border rounded p-3 text-sm" role="alert">{% include "partials/account_error_text.html" %}</div>
+    {% endif %}
     <div id="wa-reg-error" class="hidden p-3 banner-error border border-border text-sm rounded" role="alert"></div>
     <div id="wa-reg-ok" class="hidden p-3 banner-success border border-border text-sm rounded" role="status"></div>
 
@@ -554,28 +606,10 @@
           </div>
           <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2">Rename</button>
         </form>
-        <form method="post" action="/auth/account/webauthn/{{ pk.id }}/revoke" class="space-y-2"
-              onsubmit="return confirm('Remove this passkey?');">
-          {% if has_2fa and account_stepup_active %}
-          <p class="text-[11px] text-muted">Using passkey step-up for this action.</p>
-          {% elif has_2fa %}
-          {% if has_totp %}
-          <div>
-            <label class="block text-[10px] text-muted mb-0.5">Authenticator or backup code{% if has_passkeys %} (or confirm with passkey above){% endif %}</label>
-            <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
-                   class="w-full bg-surface border border-border px-2 py-1.5 rounded text-sm min-h-9"
-                   {% if not has_passkeys %}required{% endif %}>
-          </div>
-          {% elif has_passkeys %}
-          <p class="text-[11px] text-muted">Confirm with <strong class="text-text">passkey</strong> (step-up card) first, then Revoke.</p>
-          {% endif %}
-          {% elif password_login_enabled %}
-          <div>
-            <label class="block text-[10px] text-muted mb-0.5">Password to revoke</label>
-            <input name="current_password" type="password" required autocomplete="current-password"
-                   class="w-full bg-surface border border-border px-2 py-1.5 rounded text-sm min-h-9">
-          </div>
-          {% endif %}
+        <form method="post" action="/auth/account/webauthn/{{ pk.id }}/revoke" class="space-y-2">
+          {% set compact = true %}
+          {% set show_password = true %}
+          {% include "partials/account_stepup_confirm.html" %}
           <button type="submit" class="btn btn-danger text-xs min-h-9 px-2">Revoke</button>
         </form>
       </li>
@@ -596,6 +630,8 @@
       <p class="text-[11px] text-muted">
         Your browser will prompt for biometrics or a security key. Passwordless-only login is not enabled yet — this is a second factor after password.
       </p>
+    </div>
+      </div>
     </div>
   </div>
   <script>
@@ -697,10 +733,34 @@
   })();
   </script>
 
-  <!-- 2FA -->
-  <div class="card p-5 sm:p-6 space-y-4 account-card" id="account-2fa">
-    <h2 class="font-semibold text-text">Two-factor authentication (app)</h2>
-    <p class="text-sm text-muted">Optional TOTP (Google Authenticator, Aegis, 1Password, etc.). Backup codes unlock you if you lose the app. Passkeys above also count as a second factor.</p>
+  <div class="card p-4 settings-hub-card" id="account-2fa">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <h2 class="font-semibold text-text m-0">Authenticator app</h2>
+        <p class="text-xs text-muted mt-1 break-words">
+          {% if user.totp_enabled %}Enabled · {{ backup_remaining }} backup code(s)
+          {% elif pending_2fa_setup %}Setup in progress
+          {% else %}Off — TOTP optional (passkeys also count){% endif %}
+        </p>
+      </div>
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+              data-open-settings-modal="totp">Edit</button>
+    </div>
+  </div>
+  <div id="account-totp-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="totp" role="dialog" aria-modal="true" aria-labelledby="account-totp-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="account-totp-title" class="font-semibold text-text m-0">Two-factor authentication (app)</h2>
+          <p class="text-xs text-muted mt-1">TOTP (Google Authenticator, Aegis, 1Password). Backup codes unlock you if you lose the app.</p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+      <div class="settings-sheet-body space-y-3">
+    {% if error %}
+    <div class="banner-error border border-border rounded p-3 text-sm" role="alert">{% include "partials/account_error_text.html" %}</div>
+    {% endif %}
 
     {% if user.totp_enabled %}
     <div class="text-sm text-accent">App 2FA is <strong>enabled</strong>. {{ backup_remaining }} backup code(s) remaining.</div>
@@ -785,6 +845,8 @@
       <button type="submit" class="btn btn-accent min-h-11 text-sm">Enable 2FA</button>
     </form>
     {% endif %}
+      </div>
+    </div>
   </div>
 
   {% if pending_2fa_setup %}
@@ -879,9 +941,34 @@
   {% endif %}{# pending_2fa_setup modal #}
   {% endif %}{# not _demo — passkeys + 2FA #}
 
-  <!-- Push notifications (Android + iOS Home Screen Web Push) -->
-  <div class="card p-5 sm:p-6 space-y-4 account-card account-card--wide">
-    <h2 class="font-semibold text-text">Push notifications</h2>
+  <div class="card p-4 settings-hub-card" id="account-push">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <h2 class="font-semibold text-text m-0">Push notifications</h2>
+        <p class="text-xs text-muted mt-1 break-words">
+          {% if not push_configured %}Not available on this instance
+          {% else %}{{ push_subscription_count or 0 }} device(s)
+            {% if push_prefs and push_prefs.push_enabled %} · delivery on{% else %} · delivery off{% endif %}
+          {% endif %}
+        </p>
+      </div>
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+              data-open-settings-modal="push">Edit</button>
+    </div>
+  </div>
+  <div id="account-push-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="push" role="dialog" aria-modal="true" aria-labelledby="account-push-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="account-push-title" class="font-semibold text-text m-0">Push notifications</h2>
+          <p class="text-xs text-muted mt-1">
+            Android Chrome and iPhone/iPad (iOS 16.4+) Home Screen over trusted HTTPS.
+          </p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+      <div class="settings-sheet-body space-y-3">
     <p class="text-sm text-muted">
       Optional browser push for fleet alerts (backup failed, OS updates, reboot pending, etc.).
       Works on <strong>Android Chrome</strong> and on <strong>iPhone/iPad (iOS 16.4+)</strong> when {{ ph_brand() }} is
@@ -964,18 +1051,36 @@
       <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save push preferences</button>
     </form>
     {% endif %}
+      </div>
+    </div>
   </div>
 
-  <!-- Trusted devices -->
   {% if user.totp_enabled %}
-  <div class="card p-5 sm:p-6 space-y-3 account-card">
-    <h2 class="font-semibold text-text">Trusted devices</h2>
-    <p class="text-xs text-muted">
-      Devices can skip the 2FA prompt for up to <strong class="text-text">{{ trusted_device_days }} days</strong>.
-      Trust survives <strong class="text-text">Sign out</strong> on this browser (password still required).
-      Only trust personal machines you control. A stolen device with a valid cookie can sign in without your authenticator until you revoke it.
-      Changing your password or <strong class="text-text">Revoke all</strong> clears trust.
-    </p>
+  <div class="card p-4 settings-hub-card" id="account-devices">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <h2 class="font-semibold text-text m-0">Trusted devices</h2>
+        <p class="text-xs text-muted mt-1 break-words">
+          {{ device_rows|length if device_rows is defined and device_rows else 0 }} device(s) · skip login 2FA for {{ trusted_device_days }} days
+        </p>
+      </div>
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+              data-open-settings-modal="devices">Edit</button>
+    </div>
+  </div>
+  <div id="account-devices-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="devices" role="dialog" aria-modal="true" aria-labelledby="account-devices-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="account-devices-title" class="font-semibold text-text m-0">Trusted devices</h2>
+          <p class="text-xs text-muted mt-1">
+            Skip the 2FA prompt for up to {{ trusted_device_days }} days on machines you control. Password still required. Revoke if stolen.
+          </p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+      <div class="settings-sheet-body space-y-3">
     {% if device_rows is defined and device_rows %}
     <ul class="space-y-2 text-sm" data-testid="trusted-devices-list">
       {% for d in device_rows %}
@@ -1062,12 +1167,93 @@
     {% else %}
     <p class="text-sm text-muted">No trusted devices. Check “Trust this device” on the next 2FA login.</p>
     {% endif %}
+      </div>
+    </div>
   </div>
   {% endif %}
 
-  <div class="account-card account-card--wide account-card--footer flex flex-wrap gap-2">
+  <div class="account-card account-card--wide account-card--footer flex flex-wrap gap-2" style="grid-column: 1 / -1;">
     <a href="/auth/logout" class="btn btn-danger min-h-11 text-sm">Sign out</a>
     <a href="/" class="btn btn-secondary min-h-11 text-sm">Dashboard</a>
   </div>
 </div>
+{% include "partials/password_policy_js.html" %}
+<script>
+(function () {
+  function closeAccountModals(except) {
+    document.querySelectorAll('[data-settings-modal]').forEach(function (el) {
+      if (except && el === except) return;
+      el.classList.add('hidden');
+      el.classList.remove('flex');
+    });
+    document.body.style.overflow = '';
+  }
+  function openAccountModal(name) {
+    var el = document.querySelector('[data-settings-modal="' + name + '"]');
+    if (!el) return;
+    closeAccountModals(el);
+    el.classList.remove('hidden');
+    el.classList.add('flex');
+    document.body.style.overflow = 'hidden';
+  }
+  document.addEventListener('click', function (ev) {
+    var openBtn = ev.target.closest('[data-open-settings-modal]');
+    if (openBtn) {
+      ev.preventDefault();
+      openAccountModal(openBtn.getAttribute('data-open-settings-modal'));
+      return;
+    }
+    if (ev.target.closest('[data-close-settings-modal]')) {
+      ev.preventDefault();
+      closeAccountModals();
+      return;
+    }
+    if (ev.target && ev.target.getAttribute && ev.target.getAttribute('data-settings-modal')) {
+      closeAccountModals();
+    }
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') closeAccountModals();
+  });
+  var hashMap = {
+    'account-profile': 'profile',
+    'account-avatar': 'avatar',
+    'account-password': 'password',
+    'account-sso': 'sso',
+    'account-passkeys': 'passkeys',
+    'account-2fa': 'totp',
+    'account-push': 'push',
+    'account-devices': 'devices'
+  };
+  var opened = false;
+  var h = (location.hash || '').replace(/^#/, '');
+  if (h) {
+    if (hashMap[h]) {
+      openAccountModal(hashMap[h]);
+      opened = true;
+    } else {
+      var byId = document.getElementById(h);
+      if (byId && byId.getAttribute('data-settings-modal')) {
+        openAccountModal(byId.getAttribute('data-settings-modal'));
+        opened = true;
+      }
+    }
+  }
+  if (!opened) {
+  {% if error in ('password_policy', 'password_mismatch', 'bad_password', 'password_short', 'password_required', 'use_change_password') %}
+  openAccountModal('password');
+  {% elif error and error.startswith('avatar:') %}
+  openAccountModal('avatar');
+  {% elif error in ('2fa_already', '2fa_no_setup', '2fa_off') %}
+  openAccountModal('totp');
+  {% elif error in ('passkey_not_found', 'passkey_failed') %}
+  openAccountModal('passkeys');
+  {% elif error in ('sso_disabled', 'sso_config', 'sso_token', 'sso_email', 'sso_domain', 'sso_2fa_link', 'sso_required', 'sso_not_found', 'sso_link_conflict') %}
+  openAccountModal('sso');
+  {% elif error in ('push_vapid', 'push_no_device', 'push_test_failed') %}
+  openAccountModal('push');
+  {% endif %}
+  }
+})();
+</script>
 {% endblock %}

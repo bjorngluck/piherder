@@ -12,6 +12,14 @@ from app.security.auth import ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER
 from app.services import audit_format as af
 
 
+def test_account_redir_keeps_unlink_fragment():
+    from app.routers.auth_oidc import _account_redir
+
+    r = _account_redir(error="2fa_required", fragment="account-sso-unlink-9")
+    loc = r.headers.get("location") or r.headers.get("Location")
+    assert loc == "/auth/account?error=2fa_required#account-sso-unlink-9"
+
+
 def test_normalize_issuer():
     assert oidc.normalize_issuer("https://idp.example.com/") == "https://idp.example.com"
     assert oidc.normalize_issuer("  https://a/b  ") == "https://a/b"

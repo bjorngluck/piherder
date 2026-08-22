@@ -36,15 +36,15 @@ Allowed during freeze: bugs that fail this list, docs, screenshots, coverage. **
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
-| 0.1 | Must | Stack healthy: `web`, `db`, `redis`, `celery-worker`, `caddy`. About / footer (signed in) shows the branch version string (**1.2.0** until tag). | ☐ |
-| 0.2 | Must | Alembic applied, including **`040_ssh_identities`** and **`041_console_transcripts`**. No migration error in `web` logs. Existing host still has a **fleet** identity (username unchanged). | ☐ |
-| 0.3 | Must | Hard-refresh: layout/theme look normal (compiled Tailwind). Light **and** dark. | ☐ |
-| 0.4 | Must | After this upgrade: **Settings → PiHerder backup → Full DR** succeeds; archive contains `database.dump`. Copy off-box. | ☐ |
-| 0.5 | Must | Compose does **not** inject defaulted `PIHERDER_SSH_CONSOLE_*` knobs. Only `PIHERDER_SSH_CONSOLE` (and Files master enable) in compose env. Settings apply for idle/max/slots. | ☐ |
-| 0.6 | Must | `SECRET_KEY` long random — web **starts**. Weak default still **refuses** unless `PIHERDER_ALLOW_INSECURE` / demo. | ☐ |
-| 0.7 | Must | `:8000` loopback only. UI via Caddy. | ☐ |
-| 0.8 | Should | `PIHERDER_PUBLIC_URL` matches the address bar. | ☐ |
-| 0.9 | Must | `web` (and db/redis/celery/caddy) restart policy is `unless-stopped`. After a **host reboot**, the UI returns without `docker compose up`. Existing lab: `docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' piherder-web`. | ☐ |
+| 0.1 | Must | Stack healthy: `web`, `db`, `redis`, `celery-worker`, `caddy`. About / footer (signed in) shows the branch version string (**1.2.0** until tag). | **Pass** |
+| 0.2 | Must | Alembic applied, including **`040_ssh_identities`** and **`041_console_transcripts`**. No migration error in `web` logs. Existing host still has a **fleet** identity (username unchanged). | **Pass** |
+| 0.3 | Must | Hard-refresh: layout/theme look normal (compiled Tailwind). Light **and** dark. | **Pass** |
+| 0.4 | Must | After this upgrade: **Settings → PiHerder backup → Full DR** succeeds; archive contains `database.dump`. Copy off-box. | **Pass** |
+| 0.5 | Must | Compose does **not** inject defaulted `PIHERDER_SSH_CONSOLE_*` knobs. Only `PIHERDER_SSH_CONSOLE` (and Files master enable) in compose env. Settings apply for idle/max/slots. | **Pass** |
+| 0.6 | Must | `SECRET_KEY` long random — web **starts**. Weak default still **refuses** unless `PIHERDER_ALLOW_INSECURE` / demo. | **Pass** |
+| 0.7 | Must | `:8000` loopback only. UI via Caddy. | **Pass** |
+| 0.8 | Should | `PIHERDER_PUBLIC_URL` matches the address bar. | **Pass** |
+| 0.9 | Must | `web` (and db/redis/celery/caddy) restart policy is `unless-stopped`. After a **host reboot**, the UI returns without `docker compose up`. Existing lab: `docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' piherder-web`. | **Pass** |
 
 ---
 
@@ -52,13 +52,15 @@ Allowed during freeze: bugs that fail this list, docs, screenshots, coverage. **
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
-| 1.1 | Must | Settings → General → **Security** card → Edit. Change min length (still ≥ 8, ≤ 72). Forms (change password / admin create) show the **same** live rules. | ☐ |
-| 1.2 | Must | A password that fails the new rule is **rejected** with the same text. Policy change is **audited**. | ☐ |
+| 1.1 | Must | Settings → General → **Security** card → Edit. Change min length (still ≥ 8, ≤ 72) **and** require special. Forms (Account change, admin create, admin reset, first-login, self-service reset) show the **same** live rules. Strength meter **needs** hints match (not hardcoded min 10). | ☐ |
+| 1.2 | Must | A password that fails the new rule is **rejected** with the same text. Meter lists what is missing (e.g. min 12, special). Policy change is **audited**. | ☐ |
 | 1.3 | Must | Force-2FA scope + grace **0–60** days save. User in grace can postpone; after grace they hit `/auth/force-2fa`. | ☐ |
 | 1.4 | Must | Account **SSO unlink** and **passkey revoke** accept **any enrolled 2FA** (passkey **or** TOTP) — KI-account-stepup-factors. | ☐ |
 | 1.5 | Must | Console / privileged Files step-up: **Passkey first** when enrolled; TOTP fallback unless Settings requires passkey. Backup codes **rejected** for these grants (default). | ☐ |
 | 1.6 | Should | IdP-MFA skip stays **off** unless you opted in; default fail-closed. | ☐ |
 | 1.7 | Reg | Passkey add / sign-in / TOTP / backup codes (not in URL) still work as in 1.2. | ☐ |
+| 1.8 | Must | Account hub: equal cards + **Edit** sheets (same as Settings). SSO **Unlink…** opens a confirmation sheet (issuer/email, 2FA or set-password, Cancel / Unlink SSO). Not a silent POST and not a browser `confirm()` only. | ☐ |
+| 1.9 | Must | Failed unlink / password-remove step-up **stays on that sheet** with a real hint (Confirm passkey or 6-digit / backup). Must **not** dump onto the authenticator-app sheet with “Authenticator or backup code required.” | ☐ |
 
 ---
 
@@ -68,15 +70,15 @@ Enable `PIHERDER_SSH_CONSOLE=true` for this section.
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
-| 2.1 | Must | Settings → **Console**: idle / max session / concurrency / ticket / hold / bind / scrollback save without compose edits. | ☐ |
-| 2.2 | Must | **Who may elevate** (admin default, or operator) is honoured: operator is refused privileged **Connect as…** when set to admin-only. | ☐ |
-| 2.3 | Must | Host **SSH access**: fleet identity present; optional **privileged** user/key saves separately. Jobs still use **fleet**. | ☐ |
-| 2.4 | Must | Console **Connect as…** fleet works. Privileged requires **fresh 2FA** (grant cookie). Viewer **403**. Flag off: Console hidden. | ☐ |
-| 2.5 | Must | Command audit **off** (default): no transcript rows. Privileged can still open (warn if audit off, still allow unless require-all is on). | ☐ |
-| 2.6 | Must | Command audit **on**: a short session records commands (heuristic redaction). Operator+ can read; **viewer 403**. Demo never persists. | ☐ |
-| 2.7 | Should | **Require audit on every session**: if recording cannot start, live shell is **refused**. | ☐ |
-| 2.8 | Should | JSON config-only herder backup **skips** transcript bodies. | ☐ |
-| 2.9 | Reg | Popup / workspace Maximize, mobile soft keys, park/resume, single-use ticket — 1.2 console behaviour still holds. | ☐ |
+| 2.1 | Must | Settings → **Console**: idle / max session / concurrency / ticket / hold / bind / scrollback save without compose edits. | **Pass** |
+| 2.2 | Must | **Who may elevate** (admin default, or operator) is honoured: operator is refused privileged **Connect as…** when set to admin-only. | **Pass** |
+| 2.3 | Must | Host **SSH access**: fleet identity present; optional **privileged** user/key saves separately. Jobs still use **fleet**. | **Pass** |
+| 2.4 | Must | Console **Connect as…** fleet works. Privileged requires **fresh 2FA** (grant cookie). Viewer **403**. Flag off: Console hidden. | **Pass** |
+| 2.5 | Must | Command audit **off** (default): no transcript rows. Privileged can still open (warn if audit off, still allow unless require-all is on). | **Pass** |
+| 2.6 | Must | Command audit **on**: a short session records commands (heuristic redaction). Operator+ can read; **viewer 403**. Demo never persists. | **Pass** |
+| 2.7 | Should | **Require audit on every session**: if recording cannot start, live shell is **refused**. | **Pass** |
+| 2.8 | Should | JSON config-only herder backup **skips** transcript bodies. | **Pass** |
+| 2.9 | Reg | Popup / workspace Maximize, mobile soft keys, park/resume, single-use ticket — 1.2 console behaviour still holds. | **Pass** |
 
 Turn the console flag back to your production intent when done.
 
@@ -86,11 +88,11 @@ Turn the console flag back to your production intent when done.
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
-| 3.1 | Must | **Servers** list: page size 10/20/50/100 (cookie `ph_per_page`), pager, `q` matches name / hostname / IP / DNS / SSH user (aliases e.g. `ha`). | ☐ |
-| 3.2 | Must | **Pins first** sort. Reorder only when All + empty search. | ☐ |
-| 3.3 | Must | **Docker** stacks list and LAN Discovery **list** use the same pager + `q`. Maps stay unpaged. | ☐ |
-| 3.4 | Must | `GET /api/v1/servers` honours `q` / `limit` / `offset` (cap 100) and returns `total`. | ☐ |
-| 3.5 | Reg | A small fleet still loads without the pager looking broken. | ☐ |
+| 3.1 | Must | **Servers** list: page size 10/20/50/100 (cookie `ph_per_page`), pager, `q` matches name / hostname / IP / DNS / SSH user (aliases e.g. `ha`). | **Pass** |
+| 3.2 | Must | **Pins first** sort. Reorder only when All + empty search. | **Pass** |
+| 3.3 | Must | **Docker** stacks list and LAN Discovery **list** use the same pager + `q`. Maps stay unpaged. | **Pass** |
+| 3.4 | Must | `GET /api/v1/servers` honours `q` / `limit` / `offset` (cap 100) and returns `total`. | **Pass** |
+| 3.5 | Reg | A small fleet still loads without the pager looking broken. | **Pass** |
 
 ---
 
@@ -98,10 +100,10 @@ Turn the console flag back to your production intent when done.
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
-| 4.1 | Must | Settings → Alerts → **Alert policy** Edit: mute / severity / debounce per category save. | ☐ |
-| 4.2 | Must | Channel (webhook / SMTP) respects category allowlist / mute. | ☐ |
-| 4.3 | Should | Map / discovery attention uses the documented severities (not a silent default). | ☐ |
-| 4.4 | Reg | SMTP test send + webhook test still work. | ☐ |
+| 4.1 | Must | Settings → Alerts → **Alert policy** Edit: mute / severity / debounce per category save. | **Pass** |
+| 4.2 | Must | Channel (webhook / SMTP) respects category allowlist / mute. | **Pass** |
+| 4.3 | Should | Map / discovery attention uses the documented severities (not a silent default). | **Pass** |
+| 4.4 | Reg | SMTP test send + webhook test still work. | **Pass** |
 
 ---
 
@@ -109,10 +111,10 @@ Turn the console flag back to your production intent when done.
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
-| 5.1 | Must | Header **Reports** (`/reports`) is visible to **viewer+**. No writes. | ☐ |
-| 5.2 | Must | Windows **7 / 30 / 90**. Backups / OS / LAN live / Docker / Console tabs render (empty-state OK if no jobs). | ☐ |
-| 5.3 | Must | After a real backup job: dest size / success appear (not Grafana). Console tab uses Audit open/close, not live PTY. | ☐ |
-| 5.4 | Should | Phone: Reports usable (tables scroll, hero not broken). | ☐ |
+| 5.1 | Must | Header **Reports** (`/reports`) is visible to **viewer+**. No writes. | **Pass** |
+| 5.2 | Must | Windows **7 / 30 / 90**. Backups / OS / LAN live / Docker / Console tabs render (empty-state OK if no jobs). | **Pass** |
+| 5.3 | Must | After a real backup job: dest size / success appear (not Grafana). Console tab uses Audit open/close, not live PTY. | **Pass** |
+| 5.4 | Should | Phone: Reports usable (tables scroll, hero not broken). | **Pass** |
 
 ---
 
@@ -122,23 +124,23 @@ Default **`PIHERDER_HOST_FILES=false`**. Turn **on** for this section, rebuild/r
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
-| 6.1 | Must | Flag **off**: Files button **404** / hidden. Viewer **403** even when on. Demo never. | ☐ |
-| 6.2 | Must | Flag **on**, operator: host overview **Files** button (next to Console). Fleet **nav** present (Dashboard / Servers / ☰) — never a fake dest strip. | ☐ |
-| 6.3 | Must | Hero: hostname · Fleet (user) · **Limited access** (not “jailed SFTP”). Privileged: **Elevated access**. | ☐ |
-| 6.4 | Must | Path bar: **no `//`**. Separators **green** (accent). Privileged root is `/home/…` not `/ / home`. | ☐ |
-| 6.5 | Must | List **scrolls in the pane** (page does not grow). **Maximize** hides the hero; Restore brings it back; remembered. Phone: expand is an obvious change. | ☐ |
-| 6.6 | Must | Name tap opens folder / editor / preview. Row click selects. Phone **long-press** selects. | ☐ |
-| 6.7 | Must | Upload files + folder tree; download progress past ~12 MiB; overwrite confirm. | ☐ |
-| 6.8 | Must | Edit UTF-8 ≤ 512 KiB, Ctrl/Cmd+S. Privileged save of a root-owned file uses **`sudo -n tee`** (or a clear editor error — not a raw PermissionError after Close). | ☐ |
-| 6.9 | Must | Zip **on the host**; optional download; “delete after download” removes the **zip**, not originals. Unzip refuses `..`. | ☐ |
-| 6.10 | Must | Search: **Enter** or Search (not each keystroke). **In files** greps UTF-8. `.env` / PEM **list** but open/download/preview/content-search need 2FA (Passkey). | ☐ |
-| 6.11 | Must | Preview images: ‹ › (or arrows). **Loading** overlay until the picture arrives. | ☐ |
-| 6.12 | Must | chmod/chown names; privileged `sudo -n` when not root. Recursive folder delete confirms. | ☐ |
-| 6.13 | Must | Docker mounts: container → bind + named volume. Browse in-jail binds on fleet; named volume `_data` needs privileged. | ☐ |
-| 6.14 | Must | Settings → **Files** cap (0.25–32 GiB) unless env locks. Oversize upload refused. | ☐ |
-| 6.15 | Must | Toolbar **⋯** only for New folder / Docker / Refresh / identity / Maximize — no floating extra buttons. | ☐ |
-| 6.16 | Should | API token scope `files`: fleet list/get/put/mkdir/rename/empty-delete only. Privileged / zip / edit denied. | ☐ |
-| 6.17 | Should | HAOS: fleet jail may be tight; privileged reaches `/mnt/data` if that SSH user can. | ☐ |
+| 6.1 | Must | Flag **off**: Files button **404** / hidden. Viewer **403** even when on. Demo never. | **Pass** |
+| 6.2 | Must | Flag **on**, operator: host overview **Files** button (next to Console). Fleet **nav** present (Dashboard / Servers / ☰) — never a fake dest strip. | **Pass** |
+| 6.3 | Must | Hero: hostname · Fleet (user) · **Limited access** (not “jailed SFTP”). Privileged: **Elevated access**. | **Pass** |
+| 6.4 | Must | Path bar: **no `//`**. Separators **green** (accent). Privileged root is `/home/…` not `/ / home`. | **Pass** |
+| 6.5 | Must | List **scrolls in the pane** (page does not grow). **Maximize** hides the hero; Restore brings it back; remembered. Phone: expand is an obvious change. | **Pass** |
+| 6.6 | Must | Name tap opens folder / editor / preview. Row click selects. Phone **long-press** selects. | **Pass** |
+| 6.7 | Must | Upload files + folder tree; download progress past ~12 MiB; overwrite confirm. | **Pass** |
+| 6.8 | Must | Edit UTF-8 ≤ 512 KiB, Ctrl/Cmd+S. Privileged save of a root-owned file uses **`sudo -n tee`** (or a clear editor error — not a raw PermissionError after Close). | **Pass** |
+| 6.9 | Must | Zip **on the host**; optional download; “delete after download” removes the **zip**, not originals. Unzip refuses `..`. | **Pass** |
+| 6.10 | Must | Search: **Enter** or Search (not each keystroke). **In files** greps UTF-8. `.env` / PEM **list** but open/download/preview/content-search need 2FA (Passkey). | **Pass** |
+| 6.11 | Must | Preview images: ‹ › (or arrows). **Loading** overlay until the picture arrives. | **Pass** |
+| 6.12 | Must | chmod/chown names; privileged `sudo -n` when not root. Recursive folder delete confirms. | **Pass** |
+| 6.13 | Must | Docker mounts: container → bind + named volume. Browse in-jail binds on fleet; named volume `_data` needs privileged. | **Pass** |
+| 6.14 | Must | Settings → **Files** cap (0.25–32 GiB) unless env locks. Oversize upload refused. | **Pass** |
+| 6.15 | Must | Toolbar **⋯** only for New folder / Docker / Refresh / identity / Maximize — no floating extra buttons. | **Pass** |
+| 6.16 | Should | API token scope `files`: fleet list/get/put/mkdir/rename/empty-delete only. Privileged / zip / edit denied. | **Pass** |
+| 6.17 | Should | HAOS: fleet jail may be tight; privileged reaches `/mnt/data` if that SSH user can. | **Pass** |
 
 Turn **`PIHERDER_HOST_FILES`** back to **false** unless you are shipping it on for this fleet.
 
@@ -148,10 +150,10 @@ Turn **`PIHERDER_HOST_FILES`** back to **false** unless you are shipping it on f
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
-| 7.1 | Must | General is **cards + Edit modals** (Security, Console, Files, SSO, Cleanup). Timezone stays on the page. | ☐ |
-| 7.2 | Must | Phone: Edit is a **full-height sheet**; title + Save stay put; body scrolls. | ☐ |
-| 7.3 | Must | Operator hitting Settings mutate routes is **403**; viewer too. | ☐ |
-| 7.4 | Should | `#settings-console` / Files bookmark opens the right modal. | ☐ |
+| 7.1 | Must | General is **cards + Edit modals** (Security, Console, Files, SSO, Cleanup). Timezone stays on the page. | **Pass** |
+| 7.2 | Must | Phone: Edit is a **full-height sheet**; title + Save stay put; body scrolls. | **Pass** |
+| 7.3 | Must | Operator hitting Settings mutate routes is **403**; viewer too. | **Pass** |
+| 7.4 | Should | `#settings-console` / Files bookmark opens the right modal. | **Pass** |
 
 ---
 
@@ -224,14 +226,14 @@ Deep 1.2 identity matrix (passkey RP, Require SSO edge cases): [QA_v1.2.0.md](QA
 
 | Gate | Name | Date | Result |
 |------|------|------|--------|
-| Boot / upgrade / Alembic 040–041 | | | ☐ |
-| Password / 2FA policy (P + T) | | | ☐ |
-| Console knobs + identities + audit | | | ☐ |
-| Scale lists (L) | | | ☐ |
-| Alerts policy (A) | | | ☐ |
-| Reports (N2) | | | ☐ |
-| Host Files (F) | | | ☐ |
-| Settings hub | | | ☐ |
+| Boot / upgrade / Alembic 040–041 | Björn | 2026-08-22 | **Pass** |
+| Password / 2FA policy (P + T) | | | ☐ (1.8/1.9 unlink + step-up sheet — retest) |
+| Console knobs + identities + audit | Björn | 2026-08-22 | **Pass** |
+| Scale lists (L) | Björn | 2026-08-22 | **Pass** |
+| Alerts policy (A) | Björn | 2026-08-22 | **Pass** |
+| Reports (N2) | Björn | 2026-08-22 | **Pass** |
+| Host Files (F) | Björn | 2026-08-22 | **Pass** |
+| Settings hub | Björn | 2026-08-22 | **Pass** |
 | Demo | | | ☐ |
 | 1.2 core regression | | | ☐ |
 | Docs / wiki / screenshots / coverage | | | ☐ |

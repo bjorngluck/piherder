@@ -321,3 +321,56 @@ def test_reports_board_viewer_200(smoke_client):
         "/audit",
         "/herder-backups",
     ], nav[:7]
+
+
+def test_account_hub_cards(smoke_client):
+    client, engine = smoke_client
+    with Session(engine) as session:
+        user = _make_user(session)
+        uid = user.id
+    r = client.get("/auth/account", cookies=_auth_cookie(uid))
+    assert r.status_code == 200
+    assert 'data-testid="account-hub"' in r.text
+    assert 'data-open-settings-modal="password"' in r.text
+    assert 'data-settings-modal="password"' in r.text
+    assert "piherder-password-policy" in r.text
+    assert "needs upper, lower, digit, min 10" not in r.text
+    assert 'data-pw-input' in r.text
+
+
+def test_account_2fa_required_stays_out_of_totp_sheet(smoke_client):
+    """Step-up failures must not dump the user onto the authenticator sheet."""
+    client, engine = smoke_client
+    with Session(engine) as session:
+        user = _make_user(session)
+        uid = user.id
+    r = client.get("/auth/account?error=2fa_required", cookies=_auth_cookie(uid))
+    assert r.status_code == 200
+    assert "openAccountModal('totp')" not in r.text
+    assert "Authenticator or backup code required." not in r.text
+    assert "Confirm this change in this sheet" in r.text
+    r_off = client.get("/auth/account?error=2fa_off", cookies=_auth_cookie(uid))
+    assert r_off.status_code == 200
+    assert "openAccountModal('totp')" in r_off.text
+
+
+def test_users_admin_password_meter_uses_live_policy(smoke_client):
+    client, engine = smoke_client
+    with Session(engine) as session:
+        user = _make_user(session, role="admin")
+        uid = user.id
+    r = client.get("/auth/users", cookies=_auth_cookie(uid))
+    assert r.status_code == 200
+    assert "piherder-password-policy" in r.text
+    assert "needs upper, lower, digit, min 10" not in r.text
+    assert 'data-pw-meter' in r.text
+    assert 'id="reset-user-password"' in r.text
+
+
+def test_self_service_reset_shows_policy_meter(smoke_client):
+    client, _ = smoke_client
+    r = client.get("/auth/reset-password?token=smoke")
+    assert r.status_code == 200
+    assert "piherder-password-policy" in r.text
+    assert "≥10 chars" not in r.text
+    assert 'data-pw-input' in r.text

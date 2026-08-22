@@ -29,7 +29,7 @@ The page uses the shared **ops-hero** (role / 2FA coverage pulse). Each user car
 
 1. Open **Create user** (header button) — form is a modal.  
 2. Enter email and role (viewer / operator / admin).  
-3. **Generate** password (or set manually). Strength meter + policy apply.  
+3. **Generate** password (or set manually). Strength meter + **needs …** hints follow the live Settings policy (min length, special character, etc.). Same meter on **Reset password**, **Reset access**, Account change, first-login, and self-service forgot-password.  
 4. After submit, a confirmation modal shows login URL, email, temporary password, and invite text — **shown once**. Copy before closing.  
 5. New users have **`must_change_password`** until first reset.
 

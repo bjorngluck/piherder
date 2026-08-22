@@ -130,6 +130,45 @@ def policy_rules_text(policy: Mapping[str, Any] | None = None) -> str:
     )
 
 
+def policy_missing(
+    password: str, policy: Mapping[str, Any] | None = None
+) -> list[str]:
+    """Short hint labels for UI meters (same rules as validate_password)."""
+    p = clamp_policy(policy) if policy is not None else get_policy()
+    if password is None:
+        password = ""
+    if not isinstance(password, str):
+        password = str(password)
+    missing: list[str] = []
+    if not password:
+        missing.append("a password")
+        return missing
+    if len(password.encode("utf-8")) > p["max_length"]:
+        missing.append(f"at most {p['max_length']} characters")
+    if len(password) < p["min_length"]:
+        missing.append(f"min {p['min_length']} characters")
+    if p["require_upper"] and not re.search(r"[A-Z]", password):
+        missing.append("uppercase")
+    if p["require_lower"] and not re.search(r"[a-z]", password):
+        missing.append("lowercase")
+    if p["require_digit"] and not re.search(r"[0-9]", password):
+        missing.append("digit")
+    if p["require_special"] and not re.search(r"[^A-Za-z0-9]", password):
+        missing.append("special character")
+    return missing
+
+
+def template_vars(policy: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Jinja context for live policy (minlength, copy, JSON meter)."""
+    p = clamp_policy(policy) if policy is not None else get_policy()
+    return {
+        "password_policy": p,
+        "password_policy_text": policy_rules_text(p),
+        "password_min_length": p["min_length"],
+        "password_max_length": p["max_length"],
+    }
+
+
 def validate_password(
     password: str, policy: Mapping[str, Any] | None = None
 ) -> tuple[bool, str]:
@@ -196,6 +235,7 @@ def password_strength(password: str) -> dict[str, Any]:
         "label": labels.get(score, "weak"),
         "percent": int(score * 25),
         "ok": ok,
+        "missing": policy_missing(password, p),
     }
 
 

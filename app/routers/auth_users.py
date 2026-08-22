@@ -80,8 +80,7 @@ def _users_page_response(
         "admin_count": count_active_admins(session),
         "msg": None,
         "error": None,
-        "password_policy_text": pwpol.policy_rules_text(),
-        "password_min_length": pwpol.MIN_LENGTH,
+        **pwpol.template_vars(),
         "new_user_credentials": None,
         "users_pulse": build_users_pulse(
             users,

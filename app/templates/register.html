@@ -64,7 +64,7 @@
       {{ password_policy_text or 'Password must include at least 10 characters, one uppercase letter, one lowercase letter, one digit. Keep it under 72 characters.' }}
     </div>
 
-    <form method="post" action="/auth/register" class="space-y-4">
+    <form method="post" action="/auth/register" class="space-y-4" data-pw-form>
       <div>
         <label class="block text-sm mb-1 text-muted" for="reg-email">Email</label>
         <input id="reg-email" name="email" type="email" required
@@ -72,9 +72,13 @@
       </div>
       <div>
         <label class="block text-sm mb-1 text-muted" for="reg-password">Password</label>
-        <input id="reg-password" name="password" type="password" required minlength="10" maxlength="72"
+        <input id="reg-password" name="password" type="password" required data-pw-input
+               minlength="{{ password_min_length or 10 }}" maxlength="{{ password_max_length or 72 }}"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
-        <p class="text-xs text-muted mt-1">Min 10 · upper · lower · digit · ≤72 Latin letters/digits</p>
+        <div class="pw-strength mt-2" data-pw-meter data-pw-for="reg-password" aria-live="polite">
+          <div class="pw-strength-bar"><div class="pw-strength-fill" data-pw-fill></div></div>
+          <div class="text-[10px] text-muted mt-1" data-pw-label>Strength</div>
+        </div>
       </div>
 
       <button type="submit" class="w-full mt-2 btn btn-accent font-medium min-h-11">
@@ -89,4 +93,5 @@
     </p>
   </div>
 </section>
+{% include "partials/password_policy_js.html" %}
 {% endblock %}

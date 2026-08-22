@@ -1,0 +1,30 @@
+{% if error == 'password_required' %}Current password required to change email.
+{% elif error == 'email_taken' %}That email is already in use.
+{% elif error == 'bad_password' %}Current password is incorrect.
+{% elif error == 'password_short' %}New password is too short.
+{% elif error == 'password_policy' %}{{ password_policy_text or 'Password does not meet the current policy.' }}
+{% elif error == 'password_mismatch' %}New passwords do not match.
+{% elif error == '2fa_already' %}2FA is already enabled.
+{% elif error == '2fa_no_setup' %}Start 2FA setup first.
+{% elif error == '2fa_bad_code' %}Invalid authenticator or backup code.
+{% elif error == '2fa_off' %}Enable 2FA first.
+{% elif error == 'passkey_not_found' %}Passkey not found.
+{% elif error == 'passkey_failed' %}Passkey registration failed. Try again.
+{% elif error == 'sso_disabled' %}SSO is not enabled on this instance.
+{% elif error == 'sso_config' %}SSO is misconfigured. Ask an administrator.
+{% elif error == 'sso_token' %}SSO completed at the identity provider, but PiHerder could not validate the identity token. Check the Issuer URL in Settings → SSO.
+{% elif error == 'sso_email' %}SSO did not provide a verified email.
+{% elif error == 'sso_domain' %}That email domain is not allowed for SSO.
+{% elif error == 'sso_2fa_link' %}Confirm with passkey or authenticator in this sheet, then Link SSO.
+{% elif error == 'sso_required' %}Link an SSO account before removing your password.
+{% elif error == 'sso_not_found' %}SSO link not found.
+{% elif error == 'sso_link_conflict' %}That SSO identity is already linked to another account.
+{% elif error == '2fa_required' %}Confirm this change in this sheet: use Confirm passkey, or enter a 6-digit authenticator / backup code, then submit again.
+{% elif error == 'demo_locked' %}Shared demo (viewer) — password and 2FA stay locked so one visitor cannot lock others out.
+{% elif error == 'use_passkey' %}Confirm with passkey first (Confirm passkey in this sheet), then submit.
+{% elif error == 'use_change_password' %}Use Change password when a local password is already enabled.
+{% elif error == 'push_vapid' %}Web Push is not available on the server.
+{% elif error == 'push_no_device' %}No device subscribed yet — use “Enable on this device” first.
+{% elif error == 'push_test_failed' %}Test push failed (subscription may be expired — try enable again).
+{% elif error and error.startswith('avatar:') %}{{ error[7:] }}
+{% else %}{{ error }}{% endif %}

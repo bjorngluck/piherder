@@ -216,7 +216,7 @@
       {{ password_policy_text or 'Strong password required.' }}
       After create, credentials are shown once for you to copy.
     </p>
-    <form method="post" action="/auth/users/create" class="space-y-3" id="create-user-form">
+    <form method="post" action="/auth/users/create" class="space-y-3" id="create-user-form" data-pw-form>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div class="sm:col-span-2">
           <label class="block text-xs text-muted mb-1">Email</label>
@@ -232,15 +232,18 @@
           <label class="block text-xs text-muted mb-1">Temporary password</label>
           <div class="flex flex-col sm:flex-row gap-2">
             <input name="password" id="new-user-password" type="text" required
-                   minlength="{{ password_min_length or 10 }}" autocomplete="new-password"
+                   data-pw-input
+                   minlength="{{ password_min_length or 10 }}" maxlength="{{ password_max_length or 72 }}"
+                   autocomplete="new-password"
                    class="w-full flex-1 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 font-mono">
-            <button type="button" id="gen-password-btn" class="btn btn-secondary min-h-11 w-full sm:w-auto flex-shrink-0">
+            <button type="button" id="gen-password-btn" data-pw-generate="new-user-password"
+                    class="btn btn-secondary min-h-11 w-full sm:w-auto flex-shrink-0">
               Generate
             </button>
           </div>
-          <div class="pw-strength mt-2" id="pw-strength" aria-live="polite">
-            <div class="pw-strength-bar"><div class="pw-strength-fill" id="pw-strength-fill"></div></div>
-            <div class="text-[10px] text-muted mt-1" id="pw-strength-label">Enter or generate a password</div>
+          <div class="pw-strength mt-2" id="pw-strength" data-pw-meter data-pw-for="new-user-password" aria-live="polite">
+            <div class="pw-strength-bar"><div class="pw-strength-fill" id="pw-strength-fill" data-pw-fill></div></div>
+            <div class="text-[10px] text-muted mt-1" id="pw-strength-label" data-pw-label>Enter or generate a password</div>
           </div>
         </div>
         <div>
@@ -309,16 +312,23 @@
       {{ password_policy_text or 'Strong password required.' }}
       They must change it on next login. All sessions and trusted devices are revoked.
     </p>
-    <form method="post" id="reset-password-form" action="#" class="space-y-3">
+    <form method="post" id="reset-password-form" action="#" class="space-y-3" data-pw-form>
       <div>
         <label class="block text-xs text-muted mb-1" for="reset-user-password">Temporary password</label>
         <div class="flex flex-col sm:flex-row gap-2">
           <input name="password" id="reset-user-password" type="text" required
-                 minlength="{{ password_min_length or 10 }}" autocomplete="new-password"
+                 data-pw-input
+                 minlength="{{ password_min_length or 10 }}" maxlength="{{ password_max_length or 72 }}"
+                 autocomplete="new-password"
                  class="w-full flex-1 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 font-mono">
-          <button type="button" id="reset-gen-password-btn" class="btn btn-secondary min-h-11 w-full sm:w-auto flex-shrink-0">
+          <button type="button" id="reset-gen-password-btn" data-pw-generate="reset-user-password"
+                  class="btn btn-secondary min-h-11 w-full sm:w-auto flex-shrink-0">
             Generate
           </button>
+        </div>
+        <div class="pw-strength mt-2" data-pw-meter data-pw-for="reset-user-password" aria-live="polite">
+          <div class="pw-strength-bar"><div class="pw-strength-fill" data-pw-fill></div></div>
+          <div class="text-[10px] text-muted mt-1" data-pw-label>Enter or generate a password</div>
         </div>
       </div>
       <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
@@ -366,17 +376,24 @@
       <li>2FA + backup codes cleared</li>
       <li>All sessions and trusted devices signed out</li>
     </ul>
-    <form method="post" id="reset-access-form" action="#" class="space-y-3">
+    <form method="post" id="reset-access-form" action="#" class="space-y-3" data-pw-form>
       <input type="hidden" name="confirm" value="1">
       <div>
         <label class="block text-xs text-muted mb-1" for="reset-access-password">Temporary password</label>
         <div class="flex flex-col sm:flex-row gap-2">
           <input name="password" id="reset-access-password" type="text" required
-                 minlength="{{ password_min_length or 10 }}" autocomplete="new-password"
+                 data-pw-input
+                 minlength="{{ password_min_length or 10 }}" maxlength="{{ password_max_length or 72 }}"
+                 autocomplete="new-password"
                  class="w-full flex-1 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 font-mono">
-          <button type="button" id="reset-access-gen-btn" class="btn btn-secondary min-h-11 w-full sm:w-auto flex-shrink-0">
+          <button type="button" id="reset-access-gen-btn" data-pw-generate="reset-access-password"
+                  class="btn btn-secondary min-h-11 w-full sm:w-auto flex-shrink-0">
             Generate
           </button>
+        </div>
+        <div class="pw-strength mt-2" data-pw-meter data-pw-for="reset-access-password" aria-live="polite">
+          <div class="pw-strength-bar"><div class="pw-strength-fill" data-pw-fill></div></div>
+          <div class="text-[10px] text-muted mt-1" data-pw-label>Enter or generate a password</div>
         </div>
       </div>
       <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
@@ -408,6 +425,7 @@
   </div>
 </div>
 
+{% include "partials/password_policy_js.html" %}
 <script>
 (function () {
   // Create user modal
@@ -437,94 +455,9 @@
   showCreate();
   {% endif %}
 
-  // Password generate + strength
-  var MIN = {{ password_min_length or 10 }};
-  var input = document.getElementById('new-user-password');
-  var fill = document.getElementById('pw-strength-fill');
-  var label = document.getElementById('pw-strength-label');
-  var genBtn = document.getElementById('gen-password-btn');
-  var form = document.getElementById('create-user-form');
-
-  function scorePassword(p) {
-    if (!p) return { score: 0, label: 'empty', ok: false };
-    var score = 0;
-    if (p.length >= MIN) score += 1;
-    if (p.length >= 14) score += 1;
-    var classes = 0;
-    if (/[a-z]/.test(p)) classes++;
-    if (/[A-Z]/.test(p)) classes++;
-    if (/[0-9]/.test(p)) classes++;
-    if (/[^A-Za-z0-9]/.test(p)) classes++;
-    if (classes >= 3) score += 1;
-    if (classes >= 4 && p.length >= MIN) score += 1;
-    score = Math.min(4, score);
-    var ok = p.length >= MIN && /[a-z]/.test(p) && /[A-Z]/.test(p) && /[0-9]/.test(p);
-    if (!ok && score > 2) score = 2;
-    var labels = ['very weak', 'weak', 'fair', 'good', 'strong'];
-    return { score: score, label: labels[score] || 'weak', ok: ok };
-  }
-
-  function updateMeter() {
-    if (!input || !fill || !label) return;
-    var r = scorePassword(input.value || '');
-    fill.style.width = (r.score * 25) + '%';
-    fill.dataset.score = String(r.score);
-    label.textContent = r.ok
-      ? ('Strength: ' + r.label)
-      : (input.value ? ('Strength: ' + r.label + ' — needs upper, lower, digit, min ' + MIN) : 'Enter or generate a password');
-  }
-
   function generatePassword(len) {
-    len = len || 16;
-    var lower = 'abcdefghjkmnpqrstuvwxyz';
-    var upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-    var digits = '23456789';
-    var specials = '!@#$%^&*_-+=?';
-    var all = lower + upper + digits + specials;
-    var arr = [
-      lower[Math.floor(Math.random() * lower.length)],
-      upper[Math.floor(Math.random() * upper.length)],
-      digits[Math.floor(Math.random() * digits.length)],
-      specials[Math.floor(Math.random() * specials.length)],
-    ];
-    var rnd = function (max) {
-      if (window.crypto && crypto.getRandomValues) {
-        var buf = new Uint32Array(1);
-        crypto.getRandomValues(buf);
-        return buf[0] % max;
-      }
-      return Math.floor(Math.random() * max);
-    };
-    while (arr.length < len) arr.push(all[rnd(all.length)]);
-    for (var i = arr.length - 1; i > 0; i--) {
-      var j = rnd(i + 1);
-      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
-    }
-    return arr.join('');
-  }
-
-  if (input) {
-    input.addEventListener('input', updateMeter);
-    updateMeter();
-  }
-  if (genBtn && input) {
-    genBtn.addEventListener('click', function () {
-      input.value = generatePassword(16);
-      input.type = 'text';
-      updateMeter();
-      input.focus();
-      input.select();
-    });
-  }
-  if (form && input) {
-    form.addEventListener('submit', function (e) {
-      var r = scorePassword(input.value || '');
-      if (!r.ok) {
-        e.preventDefault();
-        if (label) label.textContent = 'Password does not meet policy (upper, lower, digit, min ' + MIN + ').';
-        input.focus();
-      }
-    });
+    if (window.PiHerderPassword) return window.PiHerderPassword.generate(len);
+    return '';
   }
 
   // Credentials modal
@@ -586,7 +519,6 @@
   var resetPwModal = document.getElementById('reset-password-modal');
   var resetPwForm = document.getElementById('reset-password-form');
   var resetPwInput = document.getElementById('reset-user-password');
-  var resetPwGen = document.getElementById('reset-gen-password-btn');
   function openResetPassword(id, email, label) {
     if (!resetPwForm || !resetPwModal) return;
     resetPwForm.action = '/auth/users/' + encodeURIComponent(id) + '/reset-password';
@@ -595,8 +527,9 @@
     if (lab) lab.textContent = label || email || 'user';
     if (em) em.textContent = email || '';
     if (resetPwInput) {
-      resetPwInput.value = generatePassword(16);
+      resetPwInput.value = generatePassword();
       resetPwInput.type = 'text';
+      if (window.PiHerderPassword) window.PiHerderPassword.paint(resetPwInput);
     }
     showModal(resetPwModal);
   }
@@ -606,13 +539,6 @@
       openResetPassword(btn.getAttribute('data-user-id'), btn.getAttribute('data-user-email'), btn.getAttribute('data-user-label'));
     });
   });
-  if (resetPwGen && resetPwInput) {
-    resetPwGen.addEventListener('click', function () {
-      resetPwInput.value = generatePassword(16);
-      resetPwInput.focus();
-      resetPwInput.select();
-    });
-  }
   var resetPwClose = document.getElementById('reset-password-close');
   var resetPwCancel = document.getElementById('reset-password-cancel');
   if (resetPwClose) resetPwClose.addEventListener('click', closeResetPassword);
@@ -653,7 +579,6 @@
   var resetAccessModal = document.getElementById('reset-access-modal');
   var resetAccessForm = document.getElementById('reset-access-form');
   var resetAccessInput = document.getElementById('reset-access-password');
-  var resetAccessGen = document.getElementById('reset-access-gen-btn');
   function openResetAccess(id, email, label) {
     if (!resetAccessForm || !resetAccessModal) return;
     resetAccessForm.action = '/auth/users/' + encodeURIComponent(id) + '/reset-access';
@@ -662,8 +587,9 @@
     if (lab) lab.textContent = label || email || 'user';
     if (em) em.textContent = email || '';
     if (resetAccessInput) {
-      resetAccessInput.value = generatePassword(16);
+      resetAccessInput.value = generatePassword();
       resetAccessInput.type = 'text';
+      if (window.PiHerderPassword) window.PiHerderPassword.paint(resetAccessInput);
     }
     showModal(resetAccessModal);
   }
@@ -673,13 +599,6 @@
       openResetAccess(btn.getAttribute('data-user-id'), btn.getAttribute('data-user-email'), btn.getAttribute('data-user-label'));
     });
   });
-  if (resetAccessGen && resetAccessInput) {
-    resetAccessGen.addEventListener('click', function () {
-      resetAccessInput.value = generatePassword(16);
-      resetAccessInput.focus();
-      resetAccessInput.select();
-    });
-  }
   var resetAccessClose = document.getElementById('reset-access-close');
   var resetAccessCancel = document.getElementById('reset-access-cancel');
   if (resetAccessClose) resetAccessClose.addEventListener('click', closeResetAccess);
