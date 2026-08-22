@@ -35,6 +35,8 @@ This is the parked H2.5 / SPEC item **“Service migrate host→host; destructiv
 
 **Under consideration (from 1.3 Files, not Must for 1.4):** richer **API Files** — token zip / edit / chmod / recursive delete / privileged identity. 1.3 keeps fleet list/get/put/mkdir/rename/empty-delete in the browser-adjacent API; extra verbs stay UI + 2FA. Promote only if operators actually automate Files.
 
+**Parked residual (1.3 freeze, 2026-08-22):** public demo has a **simulated console** (toy PTY, no Paramiko) but **no simulated Files tree**. Real SFTP stays **demo never**. A canned in-browser explorer (same Files chrome, fake jail) is **Should** for 1.4 demo — **D-F** below. Not a 1.3 add; not required for Stream **M**.
+
 ---
 
 ## 1. Decision lock (planning defaults — revisit at train open)
@@ -43,7 +45,7 @@ This is the parked H2.5 / SPEC item **“Service migrate host→host; destructiv
 |--------|--------|
 | Integration branch | **`v1.4.0-dev`** when 1.3 is on `main` |
 | Production line until then | **`main` @ 1.3.x** (then 1.2.x until 1.3 tags); this plan does not block 1.2 or 1.3 |
-| Theme streams (seed) | **M** service migration (discover + phased ship). Other 1.4 residuals only if 1.3 freeze parks them here |
+| Theme streams (seed) | **M** service migration (discover + phased ship). Parked 1.3 residual **D-F** (demo simulated Files). Other residuals only if 1.3 freeze parks them here |
 | Cutover style (thin slice) | **Stop-first** — consistent dataset, planned downtime. Running-copy + final rsync is a later Cap |
 | Copy transport | **Herder as staging** under the existing backup root (`_migrate/{job_id}/`) — reuse rsync/SSH; not a new host-to-host trust mesh |
 | DNS path (thin slice) | **Direct / host-identity** fabric rows (`via_proxy=false`). NPM-in-front stays a checklist until NPM write exists |
@@ -154,6 +156,7 @@ Reject at freeze: live migrate, “just rsync the whole `/var/lib/docker`”, au
 | Swarm / k8s | Out of product topology |
 | Auto-detect every hardware bind as lock | Heuristic `devices:` warning only |
 | 1.3 Files as the copy engine | Wrong size/trust model |
+| Real SFTP on public demo | **demo never** — canned tree only (**D-F**) |
 | Live DB logical replication (Postgres in-stack) | Stop-first file copy only |
 
 ---
@@ -165,6 +168,7 @@ Reject at freeze: live migrate, “just rsync the whole `/var/lib/docker`”, au
 | **Must** | **M1** lock + HAOS refuse · **M2** preflight · **M3** stop + copy project/binds/named vols · **M4** fabric CNAME + **both** Pi-hole `restartdns` · **M5** dest up · **M6** TLS and/or Kuma when those rows exist · **M7** rebind deployment / DNS / bindings / annotations | One unlocked compose project moves; locked/HAOS cannot; downtime accepted |
 | **Should** | Compose `devices:` / privileged warning · cert target clone + redeploy on dest · dest published-port clash · source leftover `compose down` (keep volumes) | Hardware near-misses and TLS-on-dest without a manual cert job |
 | **Discover / Cap** | Running-copy + final sync · via-NPM checklist wizard · dest-pull transport · destructive **M-rm** · auto rollback (revert DNS + start source) | Promote only if Must green |
+| **Should** (not M) | **D-F** demo simulated Files — canned tree, same chrome as 1.3 Files, no SFTP | Public demo tour parity with simulated console |
 
 Success criteria (draft):
 
@@ -222,6 +226,7 @@ Success criteria (draft):
 |------|------|
 | 2026-08-17 | Opened from operator request during 1.2 QA / Authentik TLS work. Feature name **service migration**. Pipeline + HAOS / Frigate host-lock captured. H2.5 + SPEC item promoted to this train. Discovery of compose / rsync / fabric / restartdns / TLS / Kuma primitives recorded. **Not** a 1.3 add. |
 | 2026-08-20 | **Under consideration:** 1.3 Files API expansions (zip/edit/chmod/recursive delete/privileged tokens). Thin Docker volume browse + `docker cp` into the jail shipped in 1.3 UI, not as the migrate copy engine. |
+| 2026-08-22 | **D-F** parked: canned demo Files tree (parity with simulated console). 1.3 keeps demo 403 / flag off. Not Must for M. |
 
 ---
 
@@ -236,6 +241,25 @@ Success criteria (draft):
 | 5 | Land **M2** preflight (no copy) so dest refusal is visible |
 | 6 | Land **M3–M6** job + wizard; then **M7** rebind |
 | 7 | Wiki + ADMIN before freeze |
+| 8 | Optional **D-F** (demo canned Files) after M Must — or parallel if demo tour is the first 1.4 polish |
+
+---
+
+## 9. Residual **D-F** — demo simulated Files (parked from 1.3 freeze)
+
+**Not Stream M.** Do **not** implement on `v1.3.0-dev`. 1.3 Files is flag-off, viewer 403, **demo 403** (`Files is off in demo`). Console already has a **simulated** xterm (D5, 1.2). Operators asked for the same pattern for Files so the public demo can show the explorer without a real host tree.
+
+| ID | Item | Notes |
+|----|------|--------|
+| D-F0 | **Discovery** (this capture) | Same UI chrome as 1.3 Files (hero, fleet nav, path bar, pane list). Data is **canned** in-process (seed pack or static fixture). **No SFTP, no Paramiko, no host disk.** |
+| D-F1 | **Read tour** | List folders, open a small UTF-8 file, image preview ‹ ›, path bar with no `//`. Banner: demo / simulated. Shared **viewer** may open (same as demo console). |
+| D-F2 | **Mutates** | Upload / delete / chmod / zip / privileged: refuse or no-op with a clear demo message — never write a host. |
+| D-F3 | **Seed** | Fake jail under something like `home/pi/docker/…` matching demo hosts; no `.env` / PEM bodies. |
+| D-F4 | **Kill switch** | Still **never** enable `PIHERDER_HOST_FILES` live SFTP on the public demo VPS. Simulated route is `DEMO_MODE` only. |
+
+**Out:** real jailed SFTP on Nomad · privileged `/` · zip-on-host · token `files` against demo · using this as the migrate copy engine.
+
+Success (draft): visitor opens **Files** on a seeded host, browses a fake tree, cannot exfiltrate or mutate a real filesystem; lab with the flag on is unchanged.
 
 ---
 
