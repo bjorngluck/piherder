@@ -1,8 +1,8 @@
 # PiHerder v1.3.0 — operator QA / sign-off
 
-**Branch:** `v1.3.0-dev` → `main` · tag **`v1.3.0`** (not cut yet)  
+**Branch:** `v1.3.0-dev` → `main` · tag **`v1.3.0`** (cut after merge)  
 **Code freeze:** **feature freeze 2026-08-22** — no new product streams.  
-**Hub / `latest`:** still **1.2.0** until this tag. Package on the branch stays `1.2.0` until the bump.
+**Package:** **`1.3.0`**. Hub / `latest` stay **1.2.0** until merge + tag + Hub push.
 
 Use this list as a **real operator pass**, not a unit-test dump. Tick **Pass / Fail / N/A**. Anything **Must** that fails is a ship blocker unless you explicitly accept it.
 
@@ -18,7 +18,7 @@ Plan: [PLAN_v1.3.0.md](PLAN_v1.3.0.md). Screenshots: [wiki/assets/screenshots/RE
 
 | | |
 |--|--|
-| **Instance** | Rebuilt **`v1.3.0-dev`** stack on this host (`docker compose build web && docker compose up -d`). About still shows **1.2.0** until the tag bump. |
+| **Instance** | Rebuilt **`v1.3.0-dev`** stack on this host (`docker compose build web && docker compose up -d`). About / footer show **1.3.0** after the version bump. |
 | **Browsers** | Desktop Chrome or Firefox **and** one phone (Files, console, Settings sheets) |
 | **Accounts** | One **admin**, one **operator** (2FA / passkey enrolled), one **viewer** |
 | **Hosts** | At least one real SSH host; optional second host; optional HAOS |
@@ -36,7 +36,7 @@ Allowed during freeze: bugs that fail this list, docs, screenshots, coverage. **
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
-| 0.1 | Must | Stack healthy: `web`, `db`, `redis`, `celery-worker`, `caddy`. About / footer (signed in) shows the branch version string (**1.2.0** until tag). | **Pass** |
+| 0.1 | Must | Stack healthy: `web`, `db`, `redis`, `celery-worker`, `caddy`. About / footer (signed in) shows the branch version string (**1.3.0** after bump). | **Pass** |
 | 0.2 | Must | Alembic applied, including **`040_ssh_identities`** and **`041_console_transcripts`**. No migration error in `web` logs. Existing host still has a **fleet** identity (username unchanged). | **Pass** |
 | 0.3 | Must | Hard-refresh: layout/theme look normal (compiled Tailwind). Light **and** dark. | **Pass** |
 | 0.4 | Must | After this upgrade: **Settings → PiHerder backup → Full DR** succeeds; archive contains `database.dump`. Copy off-box. | **Pass** |
@@ -163,9 +163,9 @@ Shared **viewer** on [piherder-demo.hacknow.info](https://piherder-demo.hacknow.
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
-| 8.1 | Must | Demo banner; no real Files tree; no console transcripts; no privileged live SSH. | ☐ |
-| 8.2 | Must | `/docs` · `/redoc` · `/openapi.json` still **404** on demo. | ☐ |
-| 8.3 | Reg | Shared viewer cannot add a server / mint a token. | ☐ |
+| 8.1 | Must | Demo banner; no real Files tree; no console transcripts; no privileged live SSH. | **Pass** |
+| 8.2 | Must | `/docs` · `/redoc` · `/openapi.json` still **404** on demo. | **Pass** |
+| 8.3 | Reg | Shared viewer cannot add a server / mint a token. | **Pass** |
 
 ---
 
@@ -199,10 +199,10 @@ Deep 1.2 identity matrix (passkey RP, Require SSO edge cases): [QA_v1.2.0.md](QA
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
-| 10.1 | Must | `pytest -q` unit pack green; coverage **≥ 55%**. | ☐ |
-| 10.2 | Must | `mkdocs build --strict` green after wiki + screenshot caption edits. | ☐ |
-| 10.3 | Must | Screenshot pack for **new 1.3 surfaces** landed or explicitly deferred in [screenshots README](../wiki/assets/screenshots/README.md) (do not ship captions that lie). | ☐ |
-| 10.4 | Should | Playwright e2e: Settings policy save · list page-size · connect-as confirm · Files 404 when flag off. | ☐ |
+| 10.1 | Must | `pytest -q` unit pack green; coverage **≥ 55%**. | **Pass** |
+| 10.2 | Must | `mkdocs build --strict` green after wiki + screenshot caption edits. | **Pass** |
+| 10.3 | Must | Screenshot pack for **new 1.3 surfaces** landed or explicitly deferred in [screenshots README](../wiki/assets/screenshots/README.md) (do not ship captions that lie). | **Pass** |
+| 10.4 | Should | Playwright e2e: Settings policy save · list page-size · connect-as confirm · Files 404 when flag off. | **N/A** — Should; not re-run this freeze (CI / later) |
 
 ---
 
@@ -210,7 +210,7 @@ Deep 1.2 identity matrix (passkey RP, Require SSO edge cases): [QA_v1.2.0.md](QA
 
 | Item | Stance |
 |------|--------|
-| Package / About still **1.2.0** on `v1.3.0-dev` | Until tag bump |
+| Package / About **1.3.0** | Bumped on this PR; Hub still 1.2.0 until tag |
 | **`PIHERDER_HOST_FILES` default off** | GA opt-in; demo never |
 | Command audit default **off** | **Known:** redaction is heuristic and imperfect (`read -s`, editors, pasted secrets). Do not fail freeze for that. Documented on the console wiki. |
 | **KI-console-mobile-soft-tab** | Residual IME may remain |
@@ -236,15 +236,15 @@ Deep 1.2 identity matrix (passkey RP, Require SSO edge cases): [QA_v1.2.0.md](QA
 | Reports (N2) | Björn | 2026-08-22 | **Pass** |
 | Host Files (F) | Björn | 2026-08-22 | **Pass** |
 | Settings hub | Björn | 2026-08-22 | **Pass** |
-| Demo | | | ☐ |
+| Demo | Björn | 2026-08-22 | **Pass** |
 | 1.2 core regression | Björn | 2026-08-22 | **Pass** |
-| Docs / wiki / screenshots / coverage | | | ☐ |
-| **Ready to bump `1.3.0` and tag** | | | ☐ |
+| Docs / wiki / screenshots / coverage | Björn | 2026-08-22 | **Pass** |
+| **Ready to bump `1.3.0` and tag** | Björn | 2026-08-22 | **Yes** — bump on this PR; tag after merge |
 
 ### After **Yes** (maintainer — not operator browsing)
 
-1. Bump `app/version_info.py` + `pyproject.toml` → `1.3.0`.  
-2. Finish [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) (freeze **draft** already has § Where the plan bent); flip wiki Home + this file to **Tagged**.  
+1. ~~Bump `app/version_info.py` + `pyproject.toml` → `1.3.0`.~~ **Done** on this PR.  
+2. ~~Finish [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md); flip wiki Home.~~ **Done** on this PR (**Ready to tag** until merge).  
 3. Merge `v1.3.0-dev` → `main` · tag `v1.3.0` · Hub `1.3.0` / `1.3` / `latest` (keep `1.2` / `1.2.x` pins valid).  
 4. Do **not** start v1.4 service migration on the tag commit.
 
@@ -253,6 +253,6 @@ Deep 1.2 identity matrix (passkey RP, Require SSO edge cases): [QA_v1.2.0.md](QA
 ## Related
 
 - [PLAN_v1.3.0.md](PLAN_v1.3.0.md)  
-- [QA_v1.2.0.md](QA_v1.2.0.md) (production Hub until this tag)  
+- [QA_v1.2.0.md](QA_v1.2.0.md) (prior production)  
 - [SECURITY.md](../SECURITY.md)  
 - [wiki Host Files](../wiki/day-to-day/host-files.md) · [Reports](../wiki/day-to-day/reports.md) · [Settings](../wiki/operations/settings.md) · [upgrades](../wiki/operations/upgrades.md)  

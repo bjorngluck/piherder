@@ -1,17 +1,17 @@
 # PiHerder v1.3.0 — operator policy, scale UX, multi-identity console, alerts, insights, host files
 
-**Status:** **Feature freeze** (2026-08-22) — no more product features · branch `v1.3.0-dev`  
+**Status:** **Ready to tag** — QA complete 2026-08-22 · branch `v1.3.0-dev`  
 **Date opened:** 2026-08-18 (planning capture 2026-08-10) · **Feature freeze:** 2026-08-22  
-**Git branch:** `v1.3.0-dev` (integration) · merge → `main` at **tag** freeze → tag `v1.3.0`  
-**Package / image version (at tag):** `1.3.0` (package still **1.2.0** on this branch until the tag bump)  
+**Git branch:** `v1.3.0-dev` (integration) · merge → `main` → tag `v1.3.0`  
+**Package / image version:** `1.3.0`  
 **Theme:** Operator-configurable security policy · multi-identity console · optional command audit · console knobs · map/alert granularity · fleet-scale list UX · Reports history · **host Files manager (flag off)**  
 **Baseline:** `v1.2.0` (identity + webshell + gated demo — 2026-08-18)  
-**Mode:** **Q** — QA · wiki screenshot pack · coverage · `mkdocs --strict` · then version bump / tag / Hub. Bugfixes that fail freeze QA are allowed. No new streams.  
+**Mode:** **Q complete** — QA signed · screenshot pack landed · version **1.3.0**. Remaining: merge → tag → Hub.  
 **QA:** [QA_v1.3.0.md](QA_v1.3.0.md) (maintainer — **not** in the operator wiki) · screenshots [inventory](../wiki/assets/screenshots/README.md)  
-**RELEASE (draft):** [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) — operator-facing freeze note (scope honesty **§ Where the plan bent**)  
+**RELEASE:** [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) — operator-facing note (scope honesty **§ Where the plan bent**)  
 **Related:** [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [wiki/operations/alerts-email-webhooks.md](../wiki/operations/alerts-email-webhooks.md) · [SECURITY.md](../SECURITY.md)
 
-> **Feature freeze 2026-08-22.** Must + Should product streams for 1.3 are **done** (P, T, L, W-id, W-cfg, W-audit, A, N2, F). Allowed from here: freeze bugs, docs, screenshots, QA, coverage, packaging. Cap stays Cap (**W-mux**, **AC-fg**, **N3**, CSP nonces, ACME, branding). Service migration stays [v1.4](PLAN_v1.4.0.md). Hub / `main` remains **v1.2.0** until the tag.
+> **Feature freeze 2026-08-22.** Must + Should product streams for 1.3 are **done** (P, T, L, W-id, W-cfg, W-audit, A, N2, F). QA + screenshot pack + version bump **1.3.0** are on this PR. Cap stays Cap (**W-mux**, **AC-fg**, **N3**, CSP nonces, ACME, branding). Service migration stays [v1.4](PLAN_v1.4.0.md). Hub / `main` remain **v1.2.0** until merge + tag.
 
 ---
 
@@ -69,7 +69,7 @@ Freeze honesty for [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md). Architecture held; or
 | E2E | Settings policy save · one large list page-size · connect-as privileged confirm · console settings smoke if flag on |
 | Semver | Additive minor; document migrations for defaults that change behaviour |
 | Feature freeze | **Enforced 2026-08-22.** No new product streams. Allowed: freeze bugs, docs, screenshots, QA, coverage, packaging. |
-| Version bump | `1.3.0` **at tag only** (package stays `1.2.0` on this branch until then) |
+| Version bump | `1.3.0` (this PR) |
 | Policy storage | **App Settings** (DB) with env as override / bootstrap where it already exists |
 | Host SSH identities | At least **two** optional credentials per host: **fleet / least-priv** (default jobs + console + Files) + **privileged** (break-glass console + Files); separate Fernet keys |
 | Shell audit | **Opt-in**; default off; **Deep landed**. Redaction **heuristic** — not a guarantee |
@@ -133,11 +133,11 @@ Phase 3  Should (after Must green)
     ├─ N0 → N2  ← landed (slice 7)
     └─ F Deep  ← landed (flag off until operators opt in)
     │
-Phase 4  Q freeze  ← **current** (feature freeze 2026-08-22)
+Phase 4  Q freeze  ← **done** (feature freeze 2026-08-22)
     ├─ Operator QA ([QA_v1.3.0.md](QA_v1.3.0.md)) — new surfaces + 1.2 regression
     ├─ Wiki screenshot pack ([inventory](../wiki/assets/screenshots/README.md))
     ├─ Unit ≥ 55% · `mkdocs build --strict`
-    └─ Version bump 1.3.0 · merge → main · tag · Hub
+    └─ Version bump 1.3.0 · **PR** → merge → main · tag · Hub
     (N3 · AC-fg · W-mux · CSP nonces · ACME stay Cap — not this tag)
 ```
 

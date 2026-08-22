@@ -2,7 +2,7 @@
 
 ## What this is
 
-The **operator freeze checklist** for **PiHerder v1.2.0**. This is the current production line. Use the list to sign off a fleet upgrade or a fresh 1.2 install.
+The **operator freeze checklist** for **PiHerder v1.2.0**. This is the **prior** production line (prefer **[v1.3.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md)**). Use the list to sign off a fleet still on 1.2.
 
 Maintainer copy (same tests + post-tag steps): [docs/QA_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.2.0.md).  
 What shipped: [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md).  
@@ -273,7 +273,7 @@ Against [the public demo](demo-site.md) or a local `DEMO_MODE` overlay.
 | Docs / wiki / screenshots | | 2026-08-18 | **Pass** — 1.2 screenshot pack wired |
 | **Ready to tag `v1.2.0`** | | 2026-08-18 | **Yes** |
 
-[Home](../index.md#release-status) lists **v1.2.0** as current production. Hub tags: `1.2.0` / `1.2` / `latest`.
+[Home](../index.md#release-status) lists **v1.3.0** as current production. Hub tags for this line: `1.2.0` / `1.2`.
 
 ## Related
 

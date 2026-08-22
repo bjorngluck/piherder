@@ -17,21 +17,21 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v0.9.0** (tagged) | Operator recapture pack for 0.9 chrome — [RELEASE_v0.9.0.md](../../../docs/RELEASE_v0.9.0.md) |
 | **v1.0.0** (tagged) | Full pack in place (operator-confirmed) — [PLAN_v1.0.0.md §8.2](../../../docs/PLAN_v1.0.0.md) · [RELEASE_v1.0.0.md](../../../docs/RELEASE_v1.0.0.md) |
 | **v1.1.0** | Freeze pack landed — [RELEASE_v1.1.0.md](../../../docs/RELEASE_v1.1.0.md) |
-| **v1.2.0** | **Current Hub / production** — screenshot pack **landed** 2026-08-18. [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) |
-| **v1.3.0** | **Feature freeze** (2026-08-22) on `v1.3.0-dev` — pack **open**. Capture list below. Maintainer QA: [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/QA_v1.3.0.md) (not the operator wiki). [PLAN](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/PLAN_v1.3.0.md) |
+| **v1.2.0** | Prior Hub — screenshot pack **landed** 2026-08-18. [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) |
+| **v1.3.0** | **Current** — pack **landed** 2026-08-22. Maintainer QA: [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.3.0.md) (not the operator wiki). [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from the freeze branch"
     Rebuild **`v1.3.0-dev`**: `docker compose build web && docker compose up -d web`.  
     App code is **not** bind-mounted — stale containers = stale chrome.  
-    About / footer (signed in) still shows **1.2.0** until the tag bump. That is expected.
+    About / footer (signed in) shows **1.3.0** after the version bump.
 
 ---
 
-## v1.3.0 — what to update
+## v1.3.0 — pack status
 
-Feature freeze is on. Close this pack before the tag. Mark rows done locally as you replace files. Wire **new** filenames into the wiki page in the **same commit** as the PNG.
+**Landed 2026-08-22.** New PNGs are wired into the wiki pages below. Optional rows (`host-files-mobile.png`, `console-connect-as.png`) stay deferred — captions do not claim those files exist.
 
 Existing **1.2** PNGs stay valid unless a row below says recapture. Do **not** redo certs / maps / LAN / templates unless chrome actually drifted.
 

@@ -212,7 +212,7 @@ Success criteria (draft):
 
 ## 6. Out of scope (stay honest)
 
-- Implementing any of **M** on `v1.2.0-dev` or `v1.3.0-dev`  
+- Implementing any of **M** or **D-F** on `v1.2.0-dev` or `v1.3.0-dev`  
 - Replacing backups, templates, or Files  
 - Moving the PiHerder stack itself, or the only Pi-hole, as a happy-path demo  
 - Multi-tenant / two-person approve  

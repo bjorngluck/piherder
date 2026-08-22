@@ -1,17 +1,17 @@
 # PiHerder v1.2.0
 
-**Status:** **Tagged** — current production release  
+**Status:** **Tagged** — prior production; prefer [v1.3.0](RELEASE_v1.3.0.md)  
 **Date:** 2026-08-18  
 **Git tag:** `v1.2.0`  
 **Package / image version:** `1.2.0`  
 **Theme:** Identity + webshell + gated demo · backup reliability · self-backup full DB DR · security remediations  
 **Baseline:** [v1.1.1](RELEASE_v1.1.1.md) · [v1.1.0](RELEASE_v1.1.0.md)  
 **Plan:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md)  
-**Next train:** [PLAN_v1.3.0.md](PLAN_v1.3.0.md) — **feature freeze** on `v1.3.0-dev` · draft [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md)  
+**Next train:** [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) (current) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md)  
 **Operator QA:** [QA_v1.2.0.md](QA_v1.2.0.md) · wiki [v1.2.0 QA / sign-off](../wiki/operations/qa-v1.2.0.md)
 
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) — multi-arch `linux/amd64` + `linux/arm64`  
-**Tags:** `1.2.0` · `1.2` · `latest` (older `1.1.1` / `1.1` / `1.0.x` pins remain valid)
+**Tags:** `1.2.0` · `1.2` (older `1.1.1` / `1.1` / `1.0.x` pins remain valid). Hub `latest` becomes **1.3.0** after the 1.3 Hub push.
 
 ---
 

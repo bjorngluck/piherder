@@ -17,6 +17,11 @@ Env `WEBHOOK_*` still works as a **fallback** when Settings has no URL (compose 
 
 Settings → Alerts → **Alert policy** is the taxonomy + volume control so map/discovery noise is not as loud as a cert-fail.
 
+<figure class="ph-figure" markdown>
+  ![Settings Alerts](../assets/screenshots/settings-alerts.png)
+  <figcaption>Settings → Alerts — alert policy card plus webhook / SMTP.</figcaption>
+</figure>
+
 | Category | What fires | Default |
 |----------|------------|---------|
 | **Hosts** | `host_down` — Kuma **SSH** monitor down | critical · debounce 15m · re-alert 24h |

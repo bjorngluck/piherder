@@ -4,13 +4,14 @@
 
 | Version | Support |
 |---------|---------|
-| **v1.2.x** | **Current production** line ([RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](docs/PLAN_v1.2.0.md)) |
-| **v1.1.x** | Prior production; prefer upgrade to **v1.2.x** ([RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md)) |
-| **v1.0.x** | Prior production; prefer upgrade to **v1.2.x** ([RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md)) |
+| **v1.3.x** | **Current production** line ([RELEASE_v1.3.0.md](docs/RELEASE_v1.3.0.md) · [PLAN_v1.3.0.md](docs/PLAN_v1.3.0.md)) |
+| **v1.2.x** | Prior production; prefer upgrade to **v1.3.x** ([RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](docs/PLAN_v1.2.0.md)) |
+| **v1.1.x** | Prior production; prefer upgrade to **v1.3.x** ([RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md)) |
+| **v1.0.x** | Prior production; prefer upgrade to **v1.3.x** ([RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md)) |
 | **`main`** | Development tip; security fixes land here first |
 | **v0.9.x and older** | Best-effort; prefer upgrade to latest production |
 
-Security fixes are applied on the default branch (`main`) and released as **v1.2.x** (or later) patch tags when warranted. Prefer the latest **1.2.x** tag for production.
+Security fixes are applied on the default branch (`main`) and released as **v1.3.x** (or later) patch tags when warranted. Prefer the latest **1.3.x** tag for production.
 
 ## Reporting a vulnerability
 

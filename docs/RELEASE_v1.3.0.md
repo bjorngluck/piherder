@@ -1,14 +1,19 @@
 # PiHerder v1.3.0
 
-**Status:** **Draft** — feature freeze 2026-08-22 · **not tagged** (Hub / `latest` remain **1.2.0**)  
-**Git branch:** `v1.3.0-dev`  
-**Package / image version at tag:** `1.3.0` (still **1.2.0** on the branch until the bump)  
+**Status:** **Ready to tag** — QA complete · package **1.3.0** · merge `v1.3.0-dev` → `main` then tag / Hub  
+**Date:** 2026-08-22  
+**Git tag:** `v1.3.0` (cut after merge)  
+**Package / image version:** `1.3.0`  
 **Theme:** Operator-owned policy · scale lists · fleet + privileged SSH · opt-in command audit · history Reports · confined Host Files (flag off)  
 **Baseline:** [v1.2.0](RELEASE_v1.2.0.md)  
 **Plan:** [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · honesty **§0a**  
+**Next train:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) — service migration (not started)  
 **QA:** [QA_v1.3.0.md](QA_v1.3.0.md) (maintainer — not the operator wiki)
 
-This file is the operator-facing freeze note. **Do not** describe 1.3 Files as list/get/put-only, or say “WinSCP is deferred” as if there is no file manager. Tag text at ship time should keep this section.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) — multi-arch `linux/amd64` + `linux/arm64`  
+**Tags (after Hub push):** `1.3.0` · `1.3` · `latest` (older `1.2.0` / `1.2` / `1.1.x` / `1.0.x` pins remain valid)
+
+This file is the operator-facing freeze note. **Do not** describe 1.3 Files as list/get/put-only, or say “WinSCP is deferred” as if there is no file manager.
 
 ---
 
@@ -87,10 +92,10 @@ Controls match the brief: default **off**, Fernet table, viewer denied, privileg
 
 ---
 
-## Upgrade (when tagged)
+## Upgrade
 
 1. Full DR self-backup. Keep `PIHERDER_MASTER_KEY`.  
-2. Pull image / checkout tag. Alembic **`040_ssh_identities`** · **`041_console_transcripts`**.  
+2. Pull image / checkout tag `v1.3.0`. Alembic **`040_ssh_identities`** · **`041_console_transcripts`**.  
 3. Compose no longer injects defaulted `PIHERDER_SSH_CONSOLE_*` — Settings apply unless you lock env.  
 4. Smoke: Security · Console · Reports · optional Files if you turn the flag on.
 
@@ -98,4 +103,12 @@ Operator how-to: [wiki upgrades](../wiki/operations/upgrades.md). Maintainer cli
 
 ---
 
-*Draft until tag. Hub `1.2.0` / `1.2` / `latest` stay production until then.*
+## Known issues (ship with awareness)
+
+| ID | Note |
+|----|------|
+| **KI-console-mobile-soft-tab** | Residual IME on phone Tab (carry from 1.2) |
+| Command audit redaction | Heuristic and imperfect — `read -s`, editors, `sudo`, pasted secrets can still land in the log. Default **off**. |
+| **Files flag** | `PIHERDER_HOST_FILES` default **off**; demo never exposes a real tree |
+
+Hub `1.2.0` / `1.2` pins stay valid after this tag.
