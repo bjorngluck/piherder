@@ -338,6 +338,42 @@ def test_account_hub_cards(smoke_client):
     assert 'data-pw-input' in r.text
 
 
+def test_oidc_link_post_same_origin_hop_for_csp(smoke_client, monkeypatch):
+    """form-action 'self' blocks a form 303 straight to Authentik — hop GET first."""
+    client, engine = smoke_client
+    with Session(engine) as session:
+        user = _make_user(session)
+        uid = user.id
+    monkeypatch.setattr("app.services.oidc_svc.oidc_enabled", lambda: True)
+    monkeypatch.setattr(
+        "app.services.oidc_svc.verify_stepup_2fa", lambda *a, **k: (True, "")
+    )
+    monkeypatch.setattr(
+        "app.services.oidc_svc.build_authorize_url",
+        lambda **k: ("https://idp.example/application/o/piherder/authorize", "state-cookie"),
+    )
+    r = client.post(
+        "/auth/oidc/link",
+        data={"totp_code": "123456"},
+        cookies=_auth_cookie(uid),
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    loc = r.headers.get("location") or ""
+    assert loc == "/auth/oidc/link", loc
+    assert "idp.example" not in loc
+    assert r.cookies.get("oidc_link_ok")
+
+    r2 = client.get(
+        "/auth/oidc/link",
+        cookies={**_auth_cookie(uid), "oidc_link_ok": r.cookies["oidc_link_ok"]},
+        follow_redirects=False,
+    )
+    assert r2.status_code == 303
+    loc2 = r2.headers.get("location") or ""
+    assert loc2.startswith("https://idp.example/"), loc2
+
+
 def test_account_2fa_required_stays_out_of_totp_sheet(smoke_client):
     """Step-up failures must not dump the user onto the authenticator sheet."""
     client, engine = smoke_client

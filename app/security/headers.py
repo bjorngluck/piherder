@@ -116,6 +116,8 @@ def build_csp(*, for_openapi_ui: bool = False) -> str:
         "base-uri 'self'",
         "object-src 'none'",
         "frame-ancestors 'self'",
+        # Account → Link SSO POSTs here, then GET /auth/oidc/link 303s to the IdP.
+        # Do not 303 a *form* straight to Authentik — browsers honour form-action.
         "form-action 'self'",
         "script-src " + " ".join(script_src),
         "style-src " + " ".join(style_src),
