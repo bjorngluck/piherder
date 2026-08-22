@@ -3,7 +3,7 @@
 Markdown sources for the **MkDocs Material** documentation site.
 
 **Live site:** [https://piherder-docs.hacknow.info/](https://piherder-docs.hacknow.info/)  
-**Release notes:** [docs/RELEASE_v1.2.0.md](../docs/RELEASE_v1.2.0.md) · [docs/RELEASE_v1.1.1.md](../docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.1.0.md](../docs/RELEASE_v1.1.0.md) · prior [docs/RELEASE_v1.0.0.md](../docs/RELEASE_v1.0.0.md)  
+**Release notes:** [docs/RELEASE_v1.3.0.md](../docs/RELEASE_v1.3.0.md) · [docs/RELEASE_v1.2.0.md](../docs/RELEASE_v1.2.0.md) · [docs/RELEASE_v1.1.1.md](../docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.1.0.md](../docs/RELEASE_v1.1.0.md) · prior [docs/RELEASE_v1.0.0.md](../docs/RELEASE_v1.0.0.md)  
 **Screenshots:** [assets/screenshots/README.md](assets/screenshots/README.md)
 
 Operator pages prefer: **What this is** → **Why** → **End-to-end** → reference detail. See [contributing-docs](developers/contributing-docs.md).
