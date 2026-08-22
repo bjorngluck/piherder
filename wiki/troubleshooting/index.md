@@ -46,6 +46,7 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | `sudo: I'm sorry piherder…` / post-deploy denied | [Cert sudo denied](../integrations/certificates.md#cert-sudo-denied) — add NOPASSWD; match post-deploy exactly |
 | Drift after host edit (detect / revert) | [Deploy — Check drift / Apply last known](../service-templates/deploy.md#redeploy-ops-deployment-page) |
 | Stack unhealthy after upgrade | [Status](../operations/status.md) · [Upgrades](../operations/upgrades.md) |
+| After **host reboot**, UI down until I start a container | **web** used to have no restart policy (others already `unless-stopped`). Confirm `docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' piherder-web` is `unless-stopped`, then `docker compose up -d`. Also `systemctl is-enabled docker`. [Install](../getting-started/install.md#4-start-the-stack) |
 | Cannot open Settings tabs / herder restore | [Roles](../account-security/roles.md) — control plane is **admin only** |
 | First boot asks to register / no default password | Expected — [First login](../getting-started/first-login.md) |
 | Sole admin forgot password / lost 2FA / locked out | [Locked out / sole admin recovery](locked-out.md) — host CLI `recover-admin` |

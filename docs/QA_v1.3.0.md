@@ -44,6 +44,7 @@ Allowed during freeze: bugs that fail this list, docs, screenshots, coverage. **
 | 0.6 | Must | `SECRET_KEY` long random — web **starts**. Weak default still **refuses** unless `PIHERDER_ALLOW_INSECURE` / demo. | ☐ |
 | 0.7 | Must | `:8000` loopback only. UI via Caddy. | ☐ |
 | 0.8 | Should | `PIHERDER_PUBLIC_URL` matches the address bar. | ☐ |
+| 0.9 | Must | `web` (and db/redis/celery/caddy) restart policy is `unless-stopped`. After a **host reboot**, the UI returns without `docker compose up`. Existing lab: `docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' piherder-web`. | ☐ |
 
 ---
 

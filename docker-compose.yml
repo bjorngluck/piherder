@@ -76,6 +76,9 @@ services:
   web:
     <<: *piherder-image
     container_name: piherder-web
+    # Same as db/redis/celery/caddy — without this, a host reboot leaves the UI down
+    # (Docker default restart is "no"). Recreate once: docker compose up -d web
+    restart: unless-stopped
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
     ports:
       # Loopback only — do not publish the app port on the LAN. Use Caddy :8888/:8443.

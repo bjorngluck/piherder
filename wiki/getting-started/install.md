@@ -57,6 +57,12 @@ Place trusted PEMs in `certs/` — full steps: [Trusted HTTPS & TLS](https-tls.m
 docker compose up -d
 ```
 
+Docker itself must start at boot (`systemctl enable docker` — already true on most Pi OS / Ubuntu Docker installs). Every core service, including **web**, uses `restart: unless-stopped`, so a **host reboot** brings the UI back without a manual `compose up`.
+
+- `docker compose stop` / `docker stop` before reboot: containers stay stopped (`unless-stopped`).
+- `docker compose down`: containers are removed; you must `up -d` again.
+- Existing installs created **web** without this policy: run `docker compose up -d` once so Docker recreates it. Confirm with `docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' piherder-web` → `unless-stopped`.
+
 Compose pulls multi-arch **`bjorngluck/piherder:latest`** from Docker Hub (`linux/amd64` + `linux/arm64`). Schema migrations run on **web** startup via Alembic.
 
 To pin a release tag:
