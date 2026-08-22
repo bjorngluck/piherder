@@ -1,8 +1,8 @@
 # PiHerder v1.3.0
 
-**Status:** **Ready to tag** — QA complete · package **1.3.0** · merge `v1.3.0-dev` → `main` then tag / Hub  
+**Status:** **Tagged** — current production release  
 **Date:** 2026-08-22  
-**Git tag:** `v1.3.0` (cut after merge)  
+**Git tag:** `v1.3.0`  
 **Package / image version:** `1.3.0`  
 **Theme:** Operator-owned policy · scale lists · fleet + privileged SSH · opt-in command audit · history Reports · confined Host Files (flag off)  
 **Baseline:** [v1.2.0](RELEASE_v1.2.0.md)  
@@ -11,7 +11,7 @@
 **QA:** [QA_v1.3.0.md](QA_v1.3.0.md) (maintainer — not the operator wiki)
 
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) — multi-arch `linux/amd64` + `linux/arm64`  
-**Tags (after Hub push):** `1.3.0` · `1.3` · `latest` (older `1.2.0` / `1.2` / `1.1.x` / `1.0.x` pins remain valid)
+**Tags:** `1.3.0` · `1.3` · `latest` (older `1.2.0` / `1.2` / `1.1.x` / `1.0.x` pins remain valid)
 
 This file is the operator-facing freeze note. **Do not** describe 1.3 Files as list/get/put-only, or say “WinSCP is deferred” as if there is no file manager.
 
