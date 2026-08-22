@@ -16,6 +16,9 @@
 #   DEMO_SKIP_PULL=1   skip git pull on redeploy
 #   DEMO_REAPPLY_FW=1  after redeploy, sudo ./scripts/demo-docker-user.sh
 #   DEMO_WAN / DEMO_COMPOSE_NET / DEMO_ADMIN_IP  passed to demo-docker-user.sh
+#   PIHERDER_IMAGE     image tag after build (default: piherder:demo)
+#   DEMO_BUILD_NETWORK docker build --network (default: host — required when
+#                      the Docker bridge has no egress / no PyPI)
 #
 set -euo pipefail
 
@@ -109,17 +112,23 @@ cmd_redeploy() {
     log "skip git pull (DEMO_SKIP_PULL=1)"
   fi
 
-  log "compose build"
-  compose_cmd build
+  # Restricted Docker egress: compose build uses the bridge and hangs on
+  # "Installing build dependencies". Same as the host recipe:
+  #   DOCKER_BUILDKIT=1 docker build --network=host -t piherder:demo .
+  local image="${PIHERDER_IMAGE:-piherder:demo}"
+  local net="${DEMO_BUILD_NETWORK:-host}"
+  export PIHERDER_IMAGE="$image"
+  log "docker build --network=${net} -t ${image}"
+  DOCKER_BUILDKIT=1 docker build --network="$net" -t "$image" .
 
   if [[ "$wipe" -eq 1 ]]; then
     log "compose down -v (destroys Postgres/Redis volumes)"
     compose_cmd down -v
-    log "compose up -d"
-    compose_cmd up -d --remove-orphans
+    log "compose up -d --no-build (image ${image})"
+    compose_cmd up -d --no-build --remove-orphans
   else
-    log "compose up -d --force-recreate --remove-orphans"
-    compose_cmd up -d --force-recreate --remove-orphans
+    log "compose up -d --no-build --force-recreate (image ${image})"
+    compose_cmd up -d --no-build --force-recreate --remove-orphans
   fi
 
   wait_web_healthy
@@ -151,7 +160,8 @@ usage() {
 Usage: $(basename "$0") <data-reset|redeploy> [options]
 
   data-reset          Force re-seed synthetic fleet (keeps volumes)
-  redeploy [--wipe]   git pull --ff-only, build, recreate stack, force seed
+  redeploy [--wipe]   git pull --ff-only, docker build --network=host
+                      -t piherder:demo, compose up --no-build, force seed
                       --wipe also runs compose down -v (empty Postgres)
 
 Does not install cron. See docs/DEMO_SITE.md § Cron.
