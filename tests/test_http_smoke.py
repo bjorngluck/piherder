@@ -95,6 +95,7 @@ def test_favicon_and_static_present(smoke_client):
 @pytest.mark.parametrize(
     "path",
     [
+        "/reports",
         "/servers",
         "/jobs",
         "/audit",
@@ -130,6 +131,7 @@ def test_api_v1_requires_bearer(smoke_client):
     "path",
     [
         "/",
+        "/reports",
         "/servers",
         "/jobs",
         "/audit",
@@ -170,6 +172,89 @@ def test_settings_general_admin_200(smoke_client):
     body = r.text.lower()
     # Stale data cleanup card (stream R) or timezone / general chrome
     assert "timezone" in body or "stale" in body or "general" in body or "settings" in body
+    assert 'data-testid="settings-hub"' in r.text
+    assert 'data-testid="settings-password-policy"' in r.text
+    assert 'data-testid="password-min-length"' in r.text
+    assert 'data-testid="settings-console"' in r.text
+    assert 'data-testid="settings-files"' in r.text
+    assert 'data-testid="console-idle-sec"' in r.text
+    assert 'data-open-settings-modal="security"' in r.text
+    assert 'data-settings-modal="console"' in r.text
+
+
+def test_admin_console_policy_save(smoke_client, monkeypatch):
+    from app.services import app_settings as cfg
+    from app.services import ssh_console as cons
+
+    store: dict = {}
+
+    def fake_load():
+        return dict(store)
+
+    def fake_write(data: dict):
+        store.clear()
+        store.update(data)
+
+    monkeypatch.setattr(cfg, "_load_raw_from_db", fake_load)
+    monkeypatch.setattr(cfg, "_write_raw_to_db", fake_write)
+    cfg.clear_cache()
+
+    client, engine = smoke_client
+    with Session(engine) as session:
+        uid = _make_user(session, role="admin").id
+    r = client.post(
+        "/herder-backups/console",
+        data={
+            "console_idle_sec": "1800",
+            "console_max_sec": "7200",
+            "console_max_per_user": "6",
+            "console_max_global": "24",
+            "console_ticket_sec": "90",
+            "console_hold_sec": "0",
+            "console_revalidate_sec": "15",
+            "console_scrollback": "3000",
+            "console_bind_ip": "1",
+            "console_bind_device": "1",
+        },
+        cookies=_auth_cookie(uid),
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert "console_saved" in (r.headers.get("location") or "")
+    cfg.clear_cache()
+    assert cons.idle_sec() == 1800
+    assert cons.max_per_user() == 6
+    cfg.clear_cache()
+
+
+def test_demo_console_policy_save_403(smoke_client, monkeypatch):
+    from app.services import demo as demo_svc
+
+    monkeypatch.setattr(demo_svc.settings, "PIHERDER_DEMO_MODE", True)
+    client, engine = smoke_client
+    with Session(engine) as session:
+        uid = _make_user(session, role="admin", email="demo-admin@smoke.test").id
+    r = client.post(
+        "/herder-backups/console",
+        data={"console_idle_sec": "1800"},
+        cookies=_auth_cookie(uid),
+        follow_redirects=False,
+    )
+    assert r.status_code == 403
+
+
+def test_viewer_cannot_post_console_policy(smoke_client):
+    client, engine = smoke_client
+    with Session(engine) as session:
+        user = _make_user(session, role="viewer", email="viewer-console@smoke.test")
+        uid = user.id
+    r = client.post(
+        "/herder-backups/console",
+        data={"console_idle_sec": "1800"},
+        cookies=_auth_cookie(uid),
+        follow_redirects=False,
+    )
+    assert r.status_code == 403
 
 
 def test_viewer_cannot_post_fleet_mutate(smoke_client):
@@ -206,3 +291,122 @@ def test_authenticated_root_dashboard(smoke_client):
     r = client.get("/", cookies=_auth_cookie(uid))
     assert r.status_code == 200
     assert "dashboard" in r.text.lower() or "server" in r.text.lower() or "fleet" in r.text.lower()
+    assert "/reports" in r.text
+
+
+def test_reports_board_viewer_200(smoke_client):
+    """Reports is backup + OS patch history, not status portlets."""
+    client, engine = smoke_client
+    with Session(engine) as session:
+        user = _make_user(session, role="viewer", email="viewer@smoke.test")
+        uid = user.id
+    r = client.get("/reports", cookies=_auth_cookie(uid))
+    assert r.status_code == 200
+    assert 'data-testid="reports-backups"' in r.text
+    assert 'data-testid="reports-os-patch"' in r.text
+    assert 'data-testid="reports-lan"' in r.text
+    assert 'data-testid="reports-docker"' in r.text
+    assert 'data-testid="reports-console"' in r.text
+    assert "Reports" in r.text
+    assert "report-card-alerts_by_severity" not in r.text
+    assert "min-width: 28rem" in r.text
+    import re
+    nav = re.findall(r'href="([^"]+)" class="nav-link', r.text)
+    assert nav[:7] == [
+        "/",
+        "/servers",
+        "/catalog",
+        "/reports",
+        "/jobs",
+        "/audit",
+        "/herder-backups",
+    ], nav[:7]
+
+
+def test_account_hub_cards(smoke_client):
+    client, engine = smoke_client
+    with Session(engine) as session:
+        user = _make_user(session)
+        uid = user.id
+    r = client.get("/auth/account", cookies=_auth_cookie(uid))
+    assert r.status_code == 200
+    assert 'data-testid="account-hub"' in r.text
+    assert 'data-open-settings-modal="password"' in r.text
+    assert 'data-settings-modal="password"' in r.text
+    assert "piherder-password-policy" in r.text
+    assert "needs upper, lower, digit, min 10" not in r.text
+    assert 'data-pw-input' in r.text
+
+
+def test_oidc_link_post_same_origin_hop_for_csp(smoke_client, monkeypatch):
+    """form-action 'self' blocks a form 303 straight to Authentik — hop GET first."""
+    client, engine = smoke_client
+    with Session(engine) as session:
+        user = _make_user(session)
+        uid = user.id
+    monkeypatch.setattr("app.services.oidc_svc.oidc_enabled", lambda: True)
+    monkeypatch.setattr(
+        "app.services.oidc_svc.verify_stepup_2fa", lambda *a, **k: (True, "")
+    )
+    monkeypatch.setattr(
+        "app.services.oidc_svc.build_authorize_url",
+        lambda **k: ("https://idp.example/application/o/piherder/authorize", "state-cookie"),
+    )
+    r = client.post(
+        "/auth/oidc/link",
+        data={"totp_code": "123456"},
+        cookies=_auth_cookie(uid),
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    loc = r.headers.get("location") or ""
+    assert loc == "/auth/oidc/link", loc
+    assert "idp.example" not in loc
+    assert r.cookies.get("oidc_link_ok")
+
+    r2 = client.get(
+        "/auth/oidc/link",
+        cookies={**_auth_cookie(uid), "oidc_link_ok": r.cookies["oidc_link_ok"]},
+        follow_redirects=False,
+    )
+    assert r2.status_code == 303
+    loc2 = r2.headers.get("location") or ""
+    assert loc2.startswith("https://idp.example/"), loc2
+
+
+def test_account_2fa_required_stays_out_of_totp_sheet(smoke_client):
+    """Step-up failures must not dump the user onto the authenticator sheet."""
+    client, engine = smoke_client
+    with Session(engine) as session:
+        user = _make_user(session)
+        uid = user.id
+    r = client.get("/auth/account?error=2fa_required", cookies=_auth_cookie(uid))
+    assert r.status_code == 200
+    assert "openAccountModal('totp')" not in r.text
+    assert "Authenticator or backup code required." not in r.text
+    assert "Confirm this change in this sheet" in r.text
+    r_off = client.get("/auth/account?error=2fa_off", cookies=_auth_cookie(uid))
+    assert r_off.status_code == 200
+    assert "openAccountModal('totp')" in r_off.text
+
+
+def test_users_admin_password_meter_uses_live_policy(smoke_client):
+    client, engine = smoke_client
+    with Session(engine) as session:
+        user = _make_user(session, role="admin")
+        uid = user.id
+    r = client.get("/auth/users", cookies=_auth_cookie(uid))
+    assert r.status_code == 200
+    assert "piherder-password-policy" in r.text
+    assert "needs upper, lower, digit, min 10" not in r.text
+    assert 'data-pw-meter' in r.text
+    assert 'id="reset-user-password"' in r.text
+
+
+def test_self_service_reset_shows_policy_meter(smoke_client):
+    client, _ = smoke_client
+    r = client.get("/auth/reset-password?token=smoke")
+    assert r.status_code == 200
+    assert "piherder-password-policy" in r.text
+    assert "≥10 chars" not in r.text
+    assert 'data-pw-input' in r.text

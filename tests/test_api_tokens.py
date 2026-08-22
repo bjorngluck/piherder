@@ -15,6 +15,7 @@ def test_normalize_scopes_defaults_and_filter():
     assert tok.normalize_scopes("read") == ["read"]
     assert tok.normalize_scopes("jobs,read,evil") == ["jobs", "read"]
     assert tok.normalize_scopes(["JOBS", "read", "edit"]) == ["edit", "jobs", "read"]
+    assert tok.normalize_scopes(["files"]) == ["files"]
     assert tok.scopes_csv(["jobs"]) == "jobs"
 
 

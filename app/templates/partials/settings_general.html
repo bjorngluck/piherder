@@ -26,50 +26,580 @@
     <p class="text-xs text-muted mt-2">Used for display and schedule interpretation (including update checks).</p>
   </div>
 
-  <div class="card p-5 mb-4">
-    <h2 class="font-semibold text-text mb-1">Security policy</h2>
-    <p class="text-xs text-muted mb-3">
-      Global account rules. Admin-created users always must set a new password on first login.
-    </p>
-    <form method="post" action="/herder-backups/security" class="space-y-3">
-      <label class="flex items-start gap-2 min-h-11 text-sm">
-        <input type="checkbox" name="force_2fa" value="1" class="mt-1"
-               {% if cfg.force_2fa %}checked{% endif %}>
-        <span>
-          <strong>Require 2FA for all users</strong>
-          <span class="block text-xs text-muted mt-0.5">
-            After login, users without TOTP are sent to set up an authenticator app before using the fleet UI.
-          </span>
-        </span>
-      </label>
-      <label class="flex items-start gap-2 min-h-11 text-sm">
-        <input type="checkbox" name="template_require_2fa" value="1" class="mt-1"
-               {% if cfg.template_require_2fa %}checked{% endif %}>
-        <span>
-          <strong>Require 2FA for template deploy</strong>
-          <span class="block text-xs text-muted mt-0.5">
-            Operators must have 2FA (passkey or TOTP) enrolled to confirm template deploys. <strong>Viewing secrets always requires step-up 2FA</strong> (View secrets + passkey or authenticator code), even if already logged in with 2FA.
-          </span>
-        </span>
-      </label>
-      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save security policy</button>
-    </form>
+  {% set hub = settings_hub or {} %}
+  <div class="settings-hub-grid mb-4" data-testid="settings-hub">
+    <div class="card p-4 settings-hub-card" id="settings-security">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="font-semibold text-text m-0">Security policy</h2>
+          <p class="text-xs text-muted mt-1 break-words">{{ hub.security or 'Password and 2FA rules' }}</p>
+        </div>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+                data-open-settings-modal="security">Edit</button>
+      </div>
+    </div>
+    <div class="card p-4 settings-hub-card" id="settings-console" data-testid="settings-console">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="font-semibold text-text m-0">Console</h2>
+          <p class="text-xs text-muted mt-1 break-words">{{ hub.console or 'Web SSH timeouts and audit' }}</p>
+        </div>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+                data-open-settings-modal="console">Edit</button>
+      </div>
+    </div>
+    <div class="card p-4 settings-hub-card" id="settings-files" data-testid="settings-files">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="font-semibold text-text m-0">Files</h2>
+          <p class="text-xs text-muted mt-1 break-words">{{ hub.files or 'Host file transfer cap' }}</p>
+        </div>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+                data-open-settings-modal="files">Edit</button>
+      </div>
+    </div>
+    <div class="card p-4 settings-hub-card" id="settings-sso" data-testid="settings-sso">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="font-semibold text-text m-0">SSO / OpenID Connect</h2>
+          <p class="text-xs text-muted mt-1 break-words">{{ hub.sso or 'SSO off' }}</p>
+        </div>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+                data-open-settings-modal="sso">Edit</button>
+      </div>
+    </div>
+    <div class="card p-4 settings-hub-card" id="settings-cleanup">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="font-semibold text-text m-0">Stale data cleanup</h2>
+          <p class="text-xs text-muted mt-1 break-words">{{ hub.cleanup or 'Schedule off' }}</p>
+        </div>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+                data-open-settings-modal="cleanup">Edit</button>
+      </div>
+    </div>
   </div>
 
-  <div class="card p-5 mb-4" id="settings-sso" data-testid="settings-sso">
-    <h2 class="font-semibold text-text mb-1">SSO / OpenID Connect</h2>
-    <p class="text-xs text-muted mb-3">
-      BYO IdP (Authentik, Keycloak, Authelia, Google, Entra, …). Authorization code + PKCE.
-      Redirect URI (register at IdP):
-      <code class="font-mono text-[11px] break-all block mt-1">{{ oidc_redirect_uri or '' }}</code>
+  <div id="settings-security-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="security" role="dialog" aria-modal="true" aria-labelledby="settings-security-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="settings-security-title" class="font-semibold text-text m-0">Security policy</h2>
+          <p class="text-xs text-muted mt-1">
+            Global account rules. Admin-created users always must set a new password on first login.
+          </p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+    <form method="post" action="/herder-backups/security" class="settings-sheet-form" data-testid="settings-password-policy">
+      <div class="settings-sheet-body space-y-4">
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">Password rules</legend>
+        <p class="text-xs text-muted">
+          Applies to register, account change, admin create/reset, and recover-admin.
+          Minimum length cannot go below 8; maximum cannot exceed 72 (bcrypt).
+        </p>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Minimum length</span>
+            <input type="number" name="password_min_length" min="8" max="72"
+                   value="{{ cfg.password_min_length | default(10) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="password-min-length">
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Maximum length</span>
+            <input type="number" name="password_max_length" min="8" max="72"
+                   value="{{ cfg.password_max_length | default(72) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="password-max-length">
+          </label>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-2">
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="checkbox" name="password_require_upper" value="1" class="mt-1"
+                   {% if cfg.password_require_upper is not defined or cfg.password_require_upper %}checked{% endif %}>
+            <span>Require an uppercase letter</span>
+          </label>
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="checkbox" name="password_require_lower" value="1" class="mt-1"
+                   {% if cfg.password_require_lower is not defined or cfg.password_require_lower %}checked{% endif %}>
+            <span>Require a lowercase letter</span>
+          </label>
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="checkbox" name="password_require_digit" value="1" class="mt-1"
+                   {% if cfg.password_require_digit is not defined or cfg.password_require_digit %}checked{% endif %}>
+            <span>Require a digit</span>
+          </label>
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="checkbox" name="password_require_special" value="1" class="mt-1"
+                   {% if cfg.password_require_special %}checked{% endif %}>
+            <span>Require a special character</span>
+          </label>
+        </div>
+        <p class="text-xs text-muted border border-border rounded p-2" data-testid="password-policy-preview">
+          {{ password_policy_text or '' }}
+        </p>
+      </fieldset>
+      {% set fscope = cfg.force_2fa_scope or ('all' if cfg.force_2fa else 'off') %}
+      <fieldset class="space-y-3" data-testid="settings-2fa-policy">
+        <legend class="text-sm font-medium text-text">2FA enforcement</legend>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Who must enrol 2FA</span>
+            <select name="force_2fa_scope" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
+                    data-testid="force-2fa-scope">
+              <option value="off" {% if fscope == 'off' %}selected{% endif %}>Off</option>
+              <option value="admins" {% if fscope == 'admins' %}selected{% endif %}>Admins only</option>
+              <option value="operators" {% if fscope == 'operators' %}selected{% endif %}>Operators and admins</option>
+              <option value="all" {% if fscope == 'all' %}selected{% endif %}>Everyone</option>
+            </select>
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Grace after enable (days, 0–60)</span>
+            <input type="number" name="force_2fa_grace_days" min="0" max="60"
+                   value="{{ cfg.force_2fa_grace_days | default(0) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="force-2fa-grace">
+          </label>
+        </div>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="login_trusted_skip_2fa" value="1" class="mt-1"
+                 {% if cfg.login_trusted_skip_2fa is not defined or cfg.login_trusted_skip_2fa %}checked{% endif %}>
+          <span>
+            Trusted device skips <strong>login</strong> 2FA
+            <span class="block text-xs text-muted mt-0.5">Same as v1.2. Does not skip Account / secrets / console step-up.</span>
+          </span>
+        </label>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="force_2fa_trusted_skip_enroll" value="1" class="mt-1"
+                 {% if cfg.force_2fa_trusted_skip_enroll %}checked{% endif %}>
+          <span>
+            Trusted device skips the <strong>enrol wall</strong>
+            <span class="block text-xs text-muted mt-0.5">Default off. A trusted browser still must enrol 2FA unless you check this.</span>
+          </span>
+        </label>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="template_require_2fa" value="1" class="mt-1"
+                 {% if cfg.template_require_2fa %}checked{% endif %}>
+          <span>
+            <strong>Require 2FA for template deploy</strong>
+            <span class="block text-xs text-muted mt-0.5">
+              Operators must have 2FA enrolled to confirm template deploys. Viewing secrets always requires step-up.
+            </span>
+          </span>
+        </label>
+      </fieldset>
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">Step-up windows (minutes)</legend>
+        <div class="grid sm:grid-cols-3 gap-3">
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Account actions</span>
+            <input type="number" name="stepup_account_minutes" min="1" max="120"
+                   value="{{ cfg.stepup_account_minutes | default(5) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Secrets view</span>
+            <input type="number" name="stepup_secrets_minutes" min="1" max="120"
+                   value="{{ cfg.stepup_secrets_minutes | default(10) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Console grant</span>
+            <input type="number" name="stepup_console_minutes" min="1" max="120"
+                   value="{{ cfg.stepup_console_minutes | default(10) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </label>
+        </div>
+      </fieldset>
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">Allowed factors</legend>
+        <p class="text-xs text-muted">Unchecked factors are rejected on that surface. Console env vars still win when set.</p>
+        <div class="overflow-x-auto">
+          <table class="text-sm w-full min-w-[20rem]">
+            <thead>
+              <tr class="text-xs text-muted text-left">
+                <th class="py-1 pr-2 font-medium">Surface</th>
+                <th class="py-1 pr-2 font-medium">TOTP</th>
+                <th class="py-1 pr-2 font-medium">Passkey</th>
+                <th class="py-1 pr-2 font-medium">Backup code</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for surf, label in [('login','Login'), ('account','Account'), ('secrets','Secrets'), ('console','Console')] %}
+              <tr>
+                <td class="py-1 pr-2">{{ label }}</td>
+                <td class="py-1 pr-2">
+                  <input type="checkbox" name="factor_{{ surf }}_totp" value="1"
+                         {% if cfg['factor_' ~ surf ~ '_totp'] is not defined or cfg['factor_' ~ surf ~ '_totp'] %}checked{% endif %}>
+                </td>
+                <td class="py-1 pr-2">
+                  <input type="checkbox" name="factor_{{ surf }}_passkey" value="1"
+                         {% if cfg['factor_' ~ surf ~ '_passkey'] is not defined or cfg['factor_' ~ surf ~ '_passkey'] %}checked{% endif %}>
+                </td>
+                <td class="py-1 pr-2">
+                  <input type="checkbox" name="factor_{{ surf }}_backup" value="1"
+                         {% if (surf in ['login','account'] and (cfg['factor_' ~ surf ~ '_backup'] is not defined or cfg['factor_' ~ surf ~ '_backup'])) or (surf in ['secrets','console'] and cfg['factor_' ~ surf ~ '_backup']) %}checked{% endif %}>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="console_require_2fa_every_shell" value="1" class="mt-1"
+                 {% if cfg.console_require_2fa_every_shell %}checked{% endif %}>
+          <span>Require 2FA on every new console shell (no grant reuse)</span>
+        </label>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="console_prefer_passkey" value="1" class="mt-1"
+                 {% if cfg.console_prefer_passkey is not defined or cfg.console_prefer_passkey %}checked{% endif %}>
+          <span>Prefer passkey for console</span>
+        </label>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="console_require_passkey" value="1" class="mt-1"
+                 {% if cfg.console_require_passkey %}checked{% endif %}>
+          <span>Require passkey for console when one is enrolled</span>
+        </label>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="console_allow_backup_codes" value="1" class="mt-1"
+                 {% if cfg.console_allow_backup_codes %}checked{% endif %}>
+          <span>Allow backup codes for console (discouraged)</span>
+        </label>
+      </fieldset>
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">SSO / IdP MFA</legend>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="oidc_idp_mfa_satisfies_login_2fa" value="1" class="mt-1"
+                 {% if cfg.oidc_idp_mfa_satisfies_login_2fa %}checked{% endif %}>
+          <span>
+            <strong class="text-warning">IdP MFA satisfies PiHerder login 2FA</strong>
+            <span class="block text-xs text-muted mt-0.5">
+              Default off. Fail closed if the claim is missing. Never skips Account, secrets, or console step-up.
+            </span>
+          </span>
+        </label>
+        <label class="block text-sm">
+          <span class="block text-xs text-muted mb-1">IdP MFA claim (default <code class="font-mono">amr</code>)</span>
+          <input name="oidc_idp_mfa_claim" value="{{ cfg.oidc_idp_mfa_claim or 'amr' }}"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                 placeholder="amr">
+        </label>
+      </fieldset>
+      </div>
+      <div class="settings-sheet-foot">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full sm:w-auto">Save security policy</button>
+      </div>
+    </form>
+    </div>
+  </div>
+
+  {% set cpol = console_pol or {} %}
+  {% set clocks = console_locks or {} %}
+  <div id="settings-console-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="console" role="dialog" aria-modal="true" aria-labelledby="settings-console-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="settings-console-title" class="font-semibold text-text m-0">Console</h2>
+          <p class="text-xs text-muted mt-1">
+            Timeouts, concurrency, and binding for the web SSH console.
+            2FA factors and the grant window stay under
+            <a href="#settings-security" class="underline" data-open-settings-modal="security">Security policy</a>.
+            The master switch is compose-only
+            (<code class="font-mono">PIHERDER_SSH_CONSOLE</code>).
+          </p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+    <form method="post" action="/herder-backups/console" class="settings-sheet-form" data-testid="settings-console-form">
+      <div class="settings-sheet-body space-y-4">
+    <p class="text-xs {% if cpol.enabled %}text-text{% else %}text-muted{% endif %}">
+      {% if cpol.enabled %}
+      Console is <strong>on</strong>{% if demo_mode_on %} (demo / simulated){% endif %}.
+      {% else %}
+      Console is <strong>off</strong>. Set <code class="font-mono">PIHERDER_SSH_CONSOLE=true</code> and restart web.
+      {% endif %}
     </p>
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">Timeouts</legend>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Idle timeout (seconds, 60–28800)</span>
+            <input type="number" name="console_idle_sec" min="60" max="28800"
+                   value="{{ cpol.console_idle_sec | default(900) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="console-idle-sec"
+                   {% if clocks.console_idle_sec %}disabled{% endif %}>
+            {% if clocks.console_idle_sec %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% else %}
+            <span class="block text-xs text-muted mt-1">900 = 15 minutes. Also ends parked shells.</span>
+            {% endif %}
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Max session (seconds, 120–43200)</span>
+            <input type="number" name="console_max_sec" min="120" max="43200"
+                   value="{{ cpol.console_max_sec | default(3600) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="console-max-sec"
+                   {% if clocks.console_max_sec %}disabled{% endif %}>
+            {% if clocks.console_max_sec %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% else %}
+            <span class="block text-xs text-muted mt-1">3600 = 1 hour. Forced to be at least idle.</span>
+            {% endif %}
+          </label>
+        </div>
+      </fieldset>
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">Concurrency</legend>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Max shells per user (1–16)</span>
+            <input type="number" name="console_max_per_user" min="1" max="16"
+                   value="{{ cpol.console_max_per_user | default(4) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="console-max-per-user"
+                   {% if clocks.console_max_per_user %}disabled{% endif %}>
+            {% if clocks.console_max_per_user %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% endif %}
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Max shells instance-wide (1–64)</span>
+            <input type="number" name="console_max_global" min="1" max="64"
+                   value="{{ cpol.console_max_global | default(20) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="console-max-global"
+                   {% if clocks.console_max_global %}disabled{% endif %}>
+            {% if clocks.console_max_global %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% else %}
+            <span class="block text-xs text-muted mt-1">Forced to be at least per-user. Lowering does not kick open shells.</span>
+            {% endif %}
+          </label>
+        </div>
+      </fieldset>
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">Ticket and park</legend>
+        <div class="grid sm:grid-cols-3 gap-3">
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Open-ticket TTL (seconds, 15–300)</span>
+            <input type="number" name="console_ticket_sec" min="15" max="300"
+                   value="{{ cpol.console_ticket_sec | default(60) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   {% if clocks.console_ticket_sec %}disabled{% endif %}>
+            {% if clocks.console_ticket_sec %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% endif %}
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Park hold after drop (seconds)</span>
+            <input type="number" name="console_hold_sec" min="0" max="3600"
+                   value="{{ cpol.console_hold_sec | default(0) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   {% if clocks.console_hold_sec %}disabled{% endif %}>
+            {% if clocks.console_hold_sec %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% else %}
+            <span class="block text-xs text-muted mt-1">0 = until idle/max. Else 30–3600.</span>
+            {% endif %}
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Revalidate interval (seconds, 5–60)</span>
+            <input type="number" name="console_revalidate_sec" min="5" max="60"
+                   value="{{ cpol.console_revalidate_sec | default(10) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   {% if clocks.console_revalidate_sec %}disabled{% endif %}>
+            {% if clocks.console_revalidate_sec %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% endif %}
+          </label>
+        </div>
+      </fieldset>
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">Binding and scrollback</legend>
+        <p class="text-xs text-muted">
+          IP bind exists because XSS plus a stolen cookie is shell-equivalent.
+          Turn it off only if mobile NAT / CGNAT breaks reconnects.
+        </p>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="console_bind_ip" value="1" class="mt-1"
+                 {% if cpol.console_bind_ip is not defined or cpol.console_bind_ip %}checked{% endif %}
+                 {% if clocks.console_bind_ip %}disabled{% endif %}>
+          <span>
+            Bind tickets and live shells to client IP
+            {% if clocks.console_bind_ip %}<span class="block text-xs text-muted mt-0.5">Locked by environment</span>{% endif %}
+          </span>
+        </label>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="console_bind_device" value="1" class="mt-1"
+                 {% if cpol.console_bind_device is not defined or cpol.console_bind_device %}checked{% endif %}
+                 {% if clocks.console_bind_device %}disabled{% endif %}>
+          <span>
+            Bind tickets to the console device cookie
+            {% if clocks.console_bind_device %}<span class="block text-xs text-muted mt-0.5">Locked by environment</span>{% endif %}
+          </span>
+        </label>
+        <fieldset class="space-y-2" data-testid="console-privileged-role">
+          <legend class="text-sm font-medium text-text">Who may open a privileged console</legend>
+          <p class="text-xs text-muted">Fleet shells stay operator+. Privileged is break-glass (Connect as…) and always re-prompts 2FA.</p>
+          {% set priv_role = cpol.console_privileged_role | default('admin') %}
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="radio" name="console_privileged_role" value="admin" class="mt-1"
+                   {% if priv_role != 'operator' %}checked{% endif %}
+                   {% if clocks.console_privileged_role %}disabled{% endif %}>
+            <span>Admin only <span class="text-xs text-muted">(default)</span></span>
+          </label>
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="radio" name="console_privileged_role" value="operator" class="mt-1"
+                   {% if priv_role == 'operator' %}checked{% endif %}
+                   {% if clocks.console_privileged_role %}disabled{% endif %}>
+            <span>Operator and admin</span>
+          </label>
+          {% if clocks.console_privileged_role %}
+          <span class="block text-xs text-muted">Locked by environment</span>
+          {% endif %}
+        </fieldset>
+        <fieldset class="space-y-2" data-testid="console-audit-mode">
+          <legend class="text-sm font-medium text-text">Command audit</legend>
+          <p class="text-xs text-muted">
+            May capture secrets typed at the prompt. Redaction is heuristic, not a guarantee.
+            Default off. Demo never stores transcripts. Viewers cannot read them.
+          </p>
+          {% set amode = cpol.console_audit_mode | default('off') %}
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="radio" name="console_audit_mode" value="off" class="mt-1"
+                   {% if amode != 'commands' and amode != 'commands_output' %}checked{% endif %}
+                   {% if clocks.console_audit_mode %}disabled{% endif %}>
+            <span>Off <span class="text-xs text-muted">(default)</span></span>
+          </label>
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="radio" name="console_audit_mode" value="commands" class="mt-1"
+                   {% if amode == 'commands' %}checked{% endif %}
+                   {% if clocks.console_audit_mode %}disabled{% endif %}>
+            <span>Commands only</span>
+          </label>
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="radio" name="console_audit_mode" value="commands_output" class="mt-1"
+                   {% if amode == 'commands_output' %}checked{% endif %}
+                   {% if clocks.console_audit_mode %}disabled{% endif %}>
+            <span>Commands + truncated output</span>
+          </label>
+          {% if clocks.console_audit_mode %}
+          <span class="block text-xs text-muted">Locked by environment</span>
+          {% endif %}
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="checkbox" name="console_audit_required" value="1" class="mt-1"
+                   {% if cpol.console_audit_required %}checked{% endif %}
+                   {% if clocks.console_audit_required %}disabled{% endif %}
+                   data-testid="console-audit-required">
+            <span>
+              Require on every session
+              <span class="block text-xs text-muted">Cannot open a live shell unless commands are recorded. Off is ignored. Demo still never stores.</span>
+            </span>
+          </label>
+          {% if clocks.console_audit_required %}
+          <span class="block text-xs text-muted">Locked by environment</span>
+          {% endif %}
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Transcript retention (days, 1–90)</span>
+            <input type="number" name="console_audit_retention_days" min="1" max="90"
+                   value="{{ cpol.console_audit_retention_days | default(14) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="console-audit-retention"
+                   {% if clocks.console_audit_retention_days %}disabled{% endif %}>
+            {% if clocks.console_audit_retention_days %}
+            <span class="block text-xs text-muted mt-1">Locked by environment</span>
+            {% else %}
+            <span class="block text-xs text-muted mt-1">After this, the encrypted body is dropped. The row still shows that a transcript existed.</span>
+            {% endif %}
+          </label>
+        </fieldset>
+        <label class="block text-sm">
+          <span class="block text-xs text-muted mb-1">Default xterm scrollback (lines, 500–50000)</span>
+          <input type="number" name="console_scrollback" min="500" max="50000"
+                 value="{{ cpol.console_scrollback | default(2000) }}"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                 {% if clocks.console_scrollback %}disabled{% endif %}>
+          {% if clocks.console_scrollback %}
+          <span class="block text-xs text-muted mt-1">Locked by environment</span>
+          {% endif %}
+        </label>
+      </fieldset>
+      </div>
+      <div class="settings-sheet-foot">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full sm:w-auto">Save console policy</button>
+      </div>
+    </form>
+    </div>
+  </div>
+
+  <div id="settings-files-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="files" role="dialog" aria-modal="true" aria-labelledby="settings-files-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="settings-files-title" class="font-semibold text-text m-0">Files</h2>
+          <p class="text-xs text-muted mt-1">
+            Upload and download cap for the host file manager. Kill switch stays
+            <code class="font-mono">PIHERDER_HOST_FILES</code>.
+          </p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+    <form method="post" action="/herder-backups/files" class="settings-sheet-form" data-testid="settings-files-form">
+      <div class="settings-sheet-body space-y-4">
+        <p class="text-xs text-muted">
+          {% if files_enabled|default(false) %}Files is <strong>on</strong>.{% else %}Files is <strong>off</strong> until you set <code class="font-mono">PIHERDER_HOST_FILES=true</code> and restart web.{% endif %}
+          Traffic still goes browser → herder → host. Raise any extra reverse-proxy body timeout for multi-gigabyte copies.
+        </p>
+        <label class="block text-sm">
+          <span class="block text-xs text-muted mb-1">Transfer cap (GiB, 0.25–32)</span>
+          <input type="number" name="files_max_gib" min="0.25" max="32" step="0.25"
+                 value="{{ files_max_gib | default(0.5) }}"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                 data-testid="files-max-gib"
+                 {% if files_max_locked %}disabled{% endif %}>
+          <span class="block text-xs text-muted mt-1">
+            Current {{ files_max_h | default('512 MiB') }}. Ceiling {{ files_max_ceiling_h | default('32 GiB') }}.
+            {% if files_max_locked %}Locked by <code class="font-mono">PIHERDER_HOST_FILES_MAX_BYTES</code>.{% endif %}
+          </span>
+        </label>
+      </div>
+      <div class="settings-sheet-foot">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full sm:w-auto"
+                {% if files_max_locked %}disabled{% endif %}>Save Files cap</button>
+      </div>
+    </form>
+    </div>
+  </div>
+
+  <div id="settings-sso-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="sso" role="dialog" aria-modal="true" aria-labelledby="settings-sso-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="settings-sso-title" class="font-semibold text-text m-0">SSO / OpenID Connect</h2>
+          <p class="text-xs text-muted mt-1">
+            BYO IdP (Authentik, Keycloak, Authelia, Google, Entra, …). Authorization code + PKCE.
+            Redirect URI (register at IdP):
+            <code class="font-mono text-[11px] break-all block mt-1">{{ oidc_redirect_uri or '' }}</code>
+          </p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+    <form method="post" action="/herder-backups/oidc" class="settings-sheet-form">
+      <div class="settings-sheet-body space-y-3">
     {% if request.query_params.get('oidc_saved') %}
-    <div class="banner-success border border-border rounded p-2 text-sm mb-3">SSO settings saved.</div>
+    <div class="banner-success border border-border rounded p-2 text-sm">SSO settings saved.</div>
     {% endif %}
     {% if request.query_params.get('oidc_error') %}
-    <div class="banner-error border border-border rounded p-2 text-sm mb-3">{{ request.query_params.get('oidc_error') }}</div>
+    <div class="banner-error border border-border rounded p-2 text-sm">{{ request.query_params.get('oidc_error') }}</div>
     {% endif %}
-    <form method="post" action="/herder-backups/oidc" class="space-y-3">
       <label class="flex items-start gap-2 min-h-11 text-sm">
         <input type="checkbox" name="oidc_enabled" value="1" class="mt-1"
                {% if cfg.oidc_enabled %}checked{% endif %}>
@@ -182,7 +712,10 @@
           <span class="block text-xs text-muted mt-0.5">Hides the password form (break-glass: disable this or use local recovery).</span>
         </span>
       </label>
-      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save SSO settings</button>
+      </div>
+      <div class="settings-sheet-foot">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full sm:w-auto">Save SSO settings</button>
+      </div>
     </form>
 
     {# Add group → role mapping modal (outside the form so nested forms are not an issue) #}
@@ -369,19 +902,28 @@
       syncEmpty();
     })();
     </script>
+    </div>
   </div>
 
-  <div class="card p-5 mb-4">
-    <h2 class="font-semibold text-text mb-1">Stale data cleanup</h2>
-    <p class="text-xs text-muted mb-3">
-      Opt-in purge of old <strong class="text-text">Jobs</strong> and <strong class="text-text">Audit</strong>
-      history (and optional nmap scan runs). Runs as a fleet job
-      (<code class="text-[10px]">stale_data_cleanup</code>) — same log panel as other jobs.
-      Defaults: <strong>30 days</strong>. Never deletes pending/running jobs.
-      Distinct from per-server backup file retention.
-    </p>
+  <div id="settings-cleanup-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="cleanup" role="dialog" aria-modal="true" aria-labelledby="settings-cleanup-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="settings-cleanup-title" class="font-semibold text-text m-0">Stale data cleanup</h2>
+          <p class="text-xs text-muted mt-1">
+            Opt-in purge of old <strong class="text-text">Jobs</strong> and <strong class="text-text">Audit</strong>
+            history (and optional nmap scan runs). Runs as a fleet job
+            (<code class="text-[10px]">stale_data_cleanup</code>) — same log panel as other jobs.
+            Defaults: <strong>30 days</strong>. Never deletes pending/running jobs.
+            Distinct from per-server backup file retention.
+          </p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
     {% set dc = data_cleanup or {} %}
-    <form method="post" action="/herder-backups/data-cleanup/config" class="space-y-3">
+    <form method="post" action="/herder-backups/data-cleanup/config" class="settings-sheet-form">
+      <div class="settings-sheet-body space-y-3">
       <label class="flex items-start gap-2 min-h-11 text-sm">
         <input type="checkbox" name="data_cleanup_enabled" value="1" class="mt-1"
                {% if dc.enabled %}checked{% endif %}>
@@ -444,29 +986,29 @@
         </div>
       </div>
 
-      <div class="flex flex-wrap gap-2">
-        <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save cleanup settings</button>
+      </div>
+      <div class="settings-sheet-foot">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full sm:w-auto">Save cleanup settings</button>
+        {% if data_cleanup_preview %}
+        <p class="text-xs text-muted mt-2 mb-0">
+          About
+          <strong class="text-text">{{ data_cleanup_preview.jobs }}</strong> jobs,
+          <strong class="text-text">{{ data_cleanup_preview.audit }}</strong> audit,
+          <strong class="text-text">{{ data_cleanup_preview.nmap_runs }}</strong> nmap runs
+          would purge now.
+        </p>
+        {% endif %}
+        <p class="text-xs text-muted mt-1 mb-0">
+          {% if data_cleanup_schedule_status == 'enabled' %}
+          <span class="text-accent">Schedule active{% if data_cleanup_next_run %} — next {{ data_cleanup_next_run }}{% endif %}.</span>
+          {% else %}
+          Schedule off — enable above or run manually.
+          {% endif %}
+        </p>
       </div>
     </form>
-
-    {% if data_cleanup_preview %}
-    <p class="text-xs text-muted mt-3">
-      With current settings, about
-      <strong class="text-text">{{ data_cleanup_preview.jobs }}</strong> jobs,
-      <strong class="text-text">{{ data_cleanup_preview.audit }}</strong> audit rows,
-      <strong class="text-text">{{ data_cleanup_preview.nmap_runs }}</strong> nmap runs
-      would be purged now.
-    </p>
-    {% endif %}
-    <p class="text-xs text-muted mt-2">
-      {% if data_cleanup_schedule_status == 'enabled' %}
-      <span class="text-accent">Schedule active{% if data_cleanup_next_run %} — next {{ data_cleanup_next_run }}{% endif %}.</span>
-      {% else %}
-      Schedule off — enable above or run manually.
-      {% endif %}
-    </p>
-
-    <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border">
+    <div class="settings-sheet-foot" style="border-top: none; padding-top: 0;">
+      <div class="flex flex-wrap gap-2">
       <form method="post" action="/herder-backups/data-cleanup/run"
             data-wait-title="Queueing dry-run"
             data-wait-message="Creating cleanup job…">
@@ -484,6 +1026,8 @@
         <button type="submit" class="btn btn-accent min-h-11 text-sm">Run cleanup now</button>
       </form>
       <a href="/jobs?job_type=stale_data_cleanup" class="btn btn-secondary min-h-11 text-sm">Cleanup jobs</a>
+      </div>
+    </div>
     </div>
   </div>
   {% endif %}

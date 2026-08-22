@@ -53,11 +53,21 @@ Never point demo at the home-lab network or reuse production `PIHERDER_MASTER_KE
 
 ## Environment (Docker Compose)
 
-Use the demo overlay [`docker-compose.demo.yml`](../docker-compose.demo.yml) on the VPS:
+Use the demo overlay [`docker-compose.demo.yml`](../docker-compose.demo.yml) on the VPS.
+
+**If the Docker bridge has no egress** (common on Nomad / locked VPS), `compose build` hangs on pip `Installing build dependencies`. Build with **host network**, then start **without** a compose rebuild:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+# preferred (git pull + this pair + seed):
+./scripts/demo-maintain.sh redeploy
+
+# equivalent:
+DOCKER_BUILDKIT=1 docker build --network=host -t piherder:demo .
+PIHERDER_IMAGE=piherder:demo docker compose -f docker-compose.yml \
+  -f docker-compose.demo.yml -f docker-compose.demo-ports.yml up -d --no-build --force-recreate
 ```
+
+Do **not** `docker compose pull` while Hub still has **1.2.0** as `latest` — that image is not this tree. After tag + Hub `1.3.0`, pin `PIHERDER_IMAGE=bjorngluck/piherder:1.3.0` or rebuild `piherder:demo`. Kill a stuck build with Ctrl+C before retrying.
 
 | Variable | Example / note |
 |----------|----------------|
@@ -165,23 +175,24 @@ Notes:
 
 ## First 1.2 deploy on the VPS
 
-The public demo should track **`v1.2.0`** (or `latest` after Hub publish). App code is **not** bind-mounted — you must **rebuild the image**.
+The public demo should track **`v1.3.0`** (or `latest` after Hub publish). App code is **not** bind-mounted — you must **rebuild the image**.
 
 ```bash
 # on the VPS clone
 git status                 # must be clean or demo-maintain refuses pull
-git fetch && git checkout v1.2.0
+git fetch && git checkout v1.3.0
 git pull --ff-only
-# preferred:
+# preferred (host-network build → piherder:demo; no Hub pull):
 ./scripts/demo-maintain.sh redeploy
 # equivalent:
-# docker compose -f docker-compose.yml -f docker-compose.demo.yml \
-#   -f docker-compose.demo-ports.yml up -d --build --force-recreate
+# DOCKER_BUILDKIT=1 docker build --network=host -t piherder:demo .
+# PIHERDER_IMAGE=piherder:demo docker compose -f docker-compose.yml \
+#   -f docker-compose.demo.yml -f docker-compose.demo-ports.yml up -d --no-build --force-recreate
 ```
 
 | Check | Why |
 |-------|-----|
-| Stay on **`v1.2.0-dev`** (or set `DEMO_GIT_BRANCH`) | Daily cron `git pull` follows whatever branch the clone is on. `main` is still 1.1. |
+| Stay on **`v1.3.0`** (or set `DEMO_GIT_BRANCH`) | Daily cron `git pull` follows whatever branch the clone is on. |
 | **Rebuild** (`--build` / `demo-maintain redeploy`) | Compiled Tailwind + 1.2 code live in the image |
 | **`--force-recreate`**, not `restart` | Overlay `dns:` for Turnstile only applies on recreate |
 | Do **not** `--wipe` unless you want a volume reset | Alembic (incl. `039_ssh_hostkey_pin`) runs on web start; seed is refreshed after recreate |
@@ -191,7 +202,7 @@ git pull --ff-only
 | Cron still 6h `data-reset` + daily `redeploy` | Confirm `/etc/cron.d/piherder-demo` path + user after checkout |
 | After this deploy: open Console, then Audit | `ssh_console_open` details must show `ip=redacted`, not a visitor address |
 
-Skip `nmap` profile. No home-lab routes. After **QA sign-off + tag**, point the clone at `v1.2.0` / Hub `1.2.0` instead of building `dev`.
+Skip `nmap` profile. No home-lab routes. After **tag**, point the clone at `v1.3.0` / Hub `1.3.0` instead of building `dev`.
 
 ## Security checklist
 

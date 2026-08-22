@@ -176,9 +176,11 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | 1 | Account → **Add passkey** (+ TOTP still OK) | Second factor without an app-only story |
 | 2 | Optional Settings → **SSO** | BYO IdP; keep an admin password |
 | 3 | Leave `PIHERDER_SSH_CONSOLE=false` unless you need a browser shell | Default off; XSS on the herder origin is shell-equivalent when on |
-| 4 | If you enable it: operator + 2FA → Console → **+ Shell** | [Web SSH console](../day-to-day/web-ssh-console.md) |
-| 5 | **Test connection** pins the host key; reset only after a rebuild | TOFU — mismatch is refused |
-| 6 | Smoke the [v1.2 QA](../operations/qa-v1.2.0.md) identity + console rows if you turn these on | Optional surfaces — they stay off until you enable them |
+| 3b | Leave `PIHERDER_HOST_FILES=false` until you want jailed SFTP | Default off; [Host Files](../day-to-day/host-files.md) |
+| 4 | If you enable it: **Settings → Console** for idle / max / slots; Security for 2FA grant | [Web SSH console](../day-to-day/web-ssh-console.md) · [Settings](../operations/settings.md#console) |
+| 5 | Then: operator + 2FA → Console → **+ Shell** | Same wiki |
+| 6 | **Test connection** pins the host key; reset only after a rebuild | TOFU — mismatch is refused |
+| 7 | Smoke the [v1.2 QA](../operations/qa-v1.2.0.md) identity + console rows if you turn these on | Optional surfaces — they stay off until you enable them |
 
 ---
 
@@ -216,6 +218,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | Add a Pi, deploy SSH key, features (wizard) | [Add a server](../day-to-day/add-server.md) · Journey A |
 | HAOS appliance (SSH + HA updates) | [HAOS hosts](../day-to-day/haos-hosts.md) · Journey C2 |
 | Dashboard tiles & fleet services | [Dashboard & Services](../day-to-day/dashboard-and-services.md) |
+| Backup / patch / LAN / Docker / console history (not Grafana) | [Reports](../day-to-day/reports.md) |
 
 ## Backups & patching
 
@@ -297,7 +300,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | Stack Status healthy? | [Status](../operations/status.md) |
 | Herder self-backup / restore (**admin only**) | [Self-backup](../operations/self-backup.md) · [Roles](../account-security/roles.md) |
 | Upgrade compose / image | [Upgrades](../operations/upgrades.md) |
-| **v1.2 freeze QA / sign-off** | [QA checklist](../operations/qa-v1.2.0.md) |
+| **v1.2 freeze QA / sign-off** | [QA checklist](../operations/qa-v1.2.0.md) (historical Hub 1.2) |
 | More backup parallelism | [Multi-worker](../operations/multi-worker.md) |
 | Prometheus / env webhook fallback | [Metrics](../operations/metrics-webhooks.md) |
 | Webhook + SMTP alerts / forgot password | [Alerts](../operations/alerts-email-webhooks.md) |

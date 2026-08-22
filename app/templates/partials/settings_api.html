@@ -108,6 +108,10 @@ curl -sS "{{ public_url|default('') }}/openapi.json" | head -c 200</pre>
                 <input type="checkbox" name="scope_edit" value="1">
                 <span>edit</span>
               </label>
+              <label class="flex items-center gap-2 min-h-10" title="Host Files (fleet identity)">
+                <input type="checkbox" name="scope_files" value="1">
+                <span>files</span>
+              </label>
             </div>
           </div>
           <div>
@@ -245,6 +249,10 @@ curl -sS "{{ public_url|default('') }}/openapi.json" | head -c 200</pre>
                   <label class="flex items-center gap-2 min-h-10">
                     <input type="checkbox" name="scope_edit" value="1" {% if 'edit' in t.scopes %}checked{% endif %}>
                     <span>edit</span>
+                  </label>
+                  <label class="flex items-center gap-2 min-h-10">
+                    <input type="checkbox" name="scope_files" value="1" {% if 'files' in t.scopes %}checked{% endif %}>
+                    <span>files</span>
                   </label>
                 </div>
               </div>

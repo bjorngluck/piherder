@@ -1,0 +1,37 @@
+{# Shared Account step-up: passkey button + TOTP/backup, or password when no 2FA.
+   Set totp_input_name, password_input_name, show_password (default true). #}
+{% set _totp_name = totp_input_name if totp_input_name is defined else 'totp_code' %}
+{% set _pw_name = password_input_name if password_input_name is defined else 'current_password' %}
+{% set _show_pw = show_password if show_password is defined else true %}
+{% set _lbl = 'text-[10px]' if compact|default(false) else 'text-sm' %}
+{% if has_2fa and account_stepup_active %}
+<p class="text-xs text-accent">Passkey already confirmed — submit to continue.</p>
+{% elif has_2fa %}
+  {% if has_passkeys %}
+  <div class="space-y-2">
+    <button type="button" class="btn btn-accent min-h-11 text-sm" data-account-stepup-passkey
+            data-testid="account-stepup-passkey">Confirm passkey</button>
+    <p class="hidden text-sm banner-error border border-border rounded p-2" data-account-stepup-err role="alert"></p>
+  </div>
+  {% endif %}
+  {% if has_totp %}
+  <div>
+    <label class="block {{ _lbl }} text-muted mb-1">
+      {% if has_passkeys %}Or 6-digit authenticator / backup code
+      {% else %}6-digit authenticator or backup code{% endif %}
+    </label>
+    <input name="{{ _totp_name }}" type="text" inputmode="numeric" autocomplete="one-time-code"
+           placeholder="123456 or ABCD-EF01"
+           class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono"
+           {% if not has_passkeys %}required{% endif %}>
+  </div>
+  {% elif has_passkeys %}
+  <p class="text-xs text-muted">Confirm passkey above, then submit.</p>
+  {% endif %}
+{% elif _show_pw and password_login_enabled %}
+  <div>
+    <label class="block {{ _lbl }} text-muted mb-1">Current password</label>
+    <input name="{{ _pw_name }}" type="password" required autocomplete="current-password"
+           class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+  </div>
+{% endif %}

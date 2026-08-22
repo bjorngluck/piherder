@@ -17,6 +17,7 @@ PiHerder has **no default password**. Email **Forgot password** exists when SMTP
 | Another admin can still log in | **Users → Recover…** (no Docker needed) |
 | Sole admin forgot password; 2FA still works | Host: **reset-password** |
 | Lost password **and** phone / 2FA | Host: **reset-access** (recommended) |
+| Force 2FA on and lost all factors | Same — **reset-access** or **clear-2fa**, then enrol again |
 | Password known; authenticator lost | Host: **clear-2fa** (or UI if another admin) |
 | SSO-only user (password removed); IdP down | Host: **reset-password** (re-enables local password) or **reset-access**; then sign in locally |
 | **Require SSO** hid password form; IdP down | **Admin password still works** (break-glass). Non-admins cannot use the password form. Or host recovery + disable **Require SSO**. |

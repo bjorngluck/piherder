@@ -25,6 +25,13 @@
     </p>
     <div class="ops-hero-actions">
       {% if open_n %}
+      <form method="post" action="/notifications/dismiss-matching" class="inline">
+        <input type="hidden" name="type" value="{{ type_filter or '' }}">
+        <input type="hidden" name="category" value="{{ category_filter or '' }}">
+        <input type="hidden" name="severity" value="{{ severity_filter or '' }}">
+        <input type="hidden" name="server_id" value="{{ server_id or '' }}">
+        <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Dismiss matching open</button>
+      </form>
       <form method="post" action="/notifications/dismiss-all" class="inline">
         <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Dismiss all open</button>
       </form>
@@ -96,16 +103,34 @@
       <option value="resolved" {% if status == 'resolved' %}selected{% endif %}>Resolved</option>
       <option value="all" {% if status == 'all' %}selected{% endif %}>All</option>
     </select>
+    <select name="severity" class="ops-f-control" aria-label="Severity">
+      <option value="">Any severity</option>
+      {% for s in ['critical', 'warning', 'info'] %}
+      <option value="{{ s }}" {% if severity_filter == s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <select name="category" class="ops-f-control" aria-label="Category">
+      <option value="">Any category</option>
+      {% for cid, clabel in alert_categories or [] %}
+      <option value="{{ cid }}" {% if category_filter == cid %}selected{% endif %}>{{ clabel }}</option>
+      {% endfor %}
+      <option value="other" {% if category_filter == 'other' %}selected{% endif %}>Other</option>
+    </select>
     <select name="type" class="ops-f-control" aria-label="Type">
       <option value="">Any type</option>
-      {% for t in ['os_updates','container_updates','reboot_pending','backup_failed','herder_backup_failed'] %}
-      <option value="{{ t }}" {% if type_filter == t %}selected{% endif %}>{{ t }}</option>
+      {% for t in catalog_types or [] %}
+      <option value="{{ t.id }}" {% if type_filter == t.id %}selected{% endif %}>{{ t.label }}</option>
       {% endfor %}
     </select>
     <select name="server_id" class="ops-f-control" aria-label="Server">
       <option value="">Any server</option>
       {% for s in servers %}
       <option value="{{ s.id }}" {% if server_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="per_page" class="ops-f-control ops-f-narrow" aria-label="Per page">
+      {% for n in per_page_choices or [10, 20, 50, 100] %}
+      <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/pg</option>
       {% endfor %}
     </select>
     <button type="submit" class="btn btn-accent text-xs min-h-9 px-3">Filter</button>
@@ -115,7 +140,7 @@
 {% if p.by_type and items %}
 <div class="ops-type-chips mb-3">
   {% for t, c in p.by_type.items() %}
-  <a href="/notifications?status={{ status }}&type={{ t }}{% if server_id %}&server_id={{ server_id }}{% endif %}"
+  <a href="/notifications?status={{ status }}&type={{ t }}{% if server_id %}&server_id={{ server_id }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}"
      class="ops-type-chip {% if type_filter == t %}is-active{% endif %}">
     <span class="ops-type-chip-n">{{ c }}</span> {{ t }}
   </a>
@@ -143,7 +168,7 @@
     <div class="ops-alert-card-body min-w-0 flex-1">
       <div class="flex flex-wrap items-center gap-2 mb-1">
         <span class="ops-sev-pill ops-sev-pill--{{ n.severity or 'warning' }}">{{ n.severity }}</span>
-        <span class="text-xs text-muted font-mono">{{ n.type }}</span>
+        <span class="text-xs text-muted">{{ n.type_label or n.type }}</span>
         <span class="text-xs text-muted">{{ n.status }}</span>
         {% if n.server_name %}<span class="text-xs text-muted">· {{ n.server_name }}</span>{% endif %}
       </div>
@@ -165,5 +190,6 @@
   </li>
   {% endfor %}
 </ul>
+{% include "partials/list_pager.html" %}
 {% endif %}
 {% endblock %}

@@ -9,7 +9,7 @@ How to move a running compose install to a newer **git tag or `main`**, pull the
 Upgrades change code *and* schema. A self-backup + unchanged master key is the difference between a smooth pull and an unrecoverable encrypted store.
 
 !!! tip "Prefer tags"
-    Prefer **tagged production releases** (`v1.2.0` / later `1.2.x`). Treat untagged `main` as moving. See [Home](../index.md#release-status) · [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md).
+    Prefer **tagged production releases** (`v1.3.0` / later `1.3.x`). Treat untagged `main` as moving. See [Home](../index.md#release-status) · [RELEASE_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md).
 
 ```bash
 # Config DR first
@@ -17,18 +17,18 @@ Upgrades change code *and* schema. A self-backup + unchanged master key is the d
 # Also snapshot Postgres volume if you can
 
 git fetch --tags
-git checkout v1.2.0   # or later 1.2.x
+git checkout v1.3.0   # or later 1.3.x
 docker compose pull
 docker compose up -d
 # Alembic runs on web startup
-# optional pin: PIHERDER_IMAGE=bjorngluck/piherder:1.2.0 docker compose up -d
+# optional pin: PIHERDER_IMAGE=bjorngluck/piherder:1.3.0 docker compose up -d
 ```
 
 ## Checklist
 
 - [ ] Self-backup successful (**admin** — Settings → PiHerder backup)  
 - [ ] `PIHERDER_MASTER_KEY` unchanged and backed up offline  
-- [ ] Read [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) for the version you jump to  
+- [ ] Read [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md) for the version you jump to  
 - [ ] `docker compose ps` healthy (image `bjorngluck/piherder:…`)  
 - [ ] Smoke: login, Users recovery (if multi-user), one server, maps/ports, optional template  
 - [ ] Hard-refresh browser once after UI/CSS deploys (query-busted stylesheets)  
@@ -56,6 +56,24 @@ Jump from **v1.1.x** to **v1.2.0**. Full notes: [RELEASE_v1.2.0.md](https://gith
 11. Smoke: login, one host, one job, optional console (if you enabled it).
 
 SSO / passkeys / demo mode are **new optional surfaces** — they do not turn on by themselves.
+
+## 1.2 → 1.3
+
+Jump from **v1.2.x** to **v1.3.0**. Full notes: [RELEASE_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md).
+
+Settings policy is JSON in `appsetting`. Alembic **`040_ssh_identities`** (fleet + optional privileged SSH keys per host). Alembic **`041_console_transcripts`** (opt-in encrypted command audit; default off).
+
+1. Self-backup first (**Full DR**). Keep `PIHERDER_MASTER_KEY`.  
+2. `git fetch --tags && git checkout v1.3.0` (or pull `bjorngluck/piherder:1.3.0`).  
+3. `docker compose pull && docker compose up -d` — Alembic runs on web start.  
+4. **Compose change:** bundled compose **no longer injects defaulted** `PIHERDER_SSH_CONSOLE_*` knobs (idle, max, bind, …). Only the master enable `PIHERDER_SSH_CONSOLE` stays in compose. Timeouts live in **Settings → Console**. 2FA / grant live in **Settings → Security**.  
+5. If you previously relied on those vars in `.env` **and** compose interpolation, they will not reach the container until you add that one line to compose `environment` (env then **locks** the knob). Otherwise Settings apply.  
+6. Smoke: Settings → Security (password / 2FA) · Settings → Console (including **who may open privileged**) · one host **SSH access** (fleet identity still there; optional privileged card) · optional live shell if the flag is on.  
+7. Alembic **`040_ssh_identities`** copies each host’s existing username + key into a **fleet** identity. `Server.ssh_username` is unchanged. Jobs keep using fleet.  
+8. Alembic **`041_console_transcripts`** is empty until you turn on **Settings → Console → Command audit**. Default remains off.  
+9. **Host Files** is **off** until you set `PIHERDER_HOST_FILES=true` and restart web. Transfer cap is **Settings → Files** (default 512 MiB, ceiling 32 GiB) unless you lock `PIHERDER_HOST_FILES_MAX_BYTES`. [Host Files](../day-to-day/host-files.md).  
+10. **Reports** is on at `/reports` (no flag) — [Reports](../day-to-day/reports.md).  
+11. Immediately run **Settings → PiHerder backup → Full DR** once and copy the archive off-box. Hard-refresh the browser.
 
 ## Breaking notes
 

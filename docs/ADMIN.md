@@ -68,15 +68,14 @@ Each user card shows **last login** (app timezone) and a link to that user’s *
 
 ### Password policy
 
-Enforced on register, account change, and admin create (`app/services/password_policy.py`):
+Enforced on register, account change, admin create/reset, and recover-admin. Defaults (also the seed if Settings is empty):
 
 - At least **10** characters
 - At least one **uppercase**, one **lowercase**, one **digit**
 - At most **72 UTF-8 bytes** (~72 Latin letters/digits; emoji/symbols count as more)
 - Special characters recommended by the strength meter, not hard-required
-- Forms show human-readable rules via `policy_rules_text()`
 
-Admin-configurable min length / character classes is **post-RC** (roadmap).
+**Available from v1.3:** change these under **Settings → General → Security policy**. Minimum length cannot go below **8**; maximum cannot exceed **72**. Forms always show the live rules text. Policy changes are audited (`password_policy_changed`).
 
 ### Roles and delete
 
@@ -121,21 +120,27 @@ There is **no** built-in `admin@example.com` user. An empty database leaves Regi
 
 ### Settings / instance DR (admin)
 
-Timezone, security policy, fleet defaults, PiHerder self-backup **run/restore/download/delete**, Status, and API tokens require **admin**. Operators use fleet jobs and Account self-service only.
+Timezone, security policy, **console limits**, fleet defaults, PiHerder self-backup **run/restore/download/delete**, Status, and API tokens require **admin**. Operators use fleet jobs and Account self-service only.
 
 ---
 
-## 3. Security policy (force 2FA)
+## 3. Security policy (password + 2FA)
 
-**Where:** **Settings** (`/herder-backups?tab=general`) → **Security policy**.
+**Where:** **Settings** (`/herder-backups?tab=general`) → **Security policy**. **Available from v1.3.**
 
 | Setting | Effect |
 |---------|--------|
-| **Force 2FA for all** | Every user without TOTP **or** a passkey is redirected to `/auth/force-2fa` before the fleet UI. Applies after **password and SSO** login. Password change-on-first-login still runs first if required. |
+| **Password rules** | Min/max length (floor 8, ceiling 72), required character classes. Live text on register / account / admin / recover-admin. Audited. |
+| **Who must enrol 2FA** | Off · admins · operators+ · everyone. Replaces the old all-or-nothing checkbox. |
+| **Grace** | 0–60 days after the policy is turned on (home-lab). 0 = immediate wall. |
+| **Trusted device** | Login 2FA skip stays on by default (v1.2). Enrol-wall skip is **off** by default. |
+| **Step-up windows** | Minutes for Account actions, secrets view, and console grant. |
+| **Allowed factors** | Per surface (login / account / secrets / console) × TOTP / passkey / backup. Console env still wins when set. |
+| **IdP MFA satisfies login 2FA** | **Default off.** Fail closed if the `amr` (or configured) claim is missing. Never skips Account / secrets / console step-up. |
 
-Stored in PostgreSQL (`appsetting` singleton) with timezone, fleet check defaults, SSO config, and self-backup schedule — restored with DB dumps and PiHerder self-backup (not a separate volume JSON file).
+Stored in PostgreSQL (`appsetting` singleton) with timezone, fleet check defaults, SSO config, console limits, and self-backup schedule.
 
-Optional 2FA (when not forced): Account → enable TOTP and/or **passkeys**, backup codes, optional trusted device. Trusted-device rows show **type** (from UA), **last IP**, and **friendly rename** via **✎ Edit** (inline form; not always visible). Wiki: [2FA](../wiki/account-security/two-factor.md).
+Account mutations (SSO unlink, passkey revoke) accept **any enrolled 2FA**. Password is only required when no 2FA is enrolled. Wiki: [2FA](../wiki/account-security/two-factor.md). Lost factors: [locked out](../wiki/troubleshooting/locked-out.md) / `./scripts/recover-admin.sh`.
 
 **Email password recovery (v1.1 G1-lite):** when SMTP is enabled under **Settings → Alerts**, login shows **Forgot password?** — one-hour hashed token email; rate-limited; no open reset without SMTP. Admins can still OOB-reset from **Users**.
 
@@ -157,6 +162,16 @@ Optional 2FA (when not forced): Account → enable TOTP and/or **passkeys**, bac
 | Secret storage | Client secret Fernet-encrypted in `appsetting`; included in herder self-backup |
 
 Audit: `sso_login`, `sso_login_failed`, `sso_link`, `sso_unlink`, `sso_user_provisioned`, `user_role_changed`, `user_role_sync_skipped` (sole-admin demotion refused), `user_password_removed`, `user_password_set`.
+
+### 3b. Console policy (timeouts / concurrency)
+
+**Where:** **Settings** → **Console** (same General tab, after Security). **Available from v1.3.**
+
+Idle timeout, max session, max shells per user / instance, ticket TTL, park hold, bind IP/device, revalidate interval, xterm scrollback, **who may open a privileged console** (`admin` default, or `operator`), and **command audit** (off / commands / commands+truncated output; optional **require on every session**; retention 1–90 days, default 14). Defaults match v1.2 for timeouts. Home-lab ceilings (idle ≤ 8h, max session ≤ 12h, 16/user, 64 global). Env wins when a `PIHERDER_SSH_CONSOLE_*` value is set and non-empty; the field shows as locked. **`PIHERDER_SSH_CONSOLE` stays the compose kill switch** (not a Settings checkbox). Grant window and 2FA factors stay on Security. Privileged **Connect as…** always re-prompts 2FA (the fleet grant is not enough). Command audit default **off**; demo never stores transcripts; viewers cannot read them.
+
+Live apply: idle / max / hold / revalidate on the next WS tick; ticket and bind on the next ticket; concurrency on the next new shell (no eviction). Demo writes 403. Audit: `console_policy_changed`.
+
+Wiki: [web SSH console](../wiki/day-to-day/web-ssh-console.md) · [Settings → Console](../wiki/operations/settings.md#console).
 
 ### Pins / favourites & host jump (v1.1)
 
@@ -216,7 +231,9 @@ Scheduled apply/audit attribution shows as **system / scheduler** (no user id).
 
 ### Bulk actions (Servers list)
 
-**Where:** `/servers` — checkboxes + **Select all visible**. Toolbar appears when something is selected. Row **⋯** menus: open, backup, patch, Docker, settings (feature-gated). List status is **DB-backed** (last update checks / soft embeds) — no live SSH at render.
+**Where:** `/servers` — checkboxes + **Select all visible** (this **page** only). Toolbar appears when something is selected. Row **⋯** menus: open, backup, patch, Docker, settings (feature-gated). List status is **DB-backed** (last update checks / soft embeds) — no live SSH at render.
+
+**v1.3 list chrome:** search box (`q` on name / hostname / IP / DNS / SSH user, plus aliases like `ha` → homeassistant), page size **10 / 20 / 50 / 100** (cookie `ph_per_page`, shared with Jobs / Audit / Docker / discovery), **Pins first** sort. **Reorder** needs All + empty search (`?reorder=1` loads the full fleet). Same pager on Docker stacks and LAN Discovery **list** (map stays unpaged). `GET /api/v1/servers` is capped (`limit` default/max 100, `offset`, optional `q`) and returns `total`.
 
 | Action | Feature flag required on host |
 |--------|--------------------------------|
@@ -387,6 +404,11 @@ While a job runs, server UI modals (JobHold / progress) poll job status and log 
 | `os_patch`, `container_patch`, `os_update_check`, `container_update_check` | At most one **pending/running** of that type per server |
 | `backup` | Per-host Redis mutex + Celery (separate path) |
 
+### Reports (PiHerder history)
+
+**Where:** header **Reports** (`/reports`) — any signed-in role.  
+Aggregates **Job** history, **nmap scan runs**, and **console Audit**: backups, dest size, OS patches, LAN hosts_up, Docker deploys/patches, web-console sessions. Windows 7/30/90 days. Wiki: [reports.md](../wiki/day-to-day/reports.md).
+
 ### Jobs vs Audit vs Notifications
 
 | System | Purpose |
@@ -549,7 +571,8 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **2FA** | Enable for admins (TOTP and/or passkeys); consider **Force 2FA** in Settings; revoke trusted devices if a device is lost |
 | **SSO** | Optional OIDC IdP; map groups carefully; keep break-glass local admin; see §3a |
 | **CSP (v1.2)** | Default on (`PIHERDER_CSP=true`). **Compiled Tailwind** (no Play / no `unsafe-eval`). `connect-src` is `'self'` + public origin / its `wss:` only. Console uses vendored xterm. Report-only: `PIHERDER_CSP_REPORT_ONLY=true`. See [SECURITY.md](../SECURITY.md). |
-| **Web SSH** | Default off (`PIHERDER_SSH_CONSOLE=false`); operator+ + passkey-preferred 2FA; floating popup + multi-host `/console` (host tabs stay connected); **fleet-wide** step-up grant (~10 min); soft resume after app switch; compact chrome (Aa / ···); continuous revalidation; never PEM in browser. Wiki: [web-ssh-console](../wiki/day-to-day/web-ssh-console.md) · env sample: [console-and-backup.env.example](console-and-backup.env.example) |
+| **Web SSH** | Default off (`PIHERDER_SSH_CONSOLE=false`); operator+ + passkey-preferred 2FA; floating popup + multi-host `/console`. Optional **privileged** identity is console + **Files** (**Connect as…**, extra confirm + fresh 2FA; jobs stay on fleet). Optional **command audit** (Settings → Console; default off; Fernet body; operator+ read). Timeouts, concurrency, ticket/park, bind, scrollback, privileged RBAC, and audit knobs are **Settings → Console** (env still wins if set). Kill switch stays compose-only. Wiki: [web-ssh-console](../wiki/day-to-day/web-ssh-console.md) · env sample: [console-and-backup.env.example](console-and-backup.env.example) |
+| **Host Files** | Default off (`PIHERDER_HOST_FILES=false`). **Files** button on every SSH host (including HAOS). Fleet jail = docker_base or home; privileged jail = `/` minus virtual FS. Operator+; API scope `files` (fleet list/get/put only — richer API is v1.4+). UI: edit, zip/unzip, chmod/chown, search (names + contents), preview, `.env` step-up, Docker volumes + `docker cp`. Transfer cap: Settings → Files (default 512 MiB, ceiling 32 GiB; env lock). Wiki: [host-files](../wiki/day-to-day/host-files.md) |
 | **SSH host keys** | First successful **Test connection** **pins** the remote key (TOFU). Mismatch refuses. Reset the pin under SSH access after a rebuild. New hosts default SSH user **`pi`** (existing rows unchanged). |
 | **App port** | Compose binds **`127.0.0.1:8000`** only. Honour `X-Forwarded-For` / `CF-Connecting-IP` only from `PIHERDER_TRUSTED_PROXY_CIDRS`. |
 | **Password-reset URLs** | Built from **`PIHERDER_PUBLIC_URL` only** (Host / `X-Forwarded-Host` ignored). |
@@ -558,9 +581,9 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Auth chrome** | Unauthenticated `/` redirects to login; version string only when signed in |
 | **Roles** | Viewer cannot mutate fleet; Docker **build** stream is operator+ — [wiki roles](../wiki/account-security/roles.md) |
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
-| **Image pin** | Prefer a tagged image: Hub **`1.2.0`** / `1.2` / `latest` (`1.1.1` / `1.1` pins remain valid) |
+| **Image pin** | Prefer a tagged image: Hub **`1.3.0`** / `1.3` / `latest` (`1.2.0` / `1.2` / `1.1.1` / `1.1` pins remain valid) |
 
-Active ship plan: [PLAN_v1.3.0.md](PLAN_v1.3.0.md) (planning). Current notes: [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [QA_v1.2.0.md](QA_v1.2.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current production: [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [QA_v1.3.0.md](QA_v1.3.0.md). Next: [PLAN_v1.4.0.md](PLAN_v1.4.0.md). Prior: [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 
@@ -605,7 +628,7 @@ Back up `./piherder_backups` and the Postgres volume before major upgrades. Use 
 
 ### Alerts: webhooks & SMTP (v1.1)
 
-**Preferred:** **Settings → Alerts** (`/herder-backups?tab=alerts`, admin) — webhook URL + event filters (notifications / jobs / backups), optional secret; SMTP host/port/security + encrypted password, test email, optional alert recipients, **Forgot password** toggle. Wiki: [Alerts (email & webhooks)](../wiki/operations/alerts-email-webhooks.md).
+**Preferred:** **Settings → Alerts** (`/herder-backups?tab=alerts`, admin) — **alert policy** (per-category severity / mute / debounce / re-alert), webhook URL + event filters (notifications / jobs / backups) + category allowlist, optional secret; SMTP host/port/security + encrypted password, test email, optional alert recipients, **Forgot password** toggle. Host-down uses a Kuma SSH bind (herder does not ping). New nmap devices digest on webhooks. Wiki: [Alerts (email & webhooks)](../wiki/operations/alerts-email-webhooks.md).
 
 **Env fallback** (compose operators; used when Settings webhook URL empty):
 

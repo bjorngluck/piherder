@@ -116,6 +116,9 @@ async def ssh_generate_key(
     server.ssh_public_key = pub
     server.ssh_private_key_encrypted = encryption.encrypt_str(priv)
     session.add(server)
+    from ..services import ssh_identities as ident_svc
+
+    ident_svc.ensure_fleet_identity(session, server)
     record_server_audit(
         session,
         server_id=server.id,
@@ -288,6 +291,9 @@ async def ssh_deploy_key(
         derived = result.details["public_key"]
         if derived and server.ssh_public_key != derived:
             server.ssh_public_key = derived
+    from ..services import ssh_identities as ident_svc
+
+    ident_svc.ensure_fleet_identity(session, server)
 
     if result.ok:
         record_server_audit(
@@ -378,6 +384,9 @@ async def ssh_rotate_key(
     server.ssh_public_key = new_pub
     server.ssh_private_key_encrypted = encryption.encrypt_str(new_priv)
     session.add(server)
+    from ..services import ssh_identities as ident_svc
+
+    ident_svc.ensure_fleet_identity(session, server)
     record_server_audit(
         session,
         server_id=server.id,
@@ -454,6 +463,9 @@ async def ssh_set_username(
             status_code=303,
         )
     session.add(server)
+    from ..services import ssh_identities as ident_svc
+
+    ident_svc.ensure_fleet_identity(session, server)
     fields = ["ssh_username", "docker_base_dir"]
     if pw_cleared:
         fields.append("ssh_password_cleared")
@@ -550,6 +562,9 @@ async def ssh_provision_user(
     new_user = result.details.get("new_username") or uname
     prev, new_user, pw_cleared = repoint_ssh_username(server, new_user, clear_password=True)
     session.add(server)
+    from ..services import ssh_identities as ident_svc
+
+    ident_svc.ensure_fleet_identity(session, server)
     # expire so next request cannot serve a stale identity-map value
     session.commit()
     session.refresh(server)
@@ -585,6 +600,334 @@ async def ssh_provision_user(
     return RedirectResponse(
         server_redirect(server_id, msg="user_provisioned", detail=new_user),
         status_code=303,
+    )
+
+
+def _identity_or_redirect(session: Session, server_id: int, identity_id: int):
+    from ..services import ssh_identities as ident_svc
+
+    ident = ident_svc.get_by_id(session, server_id, identity_id)
+    if not ident:
+        return None, RedirectResponse(
+            server_redirect(server_id, error="identity_missing"),
+            status_code=303,
+        )
+    return ident, None
+
+
+@router.post("/{server_id}/ssh/identities/privileged")
+async def ssh_add_privileged(
+    server_id: int,
+    ssh_username: str = Form("piherder-admin"),
+    label: str = Form("Privileged"),
+    key_mode: str = Form("generate"),
+    private_key: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    from ..services.demo import http_403_if_demo
+    from ..services import ssh_identities as ident_svc
+
+    http_403_if_demo("ssh_deploy")
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    ident_svc.ensure_fleet_identity(session, server)
+    mode = (key_mode or "generate").strip().lower()
+    try:
+        row = ident_svc.add_privileged(
+            session,
+            server,
+            username=ssh_username,
+            label=label,
+            private_plain=private_key if mode == "upload" else None,
+            generate=mode != "upload",
+        )
+    except ident_svc.IdentityError as e:
+        return RedirectResponse(
+            server_redirect(server_id, error="identity_fail", detail=e.message[:180]),
+            status_code=303,
+        )
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_ssh_identity_added",
+        message=f"Privileged identity {row.username} added",
+        details={
+            "role": row.role,
+            "username": row.username,
+            "key_fp": row.key_fingerprint,
+            "generated": mode != "upload",
+        },
+    )
+    session.commit()
+    return RedirectResponse(
+        server_redirect(server_id, show_ssh_key="1", msg="identity_added"),
+        status_code=303,
+    )
+
+
+@router.post("/{server_id}/ssh/identities/{identity_id}/test")
+async def ssh_test_identity(
+    server_id: int,
+    identity_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    from ..services import ssh_identities as ident_svc
+
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    ident, err = _identity_or_redirect(session, server_id, identity_id)
+    if err:
+        return err
+    result = await run_in_threadpool(
+        ssh_onboarding.test_connection_detail, server, ident
+    )
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_ssh_identity_tested",
+        status="success" if result.ok else "failed",
+        message=result.message,
+        details={
+            "role": ident.role,
+            "username": ident.username,
+            "key_fp": ident.key_fingerprint,
+            **{k: v for k, v in result.details.items() if k not in ("new_private_key",)},
+        },
+    )
+    if result.ok and ident.role == ident_svc.ROLE_FLEET:
+        try:
+            await run_in_threadpool(host_deps_svc.check_and_persist, session, server)
+        except Exception:
+            pass
+    session.commit()
+    if result.ok:
+        return RedirectResponse(server_redirect(server_id, msg="ssh_ok"), status_code=303)
+    return RedirectResponse(
+        server_redirect(server_id, error="ssh_fail", detail=result.message[:180]),
+        status_code=303,
+    )
+
+
+@router.post("/{server_id}/ssh/identities/{identity_id}/deploy")
+async def ssh_deploy_identity(
+    server_id: int,
+    identity_id: int,
+    ssh_password: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    from ..services.demo import http_403_if_demo
+    from ..services import ssh_identities as ident_svc
+
+    http_403_if_demo("ssh_deploy")
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    ident, err = _identity_or_redirect(session, server_id, identity_id)
+    if err:
+        return err
+    password_override = ssh_password.strip() if ssh_password and ssh_password.strip() else None
+    result = await run_in_threadpool(
+        ssh_onboarding.deploy_public_key,
+        server,
+        password_override=password_override,
+        identity=ident,
+    )
+    if result.ok and result.details.get("public_key"):
+        derived = result.details["public_key"]
+        if derived and ident.public_key != derived:
+            ident_svc.apply_material(ident, public_key=derived)
+            session.add(ident)
+            if ident.role == ident_svc.ROLE_FLEET:
+                ident_svc.apply_fleet_to_server(server, ident)
+                session.add(server)
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_ssh_key_deployed",
+        status="success" if result.ok else "failed",
+        message=result.message,
+        details={
+            "role": ident.role,
+            "username": ident.username,
+            "key_fp": ident.key_fingerprint,
+        },
+    )
+    session.commit()
+    if result.ok:
+        return RedirectResponse(server_redirect(server_id, msg="key_deployed"), status_code=303)
+    return RedirectResponse(
+        server_redirect(server_id, error="key_deploy_fail", detail=result.message[:180]),
+        status_code=303,
+    )
+
+
+@router.post("/{server_id}/ssh/identities/{identity_id}/rotate")
+async def ssh_rotate_identity(
+    server_id: int,
+    identity_id: int,
+    ssh_password: str = Form(""),
+    confirm: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    from ..services.demo import http_403_if_demo
+    from ..services import ssh_identities as ident_svc
+
+    http_403_if_demo("ssh_deploy")
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    ident, err = _identity_or_redirect(session, server_id, identity_id)
+    if err:
+        return err
+    if (confirm or "").strip().lower() != "rotate":
+        return RedirectResponse(
+            server_redirect(server_id, error="key_rotate_confirm"),
+            status_code=303,
+        )
+    password_override = ssh_password.strip() if ssh_password and ssh_password.strip() else None
+    result = await run_in_threadpool(
+        ssh_onboarding.rotate_keypair,
+        server,
+        password_override=password_override,
+        identity=ident,
+    )
+    if not result.ok:
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="server_ssh_identity_rotated",
+            status="failed",
+            message=result.message,
+            details={"role": ident.role, "username": ident.username},
+        )
+        session.commit()
+        return RedirectResponse(
+            server_redirect(server_id, error="key_rotate_fail", detail=result.message[:180]),
+            status_code=303,
+        )
+    ident_svc.rotate_identity_material(
+        ident,
+        public_key=result.details["new_public_key"],
+        private_plain=result.details["new_private_key"],
+    )
+    session.add(ident)
+    if ident.role == ident_svc.ROLE_FLEET:
+        ident_svc.apply_fleet_to_server(server, ident)
+        session.add(server)
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_ssh_identity_rotated",
+        message=result.message,
+        details={
+            "role": ident.role,
+            "username": ident.username,
+            "key_fp": ident.key_fingerprint,
+        },
+    )
+    session.commit()
+    return RedirectResponse(server_redirect(server_id, msg="key_rotated"), status_code=303)
+
+
+@router.post("/{server_id}/ssh/identities/{identity_id}/remove")
+async def ssh_remove_identity(
+    server_id: int,
+    identity_id: int,
+    confirm_name: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    from ..services.demo import http_403_if_demo
+    from ..services import ssh_identities as ident_svc
+
+    http_403_if_demo("ssh_deploy")
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    ident, err = _identity_or_redirect(session, server_id, identity_id)
+    if err:
+        return err
+    expected = (server.name or "").strip()
+    if not expected or (confirm_name or "").strip() != expected:
+        return RedirectResponse(
+            server_redirect(
+                server_id,
+                error="identity_fail",
+                detail="Type the exact server name to remove the privileged identity",
+            ),
+            status_code=303,
+        )
+    snap = {
+        "role": ident.role,
+        "username": ident.username,
+        "key_fp": ident.key_fingerprint,
+    }
+    try:
+        ident_svc.remove_privileged(session, ident)
+    except ident_svc.IdentityError as e:
+        return RedirectResponse(
+            server_redirect(server_id, error="identity_fail", detail=e.message[:180]),
+            status_code=303,
+        )
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_ssh_identity_removed",
+        message=f"Privileged identity {snap['username']} removed",
+        details=snap,
+    )
+    session.commit()
+    return RedirectResponse(server_redirect(server_id, msg="identity_removed"), status_code=303)
+
+
+@router.get("/{server_id}/ssh/identities/{identity_id}/setup-script")
+async def download_privileged_setup_script(
+    server_id: int,
+    identity_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    from ..services import ssh_identities as ident_svc
+
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    ident = ident_svc.get_by_id(session, server_id, identity_id)
+    if not ident or ident.role != ident_svc.ROLE_PRIVILEGED:
+        raise HTTPException(404, "Privileged identity not found")
+    pub = ident.public_key
+    if not ssh_onboarding.is_real_public_key(pub) and ident.private_key_encrypted:
+        try:
+            pub = ssh_onboarding.public_key_from_private(
+                ssh_service.get_private_key_plain(server, ident),
+                comment=f"piherder-privileged@{server.hostname or server.name}",
+            )
+        except Exception:
+            pub = ""
+    script = ssh_onboarding.build_privileged_user_script(ident.username, pub or "")
+    user_slug = "".join(
+        c if c.isalnum() or c in "-_" else "-" for c in (ident.username or "piherder-admin")
+    ) or "piherder-admin"
+    filename = f"setup-privileged-{user_slug}.sh"
+    return Response(
+        content=script,
+        media_type="text/x-shellscript; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
     )
 
 

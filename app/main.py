@@ -65,6 +65,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Stale job cleanup skipped: {e}")
 
+    try:
+        from .services.console_audit import purge_expired_now
+
+        n = purge_expired_now()
+        if n:
+            logger.info("Purged %s expired console transcript bodies", n)
+    except Exception as e:
+        logger.warning("Console transcript retention skipped: %s", e)
+
     # First boot: no default user. Empty DB → open /auth/register creates the admin;
     # registration then closes unless ALLOW_OPEN_REGISTRATION=true.
     # Demo mode: auto-seed shared admin + synthetic fleet when empty.
@@ -465,8 +474,10 @@ app.include_router(fleet_services_router.router, prefix="", tags=["fleet-service
 app.include_router(templates_svc_router.router, prefix="", tags=["templates"])
 app.include_router(dns_router.router, prefix="", tags=["dns"])
 from .routers import about as about_router
+from .routers import insights as insights_router
 
 app.include_router(about_router.router, prefix="", tags=["about"])
+app.include_router(insights_router.router, prefix="", tags=["reports"])
 from .routers import favourites as favourites_router
 
 app.include_router(favourites_router.router, prefix="", tags=["favourites"])

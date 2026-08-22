@@ -76,7 +76,7 @@ Redirect URI for the IdP is shown on the Settings card (same as above).
 |------|----------------|
 | **SSO → local (auto)** | Login with IdP; if `(issuer, subject)` unknown but **email matches** one active local user → **auto-link** + login |
 | **SSO → new user (JIT)** | No match → create user with role from map (or default), password login **off**, SSO linked |
-| **Local → SSO (explicit)** | Signed in → **Account → Connected accounts → Link …** (confirm password or 2FA when required) |
+| **Local → SSO (explicit)** | Signed in → **Account → Connected accounts → Link …** (confirm passkey or authenticator, then Link). Browser goes to the IdP; after consent you return linked. |
 
 <figure class="ph-figure" markdown>
   ![Connected accounts](../assets/screenshots/account-sso.png)
@@ -95,7 +95,7 @@ After at least one SSO link:
 |--------|--------|--------|
 | **Remove password** | Account → Password | Confirms with 2FA (if enrolled) or current password; then password login fails for that user |
 | **Set password** | Account → Password | Restores break-glass local login |
-| **Unlink SSO** | Account → Connected accounts | If password was removed, **set a password in the unlink form** first — never leave zero login methods |
+| **Unlink SSO** | Account → Connected accounts → **Unlink…** | Opens a **confirmation sheet** (issuer + email). Confirm with passkey or authenticator/backup in that sheet. If password was removed, **set a password in the same sheet** before unlink completes — never leave zero login methods. Failed step-up stays on this sheet (does not open the authenticator-app card). |
 
 ---
 
@@ -107,7 +107,7 @@ PiHerder does **not** skip its own 2FA because the IdP already authenticated you
 |-----------|-----------|
 | User has TOTP and/or passkey | After IdP callback → same **2FA step-up** as after password (or trusted device skip) |
 | Force 2FA; no factor enrolled | After identity proven → force-2FA enroll wall |
-| Link / unlink / remove password | Re-validate 2FA when enrolled. **v1.2:** unlink prefers TOTP / backup codes when TOTP is on; passkey step-up also works. Factor-agnostic step-up is **[KI-account-stepup-factors](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md#known-issues-ship-with-awareness)** → v1.3. |
+| Link / unlink / remove password | Re-validate 2FA **in the same sheet** when enrolled. **v1.3:** any enrolled factor (Confirm passkey, TOTP, backup). Password only when no 2FA is enrolled. Unlink is **Unlink…** → confirm sheet, not a one-click POST. |
 
 IdP MFA (if any) is **extra**, not a substitute for PiHerder TOTP/passkeys. Details: [2FA & force 2FA](two-factor.md).
 

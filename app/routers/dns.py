@@ -12,6 +12,7 @@ from sqlmodel import Session
 from ..database import get_session
 from ..models import Server, User
 from ..security.auth import get_admin_user, get_current_user, get_operator_user, user_role
+from ..services import alert_policy as apol
 from ..services import dns_fabric as fabric
 from ..services.app_settings import load_settings, save_settings
 from ..services.audit_write import make_audit_log
@@ -163,11 +164,7 @@ def _dns_page_context(
             settings.get("network_kuma_integration_id") or ""
         ).strip(),
         "network_kuma_monitors": kuma_opts,
-        "stack_inventory_down_alerts": bool(
-            settings.get("stack_inventory_down_alerts")
-            if settings.get("stack_inventory_down_alerts") is not None
-            else True
-        ),
+        "stack_inventory_down_alerts": apol.inventory_down_alerts_enabled(),
         "msg": request.query_params.get("msg") or "",
         "error": request.query_params.get("error") or "",
         "detail": request.query_params.get("detail") or "",
@@ -1244,11 +1241,16 @@ async def save_network_map(
         "stack_inventory_down_alerts": stack_inventory_down_alerts
         in ("1", "on", "true", "yes"),
     }
+    inv_on = bool(payload["stack_inventory_down_alerts"])
     # Keep prior lookup timestamp if public IP unchanged
     prev = load_settings()
     if pub and pub != (prev.get("network_public_ip") or "").strip():
         payload["network_public_ip_checked_at"] = datetime.utcnow().isoformat() + "Z"
     save_settings(payload)
+    try:
+        apol.set_type_override("stack_container_down", enabled=inv_on)
+    except Exception:
+        pass
     return _redirect(msg="Network map settings saved")
 
 

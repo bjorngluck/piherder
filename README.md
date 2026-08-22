@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Release](https://img.shields.io/badge/release-v1.2.0-green.svg)](docs/RELEASE_v1.2.0.md)
+[![Release](https://img.shields.io/badge/release-v1.3.0-green.svg)](docs/RELEASE_v1.3.0.md)
 [![Docker Hub](https://img.shields.io/badge/docker-bjorngluck%2Fpiherder-blue.svg)](https://hub.docker.com/r/bjorngluck/piherder)
 [![Docs](https://img.shields.io/badge/docs-wiki-red.svg)](https://piherder-docs.hacknow.info/)
 [![Demo](https://img.shields.io/badge/demo-view--only-orange.svg)](https://piherder-demo.hacknow.info)
@@ -29,9 +29,11 @@ Inspired by projects like [Nginx Proxy Manager](https://github.com/NginxProxyMan
 - Integrations: Uptime Kuma, Grafana, Pi-hole (v6), Nginx Proxy Manager + cert management
 - **LAN Discovery** (opt-in nmap worker, devices, schedules, Hosts map overlay)
 - Network Maps (DNS fabric, logical/physical topology, service paths, runtime stack view groups)
+- **Reports:** backup dest, OS patches, LAN live, Docker deploys, console sessions (PiHerder history — not Grafana)
 - PWA + Web Push notifications
 - RBAC, 2FA (TOTP + passkeys), optional SSO/OIDC, audit trail, self-backup with full DR
 - Optional in-browser **web SSH console** (off by default)
+- Optional **Host Files** jailed SFTP explorer (off by default; `PIHERDER_HOST_FILES`)
 - Token REST API for automation (n8n, Home Assistant, etc.)
 
 ### Quick Start
@@ -57,9 +59,9 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Full docs & wiki: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
-- **Current production (Hub):** [docs/RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) — passkeys · SSO · web SSH · gated demo · full DB self-backup · security remediations
-- Prior: [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) · [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
-- Next: [docs/PLAN_v1.3.0.md](docs/PLAN_v1.3.0.md) (planning)
+- **Current production:** [docs/RELEASE_v1.3.0.md](docs/RELEASE_v1.3.0.md) — password / 2FA policy · console timeouts · scale lists · Connect as… · opt-in command audit · alert policy · Reports · Host Files (flag off)
+- Prior: [docs/RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) · [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
+- **Next train:** [docs/PLAN_v1.4.0.md](docs/PLAN_v1.4.0.md) — service migration (not started)
 - API reference: [docs/API.md](docs/API.md)
 
 ### Public demo (view-only)

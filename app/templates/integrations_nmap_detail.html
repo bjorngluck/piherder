@@ -65,7 +65,7 @@
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4" data-testid="nmap-overview-stats">
   <div class="card p-4">
     <div class="text-xs text-muted">Devices</div>
-    <div class="text-2xl font-semibold mt-1">{{ status.device_count or devices|length }}</div>
+    <div class="text-2xl font-semibold mt-1">{{ device_stats.total if device_stats else (status.device_count or devices|length) }}</div>
   </div>
   <div class="card p-4">
     <div class="text-xs text-muted">CIDRs</div>
@@ -437,8 +437,9 @@
     <div class="nmap-stat"><span class="nmap-stat-n">{{ device_stats.open_ports if device_stats else 0 }}</span><span class="nmap-stat-l">open ports</span></div>
     {% endif %}
   </div>
+  {% set _nkeep = keep_query|default('') %}
   <div class="nmap-view-toggle flex flex-wrap items-center gap-1 mb-2" role="group" aria-label="Devices view" data-testid="nmap-devices-view-toggle">
-    <a href="?tab=devices{% if state_filter %}&state={{ state_filter }}{% endif %}"
+    <a href="?{% if _nkeep %}{{ _nkeep }}{% else %}tab=devices{% endif %}{% if state_filter %}&state={{ state_filter }}{% endif %}"
        class="btn btn-secondary text-xs min-h-9 {{ 'is-active' if dview != 'map' else '' }}"
        data-testid="nmap-view-list">List</a>
     <a href="?tab=devices&view=map"
@@ -446,24 +447,33 @@
        data-testid="nmap-view-map">Map</a>
   </div>
   {% if dview != 'map' %}
-  <div class="nmap-filter-bar" role="search" aria-label="Filter devices" data-testid="nmap-devices-filter-bar">
-    <div class="nmap-filters" role="group" aria-label="Filter by state">
-      <a href="?tab=devices" class="nmap-filter {% if not state_filter %}is-active{% endif %}"
-         data-testid="nmap-filter-all">All{% if device_stats %} <span class="nmap-filter-n">{{ device_stats.total }}</span>{% endif %}</a>
+  <div class="nmap-filter-bar ops-list-filters" role="search" aria-label="Filter devices" data-testid="nmap-devices-filter-bar">
+    <div class="nmap-filters ops-list-filters-chips" role="group" aria-label="Filter by state">
+      <a href="?{% if _nkeep %}{{ _nkeep }}{% else %}tab=devices{% endif %}" class="ops-type-chip nmap-filter {% if not state_filter %}is-active{% endif %}"
+         data-testid="nmap-filter-all">All{% if device_stats %} <span class="ops-type-chip-n nmap-filter-n">{{ device_stats.total }}</span>{% endif %}</a>
       {% for st, stlab in [('new','New'),('known','Known'),('linked','Linked'),('ignored','Hidden'),('stale','Offline')] %}
       {% set stcount = device_stats.get(st, 0) if device_stats else 0 %}
-      <a href="?tab=devices&state={{ st }}" class="nmap-filter {% if state_filter == st %}is-active{% endif %}"
+      <a href="?{% if _nkeep %}{{ _nkeep }}&{% else %}tab=devices&{% endif %}state={{ st }}" class="ops-type-chip nmap-filter {% if state_filter == st %}is-active{% endif %}"
          data-testid="nmap-filter-{{ st }}"
-         title="{% if st == 'new' %}Unreviewed inbox{% elif st == 'known' %}Reviewed / acknowledged{% elif st == 'ignored' %}Hidden from maps (Ignore) — still in DB{% elif st == 'stale' %}Not seen recently (offline flag — never auto-deleted; purge manually){% else %}{{ stlab }}{% endif %}">{{ stlab }}{% if device_stats %} <span class="nmap-filter-n">{{ stcount }}</span>{% endif %}</a>
+         title="{% if st == 'new' %}Unreviewed inbox{% elif st == 'known' %}Reviewed / acknowledged{% elif st == 'ignored' %}Hidden from maps (Ignore) — still in DB{% elif st == 'stale' %}Not seen recently (offline flag — never auto-deleted; purge manually){% else %}{{ stlab }}{% endif %}">{{ stlab }}{% if device_stats %} <span class="ops-type-chip-n nmap-filter-n">{{ stcount }}</span>{% endif %}</a>
       {% endfor %}
     </div>
-    <div class="nmap-filter-search-wrap">
+    <form method="get" class="ops-list-filters-search nmap-filter-search-wrap" role="search">
+      <input type="hidden" name="tab" value="devices">
+      {% if state_filter %}<input type="hidden" name="state" value="{{ state_filter }}">{% endif %}
       <label class="sr-only" for="nmap-host-search">Filter hosts</label>
-      <input type="search" id="nmap-host-search" class="input nmap-filter-search text-sm"
+      <input type="search" id="nmap-host-search" name="q" value="{{ q or '' }}"
+             class="ops-f-control ops-f-grow nmap-filter-search"
              placeholder="Filter by name, IP, MAC, type…"
              autocomplete="off" aria-label="Filter hosts"
              data-testid="nmap-devices-search">
-    </div>
+      <select name="per_page" class="ops-f-control ops-f-narrow" aria-label="Per page"
+              onchange="this.form.submit()" data-testid="nmap-list-per-page">
+        {% for n in per_page_choices or [10, 20, 50, 100] %}
+        <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/pg</option>
+        {% endfor %}
+      </select>
+    </form>
   </div>
   {% if can_mutate and device_stats and device_stats.stale and state_filter == 'stale' %}
   <form method="post"
@@ -501,7 +511,14 @@
 
 {% if dview != 'map' %}
 {% if not device_rows %}
+  {% if q or state_filter %}
+<div class="card p-5 text-sm text-muted" data-testid="nmap-devices-empty-filter">
+  Nothing matches this filter. Clear the search or pick another state chip.
+  <div class="mt-3"><a href="?tab=devices" class="btn btn-secondary min-h-11 text-sm">Show all</a></div>
+</div>
+  {% else %}
 <div class="card p-5 text-sm text-muted" data-testid="nmap-devices-empty">No devices yet. Run a discovery scan from Overview.</div>
+  {% endif %}
 {% else %}
 <p class="text-xs text-muted mb-2">Click a host to <strong class="text-text">edit in a modal</strong> (name, device type, gateway, state).</p>
 <div class="nmap-host-list card overflow-hidden">
@@ -515,9 +532,8 @@
     {% set d = item.row %}
     {% set prof = item.profile or {} %}
     {% set dlab = item.label or d.display_name or d.hostname or d.ip_address %}
-    <a href="?tab=devices{% if state_filter %}&state={{ state_filter }}{% endif %}&device={{ d.id }}"
-       class="nmap-host-row {% if d.state == 'stale' %}nmap-host-row--stale{% endif %} {% if device and device.id == d.id %}is-active{% endif %}"
-       data-search="{{ (d.ip_address ~ ' ' ~ (d.display_name or '') ~ ' ' ~ (d.hostname or '') ~ ' ' ~ (d.mac_address or '') ~ ' ' ~ (d.mac_vendor or '') ~ ' ' ~ d.state ~ ' offline hidden ignore ' ~ (item.last_seen_label or '') ~ ' ' ~ (d.map_role or '') ~ ' ' ~ (prof.kind or '') ~ ' ' ~ (prof.label or ''))|lower }}">
+    <a href="?{{ pager_query }}{% if pager_query %}&{% endif %}{% if page %}page={{ page }}&{% endif %}device={{ d.id }}"
+       class="nmap-host-row {% if d.state == 'stale' %}nmap-host-row--stale{% endif %} {% if device and device.id == d.id %}is-active{% endif %}">
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-1.5 min-w-0">
           <span class="text-sm font-medium text-text truncate" title="{{ dlab }}">{{ dlab }}</span>
@@ -560,32 +576,7 @@
     {% endfor %}
   </div>
 </div>
-<p class="text-sm text-muted hidden nmap-filter-empty" id="nmap-devices-empty-filter" data-testid="nmap-devices-empty-filter">
-  Nothing matches this filter. Clear the search or pick another state chip.
-</p>
-<script>
-(function () {
-  var input = document.getElementById('nmap-host-search');
-  var list = document.getElementById('nmap-host-list');
-  var emptyEl = document.getElementById('nmap-devices-empty-filter');
-  if (!input || !list) return;
-  function applyFilter() {
-    var q = (input.value || '').trim().toLowerCase();
-    var visible = 0;
-    list.querySelectorAll('.nmap-host-row').forEach(function (row) {
-      var hay = row.getAttribute('data-search') || '';
-      var show = !q || hay.indexOf(q) !== -1;
-      row.style.display = show ? '' : 'none';
-      if (show) visible += 1;
-    });
-    if (emptyEl) {
-      if (visible === 0) emptyEl.classList.remove('hidden');
-      else emptyEl.classList.add('hidden');
-    }
-  }
-  input.addEventListener('input', applyFilter);
-})();
-</script>
+{% include "partials/list_pager.html" %}
 {% endif %}
 {% if device %}
 {% with return_tab='devices', return_to=return_to or '', devices_view='list' %}

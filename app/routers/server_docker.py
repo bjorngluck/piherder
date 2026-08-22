@@ -72,8 +72,18 @@ async def docker_page(
     inv_meta = inventory_svc.inventory_meta(server)
 
     from ..services.nav_shortcuts import host_feature_context
+    from ..services import list_query as lq
 
     _nav = host_feature_context(session, int(user.id) if user else None, server, "docker")
+    lp = lq.docker_params(request)
+    docker_keep = lq.query_string(
+        {
+            "q": lp["q"],
+            "status": lp["status"],
+            "per_page": lp["per_page"],
+            "refresh": request.query_params.get("refresh") or "",
+        }
+    )
     resp = templates_mod.templates.TemplateResponse(
         request=request,
         name="docker.html",
@@ -90,9 +100,16 @@ async def docker_page(
             "update_check": update_check,
             "update_status": update_status,
             "build_status": build_status,
+            "q": lp["q"],
+            "docker_status": lp["status"],
+            "page": lp["page"],
+            "per_page": lp["per_page"],
+            "per_page_choices": list(lq.PER_PAGE_CHOICES),
+            "docker_keep": docker_keep,
             **_nav,
         }
     )
+    lq.attach_per_page_cookie(resp, lp["per_page"])
     resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     resp.headers["Pragma"] = "no-cache"
     resp.headers["Expires"] = "0"
@@ -463,6 +480,23 @@ async def stack_fragment(
             projects, orphan_containers, server
         )
 
+    from ..services import list_query as lq
+
+    lp = lq.docker_params(request)
+    filtered = lq.filter_docker_stack(
+        projects,
+        orphan_containers,
+        q=lp["q"],
+        status=lp["status"],
+        page=lp["page"],
+        per_page=lp["per_page"],
+        force_project=lp["project"] or None,
+    )
+    inventory_project_count = len(projects)
+    inventory_orphan_count = len(orphan_containers)
+    projects = filtered["projects"]
+    orphan_containers = filtered["orphan_containers"]
+
     # Template-managed stacks (StackDeployment desired state)
     template_deployments_count = 0
     try:
@@ -504,7 +538,24 @@ async def stack_fragment(
     except Exception:
         fabric_by_project = {}
 
-    return templates_mod.templates.TemplateResponse(
+    docker_keep = lq.query_string(
+        {
+            "q": lp["q"],
+            "status": lp["status"],
+            "per_page": lp["per_page"],
+            "refresh": interval,
+        }
+    )
+    pager_query = lq.query_string(
+        {
+            "q": lp["q"],
+            "status": lp["status"],
+            "per_page": lp["per_page"],
+            "refresh": interval,
+            "project": lp["project"],
+        }
+    )
+    resp = templates_mod.templates.TemplateResponse(
         request=request,
         name="docker_stack.html",
         context={
@@ -516,6 +567,20 @@ async def stack_fragment(
             "inventory_meta": inv_meta,
             "inventory_refreshing": refreshing or status == "refreshing",
             "inventory_poll_fast": poll_fast,
+            "q": lp["q"],
+            "docker_status": lp["status"],
+            "page": filtered["page"],
+            "per_page": lp["per_page"],
+            "per_page_choices": list(lq.PER_PAGE_CHOICES),
+            "total": filtered["total"],
+            "total_pages": filtered["total_pages"],
+            "pager_query": pager_query,
+            "pager_path": f"/servers/{server_id}/docker",
+            "docker_keep": docker_keep,
+            "docker_filtered": filtered["filtered"],
+            "docker_forced_project": filtered["forced_project"],
+            "inventory_project_count": inventory_project_count,
+            "inventory_orphan_count": inventory_orphan_count,
             "pending_update_projects": sorted(
                 docker_svc.parse_container_updates_summary(server).get("projects") or []
             ),
@@ -528,6 +593,7 @@ async def stack_fragment(
             "template_deployments_count": template_deployments_count,
         },
     )
+    return lq.attach_per_page_cookie(resp, lp["per_page"])
 
 
 @router.post("/{server_id}/docker/check-updates")

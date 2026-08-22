@@ -1,7 +1,7 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-08-18 (**v1.2.0** current production — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md); **v1.3.0** planning — [PLAN_v1.3.0.md](PLAN_v1.3.0.md); **v1.4.0** service migration planning — [PLAN_v1.4.0.md](PLAN_v1.4.0.md))  
+**Date:** 2026-07-12 · **Refreshed:** 2026-08-22 (**v1.3.0** current production — [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [QA_v1.3.0.md](QA_v1.3.0.md); **v1.4.0** service migration planning — [PLAN_v1.4.0.md](PLAN_v1.4.0.md))  
 **Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [RELEASE_v1.1.1.md](RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
@@ -35,9 +35,10 @@ Design principles stay the same as SPEC:
 | **v1.0.0** | **First production** — security · authz · validation · credential recovery · known-issue burn-down · docs | Production bar | **Tagged** 2026-07-28 — [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · Hub `1.0.0` / `1.0` / `latest` |
 | **v1.0.x** | Production patches (security / critical) | Patch | As needed |
 | **v1.1.0** | **Day-to-day operator improvements** — certs · discovery · identity · operator UX · topology/maps · integrations/API | Post-1.0 minor | **Tagged** 2026-08-08 — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · Hub `1.1.0` / `1.1` / `latest` |
-| **v1.1.x** | Production patches on `main` while 1.2 is in flight | Patch | As needed — port into `v1.2.0-dev` |
-| **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry · full DB DR · security remediations | Post-1.1 minor | **Tagged** — current production — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
-| **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights thin slice (N)** · **host files thin slice (F)** · **AC-fg** · ACME (consideration) | Post-1.2 minor | **Planning** — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) (train not open) |
+| **v1.1.x** | Production patches | Patch | Prefer upgrade to **v1.3.x** |
+| **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry · full DB DR · security remediations | Post-1.1 minor | **Tagged** — prior — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
+| **v1.2.x** | Production patches | Patch | Prefer upgrade to **v1.3.x** |
+| **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights (N reports)** · **host files (F manager)** · **AC-fg** Cap · ACME (consideration) | Post-1.2 minor | **Ready to tag** — [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [QA_v1.3.0.md](QA_v1.3.0.md) |
 | **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate) + **host lock** (HAOS refuse, Frigate/TPU-class) | Post-1.3 minor | **Planning** — [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) (train not open) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
@@ -54,7 +55,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-19):** **v0.7.0 feature-locked and tagged**. Wizard, E2E A+B, annotations, compose sets, drift Job shipped. Screenshot pack deferred; residual polish + E2E/coverage growth + full docs review + **nmap** → **v0.8.0 RC3**. See [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md).
 
-**Production path:** ~~RC line through v0.9.0~~ → **v1.0.0** → **v1.1.0 tagged** ([RELEASE_v1.1.0.md](RELEASE_v1.1.0.md)) → **v1.2.0 train** on `v1.2.0-dev` ([PLAN_v1.2.0.md](PLAN_v1.2.0.md)).
+**Production path:** ~~RC line through v0.9.0~~ → **v1.0.0** → **v1.1.0** → **v1.2.0 tagged** ([RELEASE_v1.2.0.md](RELEASE_v1.2.0.md)) → **v1.3.0** ([RELEASE_v1.3.0.md](RELEASE_v1.3.0.md)) → **v1.4.0** planning ([PLAN_v1.4.0.md](PLAN_v1.4.0.md)).
 
 **Decision (2026-07-22):** Post-0.8 operator UX triage — micro-pass **B1/E4/E8** on main for 0.8 screenshots; remaining discovery/Network/coverage polish → **v0.9.0** ([PLAN_v0.9.0.md](PLAN_v0.9.0.md)). Cross-cutting human-readable schedules, selectable hero stats, and full templates catalog redesign stay **post-1.0 discovery** (see Quality & platform § below).
 
@@ -83,6 +84,12 @@ Design principles stay the same as SPEC:
 **Decision (2026-08-08):** **Fine-grained roles / feature ACLs → v1.3 path** (not 1.2). Today RBAC is three global roles (`viewer` / `operator` / `admin`). Future work: per-host and/or per-feature access (e.g. backups only on selected hosts, Docker yes / webshell no, certs read-only). Complements SSO group→role mapping; does **not** require multi-tenant SaaS isolation. Explicitly out of v1.2 scope. See § Quality backlog · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 v1.3.
 
 **Decision (2026-08-17):** **Service migration → v1.4** (not 1.2, not 1.3). Stop-first compose-project move with herder-staged dataset copy, fabric CNAME retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate, and per-project host lock (HAOS refuse; Frigate/TPU-class). Planning only. See [PLAN_v1.4.0.md](PLAN_v1.4.0.md).
+
+**Decision (2026-08-18):** **v1.3.0 train opened** on **`v1.3.0-dev`**. Must: **L** lists · **P** password policy · **T6** account step-up KI · **W-id** Connect as…. Should: **T** remainder · **W-cfg** · **A** · **N2** · **F2**. See [PLAN_v1.3.0.md](PLAN_v1.3.0.md).
+
+**Decision (2026-08-22):** **v1.3.0 feature freeze + QA complete.** Package **1.3.0**. Remaining: merge → tag → Hub. Cap (**W-mux**, **AC-fg**, **N3**, CSP nonces, ACME) stays Cap. Service migration stays [v1.4](PLAN_v1.4.0.md).
+
+**Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg). **Slice 3 Deep landed** (L). **Slice 4 Deep landed** (W-id). **Slice 5 Deep landed** (W-audit). **Slice 6 Deep landed** (A). **Slice 7 N2:** `/reports` is history (backups, OS patches, LAN live, Docker, console) — not Grafana, not status portlets. **F Deep (2026-08-20):** Host Files explorer (flag off): edit, zip, perms, search, move, folder upload, preview, `.env` step-up, thin Docker volumes/`docker cp`. API Files expansions → v1.4+ under consideration.
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.2.0` / `1.2` / `latest`.
 
@@ -261,19 +268,21 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Dependency hygiene** | **Done for RC path:** `uv.lock` + hashed `requirements*.lock.txt`; Dockerfile/CI install with `--require-hashes`. Ongoing: periodic `pip-audit` / Dependabot; intentional bumps via `scripts/refresh-lockfiles.sh`. |
 | **JWT stack** | **Done (pre-0.5.0 tag):** sessions use **PyJWT[crypto]** HS256 — `python-jose` / `ecdsa` removed. |
 | **Custom branding** | Operator logo + accent colours — **far horizon** (well after 1.0 production). Not near-term polish. Built-in light/dark only for now. |
-| **Custom password policy** | Admin-configurable policy (min length, required classes, optional specials) instead of fixed code defaults. Soft max remains ~72 characters (storage limit). **→ v1.3 Stream P** — [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
+| **Custom password policy** | Admin-configurable policy (min length, required classes, optional specials) instead of fixed code defaults. Soft max remains ~72 characters (storage limit). **Landed on `v1.3.0-dev` (slice 1 / P)** — Settings → Security. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
+| **Console timeouts / concurrency (W-cfg)** | Idle, max session, slot caps, ticket, park hold, bind, revalidate, scrollback in Settings. Kill switch stays `PIHERDER_SSH_CONSOLE`. **Landed on `v1.3.0-dev` (slice 2 Deep).** [web SSH](../wiki/day-to-day/web-ssh-console.md). |
+| **Fleet lists (L)** | Shared pager + page size + smart free-text on Servers, Docker stacks, discovery list. **Landed on `v1.3.0-dev` (slice 3 Deep).** |
 | **Human-readable schedules (E6)** | **Shipped v1.1** — shared `cron_human` + presets on schedule surfaces. |
 | **Selectable hero stats (E9)** | **Discovery needed (post-1.0)** — user-selectable pulse metrics on ops heroes; preference model + metric registry. Non-committed roadmap only. |
 | **Templates catalog redesign (E11)** | **Discovery needed (H3 / post-1.0)** — table/filter layout, extra config files (e.g. CA Advisor). **0.9 stretch done:** OOTB / Yours badges + section groups. Full redesign separate. See [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md). |
 | **Password reset (G)** | **G2-lite in 1.0:** admin OOB Users recovery. **G1-lite in v1.1:** email self-reset when SMTP configured (Settings → Alerts). **G2-mail** invite/OTP polish → **v1.2**. |
-| **Email / channels (H)** | **H-lite + Wh-lite in v1.1** — Settings → Alerts (SMTP test + alert mail; webhook UI + event filters; env `WEBHOOK_*` fallback). Full multi-channel matrix → **v1.2**. |
+| **Email / channels (H)** | **H-lite + Wh-lite in v1.1** — Settings → Alerts (SMTP test + alert mail; webhook UI + event filters; env `WEBHOOK_*` fallback). **v1.3 Stream A:** per-category policy + map/discovery types + channel category allowlist. Full SIEM / PagerDuty stay out. |
 | **WebAuthn / passkeys** | **→ v1.2** — second-factor passkeys first; coexist with TOTP + backup codes. Not v1.1. |
 | **Favourites / shortcuts (J)** | **Shipped v1.1** — header ★ pins (host / app / integration). |
 | **Cross-host feature jump (K)** | **Shipped v1.1** — Jump host on Overview / Docker / Backups / Services. |
 | **Quick editor scope (L)** | **Lean no** for `.env`/sidecars in quick editor; full editor only — document in UI. Open discussion only. |
 | **Template fleet deployment overview (M)** | **Post-1.0** — which hosts/services have a given template (beyond stack-level badge). |
-| **Insights / custom dashboards (N)** | **→ v1.3 Stream N** — discovery + thin slice: metric registry, built-in fleet health board, optional one custom layout; not Grafana-in-herder. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
-| **Host files (F)** | **→ v1.3 Stream F** — discovery + thin slice: confined SFTP list / download / upload under `docker_base_dir` (or home); not WinSCP, not `docker cp`, not console zmodem. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
+| **Insights / custom dashboards (N)** | **→ v1.3 Stream N** — `/reports` history (Jobs / nmap runs / console Audit). N3 custom layout Cap. Not Grafana-in-herder. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
+| **Host files (F)** | **→ v1.3 Stream F Deep** — host **Files** button + explorer (edit/zip/perms/search/move/preview/folder upload/`.env` step-up; thin Docker volumes + `docker cp` into the jail). Fleet + privileged. API `files` fleet list/get/put only; richer API **under consideration v1.4+**. Not console zmodem. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
 | **Service migration (M)** | **→ v1.4 Stream M** — move one compose project host→host with dataset copy, fabric CNAME + both Pi-hole resolver restarts, TLS/Kuma validate, and per-project **host lock** (HAOS / hardware). Destructive wipe is a later sibling. [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md). |
 | **Web console host mux (`screen`/`tmux`)** | **Under consideration · low priority** — optional host-side multiplexer for durable reattach beyond herder soft-park. **→ v1.3 Stream W-mux** ([PLAN_v1.3.0.md](PLAN_v1.3.0.md)). Not in 1.2. |
 | **Git-rich service onboard (Q)** | **Post-1.0** — full git clone/pull; more files than compose + Dockerfile. |
@@ -383,7 +392,7 @@ These ideas deepen **day-to-day host operations** and **first-time host bring-up
 | **Injection** | Server-side only: decrypt key in worker/web process memory for that PTY session; browser never sees PEM |
 | **Audit** | `ssh_console_open` / `ssh_console_close` (+ client IP, duration); optional command logging is **hard** (interactive) — document limitations |
 | **Threats** | XSS → terminal takeover; shared admin sessions; browser extensions; long-lived websockets; herder host becomes jump box |
-| **Mitigations (ship bar)** | CSP + trusted TLS; short-lived console tickets; concurrent session limit; no console for **viewer**; kill switch env `PIHERDER_SSH_CONSOLE=false`; never log key material |
+| **Mitigations (ship bar)** | CSP + trusted TLS; short-lived console tickets; concurrent / idle / max limits (Settings → Console); no console for **viewer**; kill switch env `PIHERDER_SSH_CONSOLE=false`; never log key material |
 | **Stance** | **Under consideration** — attractive for tablets/homelab, but **not** a 1.0 requirement. Prefer landing 1–4 first. |
 
 ### 4 — Wizard-driven host onboarding

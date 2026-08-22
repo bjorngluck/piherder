@@ -119,6 +119,18 @@ class Settings(BaseSettings):
     # After WebSocket drop (app switch / tab sleep), keep SSH PTY parked this long
     # so the browser can resume. 0 = hold until idle/max session timeout.
     PIHERDER_SSH_CONSOLE_HOLD_SEC: int = 0
+    # Who may open a privileged (break-glass) console: admin | operator
+    PIHERDER_SSH_CONSOLE_PRIVILEGED_ROLE: str = "admin"
+    # Command audit (v1.3 W-audit): off | commands | commands_output
+    PIHERDER_SSH_CONSOLE_AUDIT_MODE: str = "off"
+    PIHERDER_SSH_CONSOLE_AUDIT_RETENTION_DAYS: int = 14
+    # When true, every live shell records commands (Off is ignored). Demo still never stores.
+    PIHERDER_SSH_CONSOLE_AUDIT_REQUIRED: bool = False
+
+    # Host Files dest-card (v1.3 Stream F) — default OFF until operators opt in
+    PIHERDER_HOST_FILES: bool = False
+    # Upload cap (bytes). Code default 512 MiB; env may raise up to 2 GiB.
+    PIHERDER_HOST_FILES_MAX_BYTES: int = 512 * 1024 * 1024
 
     # Content-Security-Policy (v1.2) — default on; Report-Only for staged rollouts
     PIHERDER_CSP: bool = True

@@ -292,8 +292,8 @@ Fleet host SSH (key from Fernet decrypt in memory only)
 
 ### Deferred / optional later
 
-- **Multi-identity host SSH** (least-priv fleet + privileged / break-glass key; **Connect as…**) — **→ v1.3 Stream W-id** ([PLAN_v1.3.0.md](PLAN_v1.3.0.md))  
-- **Opt-in command/response shell audit** + redaction — **→ v1.3 Stream W-audit** (discover first; not video replay)  
+- **Multi-identity host SSH** (least-priv fleet + privileged / break-glass key; **Connect as…**) — **→ v1.3 Stream W-id** ([PLAN_v1.3.0.md](PLAN_v1.3.0.md)) · **slice 4 Deep landed** on `v1.3.0-dev`  
+- **Opt-in command/response shell audit** + redaction — **→ v1.3 Stream W-audit** · **slice 5 Deep landed** on `v1.3.0-dev` (not video replay)  
 - **Host-side `screen` / `tmux` for web console** (optional default attach) — **→ v1.3 Stream W-mux** · **under consideration · low priority** (today: plain `invoke_shell` + herder soft-park only)  
 - **Host file transfer** (confined SFTP list / get / put) — **→ v1.3 Stream F** (discover + thin slice; not a full file manager)  
 - **Service migration** (compose project host→host + dataset + DNS + host lock) — **→ v1.4 Stream M** ([PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md))  

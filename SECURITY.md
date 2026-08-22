@@ -4,13 +4,14 @@
 
 | Version | Support |
 |---------|---------|
-| **v1.2.x** | **Current production** line ([RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](docs/PLAN_v1.2.0.md)) |
-| **v1.1.x** | Prior production; prefer upgrade to **v1.2.x** ([RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md)) |
-| **v1.0.x** | Prior production; prefer upgrade to **v1.2.x** ([RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md)) |
+| **v1.3.x** | **Current production** line ([RELEASE_v1.3.0.md](docs/RELEASE_v1.3.0.md) · [PLAN_v1.3.0.md](docs/PLAN_v1.3.0.md)) |
+| **v1.2.x** | Prior production; prefer upgrade to **v1.3.x** ([RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](docs/PLAN_v1.2.0.md)) |
+| **v1.1.x** | Prior production; prefer upgrade to **v1.3.x** ([RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md)) |
+| **v1.0.x** | Prior production; prefer upgrade to **v1.3.x** ([RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md)) |
 | **`main`** | Development tip; security fixes land here first |
 | **v0.9.x and older** | Best-effort; prefer upgrade to latest production |
 
-Security fixes are applied on the default branch (`main`) and released as **v1.2.x** (or later) patch tags when warranted. Prefer the latest **1.2.x** tag for production.
+Security fixes are applied on the default branch (`main`) and released as **v1.3.x** (or later) patch tags when warranted. Prefer the latest **1.3.x** tag for production.
 
 ## Reporting a vulnerability
 
@@ -61,7 +62,7 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki ro
 | Declared deps | `pyproject.toml` — minimum versions / ranges (`>=`) for package metadata |
 | Resolver lock | **`uv.lock`** — full resolved graph + hashes (source of truth) |
 | Pip export | **`requirements.lock.txt`** (runtime + `[dev]`) and **`requirements.runtime.lock.txt`** (runtime only) — generated with hashes via `scripts/refresh-lockfiles.sh` |
-| Docker image | `pip install --require-hashes -r requirements.lock.txt` then `pip install --no-deps -e .` ([Dockerfile](Dockerfile)) |
+| Docker image | `pip install --require-hashes -r requirements.lock.txt` then `pip install --no-deps --no-build-isolation -e .` ([Dockerfile](Dockerfile)) |
 | CI | Same locked install ([`.github/workflows/test.yml`](.github/workflows/test.yml)) |
 | JWT library | **PyJWT[crypto]** (HS256). Former `python-jose` / transitive `ecdsa` removed |
 | Vulnerability scan | Run `pip-audit` periodically (and/or Dependabot); deepen in [ROADMAP quality track](docs/ROADMAP_ECOSYSTEM.md#quality--platform-post-rc--post-10-first-production) |
@@ -97,19 +98,21 @@ Demo must use **unique** Fernet/session secrets and never hold decryptable produ
   - **operator+ only** (viewer 403); session cookie required (no Bearer `/api/v1` console)
   - Ticket mint requires **same-site browser** Origin/Referer; rejects `Sec-Fetch-Site: cross-site`
   - WebSocket requires **Origin == Host**; open-ticket in first WS message only (not query string)
-  - Open ticket is **single-use**; **soft resume** after unexpected WS drop parks the SSH PTY (bound resume token, same user/host/session/device) until idle/max (or `PIHERDER_SSH_CONSOLE_HOLD_SEC`); explicit close (`bye`) destroys the PTY
+  - Open ticket is **single-use**; **soft resume** after unexpected WS drop parks the SSH PTY (bound resume token, same user/host/session/device) until idle/max (or Settings park hold / `PIHERDER_SSH_CONSOLE_HOLD_SEC` if set); explicit close (`bye`) destroys the PTY
   - Ticket / resume bound to **login `session_version`**, **client IP** (default on; mobile resume may allow IP change if device cookie still matches), and **console device cookie** (default on)
   - **Continuous revalidation** (~every 10s while attached): session still valid, bindings still match, user still operator+ — else PTY killed
   - Logout / password change / admin “sign out sessions” invalidates open and parked shells within one revalidation / claim check
-  - **2FA step-up (recommended: WebAuthn/passkey)**: passkey preferred in UI; TOTP app accepted; **backup codes rejected by default** (`PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES=false`). Successful step-up issues a **fleet-wide** grant cookie (all hosts, ~10 min) unless every-shell 2FA is enabled; UI re-prompts when the grant expires. Optional `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY=true` / every-shell 2FA
-  - Concurrent + idle + max session limits; PEM never in browser; CSP allows **same-origin** console iframe only (`frame-ancestors 'self'`)
+  - **2FA step-up (recommended: WebAuthn/passkey)**: passkey preferred in UI; TOTP app accepted; **backup codes rejected by default** (Settings → Security; env `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES` locks). Successful step-up issues a **fleet-wide** grant cookie (all hosts, ~10 min unless Settings grant window / env). Optional require-passkey / every-shell 2FA in Settings (env locks when set)
+  - Concurrent + idle + max session limits (Settings → Console; env wins if set); PEM never in browser; CSP allows **same-origin** console iframe only (`frame-ancestors 'self'`)
   - UI: floating popup per host; multi-host workspace at `/console` (inactive host tabs keep WebSockets via opacity, not `visibility:hidden`); compact chrome (Aa / ···); sticky Ctrl + common chords
   - **Known UX (mobile):** soft **Tab** IME leftovers improved in 1.2 QA (v12); residual exotic IMEs — **KI-console-mobile-soft-tab**; see wiki web-ssh-console Known issues
-  - Residual risk: XSS on herder origin is still shell-equivalent; IP bind can break mobile networks (set `PIHERDER_SSH_CONSOLE_BIND_IP=false` only if needed)  
+  - Residual risk: XSS on herder origin is still shell-equivalent; IP bind can break mobile networks (turn off in Settings → Console, or set `PIHERDER_SSH_CONSOLE_BIND_IP=false` to lock)
+  - **Command audit** (v1.3, default **off**): server-side PTY tap, Fernet body, operator+ read, viewer 403, demo never stores. Redaction of password prompts / some tokens is heuristic — secrets can still be captured. Optional **require on every session** refuses a live shell if recording cannot start. JSON config-only herder backups skip transcript bodies.  
+- **Host Files** (v1.3, default **off**, `PIHERDER_HOST_FILES=false`): jailed SFTP explorer. Operator+; viewer 403; demo never. Default identity **fleet** (docker_base or home, never `/`). Optional **privileged** identity (same elevate RBAC + 2FA grant as console; jail `/` minus `/proc` `/sys` `/dev` `/run`). UI: edit (512 KiB UTF-8; privileged save of root-owned files via `sudo -n tee`), zip/unzip (zip-slip refused), chmod/chown (names; `sudo -n` when privileged is not root), name + content search, image/hex preview (‹› in folder), move, folder upload, thin `docker cp` / volume open. `.env` / PEM / key files **list**; open/edit/download/preview/content-search requires the same 2FA grant as privileged Files. API scope `files` is fleet list/get/put/mkdir/rename/empty-delete only (richer API → v1.4+ under consideration). Uploads stream (default 512 MiB; Settings cap up to 32 GiB). Audit `host_file_*` records path + bytes + sha256, never the body.  
 
 
 - Put PiHerder behind trusted TLS; restrict network access where possible. Set `PIHERDER_PUBLIC_URL=https://…` so session cookies get the **Secure** flag (or force `COOKIE_SECURE=true`), OIDC redirect URIs match, and **email password-reset links** use that origin only (Host / `X-Forwarded-Host` are ignored).  
-- **Sign out** bumps `session_version` (stolen JWTs die; live consoles close within `PIHERDER_SSH_CONSOLE_REVALIDATE_SEC`; parked PTYs are destroyed). Trusted-device cookies still survive logout by design.  
+- **Sign out** bumps `session_version` (stolen JWTs die; live consoles close within the revalidate interval — Settings → Console, default 10s; parked PTYs are destroyed). Trusted-device cookies still survive logout by design.  
 - Do **not** publish the app port on the LAN. Stock compose binds `127.0.0.1:8000` only; use Caddy (`:8888` / `:8443`). Forwarded client IPs (`X-Forwarded-For` / `CF-Connecting-IP`) are honoured only when the TCP peer is in `PIHERDER_TRUSTED_PROXY_CIDRS` (Compose sets RFC1918 + loopback so Caddy is trusted).  
 - Set `METRICS_TOKEN` if `/metrics` is reachable beyond a private scrape network.  
 - Treat API tokens like passwords; revoke compromised tokens immediately.  

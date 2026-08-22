@@ -742,49 +742,14 @@ def verify_stepup_2fa(
     totp_code: Optional[str] = None,
     request=None,
 ) -> Tuple[bool, str]:
-    """
-    For sensitive Account SSO actions when 2FA is enrolled.
+    """Sensitive Account actions — delegates to account_stepup (T6 / T3)."""
+    from .account_stepup import verify_stepup
 
-    Returns (ok, error_code).
-    - If user has 2FA: require valid TOTP/backup **or** a recent passkey Account step-up cookie.
-    - If no 2FA enrolled and password login enabled: require current password.
-    - SSO-only without 2FA: allow mutation (already in session).
-    """
-    from . import webauthn_svc as wa_svc
-    from ..security.auth import (
-        account_stepup_active,
-        verify_password,
-        verify_totp_code,
-        decrypt_totp_secret,
-        consume_backup_code,
+    return verify_stepup(
+        session,
+        user,
+        password=password,
+        totp_code=totp_code,
+        request=request,
+        surface="account",
     )
-
-    has_2fa = wa_svc.user_has_2fa(session, user)
-    if has_2fa:
-        if request is not None and account_stepup_active(request, user):
-            return True, ""
-        code = (totp_code or "").strip().replace(" ", "")
-        if not code:
-            if wa_svc.has_passkeys(session, int(user.id)) and not wa_svc.totp_active(user):
-                return False, "use_passkey"
-            return False, "2fa_required"
-        # TOTP
-        if getattr(user, "totp_enabled", False) and user.totp_secret_encrypted:
-            try:
-                secret = decrypt_totp_secret(user.totp_secret_encrypted)
-                if verify_totp_code(secret, code):
-                    return True, ""
-            except Exception:
-                pass
-        if consume_backup_code(session, user.id, code):
-            return True, ""
-        return False, "2fa_bad_code"
-
-    # No 2FA enrolled: require password if password login is enabled
-    if password_login_allowed(user):
-        if not password or not verify_password(password, user.hashed_password):
-            return False, "password_required"
-        return True, ""
-
-    # SSO-only without 2FA: allow mutation (already in session) — link/unlink edge
-    return True, ""

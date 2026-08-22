@@ -138,7 +138,7 @@
       <div class="ops-hero-actions">
         <a href="/servers/{{ server.id }}/deployments" class="btn btn-secondary min-h-11 text-sm"
            title="Stacks managed via Service templates (desired state)">Template deployments</a>
-        <a href="/servers/{{ server.id }}/docker?nocache=1" class="btn btn-secondary min-h-11 text-sm">↻ Refresh</a>
+        <a href="/servers/{{ server.id }}/docker?nocache=1{% if docker_keep %}&{{ docker_keep }}{% endif %}" class="btn btn-secondary min-h-11 text-sm">↻ Refresh</a>
         <a href="/servers/{{ server.id }}/docker/new-project" class="btn btn-accent min-h-11 text-sm">+ New Service</a>
         <button type="button" onclick="showCleanupModal()" class="btn btn-secondary min-h-11 text-sm">Cleanup…</button>
       </div>
@@ -178,21 +178,36 @@
     </div>
   </div>
 
-  {# Filters: status + quick search (client-side; survives HTMX via sessionStorage) #}
-  <div class="docker-filter-bar mb-3" id="docker-filter-bar">
-    <div class="docker-filter-chips" role="group" aria-label="Filter by status">
-      <button type="button" class="docker-filter-chip is-active" data-filter-status="all">All</button>
-      <button type="button" class="docker-filter-chip" data-filter-status="running">Running</button>
-      <button type="button" class="docker-filter-chip" data-filter-status="stopped">Stopped</button>
-      <button type="button" class="docker-filter-chip" data-filter-status="missing">Not created</button>
-      <button type="button" class="docker-filter-chip" data-filter-status="updates">Updates</button>
+  {# Filters: status + search are GET (server-side). Compose-set pills stay client-side. #}
+  {% set _dst = docker_status|default('all') %}
+  {% set _dq = 'q=' ~ (q|urlencode) ~ '&per_page=' ~ (per_page or 20) if q else 'per_page=' ~ (per_page or 20) %}
+  <div class="ops-list-filters docker-filter-bar mb-3" id="docker-filter-bar">
+    <div class="ops-list-filters-chips docker-filter-chips" role="group" aria-label="Filter by status">
+      <a href="/servers/{{ server.id }}/docker?{{ _dq }}" class="ops-type-chip docker-filter-chip {{ 'is-active' if _dst == 'all' else '' }}">All</a>
+      <a href="/servers/{{ server.id }}/docker?status=running&{{ _dq }}" class="ops-type-chip docker-filter-chip {{ 'is-active' if _dst == 'running' else '' }}">Running</a>
+      <a href="/servers/{{ server.id }}/docker?status=stopped&{{ _dq }}" class="ops-type-chip docker-filter-chip {{ 'is-active' if _dst == 'stopped' else '' }}">Stopped</a>
+      <a href="/servers/{{ server.id }}/docker?status=missing&{{ _dq }}" class="ops-type-chip docker-filter-chip {{ 'is-active' if _dst == 'missing' else '' }}">Not created</a>
+      <a href="/servers/{{ server.id }}/docker?status=updates&{{ _dq }}" class="ops-type-chip docker-filter-chip {{ 'is-active' if _dst == 'updates' else '' }}">Updates</a>
     </div>
-    <input type="search"
-           id="docker-filter-q"
-           class="docker-filter-search"
-           placeholder="Filter by name…"
-           autocomplete="off"
-           aria-label="Filter by service or container name">
+    <form method="get" action="/servers/{{ server.id }}/docker" class="ops-list-filters-search" role="search">
+      {% if _dst and _dst != 'all' %}<input type="hidden" name="status" value="{{ _dst }}">{% endif %}
+      <label class="sr-only" for="docker-filter-q">Filter stacks</label>
+      <input type="search"
+             id="docker-filter-q"
+             name="q"
+             value="{{ q or '' }}"
+             class="ops-f-control ops-f-grow docker-filter-search"
+             placeholder="Filter by name…"
+             autocomplete="off"
+             aria-label="Filter by service or container name"
+             data-testid="docker-list-search">
+      <select name="per_page" class="ops-f-control ops-f-narrow" aria-label="Per page"
+              onchange="this.form.submit()" data-testid="docker-list-per-page">
+        {% for n in per_page_choices or [10, 20, 50, 100] %}
+        <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/pg</option>
+        {% endfor %}
+      </select>
+    </form>
   </div>
 
   {% if update_check %}
@@ -695,16 +710,9 @@ function setDockerFilterState(partial) {
 }
 function applyDockerFilters() {
   const state = getDockerFilterState();
-  const status = state.status || 'all';
-  const q = (state.q || '').trim().toLowerCase();
-  // Per-project compose set filter (main / e2e / …) keyed by project name
+  // Per-project compose set filter (main / e2e / …) keyed by project name.
+  // Status + q are server-side (GET); do not hide those again in JS.
   const setByProj = state.composeSets || {};
-
-  document.querySelectorAll('#docker-filter-bar [data-filter-status]').forEach(function(chip) {
-    chip.classList.toggle('is-active', chip.getAttribute('data-filter-status') === status);
-  });
-  const input = document.getElementById('docker-filter-q');
-  if (input && input.value !== (state.q || '')) input.value = state.q || '';
 
   document.querySelectorAll('[data-compose-set-filter]').forEach(function(bar) {
     const proj = bar.getAttribute('data-proj') || '';
@@ -714,30 +722,16 @@ function applyDockerFilters() {
     });
   });
 
-  let visible = 0;
   document.querySelectorAll('.docker-svc-row').forEach(function(row) {
-    const st = row.getAttribute('data-svc-status') || '';
-    const name = row.getAttribute('data-svc-name') || '';
-    const hasUpdate = row.getAttribute('data-has-update') === '1';
     const cset = row.getAttribute('data-compose-set') || 'main';
     const block = row.closest('[data-stack-filter-unit]');
     const projName = block ? (block.getAttribute('data-proj-name') || '') : '';
     const wantSet = setByProj[projName] || 'all';
-    let okStatus = true;
-    if (status === 'updates') {
-      okStatus = hasUpdate;
-    } else if (status !== 'all') {
-      okStatus = st === status;
-    }
-    const okName = !q || name.indexOf(q) !== -1;
-    const okSet = wantSet === 'all' || cset === wantSet;
-    const show = okStatus && okName && okSet;
+    const show = wantSet === 'all' || cset === wantSet;
     row.hidden = !show;
     row.classList.toggle('is-filtered-out', !show);
-    if (show) visible += 1;
   });
 
-  // Hide empty compose / orphan blocks when all their services are filtered out
   document.querySelectorAll('[data-stack-filter-unit]').forEach(function(block) {
     const rows = block.querySelectorAll('.docker-svc-row');
     if (!rows.length) {
@@ -748,44 +742,11 @@ function applyDockerFilters() {
     rows.forEach(function(r) { if (!r.hidden) any = true; });
     block.hidden = !any;
   });
-
-  const summary = document.getElementById('stack-summary');
-  const heroRun = document.getElementById('docker-hero-run');
-  const heroCt = document.getElementById('docker-hero-ct');
-  const total = document.querySelectorAll('.docker-svc-row').length;
-  const run = document.querySelectorAll('.docker-svc-row[data-svc-status="running"]').length;
-  if (summary) {
-    if (status !== 'all' || q) {
-      summary.textContent = visible + ' shown';
-    } else {
-      summary.innerHTML = '<span class="ops-hero-status ops-hero-status--ok">' + run + ' running</span> · '
-        + total + ' container' + (total !== 1 ? 's' : '');
-    }
-  }
-  if (heroRun && !(status !== 'all' || q)) heroRun.textContent = String(run);
-  if (heroCt && !(status !== 'all' || q)) heroCt.textContent = String(total);
 }
 function initDockerFilters() {
   const bar = document.getElementById('docker-filter-bar');
   if (!bar || bar.dataset.wired) return;
   bar.dataset.wired = '1';
-  bar.addEventListener('click', function(e) {
-    const chip = e.target.closest('[data-filter-status]');
-    if (!chip) return;
-    setDockerFilterState({ status: chip.getAttribute('data-filter-status') || 'all' });
-    applyDockerFilters();
-  });
-  const input = document.getElementById('docker-filter-q');
-  if (input) {
-    let t = null;
-    input.addEventListener('input', function() {
-      clearTimeout(t);
-      t = setTimeout(function() {
-        setDockerFilterState({ q: input.value || '' });
-        applyDockerFilters();
-      }, 120);
-    });
-  }
   // Compose set pills live inside HTMX-swapped stack HTML — use document capture
   document.addEventListener('click', function(e) {
     const pill = e.target.closest('[data-compose-set-filter] [data-compose-set]');

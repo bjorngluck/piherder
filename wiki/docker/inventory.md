@@ -28,3 +28,4 @@ Full mount paths + per-path host `du` run on **expand** (`GET …/docker/contain
 ## Related
 
 - [Docker overview](overview.md)  
+- [Reports](../day-to-day/reports.md) — last inventory running/total on the Docker card; no per-day container census  

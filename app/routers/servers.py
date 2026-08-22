@@ -6,7 +6,7 @@ import json
 from typing import Optional, List
 from starlette.concurrency import run_in_threadpool
 from ..database import get_session, engine
-from ..models import Server, AuditLog, Job
+from ..models import Server, AuditLog, Job, UserFavourite
 from datetime import datetime
 from ..security import encryption
 import asyncio
@@ -46,8 +46,10 @@ router.include_router(backups_router, prefix="")
 router.include_router(services_router, prefix="")
 from .server_ssh import router as ssh_router
 from .server_patch import router as patch_router
+from .server_files import router as files_router
 router.include_router(ssh_router, prefix="")
 router.include_router(patch_router, prefix="")
+router.include_router(files_router, prefix="")
 logger = logging.getLogger("piherder.servers")
 
 from .server_common import server_redirect as _server_redirect, safe_close_ssh as _safe_close_ssh
@@ -63,13 +65,21 @@ async def list_servers(
     """Extremely lean Servers list - pure DB read.
     last_backup_at is populated by the worker on success.
     Optional filter: attention | os | reboot | containers
+    v1.3 L: q + per_page + fav sort. Pulse counts stay fleet-wide.
     """
+    from ..services import list_query as lq
+
     start = time.time()
     filt = (filter or "").strip().lower()
     if filt not in ("", "all", "attention", "os", "reboot", "containers"):
         filt = "all"
     if filt == "":
         filt = "all"
+    q = (request.query_params.get("q") or "").strip()
+    fav = (request.query_params.get("fav") or "").strip() in ("1", "true", "yes", "on")
+    reorder = (request.query_params.get("reorder") or "").strip() in ("1", "true", "yes")
+    per_page = lq.per_page_from_request(request)
+    page = lq.page_from_request(request)
 
     try:
         rows = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
@@ -122,6 +132,53 @@ async def list_servers(
         rows = [s for s in rows if s.reboot_pending]
     elif filt == "containers":
         rows = [s for s in rows if _has_cont(s)]
+
+    if q:
+        rows = [s for s in rows if lq.match_server(s, q)]
+
+    fav_ids: set[int] = set()
+    if user and getattr(user, "id", None):
+        try:
+            raw_favs = session.exec(
+                select(UserFavourite.server_id).where(
+                    UserFavourite.user_id == int(user.id),
+                    UserFavourite.server_id.is_not(None),
+                )
+            ).all()
+            for fid in raw_favs:
+                if isinstance(fid, tuple):
+                    fid = fid[0]
+                if fid is not None:
+                    fav_ids.add(int(fid))
+        except Exception:
+            fav_ids = set()
+    if fav and fav_ids:
+        rows = sorted(
+            rows,
+            key=lambda s: (
+                0 if getattr(s, "id", None) in fav_ids else 1,
+                int(getattr(s, "sort_order", 0) or 0),
+                (s.name or "").lower(),
+            ),
+        )
+
+    # Reorder needs the full All-list (no q). Chip/search still applied only when not reordering.
+    if reorder:
+        filt = "all"
+        q = ""
+        fav = False
+        try:
+            rows = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
+        except Exception:
+            rows = list(session.exec(select(Server).order_by(Server.name)).all())
+        total = len(rows)
+        total_pages = 1
+        page = 1
+        list_paged = False
+    else:
+        page_rows, total, total_pages, page = lq.page_slice(rows, page, per_page)
+        rows = page_rows
+        list_paged = total_pages > 1
 
     servers = []
     for row in rows:
@@ -192,11 +249,13 @@ async def list_servers(
     except Exception as e:
         logger.debug("nmap discovery chips skip: %s", e)
 
-    total = time.time() - start
-    if total > 0.3:
-        logger.warning(f"[list_servers] Total render took {total:.2f}s for {len(servers)} server(s)")
+    elapsed = time.time() - start
+    if elapsed > 0.3:
+        logger.warning(
+            f"[list_servers] Total render took {elapsed:.2f}s for {len(servers)} server(s)"
+        )
     else:
-        logger.debug(f"[list_servers] Total render took {total:.2f}s")
+        logger.debug(f"[list_servers] Total render took {elapsed:.2f}s")
 
     from ..security.auth import ROLE_OPERATOR, role_at_least
     from ..services import ssh_console as cons_svc
@@ -207,7 +266,20 @@ async def list_servers(
     # Production: operator+. Demo D5: shared viewer may open simulated console.
     can_console = console_on and (is_operator or demo_console)
 
-    return templates_mod.templates.TemplateResponse(
+    pager_extra = {"filter": filt, "fav": fav}
+    ctx_pager = lq.pager(
+        page=page,
+        per_page=per_page,
+        total=total,
+        total_pages=total_pages,
+        q=q,
+        extra=pager_extra,
+    )
+    keep_query = lq.query_string({"q": q, "per_page": per_page, "fav": fav})
+    fav_toggle_query = lq.query_string(
+        {"q": q, "per_page": per_page, "filter": filt, "fav": not fav}
+    )
+    resp = templates_mod.templates.TemplateResponse(
         request=request,
         name="server_list.html",
         context={
@@ -223,8 +295,17 @@ async def list_servers(
             "demo_console": demo_console,
             # Operator+ and feature flag — Servers list kebab + multi-select Console
             "can_console": can_console,
+            "q": q,
+            "fav": fav,
+            "reorder": reorder,
+            "list_paged": list_paged,
+            "fav_ids": fav_ids,
+            "keep_query": keep_query,
+            "fav_toggle_query": fav_toggle_query,
+            **ctx_pager,
         },
     )
+    return lq.attach_per_page_cookie(resp, per_page)
 
 
 @router.post("/bulk")
@@ -603,6 +684,10 @@ async def add_server(
     session.add(server)
     session.commit()
     session.refresh(server)
+    from ..services import ssh_identities as ident_svc
+
+    ident_svc.ensure_fleet_identity(session, server)
+    session.commit()
 
     auth_method = {"generate": "generated_key", "upload": "uploaded_key", "password": "password_auth"}.get(
         key_mode, key_mode
@@ -661,6 +746,39 @@ async def server_detail(
     server_dict["has_ssh_key"] = bool(server.ssh_private_key_encrypted)
     server_dict["has_ssh_password"] = bool(server.ssh_password_encrypted)
     server_dict["has_real_public_key"] = ssh_onboarding.is_real_public_key(server.ssh_public_key)
+
+    from ..services import ssh_identities as ident_svc
+
+    fleet_ident = ident_svc.ensure_fleet_identity(session, server)
+    session.commit()
+    priv_ident = ident_svc.get_by_role(session, int(server.id), ident_svc.ROLE_PRIVILEGED)
+    server_dict["fleet_identity"] = ident_svc.public_view(fleet_ident)
+    server_dict["privileged_identity"] = (
+        ident_svc.public_view(priv_ident) if priv_ident else None
+    )
+    server_dict["key_fingerprint"] = fleet_ident.key_fingerprint
+    privileged_setup_script = ""
+    priv_pub = None
+    if priv_ident and ssh_onboarding.is_real_public_key(priv_ident.public_key):
+        priv_pub = priv_ident.public_key
+    elif priv_ident and priv_ident.private_key_encrypted:
+        try:
+            priv_pub = ssh_onboarding.public_key_from_private(
+                ssh_service.get_private_key_plain(server, priv_ident),
+                comment=f"piherder-privileged@{server.hostname or server.name}",
+            )
+        except Exception:
+            priv_pub = None
+    if priv_ident and priv_pub:
+        privileged_setup_script = ssh_onboarding.build_privileged_user_script(
+            priv_ident.username, priv_pub
+        )
+        server_dict["privileged_identity"]["public_key"] = priv_pub
+        server_dict["privileged_identity"]["has_real_public_key"] = True
+        if not server_dict["privileged_identity"].get("fingerprint"):
+            server_dict["privileged_identity"]["fingerprint"] = ident_svc.fingerprint_public(
+                priv_pub
+            )
 
     reboot_initiated = request.query_params.get("rebooted") == "1"
 
@@ -872,6 +990,16 @@ async def server_detail(
     from ..services.nav_shortcuts import host_feature_context
     from ..security.auth import role_at_least, ROLE_OPERATOR
     from ..services import ssh_console as cons_svc
+    from ..services import host_files as hf_svc
+
+    files_on = False
+    files_jail = ""
+    try:
+        files_on = hf_svc.files_enabled() and role_at_least(user, ROLE_OPERATOR)
+        if files_on:
+            files_jail = hf_svc.jail_path(server)
+    except Exception:
+        files_jail = ""
 
     _nav = host_feature_context(session, int(user.id) if user else None, server, "overview")
     return templates_mod.templates.TemplateResponse(
@@ -883,6 +1011,8 @@ async def server_detail(
             "console_enabled": cons_svc.console_enabled(),
             "demo_console": cons_svc.is_demo_console(),
             "is_operator": role_at_least(user, ROLE_OPERATOR),
+            "files_enabled": files_on,
+            "files_jail": files_jail,
             "dns_form": dns_form,
             "fabric_rack": fabric_rack,
             "hosts_map_url": hosts_map_url,
@@ -917,6 +1047,7 @@ async def server_detail(
             "flash_detail": flash_detail,
             "key_install_script": key_install_script,
             "least_priv_script": least_priv_script,
+            "privileged_setup_script": privileged_setup_script,
             "compose_acl_script": compose_acl_script,
             "host_cleanup_script": host_cleanup_script,
             "docker_base_expanded": ssh_service.docker_base_expanded(server),
@@ -1280,6 +1411,9 @@ async def update_server(
         )
 
     session.add(server)
+    from ..services import ssh_identities as ident_svc
+
+    ident_svc.ensure_fleet_identity(session, server)
     session.commit()
 
     # Host DNS only when General form explicitly includes the DNS section

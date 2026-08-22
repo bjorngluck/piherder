@@ -27,6 +27,24 @@ ACCOUNT_STEPUP_MINUTES = 5
 ACCOUNT_STEPUP_COOKIE = "account_stepup"
 
 
+def account_stepup_minutes() -> int:
+    try:
+        from ..services.account_stepup import stepup_minutes
+
+        return stepup_minutes("account")
+    except Exception:
+        return ACCOUNT_STEPUP_MINUTES
+
+
+def secrets_unlock_minutes() -> int:
+    try:
+        from ..services.account_stepup import stepup_minutes
+
+        return stepup_minutes("secrets")
+    except Exception:
+        return SECRETS_UNLOCK_MINUTES
+
+
 def cookie_secure() -> bool:
     """Set Secure on session cookies when the public origin is HTTPS (or COOKIE_SECURE=true)."""
     flag = (getattr(settings, "COOKIE_SECURE", None) or "").strip().lower()
@@ -169,9 +187,15 @@ def create_pending_2fa_token(user_id: int) -> str:
 
 def create_secrets_unlock_token(user_id: int) -> str:
     """Short-lived step-up after TOTP/passkey re-check; required to view secret cleartext."""
+    try:
+        from ..services.account_stepup import stepup_minutes
+
+        mins = stepup_minutes("secrets")
+    except Exception:
+        mins = SECRETS_UNLOCK_MINUTES
     return create_access_token(
         {"sub": str(user_id), "secrets_unlock": True},
-        expires_delta=timedelta(minutes=SECRETS_UNLOCK_MINUTES),
+        expires_delta=timedelta(minutes=mins),
     )
 
 
@@ -193,9 +217,15 @@ def secrets_unlock_active(request: Request, user: User) -> bool:
 
 def create_account_stepup_token(user_id: int) -> str:
     """Short-lived step-up for Account SSO / password-sensitive actions."""
+    try:
+        from ..services.account_stepup import stepup_minutes
+
+        mins = stepup_minutes("account")
+    except Exception:
+        mins = ACCOUNT_STEPUP_MINUTES
     return create_access_token(
         {"sub": str(user_id), "account_stepup": True},
-        expires_delta=timedelta(minutes=ACCOUNT_STEPUP_MINUTES),
+        expires_delta=timedelta(minutes=mins),
     )
 
 
@@ -265,6 +295,8 @@ _ADMIN_ONLY_PREFIXES = (
     "/herder-backups/download",
     "/herder-backups/config",
     "/herder-backups/security",
+    "/herder-backups/console",
+    "/herder-backups/files",
     "/herder-backups/update-checks",
     "/herder-backups/timezone",
     "/herder-backups/delete",
@@ -306,12 +338,18 @@ class OnboardingRedirect(Exception):
 
 
 def force_2fa_required() -> bool:
-    """Global policy: every user must enable a second factor before using the app."""
+    """True when force-2FA policy is on for *someone* (not user-specific)."""
     try:
-        from ..services.app_settings import force_2fa_enabled
-        return force_2fa_enabled()
+        from ..services.account_stepup import force_2fa_required as _scope_on
+
+        return _scope_on()
     except Exception:
-        return False
+        try:
+            from ..services.app_settings import force_2fa_enabled
+
+            return force_2fa_enabled()
+        except Exception:
+            return False
 
 
 def user_has_second_factor(session: Session, user: User) -> bool:
@@ -332,11 +370,21 @@ def _path_allowed(path: str, prefixes: tuple[str, ...]) -> bool:
     return any(path == p or path.startswith(p.rstrip("/") + "/") or path.startswith(p) for p in prefixes)
 
 
-def post_login_path(user: User, session: Optional[Session] = None) -> str:
+def post_login_path(
+    user: User,
+    session: Optional[Session] = None,
+    request: Optional[Request] = None,
+) -> str:
     """Where to send the browser after a successful login / 2FA."""
     if getattr(user, "must_change_password", False):
         return "/auth/force-password"
-    if force_2fa_required():
+    try:
+        from ..services.account_stepup import force_2fa_applies
+
+        applies = force_2fa_applies(user, request=request, session=session)
+    except Exception:
+        applies = force_2fa_required()
+    if applies:
         if session is not None:
             if not user_has_second_factor(session, user):
                 return "/auth/force-2fa"
@@ -452,10 +500,16 @@ def get_current_user(
     ):
         raise OnboardingRedirect("/auth/force-password")
 
-    # Global force-2FA gate (after password is OK) — TOTP or passkey satisfies
+    # Force-2FA enroll wall (scope / grace / optional trusted-device skip)
+    try:
+        from ..services.account_stepup import force_2fa_applies as _force_applies
+
+        _need_enroll = _force_applies(user, request=request, session=session)
+    except Exception:
+        _need_enroll = force_2fa_required()
     if (
         not getattr(user, "must_change_password", False)
-        and force_2fa_required()
+        and _need_enroll
         and not user_has_second_factor(session, user)
         and not _path_allowed(path, _FORCE_2FA_ALLOW)
     ):

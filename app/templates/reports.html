@@ -1,0 +1,641 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% set b = backup or {} %}
+{% set o = os_patch or {} %}
+{% set n = lan or {} %}
+{% set dk = docker or {} %}
+{% set con = console or {} %}
+{% set health = 'hot' if (b.fail or o.fail or n.scans_fail or dk.deploy_fail or dk.patch_fail or con.denied) else 'ok' %}
+<style>
+  .rpt-windows { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .rpt-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+  .rpt-kpis {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    margin-bottom: 0.85rem;
+  }
+  @media (min-width: 640px) {
+    .rpt-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  .rpt-kpi {
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 0.65rem 0.75rem;
+    background: var(--color-surface);
+  }
+  .rpt-kpi-l { font-size: 0.68rem; color: var(--color-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .rpt-kpi-v { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.03em; color: var(--color-text); line-height: 1.15; margin-top: 0.15rem; }
+  .rpt-kpi.is-hot .rpt-kpi-v { color: var(--color-warning, #d97706); }
+  .rpt-kpi-s { font-size: 0.7rem; color: var(--color-muted); margin-top: 0.15rem; }
+  .rpt-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 72px;
+    margin: 0.35rem 0 0.25rem;
+  }
+  .rpt-bar-col {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+  }
+  .rpt-bar {
+    width: 100%;
+    min-height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: color-mix(in srgb, var(--color-accent) 70%, var(--color-border));
+  }
+  .rpt-bar.is-empty { background: var(--color-border); min-height: 2px; }
+  .rpt-table {
+    width: 100%;
+    min-width: 22.5rem;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+  .rpt-table-fixed { table-layout: fixed; }
+  .rpt-table th,
+  .rpt-table td {
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: middle;
+    color: var(--color-text);
+  }
+  .rpt-table th {
+    text-align: left;
+    font-size: 0.68rem;
+    color: var(--color-muted);
+    font-weight: 600;
+  }
+  .rpt-table col.rpt-c-n { width: 4.25rem; }
+  .rpt-table col.rpt-c-dest { width: 7.25rem; }
+  .rpt-num,
+  .rpt-dest {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    white-space: nowrap;
+  }
+  .rpt-table th.rpt-num,
+  .rpt-table th.rpt-dest { text-align: right; }
+  .rpt-dest { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .rpt-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rpt-table th:first-child,
+  .rpt-table td.rpt-label {
+    min-width: 8.25rem;
+  }
+  @media (max-width: 639px) {
+    /* Do not squeeze Day/host into an ellipsis — scroll the table sideways. */
+    .rpt-table-fixed { table-layout: auto; }
+    .rpt-table { min-width: 28rem; }
+    .rpt-label {
+      overflow: visible;
+      text-overflow: clip;
+    }
+  }
+  .rpt-table a { color: inherit; text-decoration: none; font-weight: 550; }
+  .rpt-table a:hover { color: var(--color-accent); text-decoration: underline; }
+  .rpt-fail { color: var(--color-danger, #dc2626); font-weight: 600; }
+  .rpt-ok { color: var(--color-accent); }
+  .rpt-note { font-size: 0.75rem; color: var(--color-muted); margin: 0.65rem 0 0; }
+  .rpt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .rpt-day-fail { font-size: 0.65rem; color: var(--color-danger, #dc2626); }
+</style>
+
+<section class="ops-hero ops-hero--reports is-{{ health }} mb-4">
+  <div class="ops-hero-main">
+    <div class="ops-hero-kicker">History Grafana never sees</div>
+    <h1 class="ops-hero-title">Reports</h1>
+    <p class="ops-hero-sub">
+      Backups, OS patches, LAN census, Docker deploys/patches, and console sessions — from Jobs, nmap runs, and Audit. Grafana never sees this.
+    </p>
+    <div class="ops-hero-actions rpt-windows">
+      {% for w in day_choices %}
+      <a href="/reports?days={{ w }}"
+         class="btn text-xs min-h-9 px-2.5 {% if days == w %}btn-accent{% else %}btn-secondary{% endif %}">
+        {{ w }}d
+      </a>
+      {% endfor %}
+      <a href="/jobs?job_type=backup" class="btn btn-secondary text-xs min-h-9 px-2.5">Jobs</a>
+    </div>
+  </div>
+</section>
+
+<div class="rpt-grid">
+  <section class="card p-4 sm:p-5" data-testid="reports-backups" id="report-backups">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+      <h2 class="font-semibold text-text">Backups</h2>
+      <a href="{{ b.jobs_href }}" class="text-xs text-accent hover:underline">Backup jobs →</a>
+    </div>
+    <div class="rpt-kpis">
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Runs</div>
+        <div class="rpt-kpi-v">{{ b.runs or 0 }}</div>
+        <div class="rpt-kpi-s">last {{ b.days }}d</div>
+      </div>
+      <div class="rpt-kpi {% if b.fail %}is-hot{% endif %}">
+        <div class="rpt-kpi-l">Success</div>
+        <div class="rpt-kpi-v">{{ b.ok_pct or 0 }}%</div>
+        <div class="rpt-kpi-s"><span class="rpt-ok">{{ b.ok or 0 }} ok</span> · <span class="{% if b.fail %}rpt-fail{% endif %}">{{ b.fail or 0 }} fail</span></div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Dest after last run</div>
+        <div class="rpt-kpi-v">{{ b.dest_last_human or '—' }}</div>
+        <div class="rpt-kpi-s">
+          {% if b.dest_grew %}+{{ b.dest_delta_human }} over window
+          {% elif b.dest_shrank %}−{{ b.dest_delta_human }} over window
+          {% else %}no dest change in window{% endif %}
+        </div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Dest on disk now</div>
+        <div class="rpt-kpi-v">{{ (b.dest_now and b.dest_now.human) or '—' }}</div>
+        <div class="rpt-kpi-s">{{ (b.dest_now and b.dest_now.message) or 'from last Settings → Status check' }}</div>
+      </div>
+    </div>
+
+    {% if b.empty %}
+    <p class="text-sm text-muted mb-0">No finished backup jobs in this window. Run a backup, then this fills from Job history.</p>
+    {% else %}
+    <div class="text-xs text-muted mb-1">Dest occupancy by day (carry-forward)</div>
+    <div class="rpt-bars" aria-hidden="true">
+      {% for d in b.day_rows %}
+      <div class="rpt-bar-col" title="{{ d.day }} · {{ d.ok }} ok · {{ d.fail }} fail · {{ d.dest_human }}">
+        <div class="rpt-bar {% if not d.dest_bytes %}is-empty{% endif %}" style="height: {{ d.bar_pct if d.bar_pct else 2 }}%"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="rpt-scroll mt-3">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-dest">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th class="rpt-num">Ok</th>
+            <th class="rpt-num">Fail</th>
+            <th class="rpt-dest">Dest</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in b.day_rows %}
+          {% if d.ok or d.fail %}
+          <tr>
+            <td class="rpt-label font-mono">{{ d.day }}</td>
+            <td class="rpt-num">{{ d.ok }}</td>
+            <td class="rpt-num {% if d.fail %}rpt-fail{% endif %}">{{ d.fail }}</td>
+            <td class="rpt-dest">{{ d.dest_human }}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if b.hosts %}
+    <div class="rpt-scroll mt-4">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-dest">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Host</th>
+            <th class="rpt-num">Ok</th>
+            <th class="rpt-num">Fail</th>
+            <th class="rpt-dest">Last dest</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in b.hosts %}
+          <tr>
+            <td class="rpt-label"><a href="{{ h.href }}">{{ h.name }}</a></td>
+            <td class="rpt-num">{{ h.ok }}</td>
+            <td class="rpt-num {% if h.fail %}rpt-fail{% endif %}">{{ h.fail }}</td>
+            <td class="rpt-dest">{{ h.dest_human }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% endif %}
+    <p class="rpt-note">{{ b.note }}</p>
+  </section>
+
+  <section class="card p-4 sm:p-5" data-testid="reports-os-patch" id="report-os-patch">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+      <h2 class="font-semibold text-text">OS patches</h2>
+      <a href="{{ o.jobs_href }}" class="text-xs text-accent hover:underline">OS patch jobs →</a>
+    </div>
+    <div class="rpt-kpis">
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Applies</div>
+        <div class="rpt-kpi-v">{{ o.ok or 0 }}</div>
+        <div class="rpt-kpi-s">{{ o.runs or 0 }} runs · last {{ o.days }}d</div>
+      </div>
+      <div class="rpt-kpi {% if o.fail %}is-hot{% endif %}">
+        <div class="rpt-kpi-l">Success</div>
+        <div class="rpt-kpi-v">{{ o.ok_pct or 0 }}%</div>
+        <div class="rpt-kpi-s"><span class="{% if o.fail %}rpt-fail{% endif %}">{{ o.fail or 0 }} failed</span></div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Packages (when logged)</div>
+        <div class="rpt-kpi-v">{% if o.packages_known %}{{ o.packages }}{% else %}—{% endif %}</div>
+        <div class="rpt-kpi-s">{% if o.avg_packages_per_host is not none %}{{ o.avg_packages_per_host }} / host in window{% else %}apt line not in older jobs{% endif %}</div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Hosts in denom</div>
+        <div class="rpt-kpi-v">{{ o.host_denom or 0 }}</div>
+        <div class="rpt-kpi-s">{{ o.enabled_hosts or 0 }} with OS patch on</div>
+      </div>
+    </div>
+
+    {% if o.rates %}
+    <div class="rpt-scroll mb-3">
+      <table class="rpt-table">
+        <thead>
+          <tr>
+            <th>Average per host</th>
+            <th>Applies</th>
+            <th>Packages</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in o.rates %}
+          <tr>
+            <td>Per {{ r.label }} ({{ r.days }}d)</td>
+            <td>{{ r.applies_per_host }} <span class="text-muted">({{ r.applies }} total)</span></td>
+            <td>{% if r.packages_per_host is not none %}{{ r.packages_per_host }} <span class="text-muted">({{ r.packages }})</span>{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if o.empty %}
+    <p class="text-sm text-muted mb-0">No finished OS patch apply jobs in this window.</p>
+    {% else %}
+    <div class="text-xs text-muted mb-1">Successful applies by day</div>
+    <div class="rpt-bars" aria-hidden="true">
+      {% for d in o.day_rows %}
+      <div class="rpt-bar-col" title="{{ d.day }} · {{ d.ok }} ok · {{ d.fail }} fail">
+        <div class="rpt-bar {% if not d.ok %}is-empty{% endif %}" style="height: {{ d.bar_pct if d.bar_pct else 2 }}%"></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% if o.hosts %}
+    <div class="rpt-scroll mt-3">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-dest">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Host</th>
+            <th class="rpt-num">Ok</th>
+            <th class="rpt-num">Fail</th>
+            <th class="rpt-num">Packages</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in o.hosts %}
+          <tr>
+            <td class="rpt-label"><a href="{{ h.href }}">{{ h.name }}</a></td>
+            <td class="rpt-num">{{ h.ok }}</td>
+            <td class="rpt-num {% if h.fail %}rpt-fail{% endif %}">{{ h.fail }}</td>
+            <td class="rpt-num">{% if h.packages_known %}{{ h.packages }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% endif %}
+    <p class="rpt-note">{{ o.note }} Job retention (Settings → Cleanup) caps how far back this can go. Host CPU/disk graphs stay in Grafana.</p>
+  </section>
+
+  <section class="card p-4 sm:p-5" data-testid="reports-lan" id="report-lan">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+      <h2 class="font-semibold text-text">LAN live</h2>
+      <a href="{{ n.href }}" class="text-xs text-accent hover:underline">Discovery →</a>
+    </div>
+    <div class="rpt-kpis">
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Live (last scan day)</div>
+        <div class="rpt-kpi-v">{{ n.live_last or 0 }}</div>
+        <div class="rpt-kpi-s">
+          {% if n.live_grew %}+{{ n.live_delta }} over window
+          {% elif n.live_shrank %}{{ n.live_delta }} over window
+          {% else %}no change in window{% endif %}
+        </div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Catalog now</div>
+        <div class="rpt-kpi-v">{{ n.live_now or 0 }}</div>
+        <div class="rpt-kpi-s">{{ n.stale_now or 0 }} offline · {{ n.ignored_now or 0 }} ignored</div>
+      </div>
+      <div class="rpt-kpi {% if n.scans_fail %}is-hot{% endif %}">
+        <div class="rpt-kpi-l">Scans</div>
+        <div class="rpt-kpi-v">{{ n.scans_ok or 0 }}</div>
+        <div class="rpt-kpi-s">{% if n.scans_fail %}<span class="rpt-fail">{{ n.scans_fail }} failed</span>{% else %}last {{ n.days }}d{% endif %}</div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">First seen</div>
+        <div class="rpt-kpi-v">{{ n.new_window or 0 }}</div>
+        <div class="rpt-kpi-s">new identities in window</div>
+      </div>
+    </div>
+
+    {% if n.rates %}
+    <div class="rpt-scroll mb-3">
+      <table class="rpt-table">
+        <thead>
+          <tr>
+            <th>Average live</th>
+            <th>Avg</th>
+            <th>Min</th>
+            <th>Max</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in n.rates %}
+          <tr>
+            <td>Per {{ r.label }} ({{ r.days }}d)</td>
+            <td>{{ r.avg_live }}</td>
+            <td>{{ r.min_live }}</td>
+            <td>{{ r.max_live }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if n.empty %}
+    <p class="text-sm text-muted mb-0">No successful nmap runs in this window. After a LAN discovery scan, hosts_up is stored per run.</p>
+    {% else %}
+    <div class="text-xs text-muted mb-1">Live devices by day (carry-forward)</div>
+    <div class="rpt-bars" aria-hidden="true">
+      {% for d in n.day_rows %}
+      <div class="rpt-bar-col" title="{{ d.day }} · {{ d.live }} live · {{ d.scans_ok }} scans">
+        <div class="rpt-bar {% if not d.live %}is-empty{% endif %}" style="height: {{ d.bar_pct if d.bar_pct else 2 }}%"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="rpt-scroll mt-3">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th class="rpt-num">Live</th>
+            <th class="rpt-num">Scans</th>
+            <th class="rpt-num">Fail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in n.day_rows %}
+          {% if d.scans_ok or d.scans_fail or d.live %}
+          <tr>
+            <td class="rpt-label font-mono">{{ d.day }}</td>
+            <td class="rpt-num">{{ d.live }}</td>
+            <td class="rpt-num">{{ d.scans_ok }}</td>
+            <td class="rpt-num {% if d.scans_fail %}rpt-fail{% endif %}">{{ d.scans_fail }}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    <p class="rpt-note">{{ n.note }} nmap run purge (Settings → Cleanup) is off by default.</p>
+  </section>
+
+  <section class="card p-4 sm:p-5" data-testid="reports-docker" id="report-docker">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+      <h2 class="font-semibold text-text">Docker</h2>
+      <a href="{{ dk.jobs_href }}" class="text-xs text-accent hover:underline">Docker jobs →</a>
+    </div>
+    <div class="rpt-kpis">
+      <div class="rpt-kpi {% if dk.deploy_fail %}is-hot{% endif %}">
+        <div class="rpt-kpi-l">Stack deploys</div>
+        <div class="rpt-kpi-v">{{ dk.deploy_ok or 0 }}</div>
+        <div class="rpt-kpi-s">{% if dk.deploy_fail %}<span class="rpt-fail">{{ dk.deploy_fail }} failed</span>{% else %}up / stop / start / restart / template{% endif %}</div>
+      </div>
+      <div class="rpt-kpi {% if dk.patch_fail %}is-hot{% endif %}">
+        <div class="rpt-kpi-l">Image patches</div>
+        <div class="rpt-kpi-v">{{ dk.patch_ok or 0 }}</div>
+        <div class="rpt-kpi-s">{% if dk.patch_fail %}<span class="rpt-fail">{{ dk.patch_fail }} failed</span>{% else %}container apply jobs{% endif %}</div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Running now</div>
+        <div class="rpt-kpi-v">{{ dk.running_now or 0 }}</div>
+        <div class="rpt-kpi-s">of {{ dk.total_now or 0 }} · {{ dk.stacks_now or 0 }} stacks (last inventory)</div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Jobs</div>
+        <div class="rpt-kpi-v">{{ dk.runs or 0 }}</div>
+        <div class="rpt-kpi-s">last {{ dk.days }}d</div>
+      </div>
+    </div>
+    {% if dk.empty %}
+    <p class="text-sm text-muted mb-0">No Docker deploy or container-patch jobs in this window.</p>
+    {% else %}
+    <div class="rpt-scroll mt-3">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th class="rpt-num">Dep ok</th>
+            <th class="rpt-num">Fail</th>
+            <th class="rpt-num">Patch ok</th>
+            <th class="rpt-num">Fail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in dk.day_rows %}
+          {% if d.deploy_ok or d.deploy_fail or d.patch_ok or d.patch_fail %}
+          <tr>
+            <td class="rpt-label font-mono">{{ d.day }}</td>
+            <td class="rpt-num">{{ d.deploy_ok }}</td>
+            <td class="rpt-num {% if d.deploy_fail %}rpt-fail{% endif %}">{{ d.deploy_fail }}</td>
+            <td class="rpt-num">{{ d.patch_ok }}</td>
+            <td class="rpt-num {% if d.patch_fail %}rpt-fail{% endif %}">{{ d.patch_fail }}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if dk.hosts %}
+    <div class="rpt-scroll mt-4">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Host</th>
+            <th class="rpt-num">Dep ok</th>
+            <th class="rpt-num">Fail</th>
+            <th class="rpt-num">Patch ok</th>
+            <th class="rpt-num">Fail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in dk.hosts %}
+          <tr>
+            <td class="rpt-label"><a href="{{ h.href }}">{{ h.name }}</a></td>
+            <td class="rpt-num">{{ h.deploy_ok }}</td>
+            <td class="rpt-num {% if h.deploy_fail %}rpt-fail{% endif %}">{{ h.deploy_fail }}</td>
+            <td class="rpt-num">{{ h.patch_ok }}</td>
+            <td class="rpt-num {% if h.patch_fail %}rpt-fail{% endif %}">{{ h.patch_fail }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% endif %}
+    <p class="rpt-note">{{ dk.note }}</p>
+  </section>
+
+  <section class="card p-4 sm:p-5" data-testid="reports-console" id="report-console">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+      <h2 class="font-semibold text-text">Console</h2>
+      <a href="{{ con.href }}" class="text-xs text-accent hover:underline">Console audit →</a>
+    </div>
+    <div class="rpt-kpis">
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Sessions</div>
+        <div class="rpt-kpi-v">{{ con.opens or 0 }}</div>
+        <div class="rpt-kpi-s">{{ con.privileged or 0 }} privileged</div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Duration</div>
+        <div class="rpt-kpi-v">{{ con.duration or '0s' }}</div>
+        <div class="rpt-kpi-s">from close events</div>
+      </div>
+      <div class="rpt-kpi {% if con.denied %}is-hot{% endif %}">
+        <div class="rpt-kpi-l">Denied</div>
+        <div class="rpt-kpi-v">{{ con.denied or 0 }}</div>
+        <div class="rpt-kpi-s">open blocked</div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Commands logged</div>
+        <div class="rpt-kpi-v">{{ con.cmds or 0 }}</div>
+        <div class="rpt-kpi-s">{{ con.transcripts or 0 }} transcript(s) · audit on only</div>
+      </div>
+    </div>
+    {% if con.empty %}
+    <p class="text-sm text-muted mb-0">No web-console sessions in this window.</p>
+    {% else %}
+    <div class="rpt-scroll mt-3">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-dest">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th class="rpt-num">Open</th>
+            <th class="rpt-num">Priv</th>
+            <th class="rpt-num">Denied</th>
+            <th class="rpt-dest">Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in con.day_rows %}
+          {% if d.opens or d.denied or d.seconds %}
+          <tr>
+            <td class="rpt-label font-mono">{{ d.day }}</td>
+            <td class="rpt-num">{{ d.opens }}</td>
+            <td class="rpt-num">{{ d.privileged }}</td>
+            <td class="rpt-num {% if d.denied %}rpt-fail{% endif %}">{{ d.denied }}</td>
+            <td class="rpt-dest">{{ d.duration }}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if con.hosts %}
+    <div class="rpt-scroll mt-4">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-dest">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Host</th>
+            <th class="rpt-num">Open</th>
+            <th class="rpt-num">Priv</th>
+            <th class="rpt-num">Denied</th>
+            <th class="rpt-dest">Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in con.hosts %}
+          <tr>
+            <td class="rpt-label"><a href="{{ h.href }}">{{ h.name }}</a></td>
+            <td class="rpt-num">{{ h.opens }}</td>
+            <td class="rpt-num">{{ h.privileged }}</td>
+            <td class="rpt-num {% if h.denied %}rpt-fail{% endif %}">{{ h.denied }}</td>
+            <td class="rpt-dest">{{ h.duration }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% endif %}
+    <p class="rpt-note">{{ con.note }}</p>
+  </section>
+</div>
+{% endblock %}

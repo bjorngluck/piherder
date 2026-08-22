@@ -24,6 +24,7 @@ from ..models import User
 from ..security.auth import ROLE_ADMIN, get_admin_user, get_current_user, user_role
 from ..services import api_tokens as tok_svc
 from ..services import app_settings as app_cfg
+from ..services import password_policy as pwpol
 from ..services import herder_backup as hb
 from ..services import stack_health as stack_svc
 from ..services import update_check_config as ucc
@@ -83,6 +84,7 @@ def _scopes_from_form(
     scope_read: Optional[str],
     scope_jobs: Optional[str],
     scope_edit: Optional[str],
+    scope_files: Optional[str],
     scope_feature_backup: Optional[str],
     scope_feature_os: Optional[str],
     scope_feature_docker: Optional[str],
@@ -92,6 +94,7 @@ def _scopes_from_form(
         (scope_read, "read"),
         (scope_jobs, "jobs"),
         (scope_edit, "edit"),
+        (scope_files, "files"),
         (scope_feature_backup, "feature:backup"),
         (scope_feature_os, "feature:os"),
         (scope_feature_docker, "feature:docker"),
@@ -208,7 +211,13 @@ async def settings_page(
         tab = "backup"
     if qp.get("update_checks_saved"):
         tab = "fleet"
-    if qp.get("security_saved") or qp.get("data_cleanup_saved") or qp.get("data_cleanup_queued"):
+    if (
+        qp.get("security_saved")
+        or qp.get("console_saved")
+        or qp.get("files_saved")
+        or qp.get("data_cleanup_saved")
+        or qp.get("data_cleanup_queued")
+    ):
         tab = "general"
     if qp.get("demo_restored") or qp.get("demo_error"):
         tab = "general"
@@ -248,7 +257,9 @@ async def settings_page(
     tok_revoked = int(api_token_counts.get("revoked") or 0)
     tok_all = int(api_token_counts.get("all") or 0)
     stack_overall = (stack_report or {}).get("overall") if stack_report else None
-    force_2fa = bool(cfg.get("force_2fa"))
+    from ..services import account_stepup as _step
+
+    force_2fa = _step.force_2fa_required()
     sched_on = schedule_status == "enabled"
     tz_info = app_cfg.describe_timezone(cfg.get("timezone") or "UTC")
     tz_short = tz_info.get("city") or (cfg.get("timezone") or "UTC").split("/")[-1]
@@ -268,7 +279,7 @@ async def settings_page(
     settings_hero_by_tab = {
         "general": {
             "title": "Settings",
-            "sub": "Timezone, security policy, and platform defaults.",
+            "sub": "Timezone, security policy, console limits, and platform defaults.",
             "viz": "tz",
             "primary": tz_info["local"],
             "primary_label": "local",
@@ -294,12 +305,12 @@ async def settings_page(
         },
         "alerts": {
             "title": "Alerts",
-            "sub": "Outbound webhook and SMTP for notifications and password recovery.",
+            "sub": "Alert policy, outbound webhook and SMTP, password recovery.",
             "viz": "orb",
             "primary": int(bool(cfg.get("webhook_enabled") or cfg.get("smtp_enabled"))),
             "primary_label": "channels",
             "primary_cls": "",
-            "caption": "Webhook · SMTP · recovery",
+            "caption": "Policy · webhook · SMTP · recovery",
         },
         "backup": {
             "title": "PiHerder backup",
@@ -427,6 +438,25 @@ async def settings_page(
     }
 
     from ..services import alert_channels as alert_ch
+    from ..services import alert_policy as apol
+    from ..services import host_files as hf
+    from ..services import settings_hub as shub
+    from ..services import ssh_console as cons
+
+    webhook_cfg = alert_ch.webhook_config()
+    smtp_cfg = alert_ch.smtp_config()
+    webhook_cfg = dict(webhook_cfg)
+    smtp_cfg = dict(smtp_cfg)
+    webhook_cfg["notify_cats"] = apol.checked_categories(
+        apol.parse_allowlist(webhook_cfg.get("notify_categories"))
+    )
+    smtp_cfg["notify_cats"] = apol.checked_categories(
+        apol.parse_allowlist(smtp_cfg.get("notify_categories"))
+    )
+    alert_policy_ui = apol.ui_state()
+    console_pol = cons.effective_console_policy()
+    files_max_bytes = hf.max_upload_bytes()
+    files_max_locked = hf.files_max_env_locked()
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -445,8 +475,10 @@ async def settings_page(
             "api_token_counts": api_token_counts,
             "is_admin": is_admin,
             "settings_tab": tab,
-            "webhook_cfg": alert_ch.webhook_config(),
-            "smtp_cfg": alert_ch.smtp_config(),
+            "webhook_cfg": webhook_cfg,
+            "smtp_cfg": smtp_cfg,
+            "alert_policy_ui": alert_policy_ui,
+            "alert_categories": apol.CATEGORIES,
             "api_docs_html": api_docs_html,
             "api_meta": api_meta,
             "new_api_token_secret": qp.get("token_secret"),
@@ -462,6 +494,24 @@ async def settings_page(
             "oidc_redirect_uri": _oidc_redirect_uri(),
             "oidc_role_map_rows": _oidc_role_map_rows(cfg),
             "demo_mode_on": demo_mode(),
+            "password_policy_text": pwpol.policy_rules_text(),
+            "console_pol": console_pol,
+            "console_locks": cons.console_env_locks(),
+            "files_enabled": hf.files_enabled(),
+            "files_max_bytes": files_max_bytes,
+            "files_max_gib": hf.files_max_gib(files_max_bytes),
+            "files_max_h": hf.human_size(files_max_bytes),
+            "files_max_locked": files_max_locked,
+            "files_max_ceiling_h": hf.human_size(hf.MAX_UPLOAD_CEILING),
+            "settings_hub": shub.hub_context(
+                cfg=cfg,
+                console_pol=console_pol,
+                data_cleanup=data_cleanup,
+                alert_policy_ui=alert_policy_ui,
+                files_enabled=hf.files_enabled(),
+                files_max_h=hf.human_size(files_max_bytes),
+                files_max_locked=files_max_locked,
+            ),
         },
     )
 
@@ -621,6 +671,7 @@ async def create_api_token_form(
     scope_read: Optional[str] = Form(None),
     scope_jobs: Optional[str] = Form(None),
     scope_edit: Optional[str] = Form(None),
+    scope_files: Optional[str] = Form(None),
     scope_feature_backup: Optional[str] = Form(None),
     scope_feature_os: Optional[str] = Form(None),
     scope_feature_docker: Optional[str] = Form(None),
@@ -643,6 +694,7 @@ async def create_api_token_form(
         scope_read,
         scope_jobs,
         scope_edit,
+        scope_files,
         scope_feature_backup,
         scope_feature_os,
         scope_feature_docker,
@@ -693,6 +745,7 @@ async def update_api_token_form(
     scope_read: Optional[str] = Form(None),
     scope_jobs: Optional[str] = Form(None),
     scope_edit: Optional[str] = Form(None),
+    scope_files: Optional[str] = Form(None),
     scope_feature_backup: Optional[str] = Form(None),
     scope_feature_os: Optional[str] = Form(None),
     scope_feature_docker: Optional[str] = Form(None),
@@ -715,6 +768,7 @@ async def update_api_token_form(
                 scope_read,
                 scope_jobs,
                 scope_edit,
+                scope_files,
                 scope_feature_backup,
                 scope_feature_os,
                 scope_feature_docker,
@@ -1017,27 +1071,254 @@ async def save_backup_schedule(
 @router.post("/herder-backups/security")
 async def save_security_policy(
     force_2fa: Optional[str] = Form(None),
+    force_2fa_scope: str = Form("off"),
+    force_2fa_grace_days: int = Form(0),
+    force_2fa_trusted_skip_enroll: Optional[str] = Form(None),
+    login_trusted_skip_2fa: Optional[str] = Form(None),
     template_require_2fa: Optional[str] = Form(None),
+    password_min_length: int = Form(10),
+    password_max_length: int = Form(72),
+    password_require_upper: Optional[str] = Form(None),
+    password_require_lower: Optional[str] = Form(None),
+    password_require_digit: Optional[str] = Form(None),
+    password_require_special: Optional[str] = Form(None),
+    stepup_account_minutes: int = Form(5),
+    stepup_secrets_minutes: int = Form(10),
+    stepup_console_minutes: int = Form(10),
+    factor_login_totp: Optional[str] = Form(None),
+    factor_login_passkey: Optional[str] = Form(None),
+    factor_login_backup: Optional[str] = Form(None),
+    factor_account_totp: Optional[str] = Form(None),
+    factor_account_passkey: Optional[str] = Form(None),
+    factor_account_backup: Optional[str] = Form(None),
+    factor_secrets_totp: Optional[str] = Form(None),
+    factor_secrets_passkey: Optional[str] = Form(None),
+    factor_secrets_backup: Optional[str] = Form(None),
+    factor_console_totp: Optional[str] = Form(None),
+    factor_console_passkey: Optional[str] = Form(None),
+    factor_console_backup: Optional[str] = Form(None),
+    console_require_2fa_every_shell: Optional[str] = Form(None),
+    console_allow_backup_codes: Optional[str] = Form(None),
+    console_prefer_passkey: Optional[str] = Form(None),
+    console_require_passkey: Optional[str] = Form(None),
+    oidc_idp_mfa_satisfies_login_2fa: Optional[str] = Form(None),
+    oidc_idp_mfa_claim: str = Form("amr"),
     user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
 ):
+    from ..services import account_stepup as step
     from ..services.demo import http_403_if_demo
 
     # Shared demo: force-2FA would lock every visitor out of the shared account
     http_403_if_demo("settings_security")
-    del user
+    before_pw = pwpol.policy_summary()
+    prev = app_cfg.load_settings()
+    before_t = step.policy_audit_summary(prev)
+    policy_keys = pwpol.settings_from_policy(
+        {
+            "password_min_length": password_min_length,
+            "password_max_length": password_max_length,
+            "password_require_upper": _form_on(password_require_upper),
+            "password_require_lower": _form_on(password_require_lower),
+            "password_require_digit": _form_on(password_require_digit),
+            "password_require_special": _form_on(password_require_special),
+        }
+    )
+    # Legacy checkbox still accepted if scope omitted
+    scope = (force_2fa_scope or "").strip().lower()
+    if scope not in step.FORCE_SCOPES:
+        scope = "all" if _form_on(force_2fa) else "off"
+    prev_scope = step.force_2fa_scope(prev)
+    grace_days = max(
+        step.GRACE_DAYS_MIN, min(step.GRACE_DAYS_MAX, int(force_2fa_grace_days or 0))
+    )
+    grace_since = str(prev.get("force_2fa_grace_since") or "").strip()
+    if scope == "off":
+        grace_since = ""
+    elif prev_scope == "off":
+        grace_since = datetime.utcnow().isoformat() + "Z"
+    claim = (oidc_idp_mfa_claim or "amr").strip()[:64] or "amr"
+
+    def _win(raw, default):
+        return max(step.WINDOW_MIN, min(step.WINDOW_MAX, int(raw if raw is not None else default)))
+
+    t_keys = {
+        "force_2fa": scope == "all",
+        "force_2fa_scope": scope,
+        "force_2fa_grace_days": grace_days,
+        "force_2fa_grace_since": grace_since,
+        "force_2fa_trusted_skip_enroll": _form_on(force_2fa_trusted_skip_enroll),
+        "login_trusted_skip_2fa": _form_on(login_trusted_skip_2fa),
+        "template_require_2fa": _form_on(template_require_2fa),
+        "stepup_account_minutes": _win(stepup_account_minutes, 5),
+        "stepup_secrets_minutes": _win(stepup_secrets_minutes, 10),
+        "stepup_console_minutes": _win(stepup_console_minutes, 10),
+        "factor_login_totp": _form_on(factor_login_totp),
+        "factor_login_passkey": _form_on(factor_login_passkey),
+        "factor_login_backup": _form_on(factor_login_backup),
+        "factor_account_totp": _form_on(factor_account_totp),
+        "factor_account_passkey": _form_on(factor_account_passkey),
+        "factor_account_backup": _form_on(factor_account_backup),
+        "factor_secrets_totp": _form_on(factor_secrets_totp),
+        "factor_secrets_passkey": _form_on(factor_secrets_passkey),
+        "factor_secrets_backup": _form_on(factor_secrets_backup),
+        "factor_console_totp": _form_on(factor_console_totp),
+        "factor_console_passkey": _form_on(factor_console_passkey),
+        "factor_console_backup": _form_on(factor_console_backup),
+        "console_require_2fa_every_shell": _form_on(console_require_2fa_every_shell),
+        "console_allow_backup_codes": _form_on(console_allow_backup_codes),
+        "console_prefer_passkey": _form_on(console_prefer_passkey),
+        "console_require_passkey": _form_on(console_require_passkey),
+        "oidc_idp_mfa_satisfies_login_2fa": _form_on(oidc_idp_mfa_satisfies_login_2fa),
+        "oidc_idp_mfa_claim": claim,
+    }
     try:
-        app_cfg.save_settings(
-            {
-                "force_2fa": _form_on(force_2fa),
-                "template_require_2fa": _form_on(template_require_2fa),
-            }
-        )
+        saved = app_cfg.save_settings({**t_keys, **policy_keys})
     except Exception as e:
         return RedirectResponse(
             _settings_url("general", error=str(e)[:120]), status_code=303
         )
+    after_pw = pwpol.policy_summary()
+    after_t = step.policy_audit_summary(saved)
+    bits = []
+    if after_pw != before_pw:
+        bits.append(f"password {before_pw} → {after_pw}")
+    if after_t != before_t:
+        bits.append(f"2fa {before_t} → {after_t}")
+    if bits:
+        session.add(
+            make_audit_log(
+                user_id=user.id,
+                action="security_policy_changed",
+                status="success",
+                details="; ".join(bits),
+                finished_at=datetime.utcnow(),
+            )
+        )
+        if after_pw != before_pw:
+            session.add(
+                make_audit_log(
+                    user_id=user.id,
+                    action="password_policy_changed",
+                    status="success",
+                    details=f"{before_pw} → {after_pw}",
+                    finished_at=datetime.utcnow(),
+                )
+            )
+        session.commit()
     return RedirectResponse(
         _settings_url("general", security_saved="1"), status_code=303
+    )
+
+
+@router.post("/herder-backups/console")
+async def save_console_policy(
+    console_idle_sec: int = Form(900),
+    console_max_sec: int = Form(3600),
+    console_max_per_user: int = Form(4),
+    console_max_global: int = Form(20),
+    console_ticket_sec: int = Form(60),
+    console_hold_sec: int = Form(0),
+    console_revalidate_sec: int = Form(10),
+    console_scrollback: int = Form(2000),
+    console_bind_ip: Optional[str] = Form(None),
+    console_bind_device: Optional[str] = Form(None),
+    console_privileged_role: str = Form("admin"),
+    console_audit_mode: str = Form("off"),
+    console_audit_retention_days: int = Form(14),
+    console_audit_required: Optional[str] = Form(None),
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    from ..services import ssh_console as cons
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_console")
+    before = cons.console_policy_summary()
+    posted = cons.clamp_console_policy(
+        {
+            "console_idle_sec": console_idle_sec,
+            "console_max_sec": console_max_sec,
+            "console_max_per_user": console_max_per_user,
+            "console_max_global": console_max_global,
+            "console_ticket_sec": console_ticket_sec,
+            "console_hold_sec": console_hold_sec,
+            "console_revalidate_sec": console_revalidate_sec,
+            "console_scrollback": console_scrollback,
+            "console_bind_ip": _form_on(console_bind_ip),
+            "console_bind_device": _form_on(console_bind_device),
+            "console_privileged_role": console_privileged_role,
+            "console_audit_mode": console_audit_mode,
+            "console_audit_retention_days": console_audit_retention_days,
+            "console_audit_required": _form_on(console_audit_required),
+        }
+    )
+    locks = cons.console_env_locks()
+    to_save = {k: v for k, v in posted.items() if not locks.get(k)}
+    try:
+        if to_save:
+            app_cfg.save_settings(to_save)
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("general", error=str(e)[:120]), status_code=303
+        )
+    after = cons.console_policy_summary()
+    if after != before:
+        session.add(
+            make_audit_log(
+                user_id=user.id,
+                action="console_policy_changed",
+                status="success",
+                details=f"{before} → {after}",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        session.commit()
+    return RedirectResponse(
+        _settings_url("general", console_saved="1"), status_code=303
+    )
+
+
+@router.post("/herder-backups/files")
+async def save_files_policy(
+    files_max_gib: str = Form("0.5"),
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    from ..services import host_files as hf
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_files")
+    if hf.files_max_env_locked():
+        return RedirectResponse(
+            _settings_url("general", files_saved="1"), status_code=303
+        )
+    try:
+        gib = float(str(files_max_gib).strip() or "0.5")
+    except (TypeError, ValueError):
+        gib = 0.5
+    n = hf.clamp_files_max_bytes(int(gib * (1024 ** 3)))
+    before = hf.human_size(hf.max_upload_bytes())
+    try:
+        app_cfg.save_settings({"files_max_bytes": n})
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("general", error=str(e)[:120]), status_code=303
+        )
+    after = hf.human_size(hf.max_upload_bytes())
+    if after != before:
+        session.add(
+            make_audit_log(
+                user_id=user.id,
+                action="files_policy_changed",
+                status="success",
+                details=f"max {before} → {after}",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        session.commit()
+    return RedirectResponse(
+        _settings_url("general", files_saved="1"), status_code=303
     )
 
 
@@ -1133,8 +1414,54 @@ async def save_oidc_settings(
     return RedirectResponse(_settings_url("general", oidc_saved="1"), status_code=303)
 
 
+@router.post("/herder-backups/alerts/policy")
+async def save_alerts_policy(
+    request: Request,
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    from ..services import alert_policy as apol
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
+    form = await request.form()
+    before = apol.raw_policy()
+    policy = apol.policy_from_form(form)
+    try:
+        app_cfg.save_settings({"alert_type_policy": policy})
+        inv_on = True
+        cats = policy.get("categories") or {}
+        inv = cats.get("inventory") if isinstance(cats, dict) else None
+        if isinstance(inv, dict) and "enabled" in inv:
+            inv_on = bool(inv.get("enabled"))
+        types = policy.get("types") if isinstance(policy.get("types"), dict) else {}
+        if isinstance(types.get("stack_container_down"), dict) and "enabled" in types["stack_container_down"]:
+            inv_on = bool(types["stack_container_down"]["enabled"])
+        app_cfg.save_settings({"stack_inventory_down_alerts": inv_on})
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("alerts", alerts_error=str(e)[:120]), status_code=303
+        )
+    after = apol.raw_policy()
+    details = apol.policy_audit_summary(before, after)
+    session.add(
+        make_audit_log(
+            user_id=user.id,
+            action="alert_policy_changed",
+            status="success",
+            details=details,
+            finished_at=datetime.utcnow(),
+        )
+    )
+    session.commit()
+    return RedirectResponse(
+        _settings_url("alerts", policy_saved="1") + "#alerts-policy", status_code=303
+    )
+
+
 @router.post("/herder-backups/alerts/webhook")
 async def save_alerts_webhook(
+    request: Request,
     webhook_enabled: Optional[str] = Form(None),
     webhook_url: str = Form(""),
     webhook_number: str = Form(""),
@@ -1147,12 +1474,17 @@ async def save_alerts_webhook(
     user: User = Depends(get_admin_user),
 ):
     from ..services.demo import http_403_if_demo
+    from ..services import alert_policy as apol
     http_403_if_demo("settings_write")
     del user
     from ..services import alert_channels as alert_ch
 
     try:
         url = alert_ch.validate_webhook_url(webhook_url)
+        form = await request.form()
+        cats = apol.allowlist_from_form(
+            form, prefix="webhook_cat_", submitted_key="webhook_cats_submitted"
+        )
         partial: dict = {
             "webhook_enabled": _form_on(webhook_enabled),
             "webhook_url": url,
@@ -1165,6 +1497,8 @@ async def save_alerts_webhook(
             "webhook_events_jobs": _form_on(webhook_events_jobs),
             "webhook_events_backup": _form_on(webhook_events_backup),
         }
+        if cats is not None:
+            partial["webhook_notify_categories"] = cats
         if (webhook_secret or "").strip():
             partial["webhook_secret"] = webhook_secret.strip()[:200]
         app_cfg.save_settings(partial)
@@ -1241,6 +1575,7 @@ async def test_alerts_webhook(
 
 @router.post("/herder-backups/alerts/smtp")
 async def save_alerts_smtp(
+    request: Request,
     smtp_enabled: Optional[str] = Form(None),
     smtp_host: str = Form(""),
     smtp_port: int = Form(587),
@@ -1260,6 +1595,7 @@ async def save_alerts_smtp(
     http_403_if_demo("settings_write")
     del user
     from ..services import alert_channels as alert_ch
+    from ..services import alert_policy as apol
 
     try:
         sec = (smtp_security or "starttls").lower()
@@ -1269,8 +1605,7 @@ async def save_alerts_smtp(
         if sev not in ("info", "warning", "critical"):
             sev = "warning"
         port = max(1, min(65535, int(smtp_port or 587)))
-        app_cfg.save_settings(
-            {
+        smtp_partial: dict = {
                 "smtp_enabled": _form_on(smtp_enabled),
                 "smtp_host": (smtp_host or "").strip()[:200],
                 "smtp_port": port,
@@ -1282,8 +1617,14 @@ async def save_alerts_smtp(
                 "smtp_alert_enabled": _form_on(smtp_alert_enabled),
                 "smtp_alert_min_severity": sev,
                 "smtp_password_reset_enabled": _form_on(smtp_password_reset_enabled),
-            }
+        }
+        form = await request.form()
+        cats = apol.allowlist_from_form(
+            form, prefix="smtp_cat_", submitted_key="smtp_cats_submitted"
         )
+        if cats is not None:
+            smtp_partial["smtp_notify_categories"] = cats
+        app_cfg.save_settings(smtp_partial)
         if _form_on(clear_smtp_password):
             alert_ch.clear_smtp_password()
         elif (smtp_password or "").strip():

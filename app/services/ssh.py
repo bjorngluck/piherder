@@ -171,11 +171,20 @@ def generate_keypair(comment: str = "piherder-generated") -> Tuple[str, str]:
     return pub, priv
 
 
-def get_private_key_plain(server: Server) -> str:
-    """Decrypt private key. ONLY use inside job execution contexts."""
-    if not server.ssh_private_key_encrypted:
+def get_private_key_plain(server: Server, identity=None) -> str:
+    """Decrypt private key. ONLY use inside job execution contexts.
+
+    ``identity`` (optional ServerSshIdentity) selects that key; otherwise the
+    Server fleet cache (``ssh_private_key_encrypted``).
+    """
+    enc = None
+    if identity is not None:
+        enc = getattr(identity, "private_key_encrypted", None)
+    if not enc:
+        enc = getattr(server, "ssh_private_key_encrypted", None)
+    if not enc:
         raise RuntimeError("No encrypted private key on server")
-    return encryption.decrypt_str(server.ssh_private_key_encrypted)
+    return encryption.decrypt_str(enc)
 
 
 @contextmanager
@@ -208,23 +217,46 @@ def _load_pkey(priv: str) -> paramiko.PKey:
     raise RuntimeError(f"Could not load private key: {last_err}")
 
 
-def get_ssh_client(server: Server) -> paramiko.SSHClient:
-    """Create and connect an SSHClient. Caller must .close() or use context."""
+def get_ssh_client(server: Server, identity=None) -> paramiko.SSHClient:
+    """Create and connect an SSHClient. Caller must .close() or use context.
+
+    Jobs pass ``server`` only (fleet cache). Console may pass a privileged
+    identity — key-only, no stored password fallback.
+    """
     client = paramiko.SSHClient()
     policy = attach_host_key_policy(client, server)
 
+    role = (getattr(identity, "role", None) or "").strip().lower()
+    username = (
+        getattr(identity, "username", None) or getattr(server, "ssh_username", None) or ""
+    )
     pkey = None
-    if server.ssh_private_key_encrypted:
-        priv = get_private_key_plain(server)
+    key_enc = None
+    if identity is not None:
+        key_enc = getattr(identity, "private_key_encrypted", None)
+    if not key_enc:
+        key_enc = getattr(server, "ssh_private_key_encrypted", None)
+    if key_enc:
+        priv = encryption.decrypt_str(key_enc)
         pkey = _load_pkey(priv)
+
+    password = None
+    # Privileged identities are key-only. Fleet may still use stored password.
+    if role != "privileged":
+        pw_enc = getattr(server, "ssh_password_encrypted", None)
+        if pw_enc:
+            try:
+                password = encryption.decrypt_str(pw_enc)
+            except Exception:
+                password = None
 
     try:
         client.connect(
             hostname=server.hostname or server.ip_address,
             port=server.ssh_port,
-            username=server.ssh_username,
+            username=username,
             pkey=pkey,
-            password=encryption.decrypt_str(server.ssh_password_encrypted) if server.ssh_password_encrypted else None,
+            password=password,
             timeout=SSH_OPTS["timeout"],
             banner_timeout=SSH_OPTS["banner_timeout"],
             auth_timeout=SSH_OPTS["auth_timeout"],
@@ -250,10 +282,10 @@ def run_command(client: paramiko.SSHClient, cmd: str, timeout: int = 120) -> tup
     return status, out, err
 
 
-def test_connection(server: Server) -> bool:
+def test_connection(server: Server, identity=None) -> bool:
     """Quick test used by the 'Test connection' flow."""
     try:
-        client = get_ssh_client(server)
+        client = get_ssh_client(server, identity)
         status, out, err = run_command(client, "echo 'PiHerder SSH test OK' && hostname && date", timeout=20)
         client.close()
         return status == 0

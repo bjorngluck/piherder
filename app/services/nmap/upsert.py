@@ -63,6 +63,8 @@ def upsert_hosts_from_parse(
     updated = 0
     skipped = 0
     scripts_written = 0
+    new_ids: list[tuple[int, str, str]] = []  # id, label, ip
+    revived_ids: list[int] = []
 
     for host in hosts:
         if only_up and (host.status or "").lower() not in ("up", "unknown"):
@@ -139,6 +141,14 @@ def upsert_hosts_from_parse(
             session.flush()
             created += 1
             device = dev
+            if device.id is not None:
+                new_ids.append(
+                    (
+                        int(device.id),
+                        (host.hostname or ip or f"#{device.id}")[:80],
+                        ip,
+                    )
+                )
         else:
             if existing.state == "ignored":
                 skipped += 1
@@ -162,6 +172,8 @@ def upsert_hosts_from_parse(
             # Operator-reviewed / linked stay put; new stays new until marked known
             if existing.state == "stale":
                 existing.state = "known"
+                if existing.id is not None:
+                    revived_ids.append(int(existing.id))
             elif existing.state == "new":
                 pass  # stays new until Mark known / map identity / link
             elif existing.state not in ("linked", "ignored", "known"):
@@ -207,6 +219,15 @@ def upsert_hosts_from_parse(
         _ = open_n
 
     session.commit()
+    for did, label, dip in new_ids:
+        _safe_notify_new_id(session, did, integration_id, label, dip)
+    for did in revived_ids:
+        _safe_resolve_offline(session, did)
+    if created:
+        _safe_digest(
+            session, integration_id, created, [lbl for _i, lbl, _ip in new_ids]
+        )
+    _safe_digest_clear(session, integration_id)
     return {
         "created": created,
         "updated": updated,
@@ -214,3 +235,54 @@ def upsert_hosts_from_parse(
         "scripts_written": scripts_written,
         "hosts_processed": created + updated,
     }
+
+
+def _safe_notify_new_id(
+    session: Session, device_id: int, integration_id: int, label: str, ip: str
+) -> None:
+    try:
+        from .. import notifications as notif_svc
+
+        notif_svc.notify_nmap_new_device(
+            session,
+            device_id=int(device_id),
+            integration_id=int(integration_id),
+            label=label,
+            ip=ip,
+        )
+    except Exception:
+        pass
+
+
+def _safe_digest(
+    session: Session, integration_id: int, count: int, names: list[str]
+) -> None:
+    try:
+        from .. import notifications as notif_svc
+
+        notif_svc.notify_nmap_new_digest(
+            session,
+            integration_id=int(integration_id),
+            count=int(count),
+            sample_names=names,
+        )
+    except Exception:
+        pass
+
+
+def _safe_digest_clear(session: Session, integration_id: int) -> None:
+    try:
+        from .. import notifications as notif_svc
+
+        notif_svc.resolve_nmap_new_digest_if_clear(session, int(integration_id))
+    except Exception:
+        pass
+
+
+def _safe_resolve_offline(session: Session, device_id: int) -> None:
+    try:
+        from .. import notifications as notif_svc
+
+        notif_svc.resolve_nmap_device_offline(session, int(device_id))
+    except Exception:
+        pass
