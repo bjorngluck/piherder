@@ -1,114 +1,94 @@
 # PiHerder v1.3.0
 
-**Status:** **Tagged** — current production release  
-**Date:** 2026-08-22  
-**Git tag:** `v1.3.0`  
-**Package / image version:** `1.3.0`  
-**Theme:** Operator-owned policy · scale lists · fleet + privileged SSH · opt-in command audit · history Reports · confined Host Files (flag off)  
-**Baseline:** [v1.2.0](RELEASE_v1.2.0.md)  
-**Plan:** [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · honesty **§0a**  
-**Next train:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) — service migration (not started)  
-**QA:** [QA_v1.3.0.md](QA_v1.3.0.md) (maintainer — not the operator wiki)
+**22 August 2026.** You run the fleet; you own the policy. Password rules, 2FA, console timeouts, and alert volume live in Settings — no image rebuild. Lists scale. History Grafana never sees lives at `/reports`. Optional jailed **Host Files** and **Connect as…** when you need them.
 
-**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) — multi-arch `linux/amd64` + `linux/arm64`  
-**Tags:** `1.3.0` · `1.3` · `latest` (older `1.2.0` / `1.2` / `1.1.x` / `1.0.x` pins remain valid)
-
-This file is the operator-facing freeze note. **Do not** describe 1.3 Files as list/get/put-only, or say “WinSCP is deferred” as if there is no file manager.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.3.0` · `1.3` · `latest` (amd64 + arm64). Pins `1.2.0` / `1.2` stay valid.
 
 ---
 
-## Where the plan bent (not broken)
+## What’s new
 
-Security architecture held. Original **scope** was rewritten in-train. Full table: [PLAN §0a](PLAN_v1.3.0.md#0a-where-the-plan-bent-not-broken).
+### Security you configure
 
-### Host Files (Stream F)
+Settings → **Security**: password length and classes, who must enrol 2FA, grace **0–60** days, step-up windows. Every password form shows the **same** live rules. Account SSO **Unlink** is a confirmation sheet; unlink / passkey revoke accept any enrolled 2FA (passkey or TOTP). Linking Authentik works under CSP `form-action 'self'`.
 
-**Kickoff** was thin: confined **list/get/put**, dest only, no mkdir/delete as Must.
+Wiki: [Settings](../wiki/operations/settings.md) · [2FA](../wiki/account-security/two-factor.md) · [SSO](../wiki/account-security/sso-oidc.md)
 
-**Freeze shipped a real manager** (kill switch still **`PIHERDER_HOST_FILES=false`**): browse, upload/download with progress (default 512 MiB, Settings up to 32 GiB), mkdir, rename/move, recursive delete, UTF-8 edit, zip/unzip (zip **on the host**), chmod/chown, name + content search, image/hex preview, folder upload, thin Docker volumes + `docker cp`. Hero: **Limited access** (fleet) / **Elevated access** (privileged).
+### Console you configure — and a least-priv host user
 
-That is product expansion. It is **not** a WinSCP clone (no dual-pane, no zmodem, not a backup job, not the compose editor).
+Settings → **Console**: idle, max session, slots, ticket, park, bind, scrollback. Master enable stays `PIHERDER_SSH_CONSOLE` (default **off**).
 
-**Architecture that still held:**
+Each host can keep a **fleet** identity (jobs + default shell/files) and an optional **privileged** identity. Console **Connect as…** uses the privileged key only when you choose it; jobs stay on fleet. Settings control who may elevate.
 
-| Control | 1.3 behaviour |
-|---------|----------------|
-| Jail | Fleet: docker project folder or home, never `/`. Privileged: `/` minus `/proc` `/sys` `/dev` `/run`. `..` / zip-slip refused |
-| Identities | Fleet vs privileged stay separate; jobs stay on fleet |
-| Secrets | `.env` / PEM / keys **list**; open / edit / download / preview / content-search need 2FA |
-| API | Token scope `files` is fleet list/get/put + limited mkdir/rename/empty-delete. Privileged verbs stay **UI + step-up** |
-| Flag / demo | Default **off**. Demo never exposes a real tree |
-| RAM | Stream chunks — not full-file loads on the herder |
-| Audit | `host_file_*` path + bytes + hash — **never** bodies |
+Optional **command audit** (default **off**): who typed what in the webshell. Redaction is heuristic — do not treat a transcript as secret-free.
 
-Richer Files **token** API is under consideration for **v1.4+**, not this tag.
+Wiki: [Web SSH](../wiki/day-to-day/web-ssh-console.md)
 
-### Reports (Stream N)
+### Lists that page and search
 
-**Kickoff** was fleet-health **widgets** / a custom dashboard.
+Servers, Docker stacks, and discovery lists get page size, pager, and free-text `q`. The token API accepts `q` / `limit` / `offset` on servers.
 
-**Freeze rejected status portlets** and shipped **history Grafana cannot see** at `/reports` (backups dest, OS patches, LAN live-per-day, Docker deploys, console sessions). That is a better fit for data PiHerder already stores. It is **not** a second Grafana. Custom layout (**N3**) stays Cap.
+### Alerts you can quiet
 
-### Command audit (Stream W-audit)
+Settings → Alerts → **Alert policy**: per-category mute, severity, debounce. Map / discovery noise does not have to shout as loud as a cert fail.
 
-**Kickoff** was Discover → optional ship. **Promoted Deep the same day.**
+Wiki: [Alerts](../wiki/operations/alerts-email-webhooks.md)
 
-Controls match the brief: default **off**, Fernet table, viewer denied, privileged **warns when off** (still allows), optional require-on-every-session, demo never stores.
+### Reports — history Grafana cannot see
 
-**Redaction is heuristic and imperfect.** Password prompts and some tokens are stripped; `read -s`, editors, `sudo`, and secrets pasted as arguments can still land in the log. Do not treat a transcript as secret-free. Wiki: [Web SSH console](../wiki/day-to-day/web-ssh-console.md#command-audit-v13).
+`/reports` (header, after Catalog). Backups dest size and success, OS patches applied, LAN live-per-day, Docker deploys, console session time. 7 / 30 / 90 days. Not a second Grafana; not status widgets.
 
----
+Wiki: [Reports](../wiki/day-to-day/reports.md)
 
-## What else is in 1.3 (unchanged from the signed streams)
+### Host Files — jailed manager (opt-in)
 
-| Stream | Operator-facing |
-|--------|-----------------|
-| **P + T** | Settings → Security: password rules, force-2FA scope + grace 0–60 days, step-up windows. Unlink / passkey revoke accept any enrolled 2FA |
-| **W-cfg** | Settings → Console: idle / max / slots / ticket / park / bind / scrollback. Kill switch stays env `PIHERDER_SSH_CONSOLE` |
-| **W-id** | Fleet + privileged SSH identities; console **Connect as…**; Settings who may elevate |
-| **L** | Pager + search on Servers, Docker stacks, discovery list |
-| **A** | Alert policy (severity / mute / debounce) + map/discovery types |
-| **Settings hub** | General cards + Edit modals (phone sheets) |
+Turn on `PIHERDER_HOST_FILES` for a confined file manager on each SSH host: browse, upload/download (progress, default 512 MiB, Settings up to 32 GiB), mkdir, rename/move, recursive delete, UTF-8 edit, zip/unzip on the host, chmod/chown, search, preview, folder upload, thin Docker volumes + `docker cp`. **Limited access** (fleet jail) vs **Elevated access** (privileged). `.env` / PEM list freely; open/edit/download needs 2FA.
 
-**Still Cap (not this tag):** host `tmux`/`screen`, fine-grained roles, custom dashboard, CSP nonces, ACME-in-herder, extra branding.
+Not WinSCP, not dual-pane, not a backup job, not the compose editor. Default **off**. Demo never shows a real tree.
 
-**v1.4 (not this tag):** service migration host→host.
+Wiki: [Host Files](../wiki/day-to-day/host-files.md)
+
+### Settings hub
+
+General is **cards + Edit** (phone sheets). Timezone stays on the page.
+
+### UI stays up after a host reboot
+
+`web` now uses `restart: unless-stopped` like db / redis / celery / caddy. Recreate once: `docker compose up -d`.
 
 ---
 
-## Freeze bugfix: web after host reboot
+## Defaults (opt-in surfaces stay off)
 
-`web` had no Compose `restart` policy (Docker default **`no`**). After a host reboot, **db / redis / celery / caddy** came back (`unless-stopped`) and the UI stayed down until someone started `piherder-web`. **web** now matches the rest of the stack. Recreate once: `docker compose up -d`. Confirm: `docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' piherder-web` → `unless-stopped`. Docker itself must be enabled at boot.
-
----
-
-## Flags (defaults)
-
-| Env | Default | Notes |
-|-----|---------|--------|
-| `PIHERDER_SSH_CONSOLE` | **false** | Live PTY |
-| `PIHERDER_HOST_FILES` | **false** | Files manager |
-| Command audit | **off** (Settings) | Heuristic redaction |
+| | Default |
+|--|---------|
+| Web SSH console | **off** (`PIHERDER_SSH_CONSOLE`) |
+| Host Files | **off** (`PIHERDER_HOST_FILES`) |
+| Command audit | **off** (Settings) |
 
 ---
 
-## Upgrade
+## Upgrade from 1.2
 
 1. Full DR self-backup. Keep `PIHERDER_MASTER_KEY`.  
-2. Pull image / checkout tag `v1.3.0`. Alembic **`040_ssh_identities`** · **`041_console_transcripts`**.  
-3. Compose no longer injects defaulted `PIHERDER_SSH_CONSOLE_*` — Settings apply unless you lock env.  
-4. Smoke: Security · Console · Reports · optional Files if you turn the flag on.
+2. Pull `bjorngluck/piherder:1.3.0` (or `git checkout v1.3.0`).  
+3. `docker compose pull && docker compose up -d` — Alembic **`040_ssh_identities`** · **`041_console_transcripts`**.  
+4. Compose no longer injects defaulted `PIHERDER_SSH_CONSOLE_*` knobs. Timeouts live in Settings unless you lock env.  
+5. Smoke: Security · Console · Reports · optional Files if you enable the flag.
 
-Operator how-to: [wiki upgrades](../wiki/operations/upgrades.md). Maintainer clicks: [QA_v1.3.0.md](QA_v1.3.0.md).
+[Wiki upgrades](../wiki/operations/upgrades.md#12--13)
 
 ---
 
-## Known issues (ship with awareness)
+## Honest limits
 
-| ID | Note |
-|----|------|
-| **KI-console-mobile-soft-tab** | Residual IME on phone Tab (carry from 1.2) |
-| Command audit redaction | Heuristic and imperfect — `read -s`, editors, `sudo`, pasted secrets can still land in the log. Default **off**. |
-| **Files flag** | `PIHERDER_HOST_FILES` default **off**; demo never exposes a real tree |
+| | |
+|--|--|
+| Phone console Tab | Residual IME on some keyboards |
+| Command audit | Heuristic redaction — secrets can still land in the log |
+| Host Files | Flag off until you opt in |
+| Not this release | Dual-pane / zmodem, custom dashboard, per-host roles, host `tmux`/`screen`, CSP nonces, service migration (that is [v1.4](PLAN_v1.4.0.md)) |
 
-Hub `1.2.0` / `1.2` pins stay valid after this tag.
+---
+
+From [v1.2.0](RELEASE_v1.2.0.md). Docs: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
