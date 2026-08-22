@@ -56,6 +56,7 @@
   .rpt-bar.is-empty { background: var(--color-border); min-height: 2px; }
   .rpt-table {
     width: 100%;
+    min-width: 22.5rem;
     border-collapse: collapse;
     font-size: 0.8rem;
   }
@@ -89,6 +90,19 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .rpt-table th:first-child,
+  .rpt-table td.rpt-label {
+    min-width: 8.25rem;
+  }
+  @media (max-width: 639px) {
+    /* Do not squeeze Day/host into an ellipsis — scroll the table sideways. */
+    .rpt-table-fixed { table-layout: auto; }
+    .rpt-table { min-width: 28rem; }
+    .rpt-label {
+      overflow: visible;
+      text-overflow: clip;
+    }
   }
   .rpt-table a { color: inherit; text-decoration: none; font-weight: 550; }
   .rpt-table a:hover { color: var(--color-accent); text-decoration: underline; }

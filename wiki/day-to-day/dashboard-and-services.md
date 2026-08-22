@@ -3,7 +3,7 @@
 ## What this is
 
 The **Dashboard** (`/`) is the home page after login: a **fleet health at a glance** view (hosts, attention, services down, alert count, maps pulse).  
-**Reports** (`/reports`) is **history** Grafana never sees: backups, OS patches, LAN live-per-day, Docker deploys/patches, console sessions — see [Reports](reports.md).  
+**Reports** (`/reports`, nav after **Catalog**) is **history** Grafana never sees: backups, OS patches, LAN live-per-day, Docker deploys/patches, console sessions — see [Reports](reports.md).  
 **Fleet Services** (`/services`) is a separate page: an icon grid of apps monitored via **Uptime Kuma** bindings.
 
 ## Why it exists
