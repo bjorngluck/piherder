@@ -1383,3 +1383,88 @@ html.dark .about-logo--wordmark,
     display: flex !important;
   }
 }
+
+/* Settings / Account hub cards + Edit sheets (phone full-height) */
+.settings-hub-grid,
+.account-hub-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+@media (min-width: 640px) {
+  .settings-hub-grid,
+  .account-hub-grid { grid-template-columns: 1fr 1fr; }
+}
+.settings-hub-card {
+  min-width: 0;
+  min-height: 7.25rem;
+  display: flex;
+  flex-direction: column;
+}
+.settings-hub-card h2 { font-size: 0.95rem; }
+.settings-sheet-overlay {
+  display: none;
+  align-items: stretch;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0;
+}
+.settings-sheet-overlay.flex { display: flex; }
+.settings-sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  border-radius: 0;
+  overflow: hidden;
+  padding: 0;
+}
+.settings-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding: max(1rem, env(safe-area-inset-top)) 1rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.settings-sheet-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.settings-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0.75rem 1rem;
+}
+.settings-sheet-foot {
+  flex-shrink: 0;
+  padding: 0.75rem 1rem max(0.75rem, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--color-border);
+}
+.settings-sheet-foot .btn { min-height: 2.75rem; }
+@media (min-width: 640px) {
+  .settings-sheet-overlay {
+    align-items: center;
+    padding: 0.75rem;
+  }
+  .settings-sheet {
+    width: 100%;
+    height: auto;
+    max-height: 90vh;
+    max-width: 42rem;
+    border-radius: 0.75rem;
+  }
+  .settings-sheet-head { padding: 1.25rem 1.25rem 0.75rem; }
+  .settings-sheet-body { padding: 0.75rem 1.25rem; }
+  .settings-sheet-foot { padding: 0.75rem 1.25rem 1.25rem; }
+}

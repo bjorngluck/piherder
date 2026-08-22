@@ -280,6 +280,7 @@ async def forgot_password_submit(
 
 @router.get("/reset-password", response_class=HTMLResponse)
 async def reset_password_page(request: Request, token: str = ""):
+    from ..services import password_policy as pwpol
     from ..services.demo import redirect_if_demo
 
     blocked = redirect_if_demo("/auth/login")
@@ -293,6 +294,7 @@ async def reset_password_page(request: Request, token: str = ""):
             "title": "Reset password",
             "token": tok,
             "error": request.query_params.get("error") or "",
+            **pwpol.template_vars(),
         },
     )
 
@@ -709,7 +711,7 @@ async def register_page(request: Request, session: Session = Depends(get_session
                     "for you (Users → Create user), or to send an invite."
                 ),
                 "closed": True,
-                "password_policy_text": pwpol.policy_rules_text(),
+                **pwpol.template_vars(),
             },
         )
     return templates_mod.templates.TemplateResponse(
@@ -717,7 +719,7 @@ async def register_page(request: Request, session: Session = Depends(get_session
         name="register.html",
         context={
             "title": "Register",
-            "password_policy_text": pwpol.policy_rules_text(),
+            **pwpol.template_vars(),
         },
     )
 
@@ -749,7 +751,7 @@ async def register(
             context={
                 "title": "Register",
                 "error": "Too many registration attempts. Wait a few minutes and try again.",
-                "password_policy_text": pwpol.policy_rules_text(),
+                **pwpol.template_vars(),
             },
         )
 
@@ -764,7 +766,7 @@ async def register(
                     "for you (Users → Create user)."
                 ),
                 "closed": True,
-                "password_policy_text": pwpol.policy_rules_text(),
+                **pwpol.template_vars(),
             },
         )
 
@@ -776,7 +778,7 @@ async def register(
             context={
                 "title": "Register",
                 "error": "User with that email already exists",
-                "password_policy_text": pwpol.policy_rules_text(),
+                **pwpol.template_vars(),
             },
         )
 
@@ -788,7 +790,7 @@ async def register(
             context={
                 "title": "Register",
                 "error": pol_err or "Password does not meet policy",
-                "password_policy_text": pwpol.policy_rules_text(),
+                **pwpol.template_vars(),
             },
         )
     try:
@@ -809,7 +811,7 @@ async def register(
         return templates_mod.templates.TemplateResponse(
             request=request,
             name="register.html",
-            context={"title": "Register", "error": msg}
+            context={"title": "Register", "error": msg, **pwpol.template_vars()},
         )
 
 
@@ -1030,7 +1032,7 @@ async def account_page(
             "public_url": settings.PIHERDER_PUBLIC_URL,
             "push_sent": push_sent,
             "account_pulse": account_pulse,
-            "password_policy_text": pwpol.policy_rules_text(),
+            **pwpol.template_vars(),
             "oidc_enabled": False if is_demo else oidc.oidc_enabled(),
             "oidc_display_name": oidc.oidc_display_name(),
             "oidc_identities": [] if is_demo else oidc_rows,
@@ -1069,10 +1071,10 @@ async def update_profile(
 
     if email_changed:
         if not current_password or not verify_password(current_password, user.hashed_password):
-            return RedirectResponse("/auth/account?error=password_required", status_code=303)
+            return RedirectResponse("/auth/account?error=password_required#account-profile", status_code=303)
         taken = session.exec(select(User).where(User.email == email)).first()
         if taken and taken.id != user.id:
-            return RedirectResponse("/auth/account?error=email_taken", status_code=303)
+            return RedirectResponse("/auth/account?error=email_taken#account-profile", status_code=303)
         user.email = email
         _audit(session, user.id, "user_email_changed", f"Email changed to {email}")
 
@@ -1101,12 +1103,12 @@ async def change_password(
         return blocked
 
     if not verify_password(current_password, user.hashed_password):
-        return RedirectResponse("/auth/account?error=bad_password", status_code=303)
+        return RedirectResponse("/auth/account?error=bad_password#account-password", status_code=303)
     if new_password != confirm_password:
-        return RedirectResponse("/auth/account?error=password_mismatch", status_code=303)
+        return RedirectResponse("/auth/account?error=password_mismatch#account-password", status_code=303)
     ok, _err = pwpol.validate_password(new_password or "")
     if not ok:
-        return RedirectResponse("/auth/account?error=password_policy", status_code=303)
+        return RedirectResponse("/auth/account?error=password_policy#account-password", status_code=303)
 
     from ..services.user_admin import bump_session_version
 
@@ -1206,7 +1208,7 @@ async def two_factor_start(
     if blocked:
         return blocked
     if user.totp_enabled:
-        return RedirectResponse("/auth/account?error=2fa_already", status_code=303)
+        return RedirectResponse("/auth/account?error=2fa_already#account-2fa", status_code=303)
     secret = generate_totp_secret()
     user.totp_secret_encrypted = encrypt_totp_secret(secret)
     user.totp_enabled = False
@@ -1216,7 +1218,7 @@ async def two_factor_start(
 
     # Secret is stored encrypted on the user; QR is generated on the account page (SVG).
     # Optional short-lived cookie helps if DB read is delayed; not used for QR (size limits).
-    response = RedirectResponse("/auth/account?msg=2fa_setup", status_code=303)
+    response = RedirectResponse("/auth/account?msg=2fa_setup#account-2fa", status_code=303)
     response.set_cookie(
         "totp_setup_secret",
         secret,
@@ -1243,9 +1245,9 @@ async def two_factor_confirm(
         except Exception:
             secret = None
     if not secret:
-        return RedirectResponse("/auth/account?error=2fa_no_setup", status_code=303)
+        return RedirectResponse("/auth/account?error=2fa_no_setup#account-2fa", status_code=303)
     if not verify_totp_code(secret, code):
-        return RedirectResponse("/auth/account?error=2fa_bad_code", status_code=303)
+        return RedirectResponse("/auth/account?error=2fa_bad_code#account-2fa", status_code=303)
 
     user.totp_secret_encrypted = encrypt_totp_secret(secret)
     user.totp_enabled = True
@@ -1289,7 +1291,9 @@ async def two_factor_disable(
         surface="account",
     )
     if not ok:
-        return RedirectResponse(f"/auth/account?error={err or '2fa_required'}", status_code=303)
+        return RedirectResponse(
+            f"/auth/account?error={err or '2fa_required'}#account-2fa", status_code=303
+        )
 
     user.totp_enabled = False
     user.totp_secret_encrypted = None
@@ -1320,7 +1324,7 @@ async def regenerate_backup_codes(
     if blocked:
         return blocked
     if not user.totp_enabled:
-        return RedirectResponse("/auth/account?error=2fa_off", status_code=303)
+        return RedirectResponse("/auth/account?error=2fa_off#account-2fa", status_code=303)
     from ..services.account_stepup import verify_stepup
     from ..services import webauthn_svc as wa_svc
 
@@ -1334,7 +1338,9 @@ async def regenerate_backup_codes(
         surface="account",
     )
     if not ok:
-        return RedirectResponse(f"/auth/account?error={err or '2fa_required'}", status_code=303)
+        return RedirectResponse(
+            f"/auth/account?error={err or '2fa_required'}#account-2fa", status_code=303
+        )
     codes = generate_backup_codes()
     replace_backup_codes(session, user.id, codes)
     revoke_all_trusted_devices(session, user.id)
@@ -1636,8 +1642,7 @@ async def force_password_page(
             "title": "Set a new password",
             "user": user,
             "error": request.query_params.get("error"),
-            "password_policy_text": pwpol.policy_rules_text(),
-            "password_min_length": pwpol.MIN_LENGTH,
+            **pwpol.template_vars(),
         },
     )
 

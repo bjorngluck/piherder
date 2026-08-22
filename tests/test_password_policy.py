@@ -10,6 +10,8 @@ from app.services.password_policy import (
     generate_password,
     format_invite_text,
     policy_rules_text,
+    policy_missing,
+    template_vars,
     clamp_policy,
     get_policy,
     policy_summary,
@@ -159,6 +161,26 @@ def test_settings_roundtrip_keys(_memory_settings):
     assert loaded["password_require_special"] is True
     assert loaded["password_require_upper"] is False
     assert "min=12" in policy_summary()
+
+
+def test_policy_missing_hints_follow_settings(_memory_settings):
+    cfg.save_settings(
+        settings_from_policy(
+            {"password_min_length": 12, "password_require_special": True}
+        )
+    )
+    miss = policy_missing("Short1A")
+    assert any("12" in m for m in miss)
+    assert any("special" in m for m in miss)
+    assert policy_missing("LongEnough1!") == []
+    vars_ = template_vars()
+    assert vars_["password_min_length"] == 12
+    assert vars_["password_policy"]["require_special"] is True
+    assert "12" in vars_["password_policy_text"]
+    assert "special" in vars_["password_policy_text"].lower()
+    st = password_strength("Short1A")
+    assert st["ok"] is False
+    assert st["missing"]
 
 
 def test_defaults_match_legacy_constants():

@@ -31,7 +31,7 @@ Password-only access to a fleet control plane is risky on shared or exposed URLs
 
 ## Optional per-user 2FA
 
-**Account** (`/auth/account`) — profile, password, avatar, **passkeys**, enable TOTP, save **backup codes**, **trusted devices** (revocable), and push preferences.
+**Account** (`/auth/account`) — compact hub cards (same pattern as Settings → Security policy). Each card shows a one-line summary; **Edit** opens a sheet for profile, picture, password, passkeys, TOTP, push, and trusted devices.
 
 ### Passkeys (WebAuthn)
 
@@ -139,7 +139,7 @@ If force 2FA is on and the only admin lost TOTP and passkeys, use host recovery 
 |------------|--------------|
 | Password | Existing step-up when TOTP/passkey enrolled |
 | **SSO (OIDC)** | **Same helpers** — IdP is first factor only; enrolled 2FA still required; Force 2FA enroll wall still applies |
-| Account link / unlink / remove password | Re-check 2FA when enrolled ([SSO page](sso-oidc.md)) |
+| Account link / unlink / remove password | Re-check 2FA **in that sheet** (Confirm passkey or 6-digit / backup). Unlink uses a confirmation sheet. Failures stay there — they do not open the authenticator-app card with a generic “code required” banner. ([SSO page](sso-oidc.md)) |
 
 IdP multi-factor does **not** replace PiHerder 2FA unless an admin enables **IdP MFA satisfies PiHerder login 2FA** (default **off**). Missing or unknown `amr` / `acr` values fail closed. That option never skips Account, secrets, or console step-up.
 

@@ -77,6 +77,22 @@ def _clear_oidc_state(response: RedirectResponse) -> None:
     response.delete_cookie(oidc.STATE_COOKIE, **cookie_delete_kwargs())
 
 
+def _account_redir(
+    *,
+    error: Optional[str] = None,
+    msg: Optional[str] = None,
+    fragment: str = "account-sso",
+) -> RedirectResponse:
+    parts = []
+    if error:
+        parts.append(f"error={error}")
+    if msg:
+        parts.append(f"msg={msg}")
+    qs = ("?" + "&".join(parts)) if parts else ""
+    frag = f"#{fragment}" if fragment else ""
+    return RedirectResponse(f"/auth/account{qs}{frag}", status_code=303)
+
+
 def _finish_login(
     request: Request,
     session: Session,
@@ -175,11 +191,11 @@ async def oidc_link_start(
     if blocked:
         return blocked
     if not oidc.oidc_enabled():
-        return RedirectResponse("/auth/account?error=sso_disabled", status_code=303)
+        return _account_redir(error="sso_disabled")
     # GET is start-only when the user has no 2FA. Enrolled users must POST
     # (password / TOTP / passkey) — ``?ok=1`` is not a step-up.
     if wa_svc.user_has_2fa(session, user):
-        return RedirectResponse("/auth/account?error=sso_2fa_link", status_code=303)
+        return _account_redir(error="sso_2fa_link")
     try:
         url, state_cookie = oidc.build_authorize_url(mode="link", user_id=int(user.id))
     except oidc.OidcConfigError as e:
@@ -205,7 +221,7 @@ async def oidc_link_start_post(
     if blocked:
         return blocked
     if not oidc.oidc_enabled():
-        return RedirectResponse("/auth/account?error=sso_disabled", status_code=303)
+        return _account_redir(error="sso_disabled")
     ok, err = oidc.verify_stepup_2fa(
         session,
         user,
@@ -214,7 +230,7 @@ async def oidc_link_start_post(
         request=request,
     )
     if not ok:
-        return RedirectResponse(f"/auth/account?error={err or 'sso_2fa_link'}", status_code=303)
+        return _account_redir(error=err or "sso_2fa_link")
     try:
         url, state_cookie = oidc.build_authorize_url(mode="link", user_id=int(user.id))
     except oidc.OidcConfigError as e:
@@ -407,8 +423,9 @@ async def oidc_unlink(
         return blocked
     row = session.get(OidcIdentity, int(identity_id))
     if not row or int(row.user_id) != int(user.id):
-        return RedirectResponse("/auth/account?error=sso_not_found", status_code=303)
+        return _account_redir(error="sso_not_found")
 
+    unlink_frag = f"account-sso-unlink-{int(identity_id)}"
     ok, err = oidc.verify_stepup_2fa(
         session,
         user,
@@ -417,15 +434,15 @@ async def oidc_unlink(
         request=request,
     )
     if not ok:
-        return RedirectResponse(f"/auth/account?error={err or '2fa_required'}", status_code=303)
+        return _account_redir(error=err or "2fa_required", fragment=unlink_frag)
 
     # Must retain a password login path after unlink
     if not oidc.password_login_allowed(user):
         if not new_password or new_password != confirm_password:
-            return RedirectResponse("/auth/account?error=password_mismatch", status_code=303)
+            return _account_redir(error="password_mismatch", fragment=unlink_frag)
         ok_pw, _ = pwpol.validate_password(new_password)
         if not ok_pw:
-            return RedirectResponse("/auth/account?error=password_policy", status_code=303)
+            return _account_redir(error="password_policy", fragment=unlink_frag)
         oidc.enable_password(user, new_password)
         session.add(user)
         _audit(session, user.id, "user_password_set", "Password set before SSO unlink")
@@ -433,7 +450,7 @@ async def oidc_unlink(
     session.delete(row)
     session.commit()
     _audit(session, user.id, "sso_unlink", f"identity_id={identity_id} iss={row.issuer}")
-    return RedirectResponse("/auth/account?msg=sso_unlinked", status_code=303)
+    return _account_redir(msg="sso_unlinked")
 
 
 @router.post("/account/password/remove")
@@ -450,9 +467,9 @@ async def password_remove(
     if blocked:
         return blocked
     if not oidc.has_oidc_link(session, int(user.id)):
-        return RedirectResponse("/auth/account?error=sso_required", status_code=303)
+        return _account_redir(error="sso_required", fragment="account-password")
     if not oidc.password_login_allowed(user):
-        return RedirectResponse("/auth/account?msg=password_already_removed", status_code=303)
+        return _account_redir(msg="password_already_removed", fragment="account-password")
 
     ok, err = oidc.verify_stepup_2fa(
         session,
@@ -462,7 +479,7 @@ async def password_remove(
         request=request,
     )
     if not ok:
-        return RedirectResponse(f"/auth/account?error={err or '2fa_required'}", status_code=303)
+        return _account_redir(error=err or "2fa_required", fragment="account-password")
 
     # If no 2FA, verify_stepup already checked password when enabled
     oidc.set_unusable_password(user)
@@ -470,7 +487,7 @@ async def password_remove(
     session.add(user)
     session.commit()
     _audit(session, user.id, "user_password_removed", "Password removed; SSO-only login")
-    return RedirectResponse("/auth/account?msg=password_removed", status_code=303)
+    return _account_redir(msg="password_removed", fragment="account-password")
 
 
 @router.post("/account/password/set")
@@ -492,19 +509,19 @@ async def password_set(
     if blocked:
         return blocked
     if oidc.password_login_allowed(user):
-        return RedirectResponse("/auth/account?error=use_change_password", status_code=303)
+        return _account_redir(error="use_change_password", fragment="account-password")
     if new_password != confirm_password:
-        return RedirectResponse("/auth/account?error=password_mismatch", status_code=303)
+        return _account_redir(error="password_mismatch", fragment="account-password")
     ok_pw, _ = pwpol.validate_password(new_password)
     if not ok_pw:
-        return RedirectResponse("/auth/account?error=password_policy", status_code=303)
+        return _account_redir(error="password_policy", fragment="account-password")
 
     if wa_svc.user_has_2fa(session, user):
         ok, err = oidc.verify_stepup_2fa(
             session, user, totp_code=totp_code or None, request=request
         )
         if not ok:
-            return RedirectResponse(f"/auth/account?error={err or '2fa_required'}", status_code=303)
+            return _account_redir(error=err or "2fa_required", fragment="account-password")
 
     oidc.enable_password(user, new_password)
     user.updated_at = datetime.utcnow()
@@ -513,4 +530,4 @@ async def password_set(
     bump_session_version(session, user)
     session.commit()
     _audit(session, user.id, "user_password_set", "Password set (was SSO-only)")
-    return RedirectResponse("/auth/account?msg=password_set", status_code=303)
+    return _account_redir(msg="password_set", fragment="account-password")

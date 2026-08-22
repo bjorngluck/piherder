@@ -95,7 +95,7 @@ After at least one SSO link:
 |--------|--------|--------|
 | **Remove password** | Account → Password | Confirms with 2FA (if enrolled) or current password; then password login fails for that user |
 | **Set password** | Account → Password | Restores break-glass local login |
-| **Unlink SSO** | Account → Connected accounts | If password was removed, **set a password in the unlink form** first — never leave zero login methods |
+| **Unlink SSO** | Account → Connected accounts → **Unlink…** | Opens a **confirmation sheet** (issuer + email). Confirm with passkey or authenticator/backup in that sheet. If password was removed, **set a password in the same sheet** before unlink completes — never leave zero login methods. Failed step-up stays on this sheet (does not open the authenticator-app card). |
 
 ---
 
@@ -107,7 +107,7 @@ PiHerder does **not** skip its own 2FA because the IdP already authenticated you
 |-----------|-----------|
 | User has TOTP and/or passkey | After IdP callback → same **2FA step-up** as after password (or trusted device skip) |
 | Force 2FA; no factor enrolled | After identity proven → force-2FA enroll wall |
-| Link / unlink / remove password | Re-validate 2FA when enrolled. **v1.3:** any enrolled factor (passkey step-up, TOTP, backup). Password only when no 2FA is enrolled. |
+| Link / unlink / remove password | Re-validate 2FA **in the same sheet** when enrolled. **v1.3:** any enrolled factor (Confirm passkey, TOTP, backup). Password only when no 2FA is enrolled. Unlink is **Unlink…** → confirm sheet, not a one-click POST. |
 
 IdP MFA (if any) is **extra**, not a substitute for PiHerder TOTP/passkeys. Details: [2FA & force 2FA](two-factor.md).
 

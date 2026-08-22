@@ -47,6 +47,10 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Drift after host edit (detect / revert) | [Deploy — Check drift / Apply last known](../service-templates/deploy.md#redeploy-ops-deployment-page) |
 | Stack unhealthy after upgrade | [Status](../operations/status.md) · [Upgrades](../operations/upgrades.md) |
 | After **host reboot**, UI down until I start a container | **web** used to have no restart policy (others already `unless-stopped`). Confirm `docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' piherder-web` is `unless-stopped`, then `docker compose up -d`. Also `systemctl is-enabled docker`. [Install](../getting-started/install.md#4-start-the-stack) |
+| Account page messy / huge cards | Compact hub + **Edit** sheets (same as Settings → Security). Rebuild/restart web. |
+| Password strength still says min 10 after policy change | Meter now reads live Settings. Hard-refresh. Admin create / reset / Account / forgot-password share one JS. [Users](../account-security/users.md) |
+| Unlink SSO did nothing / no confirm | Account → Connected accounts → **Edit** → **Unlink…** opens a confirmation sheet. Hard-refresh after rebuild. [SSO](../account-security/sso-oidc.md) |
+| Unlink dumped onto a useless 2FA screen (“Authenticator or backup code required.”) | Fixed: step-up stays on the unlink (or password) sheet with Confirm passkey / 6-digit. Rebuild/restart web + hard-refresh. |
 | Cannot open Settings tabs / herder restore | [Roles](../account-security/roles.md) — control plane is **admin only** |
 | First boot asks to register / no default password | Expected — [First login](../getting-started/first-login.md) |
 | Sole admin forgot password / lost 2FA / locked out | [Locked out / sole admin recovery](locked-out.md) — host CLI `recover-admin` |
