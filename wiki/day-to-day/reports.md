@@ -24,11 +24,11 @@ Sources: **Jobs** (and the JSON each job stored), **nmap scan runs** (`hosts_up`
 
 ## Where
 
-Header **Reports** (after Dashboard). Phone: hamburger. **Viewer+**. No writes.
+Header **Reports** (after **Catalog**). Phone: hamburger. **Viewer+**. No writes.
 
 Windows: **7 / 30 / 90** days in the [app timezone](../operations/settings.md). Some averages still scan up to 365 days of leftover rows.
 
-Tables use a fixed grid (numeric columns right-aligned). Day list and host list share the same Ok / Fail / Dest widths on Backups.
+Tables keep numeric columns right-aligned. On a **phone**, the Day / host column is not clipped — swipe the table sideways to see dates and dest sizes.
 
 ## Backups
 
