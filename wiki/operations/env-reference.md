@@ -169,5 +169,5 @@ docker compose --profile nmap up -d celery-worker-nmap
 - [LAN Discovery](../integrations/lan-discovery.md)  
 - [Volumes](volumes.md)  
 - [ADMIN.md — production env](https://github.com/bjorngluck/piherder/blob/main/docs/ADMIN.md)  
-- [v1.2.0 QA / sign-off](qa-v1.2.0.md) (production Hub)  
-- [v1.3.0 freeze QA](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/QA_v1.3.0.md) (maintainer `docs/` — not this wiki)
+- [v1.3.0 QA](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.3.0.md) (maintainer `docs/` — not this wiki)  
+- [v1.2.0 QA / sign-off](qa-v1.2.0.md) (prior)

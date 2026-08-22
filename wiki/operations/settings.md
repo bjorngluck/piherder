@@ -61,7 +61,12 @@ Cron fields across Settings (cleanup, fleet defaults, PiHerder backup) and host 
 
 ### General tab — hub + modals
 
-Timezone stays on the page (hero clock). **Security policy**, **Console**, **SSO**, and **Stale data cleanup** are **summary cards** (one line of live state) with **Edit**. The full form opens in a modal — same POST URLs as before. Bookmarks still work: `?tab=general#settings-console` opens the Console modal. On a phone, Edit is a **full-height sheet**: title and Save stay put, only the form body scrolls.
+Timezone stays on the page (hero clock). **Security policy**, **Console**, **Files**, **SSO**, and **Stale data cleanup** are **summary cards** (one line of live state) with **Edit**. The full form opens in a modal — same POST URLs as before. Bookmarks still work: `?tab=general#settings-console` opens the Console modal. On a phone, Edit is a **full-height sheet**: title and Save stay put, only the form body scrolls.
+
+<figure class="ph-figure" markdown>
+  ![Settings General hub](../assets/screenshots/settings-hub.png)
+  <figcaption>Settings → General — summary cards (Security, Console, Files, SSO, Cleanup) plus timezone.</figcaption>
+</figure>
 
 **Alerts → Alert policy** uses the same pattern (summary + Edit modal). Webhook and SMTP stay on the Alerts tab.
 
@@ -73,9 +78,19 @@ The hero shows a **timezone identity card** (not a city name jammed into the orb
 
 **Admin-only.** Password rules, who must enrol 2FA (off / admins / operators+ / everyone), grace **0–60** days, step-up windows (account / secrets / **console grant**), allowed factors, and the IdP-MFA login skip (default off). See [2FA](../account-security/two-factor.md).
 
+<figure class="ph-figure" markdown>
+  ![Settings Security](../assets/screenshots/settings-security.png)
+  <figcaption>Settings → General → Security — password rules, force-2FA scope, grace, step-up windows.</figcaption>
+</figure>
+
 ### Console {#console}
 
-**Admin-only.** **Available from v1.3** on `v1.3.0-dev`. Timeouts and session limits for the optional [web SSH console](../day-to-day/web-ssh-console.md).
+**Admin-only.** **Available from v1.3.** Timeouts and session limits for the optional [web SSH console](../day-to-day/web-ssh-console.md).
+
+<figure class="ph-figure" markdown>
+  ![Settings Console](../assets/screenshots/settings-console.png)
+  <figcaption>Settings → General → Console — idle / slots, who may elevate, command audit (default off).</figcaption>
+</figure>
 
 | Setting | Default | Range |
 |---------|---------|--------|
@@ -99,6 +114,15 @@ The **master enable** is still compose-only: `PIHERDER_SSH_CONSOLE` (default off
 A non-empty env var **locks** that knob (field shows read-only). Bundled compose does **not** inject defaults for these, or Settings cannot apply. Public demo **403s** writes. Lowering concurrency does **not** kick open shells.
 
 Audit: `console_policy_changed`.
+
+### Files {#files}
+
+**Admin-only.** Transfer cap for the optional [Host Files](../day-to-day/host-files.md) manager (default **512 MiB**, ceiling **32 GiB**). The kill switch stays env `PIHERDER_HOST_FILES`. A non-empty `PIHERDER_HOST_FILES_MAX_BYTES` **locks** the cap.
+
+<figure class="ph-figure" markdown>
+  ![Settings Files](../assets/screenshots/settings-files.png)
+  <figcaption>Settings → General → Files — transfer cap (kill switch is compose env).</figcaption>
+</figure>
 
 ### Stale data cleanup {#stale-data-cleanup}
 

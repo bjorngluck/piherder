@@ -1,6 +1,6 @@
 # PiHerder v1.2.0 — big identity + webshell + gated demo
 
-**Status:** **Tagged** — current production — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md)  
+**Status:** **Tagged** — prior production — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · prefer [v1.3.0](RELEASE_v1.3.0.md)  
 **Date opened:** 2026-08-08 · **Freeze:** 2026-08-12 · **Tagged:** 2026-08-18  
 **Git branch:** `v1.2.0-dev` (integration) · merge → `main` → tag `v1.2.0`  
 **Package / image version:** `1.2.0`  
