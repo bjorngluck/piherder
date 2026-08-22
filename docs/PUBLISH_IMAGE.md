@@ -165,7 +165,7 @@ Add when account + token exist and first manual push has worked once.
 - [x] `APP_VERSION` / `pyproject.toml` = `1.3.0`
 - [x] [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) finalized · Status **Tagged**
 - [x] Merge `v1.3.0-dev` → `main` · git tag `v1.3.0`
-- [ ] Multi-arch push: `1.3.0` / `1.3` / `latest` (amd64 + arm64)
+- [x] Multi-arch push: `1.3.0` / `1.3` / `latest` (amd64 + arm64) · digest `sha256:79dcb78849dd89b5fe909bc892d732c1eed057238cba220d71d98c315c3cb20d`
 
 ### Prior: v1.2.0
 
