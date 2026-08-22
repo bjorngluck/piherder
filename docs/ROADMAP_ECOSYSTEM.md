@@ -1,7 +1,7 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-08-22 (**v1.2.0** current production — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md); **v1.3.0** **feature freeze** on `v1.3.0-dev` — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [QA_v1.3.0.md](QA_v1.3.0.md); **v1.4.0** service migration planning — [PLAN_v1.4.0.md](PLAN_v1.4.0.md))  
+**Date:** 2026-07-12 · **Refreshed:** 2026-08-22 (**v1.2.0** current production — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md); **v1.3.0** **feature freeze** on `v1.3.0-dev` — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · draft [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [QA_v1.3.0.md](QA_v1.3.0.md); **v1.4.0** service migration planning — [PLAN_v1.4.0.md](PLAN_v1.4.0.md))  
 **Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [RELEASE_v1.1.1.md](RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
