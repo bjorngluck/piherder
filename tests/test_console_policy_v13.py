@@ -22,6 +22,7 @@ def _memory_settings(monkeypatch):
     monkeypatch.setattr(cfg, "_load_raw_from_db", fake_load)
     monkeypatch.setattr(cfg, "_write_raw_to_db", fake_write)
     cfg.clear_cache()
+    monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE", True)
     yield store
     cfg.clear_cache()
 

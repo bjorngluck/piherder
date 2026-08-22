@@ -19,6 +19,15 @@ from app.services import ssh_identities as ident_svc
 from app.services import ssh_onboarding
 
 
+@pytest.fixture(autouse=True)
+def _console_on(monkeypatch):
+    """mint_ticket / step-up / slots require the kill switch on (same as v1.2 console tests)."""
+    monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE", True)
+    cons.reset_runtime_state_for_tests()
+    yield
+    cons.reset_runtime_state_for_tests()
+
+
 @pytest.fixture()
 def engine(tmp_path):
     eng = create_engine(
