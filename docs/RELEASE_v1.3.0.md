@@ -71,6 +71,12 @@ Controls match the brief: default **off**, Fernet table, viewer denied, privileg
 
 ---
 
+## Freeze bugfix: web after host reboot
+
+`web` had no Compose `restart` policy (Docker default **`no`**). After a host reboot, **db / redis / celery / caddy** came back (`unless-stopped`) and the UI stayed down until someone started `piherder-web`. **web** now matches the rest of the stack. Recreate once: `docker compose up -d`. Confirm: `docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' piherder-web` → `unless-stopped`. Docker itself must be enabled at boot.
+
+---
+
 ## Flags (defaults)
 
 | Env | Default | Notes |
