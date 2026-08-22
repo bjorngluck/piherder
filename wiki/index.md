@@ -14,7 +14,7 @@
 | **Image** | `bjorngluck/piherder:1.2.0` · `1.2` · `latest` (multi-arch amd64 + arm64; `1.1.1` / `1.1` / `1.0.x` pins remain valid) |
 | **Release notes** | [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) · [v1.1.1](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.1.md) · [v1.1.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md) · prior [v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) |
 | **Known issues** | Console mobile Tab residual IME ([KI-console-mobile-soft-tab](day-to-day/web-ssh-console.md#known-issues)). Account unlink / passkey revoke step-up ([KI-account-stepup-factors](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md#known-issues-ship-with-awareness)). Busy-source rsync vanish retries — [troubleshooting](troubleshooting/backups.md#vanished-files-busy-sources). |
-| **Next release** | **v1.3.0** — **active train** on `v1.3.0-dev`. Landed: password / 2FA policy · console timeouts · scale lists · **Connect as…** · opt-in **command audit** · alert policy · **Reports** · **Host Files** explorer (flag off until `PIHERDER_HOST_FILES`). [PLAN_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/PLAN_v1.3.0.md) |
+| **Next release** | **v1.3.0** — **feature freeze** (2026-08-22) on `v1.3.0-dev`. Landed: password / 2FA policy · console timeouts · scale lists · **Connect as…** · opt-in **command audit** · alert policy · **Reports** · **Host Files** explorer (flag off until `PIHERDER_HOST_FILES`). No further product streams. [PLAN_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/PLAN_v1.3.0.md) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **Public demo** | [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) — limited **viewer** sandbox · [credentials](operations/demo-site.md) |
@@ -147,7 +147,7 @@ Use this table when you already know the area; use [Operator scenarios](getting-
 | [Templates](service-templates/overview.md) | Catalog templates: deploy, from-host, secrets, drift |
 | [Integrations](integrations/overview.md) | Catalog products, certs, network maps |
 | [Account & security](account-security/roles.md) | RBAC, users, 2FA, PWA |
-| [Operations](operations/settings.md) | Settings, env, DR, metrics, API, [v1.2 QA](operations/qa-v1.2.0.md) |
+| [Operations](operations/settings.md) | Settings, env, DR, metrics, API, [upgrades](operations/upgrades.md) |
 | [Public demo](operations/demo-site.md) | Shared view-only sandbox credentials + limits |
 | [Troubleshooting](troubleshooting/index.md) | Common failures and where to look |
 | [Developers](developers/index.md) | Code, tests, contributing |

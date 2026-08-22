@@ -300,7 +300,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | Stack Status healthy? | [Status](../operations/status.md) |
 | Herder self-backup / restore (**admin only**) | [Self-backup](../operations/self-backup.md) · [Roles](../account-security/roles.md) |
 | Upgrade compose / image | [Upgrades](../operations/upgrades.md) |
-| **v1.2 freeze QA / sign-off** | [QA checklist](../operations/qa-v1.2.0.md) |
+| **v1.2 freeze QA / sign-off** | [QA checklist](../operations/qa-v1.2.0.md) (historical Hub 1.2) |
 | More backup parallelism | [Multi-worker](../operations/multi-worker.md) |
 | Prometheus / env webhook fallback | [Metrics](../operations/metrics-webhooks.md) |
 | Webhook + SMTP alerts / forgot password | [Alerts](../operations/alerts-email-webhooks.md) |

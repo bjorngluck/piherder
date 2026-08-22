@@ -1,15 +1,16 @@
 # PiHerder v1.3.0 — operator policy, scale UX, multi-identity console, alerts, insights, host files
 
-**Status:** **Active** — branch `v1.3.0-dev`  
-**Date opened:** 2026-08-18 (planning capture 2026-08-10)  
-**Git branch:** `v1.3.0-dev` (integration) · merge → `main` at freeze → tag `v1.3.0`  
-**Package / image version (at tag):** `1.3.0`  
+**Status:** **Feature freeze** (2026-08-22) — no more product features · branch `v1.3.0-dev`  
+**Date opened:** 2026-08-18 (planning capture 2026-08-10) · **Feature freeze:** 2026-08-22  
+**Git branch:** `v1.3.0-dev` (integration) · merge → `main` at **tag** freeze → tag `v1.3.0`  
+**Package / image version (at tag):** `1.3.0` (package still **1.2.0** on this branch until the tag bump)  
 **Theme:** Operator-configurable security policy · multi-identity console · optional command audit · console knobs · map/alert granularity · fleet-scale list UX · Reports history · **host Files manager (flag off)**  
 **Baseline:** `v1.2.0` (identity + webshell + gated demo — 2026-08-18)  
-**Mode:** Focus · polish · discover · pull-in by capacity · defer enhanced work to **v1.4**  
+**Mode:** **Q** — QA · wiki screenshot pack · coverage · `mkdocs --strict` · then version bump / tag / Hub. Bugfixes that fail freeze QA are allowed. No new streams.  
+**QA:** [QA_v1.3.0.md](QA_v1.3.0.md) (maintainer — **not** in the operator wiki) · screenshots [inventory](../wiki/assets/screenshots/README.md)  
 **Related:** [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [wiki/operations/alerts-email-webhooks.md](../wiki/operations/alerts-email-webhooks.md) · [SECURITY.md](../SECURITY.md)
 
-> **Active train after 1.2.** Ship operator-owned security and console policy, least-priv / privileged **Connect as…**, and lists that stay usable at fleet scale. Discover insights and confined host files; pull Should only when Must is green. Keep `main` patchable for **v1.2.x** while this train runs on `v1.3.0-dev`.
+> **Feature freeze 2026-08-22.** Must + Should product streams for 1.3 are **done** (P, T, L, W-id, W-cfg, W-audit, A, N2, F). Allowed from here: freeze bugs, docs, screenshots, QA, coverage, packaging. Cap stays Cap (**W-mux**, **AC-fg**, **N3**, CSP nonces, ACME, branding). Service migration stays [v1.4](PLAN_v1.4.0.md). Hub / `main` remains **v1.2.0** until the tag.
 
 ---
 
@@ -52,7 +53,8 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 | Coverage | **≥ 55%** unit; focused tests for policy, list queries, multi-identity tickets, path jail |
 | E2E | Settings policy save · one large list page-size · connect-as privileged confirm · console settings smoke if flag on |
 | Semver | Additive minor; document migrations for defaults that change behaviour |
-| Version bump | `1.3.0` **at freeze only** (package stays `1.2.0` on this branch until then) |
+| Feature freeze | **Enforced 2026-08-22.** No new product streams. Allowed: freeze bugs, docs, screenshots, QA, coverage, packaging. |
+| Version bump | `1.3.0` **at tag only** (package stays `1.2.0` on this branch until then) |
 | Policy storage | **App Settings** (DB) with env as override / bootstrap where it already exists |
 | Host SSH identities | At least **two** optional credentials per host: **fleet / least-priv** (default jobs + console + Files) + **privileged** (break-glass console + Files); separate Fernet keys |
 | Shell audit | **Opt-in**; default off; command/response is **discover → promote** |
@@ -69,7 +71,7 @@ main @ v1.2.0 (+ v1.2.x patches)
 | Must → Should → Discover | Do not start Discover while Must is open |
 | Prod critical bugs | **main** as **1.2.x** first, then port here |
 | Demo never grows teeth | Files off · transcripts off · privileged console off |
-| Residual Cap | Pull only if **L** + **P** + **T6** + **W-id** core are green |
+| Residual Cap | **Do not pull.** Freeze is on. **W-mux** · **AC-fg** · **N3** · CSP nonces · ACME · branding stay Cap. |
 | Service migration | Stays on [PLAN_v1.4.0.md](PLAN_v1.4.0.md) — do not add to this freeze |
 
 ---
@@ -116,10 +118,12 @@ Phase 3  Should (after Must green)
     ├─ N0 → N2  ← landed (slice 7)
     └─ F Deep  ← landed (flag off until operators opt in)
     │
-Phase 4  Discover / Cap + freeze
-    ├─ N3 · AC-fg note
-    ├─ Docs + QA + screenshot pack for new surfaces
-    └─ Version bump 1.3.0 · tag · Hub
+Phase 4  Q freeze  ← **current** (feature freeze 2026-08-22)
+    ├─ Operator QA ([QA_v1.3.0.md](QA_v1.3.0.md)) — new surfaces + 1.2 regression
+    ├─ Wiki screenshot pack ([inventory](../wiki/assets/screenshots/README.md))
+    ├─ Unit ≥ 55% · `mkdocs build --strict`
+    └─ Version bump 1.3.0 · merge → main · tag · Hub
+    (N3 · AC-fg · W-mux · CSP nonces · ACME stay Cap — not this tag)
 ```
 
 ---
@@ -430,7 +434,7 @@ Success criteria:
 | Unit | Hold ≥ 55% (raise only if easy) |
 | Tests | Policy validate matrix · settings round-trip · list query unit tests · console limit apply · multi-identity ticket + redaction unit tests · **F** path-jail / symlink-escape / size-cap unit tests |
 | E2E | Settings policy save · one large list page-size · connect-as privileged confirm · console settings smoke if flag on |
-| Docs | ADMIN + wiki Security / Alerts / Console (identities + audit) / list UX / Reports / **Host files**; `mkdocs build --strict` at freeze |
+| Docs | ADMIN + wiki Security / Alerts / Console (identities + audit) / list UX / Reports / **Host files**; `mkdocs build --strict` at tag. Freeze **QA** is [QA_v1.3.0.md](QA_v1.3.0.md) (maintainer `docs/` — not the operator wiki). Screenshot inventory: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md) |
 | Security | Policy changes audited; privileged console extra step-up; transcripts access-controlled; demo never stores real shell transcripts; dashboard widgets respect RBAC; **Files** jailed + audited + viewer-denied; demo tree off |
 
 ---
@@ -510,6 +514,8 @@ Success criteria:
 | 2026-08-20 | **F API expansions → v1.4+ under consideration** (zip/edit/chmod/recursive/privileged tokens). 1.3 API stays fleet list/get/put. |
 | 2026-08-20 | **F remaining UI:** content grep, image/hex preview, extra step-up for `.env`/PEM, thin Docker volumes + `docker cp` into the jail. |
 | 2026-08-20 | **F polish:** Files **button** (not dest-card); fleet **nav** (`user` in template); ops hero; ⋯-only extra actions; list scrolls in-pane; zip **on host**; Settings transfer cap (32 GiB); preview ‹›; privileged save via `sudo -n tee`. |
+| 2026-08-22 | **F wrap:** Maximize (hide hero); preview loading overlay; hero **Limited access** / **Elevated access** (not “jailed SFTP”); path bar no `//`, green separators. |
+| 2026-08-22 | **Feature freeze.** No further product streams. Q = QA + screenshot pack + coverage + tag. |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 
@@ -530,7 +536,10 @@ Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3�
 | 6 | Slice 5 Deep **W-audit** (opt-in commands ± truncated output; require-all-sessions option) | **Done** |
 | 7 | Slice 6 Deep **A** (alert policy + map/discovery surface) | **Done** |
 | 8 | Run **N0** insights discovery (one-pager) → **N2** | **Done** — `/reports` history (backups, OS, LAN, Docker, console) |
-| 9 | Run **F0** files sign-off → **F Deep** (flag off until ready) | **Done** (flag still off; phone pass while testing) |
+| 9 | Run **F0** files sign-off → **F Deep** (flag off until ready) | **Done** — feature complete; flag still **off** until GA |
+| 10 | **Feature freeze** | **Enforced 2026-08-22** |
+| 11 | Operator QA ([QA_v1.3.0.md](QA_v1.3.0.md)) + screenshot pack | **Current** |
+| 12 | Coverage ≥ 55% · `mkdocs build --strict` · version `1.3.0` · tag · Hub | After QA **Yes** |
 
 **Phase 1 execution order (parallelizable):** **L1** shared list chrome · **P1/P2** password-policy schema · **W-id1/W-id2** identity model + migrate single key.
 

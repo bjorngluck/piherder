@@ -31,6 +31,8 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | `.env` / PEM won’t open | Listing is allowed; open/download needs Passkey/TOTP (same grant as privileged Files). [Host Files](../day-to-day/host-files.md) |
 | chmod/chown permission denied | ⋯ → **Privileged**. If that user is not root, add NOPASSWD for `chmod`/`chown`. [Host Files](../day-to-day/host-files.md) |
 | Files editor save fails / Permission denied | Root-owned files: privileged identity retries with `sudo -n tee`. The editor bar shows the reason. Add NOPASSWD `tee` or use a root privileged identity. [Host Files](../day-to-day/host-files.md) |
+| Files list tiny on a phone | Toolbar **expand** (or ⋯ → **Maximize**) hides the hero so the list fills the screen — same idea as console Maximize / Hosts map full screen. Restore brings the hero back. [Host Files](../day-to-day/host-files.md) |
+| Image preview ‹ › feels stuck | Peek is fast; the picture is a second SFTP pull. A loading overlay stays until the image arrives. [Host Files](../day-to-day/host-files.md) |
 | Docker mounts greyed out | Host path is outside the current jail — ⋯ → **Privileged** (named volumes live under `/var/lib/docker/volumes`). Bind mounts under the project folder work on fleet. |
 | Zip failed on the host | Zip runs **on the Pi** (`zip` or `python3`). Install one of those, or check disk space. The tree is not pulled through PiHerder. |
 | Network map hosts not linked / cloud wrong | [Network maps](../integrations/dns-fabric.md) — set LAN/gateway/public IP; hard-refresh after rebuild |
