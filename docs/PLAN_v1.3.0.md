@@ -8,6 +8,7 @@
 **Baseline:** `v1.2.0` (identity + webshell + gated demo — 2026-08-18)  
 **Mode:** **Q** — QA · wiki screenshot pack · coverage · `mkdocs --strict` · then version bump / tag / Hub. Bugfixes that fail freeze QA are allowed. No new streams.  
 **QA:** [QA_v1.3.0.md](QA_v1.3.0.md) (maintainer — **not** in the operator wiki) · screenshots [inventory](../wiki/assets/screenshots/README.md)  
+**RELEASE (draft):** [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) — operator-facing freeze note (scope honesty **§ Where the plan bent**)  
 **Related:** [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [wiki/operations/alerts-email-webhooks.md](../wiki/operations/alerts-email-webhooks.md) · [SECURITY.md](../SECURITY.md)
 
 > **Feature freeze 2026-08-22.** Must + Should product streams for 1.3 are **done** (P, T, L, W-id, W-cfg, W-audit, A, N2, F). Allowed from here: freeze bugs, docs, screenshots, QA, coverage, packaging. Cap stays Cap (**W-mux**, **AC-fg**, **N3**, CSP nonces, ACME, branding). Service migration stays [v1.4](PLAN_v1.4.0.md). Hub / `main` remains **v1.2.0** until the tag.
@@ -24,10 +25,24 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 4. **Deeper optional shell audit** — who ran what in the webshell (commands ± responses), with redaction for secrets  
 5. **Alerts they can tune** (severity + what fires on maps / channels)  
 6. **Lists that scale** (page size, filters, free-text / semantic search) when many servers and Docker services exist  
-7. **At-a-glance reporting** — discovery + a **thin slice** of reporting / custom dashboarding (not a full BI product)  
-8. **Host file transfer** — jailed SFTP explorer over fleet SSH, optional privileged Connect as… (edit/zip/search/preview; not console zmodem)
+7. **History Grafana cannot see** — `/reports` from Jobs / nmap / Audit (not fleet-health widgets, not a second Grafana). **N3** custom layout stays Cap.  
+8. **Host Files** — confined in-browser manager (flag off). Kickoff was list/get/put; freeze shipped F Deep (see **§0a**). Not a WinSCP clone; not console zmodem.
 
-**Carry-over from earlier plans (still in 1.3 path):** fine-grained roles (**AC-fg**), ACME-in-herder (under consideration), residual HA REST/path2, branding, k8s/bare — see §6 and [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
+**Carry-over from earlier plans (still Cap unless noted):** fine-grained roles (**AC-fg**), ACME-in-herder (under consideration), residual HA REST/path2, branding, k8s/bare — see §6 and [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
+
+---
+
+## 0a. Where the plan bent (not broken)
+
+Freeze honesty for [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md). Architecture held; original **scope** was rewritten in-train. Copy this into the tag notes so operators are not told “thin list/get/put” or “WinSCP deferred” while Files is a real manager.
+
+| Stream | Kickoff | Freeze | Architecture that still held |
+|--------|---------|--------|------------------------------|
+| **F** | Thin: list/get/put, F2 dest only, no mkdir/delete as Must | **F Deep:** edit, zip/unzip, recursive delete, chmod/chown, content search, folder upload, thin `docker cp`, Settings cap 512 MiB→32 GiB | Jail resolves; `..` / zip-slip refused; fleet vs privileged separate; `.env`/PEM need 2FA to **open**; API stays fleet list/get/put (+ limited mkdir/rename) — privileged verbs stay UI + step-up; flag default **off**; demo never; stream chunks (not full-file RAM); audit path + bytes + hash, not bodies |
+| **N** | Fleet-health widgets / custom dashboard | Status **portlets rejected**. Shipped **history** at `/reports` (Grafana never sees dest size, patch rates, LAN census, deploys, console time). **N3** Cap | Not a second Grafana; no PromQL / widget picker |
+| **W-audit** | Discover → optional ship | **Deep the same day.** Default **off**, Fernet `041`, viewer 403, privileged **warn-when-off** (still allows), optional require-on-every-session, demo never | Redaction is **heuristic and imperfect** — never claim secrets cannot land in the log |
+
+**Still out (do not describe 1.3 as these):** WinSCP clone / dual-pane / zmodem · richer Files **token** API (v1.4+ under consideration) · video / dual-control console · custom dashboard layout · host `tmux`/`screen`.
 
 **Parked from the 1.2 review (Cap unless Must is green):**
 
@@ -48,7 +63,7 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 | Git tag (freeze) | **`v1.3.0`** (RCs: `1.3.0-rc.N` if needed) |
 | Image tags (freeze) | `1.3.0` · `1.3` · `latest` (multi-arch); keep `1.2` / `1.2.x` pins valid |
 | In-scope streams | **L** lists · **P** password policy · **T** (T6 Must; T1–T5 Should) · **W-id** core · **W-cfg** · **A** · **N** Reports history · **F** Files manager · **W-audit** Deep · **Q** quality/freeze |
-| Out-of-focus | Multi-tenant SaaS · SAML · ACME-in-herder as Must · **W-mux** · **AC-fg** implementation · video / dual-control console · full BI · WinSCP-in-herder · service migration (**v1.4**) |
+| Out-of-focus | Multi-tenant SaaS · SAML · ACME-in-herder as Must · **W-mux** · **AC-fg** implementation · video / dual-control console · full BI · **WinSCP clone** / zmodem (Files is a confined manager, not that) · service migration (**v1.4**) |
 | Mode | Operator-owned policy · no half-built auth / file / audit surfaces · Must → Should → Discover |
 | Coverage | **≥ 55%** unit; focused tests for policy, list queries, multi-identity tickets, path jail |
 | E2E | Settings policy save · one large list page-size · connect-as privileged confirm · console settings smoke if flag on |
@@ -57,7 +72,7 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 | Version bump | `1.3.0` **at tag only** (package stays `1.2.0` on this branch until then) |
 | Policy storage | **App Settings** (DB) with env as override / bootstrap where it already exists |
 | Host SSH identities | At least **two** optional credentials per host: **fleet / least-priv** (default jobs + console + Files) + **privileged** (break-glass console + Files); separate Fernet keys |
-| Shell audit | **Opt-in**; default off; command/response is **discover → promote** |
+| Shell audit | **Opt-in**; default off; **Deep landed**. Redaction **heuristic** — not a guarantee |
 | Insights | **N2 history reports** at `/reports` (Jobs / nmap runs / console Audit) — not Grafana, not status portlets. **N3** Cap |
 | Host files | **F Deep** — host **Files** button + ops hero + explorer (edit/zip/perms/search/move/preview/folder upload/`.env` step-up; thin Docker volumes + `docker cp`). API `files` fleet list/get/put. Flag **off** until GA. Richer API → v1.4+ |
 
@@ -218,10 +233,10 @@ Console open → Connect as: [ fleet (default) ▾ | elevated ]
 
 ---
 
-### Stream **W-audit** — Command-level webshell audit (discover → optional ship)
+### Stream **W-audit** — Command-level webshell audit (**Deep** — Discover promoted the same day)
 
 **Today (slice 5 Deep landed):** Opt-in command audit via server-side PTY tap (option A). Settings default **off**; optional **require on every session**. Fernet `consoletranscript` (Alembic `041`). Audit expand + `/audit/console/{id}` + `.txt` download for operator+. Viewer never. Demo never persists. Privileged Connect as… **warns** when audit is off and still allows.  
-**Wanted:** Lower-level webshell audit with redaction. **Done** for the 1.3 thin bar (full ttyrec / video stay Cap).
+**Wanted:** Lower-level webshell audit with redaction. **Done** for the 1.3 thin bar (full ttyrec / video stay Cap). **Redaction is heuristic** — `W-audit3` never claims perfect secrecy. QA treats residual secret capture as **known**, not a freeze fail.
 
 | ID | Item | Notes |
 |----|------|--------|
@@ -306,7 +321,7 @@ Console open → Connect as: [ fleet (default) ▾ | elevated ]
 
 ---
 
-### Stream **N** — Insights: discovery + thin-slice reporting / custom dashboards
+### Stream **N** — Insights: history reports (widgets rejected)
 
 **Today (slice 7):** `/` remains the pulse. **Reports** (`/reports`) is **history Grafana never sees**: backups (dest occupancy), OS patch applies, LAN `hosts_up` per day, Docker deploys/patches, web-console sessions. Status portlets were rejected. Wiki: [reports.md](../wiki/day-to-day/reports.md).
 
@@ -336,13 +351,15 @@ Console open → Connect as: [ fleet (default) ▾ | elevated ]
 
 **Non-goals (N):** Full Grafana replacement; arbitrary SQL / PromQL builder; multi-tenant shared gallery marketplace; real-time streaming charts; storing high-cardinality metrics history in Postgres forever.
 
-**Depends on:** Stable 1.x data already in DB; **L** helps if boards link into long lists; **A** severity taxonomy improves alert widgets.
+**Depends on:** Stable 1.x data already in DB; **L** helps if Reports link into long lists.
 
 ---
 
-### Stream **F** — Host files: discovery + thin-slice upload / download
+### Stream **F** — Host files: confined manager (kickoff was thin; freeze is Deep)
 
-**Today:** PiHerder already moves bytes in **domain-specific** ways. There is **no** generic host file browser.
+**Kickoff (2026-08-16):** list/get/put only, F2 dest, no mkdir/delete. **Signed F Deep** and shipped a real manager — see **§0a**. Jail / 2FA / API / flag still match the security brief.
+
+**Baseline (pre-1.3):** PiHerder already moved bytes in **domain-specific** ways (compose editor, certs, backups). There was **no** generic host file browser until F Deep.
 
 | Layer | What exists | Limit |
 |-------|-------------|--------|
@@ -371,13 +388,10 @@ Reuse, do **not** fork: Paramiko `open_sftp` + tmp+rename (`docker_versions.writ
 **Product shape (F Deep):**
 
 ```text
-Host: rpi5-4  →  dest card Files
-  Connect as: [ fleet ▾ | privileged ]
-  Jail: /home/pi/docker          (fleet)  or  /  minus virtual FS (privileged)
-  /home/pi/docker/frigate/
-    ├─ docker-compose.yml     4.2 KiB   [Download] [Rename] [Delete]
-    ├─ config.yml            18 KiB    [Download] [Rename] [Delete]
-    └─ [New folder…]  [Upload file…  progress]
+Host overview  →  Files button (next to Console; not a dest-card)
+  Hero: Limited access (fleet) or Elevated access (privileged)
+  Toolbar ⋯ : New folder · Docker mounts · Refresh · identity · Maximize
+  Jail: docker_base or home (fleet)  or  / minus virtual FS (privileged)
 ```
 
 **Discovery exit criteria:** F0 review 2026-08-19: manager verbs (not list/get/put-only); HAOS in; privileged Connect as…; API `files`; 512 MiB + progress. **Promoted 2026-08-20:** edit, zip/unzip, recursive delete, multi-select, chmod/chown, search (names + contents), move, folder upload, preview, `.env` step-up, thin Docker volumes + `docker cp` into the jail. Console zmodem still out. Richer Files API → v1.4+.
@@ -410,7 +424,7 @@ Host: rpi5-4  →  dest card Files
 | Priority | Streams | Bar |
 |----------|---------|-----|
 | **Must** | **P** + **T1–T6** (slice 1 **Deep**) · **L Deep** (slice 3 — Servers + Docker + discovery) · **W-id Deep** (slice 4 — fleet + privileged + Connect as…) | Operator-owned security policy (full) + scale lists + least-priv/privileged connect-as |
-| **Should** | **W-cfg Deep** · **A** · **W-audit Deep** (slice 5) · **N2** `/reports` history (after **N0**) · **F Deep** host Files manager (after **F0** sign-off) | Console knobs + alerts + opt-in command audit + thin reporting + confined host file transfer |
+| **Should** | **W-cfg Deep** · **A** · **W-audit Deep** (slice 5) · **N2** `/reports` history (after **N0**) · **F Deep** host Files manager (after **F0** sign-off) | Console knobs + alerts + opt-in command audit + **history** reports + **confined Files manager** (not list/get/put-only; not a WinSCP clone) |
 | **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-mux** (screen/tmux, low priority) · **AC-fg** · ACME · branding · CSP nonces | Promote only if Must green |
 
 Success criteria:
@@ -463,7 +477,7 @@ Success criteria:
 | **P-acme** ACME-in-herder | PLAN_v1.1 §6.1 | Under consideration — not a Must for this seed |
 | HA REST / path 2 | FEATURE_PLAN_HOME_ASSISTANT | Residual integration |
 | Full insights beyond thin slice · branding · k8s/bare | ROADMAP H3 / quality | **N** seeds thin slice; deep BI stays far horizon |
-| Host file manager beyond list/get/put | New 2026-08-16 | **F** seeds confined transfer; WinSCP / `docker cp` / zmodem stay deferred |
+| Host Files beyond kickoff list/get/put | New 2026-08-16 · **rewritten F Deep** | **Shipped:** confined **manager** (edit/zip/chmod/search/preview/folder upload/thin `docker cp`). **Still out:** WinSCP clone, dual-pane, console zmodem, richer **token** API (v1.4+). Do not write “WinSCP deferred” as if Files is still list/get/put. |
 | **Service migration** (host→host compose move) | New 2026-08-17 | **→ v1.4 Stream M** — not a 1.3 add. [PLAN_v1.4.0.md](PLAN_v1.4.0.md) |
 
 ---
@@ -476,8 +490,8 @@ Success criteria:
 - **Video / full interactive session replay** and **dual-control** (two-person) console — still out; **W-audit** is opt-in command/transcript style only  
 - Guaranteeing redaction catches every secret typed at a shell  
 - Auto-enumerating all OS users on a host as “identities”  
-- **Full custom BI** (arbitrary SQL/PromQL, multi-page analytics, Grafana replacement) — **N** is discover + thin slice only  
-- **Full remote file manager** (WinSCP clone, console zmodem) — **F** is confined SFTP in the jail (thin `docker cp` into the jail / volume open; not the migrate copy engine)  
+- **Full custom BI** (arbitrary SQL/PromQL, widget picker, Grafana replacement) — **N** shipped **history reports**, not fleet-health widgets; **N3** Cap  
+- **WinSCP clone / dual-pane / console zmodem** — still out. **F Deep is a confined in-browser manager** (not list/get/put-only). Thin `docker cp` / volume open is in; the migrate copy engine is **v1.4**  
 - **Service migration** (move a compose project host→host with dataset + DNS + TLS/Kuma) — **→ v1.4** ([PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md))  
 - Weakening public **demo** into a multi-user admin sandbox  
 
@@ -516,6 +530,7 @@ Success criteria:
 | 2026-08-20 | **F polish:** Files **button** (not dest-card); fleet **nav** (`user` in template); ops hero; ⋯-only extra actions; list scrolls in-pane; zip **on host**; Settings transfer cap (32 GiB); preview ‹›; privileged save via `sudo -n tee`. |
 | 2026-08-22 | **F wrap:** Maximize (hide hero); preview loading overlay; hero **Limited access** / **Elevated access** (not “jailed SFTP”); path bar no `//`, green separators. |
 | 2026-08-22 | **Feature freeze.** No further product streams. Q = QA + screenshot pack + coverage + tag. |
+| 2026-08-22 | **Scope honesty (§0a):** F kickoff was thin list/get/put — freeze shipped a confined **manager** (architecture held). N widgets rejected → `/reports` history. W-audit Discover → Deep same day; redaction remains imperfect. Residual §6 no longer says “WinSCP deferred” as if Files is still F2-only. |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 

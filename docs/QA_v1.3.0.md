@@ -207,7 +207,7 @@ Deep 1.2 identity matrix (passkey RP, Require SSO edge cases): [QA_v1.2.0.md](QA
 |------|--------|
 | Package / About still **1.2.0** on `v1.3.0-dev` | Until tag bump |
 | **`PIHERDER_HOST_FILES` default off** | GA opt-in; demo never |
-| Command audit default **off** | Residual secret capture is heuristic |
+| Command audit default **off** | **Known:** redaction is heuristic and imperfect (`read -s`, editors, pasted secrets). Do not fail freeze for that. Documented on the console wiki. |
 | **KI-console-mobile-soft-tab** | Residual IME may remain |
 | CSP `unsafe-inline` | Cap (nonces) — not this tag |
 | No per-host ACL | **AC-fg** Cap |
@@ -239,7 +239,7 @@ Deep 1.2 identity matrix (passkey RP, Require SSO edge cases): [QA_v1.2.0.md](QA
 ### After **Yes** (maintainer — not operator browsing)
 
 1. Bump `app/version_info.py` + `pyproject.toml` → `1.3.0`.  
-2. Write [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md); flip wiki Home + this file to **Tagged**.  
+2. Finish [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) (freeze **draft** already has § Where the plan bent); flip wiki Home + this file to **Tagged**.  
 3. Merge `v1.3.0-dev` → `main` · tag `v1.3.0` · Hub `1.3.0` / `1.3` / `latest` (keep `1.2` / `1.2.x` pins valid).  
 4. Do **not** start v1.4 service migration on the tag commit.
 

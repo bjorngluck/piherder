@@ -86,7 +86,7 @@ PiHerder already has the **pieces**. Nothing orchestrates them across two hosts.
 
 Reuse, do **not** fork: `compose_action` / `resolve_compose_project_path` · backup rsync + path policy · `upsert_service_record` / `fanout_pihole_dns` · Pi-hole `restartdns` · cert deploy + TLS verify · inventory refresh · JobHold live log · audit `preview → confirm` · dest-card chrome.
 
-**Does not depend on 1.3 Stream F.** Files is confined list/get/put (≤16 MiB). Migration is bulk rsync. F is a useful operator peek, not a prerequisite.
+**Does not depend on 1.3 Stream F.** 1.3 Files is a confined **in-browser manager** (flag off; API still fleet list/get/put + limited mkdir/rename). Migration is bulk rsync. F is a useful operator peek, not a prerequisite.
 
 ### 2.2 Wanted
 

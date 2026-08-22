@@ -7,7 +7,7 @@
 **Theme:** Identity + webshell + gated demo · backup reliability · self-backup full DB DR · security remediations  
 **Baseline:** [v1.1.1](RELEASE_v1.1.1.md) · [v1.1.0](RELEASE_v1.1.0.md)  
 **Plan:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md)  
-**Next train:** [PLAN_v1.3.0.md](PLAN_v1.3.0.md) — **Active** on `v1.3.0-dev` (operator policy · scale lists · multi-identity console)  
+**Next train:** [PLAN_v1.3.0.md](PLAN_v1.3.0.md) — **feature freeze** on `v1.3.0-dev` · draft [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md)  
 **Operator QA:** [QA_v1.2.0.md](QA_v1.2.0.md) · wiki [v1.2.0 QA / sign-off](../wiki/operations/qa-v1.2.0.md)
 
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) — multi-arch `linux/amd64` + `linux/arm64`  

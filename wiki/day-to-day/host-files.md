@@ -2,7 +2,7 @@
 
 ## What this is
 
-A **file manager** on each SSH host (confined SFTP): browse, upload/download (progress, default 512 MiB), create folders, rename, **move**, **edit** UTF-8 text, **zip / unzip**, **chmod / chown**, **search** (names and file contents), **preview** images / hex, delete files or folder trees, and a thin **Docker** helper (named volumes + `docker cp` into the current folder). It is not WinSCP, not a backup job, and not the [compose editor](../docker/compose-edit.md) (no version history, no deploy). The hero says **Limited access** (fleet) or **Elevated access** (privileged) — not “jailed SFTP”.
+A **file manager** on each SSH host (confined SFTP): browse, upload/download (progress, default 512 MiB), create folders, rename, **move**, **edit** UTF-8 text, **zip / unzip**, **chmod / chown**, **search** (names and file contents), **preview** images / hex, delete files or folder trees, and a thin **Docker** helper (named volumes + `docker cp` into the current folder). It is **not** WinSCP, **not** dual-pane, **not** console zmodem, not a backup job, and not the [compose editor](../docker/compose-edit.md) (no version history, no deploy). The token API stays fleet list/get/put (+ limited mkdir/rename); extra verbs are UI + 2FA. The hero says **Limited access** (fleet) or **Elevated access** (privileged) — not “jailed SFTP”.
 
 **Where:** host overview **Files** button (next to Console) → `/servers/{id}/files`. Same **ops hero** as Docker / Backups / Services (host jump, ★ pin, Server / Docker / Hosts map). Kill switch **`PIHERDER_HOST_FILES`** (default **off**). Operator+ only. Viewer never. Demo never.
 
