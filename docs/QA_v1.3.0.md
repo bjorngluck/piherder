@@ -52,15 +52,15 @@ Allowed during freeze: bugs that fail this list, docs, screenshots, coverage. **
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
-| 1.1 | Must | Settings → General → **Security** card → Edit. Change min length (still ≥ 8, ≤ 72) **and** require special. Forms (Account change, admin create, admin reset, first-login, self-service reset) show the **same** live rules. Strength meter **needs** hints match (not hardcoded min 10). | ☐ |
-| 1.2 | Must | A password that fails the new rule is **rejected** with the same text. Meter lists what is missing (e.g. min 12, special). Policy change is **audited**. | ☐ |
-| 1.3 | Must | Force-2FA scope + grace **0–60** days save. User in grace can postpone; after grace they hit `/auth/force-2fa`. | ☐ |
-| 1.4 | Must | Account **SSO unlink** and **passkey revoke** accept **any enrolled 2FA** (passkey **or** TOTP) — KI-account-stepup-factors. | ☐ |
-| 1.5 | Must | Console / privileged Files step-up: **Passkey first** when enrolled; TOTP fallback unless Settings requires passkey. Backup codes **rejected** for these grants (default). | ☐ |
-| 1.6 | Should | IdP-MFA skip stays **off** unless you opted in; default fail-closed. | ☐ |
-| 1.7 | Reg | Passkey add / sign-in / TOTP / backup codes (not in URL) still work as in 1.2. | ☐ |
-| 1.8 | Must | Account hub: equal cards + **Edit** sheets (same as Settings). SSO **Unlink…** opens a confirmation sheet (issuer/email, 2FA or set-password, Cancel / Unlink SSO). Not a silent POST and not a browser `confirm()` only. | ☐ |
-| 1.9 | Must | Failed unlink / password-remove step-up **stays on that sheet** with a real hint (Confirm passkey or 6-digit / backup). Must **not** dump onto the authenticator-app sheet with “Authenticator or backup code required.” | ☐ |
+| 1.1 | Must | Settings → General → **Security** card → Edit. Change min length (still ≥ 8, ≤ 72) **and** require special. Forms (Account change, admin create, admin reset, first-login, self-service reset) show the **same** live rules. Strength meter **needs** hints match (not hardcoded min 10). | **Pass** |
+| 1.2 | Must | A password that fails the new rule is **rejected** with the same text. Meter lists what is missing (e.g. min 12, special). Policy change is **audited**. | **Pass** |
+| 1.3 | Must | Force-2FA scope + grace **0–60** days save. User in grace can postpone; after grace they hit `/auth/force-2fa`. | **Pass** |
+| 1.4 | Must | Account **SSO unlink** and **passkey revoke** accept **any enrolled 2FA** (passkey **or** TOTP) — KI-account-stepup-factors. | **Pass** |
+| 1.5 | Must | Console / privileged Files step-up: **Passkey first** when enrolled; TOTP fallback unless Settings requires passkey. Backup codes **rejected** for these grants (default). | **Pass** |
+| 1.6 | Should | IdP-MFA skip stays **off** unless you opted in; default fail-closed. | **Pass** |
+| 1.7 | Reg | Passkey add / sign-in / TOTP / backup codes (not in URL) still work as in 1.2. | **Pass** |
+| 1.8 | Must | Account hub: equal cards + **Edit** sheets (same as Settings). SSO **Unlink…** opens a confirmation sheet (issuer/email, 2FA or set-password, Cancel / Unlink SSO). Not a silent POST and not a browser `confirm()` only. | **Pass** |
+| 1.9 | Must | Failed unlink / password-remove step-up **stays on that sheet** with a real hint (Confirm passkey or 6-digit / backup). Must **not** dump onto the authenticator-app sheet with “Authenticator or backup code required.” | **Pass** |
 
 ---
 
@@ -159,6 +159,8 @@ Turn **`PIHERDER_HOST_FILES`** back to **false** unless you are shipping it on f
 
 ## 8. Public demo (Reg)
 
+Shared **viewer** on [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info). **Not** a substitute for lab P+T / Files / Console. After a **rebuild from `v1.3.0-dev`** (not Hub `1.2.0` pull), chrome that **should** change: Reports in the header after Catalog, Reports page, Servers pager/`q`, Settings **General** as hub cards (Edit/save **403**), Account compact hub with password/2FA **locked**. Unchanged by design: Files off, live SSH off (toy console), no Users, no SSO link, no policy save.
+
 | # | Pri | Test | Pass |
 |---|-----|------|------|
 | 8.1 | Must | Demo banner; no real Files tree; no console transcripts; no privileged live SSH. | ☐ |
@@ -173,21 +175,21 @@ Spot-check. Failures here **block** 1.3 even if new surfaces pass.
 
 | # | Pri | Test | Pass |
 |---|-----|------|------|
-| 9.1 | Reg | **Viewer:** read dashboard / servers / jobs / docker inventory / Reports; **cannot** start backup, patch, deploy, Users, Settings mutate, Files, Console. | ☐ |
-| 9.2 | Reg | **Operator:** fleet jobs work; **cannot** Users / herder restore / SSO / API tokens. | ☐ |
-| 9.3 | Reg | **Admin:** Users recovery, Force 2FA, SSO, Full DR, Status. | ☐ |
-| 9.4 | Reg | One host: **Test connection** (pin), manual **backup**, **OS / HAOS check**. Job + audit. | ☐ |
-| 9.5 | Reg | Docker inventory, logs, compose **Build**, full editor, deploy/start/stop. | ☐ |
-| 9.6 | Reg | Add-server default SSH user **`pi`**. Host-key mismatch refused until reset pin. | ☐ |
-| 9.7 | Reg | Sign out logs out other tabs. Admin “sign out sessions” kicks that user. | ☐ |
-| 9.8 | Reg | SSO (if enabled): login button, JIT/map, Require SSO hides password for non-admin, admin break-glass password still works. | ☐ |
-| 9.9 | Reg | Maps / Path map / LAN discovery / certs list open. | ☐ |
-| 9.10 | Reg | Template catalog lists; deploy wizard opens (need not apply). | ☐ |
-| 9.11 | Reg | Notifications bell + (HTTPS) Web Push toggle. | ☐ |
-| 9.12 | Reg | CSP still has **no** `unsafe-eval`. Dashboard/Servers/Docker/Settings/Account render desktop **and** phone. | ☐ |
-| 9.13 | Reg | Full DR restore story (lab): same `PIHERDER_MASTER_KEY`; login + hosts present. | ☐ |
-| 9.14 | Should | Direct TLS (no NPM) path still selectable on a host FQDN app. | ☐ |
-| 9.15 | Should | Empty-DB first register still creates the only admin (throwaway compose). | ☐ |
+| 9.1 | Reg | **Viewer:** read dashboard / servers / jobs / docker inventory / Reports; **cannot** start backup, patch, deploy, Users, Settings mutate, Files, Console. | **Pass** |
+| 9.2 | Reg | **Operator:** fleet jobs work; **cannot** Users / herder restore / SSO / API tokens. | **Pass** |
+| 9.3 | Reg | **Admin:** Users recovery, Force 2FA, SSO, Full DR, Status. | **Pass** |
+| 9.4 | Reg | One host: **Test connection** (pin), manual **backup**, **OS / HAOS check**. Job + audit. | **Pass** |
+| 9.5 | Reg | Docker inventory, logs, compose **Build**, full editor, deploy/start/stop. | **Pass** |
+| 9.6 | Reg | Add-server default SSH user **`pi`**. Host-key mismatch refused until reset pin. | **Pass** |
+| 9.7 | Reg | Sign out logs out other tabs. Admin “sign out sessions” kicks that user. | **Pass** |
+| 9.8 | Reg | SSO (if enabled): login button, JIT/map, Require SSO hides password for non-admin, admin break-glass password still works. | **Pass** |
+| 9.9 | Reg | Maps / Path map / LAN discovery / certs list open. | **Pass** |
+| 9.10 | Reg | Template catalog lists; deploy wizard opens (need not apply). | **Pass** |
+| 9.11 | Reg | Notifications bell + (HTTPS) Web Push toggle. | **Pass** |
+| 9.12 | Reg | CSP still has **no** `unsafe-eval`. Dashboard/Servers/Docker/Settings/Account render desktop **and** phone. | **Pass** |
+| 9.13 | Reg | Full DR restore story (lab): same `PIHERDER_MASTER_KEY`; login + hosts present. | **Pass** |
+| 9.14 | Should | Direct TLS (no NPM) path still selectable on a host FQDN app. | **Pass** |
+| 9.15 | Should | Empty-DB first register still creates the only admin (throwaway compose). | **Pass** |
 
 Deep 1.2 identity matrix (passkey RP, Require SSO edge cases): [QA_v1.2.0.md](QA_v1.2.0.md) §§1–2 if you still run SSO in production.
 
@@ -227,7 +229,7 @@ Deep 1.2 identity matrix (passkey RP, Require SSO edge cases): [QA_v1.2.0.md](QA
 | Gate | Name | Date | Result |
 |------|------|------|--------|
 | Boot / upgrade / Alembic 040–041 | Björn | 2026-08-22 | **Pass** |
-| Password / 2FA policy (P + T) | | | ☐ (1.8/1.9 unlink + step-up sheet — retest) |
+| Password / 2FA policy (P + T) | Björn | 2026-08-22 | **Pass** |
 | Console knobs + identities + audit | Björn | 2026-08-22 | **Pass** |
 | Scale lists (L) | Björn | 2026-08-22 | **Pass** |
 | Alerts policy (A) | Björn | 2026-08-22 | **Pass** |
@@ -235,7 +237,7 @@ Deep 1.2 identity matrix (passkey RP, Require SSO edge cases): [QA_v1.2.0.md](QA
 | Host Files (F) | Björn | 2026-08-22 | **Pass** |
 | Settings hub | Björn | 2026-08-22 | **Pass** |
 | Demo | | | ☐ |
-| 1.2 core regression | | | ☐ |
+| 1.2 core regression | Björn | 2026-08-22 | **Pass** |
 | Docs / wiki / screenshots / coverage | | | ☐ |
 | **Ready to bump `1.3.0` and tag** | | | ☐ |
 
