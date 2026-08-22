@@ -106,7 +106,7 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 
 ## Pre-capture checklist (operator)
 
-1. Rebuild/restart **web** so templates match `v1.3.0-dev`. About may still show **1.2.0**.  
+1. Rebuild/restart **web** so templates match **v1.3.0**. About shows **1.3.0**.  
 2. Light theme · desktop width · redact hostnames/IPs if needed.  
 3. **Settings hub** shots: no client secrets, SMTP passwords, or backup codes in frame.  
 4. **Files:** `PIHERDER_HOST_FILES=true` only for those shots, then restore **off**. Do not photograph `.env` bodies or PEMs.  
