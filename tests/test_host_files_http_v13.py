@@ -106,6 +106,10 @@ def test_files_operator_200_when_flag_on(files_client, monkeypatch):
     assert 'data-testid="host-files-page"' in r.text
     assert 'data-testid="files-hero"' in r.text
     assert "ops-hero--files" in r.text
+    assert "Limited access" in r.text
+    assert "jailed SFTP" not in r.text
+    assert "hf-path-sep" in r.text
+    assert "do not paint a second slash" in r.text
     assert 'id="hf-win"' in r.text
     assert 'id="hf-tree"' in r.text
     assert 'id="hf-list"' in r.text
@@ -131,6 +135,12 @@ def test_files_operator_200_when_flag_on(files_client, monkeypatch):
     assert 'id="hf-preview"' in r.text
     assert 'id="hf-preview-prev"' in r.text
     assert 'id="hf-preview-next"' in r.text
+    assert 'id="hf-preview-busy"' in r.text
+    assert 'id="hf-max"' in r.text
+    assert 'data-testid="files-maximize"' in r.text
+    assert "piherder-files-max" in r.text
+    assert "Loading image" in r.text
+    assert "is-files-max" in r.text
     assert 'id="hf-editor-err"' in r.text
     assert 'id="hf-tree-toggle"' in r.text
     assert 'id="hf-upload-box"' in r.text

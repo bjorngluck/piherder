@@ -59,7 +59,9 @@ SSO / passkeys / demo mode are **new optional surfaces** — they do not turn on
 
 ## 1.2 → 1.3 train (`v1.3.0-dev`)
 
-Package version stays **1.2.0** until freeze. Settings policy is JSON in `appsetting`. **Slice 4** adds Alembic **`040_ssh_identities`** (fleet + optional privileged SSH keys per host). **Slice 5** adds Alembic **`041_console_transcripts`** (opt-in encrypted command audit; default off).
+**Feature freeze** 2026-08-22 — no new product streams. Package version stays **1.2.0** until the **tag**. Settings policy is JSON in `appsetting`. Alembic **`040_ssh_identities`** (fleet + optional privileged SSH keys per host). Alembic **`041_console_transcripts`** (opt-in encrypted command audit; default off).
+
+Maintainer freeze clicks live in [docs/QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/QA_v1.3.0.md) (not this wiki). Operators tracking the branch: smoke list below.
 
 If you track the integration branch:
 
@@ -73,7 +75,7 @@ If you track the integration branch:
 8. **Host Files** is **off** until you set `PIHERDER_HOST_FILES=true` and restart web. Transfer cap is **Settings → Files** (default 512 MiB, ceiling 32 GiB) unless you lock `PIHERDER_HOST_FILES_MAX_BYTES`. [Host Files](../day-to-day/host-files.md).  
 9. **Reports** is on at `/reports` (no flag) — [Reports](../day-to-day/reports.md).
 
-Hub **`main` / 1.2.x** is unchanged until the 1.3 freeze.
+Hub **`main` / 1.2.x** is unchanged until the 1.3 **tag**.
 
 ## Breaking notes
 

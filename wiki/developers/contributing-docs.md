@@ -13,7 +13,7 @@ Repo-level contributor rules: [CONTRIBUTING.md](https://github.com/bjorngluck/pi
 | **`wiki/` → piherder-docs.hacknow.info** | **How it works now** — single living operator guide for the current line |
 | **`docs/RELEASE_vX.Y.Z.md`** | **What changed in this version** — upgrade notes, features, breaking changes |
 | **GitHub Releases** | Same narrative as RELEASE notes + tags (in-app About / update banner link here) |
-| **`docs/PLAN_*` · `FEATURE_PLAN_*` · SPEC** | Maintainer planning only — **not** in operator nav |
+| **`docs/PLAN_*` · `FEATURE_PLAN_*` · SPEC · `docs/QA_v*`** | Maintainer planning and **freeze QA** — **not** in operator nav |
 
 **Do not** create a separate full wiki tree per minor/patch (no `wiki-v0.5/`, `wiki-v0.6/` forks).
 
@@ -28,7 +28,7 @@ Repo-level contributor rules: [CONTRIBUTING.md](https://github.com/bjorngluck/pi
        Available from **v0.5.0**. Older tags lack this UI.
    ```
 
-4. Put the release story in **`docs/RELEASE_vX.Y.Z.md`** (created at freeze / tag).  
+4. Put the release story in **`docs/RELEASE_vX.Y.Z.md`** (created at freeze / tag). Freeze **QA checklists** live in **`docs/QA_vX.Y.Z.md`** — do not publish them as wiki pages. Operator how-to stays in `wiki/`.  
 5. Bump in-app version constants when tagging (`app/version_info.py`, `pyproject.toml`) so About + update checks stay honest.
 
 ### Version callouts — when to use them

@@ -17,64 +17,71 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v0.9.0** (tagged) | Operator recapture pack for 0.9 chrome — [RELEASE_v0.9.0.md](../../../docs/RELEASE_v0.9.0.md) |
 | **v1.0.0** (tagged) | Full pack in place (operator-confirmed) — [PLAN_v1.0.0.md §8.2](../../../docs/PLAN_v1.0.0.md) · [RELEASE_v1.0.0.md](../../../docs/RELEASE_v1.0.0.md) |
 | **v1.1.0** | Freeze pack landed — [RELEASE_v1.1.0.md](../../../docs/RELEASE_v1.1.0.md) |
-| **v1.2.0** | **Current production** — QA **Pass** + screenshot pack **landed** 2026-08-18 (`login-sso`, `settings-sso`, `account-sso`, `account-passkeys`, `console-popup`, `settings-self-backup`). [QA](../../operations/qa-v1.2.0.md) · [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) |
+| **v1.2.0** | **Current Hub / production** — screenshot pack **landed** 2026-08-18. [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) |
+| **v1.3.0** | **Feature freeze** (2026-08-22) on `v1.3.0-dev` — pack **open**. Capture list below. Maintainer QA: [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/QA_v1.3.0.md) (not the operator wiki). [PLAN](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/PLAN_v1.3.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
-!!! tip "Production screenshots (v1.2)"
-    Capture from rebuilt **`v1.2.0-dev`** / image **`1.2.0`**: `docker compose build web && docker compose up -d web`.  
-    App code is **not** bind-mounted in prod compose — stale containers = stale chrome in PNGs.  
-    About / footer (signed in) should show **1.2.0**.
+!!! tip "Capture from the freeze branch"
+    Rebuild **`v1.3.0-dev`**: `docker compose build web && docker compose up -d web`.  
+    App code is **not** bind-mounted — stale containers = stale chrome.  
+    About / footer (signed in) still shows **1.2.0** until the tag bump. That is expected.
 
 ---
 
-## v1.2.0 — what to update
+## v1.3.0 — what to update
 
-Use this section to close the 1.2 pack. Mark rows done locally as you replace files. Wire **new** filenames into the wiki page in the **same commit** as the PNG.
+Feature freeze is on. Close this pack before the tag. Mark rows done locally as you replace files. Wire **new** filenames into the wiki page in the **same commit** as the PNG.
 
-Existing 1.1 PNGs stay valid unless a row below says recapture. Do **not** redo certs / maps / LAN unless chrome actually drifted.
+Existing **1.2** PNGs stay valid unless a row below says recapture. Do **not** redo certs / maps / LAN / templates unless chrome actually drifted.
 
-### Must capture — new 1.2 surfaces (no PNG yet)
+### Must capture — new 1.3 surfaces (no PNG yet)
 
 | Pri | Suggested file | Surface | Must show | Wire into |
 |-----|----------------|---------|-----------|-----------|
-| **P0** | `login-sso.png` | `/auth/login` | **Continue with Authentik** (or your display name) as primary; password form still visible (Require SSO **off**) | [SSO](../../account-security/sso-oidc.md) · [First login](../../getting-started/first-login.md) |
-| **P0** | `settings-sso.png` | Settings → **General** → **SSO / OpenID Connect** | Enable + issuer + client id + group map UI + **redirect URI** shown. **Redact** client secret | [Settings](../../operations/settings.md) · [SSO](../../account-security/sso-oidc.md) |
-| **P0** | `account-sso.png` | Account → **Connected accounts (SSO)** | Linked issuer/host; Link / Unlink (no secrets) | [SSO](../../account-security/sso-oidc.md) |
-| **P0** | `account-passkeys.png` | Account → **Passkeys** | At least one named passkey + **Add passkey**. Optional: Passkeys & 2FA heading in frame | [2FA](../../account-security/two-factor.md) |
-| **P0** | `console-popup.png` | Server detail → **Console** popup | After 2FA unlock: **+ Shell**, real host prompt, compact chrome. Flag **on** for this shot only | [Web SSH console](../../day-to-day/web-ssh-console.md) |
-| **P0** | `settings-self-backup.png` | Settings → **PiHerder backup** | **Full DR** selected (pg_dump); archive list if you have one. No restore of a live fleet in the shot | [Self-backup](../../operations/self-backup.md) · [Settings](../../operations/settings.md) |
-| **P1** | `login-2fa-passkey.png` | `/auth/2fa` after password or SSO | **Use passkey** + TOTP field (not passwordless) | [2FA](../../account-security/two-factor.md) |
-| **P1** | `console-mobile.png` | Console on a **phone** width | Soft-key **row** (Tab / Esc / arrows), no leftover IME bar if you can; residual IME is [known](../../day-to-day/web-ssh-console.md#known-issues) | [Web SSH console](../../day-to-day/web-ssh-console.md) |
-| **P2** | `login-require-sso.png` | Login with **Require SSO** on | Password form **hidden**; SSO button; do not leave this enabled on the QA box after the shot | [SSO](../../account-security/sso-oidc.md) |
-| **P2** | `demo-banner.png` | Public demo dashboard | Shared-viewer **demo banner**. Capture on [piherder-demo](../../operations/demo-site.md), not the production fleet | [Public demo](../../operations/demo-site.md) |
+| **P0** | `settings-hub.png` | Settings → **General** | Hub **cards** (Security, Console, Files, SSO, Cleanup) + timezone on the page — not one giant scroll | [Settings](../../operations/settings.md) |
+| **P0** | `settings-security.png` | General → Security **Edit** | Password rules + force-2FA / grace. **Redact** nothing secret here; no backup codes | [Settings](../../operations/settings.md) · [2FA](../../account-security/two-factor.md) |
+| **P0** | `settings-console.png` | General → Console **Edit** | Idle / slots + **who may elevate** + command-audit off (default). Flag may be off in the shot | [Settings](../../operations/settings.md#console) · [Web SSH](../../day-to-day/web-ssh-console.md) |
+| **P0** | `settings-files.png` | General → Files **Edit** | Transfer cap (512 MiB default). Kill switch is env — card can say off | [Settings](../../operations/settings.md) · [Host Files](../../day-to-day/host-files.md) |
+| **P0** | `reports.png` | `/reports` | Hero + 7/30/90 + at least Backups tab (empty-state OK) | [Reports](../../day-to-day/reports.md) |
+| **P0** | `host-files.png` | `/servers/{id}/files` | Real **fleet nav**; ops **hero**; **Limited access**; path **no `//`**, green slashes; list in the pane. Flag **on** for this shot only | [Host Files](../../day-to-day/host-files.md) |
+| **P0** | `server-detail.png` | Host overview | Recapture: **Files** button next to Console (Console only if that flag is on) | [Dashboard](../../day-to-day/dashboard-and-services.md) |
+| **P1** | `host-files-mobile.png` | Files on a **phone** | **Maximize** (hero hidden); Folders slide-out; long-press not required in frame | [Host Files](../../day-to-day/host-files.md) |
+| **P1** | `host-files-preview.png` | Image preview | ‹ › + loading overlay if you can catch it; otherwise ‹ › on a PNG | [Host Files](../../day-to-day/host-files.md) |
+| **P1** | `ssh-access.png` | SSH access | Recapture: **fleet** identity + optional **privileged** card (empty is honest) | [Add server](../../day-to-day/add-server.md) |
+| **P1** | `server-list.png` | Servers | Recapture: pager + search `q` | [Dashboard](../../day-to-day/dashboard-and-services.md) |
+| **P1** | `settings-alerts.png` | Settings → Alerts | Recapture: **Alert policy** card + Edit (severity / mute) | [Alerts](../../operations/alerts-email-webhooks.md) |
+| **P2** | `host-files-editor.png` | Files editor | Gutter + Wrap + Save — any small YAML | [Host Files](../../day-to-day/host-files.md) |
+| **P2** | `console-connect-as.png` | Console | **Connect as…** / Privileged (flag on, 2FA). Optional | [Web SSH](../../day-to-day/web-ssh-console.md) |
 
-### Must recapture — chrome changed in 1.2
+### Must recapture — chrome changed in 1.3
 
-| Pri | File(s) | 1.2 chrome to show |
+| Pri | File(s) | 1.3 chrome to show |
 |-----|---------|---------------------|
-| **P0** | `account-2fa.png` | Still TOTP + backup-codes + trusted devices; **passkeys live on the same Account page** — either recapture a wider crop or rely on `account-passkeys.png` |
-| **P0** | `add-server-wizard.png` | SSH user field defaults to **`pi`** (not `piherder`) |
-| **P0** | `ssh-access.png` | **Pinned host key** fingerprint + **Reset pin** (after a Test connection) |
-| **P1** | `add-server-wizard-done.png` | Spot-check: user shown as `pi@…` if that is the new host |
-| **P1** | `dashboard.png`, `dashboard-dark.png` | Compiled Tailwind (no unstyled collapse); light **and** dark |
-| **P1** | `server-detail.png` | **Console** action visible only if you leave the flag on for the shot; otherwise default **off** (no Console) is also honest |
-| **P2** | `server-list.png` | Optional ⋯ **Console** if flag on; otherwise skip |
+| **P0** | `server-detail.png` | **Files** button (dest-card is gone) |
+| **P1** | `ssh-access.png` | Fleet + privileged identities |
+| **P1** | `server-list.png` | Page size + `q` |
+| **P1** | `settings-alerts.png` | Policy hub card |
+| **P2** | `dashboard.png` | Optional if Reports appears in the header |
 
-### Spot-check only (1.1 pack still good)
+### Spot-check only (1.2 pack still good)
 
 | File | Why skip unless broken |
 |------|------------------------|
-| Certs (`certificates-*.png`) | 1.1 deploy-target pack; no 1.2 headline |
-| Maps (`dns-*.png`) | 1.1 icons / ports / direct-TLS story already captured; recapture `dns-logical.png` only if you want the **Use \<project\> for this path** chip in frame |
-| LAN (`nmap-*.png`) | Unchanged story |
-| Integrations Kuma / Grafana / Pi-hole / NPM / generic | Unchanged |
-| Templates (`templates-*.png`) | Unchanged |
-| `settings-alerts.png`, `settings-api.png`, `settings-status.png`, `settings-stale-cleanup.png` | Unchanged unless Status copy drifted |
-| `backups-page.png`, `jobs-page.png` | Unchanged (vanished-file retry has no dedicated chrome) |
+| 1.2 identity pack (`login-sso`, `settings-sso`, `account-sso`, `account-passkeys`, `console-popup`, `settings-self-backup`) | Landed 2026-08-18 |
+| Certs (`certificates-*.png`) | Unchanged story |
+| Maps (`dns-*.png`) | Unchanged unless you want alert-severity chrome |
+| LAN (`nmap-*.png`) | Unchanged |
+| Integrations / templates | Unchanged |
+| `settings-api.png`, `settings-status.png`, `settings-stale-cleanup.png` | Hub wrap only; recapture cleanup if the card looks wrong |
+| `backups-page.png`, `jobs-page.png` | Unchanged |
 | `account-push.png`, `account-favourites.png`, `nav-host-jump.png` | Unchanged |
-| HAOS shots | Spot-check only if HAOS UI drifted |
-| `docker-*.png` | Compose **Build** has no dedicated shot unless you want one (`docker-build.png`, P2) |
+| HAOS shots | Spot-check |
+| `docker-*.png` | Recapture inventory only if pager chrome is in frame |
+
+### v1.2.0 pack (closed)
+
+Landed 2026-08-18. Do not reopen unless a 1.3 recapture row above names the file. Historical capture notes: git history of this README at `v1.2.0`.
 
 ---
 
@@ -99,14 +106,12 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 
 ## Pre-capture checklist (operator)
 
-1. Rebuild/restart **web** so templates + compiled CSS match `v1.2.0-dev` / tag. About shows **1.2.0**.  
+1. Rebuild/restart **web** so templates match `v1.3.0-dev`. About may still show **1.2.0**.  
 2. Light theme · desktop width · redact hostnames/IPs if needed.  
-3. **SSO:** Settings saved; login button visible; **do not** photograph the client secret (blank or `••••`).  
-4. **Passkeys:** at least one enrolled key with a nickname; HTTPS / matching `PIHERDER_PUBLIC_URL`.  
-5. **Console:** set `PIHERDER_SSH_CONSOLE=true` only for those shots, then decide whether production keeps it on (default **off**).  
-6. **Host key:** Test connection once so the pin + fingerprint are real.  
-7. **Full DR:** Settings → PiHerder backup shows Full mode; do not include download URLs that leak paths you care about.  
-8. After saving PNGs: add `![…]` on the wiki pages in the table above · `mkdocs build --strict` · commit binaries + captions together.
+3. **Settings hub** shots: no client secrets, SMTP passwords, or backup codes in frame.  
+4. **Files:** `PIHERDER_HOST_FILES=true` only for those shots, then restore **off**. Do not photograph `.env` bodies or PEMs.  
+5. **Console / privileged:** flag on only for Connect-as shots.  
+6. After saving PNGs: add `![…]` on the wiki pages in the table above · `mkdocs build --strict` · commit binaries + captions together.
 
 **Do not include in frames:** client secrets, SMTP passwords, API tokens, PEM material, backup codes, live `database.dump` paths you would not publish.
 
@@ -139,9 +144,36 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 | **Add server** | Default SSH user **`pi`** |
 | **SSH access** | **Pinned host key** + reset |
 
+### New / changed in 1.3
+
+| Surface | Must show in PNGs |
+|---------|-------------------|
+| **Settings hub** | Cards + Edit modal (not a single scroll of policy) |
+| **Security policy** | Password rules + 2FA / grace |
+| **Console settings** | Idle / slots / who may elevate / command audit (default off) |
+| **Files settings** | Transfer cap |
+| **Reports** | `/reports` history (not Grafana) |
+| **Host Files** | Button on host overview; explorer with fleet nav; **Limited access** / **Elevated access**; green path slashes; Maximize on phone |
+| **Servers list** | Pager + search |
+
 ---
 
 ## Inventory — all PNGs
+
+### 1.3 new (add file + wiki `![…]` when captured)
+
+| File | Page / topic | Capture notes |
+|------|----------------|---------------|
+| `settings-hub.png` | Settings General | Cards |
+| `settings-security.png` | Security modal | Password / 2FA policy |
+| `settings-console.png` | Console modal | Limits + elevate + audit |
+| `settings-files.png` | Files modal | Cap |
+| `reports.png` | Reports | 7/30/90 + a tab |
+| `host-files.png` | Files explorer | Hero + Limited access + nav |
+| `host-files-mobile.png` | Files phone | Maximize |
+| `host-files-preview.png` | Preview | ‹ › |
+| `host-files-editor.png` *(optional)* | Editor | Gutter |
+| `console-connect-as.png` *(optional)* | Console | Privileged |
 
 ### 1.2 new (add file + wiki `![…]` when captured)
 
@@ -246,18 +278,17 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 
 ---
 
-## Full QA pass — suggested sequence (v1.2)
+## Capture sequence (v1.3 freeze)
 
-1. **Login / identity** — `login-sso.png`; optional require-SSO; `/auth/2fa` passkey  
-2. **Account** — passkeys; connected SSO; spot-check 2FA / trusted devices  
-3. **Settings** — SSO card (redact secret); PiHerder backup **Full DR**  
-4. **Onboard / SSH** — add-server default **`pi`**; SSH access **pinned host key**  
-5. **Console** — desktop popup (flag on); optional phone soft keys; then restore your production flag  
-6. **Shell** — dashboard light + dark if CSS/chrome drifted  
-7. **Demo** *(optional)* — banner on the public demo only  
-8. **Everything else** — only if a caption/PNG disagree  
+1. **Settings hub** — `settings-hub.png` then Security / Console / Files modals  
+2. **Reports** — `/reports`  
+3. **Host overview** — recapture `server-detail.png` (Files button)  
+4. **Files** — flag on: desktop explorer, optional phone Maximize + preview; then restore **`PIHERDER_HOST_FILES=false`**  
+5. **Lists / SSH** — pager on Servers; fleet + privileged on SSH access  
+6. **Alerts** — policy card if chrome drifted  
+7. **1.2 pack** — only if a caption/PNG disagree  
 
-Next train (not 1.2 screenshot blockers): per-host ACL · Host Files button (flag off) · CSP nonces — [PLAN_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/PLAN_v1.3.0.md) (active).
+Maintainer freeze clicks (not wiki): [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/QA_v1.3.0.md). Cap (not this pack): per-host ACL · CSP nonces · host mux.
 
 ---
 
@@ -266,8 +297,8 @@ Next train (not 1.2 screenshot blockers): per-host ACL · Host Files button (fla
 **Best practice: local git → commit → push** (binaries + markdown).
 
 ```bash
-git checkout v1.2.0-dev && git pull
-# optional: git checkout -b docs/screenshots-1.2
+git checkout v1.3.0-dev && git pull
+# optional: git checkout -b docs/screenshots-1.3
 
 python3 -m venv .venv-docs && source .venv-docs/bin/activate
 pip install -r requirements-docs.txt
@@ -279,7 +310,7 @@ mkdocs serve   # http://127.0.0.1:8000
 
 mkdocs build --strict
 git add wiki/assets/screenshots/*.png wiki/**/*.md
-git commit -m "docs(wiki): screenshot pack for v1.2.0"
+git commit -m "docs(wiki): screenshot pack for v1.3.0"
 git push
 ```
 
@@ -288,7 +319,7 @@ After merge to the docs deploy branch / tag, hard-refresh the live site.
 ### Checklist before commit
 
 - [ ] PNG names match Markdown references  
-- [ ] New 1.2 files have a wiki `![…]` (or stay unlinked only if still WIP)  
+- [ ] New 1.3 files have a wiki `![…]` (or stay unlinked only if still WIP)  
 - [ ] Light desktop for defaults; dark/mobile only where planned  
 - [ ] Sensitive hostnames/IPs redacted if needed  
 - [ ] No real SMTP passwords, API tokens, client secrets, backup codes, or PEM material in frames  
