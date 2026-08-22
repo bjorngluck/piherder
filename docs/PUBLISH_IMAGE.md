@@ -163,8 +163,8 @@ Add when account + token exist and first manual push has worked once.
 ## v1.3.0 publish checklist (maintainer)
 
 - [x] `APP_VERSION` / `pyproject.toml` = `1.3.0`
-- [x] [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) finalized · Status **Ready to tag**
-- [ ] Merge `v1.3.0-dev` → `main` · git tag `v1.3.0`
+- [x] [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) finalized · Status **Tagged**
+- [x] Merge `v1.3.0-dev` → `main` · git tag `v1.3.0`
 - [ ] Multi-arch push: `1.3.0` / `1.3` / `latest` (amd64 + arm64)
 
 ### Prior: v1.2.0
