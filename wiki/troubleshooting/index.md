@@ -52,6 +52,7 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Unlink SSO did nothing / no confirm | Account → Connected accounts → **Edit** → **Unlink…** opens a confirmation sheet. Hard-refresh after rebuild. [SSO](../account-security/sso-oidc.md) |
 | Unlink dumped onto a useless 2FA screen (“Authenticator or backup code required.”) | Fixed: step-up stays on the unlink (or password) sheet with Confirm passkey / 6-digit. Rebuild/restart web + hard-refresh. |
 | Account **Link Authentik** does nothing (login SSO still works) | CSP `form-action 'self'` blocked a form POST 303 to the IdP. Link now hops `/auth/oidc/link` (GET) after step-up. Rebuild/restart web. Confirm passkey or enter a code, then Link. |
+| Demo `demo-maintain.sh` stuck on `Installing build dependencies` | Docker **bridge** has no PyPI. Ctrl+C. Pull latest `v1.3.0-dev`, then `./scripts/demo-maintain.sh redeploy` (host-network `docker build -t piherder:demo`). Do not `compose build` / Hub pull. [DEMO_SITE](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/DEMO_SITE.md) |
 | Cannot open Settings tabs / herder restore | [Roles](../account-security/roles.md) — control plane is **admin only** |
 | First boot asks to register / no default password | Expected — [First login](../getting-started/first-login.md) |
 | Sole admin forgot password / lost 2FA / locked out | [Locked out / sole admin recovery](locked-out.md) — host CLI `recover-admin` |

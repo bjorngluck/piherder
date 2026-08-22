@@ -61,7 +61,7 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki ro
 | Declared deps | `pyproject.toml` — minimum versions / ranges (`>=`) for package metadata |
 | Resolver lock | **`uv.lock`** — full resolved graph + hashes (source of truth) |
 | Pip export | **`requirements.lock.txt`** (runtime + `[dev]`) and **`requirements.runtime.lock.txt`** (runtime only) — generated with hashes via `scripts/refresh-lockfiles.sh` |
-| Docker image | `pip install --require-hashes -r requirements.lock.txt` then `pip install --no-deps -e .` ([Dockerfile](Dockerfile)) |
+| Docker image | `pip install --require-hashes -r requirements.lock.txt` then `pip install --no-deps --no-build-isolation -e .` ([Dockerfile](Dockerfile)) |
 | CI | Same locked install ([`.github/workflows/test.yml`](.github/workflows/test.yml)) |
 | JWT library | **PyJWT[crypto]** (HS256). Former `python-jose` / transitive `ecdsa` removed |
 | Vulnerability scan | Run `pip-audit` periodically (and/or Dependabot); deepen in [ROADMAP quality track](docs/ROADMAP_ECOSYSTEM.md#quality--platform-post-rc--post-10-first-production) |

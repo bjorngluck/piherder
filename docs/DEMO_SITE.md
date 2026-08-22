@@ -53,11 +53,21 @@ Never point demo at the home-lab network or reuse production `PIHERDER_MASTER_KE
 
 ## Environment (Docker Compose)
 
-Use the demo overlay [`docker-compose.demo.yml`](../docker-compose.demo.yml) on the VPS:
+Use the demo overlay [`docker-compose.demo.yml`](../docker-compose.demo.yml) on the VPS.
+
+**If the Docker bridge has no egress** (common on Nomad / locked VPS), `compose build` hangs on pip `Installing build dependencies`. Build with **host network**, then start **without** a compose rebuild:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+# preferred (git pull + this pair + seed):
+./scripts/demo-maintain.sh redeploy
+
+# equivalent:
+DOCKER_BUILDKIT=1 docker build --network=host -t piherder:demo .
+PIHERDER_IMAGE=piherder:demo docker compose -f docker-compose.yml \
+  -f docker-compose.demo.yml -f docker-compose.demo-ports.yml up -d --no-build --force-recreate
 ```
+
+Do **not** `docker compose pull` — Hub `1.2.0` is not the `v1.3.0-dev` tree. Kill a stuck build with Ctrl+C before retrying.
 
 | Variable | Example / note |
 |----------|----------------|
@@ -172,11 +182,12 @@ The public demo should track **`v1.2.0`** (or `latest` after Hub publish). App c
 git status                 # must be clean or demo-maintain refuses pull
 git fetch && git checkout v1.2.0
 git pull --ff-only
-# preferred:
+# preferred (host-network build → piherder:demo; no Hub pull):
 ./scripts/demo-maintain.sh redeploy
 # equivalent:
-# docker compose -f docker-compose.yml -f docker-compose.demo.yml \
-#   -f docker-compose.demo-ports.yml up -d --build --force-recreate
+# DOCKER_BUILDKIT=1 docker build --network=host -t piherder:demo .
+# PIHERDER_IMAGE=piherder:demo docker compose -f docker-compose.yml \
+#   -f docker-compose.demo.yml -f docker-compose.demo-ports.yml up -d --no-build --force-recreate
 ```
 
 | Check | Why |

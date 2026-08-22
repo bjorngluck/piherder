@@ -5,11 +5,24 @@
 #   docker compose -f docker-compose.yml -f docker-compose.demo.yml \
 #     -f docker-compose.demo-ports.yml up -d
 #
+# Restricted Docker egress (Nomad / demo VPS): do **not** `compose build`
+# (bridge has no PyPI). Build with host network, tag piherder:demo, then up:
+#   DOCKER_BUILDKIT=1 docker build --network=host -t piherder:demo .
+#   PIHERDER_IMAGE=piherder:demo docker compose -f docker-compose.yml \
+#     -f docker-compose.demo.yml -f docker-compose.demo-ports.yml up -d --no-build
+#   ./scripts/demo-maintain.sh redeploy   # does that pair
+#
 # Public hostname (production-of-demo):
 #   https://piherder-demo.hacknow.info
 
 services:
   web:
+    # Local demo tag — never pull Hub 1.2.0 over a git rebuild.
+    image: ${PIHERDER_IMAGE:-piherder:demo}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
     # Reliable public resolvers for Turnstile siteverify (container → CF).
     # Docker embedded DNS sometimes fails/hangs on small VPS images.
     dns:
@@ -32,6 +45,11 @@ services:
       # SECRET_KEY / PIHERDER_MASTER_KEY still come from host .env
 
   celery-worker:
+    image: ${PIHERDER_IMAGE:-piherder:demo}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
     environment:
       PIHERDER_DEMO_MODE: "true"
       PIHERDER_SSH_CONSOLE: "false"
