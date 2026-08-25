@@ -197,10 +197,20 @@
           {% endif %}
           {% endif %}
           {% if migrate_enabled|default(false) and can_host_lock|default(false) %}
+          {% if hl.locked %}
           <button type="button" data-sec-btn="host-move" disabled aria-disabled="true"
-                  title="{% if hl.locked %}Locked{% if hl.reason_label %} ({{ hl.reason_label }}){% endif %}{% if hl.note %}: {{ hl.note }}{% endif %}{% else %}Move wizard lands with preflight and copy{% endif %}">
+                  title="Locked{% if hl.reason_label %} ({{ hl.reason_label }}){% endif %}{% if hl.note %}: {{ hl.note }}{% endif %}">
             Move to another host…
           </button>
+          {% else %}
+          <a href="/servers/{{ server.id }}/docker/migrate?project={{ proj.name | urlencode }}"
+             data-sec-btn="host-move"
+             class="no-underline"
+             data-nav-loading="Opening move wizard…"
+             title="Preflight then (later) stop-first copy">
+            Move to another host…
+          </a>
+          {% endif %}
           {% endif %}
           <form method="post" action="/servers/{{ server.id }}/docker/redeploy" data-sec="deploy">
             <input type="hidden" name="project_path" value="{{ proj.path }}">

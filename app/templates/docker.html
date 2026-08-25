@@ -492,12 +492,16 @@ function showProjectMoreMenu(anchorBtn, row) {
     const realKey = item.key === 'full-edit' ? 'edit' : item.key;
     const real = row.querySelector('[data-sec-btn="' + realKey + '"]');
     if (!real) return;
-    const btn = document.createElement(item.key === 'full-edit' ? 'a' : 'button');
+    const asLink = item.key === 'full-edit' || (item.key === 'host-move' && real.tagName === 'A');
+    const btn = document.createElement(asLink ? 'a' : 'button');
     if (item.key === 'full-edit') {
       const sid = real.getAttribute('data-server-id') || '';
       const proj = real.getAttribute('data-edit-proj') || row.dataset.projName || '';
       btn.href = fullEditorUrl(sid, proj, 'compose');
       btn.setAttribute('data-nav-loading', 'Opening full editor…');
+    } else if (item.key === 'host-move' && real.tagName === 'A') {
+      btn.href = real.getAttribute('href') || '#';
+      btn.setAttribute('data-nav-loading', real.getAttribute('data-nav-loading') || 'Opening move wizard…');
     } else {
       btn.type = 'button';
     }
@@ -513,7 +517,7 @@ function showProjectMoreMenu(anchorBtn, row) {
       if (why) btn.title = why;
     }
     btn.addEventListener('click', function(e) {
-      if (item.key === 'full-edit') {
+      if (item.key === 'full-edit' || (item.key === 'host-move' && btn.tagName === 'A' && !btn.disabled)) {
         hideProjectMoreMenu();
         // Let normal navigation proceed (href + data-nav-loading)
         return;

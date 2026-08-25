@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <section class="ops-hero ops-hero--docker is-ok mb-4">
+    <div class="ops-hero-main">
+      <div class="ops-hero-kicker host-kicker-line">
+        <a href="/servers/{{ server.id }}/docker" class="host-switcher-name-link">{{ server.name }}</a>
+        <span class="host-kicker-sep">·</span>
+        <span>Docker</span>
+        <span class="host-kicker-sep">·</span>
+        <span>Move</span>
+      </div>
+      <h1 class="ops-hero-title">Move {{ project }}</h1>
+      <p class="ops-hero-sub">
+        Stop-first cutover. This step is <strong>preflight only</strong> — nothing is copied yet.
+      </p>
+      <div class="ops-hero-actions">
+        <a href="/servers/{{ server.id }}/docker" class="btn btn-secondary min-h-11 text-sm">Back to Docker</a>
+      </div>
+    </div>
+  </section>
+
+  {% set hl = host_lock or {} %}
+  {% if hl.locked %}
+  <div class="mb-4 p-3 text-sm rounded border border-border banner-warning" data-testid="migrate-locked">
+    Locked to this host{% if hl.reason_label %} ({{ hl.reason_label }}){% endif %}{% if hl.note %}: {{ hl.note }}{% endif %}.
+    Unlock on the Docker project ⋯ menu before a move can run.
+  </div>
+  {% endif %}
+
+  <div class="card p-4 sm:p-5 mb-4">
+    <div class="ph-detail-kicker">From</div>
+    <p class="text-sm mb-4">
+      <strong>{{ server.name }}</strong>
+      <span class="text-muted font-mono">{{ server.hostname }}</span>
+      · project <span class="font-mono text-accent">{{ project }}</span>
+    </p>
+    <label class="block text-xs text-muted mb-1" for="migrate-dest">To (Docker hosts only)</label>
+    {% if destinations %}
+    <select id="migrate-dest"
+            name="dest"
+            class="w-full bg-surface border border-border rounded px-2 py-2 text-sm min-h-11"
+            data-testid="migrate-dest"
+            hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
+            hx-target="#migrate-preflight"
+            hx-swap="innerHTML"
+            hx-include="[name='project']"
+            hx-trigger="change">
+      <option value="">Select destination…</option>
+      {% for d in destinations %}
+      <option value="{{ d.id }}">
+        {{ d.name }} · {{ d.hostname }}{% if d.dns_name %} · {{ d.dns_name }}{% endif %}
+      </option>
+      {% endfor %}
+    </select>
+    <input type="hidden" name="project" value="{{ project }}">
+    {% else %}
+    <p class="text-sm text-muted" data-testid="migrate-no-dest">
+      No other Docker hosts available (HAOS and this host are excluded).
+    </p>
+    {% endif %}
+  </div>
+
+  <div id="migrate-preflight" data-testid="migrate-preflight">
+    <p class="text-sm text-muted">Pick a destination to run preflight.</p>
+  </div>
+</div>
+{% endblock %}
