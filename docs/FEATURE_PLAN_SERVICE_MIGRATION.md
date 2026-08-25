@@ -340,7 +340,7 @@ Align with design principles: auditable privileged actions; secrets encrypted at
 | Router / UI | Docker project ⋯ + wizard partial + JobHold |
 | DNS / FTL | wrap `upsert_service_record` + pihole `run_action` fan-out |
 | Tests | `tests/test_service_migrate.py` |
-| Wiki | `wiki/docker/overview.md` + new `wiki/docker/service-migration.md` at ship |
+| Wiki | `wiki/docker/overview.md` + `wiki/docker/service-migration.md` (lock + preflight; copy TBD) |
 
 ---
 

@@ -160,6 +160,7 @@ nav:
       - Overview: docker/overview.md
       - Inventory cache: docker/inventory.md
       - Compose edit & deploy: docker/compose-edit.md
+      - Move a service: docker/service-migration.md
   - Service templates:
       - Overview: service-templates/overview.md
       - Deploy a template: service-templates/deploy.md
