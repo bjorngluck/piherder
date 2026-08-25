@@ -35,7 +35,7 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 | `PIHERDER_CSP_REPORT_ONLY` | **false** (default) — if true, send Report-Only CSP instead of enforcing |
 | `PIHERDER_SSH_CONSOLE` | **false** (default) — **master enable** for web SSH (operator+ / 2FA; in-app only). Not a Settings checkbox. |
 | `PIHERDER_HOST_FILES` | **false** (default) — **master enable** for host Files (operator+; jailed SFTP). Not a Settings checkbox. [Host Files](../day-to-day/host-files.md). Optional `PIHERDER_HOST_FILES_MAX_BYTES` **locks** the cap (otherwise **Settings → Files**, default 512 MiB, ceiling 32 GiB) — do not inject a compose default. |
-| `PIHERDER_SERVICE_MIGRATE` | **false** (default) — **master enable** for Docker **Move to another host…** (stop → copy → dest up). Host **lock / unlock** is always available (operator+). Leave off until you want operators using copy. DNS/NPM retarget still later. Demo never copies. |
+| `PIHERDER_SERVICE_MIGRATE` | **false** (default) — **master enable** for Docker **Move to another host…** (stop → copy → dest up → DNS/NPM). Host **lock / unlock** is always available (operator+). Leave off until you want operators using copy. Demo never copies. |
 
 Idle, max session, concurrency, ticket, hold, bind, revalidate, scrollback, grant, and 2FA factor knobs live in **Settings** ([Console](settings.md#console) + Security). Set a **non-empty** env value to **lock** that knob (air-gap). Bundled compose does **not** inject defaults for these, or Settings cannot apply. Names if you lock:
 

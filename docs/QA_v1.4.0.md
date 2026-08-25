@@ -44,19 +44,25 @@ Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATIO
 - [ ] Viewer 403; demo no wizard  
 - [ ] Audit `service_migrate_preview`
 
-## M3 / M5 — Copy + dest up (landed; DNS later)
+## M3 / M5 — Copy + dest up (landed)
 
 - [ ] Flag **on**, green preflight → confirm **Move service** → JobHold  
 - [ ] Job `service_migrate`: stop source → herder rsync (`/backups/_migrate/{job_id}`) → dest `up -d`  
 - [ ] Named volume data present on dest (Mountpoint rsync)  
 - [ ] Source left **stopped**, files still on disk  
 - [ ] Concurrent backup/stack/migrate on source **or dest** → 409  
-- [ ] Viewer POST 403; demo does not copy  
-- [ ] Names still point at source (M4 / M-npm not in this slice)
+- [ ] Viewer POST 403; demo does not copy
+
+## M4 / M-npm — Name / proxy follow (landed)
+
+- [ ] Direct row: CNAME target is dest `dns_name`; both Pi-holes `restartdns`  
+- [ ] `via_proxy`: public CNAME still on NPM; proxy-host `forward_host` is dest IP/hostname  
+- [ ] Unmatched NPM host still blocks preflight  
+- [ ] Host-identity FQDN (same as host A) is not rewritten
 
 ## Must (later slices)
 
-- [ ] **M4 / M6 / M7** Direct migrate name follow + TLS/Kuma + rebind  
+- [ ] **M6 / M7** TLS/Kuma validate + control-plane rebind  
 - [ ] **M-npm** NPM-fronted migrate (`forward_host` updates; CNAME stays on NPM)  
 - [ ] **M8** leftover `compose down` keep volumes  
 - [ ] **M9** `devices:` warning + lock-or-acknowledge on confirm  

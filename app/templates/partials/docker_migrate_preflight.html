@@ -6,7 +6,7 @@
     <span class="status-pill {% if result.ok %}status-success{% else %}status-failed{% endif %}">
       {% if result.ok %}Ready for copy{% else %}Cannot move yet{% endif %}
     </span>
-    <span class="text-xs text-muted">{% if result.ok %}Stop → copy → dest up. DNS/NPM next.{% else %}Fix blocks before copy.{% endif %}</span>
+    <span class="text-xs text-muted">{% if result.ok %}Stop → copy → dest up → DNS/NPM.{% else %}Fix blocks before copy.{% endif %}</span>
   </div>
 
   <p class="text-sm mb-3">
@@ -70,7 +70,7 @@
   <form method="post"
         action="/servers/{{ server.id }}/docker/migrate"
         data-job-hold="Move {{ result.project }}"
-        data-confirm="This stops the stack on {{ result.source.name }}, copies the dataset via the herder, then starts it on {{ result.dest.name }}. Planned downtime. DNS/NPM is not flipped yet."
+        data-confirm="This stops the stack on {{ result.source.name }}, copies the dataset via the herder, starts it on {{ result.dest.name }}, then retargets DNS / NPM. Planned downtime."
         data-confirm-title="Move {{ result.project }}?"
         data-confirm-label="Move service"
         data-confirm-danger

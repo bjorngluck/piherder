@@ -283,13 +283,13 @@ Viewer: 403. Demo: disabled or fake preview.
 | **M1** | Host lock model + UI | Must | **Done** |
 | **M2** | Preflight (no copy) | Must | **Done** |
 | **M3** | Stop + stage + copy | Must | **Done** (Mountpoint rsync) |
-| **M4** | Fabric upsert + both `restartdns` | Must | Planned |
+| **M4** | Fabric upsert + both `restartdns` | Must | **Done** |
 | **M5** | Start dest (`compose up -d`) | Must | **Done** (with M3 job) |
 | **M6** | Validate TLS / Kuma | Must when rows exist | Planned |
 | **M7** | Control-plane rebind | Must | Planned |
 | **M8** | Source leftover `compose down` | Must | Planned |
 | **M9** | `devices:` warning / lock suggest | Must | Planned |
-| **M-npm** | NPM proxy backend retarget | Must | Planned |
+| **M-npm** | NPM proxy backend retarget | Must | **Done** (PUT `forward_host`) |
 | **M-rm** | Destructive remove (source wipe, unused vols) | Should | Planned |
 | **D-F** | Demo simulated Files | Must | Planned (not M; see PLAN §9) |
 | **M-live** | Rsync while running + final sync | Out | Parked |
@@ -419,4 +419,5 @@ An operator can:
 |------|------|
 | 2026-08-17 | Initial plan from operator pipeline + HAOS / Frigate lock. Discovery of existing compose, rsync, fabric, restartdns, TLS, Kuma primitives. Parked on **v1.4.0**. |
 | 2026-08-25 | Train open. Must = M1–M9 + M-npm + D-F. M-rm Should. ACME out. NPM backend PUT (not refuse `via_proxy`). Q2–Q6 locked. Preflight matrix + named-volume spike + NPM PUT contract recorded. |
-| 2026-08-25 | **M1** lock + **M2** preflight + **M3/M5** stop → herder rsync → dest `up -d`. Named volumes = Mountpoint rsync (recipe A). DNS/NPM still M4 / M-npm. |
+| 2026-08-25 | **M1** lock + **M2** preflight + **M3/M5** stop → herder rsync → dest `up -d`. Named volumes = Mountpoint rsync (recipe A). |
+| 2026-08-25 | **M4 / M-npm:** direct CNAME + both Pi-holes `restartdns`; NPM PUT `forward_host` (public CNAME stays on NPM). |

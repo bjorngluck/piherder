@@ -452,4 +452,4 @@ Resolution also uses Pi-hole inventory, NPM poll cache + proxy_host binds, Kuma 
 - [NPM](npm.md)  
 - [Uptime Kuma](uptime-kuma.md)  
 - [Certificates](certificates.md)  
-- [Move a service](../docker/service-migration.md) — direct CNAME vs NPM-fronted `via_proxy` (preflight now; copy later)
+- [Move a service](../docker/service-migration.md) — direct CNAME vs NPM-fronted `via_proxy`
