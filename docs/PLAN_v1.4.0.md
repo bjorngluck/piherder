@@ -6,7 +6,7 @@
 **Package / image version (at tag):** `1.4.0` — tree stays **`1.3.0` until freeze**  
 **Theme:** **Service migration** — move a Docker Compose project host→host with dataset copy, DNS / NPM retarget, resolver flush, TLS / Kuma validate, **host lock**, and leftover policy  
 **Baseline:** `v1.3.0` (tagged 2026-08-22)  
-**Mode:** Active train · Must signed · **M1–M9** + **M-npm** + **D-F** landed; next is freeze / QA  
+**Mode:** Active train · Must signed · **M1–M9** + **M-npm** + **D-F** + **M-rm** landed; next is freeze / QA  
 **QA:** [QA_v1.4.0.md](QA_v1.4.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [SPEC.md](../SPEC.md) · wiki [Docker](../wiki/docker/overview.md) · [DNS fabric](../wiki/integrations/dns-fabric.md) · [Backups](../wiki/day-to-day/backups.md) · [HAOS](../wiki/day-to-day/haos-hosts.md)
 
@@ -161,7 +161,7 @@ One **operator+** wizard + one **Job** (`service_migrate`) with a live log, prev
 | M8 | **Source leftover down** | Must | After green: leave stopped (default) · optional `compose down` (keep volumes) |
 | M9 | **`devices:` warning** | Must | Warn + lock-or-acknowledge; not the only gate |
 | M-npm | **NPM backend retarget** | Must | Narrow PUT on existing proxy host. Unmatched host fails preflight |
-| M-rm | **Source remove + volumes** | Should | Optional post-success wipe of source project + copied named volumes |
+| M-rm | **Source remove + volumes** | Should | **Done** — optional post-success wipe of source project + copied named volumes (preview + ack; dest never wiped) |
 | D-F | **Demo simulated Files** | Must | Canned tree; no SFTP |
 
 **Product shape:**
@@ -284,6 +284,7 @@ Success criteria:
 | 2026-08-20 | **Under consideration:** 1.3 Files API expansions (zip/edit/chmod/recursive delete/privileged tokens). Stay out of 1.4 Must. |
 | 2026-08-22 | **D-F** parked from 1.3 freeze: canned demo Files tree. Promoted to **Must** at train open. |
 | 2026-08-25 | **Train opened** on `v1.4.0-dev`. Must = **M1–M9** + **M-npm** + **D-F**. **M-rm** Should. **ACME** out. NPM-in-front is backend PUT, not refuse. Package version stays `1.3.0` until freeze. |
+| 2026-08-25 | **M-rm** landed: leftover `remove` (source project + copied named volumes). Default still leave stopped. Extra ack. Dest never wiped. |
 
 ---
 
@@ -297,7 +298,7 @@ Success criteria:
 | 4 | Land **M1** lock model + UI | **Done** |
 | 5 | Land **M2** preflight (no copy) | **Done** |
 | 6 | Land **M3–M6** + **M-npm** job + wizard; then **M7** | **Done** |
-| 7 | **M8** leftover down · **M9** devices: · **M-rm** Should · **D-F** | **M8/M9 / D-F** done · **M-rm** Should |
+| 7 | **M8** leftover down · **M9** devices: · **M-rm** Should · **D-F** | **Done** |
 | 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | |
 
 ---

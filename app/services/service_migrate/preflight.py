@@ -581,6 +581,25 @@ def run_preflight(
             "hostname": source.hostname,
             "dns_name": getattr(source, "dns_name", None),
             "arch": src_arch,
+            "docker_base": src_base,
+            "project_path": f"{src_base.rstrip('/')}/{name}",
+        },
+        "leftover_remove": {
+            "project_path": f"{src_base.rstrip('/')}/{name}",
+            "named_volumes": sorted(
+                v
+                for v in (
+                    {
+                        (str(it.get("volume") or "").strip()
+                         or named_volume_id(source=str(it.get("source") or ""))
+                         or "")
+                        for it in (dataset.get("items") or [])
+                        if isinstance(it, dict) and it.get("kind") == "named"
+                    }
+                    - {""}
+                )
+                if "/" not in v and ".." not in v
+            ),
         },
         "dest": {
             "id": dest.id,

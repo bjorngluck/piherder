@@ -1,6 +1,6 @@
 # Feature plan — Service migration
 
-**Status:** Train open on `v1.4.0-dev` · M1 lock + M2 preflight landing · copy job next  
+**Status:** Train open on `v1.4.0-dev` · M1–M9 + M-npm + D-F + M-rm landed · freeze next  
 **Train:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) Stream **M** (active)  
 **Horizon:** H2.5 leftover — “Service migrate / remove” ([ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md)) · [SPEC.md](../SPEC.md) Phase 7  
 **Related:** [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md)
@@ -290,7 +290,7 @@ Viewer: 403. Demo: disabled or fake preview.
 | **M8** | Source leftover `compose down` | Must | **Done** (optional; default leave stopped) |
 | **M9** | `devices:` warning / lock suggest | Must | **Done** (ack checkbox) |
 | **M-npm** | NPM proxy backend retarget | Must | **Done** (PUT `forward_host`) |
-| **M-rm** | Destructive remove (source wipe, unused vols) | Should | Planned |
+| **M-rm** | Destructive remove (source wipe, unused vols) | Should | **Done** (default off; extra ack) |
 | **D-F** | Demo simulated Files | Must | **Done** (canned tree; no SFTP) |
 | **M-live** | Rsync while running + final sync | Out | Parked |
 
@@ -423,3 +423,4 @@ An operator can:
 | 2026-08-25 | **M4 / M-npm:** direct CNAME + both Pi-holes `restartdns`; NPM PUT `forward_host` (public CNAME stays on NPM). |
 | 2026-08-25 | **M6–M9:** TLS SNI probe + Kuma last_state; rebind maps/Kuma/templates/clone cert targets; leftover `compose down`; devices ack. |
 | 2026-08-25 | **D-F:** demo simulated Files (canned tree, viewer browse, writes refused). |
+| 2026-08-25 | **M-rm:** optional source project + named volume delete after green migrate. Preview + danger confirm + `leftover_remove_ack`. Dest never wiped. |

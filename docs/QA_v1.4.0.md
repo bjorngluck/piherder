@@ -85,6 +85,17 @@ Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATIO
 
 - [ ] 1.3 regression (policy, Files, console, Reports)
 
+## M-rm — Source remove + volumes (landed, Should, default off)
+
+- [ ] Leftover default still **stopped** (data on disk)  
+- [ ] Optional **`compose down`** still keeps volumes  
+- [ ] Optional **remove source** lists project path + named volumes in preflight  
+- [ ] Extra danger confirm + checkbox required (`leftover_remove_ack`)  
+- [ ] After green move: source project dir gone, copied named volumes `docker volume rm`  
+- [ ] Destination project / volumes **not** deleted  
+- [ ] Source cert targets disabled; dest clone kept  
+- [ ] Extra absolute binds outside the project folder left on disk  
+
 ## Should
 
-- [ ] **M-rm** source remove + volume delete (preview + danger confirm)
+- [ ] Live two-host E2E of leftover **remove** on a disposable stack

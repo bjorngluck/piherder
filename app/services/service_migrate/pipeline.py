@@ -16,6 +16,7 @@ from .copy import copy_named_volume, rsync_herder_to_host, rsync_host_to_herder
 from .cutover import CutoverError, retarget_dns_npm
 from .facts import docker_base_abs
 from .host_lock import compose_project_name
+from .leftover import LeftoverError, apply_leftover, normalize_leftover
 from .preflight import named_volume_id, run_preflight
 from .rebind import rebind_control_plane
 from .validate import ValidateError, validate_migrate
@@ -63,8 +64,10 @@ def run_copy_and_start(
     leftover: str = "stopped",
     devices_ack: bool = False,
     down_fn=None,
+    rm_vol_fn=None,
+    rm_tree_fn=None,
 ) -> dict[str, Any]:
-    """Preflight → stop → copy → dest up → DNS/NPM → rebind → validate."""
+    """Preflight → stop → copy → dest up → DNS/NPM → rebind → validate → leftover."""
     name = compose_project_name(project)
     pf = run_preflight(
         session,
@@ -160,13 +163,23 @@ def run_copy_and_start(
     except ValidateError as e:
         raise MigrateError(str(e)) from e
 
-    leftover_mode = (leftover or "stopped").strip().lower()
-    if leftover_mode == "down":
-        down = down_fn or (lambda srv, path: docker_svc.compose_action(srv, path, "down"))
-        _log(log, f"compose down on source {source.name} (volumes kept)")
-        stopped = down(source, src_proj)
-        if isinstance(stopped, dict) and not stopped.get("success", True):
-            raise MigrateError(stopped.get("error") or "source compose down failed")
+    leftover_mode = normalize_leftover(leftover)
+    try:
+        leftover_out = apply_leftover(
+            session,
+            source=source,
+            dest=dest,
+            project=name,
+            leftover=leftover_mode,
+            dataset=dataset,
+            src_proj=src_proj,
+            down_fn=down_fn,
+            rm_vol_fn=rm_vol_fn,
+            rm_tree_fn=rm_tree_fn,
+            log=log,
+        )
+    except LeftoverError as e:
+        raise MigrateError(str(e)) from e
 
     try:
         inventory_svc.mark_stale(session, source)
@@ -185,6 +198,7 @@ def run_copy_and_start(
         "rebind": rebind_out if isinstance(rebind_out, dict) else {"ok": True},
         "validate": val_out if isinstance(val_out, dict) else {"ok": True},
         "leftover": leftover_mode,
+        "leftover_detail": leftover_out if isinstance(leftover_out, dict) else {"leftover": leftover_mode},
     }
 
 

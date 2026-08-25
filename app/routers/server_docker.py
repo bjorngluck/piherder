@@ -805,6 +805,7 @@ async def docker_migrate_start(
     project: str = Form(...),
     dest: str = Form(...),
     leftover: str = Form("stopped"),
+    leftover_remove_ack: str = Form(""),
     devices_ack: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
@@ -823,9 +824,21 @@ async def docker_migrate_start(
     if not dest_server:
         raise HTTPException(400, "destination required")
     try:
-        left = (leftover or "stopped").strip().lower()
-        if left not in ("stopped", "down"):
-            left = "stopped"
+        from ..services.service_migrate.leftover import normalize_leftover
+
+        left = normalize_leftover(leftover)
+        if left == "remove":
+            rm_ack = (leftover_remove_ack or "").strip().lower() in (
+                "1",
+                "true",
+                "on",
+                "yes",
+            )
+            if not rm_ack:
+                raise HTTPException(
+                    400,
+                    "source remove requires leftover_remove_ack",
+                )
         ack = (devices_ack or "").strip().lower() in ("1", "true", "on", "yes")
         job = job_service.enqueue_service_migrate(
             server_id,

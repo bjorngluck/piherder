@@ -657,6 +657,8 @@ def test_preflight_named_volume_not_outside_jail(lock_db):
     assert "bind_outside_jail" not in {b["id"] for b in r["blocks"]}
     named = [i for i in r["dataset"]["items"] if i["kind"] == "named"]
     assert named and named[0]["volume"] == "grafana_data"
+    assert r["leftover_remove"]["project_path"] == "/home/pi/docker/grafana"
+    assert r["leftover_remove"]["named_volumes"] == ["grafana_data"]
 
 
 def test_preflight_busy_dest_as_migrate_target(lock_db):
@@ -853,6 +855,32 @@ def test_http_migrate_start_queues_job(lock_client, monkeypatch):
     assert captured["project"] == "grafana"
     assert captured["leftover"] == "down"
     assert captured["devices_ack"] is True
+    r_rm_no = client.post(
+        f"/servers/{ids['pi']}/docker/migrate",
+        data={
+            "project": "grafana",
+            "dest": str(dest_id),
+            "leftover": "remove",
+        },
+        cookies=_cookie(ids["admin"]),
+        headers={"X-PiHerder-Async": "1"},
+        follow_redirects=False,
+    )
+    assert r_rm_no.status_code == 400
+    r_rm = client.post(
+        f"/servers/{ids['pi']}/docker/migrate",
+        data={
+            "project": "grafana",
+            "dest": str(dest_id),
+            "leftover": "remove",
+            "leftover_remove_ack": "1",
+        },
+        cookies=_cookie(ids["admin"]),
+        headers={"X-PiHerder-Async": "1"},
+        follow_redirects=False,
+    )
+    assert r_rm.status_code == 200, r_rm.text[:2000]
+    assert captured["leftover"] == "remove"
     r_v = client.post(
         f"/servers/{ids['pi']}/docker/migrate",
         data={"project": "grafana", "dest": str(dest_id)},
@@ -1165,6 +1193,163 @@ def test_pipeline_leftover_down(lock_db, tmp_path, monkeypatch):
     )
     assert r["leftover"] == "down"
     assert downs and downs[0][0] == src.id
+
+
+def test_normalize_leftover_and_path_jail():
+    from app.services.service_migrate.leftover import (
+        LeftoverError,
+        jailed_source_project_path,
+        named_volumes_from_dataset,
+        normalize_leftover,
+    )
+
+    assert normalize_leftover(None) == "stopped"
+    assert normalize_leftover("DOWN") == "down"
+    assert normalize_leftover("remove") == "remove"
+    assert normalize_leftover("wipe") == "stopped"
+    src = Server(
+        name="a",
+        hostname="a.local",
+        docker_base_dir="/home/pi/docker",
+        ssh_username="pi",
+    )
+    assert jailed_source_project_path(src, "grafana") == "/home/pi/docker/grafana"
+    with pytest.raises(LeftoverError):
+        jailed_source_project_path(
+            Server(name="x", hostname="x", docker_base_dir="/", ssh_username="root"),
+            "grafana",
+        )
+    vols = named_volumes_from_dataset(
+        {
+            "items": [
+                {"kind": "named", "volume": "grafana_data", "source": "/var/lib/docker/volumes/grafana_data/_data"},
+                {"kind": "named", "volume": "../etc", "source": "x"},
+                {"kind": "bind_relative", "source": "./data"},
+            ]
+        }
+    )
+    assert vols == ["grafana_data"]
+
+
+def test_pipeline_leftover_remove_source_only(lock_db, tmp_path, monkeypatch):
+    from app.models import ComposeProjectMeta
+    from app.services.service_migrate.pipeline import run_copy_and_start
+
+    src, dest = _pair_hosts(lock_db)
+    src.docker_inventory_json = _inv(
+        "grafana",
+        mounts_detail=[
+            {
+                "source": "/var/lib/docker/volumes/grafana_data/_data",
+                "destination": "/var/lib/grafana",
+                "type": "volume",
+                "name": "grafana_data",
+            }
+        ],
+    )
+    lock_db.add(src)
+    lock_db.add(
+        ComposeProjectMeta(
+            server_id=src.id, compose_project="grafana", host_locked=False
+        )
+    )
+    lock_db.commit()
+    monkeypatch.setattr(
+        "app.services.service_migrate.pipeline.staging_root",
+        lambda job_id: tmp_path / str(job_id),
+    )
+    downs, vols, trees = [], [], []
+
+    def dummy(*a, **k):
+        return {"success": True}
+
+    r = run_copy_and_start(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="grafana",
+        job_id=5,
+        source_facts={"arch": "aarch64"},
+        dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+        herder_free=10**12,
+        pull_fn=lambda *a, **k: None,
+        push_fn=lambda *a, **k: None,
+        vol_fn=lambda *a, **k: None,
+        stop_fn=dummy,
+        up_fn=dummy,
+        cutover_fn=lambda *a, **k: {"ok": True},
+        rebind_fn=lambda *a, **k: {"ok": True},
+        validate_fn=lambda *a, **k: {"ok": True},
+        leftover="remove",
+        down_fn=lambda srv, path: downs.append((srv.id, path)) or {"success": True},
+        rm_vol_fn=lambda srv, vol: vols.append((srv.id, vol)) or {"success": True},
+        rm_tree_fn=lambda srv, path: trees.append((srv.id, path)) or {"success": True},
+    )
+    assert r["leftover"] == "remove"
+    assert r["leftover_detail"]["project_removed"] is True
+    assert r["leftover_detail"]["volumes_removed"] == ["grafana_data"]
+    assert downs and downs[0][0] == src.id
+    assert vols == [(src.id, "grafana_data")]
+    assert trees and trees[0][0] == src.id
+    assert trees[0][1] == "/home/pi/docker/grafana"
+    assert dest.id not in {x[0] for x in downs + vols + trees}
+    remaining = lock_db.exec(
+        select(ComposeProjectMeta).where(ComposeProjectMeta.server_id == src.id)
+    ).all()
+    assert remaining == []
+
+
+def test_leftover_remove_refuses_wrong_path(lock_db):
+    from app.services.service_migrate.leftover import LeftoverError, apply_leftover
+
+    src, dest = _pair_hosts(lock_db)
+    with pytest.raises(LeftoverError, match="project path"):
+        apply_leftover(
+            lock_db,
+            source=src,
+            dest=dest,
+            project="grafana",
+            leftover="remove",
+            src_proj="/etc/grafana",
+        )
+
+
+def test_leftover_remove_disables_source_cert(lock_db):
+    from app.services.service_migrate.leftover import apply_leftover
+
+    src, dest = _pair_hosts(lock_db)
+    cert = ManagedCertificate(name="app-tls", fingerprint_sha256="ab" * 32)
+    lock_db.add(cert)
+    lock_db.commit()
+    lock_db.refresh(cert)
+    tgt = CertificateTarget(
+        certificate_id=cert.id, server_id=src.id, enabled=True, verify_url="https://app.test"
+    )
+    rec = ServiceDnsRecord(
+        fqdn="app.example.test",
+        target_server_id=dest.id,
+        backend_server_id=dest.id,
+        docker_project="grafana",
+        certificate_id=cert.id,
+    )
+    lock_db.add(tgt)
+    lock_db.add(rec)
+    lock_db.commit()
+    out = apply_leftover(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="grafana",
+        leftover="remove",
+        dataset={"items": []},
+        down_fn=lambda *a, **k: {"success": True},
+        rm_vol_fn=lambda *a, **k: {"success": True},
+        rm_tree_fn=lambda *a, **k: {"success": True},
+    )
+    assert out["project_removed"] is True
+    assert out["certs_disabled"] == 1
+    lock_db.refresh(tgt)
+    assert tgt.enabled is False
 
 
 def test_rebind_moves_rows(lock_db):
