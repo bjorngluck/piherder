@@ -396,7 +396,7 @@ Phase 4  Freeze
 - Public ungated demo with shared password  
 - Video session recording / dual-control console (command transcripts are 1.3 **discover**, not 1.2)  
 
-**Next train (opened 2026-08-18):** [PLAN_v1.3.0.md](PLAN_v1.3.0.md) on `v1.3.0-dev`.
+**Next train (opened 2026-08-18):** [PLAN_v1.3.0.md](PLAN_v1.3.0.md) — tagged. Current train: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) on `v1.4.0-dev`.
 
 ---
 
