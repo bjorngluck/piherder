@@ -1,7 +1,7 @@
 # Move a service
 
 !!! note "Availability"
-    **Move a service** (lock, preflight, copy, dest up, DNS/NPM, validate, rebind, leftover down) ships on `v1.4.0-dev` (will be **v1.4.0**). Behind `PIHERDER_SERVICE_MIGRATE` (default **off**). Source remove + volume delete is still Should / off.
+    **Move a service** (lock, preflight, copy, dest up, DNS/NPM, validate, rebind, leftover) ships on `v1.4.0-dev` (will be **v1.4.0**). Behind `PIHERDER_SERVICE_MIGRATE` (default **off**). Source remove + named-volume delete is optional and **off** unless you pick it.
 
 ## What this is
 
@@ -38,7 +38,7 @@ Master enable: `PIHERDER_SERVICE_MIGRATE=true` in `.env`, then recreate **web**.
 3. Pick a destination (other hosts with **Docker / containers** on; HAOS and the source are excluded).  
 4. Preflight lists **blocks** (hard stop) and **warnings**.  
 5. If green, **Move service** confirms downtime, then a **Job** stops the source, copies via the herder (`/backups/_migrate/{job_id}`), `docker compose up -d` on dest, then **direct** CNAMEs → dest DNS name (both Pi-holes `restartdns`) or **NPM** `forward_host` → dest (public CNAME stays on NPM). Maps / Kuma / template rows follow dest. TLS and Kuma are checked when those rows exist (failure does **not** auto-roll back).  
-6. Leftover: **leave source stopped** (default) or **`compose down`** (volumes kept). Hardware-looking `/dev` mounts require an acknowledge checkbox (or lock the project instead).
+6. Leftover (after a **green** move): **leave source stopped** (default), **`compose down`** (volumes kept), or **remove source project + named volumes** (extra danger confirm + checkbox; dest is never wiped). Hardware-looking `/dev` mounts require an acknowledge checkbox (or lock the project instead).
 
 Named Docker volumes copy as **rsync of the volume Mountpoint** (same privilege as backing up `/var/lib/docker/volumes`). Relative binds ride with the project tree. Absolute binds **outside** the docker base dir are a preflight block, not a silent copy.
 
@@ -74,11 +74,21 @@ Audit on open: `service_migrate_preview`.
 
 Direct TLS rows (`via_proxy` off): **CNAME → dest DNS name**, then both Pi-holes **Restart DNS**. NPM-fronted rows: public CNAME stays on NPM; the job **PUT**s `forward_host` (and keeps port/SSL). Preflight still uses the **NPM poll cache**; unmatched hosts are a block.
 
+## Source leftover
+
+| Choice | What happens on the **source** host | Dest |
+|--------|-------------------------------------|------|
+| **Leave stopped** (default) | Stack stays stopped; project dir and volumes stay on disk | Untouched |
+| **`compose down`** | Containers/networks removed; **volumes kept** | Untouched |
+| **Remove source** | `compose down`, then `docker volume rm` for **copied named volumes**, then delete the jailed project directory | **Never wiped** |
+
+Remove is a second danger confirm. Preflight lists the project path and named volume names. Absolute binds **outside** the project folder are left on disk. Source cert deploy targets for that stack are **disabled** (dest clone stays). This cannot be undone from PiHerder — restore from backup if you still need the old copy.
+
 ## What it does not do yet
 
 - Auto-rollback, live (zero-downtime) copy, cross-arch image rebuild  
-- Source project + volume **delete** (Should; extra danger confirm later)  
 - Moving PiHerder itself, or the Pi-hole you are using to migrate  
+- Deleting dest volumes, or wiping extra binds outside the project folder 
 
 ## Related
 

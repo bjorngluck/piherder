@@ -2602,9 +2602,9 @@ def enqueue_service_migrate(
             if active:
                 session.expunge(active)
                 raise JobAlreadyActive(active)
-        left = (leftover or "stopped").strip().lower()
-        if left not in ("stopped", "down"):
-            left = "stopped"
+        from ..service_migrate.leftover import normalize_leftover
+
+        left = normalize_leftover(leftover)
         job, audit = _create_queued_job_with_audit(
             session,
             server_id=source.id,
@@ -2646,6 +2646,7 @@ def _execute_service_migrate(
     job_id: int, source_id: int, dest_id: int, project: str, audit_id: int
 ) -> None:
     from ..service_migrate.facts import herder_free_bytes, probe_host_facts
+    from ..service_migrate.leftover import normalize_leftover
     from ..service_migrate.pipeline import MigrateError, run_copy_and_start, wipe_staging
 
     source, hostname = _load_server_for_job(source_id)
@@ -2657,7 +2658,7 @@ def _execute_service_migrate(
         if job:
             try:
                 data = json.loads(job.details or "{}") or {}
-                leftover = str(data.get("leftover") or "stopped")
+                leftover = normalize_leftover(data.get("leftover"))
                 devices_ack = bool(data.get("devices_ack"))
             except Exception:
                 pass

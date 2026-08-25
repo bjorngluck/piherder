@@ -71,6 +71,7 @@
         action="/servers/{{ server.id }}/docker/migrate"
         data-job-hold="Move {{ result.project }}"
         data-confirm="This stops the stack on {{ result.source.name }}, copies the dataset via the herder, starts it on {{ result.dest.name }}, then retargets DNS / NPM. Planned downtime."
+        data-confirm-remove="This stops the stack on {{ result.source.name }}, copies it to {{ result.dest.name }}, then AFTER SUCCESS deletes the source project directory and named volumes on {{ result.source.name }}. Destination is not touched. This cannot be undone from PiHerder."
         data-confirm-title="Move {{ result.project }}?"
         data-confirm-label="Move service"
         data-confirm-danger
@@ -93,13 +94,68 @@
         <input type="radio" name="leftover" value="stopped" checked>
         Leave stopped (data kept)
       </label>
-      <label class="flex items-center gap-2">
+      <label class="flex items-center gap-2 mb-1">
         <input type="radio" name="leftover" value="down">
         <code>compose down</code> (volumes kept)
       </label>
+      <label class="flex items-start gap-2" data-testid="migrate-leftover-remove">
+        <input type="radio" name="leftover" value="remove" class="mt-1">
+        <span>
+          Remove source project + named volumes
+          <span class="text-danger"> (cannot undo; dest is not touched)</span>
+        </span>
+      </label>
     </fieldset>
+    {% set wipe = result.leftover_remove or {} %}
+    <div class="hidden text-xs mb-3 p-2 rounded border border-danger/40" data-testid="migrate-leftover-remove-preview" id="migrate-leftover-remove-preview">
+      <p class="text-danger mb-1">Will delete on {{ result.source.name }} after a green move:</p>
+      <ul class="font-mono space-y-0.5">
+        <li>project {{ wipe.project_path or result.source.project_path }}</li>
+        {% if wipe.named_volumes %}
+          {% for v in wipe.named_volumes %}
+          <li>volume {{ v }}</li>
+          {% endfor %}
+        {% else %}
+          <li>named volumes: none in this snapshot</li>
+        {% endif %}
+      </ul>
+      <p class="text-muted mt-1">Absolute binds outside the project folder are left on disk. {{ result.dest.name }} is never wiped.</p>
+      <label class="flex items-start gap-2 mt-2 text-sm text-danger" data-testid="migrate-leftover-remove-ack">
+        <input type="checkbox" name="leftover_remove_ack" value="1" class="mt-1">
+        <span>I understand this deletes the source project and listed named volumes after a green move. Dest is not wiped.</span>
+      </label>
+    </div>
     <button type="submit" class="btn btn-accent min-h-11 text-sm">Move service</button>
   </form>
+  <script>
+    (function () {
+      var form = document.querySelector('[data-testid="migrate-start-form"]');
+      if (!form) return;
+      var safeMsg = form.getAttribute('data-confirm');
+      var wipeMsg = form.getAttribute('data-confirm-remove');
+      var preview = document.getElementById('migrate-leftover-remove-preview');
+      var ack = form.querySelector('input[name="leftover_remove_ack"]');
+      function sync() {
+        var checked = form.querySelector('input[name="leftover"]:checked');
+        var v = checked ? checked.value : 'stopped';
+        if (v === 'remove') {
+          form.setAttribute('data-confirm', wipeMsg || safeMsg);
+          form.setAttribute('data-confirm-title', 'Wipe source after move?');
+          form.setAttribute('data-confirm-label', 'Move and wipe source');
+          if (preview) preview.classList.remove('hidden');
+          if (ack) ack.required = true;
+        } else {
+          form.setAttribute('data-confirm', safeMsg);
+          form.setAttribute('data-confirm-title', 'Move {{ result.project }}?');
+          form.setAttribute('data-confirm-label', 'Move service');
+          if (preview) preview.classList.add('hidden');
+          if (ack) { ack.required = false; ack.checked = false; }
+        }
+      }
+      form.addEventListener('change', sync);
+      sync();
+    })();
+  </script>
   {% else %}
   <button type="button" class="btn btn-accent min-h-11 text-sm" disabled
           title="Fix preflight blocks first">
