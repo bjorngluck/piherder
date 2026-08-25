@@ -20,6 +20,8 @@ from ..services import docker_management as docker_svc
 from ..services import docker_inventory as inventory_svc
 from ..services import env_file_ui
 from ..services.service_migrate import host_lock as host_lock_svc
+from ..services.service_migrate import preflight as migrate_preflight
+from ..services.nav_shortcuts import host_feature_context
 from .. import templates as templates_mod
 from ..security.auth import (
     get_current_user,
@@ -693,6 +695,106 @@ async def docker_host_unlock(
     except host_lock_svc.HostLockError as e:
         return _docker_redirect(server_id, error="host_lock", detail=e.message)
     return _docker_redirect(server_id, msg="host_unlocked")
+
+
+def _require_migrate_surface() -> None:
+    if not host_lock_svc.migrate_surface_allowed():
+        raise HTTPException(404, "Service migration is off")
+
+
+@router.get("/{server_id}/docker/migrate", response_class=HTMLResponse)
+async def docker_migrate_wizard(
+    server_id: int,
+    request: Request,
+    project: str = "",
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    _require_migrate_surface()
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        proj = host_lock_svc.compose_project_name(project)
+    except host_lock_svc.HostLockError as e:
+        raise HTTPException(e.status_code, detail=e.message) from e
+    dests = migrate_preflight.eligible_destinations(session, server)
+    lock = host_lock_svc.lock_state(session, server, proj)
+    _nav = host_feature_context(session, int(user.id) if user else None, server, "docker")
+    try:
+        session.add(
+            make_audit_log(
+                user_id=user.id if user else None,
+                server_id=server_id,
+                action="service_migrate_preview",
+                status="success",
+                details=f"project={proj}",
+            )
+        )
+        session.commit()
+    except Exception:
+        session.rollback()
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="docker_migrate.html",
+        context={
+            "title": f"Move {proj} — {server.name}",
+            "server": server,
+            "project": proj,
+            "destinations": dests,
+            "host_lock": lock,
+            "user": user,
+            **_nav,
+        },
+    )
+
+
+@router.get("/{server_id}/docker/migrate/preflight", response_class=HTMLResponse)
+async def docker_migrate_preflight(
+    server_id: int,
+    request: Request,
+    project: str = "",
+    dest: str = "",
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    _require_migrate_surface()
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        dest_id = int((dest or "").strip() or "0")
+    except ValueError:
+        dest_id = 0
+    dest_server = session.get(Server, dest_id) if dest_id else None
+    if not dest_server:
+        return templates_mod.templates.TemplateResponse(
+            request=request,
+            name="partials/docker_migrate_preflight.html",
+            context={"result": None, "project": project, "server": server},
+        )
+    try:
+        proj = host_lock_svc.compose_project_name(project)
+    except host_lock_svc.HostLockError as e:
+        raise HTTPException(e.status_code, detail=e.message) from e
+    from ..services.service_migrate.facts import herder_free_bytes, probe_host_facts
+
+    src_facts = probe_host_facts(server)
+    dest_facts = probe_host_facts(dest_server)
+    result = migrate_preflight.run_preflight(
+        session,
+        source=server,
+        dest=dest_server,
+        project=proj,
+        source_facts=src_facts,
+        dest_facts=dest_facts,
+        herder_free=herder_free_bytes(),
+    )
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="partials/docker_migrate_preflight.html",
+        context={"result": result, "project": proj, "server": server},
+    )
 
 
 @router.post("/{server_id}/docker/check-updates")

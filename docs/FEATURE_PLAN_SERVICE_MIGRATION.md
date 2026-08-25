@@ -1,6 +1,6 @@
 # Feature plan — Service migration
 
-**Status:** Train open on `v1.4.0-dev` · planning lock 2026-08-25 · **not started in code**  
+**Status:** Train open on `v1.4.0-dev` · M1 lock + M2 preflight landing · copy job next  
 **Train:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) Stream **M** (active)  
 **Horizon:** H2.5 leftover — “Service migrate / remove” ([ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md)) · [SPEC.md](../SPEC.md) Phase 7  
 **Related:** [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md)
@@ -281,7 +281,7 @@ Viewer: 403. Demo: disabled or fake preview.
 |-------|------|----------|--------|
 | **M0** | Discovery + this plan | — | **Done** 2026-08-17 |
 | **M1** | Host lock model + UI | Must | Landing |
-| **M2** | Preflight (no copy) | Must | Planned |
+| **M2** | Preflight (no copy) | Must | Landing |
 | **M3** | Stop + stage + copy | Must | Planned |
 | **M4** | Fabric upsert + both `restartdns` | Must | Planned |
 | **M5** | Start dest (`compose up -d`) | Must | Planned |

@@ -1,0 +1,74 @@
+{% if not result %}
+<p class="text-sm text-muted">Pick a destination to run preflight.</p>
+{% else %}
+<div class="card p-4 sm:p-5" data-testid="migrate-preflight-result" data-ok="{{ '1' if result.ok else '0' }}">
+  <div class="flex flex-wrap items-center gap-2 mb-3">
+    <span class="status-pill {% if result.ok %}status-success{% else %}status-failed{% endif %}">
+      {% if result.ok %}Ready for copy{% else %}Cannot move yet{% endif %}
+    </span>
+    <span class="text-xs text-muted">Copy job is not in this slice (M3).</span>
+  </div>
+
+  <p class="text-sm mb-3">
+    {{ result.source.name }}
+    <span class="text-muted">→</span>
+    {{ result.dest.name }}
+    {% if result.dest.arch or result.source.arch %}
+    <span class="text-xs text-muted">
+      · arch {{ result.source.arch or '?' }} → {{ result.dest.arch or '?' }}
+    </span>
+    {% endif %}
+  </p>
+
+  {% if result.blocks %}
+  <h3 class="text-sm font-semibold mb-1">Blocks</h3>
+  <ul class="text-sm mb-3 space-y-1" data-testid="migrate-blocks">
+    {% for b in result.blocks %}
+    <li class="text-danger">{{ b.message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if result.warns %}
+  <h3 class="text-sm font-semibold mb-1">Warnings</h3>
+  <ul class="text-sm mb-3 space-y-1" data-testid="migrate-warns">
+    {% for w in result.warns %}
+    <li class="text-warning">{{ w.message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <h3 class="text-sm font-semibold mb-1">Dataset</h3>
+  <p class="text-xs text-muted mb-2">
+    Estimate {{ result.dataset.bytes_human }}
+    · dest free {{ result.dest.disk_free_human }}
+  </p>
+  {% if result.dataset['items'] %}
+  <ul class="text-xs font-mono mb-3 space-y-0.5 max-h-40 overflow-auto">
+    {% for it in result.dataset['items'] %}
+    <li>{{ it.kind }} · {{ it.source }}{% if it.bytes %} · {{ it.bytes }} B{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-xs text-muted mb-3">No mount inventory on the snapshot — copy will classify at job time.</p>
+  {% endif %}
+
+  {% if result.dns %}
+  <h3 class="text-sm font-semibold mb-1">DNS / NPM</h3>
+  <ul class="text-sm mb-3 space-y-1" data-testid="migrate-dns">
+    {% for d in result.dns %}
+    <li>
+      <span class="font-mono">{{ d.fqdn }}</span>
+      · {% if d.via_proxy %}NPM backend{% else %}CNAME → dest{% endif %}
+      {% if d.forward_host %}<span class="text-muted">(now {{ d.forward_host }})</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <button type="button" class="btn btn-accent min-h-11 text-sm" disabled
+          title="Stop + copy lands in the next slice">
+    Move service
+  </button>
+</div>
+{% endif %}

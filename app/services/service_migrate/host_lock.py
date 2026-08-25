@@ -38,6 +38,18 @@ def migrate_enabled() -> bool:
     return bool(getattr(settings, "PIHERDER_SERVICE_MIGRATE", False))
 
 
+def migrate_surface_allowed() -> bool:
+    """Move wizard + preflight. Demo never; kill switch default off."""
+    try:
+        from ..demo import demo_mode
+
+        if demo_mode():
+            return False
+    except Exception:
+        pass
+    return migrate_enabled()
+
+
 def compose_project_name(raw: Optional[str]) -> str:
     """Compose project identity (never a filesystem path)."""
     name = (raw or "").strip()

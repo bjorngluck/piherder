@@ -294,8 +294,8 @@ Success criteria:
 | 1 | Finish **v1.3.0** freeze / tag / Hub | **Done** |
 | 2 | Open **`v1.4.0-dev`** + lock Must/Should | **Done** 2026-08-25 |
 | 3 | Named-volume spike note (helper vs docker-group) | **Current** (feature plan) — lab confirm before M3 |
-| 4 | Land **M1** lock model + UI | **Landing** |
-| 5 | Land **M2** preflight (no copy) | After M1 |
+| 4 | Land **M1** lock model + UI | **Done** |
+| 5 | Land **M2** preflight (no copy) | **Landing** |
 | 6 | Land **M3–M6** + **M-npm** job + wizard; then **M7** | |
 | 7 | **M8** leftover down · **M9** devices: · **M-rm** Should · **D-F** | |
 | 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | |
