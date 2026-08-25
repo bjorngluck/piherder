@@ -26,8 +26,10 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Fleet Services empty | [Dashboard & Services](../day-to-day/dashboard-and-services.md) — bind Kuma monitors |
 | Reports empty / history shorter than expected | [Reports](../day-to-day/reports.md) — needs finished Jobs / nmap runs / console Audit; [Cleanup](../operations/settings.md#stale-data-cleanup) can trim rows |
 | Files button missing / 404 | Flag `PIHERDER_HOST_FILES` (default off). Viewer 403. [Host Files](../day-to-day/host-files.md) |
-| Move to another host missing / 404 | Flag `PIHERDER_SERVICE_MIGRATE` (default off). Viewer 403. Locked / HAOS refused. [Move a service](../docker/service-migration.md) |
-| Move preflight blocks dest | Same page — ports, disk, dest project name, DNS name, NPM poll cache, busy backup/stack job |
+| Move to another host missing / 404 | Flag `PIHERDER_SERVICE_MIGRATE` (default off). Recreate **web**. Viewer 403. Locked / HAOS refused. Demo never copies. [Move a service](../docker/service-migration.md) |
+| Move preflight blocks dest | Same page — ports, disk, dest project name, DNS name, NPM poll cache, busy backup/stack/migrate job |
+| Move job TLS / Kuma red | No auto-rollback. Dest may already be up with names flipped. Fix dest or start the stack on source. Staging kept under `/backups/_migrate/{job_id}` |
+| Move leftover wipe did too little / too much | Default leaves source stopped. **Remove source** only deletes the jailed project dir + copied named volumes — dest never, extra binds outside the project folder stay |
 | Files upload fails / too large | Default 512 MiB; **Settings → Files** (ceiling 32 GiB) or lock with `PIHERDER_HOST_FILES_MAX_BYTES`; raise any extra reverse-proxy body cap / timeout |
 | Files download stuck ~12 MiB | Dedicated SFTP + Caddy must not gzip `application/octet-stream` (`flush_interval -1`). Rebuild web + Caddy. [Host Files](../day-to-day/host-files.md) |
 | `.env` / PEM won’t open | Listing is allowed; open/download needs Passkey/TOTP (same grant as privileged Files). [Host Files](../day-to-day/host-files.md) |

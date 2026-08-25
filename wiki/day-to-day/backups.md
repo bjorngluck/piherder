@@ -97,3 +97,5 @@ Retention cleanup is a separate job type (`retention`) driven by configured keep
 [Backups stuck or failing](../troubleshooting/backups.md)
 
 Success/fail over time and dest-size growth: [Reports](reports.md).
+
+Named-volume copy during [Move a service](../docker/service-migration.md) uses the same Mountpoint rsync privilege as backing up `/var/lib/docker/volumes`. That is a Job, not a backup restore.

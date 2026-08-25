@@ -108,6 +108,6 @@ Only **one** stack mutation runs at a time per host (shared lane with Deploy and
 
 - [Inventory cache](inventory.md)  
 - [Compose edit & deploy](compose-edit.md)  
-- [Move a service](service-migration.md) — host lock + migrate preflight  
+- [Move a service](service-migration.md) — lock, preflight, copy, dest up, DNS/NPM, leftover  
 - [Service templates](../service-templates/overview.md)  
 - [Reports](../day-to-day/reports.md) — deploy / patch job history (running-now is last inventory only)  

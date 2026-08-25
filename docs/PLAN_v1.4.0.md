@@ -122,7 +122,7 @@ Phase 6  Q freeze: tests ≥55% · wiki       version 1.4.0 · tag · Hub
 
 ### 2.1 What exists today (discovery)
 
-PiHerder already has the **pieces**. Nothing orchestrates them across two hosts.
+Discovery snapshot at train open. **Now orchestrated** on `v1.4.0-dev` as Job `service_migrate` (wiki [Move a service](../wiki/docker/service-migration.md)). The table is the primitives migrate wraps — do not treat “Limit vs migrate” as current product gaps.
 
 | Layer | Primitive | Limit vs migrate |
 |-------|-----------|------------------|
@@ -285,6 +285,7 @@ Success criteria:
 | 2026-08-22 | **D-F** parked from 1.3 freeze: canned demo Files tree. Promoted to **Must** at train open. |
 | 2026-08-25 | **Train opened** on `v1.4.0-dev`. Must = **M1–M9** + **M-npm** + **D-F**. **M-rm** Should. **ACME** out. NPM-in-front is backend PUT, not refuse. Package version stays `1.3.0` until freeze. |
 | 2026-08-25 | **M-rm** landed: leftover `remove` (source project + copied named volumes). Default still leave stopped. Extra ack. Dest never wiped. |
+| 2026-08-25 | Operator wiki + maintainer docs pass for live validation (Move page, leftover, D-F demo Files, QA checklist). Freeze / version bump still later. |
 
 ---
 
@@ -299,13 +300,13 @@ Success criteria:
 | 5 | Land **M2** preflight (no copy) | **Done** |
 | 6 | Land **M3–M6** + **M-npm** job + wizard; then **M7** | **Done** |
 | 7 | **M8** leftover down · **M9** devices: · **M-rm** Should · **D-F** | **Done** |
-| 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | |
+| 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | Operator wiki + QA stub ready for live two-host validation; **freeze / version bump not started** |
 
 ---
 
-## 9. Residual **D-F** — demo simulated Files (Must)
+## 9. **D-F** — demo simulated Files (Must, **landed**)
 
-**Not Stream M.** Independent of copy; can parallel after M1. 1.3 Files is flag-off, viewer 403, **demo 403**. Console already has a **simulated** xterm (D5, 1.2). Same pattern for Files so the public demo can show the explorer without a real host tree.
+**Not Stream M.** Independent of copy. 1.3 Files is flag-off; operator+ on a real herder; **demo** serves a canned tree (viewers may browse; writes refused; no SFTP). Console already has a **simulated** xterm (D5, 1.2).
 
 | ID | Item | Notes |
 |----|------|--------|
