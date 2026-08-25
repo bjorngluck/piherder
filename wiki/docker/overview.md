@@ -42,6 +42,7 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | Runtime stack / Path map | Project **Stack** / **Path map** pills → Network stack panel + map expand ([Network maps](../integrations/dns-fabric.md#runtime-stack-detail-altitude)) |
 | Logs | Per container / service (modal or full page). Multi-service projects: pick a service **or All services** (project-level `docker compose logs`). Live SSE requires a **signed-in** session |
 | **Stop / Start / Restart all** | Project ⋯ menu → confirm → **Job** with live log (`docker_stack_stop` / `_start` / `_restart`) — **operator+** |
+| **Lock to this host** | Project ⋯ → lock with reason (hardware / operator / infra). Locked stacks show a badge; **Move** is refused. HAOS hosts are always locked. Unlock is operator+ with confirm. **Move to another host…** stays behind `PIHERDER_SERVICE_MIGRATE` (v1.4, default off). |
 | Container start / stop / restart | Row ⋯ on a single service (immediate; not a full-stack job) — **operator+**; actions allowlisted (`start`/`stop`/`restart`) |
 | Quick edit / Full editor | ⋯ menu — quick modal is compose (± Dockerfile) only; **`.env` and sidecars** are full editor — [Compose edit](compose-edit.md) |
 | Multi-file compose edit | primary compose + override + `.env` + Dockerfile + **compose sets** |

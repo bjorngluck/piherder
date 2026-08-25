@@ -270,6 +270,21 @@
       Container {{ _err.replace('container_', '') }} failed{% if _detail %}: <span class="font-mono">{{ _detail }}</span>{% endif %}.
     </div>
   {% endif %}
+  {% if _msg == 'host_locked' %}
+    <div class="mb-3 p-2 text-xs rounded border border-border banner-success">
+      Project locked to this host. Move is refused until you unlock.
+    </div>
+  {% endif %}
+  {% if _msg == 'host_unlocked' %}
+    <div class="mb-3 p-2 text-xs rounded border border-border banner-success">
+      Project unlocked on this host.
+    </div>
+  {% endif %}
+  {% if _err == 'host_lock' %}
+    <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
+      Host lock: {{ _detail or 'refused' }}.
+    </div>
+  {% endif %}
   {% if build_status %}
     <div class="mb-3 p-2 text-xs rounded border border-border {{ 'banner-success' if build_status == 'built' else 'banner-error' }}">
       Build {{ 'succeeded' if build_status == 'built' else 'failed or errored' }}. Check logs on host if needed.
@@ -368,6 +383,9 @@ function hideCleanupModal() {
 /* Project ⋯ — lifecycle = whole stack (Jobs); single-container lifecycle is on row ⋯ */
 const MORE_ACTIONS = [
   { key: 'template-config', label: 'Template settings…', accent: true },
+  { key: 'host-lock', label: 'Lock to this host…' },
+  { key: 'host-unlock', label: 'Unlock…', danger: true },
+  { key: 'host-move', label: 'Move to another host…' },
   { key: 'deploy', label: 'Deploy', accent: true },
   { key: 'restart', label: 'Restart all services…', accent: true },
   { key: 'start', label: 'Start all services…' },
@@ -488,6 +506,12 @@ function showProjectMoreMenu(anchorBtn, row) {
       + (item.danger ? ' is-danger' : '')
       + (item.accent ? ' is-accent' : '');
     btn.textContent = moreActionLabel(item, real);
+    if (real.disabled || real.getAttribute('aria-disabled') === 'true') {
+      btn.disabled = true;
+      btn.classList.add('is-disabled');
+      const why = real.getAttribute('title') || real.getAttribute('data-lock-reason') || '';
+      if (why) btn.title = why;
+    }
     btn.addEventListener('click', function(e) {
       if (item.key === 'full-edit') {
         hideProjectMoreMenu();
@@ -497,6 +521,17 @@ function showProjectMoreMenu(anchorBtn, row) {
       e.preventDefault();
       e.stopPropagation();
       hideProjectMoreMenu();
+      if (btn.disabled) return;
+      if (item.key === 'host-lock') {
+        if (typeof showHostLockModal === 'function') showHostLockModal(real);
+        else real.click();
+        return;
+      }
+      if (item.key === 'host-unlock') {
+        if (typeof showHostUnlockConfirm === 'function') showHostUnlockConfirm(real);
+        else real.click();
+        return;
+      }
       // Call handlers directly — synthetic click on hidden secondary buttons is unreliable
       if (item.key === 'edit') {
         openComposeEditFromBtn(real);

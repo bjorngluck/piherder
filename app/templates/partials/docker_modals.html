@@ -196,6 +196,35 @@
   </div>
 </div>
 
+<!-- Host lock (v1.4 M1) -->
+<div id="host-lock-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-md mx-4 ph-modal-brand">
+    <div class="ph-detail-kicker">Docker · host lock</div>
+    <h3 class="ph-detail-title mb-1">Lock to this host?</h3>
+    <p class="text-sm text-muted mb-3">
+      <strong id="host-lock-project-name" class="font-mono text-accent"></strong>
+      cannot be moved until an operator unlocks it. Use this for hardware-bound stacks (TPU, USB) or infra you do not want relocated.
+    </p>
+    <form id="host-lock-modal-form" method="post" action="">
+      <input type="hidden" name="project" id="host-lock-project" value="">
+      <label class="block text-xs text-muted mb-1" for="host-lock-reason">Reason</label>
+      <select id="host-lock-reason" name="reason" class="w-full bg-surface border border-border rounded px-2 py-2 text-sm mb-3 min-h-11">
+        <option value="hardware">Hardware (TPU / USB / Coral)</option>
+        <option value="operator">Operator</option>
+        <option value="infra">Infrastructure</option>
+      </select>
+      <label class="block text-xs text-muted mb-1" for="host-lock-note">Note (optional)</label>
+      <input id="host-lock-note" name="note" type="text" maxlength="255"
+             class="w-full bg-surface border border-border rounded px-2 py-2 text-sm mb-4 min-h-11"
+             placeholder="e.g. Coral TPU on USB bus 001">
+      <div class="flex flex-wrap gap-2 justify-end">
+        <button type="button" onclick="hideHostLockModal()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+        <button type="submit" class="btn btn-accent min-h-11 text-sm">Lock</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Logs modal (inline viewer, stays on Docker Management screen) -->
 <div id="logs-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div id="logs-modal-content" class="card rounded-xl p-3 sm:p-4 w-full max-w-5xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
@@ -558,6 +587,51 @@ function showUndeployConfirm(form, projectName) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
   }
+}
+
+function hideHostLockModal() {
+  const modal = document.getElementById('host-lock-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+}
+
+function showHostLockModal(realBtn) {
+  const form = realBtn && realBtn.closest ? realBtn.closest('form') : null;
+  const modal = document.getElementById('host-lock-modal');
+  const modalForm = document.getElementById('host-lock-modal-form');
+  if (!form || !modal || !modalForm) {
+    if (realBtn) realBtn.click();
+    return;
+  }
+  const proj = (form.querySelector('input[name="project"]') || {}).value || '';
+  const nameEl = document.getElementById('host-lock-project-name');
+  const projEl = document.getElementById('host-lock-project');
+  if (nameEl) nameEl.textContent = proj || 'project';
+  if (projEl) projEl.value = proj;
+  modalForm.action = form.action;
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function showHostUnlockConfirm(realBtn) {
+  const form = realBtn && realBtn.closest ? realBtn.closest('form') : null;
+  if (!form) return;
+  const proj = (form.querySelector('input[name="project"]') || {}).value || 'project';
+  const ask = (window.PiHerderConfirm && window.PiHerderConfirm.ask)
+    ? window.PiHerderConfirm.ask({
+        title: 'Unlock this project?',
+        message: proj + ' can be moved to another host after unlock.',
+        confirmLabel: 'Unlock',
+        danger: true,
+      })
+    : Promise.resolve(window.confirm('Unlock ' + proj + '?'));
+  Promise.resolve(ask).then(function (ok) {
+    if (!ok) return;
+    if (typeof form.requestSubmit === 'function') form.requestSubmit();
+    else form.submit();
+  });
 }
 
 function hideUndeployConfirm() {
