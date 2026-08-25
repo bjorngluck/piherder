@@ -1,7 +1,7 @@
 # Move a service
 
 !!! note "Availability"
-    **Host lock**, **preflight**, **stop → copy → dest up**, and **DNS / NPM retarget** ship on `v1.4.0-dev` (will be **v1.4.0**). Move is behind `PIHERDER_SERVICE_MIGRATE` (default **off**). TLS/Kuma validate and leftover `compose down` are later.
+    **Move a service** (lock, preflight, copy, dest up, DNS/NPM, validate, rebind, leftover down) ships on `v1.4.0-dev` (will be **v1.4.0**). Behind `PIHERDER_SERVICE_MIGRATE` (default **off**). Source remove + volume delete is still Should / off.
 
 ## What this is
 
@@ -37,7 +37,8 @@ Master enable: `PIHERDER_SERVICE_MIGRATE=true` in `.env`, then recreate **web**.
 2. **⋯** → **Move to another host…**  
 3. Pick a destination (other hosts with **Docker / containers** on; HAOS and the source are excluded).  
 4. Preflight lists **blocks** (hard stop) and **warnings**.  
-5. If green, **Move service** confirms downtime, then a **Job** stops the source, copies via the herder (`/backups/_migrate/{job_id}`), `docker compose up -d` on dest, then **direct** CNAMEs → dest DNS name (both Pi-holes `restartdns`) or **NPM** `forward_host` → dest (public CNAME stays on NPM). Source is left **stopped** with data intact.
+5. If green, **Move service** confirms downtime, then a **Job** stops the source, copies via the herder (`/backups/_migrate/{job_id}`), `docker compose up -d` on dest, then **direct** CNAMEs → dest DNS name (both Pi-holes `restartdns`) or **NPM** `forward_host` → dest (public CNAME stays on NPM). Maps / Kuma / template rows follow dest. TLS and Kuma are checked when those rows exist (failure does **not** auto-roll back).  
+6. Leftover: **leave source stopped** (default) or **`compose down`** (volumes kept). Hardware-looking `/dev` mounts require an acknowledge checkbox (or lock the project instead).
 
 Named Docker volumes copy as **rsync of the volume Mountpoint** (same privilege as backing up `/var/lib/docker/volumes`). Relative binds ride with the project tree. Absolute binds **outside** the docker base dir are a preflight block, not a silent copy.
 
@@ -75,8 +76,8 @@ Direct TLS rows (`via_proxy` off): **CNAME → dest DNS name**, then both Pi-hol
 
 ## What it does not do yet
 
-- TLS fingerprint / Kuma validate, control-plane rebind, leftover `compose down`  
 - Auto-rollback, live (zero-downtime) copy, cross-arch image rebuild  
+- Source project + volume **delete** (Should; extra danger confirm later)  
 - Moving PiHerder itself, or the Pi-hole you are using to migrate  
 
 ## Related

@@ -6,7 +6,7 @@
 **Package / image version (at tag):** `1.4.0` — tree stays **`1.3.0` until freeze**  
 **Theme:** **Service migration** — move a Docker Compose project host→host with dataset copy, DNS / NPM retarget, resolver flush, TLS / Kuma validate, **host lock**, and leftover policy  
 **Baseline:** `v1.3.0` (tagged 2026-08-22)  
-**Mode:** Active train · Must signed · **M1–M5** + **M-npm** landed; next is **M6** validate / **M7** rebind  
+**Mode:** Active train · Must signed · **M1–M9** + **M-npm** landed; next is **D-F** demo Files then freeze  
 **QA:** [QA_v1.4.0.md](QA_v1.4.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [SPEC.md](../SPEC.md) · wiki [Docker](../wiki/docker/overview.md) · [DNS fabric](../wiki/integrations/dns-fabric.md) · [Backups](../wiki/day-to-day/backups.md) · [HAOS](../wiki/day-to-day/haos-hosts.md)
 
@@ -296,8 +296,8 @@ Success criteria:
 | 3 | Named-volume spike note (helper vs docker-group) | **Done** — Mountpoint rsync (recipe A) |
 | 4 | Land **M1** lock model + UI | **Done** |
 | 5 | Land **M2** preflight (no copy) | **Done** |
-| 6 | Land **M3–M6** + **M-npm** job + wizard; then **M7** | **M3–M5 / M-npm** done · **M6 / M7** current |
-| 7 | **M8** leftover down · **M9** devices: · **M-rm** Should · **D-F** | |
+| 6 | Land **M3–M6** + **M-npm** job + wizard; then **M7** | **Done** |
+| 7 | **M8** leftover down · **M9** devices: · **M-rm** Should · **D-F** | **M8/M9** done · **D-F** current · **M-rm** Should |
 | 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | |
 
 ---

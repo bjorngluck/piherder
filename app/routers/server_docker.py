@@ -804,6 +804,8 @@ async def docker_migrate_start(
     background_tasks: BackgroundTasks,
     project: str = Form(...),
     dest: str = Form(...),
+    leftover: str = Form("stopped"),
+    devices_ack: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
@@ -821,12 +823,18 @@ async def docker_migrate_start(
     if not dest_server:
         raise HTTPException(400, "destination required")
     try:
+        left = (leftover or "stopped").strip().lower()
+        if left not in ("stopped", "down"):
+            left = "stopped"
+        ack = (devices_ack or "").strip().lower() in ("1", "true", "on", "yes")
         job = job_service.enqueue_service_migrate(
             server_id,
             dest_id,
             project,
             user_id=user.id if user else None,
             background_tasks=background_tasks,
+            leftover=left,
+            devices_ack=ack,
         )
     except job_service.JobAlreadyActive as e:
         if request.headers.get("X-PiHerder-Async") == "1":

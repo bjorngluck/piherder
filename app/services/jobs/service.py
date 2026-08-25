@@ -2575,6 +2575,8 @@ def enqueue_service_migrate(
     *,
     user_id: int | None = None,
     background_tasks: BackgroundTasks | None = None,
+    leftover: str = "stopped",
+    devices_ack: bool = False,
 ) -> Job:
     """Queue stop-first copy + dest up. Raises JobAlreadyActive if either host is busy."""
     from ..service_migrate.host_lock import HostLockError, compose_project_name
@@ -2600,6 +2602,9 @@ def enqueue_service_migrate(
             if active:
                 session.expunge(active)
                 raise JobAlreadyActive(active)
+        left = (leftover or "stopped").strip().lower()
+        if left not in ("stopped", "down"):
+            left = "stopped"
         job, audit = _create_queued_job_with_audit(
             session,
             server_id=source.id,
@@ -2610,6 +2615,8 @@ def enqueue_service_migrate(
             dest_server_id=dest.id,
             dest_name=dest.name,
             project=name,
+            leftover=left,
+            devices_ack=bool(devices_ack),
         )
         jid, aid = job.id, audit.id
     if background_tasks is not None:
@@ -2643,9 +2650,17 @@ def _execute_service_migrate(
 
     source, hostname = _load_server_for_job(source_id)
     dest, _ = _load_server_for_job(dest_id)
+    leftover = "stopped"
+    devices_ack = False
     with _get_fresh_session() as session:
         job = session.get(Job, job_id)
         if job:
+            try:
+                data = json.loads(job.details or "{}") or {}
+                leftover = str(data.get("leftover") or "stopped")
+                devices_ack = bool(data.get("devices_ack"))
+            except Exception:
+                pass
             job.status = "running"
             job.started_at = datetime.utcnow()
             _merge_job_details(
@@ -2679,6 +2694,8 @@ def _execute_service_migrate(
                 dest_facts=probe_host_facts(dst),
                 herder_free=herder_free_bytes(),
                 log=log_line,
+                leftover=leftover,
+                devices_ack=devices_ack,
             )
         wipe_staging(job_id)
         _finish(

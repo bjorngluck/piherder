@@ -6,7 +6,7 @@
     <span class="status-pill {% if result.ok %}status-success{% else %}status-failed{% endif %}">
       {% if result.ok %}Ready for copy{% else %}Cannot move yet{% endif %}
     </span>
-    <span class="text-xs text-muted">{% if result.ok %}Stop → copy → dest up → DNS/NPM.{% else %}Fix blocks before copy.{% endif %}</span>
+    <span class="text-xs text-muted">{% if result.ok %}Stop → copy → dest up → DNS/NPM → validate.{% else %}Fix blocks before copy.{% endif %}</span>
   </div>
 
   <p class="text-sm mb-3">
@@ -77,6 +77,27 @@
         data-testid="migrate-start-form">
     <input type="hidden" name="project" value="{{ result.project }}">
     <input type="hidden" name="dest" value="{{ result.dest.id }}">
+    {% set ns = namespace(need_ack=false) %}
+    {% for w in result.warns or [] %}
+      {% if w.id == 'devices' %}{% set ns.need_ack = true %}{% endif %}
+    {% endfor %}
+    {% if ns.need_ack %}
+    <label class="flex items-start gap-2 text-sm mb-3" data-testid="migrate-devices-ack">
+      <input type="checkbox" name="devices_ack" value="1" class="mt-1" required>
+      <span>This stack looks hardware-bound. I still want to move it (or lock it instead).</span>
+    </label>
+    {% endif %}
+    <fieldset class="mb-3 text-sm">
+      <legend class="text-xs text-muted mb-1">After success, source leftover</legend>
+      <label class="flex items-center gap-2 mb-1">
+        <input type="radio" name="leftover" value="stopped" checked>
+        Leave stopped (data kept)
+      </label>
+      <label class="flex items-center gap-2">
+        <input type="radio" name="leftover" value="down">
+        <code>compose down</code> (volumes kept)
+      </label>
+    </fieldset>
     <button type="submit" class="btn btn-accent min-h-11 text-sm">Move service</button>
   </form>
   {% else %}
