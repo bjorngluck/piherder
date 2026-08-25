@@ -1,0 +1,180 @@
+"""Rsync trees host ↔ herder for service migrate (v1.4 M3)."""
+from __future__ import annotations
+
+import logging
+import shlex
+import subprocess
+from pathlib import Path
+from typing import Callable, Optional
+
+from ...models import Server
+from ..backup import _build_rsync_ssh_cmd, _remote_rsync_path
+from ..ssh import get_private_key_plain, get_ssh_client, run_command, temp_key_file
+
+logger = logging.getLogger(__name__)
+
+LogFn = Callable[[str], None]
+
+
+class CopyError(Exception):
+    pass
+
+
+def _log(log: Optional[LogFn], msg: str) -> None:
+    if log:
+        log(msg)
+    else:
+        logger.info("[migrate-copy] %s", msg)
+
+
+def _ssh_rsync_cmd(key_path: str, server: Server) -> str:
+    port = int(getattr(server, "ssh_port", None) or 22)
+    base = _build_rsync_ssh_cmd(key_path)
+    if f"-p {port}" in base or "-p" in base.split():
+        return base
+    return f"{base} -p {port}"
+
+
+def rsync_host_to_herder(
+    server: Server,
+    remote_path: str,
+    local_dir: Path,
+    *,
+    log: Optional[LogFn] = None,
+) -> None:
+    """Pull remote directory contents into local_dir (trailing slash)."""
+    remote = (remote_path or "").rstrip("/") + "/"
+    local_dir.mkdir(parents=True, exist_ok=True)
+    dest = str(local_dir).rstrip("/") + "/"
+    priv = get_private_key_plain(server)
+    if not priv:
+        raise CopyError("No SSH private key on source")
+    user = server.ssh_username or "pi"
+    client = get_ssh_client(server)
+    try:
+        rsync_path = _remote_rsync_path(client, user)
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+    with temp_key_file(priv) as key_path:
+        ssh_cmd = _ssh_rsync_cmd(key_path, server)
+        cmd = [
+            "rsync",
+            "-aHz",
+            "--numeric-ids",
+            "-e",
+            ssh_cmd,
+            "--rsync-path",
+            rsync_path,
+            f"{user}@{server.hostname}:{remote}",
+            dest,
+        ]
+        _log(log, f"rsync ← {server.name}:{remote}")
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=7200)
+        if proc.returncode != 0:
+            err = (proc.stderr or proc.stdout or "rsync failed")[:500]
+            raise CopyError(f"pull {remote}: {err}")
+
+
+def rsync_herder_to_host(
+    server: Server,
+    local_dir: Path,
+    remote_path: str,
+    *,
+    log: Optional[LogFn] = None,
+) -> None:
+    """Push local_dir contents to remote_path."""
+    local = str(local_dir).rstrip("/") + "/"
+    if not Path(local_dir).is_dir():
+        raise CopyError(f"staging missing: {local_dir}")
+    remote = (remote_path or "").rstrip("/") + "/"
+    priv = get_private_key_plain(server)
+    if not priv:
+        raise CopyError("No SSH private key on dest")
+    user = server.ssh_username or "pi"
+    client = get_ssh_client(server)
+    try:
+        rsync_path = _remote_rsync_path(client, user)
+        q = shlex.quote(remote.rstrip("/"))
+        run_command(client, f"mkdir -p {q}", timeout=30)
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+    with temp_key_file(priv) as key_path:
+        ssh_cmd = _ssh_rsync_cmd(key_path, server)
+        cmd = [
+            "rsync",
+            "-aHz",
+            "--numeric-ids",
+            "-e",
+            ssh_cmd,
+            "--rsync-path",
+            rsync_path,
+            local,
+            f"{user}@{server.hostname}:{remote}",
+        ]
+        _log(log, f"rsync → {server.name}:{remote}")
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=7200)
+        if proc.returncode != 0:
+            err = (proc.stderr or proc.stdout or "rsync failed")[:500]
+            raise CopyError(f"push {remote}: {err}")
+
+
+def _volume_mountpoint(server: Server, volume: str) -> str:
+    client = get_ssh_client(server)
+    try:
+        st, out, err = run_command(
+            client,
+            "docker volume inspect "
+            + shlex.quote(volume)
+            + " --format '{{.Mountpoint}}'",
+            timeout=30,
+        )
+        mp = (out or "").strip()
+        if st != 0 or not mp or ".." in mp:
+            raise CopyError(f"volume inspect {volume}: {(err or out or 'no mountpoint')[:300]}")
+        return mp
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+def copy_named_volume(
+    source: Server,
+    dest: Server,
+    volume: str,
+    staging: Path,
+    *,
+    log: Optional[LogFn] = None,
+) -> None:
+    """Copy a named Docker volume via herder staging (rsync volume Mountpoint)."""
+    name = (volume or "").strip()
+    if not name or "/" in name or ".." in name:
+        raise CopyError(f"invalid volume name: {volume!r}")
+    local = staging / "volumes" / name
+    local.mkdir(parents=True, exist_ok=True)
+    src_mp = _volume_mountpoint(source, name)
+    _log(log, f"volume {name}: pull {src_mp}")
+    rsync_host_to_herder(source, src_mp, local, log=log)
+    dest_client = get_ssh_client(dest)
+    try:
+        st, out, err = run_command(
+            dest_client, f"docker volume create {shlex.quote(name)}", timeout=60
+        )
+        if st != 0:
+            raise CopyError(f"volume create {name}: {(err or out or 'failed')[:300]}")
+    finally:
+        try:
+            dest_client.close()
+        except Exception:
+            pass
+    dest_mp = _volume_mountpoint(dest, name)
+    _log(log, f"volume {name}: push {dest_mp}")
+    rsync_herder_to_host(dest, local, dest_mp, log=log)
+

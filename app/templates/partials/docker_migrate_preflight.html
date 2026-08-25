@@ -6,7 +6,7 @@
     <span class="status-pill {% if result.ok %}status-success{% else %}status-failed{% endif %}">
       {% if result.ok %}Ready for copy{% else %}Cannot move yet{% endif %}
     </span>
-    <span class="text-xs text-muted">Copy job is not in this slice (M3).</span>
+    <span class="text-xs text-muted">{% if result.ok %}Stop → copy → dest up. DNS/NPM next.{% else %}Fix blocks before copy.{% endif %}</span>
   </div>
 
   <p class="text-sm mb-3">
@@ -66,9 +66,24 @@
   </ul>
   {% endif %}
 
+  {% if result.ok %}
+  <form method="post"
+        action="/servers/{{ server.id }}/docker/migrate"
+        data-job-hold="Move {{ result.project }}"
+        data-confirm="This stops the stack on {{ result.source.name }}, copies the dataset via the herder, then starts it on {{ result.dest.name }}. Planned downtime. DNS/NPM is not flipped yet."
+        data-confirm-title="Move {{ result.project }}?"
+        data-confirm-label="Move service"
+        data-confirm-danger
+        data-testid="migrate-start-form">
+    <input type="hidden" name="project" value="{{ result.project }}">
+    <input type="hidden" name="dest" value="{{ result.dest.id }}">
+    <button type="submit" class="btn btn-accent min-h-11 text-sm">Move service</button>
+  </form>
+  {% else %}
   <button type="button" class="btn btn-accent min-h-11 text-sm" disabled
-          title="Stop + copy lands in the next slice">
+          title="Fix preflight blocks first">
     Move service
   </button>
+  {% endif %}
 </div>
 {% endif %}

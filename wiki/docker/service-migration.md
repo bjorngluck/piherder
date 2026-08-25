@@ -1,7 +1,7 @@
-# Move a service (host lock + preflight)
+# Move a service
 
 !!! note "Availability"
-    **Host lock** ships on `v1.4.0-dev` (will be **v1.4.0**). **Move** preflight is behind `PIHERDER_SERVICE_MIGRATE` (default **off**). Stop-first **copy** is not in this slice yet — the wizard stops at preview.
+    **Host lock**, **preflight**, and **stop → copy → dest up** ship on `v1.4.0-dev` (will be **v1.4.0**). Move is behind `PIHERDER_SERVICE_MIGRATE` (default **off**). **DNS / NPM retarget is not in this slice yet** — names still point at the source until that lands.
 
 ## What this is
 
@@ -29,7 +29,7 @@ Audit: `service_host_lock` / `service_host_unlock` (project, reason, note — no
 
 Use lock for Frigate + Coral, USB gadgets, or anything you must not relocate by accident.
 
-## Move wizard (preflight only)
+## Move wizard
 
 Master enable: `PIHERDER_SERVICE_MIGRATE=true` in `.env`, then recreate **web**. Default **off**. Public demo never opens Move. Viewer **403**.
 
@@ -37,7 +37,9 @@ Master enable: `PIHERDER_SERVICE_MIGRATE=true` in `.env`, then recreate **web**.
 2. **⋯** → **Move to another host…**  
 3. Pick a destination (other hosts with **Docker / containers** on; HAOS and the source are excluded).  
 4. Preflight lists **blocks** (hard stop) and **warnings**.  
-5. **Move service** stays disabled until the copy job ships.
+5. If green, **Move service** confirms downtime, then a **Job** stops the source, copies via the herder (`/backups/_migrate/{job_id}`), and `docker compose up -d` on dest. Source is left **stopped** with data intact.
+
+Named Docker volumes copy as **rsync of the volume Mountpoint** (same privilege as backing up `/var/lib/docker/volumes`). Relative binds ride with the project tree. Absolute binds **outside** the docker base dir are a preflight block, not a silent copy.
 
 Audit on open: `service_migrate_preview`.
 
@@ -73,9 +75,8 @@ Direct TLS rows (`via_proxy` off): preview is **CNAME → dest DNS name**. NPM-f
 
 ## What it does not do yet
 
-- Stop source, rsync dataset, dest `up -d`  
-- Flip DNS / restart both Pi-holes / rewrite NPM backend  
-- Auto-rollback, live (zero-downtime) copy, cross-arch rebuild  
+- Flip DNS / restart both Pi-holes / rewrite NPM `forward_host`  
+- Auto-rollback, live (zero-downtime) copy, cross-arch image rebuild  
 - Moving PiHerder itself, or the Pi-hole you are using to migrate  
 
 ## Related

@@ -34,20 +34,29 @@ Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATIO
 - [ ] Viewer POST 403  
 - [ ] Audit `service_host_lock` / `service_host_unlock` (no PEM / `.env` bodies)
 
-## M2 — Preflight (landed, no copy)
+## M2 — Preflight (landed)
 
 - [ ] Flag **off** → Move 404; lock still works  
 - [ ] Flag **on** → ⋯ **Move to another host…** (unlocked project)  
 - [ ] Dest picker: other Docker hosts only  
 - [ ] Blocks: dest project name taken, port clash, dest without DNS name (direct CNAME), `via_proxy` unmatched NPM cache, busy backup on dest  
 - [ ] Warnings: `/dev` mounts, Cloudflare checklist  
-- [ ] **Move service** disabled (“copy is next”)  
 - [ ] Viewer 403; demo no wizard  
 - [ ] Audit `service_migrate_preview`
 
+## M3 / M5 — Copy + dest up (landed; DNS later)
+
+- [ ] Flag **on**, green preflight → confirm **Move service** → JobHold  
+- [ ] Job `service_migrate`: stop source → herder rsync (`/backups/_migrate/{job_id}`) → dest `up -d`  
+- [ ] Named volume data present on dest (Mountpoint rsync)  
+- [ ] Source left **stopped**, files still on disk  
+- [ ] Concurrent backup/stack/migrate on source **or dest** → 409  
+- [ ] Viewer POST 403; demo does not copy  
+- [ ] Names still point at source (M4 / M-npm not in this slice)
+
 ## Must (later slices)
 
-- [ ] **M3–M7** Direct migrate (Grafana/Authentik-class)  
+- [ ] **M4 / M6 / M7** Direct migrate name follow + TLS/Kuma + rebind  
 - [ ] **M-npm** NPM-fronted migrate (`forward_host` updates; CNAME stays on NPM)  
 - [ ] **M8** leftover `compose down` keep volumes  
 - [ ] **M9** `devices:` warning + lock-or-acknowledge on confirm  

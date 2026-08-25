@@ -797,6 +797,69 @@ async def docker_migrate_preflight(
     )
 
 
+@router.post("/{server_id}/docker/migrate")
+async def docker_migrate_start(
+    request: Request,
+    server_id: int,
+    background_tasks: BackgroundTasks,
+    project: str = Form(...),
+    dest: str = Form(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    _require_migrate_surface()
+    from ..services import jobs as job_service
+
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        dest_id = int((dest or "").strip() or "0")
+    except ValueError:
+        dest_id = 0
+    dest_server = session.get(Server, dest_id) if dest_id else None
+    if not dest_server:
+        raise HTTPException(400, "destination required")
+    try:
+        job = job_service.enqueue_service_migrate(
+            server_id,
+            dest_id,
+            project,
+            user_id=user.id if user else None,
+            background_tasks=background_tasks,
+        )
+    except job_service.JobAlreadyActive as e:
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse(
+                {
+                    "job_id": e.job.id,
+                    "status": e.job.status,
+                    "job_type": "service_migrate",
+                    "already_active": True,
+                },
+                status_code=409,
+            )
+        raise HTTPException(409, "A stack or backup job is already running on source or dest") from e
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    except host_lock_svc.HostLockError as e:
+        raise HTTPException(e.status_code, e.message) from e
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse(
+            {
+                "job_id": job.id,
+                "status": job.status,
+                "job_type": "service_migrate",
+                "project": project,
+                "already_active": False,
+            }
+        )
+    return RedirectResponse(
+        f"/jobs?highlight={job.id}",
+        status_code=303,
+    )
+
+
 @router.post("/{server_id}/docker/check-updates")
 async def check_updates(
     request: Request,

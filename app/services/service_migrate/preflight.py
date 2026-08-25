@@ -18,6 +18,7 @@ from .host_lock import compose_project_name, lock_state
 
 _IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 _DEV_HINT = re.compile(r"/dev/(apex|bus/usb|dri|kfd|nvidia)", re.I)
+_VOL_DATA_RE = re.compile(r"^/var/lib/docker/volumes/([^/]+)/_data/?$")
 
 STACK_BUSY_TYPES = frozenset(
     {
@@ -33,6 +34,40 @@ STACK_BUSY_TYPES = frozenset(
 )
 DISK_MARGIN_MIN = 512 * 1024 * 1024  # 512 MiB
 DISK_MARGIN_RATIO = 0.15
+
+
+def named_volume_id(*, source: str = "", mtype: str = "", name: str = "") -> Optional[str]:
+    """Docker named volume from inspect Type/Name or volume-store Source path."""
+    n = (name or "").strip()
+    t = (mtype or "").strip().lower()
+    if t == "volume" and n and "/" not in n and ".." not in n:
+        return n
+    m = _VOL_DATA_RE.match((source or "").strip())
+    if m:
+        vol = m.group(1)
+        if vol and "/" not in vol and ".." not in vol:
+            return vol
+    return None
+
+
+def _mount_source_from_line(line: str) -> str:
+    s = str(line).strip()
+    if "→" in s:
+        s = s.split("→", 1)[0].strip()
+    if ":" in s:
+        s = s.split(":", 1)[0].strip()
+    return s
+
+
+def _job_dest_server_id(job: Job) -> Optional[int]:
+    try:
+        data = json.loads(job.details or "{}") or {}
+        v = data.get("dest_server_id")
+        if v is None:
+            return None
+        return int(v)
+    except Exception:
+        return None
 
 
 def _item(cid: str, message: str, **extra: Any) -> dict[str, Any]:
@@ -84,14 +119,25 @@ def eligible_destinations(session: Session, source: Server) -> list[Server]:
 
 
 def _busy_jobs(session: Session, server_id: int) -> list[Job]:
-    return list(
+    sid = int(server_id or 0)
+    rows = list(
         session.exec(
             select(Job)
-            .where(Job.server_id == server_id)
+            .where(Job.server_id == sid)
             .where(Job.job_type.in_(list(STACK_BUSY_TYPES)))
             .where(Job.status.in_(["pending", "running"]))
         ).all()
     )
+    others = session.exec(
+        select(Job)
+        .where(Job.job_type == "service_migrate")
+        .where(Job.status.in_(["pending", "running"]))
+        .where(Job.server_id != sid)
+    ).all()
+    for job in others:
+        if _job_dest_server_id(job) == sid:
+            rows.append(job)
+    return rows
 
 
 def _dns_rows(session: Session, source_id: int, project: str) -> list[ServiceDnsRecord]:
@@ -155,16 +201,31 @@ def _dataset_from_project(project_row: Optional[dict[str, Any]], docker_base: st
             for m in detail:
                 if not isinstance(m, dict):
                     continue
-                src = str(m.get("source") or "").strip()
+                src = str(m.get("source") or m.get("name") or "").strip()
                 if not src or src in seen:
                     continue
                 seen.add(src)
-                mode, _ = classify_volume_source(src)
                 b = m.get("size_bytes")
                 if b is None:
                     known = False
                 else:
                     total += int(b)
+                vol = named_volume_id(
+                    source=src,
+                    mtype=str(m.get("type") or ""),
+                    name=str(m.get("name") or ""),
+                )
+                if vol:
+                    items.append(
+                        {
+                            "source": src,
+                            "kind": "named",
+                            "volume": vol,
+                            "bytes": int(b) if b is not None else None,
+                        }
+                    )
+                    continue
+                mode, _ = classify_volume_source(src)
                 items.append(
                     {
                         "source": src,
@@ -177,10 +238,15 @@ def _dataset_from_project(project_row: Optional[dict[str, Any]], docker_base: st
                         outside.append(src)
             continue
         for line in c.get("mounts_list") or []:
-            src = str(line).split(":", 1)[0].strip()
+            src = _mount_source_from_line(str(line))
             if not src or src in seen:
                 continue
             seen.add(src)
+            vol = named_volume_id(source=src)
+            if vol:
+                known = False
+                items.append({"source": src, "kind": "named", "volume": vol, "bytes": None})
+                continue
             mode, _ = classify_volume_source(src)
             known = False
             items.append({"source": src, "kind": mode, "bytes": None})

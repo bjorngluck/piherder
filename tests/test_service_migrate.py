@@ -1,7 +1,8 @@
-"""v1.4 Stream M — host lock (M1) + preflight (M2). No live SSH."""
+"""v1.4 Stream M — host lock, preflight, copy job. No live SSH."""
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -309,19 +310,23 @@ def test_http_lock_rejects_path_project(lock_client):
     assert "error=host_lock" in (r.headers.get("location") or "")
 
 
-def _inv(*names, ports=None, mounts=None):
+def _inv(*names, ports=None, mounts=None, extra=None, mounts_detail=None):
     containers = []
-    if ports or mounts:
-        containers.append(
-            {
-                "name": "web",
-                "running": True,
-                "ports_display": ports or "",
-                "mounts_list": mounts or [],
-            }
-        )
+    if ports or mounts or mounts_detail:
+        row = {
+            "name": "web",
+            "running": True,
+            "ports_display": ports or "",
+            "mounts_list": mounts or [],
+        }
+        if mounts_detail:
+            row["mounts_detail"] = mounts_detail
+        containers.append(row)
     projects = [{"name": n, "containers": list(containers)} for n in names]
-    return json.dumps({"v": 2, "projects": projects})
+    payload = {"v": 2, "projects": projects}
+    if extra:
+        payload["projects"][0].update(extra)
+    return json.dumps(payload)
 
 
 def test_preflight_blocks_haos_and_same_host(lock_db):
@@ -600,252 +605,208 @@ def test_http_migrate_viewer_403(lock_client, monkeypatch):
     assert r.status_code == 403
 
 
-
-def _inv(*names, ports=None, mounts=None, extra=None):
-    containers = []
-    if ports or mounts:
-        containers.append(
-            {
-                "name": "web",
-                "running": True,
-                "ports_display": ports or "",
-                "mounts_list": mounts or [],
-            }
-        )
-    projects = [{"name": n, "containers": list(containers)} for n in names]
-    payload = {"v": 2, "projects": projects}
-    if extra:
-        payload["projects"][0].update(extra)
-    return json.dumps(payload)
-
-
-def test_preflight_blocks_haos_and_same_host(lock_db):
-    src = Server(name="a", hostname="a.local", container_patch_enabled=True, os_type="debian")
-    ha = Server(name="ha", hostname="ha.local", container_patch_enabled=True, os_type="haos")
-    lock_db.add(src)
-    lock_db.add(ha)
-    lock_db.commit()
-    lock_db.refresh(src)
-    lock_db.refresh(ha)
-    src.docker_inventory_json = _inv("grafana")
-    lock_db.add(src)
-    lock_db.commit()
-    r = pf.run_preflight(lock_db, source=src, dest=ha, project="grafana")
-    ids = {b["id"] for b in r["blocks"]}
-    assert "haos_dest" in ids
-    r2 = pf.run_preflight(lock_db, source=src, dest=src, project="grafana")
-    assert any(b["id"] == "same_host" for b in r2["blocks"])
-
-
-def test_preflight_dest_docker_off_and_project_exists(lock_db):
-    src = Server(name="a", hostname="a.local", container_patch_enabled=True)
-    dest = Server(name="b", hostname="b.local", container_patch_enabled=False)
-    dest2 = Server(name="c", hostname="c.local", container_patch_enabled=True)
-    lock_db.add(src)
-    lock_db.add(dest)
-    lock_db.add(dest2)
-    lock_db.commit()
-    lock_db.refresh(src)
-    lock_db.refresh(dest)
-    lock_db.refresh(dest2)
-    src.docker_inventory_json = _inv("grafana")
-    dest2.docker_inventory_json = _inv("grafana")
-    lock_db.add(src)
-    lock_db.add(dest2)
-    lock_db.commit()
-    r = pf.run_preflight(lock_db, source=src, dest=dest, project="grafana")
-    assert any(b["id"] == "dest_docker_off" for b in r["blocks"])
-    r2 = pf.run_preflight(lock_db, source=src, dest=dest2, project="grafana")
-    assert any(b["id"] == "dest_project_exists" for b in r2["blocks"])
-
-
-def test_preflight_host_lock_and_arch(lock_db):
-    src = Server(name="a", hostname="a.local", container_patch_enabled=True)
-    dest = Server(name="b", hostname="b.local", container_patch_enabled=True)
-    lock_db.add(src)
-    lock_db.add(dest)
-    lock_db.commit()
-    lock_db.refresh(src)
-    lock_db.refresh(dest)
-    src.docker_inventory_json = _inv("frigate")
-    lock_db.add(src)
-    lock_db.commit()
-    hl.set_host_lock(lock_db, src, "frigate", reason="hardware", note="TPU")
-    lock_db.commit()
-    r = pf.run_preflight(
-        lock_db,
-        source=src,
-        dest=dest,
-        project="frigate",
-        source_facts={"arch": "aarch64"},
-        dest_facts={"arch": "x86_64", "docker_base_writable": True, "disk_free_bytes": 10**12},
-    )
-    ids = {b["id"] for b in r["blocks"]}
-    assert "host_lock" in ids
-    assert "arch_mismatch" in ids
-
-
-def test_preflight_ports_dns_npm_busy(lock_db):
+def test_preflight_named_volume_not_outside_jail(lock_db):
     src = Server(
         name="a",
         hostname="a.local",
         container_patch_enabled=True,
-        dns_name="a.example.test",
+        docker_base_dir="/home/pi/docker",
+        ssh_username="pi",
     )
     dest = Server(
         name="b",
         hostname="b.local",
         container_patch_enabled=True,
-        dns_name="",
+        dns_name="b.test",
+        docker_base_dir="/home/pi/docker",
+        ssh_username="pi",
     )
-    lock_db.add(src)
-    lock_db.add(dest)
-    lock_db.commit()
-    lock_db.refresh(src)
-    lock_db.refresh(dest)
-    src.docker_inventory_json = _inv("app", ports="8080→80/tcp")
-    dest.docker_inventory_json = _inv("other", ports="8080:80/tcp")
-    # parse_published_ports needs host port — use arrow form on dest too
-    dest.docker_inventory_json = _inv("other", ports="8080→80/tcp")
-    lock_db.add(src)
-    lock_db.add(dest)
-    rec = ServiceDnsRecord(
-        fqdn="app.example.test",
-        target_server_id=src.id,
-        backend_server_id=src.id,
-        docker_project="app",
-        via_proxy=False,
-        external_dns_status="checklist",
-    )
-    rec2 = ServiceDnsRecord(
-        fqdn="via.example.test",
-        target_server_id=src.id,
-        backend_server_id=src.id,
-        docker_project="app",
-        via_proxy=True,
-        external_dns_status="done",
-    )
-    lock_db.add(rec)
-    lock_db.add(rec2)
-    job = Job(
-        server_id=dest.id,
-        job_type="backup",
-        status="running",
-        details="{}",
-    )
-    lock_db.add(job)
-    lock_db.commit()
-    r = pf.run_preflight(
-        lock_db,
-        source=src,
-        dest=dest,
-        project="app",
-        source_facts={"arch": "aarch64"},
-        dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
-    )
-    ids = {b["id"] for b in r["blocks"]}
-    assert "port_clash" in ids
-    assert "dest_dns_name" in ids
-    assert "npm_missing" in ids
-    assert "busy_dest" in ids
-    assert any(w["id"] == "external_dns" for w in r["warns"])
-    dests = pf.eligible_destinations(lock_db, src)
-    assert [d.id for d in dests] == [dest.id]
-
-
-def test_preflight_npm_unmatched_and_devices(lock_db):
-    src = Server(name="a", hostname="a.local", container_patch_enabled=True, dns_name="a.test")
-    dest = Server(name="b", hostname="b.local", container_patch_enabled=True, dns_name="b.test")
     lock_db.add(src)
     lock_db.add(dest)
     lock_db.commit()
     lock_db.refresh(src)
     lock_db.refresh(dest)
     src.docker_inventory_json = _inv(
-        "cam",
-        mounts=["/dev/apex_0:/dev/apex_0", "./data:/data"],
+        "grafana",
+        mounts_detail=[
+            {
+                "source": "/var/lib/docker/volumes/grafana_data/_data",
+                "destination": "/var/lib/grafana",
+                "type": "volume",
+                "name": "grafana_data",
+                "size_bytes": 4096,
+            }
+        ],
     )
     lock_db.add(src)
-    npm = Integration(
-        type="npm",
-        name="edge",
-        base_url="http://npm.test",
-        enabled=True,
-        last_status_json=json.dumps(
-            {"ok": True, "proxy_hosts": [{"id": "1", "domain_names": ["other.test"], "forward_host": "10.0.0.1"}]}
-        ),
-    )
-    lock_db.add(npm)
-    rec = ServiceDnsRecord(
-        fqdn="cam.example.test",
-        target_server_id=src.id,
-        backend_server_id=src.id,
-        docker_project="cam",
-        via_proxy=True,
-        external_dns_status="done",
-    )
-    lock_db.add(rec)
-    bind = IntegrationBinding(
-        integration_id=1,
-        server_id=src.id,
-        role="service",
-        docker_project="cam",
-        external_id="9",
-        external_label="http://10.1.2.3:5000",
-    )
-    lock_db.add(bind)
-    lock_db.commit()
-    # fix binding FK after npm id known
-    lock_db.refresh(npm)
-    bind.integration_id = npm.id
-    lock_db.add(bind)
     lock_db.commit()
     r = pf.run_preflight(
         lock_db,
         source=src,
         dest=dest,
-        project="cam",
+        project="grafana",
         source_facts={"arch": "aarch64"},
         dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+        herder_free=10**12,
     )
-    ids = {b["id"] for b in r["blocks"]}
-    assert "npm_unmatched" in ids
-    assert any(w["id"] == "devices" for w in r["warns"])
-    assert any(w["id"] == "kuma_ip" for w in r["warns"])
+    assert "bind_outside_jail" not in {b["id"] for b in r["blocks"]}
+    named = [i for i in r["dataset"]["items"] if i["kind"] == "named"]
+    assert named and named[0]["volume"] == "grafana_data"
 
 
-def test_http_migrate_flag_off_404(lock_client, monkeypatch):
-    monkeypatch.setattr(hl, "migrate_surface_allowed", lambda: False)
+def test_preflight_busy_dest_as_migrate_target(lock_db):
+    src = Server(name="a", hostname="a.local", container_patch_enabled=True, dns_name="a.test")
+    dest = Server(name="b", hostname="b.local", container_patch_enabled=True, dns_name="b.test")
+    other = Server(name="c", hostname="c.local", container_patch_enabled=True)
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.add(other)
+    lock_db.commit()
+    lock_db.refresh(src)
+    lock_db.refresh(dest)
+    lock_db.refresh(other)
+    src.docker_inventory_json = _inv("grafana")
+    lock_db.add(src)
+    lock_db.add(
+        Job(
+            server_id=other.id,
+            job_type="service_migrate",
+            status="running",
+            details=json.dumps({"dest_server_id": dest.id}),
+        )
+    )
+    lock_db.commit()
+    r = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="grafana",
+        source_facts={"arch": "aarch64"},
+        dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+        herder_free=10**12,
+    )
+    assert any(b["id"] == "busy_dest" for b in r["blocks"])
+
+
+def test_copy_rejects_bad_volume_name(tmp_path):
+    from app.services.service_migrate.copy import CopyError, copy_named_volume
+
+    src = Server(name="a", hostname="a.local")
+    dest = Server(name="b", hostname="b.local")
+    with pytest.raises(CopyError):
+        copy_named_volume(src, dest, "../etc", tmp_path)
+    with pytest.raises(CopyError):
+        copy_named_volume(src, dest, "foo/bar", tmp_path)
+
+
+def test_pipeline_copy_and_start_mocked(lock_db, tmp_path, monkeypatch):
+    from app.services.service_migrate.pipeline import run_copy_and_start
+
+    src = Server(
+        name="a",
+        hostname="a.local",
+        container_patch_enabled=True,
+        docker_base_dir="/home/pi/docker",
+        ssh_username="pi",
+    )
+    dest = Server(
+        name="b",
+        hostname="b.local",
+        container_patch_enabled=True,
+        dns_name="b.test",
+        docker_base_dir="/home/pi/docker",
+        ssh_username="pi",
+    )
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    lock_db.refresh(src)
+    lock_db.refresh(dest)
+    src.docker_inventory_json = _inv(
+        "grafana",
+        mounts_detail=[
+            {
+                "source": "/var/lib/docker/volumes/grafana_data/_data",
+                "destination": "/var/lib/grafana",
+                "type": "volume",
+                "name": "grafana_data",
+            },
+            {
+                "source": "/home/pi/docker/extra-bind",
+                "destination": "/extra",
+                "type": "bind",
+            },
+        ],
+    )
+    lock_db.add(src)
+    lock_db.commit()
     monkeypatch.setattr(
-        "app.services.service_migrate.host_lock.migrate_surface_allowed",
-        lambda: False,
+        "app.services.service_migrate.pipeline.staging_root",
+        lambda job_id: tmp_path / str(job_id),
     )
-    client, ids, _engine = lock_client
-    r = client.get(
-        f"/servers/{ids['pi']}/docker/migrate?project=grafana",
-        cookies=_cookie(ids["admin"]),
-        follow_redirects=False,
+    pulls, pushes, vols, stops, ups = [], [], [], [], []
+
+    def pull(server, remote, local, log=None):
+        pulls.append((server.id, remote, str(local)))
+        Path(local).mkdir(parents=True, exist_ok=True)
+
+    def push(server, local, remote, log=None):
+        pushes.append((server.id, str(local), remote))
+
+    def vol(source, dest, volume, staging, log=None):
+        vols.append(volume)
+
+    def stop(srv, path):
+        stops.append((srv.id, path))
+        return {"success": True}
+
+    def up(srv, path):
+        ups.append((srv.id, path))
+        return {"success": True}
+
+    r = run_copy_and_start(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="grafana",
+        job_id=9,
+        source_facts={"arch": "aarch64"},
+        dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+        herder_free=10**12,
+        pull_fn=pull,
+        push_fn=push,
+        vol_fn=vol,
+        stop_fn=stop,
+        up_fn=up,
     )
-    assert r.status_code == 404
+    assert r["ok"] is True
+    assert stops and stops[0][0] == src.id
+    assert ups and ups[0][0] == dest.id
+    assert "grafana_data" in vols
+    assert any("grafana" in p[1] for p in pulls)
+    assert any("grafana" in p[2] for p in pushes)
+    assert any("extra-bind" in p[1] for p in pulls)
 
 
-def test_http_migrate_wizard_and_preflight(lock_client, monkeypatch):
+def test_http_migrate_start_queues_job(lock_client, monkeypatch):
     monkeypatch.setattr(
         "app.routers.server_docker.host_lock_svc.migrate_surface_allowed",
         lambda: True,
     )
-    monkeypatch.setattr(
-        "app.services.service_migrate.facts.probe_host_facts",
-        lambda server: {
-            "arch": "aarch64",
-            "disk_free_bytes": 10**12,
-            "docker_base_writable": True,
-        },
-    )
-    monkeypatch.setattr(
-        "app.services.service_migrate.facts.herder_free_bytes",
-        lambda: 10**12,
-    )
+
+    class FakeJob:
+        id = 77
+        status = "pending"
+
+    captured = {}
+
+    def fake_enqueue(source_id, dest_id, project, **kwargs):
+        captured["source_id"] = source_id
+        captured["dest_id"] = dest_id
+        captured["project"] = project
+        return FakeJob()
+
+    monkeypatch.setattr("app.services.jobs.enqueue_service_migrate", fake_enqueue)
     client, ids, engine = lock_client
     with Session(engine) as s:
         other = Server(
@@ -858,40 +819,29 @@ def test_http_migrate_wizard_and_preflight(lock_client, monkeypatch):
             dns_name="pi2.example.test",
         )
         s.add(other)
-        pi = s.get(Server, ids["pi"])
-        pi.container_patch_enabled = True
-        pi.docker_inventory_json = _inv("grafana")
-        s.add(pi)
         s.commit()
         s.refresh(other)
         dest_id = other.id
-    r = client.get(
-        f"/servers/{ids['pi']}/docker/migrate?project=grafana",
+    r = client.post(
+        f"/servers/{ids['pi']}/docker/migrate",
+        data={"project": "grafana", "dest": str(dest_id)},
         cookies=_cookie(ids["admin"]),
+        headers={"X-PiHerder-Async": "1"},
         follow_redirects=False,
     )
-    assert r.status_code == 200
-    assert "Move grafana" in r.text
-    assert 'data-testid="migrate-dest"' in r.text
-    r2 = client.get(
-        f"/servers/{ids['pi']}/docker/migrate/preflight?project=grafana&dest={dest_id}",
-        cookies=_cookie(ids["admin"]),
-        follow_redirects=False,
-    )
-    assert r2.status_code == 200
-    assert 'data-testid="migrate-preflight-result"' in r2.text
-
-
-def test_http_migrate_viewer_403(lock_client, monkeypatch):
-    monkeypatch.setattr(
-        "app.routers.server_docker.host_lock_svc.migrate_surface_allowed",
-        lambda: True,
-    )
-    client, ids, _engine = lock_client
-    r = client.get(
-        f"/servers/{ids['pi']}/docker/migrate?project=grafana",
+    assert r.status_code == 200, r.text[:2000]
+    body = r.json()
+    assert body["job_id"] == 77
+    assert body["job_type"] == "service_migrate"
+    assert captured["source_id"] == ids["pi"]
+    assert captured["dest_id"] == dest_id
+    assert captured["project"] == "grafana"
+    r_v = client.post(
+        f"/servers/{ids['pi']}/docker/migrate",
+        data={"project": "grafana", "dest": str(dest_id)},
         cookies=_cookie(ids["viewer"]),
+        headers={"X-PiHerder-Async": "1"},
         follow_redirects=False,
     )
-    assert r.status_code == 403
+    assert r_v.status_code == 403
 

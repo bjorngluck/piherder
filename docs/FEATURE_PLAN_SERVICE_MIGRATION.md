@@ -280,11 +280,11 @@ Viewer: 403. Demo: disabled or fake preview.
 | Phase | Name | Priority | Status |
 |-------|------|----------|--------|
 | **M0** | Discovery + this plan | — | **Done** 2026-08-17 |
-| **M1** | Host lock model + UI | Must | Landing |
-| **M2** | Preflight (no copy) | Must | Landing |
-| **M3** | Stop + stage + copy | Must | Planned |
+| **M1** | Host lock model + UI | Must | **Done** |
+| **M2** | Preflight (no copy) | Must | **Done** |
+| **M3** | Stop + stage + copy | Must | **Done** (Mountpoint rsync) |
 | **M4** | Fabric upsert + both `restartdns` | Must | Planned |
-| **M5** | Start dest (`compose up -d`) | Must | Planned |
+| **M5** | Start dest (`compose up -d`) | Must | **Done** (with M3 job) |
 | **M6** | Validate TLS / Kuma | Must when rows exist | Planned |
 | **M7** | Control-plane rebind | Must | Planned |
 | **M8** | Source leftover `compose down` | Must | Planned |
@@ -396,7 +396,7 @@ Two recipes. Prefer **B** if the fleet identity can run it without password sudo
 | Risk | Path jail + dest volume name collision | Image pull of helper; pipe size through herder |
 | Lean | Fallback if docker run is refused | **Prefer** if sudo-less |
 
-Lab: pick one Grafana (named vol) and one bind-heavy stack. Record the winner here before M3 lands. Default until lab: **B then A**.
+**v1.4.0-dev decision (2026-08-25):** ship **A — rsync volume Mountpoint** (`docker volume inspect … Mountpoint`, typically `/var/lib/docker/volumes/NAME/_data`). Same privilege as existing backup of the volume store. Recipe **B** (helper container tar) remains the fallback if a fleet identity cannot read `_data`.
 
 ---
 
@@ -419,3 +419,4 @@ An operator can:
 |------|------|
 | 2026-08-17 | Initial plan from operator pipeline + HAOS / Frigate lock. Discovery of existing compose, rsync, fabric, restartdns, TLS, Kuma primitives. Parked on **v1.4.0**. |
 | 2026-08-25 | Train open. Must = M1–M9 + M-npm + D-F. M-rm Should. ACME out. NPM backend PUT (not refuse `via_proxy`). Q2–Q6 locked. Preflight matrix + named-volume spike + NPM PUT contract recorded. |
+| 2026-08-25 | **M1** lock + **M2** preflight + **M3/M5** stop → herder rsync → dest `up -d`. Named volumes = Mountpoint rsync (recipe A). DNS/NPM still M4 / M-npm. |

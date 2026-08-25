@@ -65,6 +65,7 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "template_deploy",
         "template_redeploy",
         "template_drift_check",
+        "service_migrate",
     }
 )
 
@@ -77,6 +78,7 @@ _STACK_MUTATING_JOB_TYPES = frozenset(
         "docker_stack_restart",
         "template_deploy",
         "template_redeploy",
+        "service_migrate",
     }
 )
 
@@ -270,6 +272,7 @@ JOB_TYPE_LABELS = {
     "nmap_detailed": "Nmap detailed",
     "nmap_host_deep": "Nmap deep scan",
     "nmap_vuln_db_update": "Nmap vuln DB update",
+    "service_migrate": "Service migrate",
 }
 
 
@@ -2565,6 +2568,135 @@ def enqueue_docker_stack_lifecycle(
         return job
 
 
+def enqueue_service_migrate(
+    source_id: int,
+    dest_id: int,
+    project: str,
+    *,
+    user_id: int | None = None,
+    background_tasks: BackgroundTasks | None = None,
+) -> Job:
+    """Queue stop-first copy + dest up. Raises JobAlreadyActive if either host is busy."""
+    from ..service_migrate.host_lock import HostLockError, compose_project_name
+
+    try:
+        name = compose_project_name(project)
+    except HostLockError as e:
+        raise ValueError(e.message) from e
+    if int(source_id) == int(dest_id):
+        raise ValueError("destination must differ from source")
+    with _get_fresh_session() as session:
+        source = session.get(Server, source_id)
+        dest = session.get(Server, dest_id)
+        if not source or not dest:
+            raise ValueError("server not found")
+        for sid in (source_id, dest_id):
+            active = _active_stack_mutating_job(session, sid)
+            if not active:
+                active = _active_migrate_as_dest(session, sid)
+            if not active:
+                backups = get_active_backup_jobs(session, sid)
+                active = backups[0] if backups else None
+            if active:
+                session.expunge(active)
+                raise JobAlreadyActive(active)
+        job, audit = _create_queued_job_with_audit(
+            session,
+            server_id=source.id,
+            job_type="service_migrate",
+            queue_message=f"Migrate {name} queued → {dest.name}…",
+            user_id=user_id,
+            audit_details=f"Job #{{job_id}} · migrate {name} → {dest.name}",
+            dest_server_id=dest.id,
+            dest_name=dest.name,
+            project=name,
+        )
+        jid, aid = job.id, audit.id
+    if background_tasks is not None:
+        background_tasks.add_task(
+            _run_service_migrate_job, jid, source_id, dest_id, name, aid
+        )
+    else:
+        _update_check_pool.submit(
+            _execute_service_migrate, jid, source_id, dest_id, name, aid
+        )
+    with _get_fresh_session() as session:
+        job = session.get(Job, jid)
+        if job:
+            session.expunge(job)
+        return job
+
+
+async def _run_service_migrate_job(
+    job_id: int, source_id: int, dest_id: int, project: str, audit_id: int
+):
+    await run_in_threadpool(
+        _execute_service_migrate, job_id, source_id, dest_id, project, audit_id
+    )
+
+
+def _execute_service_migrate(
+    job_id: int, source_id: int, dest_id: int, project: str, audit_id: int
+) -> None:
+    from ..service_migrate.facts import herder_free_bytes, probe_host_facts
+    from ..service_migrate.pipeline import MigrateError, run_copy_and_start, wipe_staging
+
+    source, hostname = _load_server_for_job(source_id)
+    dest, _ = _load_server_for_job(dest_id)
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="migrating",
+                log_line=f"Migrating {project}…",
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+    if not source or not dest:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "service_migrate")
+        return
+
+    def log_line(msg: str) -> None:
+        _flush_job_progress(job_id, "migrating", msg, default_current="migrating")
+
+    try:
+        with _get_fresh_session() as session:
+            src = session.get(Server, source_id)
+            dst = session.get(Server, dest_id)
+            if not src or not dst:
+                raise MigrateError("Server not found")
+            result = run_copy_and_start(
+                session,
+                source=src,
+                dest=dst,
+                project=project,
+                job_id=job_id,
+                source_facts=probe_host_facts(src),
+                dest_facts=probe_host_facts(dst),
+                herder_free=herder_free_bytes(),
+                log=log_line,
+            )
+        wipe_staging(job_id)
+        _finish(
+            audit_id,
+            job_id,
+            "success",
+            json.dumps({"ok": True, "project": project, "dest_id": dest_id}),
+            hostname,
+            "service_migrate",
+        )
+        log_line("Done.")
+        logger.info("[migrate] job %s ok %s", job_id, result)
+    except Exception as e:
+        logger.exception("service_migrate failed")
+        # Keep BACKUP_ROOT/_migrate/{job_id} on failure for operator retry.
+        _finish(audit_id, job_id, "failed", str(e)[:800], hostname, "service_migrate")
+
+
 def _execute_docker_stack_lifecycle(
     job_id: int,
     server_id: int,
@@ -2672,6 +2804,26 @@ def _active_stack_mutating_job(session: Session, server_id: int) -> Job | None:
         active = _active_job_of_type(session, server_id, jt)
         if active:
             return active
+    return None
+
+
+def _active_migrate_as_dest(session: Session, server_id: int) -> Job | None:
+    """Migrate jobs store Job.server_id = source; dest is in details JSON."""
+    sid = int(server_id)
+    rows = session.exec(
+        select(Job)
+        .where(Job.job_type == "service_migrate")
+        .where(Job.status.in_(["pending", "running"]))
+        .where(Job.server_id != sid)
+    ).all()
+    for job in rows:
+        try:
+            data = json.loads(job.details or "{}") or {}
+            dest = data.get("dest_server_id")
+            if dest is not None and int(dest) == sid:
+                return job
+        except Exception:
+            continue
     return None
 
 
