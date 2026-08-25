@@ -73,9 +73,16 @@ Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATIO
 - [ ] Optional leftover **`compose down`** (volumes kept)  
 - [ ] `/dev` warning requires acknowledge checkbox (or lock instead)
 
+## D-F — Demo simulated Files (landed)
+
+- [ ] Public demo: Files opens on a seeded host (viewer)  
+- [ ] Banner: simulated / no SFTP  
+- [ ] Browse folders, open README, image preview  
+- [ ] Upload / delete / zip refused  
+- [ ] Lab `PIHERDER_HOST_FILES` unchanged (real SFTP)
+
 ## Must (later slices)
 
-- [ ] **D-F** demo simulated Files (no SFTP)  
 - [ ] 1.3 regression (policy, Files, console, Reports)
 
 ## Should
