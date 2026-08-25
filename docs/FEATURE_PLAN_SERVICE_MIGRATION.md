@@ -280,7 +280,7 @@ Viewer: 403. Demo: disabled or fake preview.
 | Phase | Name | Priority | Status |
 |-------|------|----------|--------|
 | **M0** | Discovery + this plan | — | **Done** 2026-08-17 |
-| **M1** | Host lock model + UI | Must | Planned |
+| **M1** | Host lock model + UI | Must | Landing |
 | **M2** | Preflight (no copy) | Must | Planned |
 | **M3** | Stop + stage + copy | Must | Planned |
 | **M4** | Fabric upsert + both `restartdns` | Must | Planned |

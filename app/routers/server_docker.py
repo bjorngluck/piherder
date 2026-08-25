@@ -11,6 +11,7 @@ from sqlmodel import Session
 import json
 from typing import Optional
 from datetime import datetime
+from urllib.parse import quote
 
 from ..database import get_session
 from ..models import Server
@@ -18,8 +19,15 @@ from ..services.audit_write import make_audit_log
 from ..services import docker_management as docker_svc
 from ..services import docker_inventory as inventory_svc
 from ..services import env_file_ui
+from ..services.service_migrate import host_lock as host_lock_svc
 from .. import templates as templates_mod
-from ..security.auth import get_current_user, get_operator_user, secrets_unlock_active
+from ..security.auth import (
+    get_current_user,
+    get_operator_user,
+    secrets_unlock_active,
+    role_at_least,
+    ROLE_OPERATOR,
+)
 from ..models import User
 
 router = APIRouter()
@@ -538,6 +546,12 @@ async def stack_fragment(
     except Exception:
         fabric_by_project = {}
 
+    try:
+        host_lock_svc.annotate_projects(session, server, projects)
+    except Exception:
+        pass
+    can_host_lock = role_at_least(user, ROLE_OPERATOR)
+
     docker_keep = lq.query_string(
         {
             "q": lp["q"],
@@ -591,9 +605,94 @@ async def stack_fragment(
             "fabric_by_project": fabric_by_project,
             "hosts_map_url": hosts_map_url,
             "template_deployments_count": template_deployments_count,
+            "user": user,
+            "can_host_lock": can_host_lock,
+            "migrate_enabled": host_lock_svc.migrate_enabled(),
         },
     )
     return lq.attach_per_page_cookie(resp, lp["per_page"])
+
+
+def _docker_redirect(server_id: int, *, msg: str = "", error: str = "", detail: str = "") -> RedirectResponse:
+    q = ["nocache=1"]
+    if msg:
+        q.append(f"msg={quote(msg, safe='')}")
+    if error:
+        q.append(f"error={quote(error, safe='')}")
+    if detail:
+        q.append(f"detail={quote(detail[:160], safe='')}")
+    return RedirectResponse(
+        f"/servers/{server_id}/docker?{'&'.join(q)}",
+        status_code=303,
+    )
+
+
+@router.post("/{server_id}/docker/host-lock")
+async def docker_host_lock(
+    request: Request,
+    server_id: int,
+    project: str = Form(...),
+    reason: str = Form("operator"),
+    note: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        row = host_lock_svc.set_host_lock(
+            session,
+            server,
+            project,
+            reason=reason,
+            note=note,
+            user_id=user.id if user else None,
+        )
+        session.add(
+            make_audit_log(
+                user_id=user.id if user else None,
+                server_id=server_id,
+                action="service_host_lock",
+                status="success",
+                details=(
+                    f"project={row.compose_project} reason={row.lock_reason}"
+                    + (f" note={row.lock_note}" if row.lock_note else "")
+                ),
+            )
+        )
+        session.commit()
+    except host_lock_svc.HostLockError as e:
+        return _docker_redirect(server_id, error="host_lock", detail=e.message)
+    return _docker_redirect(server_id, msg="host_locked")
+
+
+@router.post("/{server_id}/docker/host-unlock")
+async def docker_host_unlock(
+    request: Request,
+    server_id: int,
+    project: str = Form(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        row = host_lock_svc.unlock_host(session, server, project)
+        session.add(
+            make_audit_log(
+                user_id=user.id if user else None,
+                server_id=server_id,
+                action="service_host_unlock",
+                status="success",
+                details=f"project={row.compose_project}",
+            )
+        )
+        session.commit()
+    except host_lock_svc.HostLockError as e:
+        return _docker_redirect(server_id, error="host_lock", detail=e.message)
+    return _docker_redirect(server_id, msg="host_unlocked")
 
 
 @router.post("/{server_id}/docker/check-updates")

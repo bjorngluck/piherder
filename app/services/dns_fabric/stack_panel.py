@@ -761,6 +761,15 @@ def build_stack_panel(
         except Exception:
             all_service_monitors = []
 
+    host_lock = None
+    if proj:
+        try:
+            from ..service_migrate.host_lock import lock_state as _host_lock_state
+
+            host_lock = _host_lock_state(session, server, str(proj))
+        except Exception:
+            host_lock = None
+
     return {
         "ok": True,
         "service_id": resolved.get("service_id"),
@@ -774,6 +783,7 @@ def build_stack_panel(
         "server_id": server.id,
         "server_name": server.name,
         "project": proj,
+        "host_lock": host_lock,
         "project_found": project_found,
         "projects_available": resolved.get("projects_available") or [],
         "has_inventory": bool(inv),

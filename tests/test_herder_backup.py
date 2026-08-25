@@ -95,6 +95,7 @@ def _mock_empty_snapshots(monkeypatch) -> None:
         "_snapshot_certificate_targets",
         "_snapshot_service_templates",
         "_snapshot_stack_deployments",
+        "_snapshot_compose_project_meta",
         "_snapshot_service_dns_records",
         "_snapshot_runtime_edges",
         "_snapshot_topology_categories",
@@ -143,6 +144,7 @@ def test_build_payload_keys(monkeypatch):
     monkeypatch.setattr(hb, "_snapshot_certificate_targets", lambda: [])
     monkeypatch.setattr(hb, "_snapshot_service_templates", lambda: [])
     monkeypatch.setattr(hb, "_snapshot_stack_deployments", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_compose_project_meta", lambda: [])
     monkeypatch.setattr(hb, "_snapshot_service_dns_records", lambda: [])
     monkeypatch.setattr(hb, "_snapshot_runtime_edges", lambda: [])
     monkeypatch.setattr(hb, "_snapshot_topology_categories", lambda: [])
@@ -216,6 +218,7 @@ def test_build_payload_keys(monkeypatch):
         "certificate_targets",
         "service_templates",
         "stack_deployments",
+        "compose_project_meta",
         "service_dns_records",
         "runtime_edges",
         "port_annotations",
