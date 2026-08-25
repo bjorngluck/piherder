@@ -14,7 +14,7 @@
 | **Image** | `bjorngluck/piherder:1.3.0` · `1.3` · `latest` (multi-arch amd64 + arm64; `1.2.0` / `1.2` / `1.1.x` / `1.0.x` pins remain valid). Hub tags land with git tag `v1.3.0`. |
 | **Release notes** | [RELEASE_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md) · [v1.2.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) · [v1.1.1](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.1.md) · [v1.1.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md) · prior [v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) |
 | **Known issues** | Console mobile Tab residual IME ([KI-console-mobile-soft-tab](day-to-day/web-ssh-console.md#known-issues)). Command audit redaction is heuristic ([web SSH](day-to-day/web-ssh-console.md#command-audit-v13)). Busy-source rsync vanish retries — [troubleshooting](troubleshooting/backups.md#vanished-files-busy-sources). |
-| **Next release** | **v1.4.0** — service migration (planning only). [PLAN_v1.4.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.4.0.md). |
+| **Next release** | **v1.4.0** — service migration (**Active** on [`v1.4.0-dev`](https://github.com/bjorngluck/piherder/tree/v1.4.0-dev)). [PLAN_v1.4.0.md](https://github.com/bjorngluck/piherder/blob/v1.4.0-dev/docs/PLAN_v1.4.0.md). |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **Public demo** | [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) — limited **viewer** sandbox · [credentials](operations/demo-site.md) |
