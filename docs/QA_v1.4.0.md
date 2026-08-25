@@ -60,12 +60,21 @@ Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATIO
 - [ ] Unmatched NPM host still blocks preflight  
 - [ ] Host-identity FQDN (same as host A) is not rewritten
 
+## M6 / M7 — Validate + rebind (landed)
+
+- [ ] Fabric cert: TLS probe uses SNI = service FQDN; mismatch fails the job (no auto-rollback)  
+- [ ] Kuma service binding follows dest; `down` after poll fails the job  
+- [ ] Maps / visual stacks / port notes / template deployment follow dest  
+- [ ] CertificateTarget cloned onto dest (source row kept)
+
+## M8 / M9 — Leftover + hardware ack (landed)
+
+- [ ] Default leftover: source **stopped**, files still on disk  
+- [ ] Optional leftover **`compose down`** (volumes kept)  
+- [ ] `/dev` warning requires acknowledge checkbox (or lock instead)
+
 ## Must (later slices)
 
-- [ ] **M6 / M7** TLS/Kuma validate + control-plane rebind  
-- [ ] **M-npm** NPM-fronted migrate (`forward_host` updates; CNAME stays on NPM)  
-- [ ] **M8** leftover `compose down` keep volumes  
-- [ ] **M9** `devices:` warning + lock-or-acknowledge on confirm  
 - [ ] **D-F** demo simulated Files (no SFTP)  
 - [ ] 1.3 regression (policy, Files, console, Reports)
 

@@ -13,13 +13,18 @@ from app.database import get_session
 from app.main import app
 from app.models import (
     AuditLog,
+    CertificateTarget,
     ComposeProjectMeta,
     Integration,
     IntegrationBinding,
     Job,
+    ManagedCertificate,
+    RuntimeEdge,
     Server,
     ServiceDnsRecord,
+    StackDeployment,
     User,
+    VisualServiceStack,
 )
 from app.security.auth import create_access_token, get_password_hash
 from app.security.encryption import encrypt_str
@@ -779,6 +784,8 @@ def test_pipeline_copy_and_start_mocked(lock_db, tmp_path, monkeypatch):
         stop_fn=stop,
         up_fn=up,
         cutover_fn=lambda *a, **kw: {"ok": True, "records": []},
+        rebind_fn=lambda *a, **kw: {"ok": True, "counts": {}},
+        validate_fn=lambda *a, **kw: {"ok": True, "tls": [], "kuma": []},
     )
     assert r["ok"] is True
     assert stops and stops[0][0] == src.id
@@ -805,6 +812,8 @@ def test_http_migrate_start_queues_job(lock_client, monkeypatch):
         captured["source_id"] = source_id
         captured["dest_id"] = dest_id
         captured["project"] = project
+        captured["leftover"] = kwargs.get("leftover")
+        captured["devices_ack"] = kwargs.get("devices_ack")
         return FakeJob()
 
     monkeypatch.setattr("app.services.jobs.enqueue_service_migrate", fake_enqueue)
@@ -825,7 +834,12 @@ def test_http_migrate_start_queues_job(lock_client, monkeypatch):
         dest_id = other.id
     r = client.post(
         f"/servers/{ids['pi']}/docker/migrate",
-        data={"project": "grafana", "dest": str(dest_id)},
+        data={
+            "project": "grafana",
+            "dest": str(dest_id),
+            "leftover": "down",
+            "devices_ack": "1",
+        },
         cookies=_cookie(ids["admin"]),
         headers={"X-PiHerder-Async": "1"},
         follow_redirects=False,
@@ -837,6 +851,8 @@ def test_http_migrate_start_queues_job(lock_client, monkeypatch):
     assert captured["source_id"] == ids["pi"]
     assert captured["dest_id"] == dest_id
     assert captured["project"] == "grafana"
+    assert captured["leftover"] == "down"
+    assert captured["devices_ack"] is True
     r_v = client.post(
         f"/servers/{ids['pi']}/docker/migrate",
         data={"project": "grafana", "dest": str(dest_id)},
@@ -1059,4 +1075,214 @@ def test_npm_retarget_put_full_object(monkeypatch):
     assert captured["body"]["ssl_forced"] is True
     assert captured["body"]["certificate_id"] == 3
     assert "created_on" not in captured["body"]
+
+
+def _pair_hosts(lock_db):
+    src = Server(
+        name="a",
+        hostname="a.local",
+        container_patch_enabled=True,
+        docker_base_dir="/home/pi/docker",
+        ssh_username="pi",
+        dns_name="a.test",
+    )
+    dest = Server(
+        name="b",
+        hostname="b.local",
+        container_patch_enabled=True,
+        docker_base_dir="/home/pi/docker",
+        ssh_username="pi",
+        dns_name="b.test",
+    )
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    lock_db.refresh(src)
+    lock_db.refresh(dest)
+    return src, dest
+
+
+def test_pipeline_requires_devices_ack(lock_db):
+    from app.services.service_migrate.pipeline import MigrateError, run_copy_and_start
+
+    src, dest = _pair_hosts(lock_db)
+    src.docker_inventory_json = _inv("cam", mounts=["/dev/apex_0:/dev/apex_0"])
+    lock_db.add(src)
+    lock_db.commit()
+    with pytest.raises(MigrateError, match="Hardware"):
+        run_copy_and_start(
+            lock_db,
+            source=src,
+            dest=dest,
+            project="cam",
+            job_id=3,
+            source_facts={"arch": "aarch64"},
+            dest_facts={
+                "arch": "aarch64",
+                "docker_base_writable": True,
+                "disk_free_bytes": 10**12,
+            },
+            herder_free=10**12,
+            devices_ack=False,
+        )
+
+
+def test_pipeline_leftover_down(lock_db, tmp_path, monkeypatch):
+    from app.services.service_migrate.pipeline import run_copy_and_start
+
+    src, dest = _pair_hosts(lock_db)
+    src.docker_inventory_json = _inv("grafana")
+    lock_db.add(src)
+    lock_db.commit()
+    monkeypatch.setattr(
+        "app.services.service_migrate.pipeline.staging_root",
+        lambda job_id: tmp_path / str(job_id),
+    )
+    downs = []
+
+    def dummy(*a, **k):
+        return {"success": True}
+
+    r = run_copy_and_start(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="grafana",
+        job_id=4,
+        source_facts={"arch": "aarch64"},
+        dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+        herder_free=10**12,
+        pull_fn=lambda *a, **k: None,
+        push_fn=lambda *a, **k: None,
+        vol_fn=lambda *a, **k: None,
+        stop_fn=dummy,
+        up_fn=dummy,
+        cutover_fn=lambda *a, **k: {"ok": True},
+        rebind_fn=lambda *a, **k: {"ok": True},
+        validate_fn=lambda *a, **k: {"ok": True},
+        leftover="down",
+        down_fn=lambda srv, path: downs.append((srv.id, path)) or {"success": True},
+    )
+    assert r["leftover"] == "down"
+    assert downs and downs[0][0] == src.id
+
+
+def test_rebind_moves_rows(lock_db):
+    from app.services.service_migrate.rebind import rebind_control_plane
+
+    src, dest = _pair_hosts(lock_db)
+    dep = StackDeployment(server_id=src.id, project_name="grafana")
+    bind = IntegrationBinding(
+        integration_id=1,
+        server_id=src.id,
+        role="service",
+        docker_project="grafana",
+        external_id="9",
+        last_state="up",
+    )
+    vs = VisualServiceStack(
+        server_id=src.id, compose_project="grafana", name="Main", slug="main"
+    )
+    edge = RuntimeEdge(
+        from_server_id=src.id,
+        from_project="grafana",
+        to_server_id=src.id,
+        to_project="grafana",
+        kind="depends_on",
+        source="manual",
+    )
+    cert = ManagedCertificate(name="app-tls", fingerprint_sha256="ab" * 32)
+    lock_db.add(dep)
+    lock_db.add(bind)
+    lock_db.add(vs)
+    lock_db.add(edge)
+    lock_db.add(cert)
+    lock_db.commit()
+    lock_db.refresh(cert)
+    tgt = CertificateTarget(certificate_id=cert.id, server_id=src.id, verify_url="https://app.test")
+    rec = ServiceDnsRecord(
+        fqdn="app.example.test",
+        target_server_id=src.id,
+        backend_server_id=src.id,
+        docker_project="grafana",
+        certificate_id=cert.id,
+    )
+    lock_db.add(tgt)
+    lock_db.add(rec)
+    lock_db.commit()
+    out = rebind_control_plane(lock_db, source=src, dest=dest, project="grafana")
+    assert out["counts"]["stack_deployments"] == 1
+    assert out["counts"]["kuma_bindings"] == 1
+    assert out["counts"]["visual_stacks"] == 1
+    assert out["counts"]["edges"] == 1
+    assert out["counts"]["cert_targets"] == 1
+    lock_db.refresh(dep)
+    lock_db.refresh(bind)
+    lock_db.refresh(vs)
+    lock_db.refresh(edge)
+    assert dep.server_id == dest.id
+    assert bind.server_id == dest.id
+    assert vs.server_id == dest.id
+    assert edge.from_server_id == dest.id
+    clones = lock_db.exec(
+        select(CertificateTarget).where(CertificateTarget.server_id == dest.id)
+    ).all()
+    assert len(clones) == 1
+    assert clones[0].certificate_id == cert.id
+
+
+def test_validate_tls_fail_and_kuma_down(lock_db):
+    from app.services.service_migrate.validate import ValidateError, validate_migrate
+
+    src, dest = _pair_hosts(lock_db)
+    cert = ManagedCertificate(name="app-tls", fingerprint_sha256="cd" * 32)
+    lock_db.add(cert)
+    lock_db.commit()
+    lock_db.refresh(cert)
+    rec = ServiceDnsRecord(
+        fqdn="app.example.test",
+        target_server_id=dest.id,
+        backend_server_id=dest.id,
+        docker_project="grafana",
+        certificate_id=cert.id,
+    )
+    lock_db.add(rec)
+    lock_db.commit()
+
+    def bad_tls(**kw):
+        assert "sni=app.example.test" in kw["verify_url"]
+        return {"ok": False, "status": "failed", "message": "fingerprint mismatch"}
+
+    with pytest.raises(ValidateError, match="TLS"):
+        validate_migrate(
+            lock_db,
+            source=src,
+            dest=dest,
+            project="grafana",
+            tls_fn=bad_tls,
+            kuma_poll_fn=lambda iid: None,
+        )
+
+    rec.certificate_id = None
+    lock_db.add(rec)
+    bind = IntegrationBinding(
+        integration_id=2,
+        server_id=dest.id,
+        role="service",
+        docker_project="grafana",
+        external_id="mon",
+        external_label="app",
+        last_state="down",
+    )
+    lock_db.add(bind)
+    lock_db.commit()
+    with pytest.raises(ValidateError, match="Kuma"):
+        validate_migrate(
+            lock_db,
+            source=src,
+            dest=dest,
+            project="grafana",
+            tls_fn=lambda **kw: {"ok": True, "status": "ok"},
+            kuma_poll_fn=lambda iid: None,
+        )
 

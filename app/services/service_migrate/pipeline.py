@@ -17,6 +17,8 @@ from .cutover import CutoverError, retarget_dns_npm
 from .facts import docker_base_abs
 from .host_lock import compose_project_name
 from .preflight import named_volume_id, run_preflight
+from .rebind import rebind_control_plane
+from .validate import ValidateError, validate_migrate
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +58,13 @@ def run_copy_and_start(
     stop_fn=None,
     up_fn=None,
     cutover_fn=None,
+    rebind_fn=None,
+    validate_fn=None,
+    leftover: str = "stopped",
+    devices_ack: bool = False,
+    down_fn=None,
 ) -> dict[str, Any]:
-    """Preflight → stop source → copy → dest ``up -d`` → DNS/NPM."""
+    """Preflight → stop → copy → dest up → DNS/NPM → rebind → validate."""
     name = compose_project_name(project)
     pf = run_preflight(
         session,
@@ -71,6 +78,10 @@ def run_copy_and_start(
     if not pf.get("ok"):
         msgs = "; ".join(b.get("message") or b.get("id") for b in pf.get("blocks") or [])
         raise MigrateError(f"preflight blocked: {msgs}")
+    if any(w.get("id") == "devices" for w in (pf.get("warns") or [])) and not devices_ack:
+        raise MigrateError(
+            "Hardware-looking mounts: lock the project or acknowledge the warning"
+        )
 
     pull = pull_fn or rsync_host_to_herder
     push = push_fn or rsync_herder_to_host
@@ -138,13 +149,32 @@ def run_copy_and_start(
     except CutoverError as e:
         raise MigrateError(str(e)) from e
 
+    rb_fn = rebind_fn or rebind_control_plane
+    _log(log, "Rebinding control-plane rows…")
+    rebind_out = rb_fn(session, source=source, dest=dest, project=name, log=log)
+
+    val_fn = validate_fn or validate_migrate
+    _log(log, "Validating TLS / Kuma…")
+    try:
+        val_out = val_fn(session, source=source, dest=dest, project=name, log=log)
+    except ValidateError as e:
+        raise MigrateError(str(e)) from e
+
+    leftover_mode = (leftover or "stopped").strip().lower()
+    if leftover_mode == "down":
+        down = down_fn or (lambda srv, path: docker_svc.compose_action(srv, path, "down"))
+        _log(log, f"compose down on source {source.name} (volumes kept)")
+        stopped = down(source, src_proj)
+        if isinstance(stopped, dict) and not stopped.get("success", True):
+            raise MigrateError(stopped.get("error") or "source compose down failed")
+
     try:
         inventory_svc.mark_stale(session, source)
         inventory_svc.mark_stale(session, dest)
     except Exception:
         pass
 
-    _log(log, "Copy and name/proxy retarget complete.")
+    _log(log, "Migrate complete.")
     return {
         "ok": True,
         "project": name,
@@ -152,6 +182,9 @@ def run_copy_and_start(
         "dest_id": dest.id,
         "staging": str(stage),
         "dns": dns_out if isinstance(dns_out, dict) else {"ok": True},
+        "rebind": rebind_out if isinstance(rebind_out, dict) else {"ok": True},
+        "validate": val_out if isinstance(val_out, dict) else {"ok": True},
+        "leftover": leftover_mode,
     }
 
 
