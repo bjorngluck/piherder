@@ -79,9 +79,9 @@ Do not re-implement these. Wrap them.
 | Desired state | `StackDeployment.server_id` + `project_name` | templates |
 | Topology | `RuntimeEdge`, annotations, visual stacks, port notes — all `server_id` + project | models |
 | HAOS | `Server.os_type` | `haos.py` · wiki HAOS hosts |
-| Host lock | **Missing** | new table |
+| Host lock | **Landed** (`ComposeProjectMeta`) | `service_migrate/host_lock.py` |
 
-**Gaps:** no `ComposeProjectMeta`; restore cannot retarget another host; no two-host Job; no named-volume *create + fill* helper; cert/Kuma/topology rows do not follow a project; Pi-hole restart is not part of fabric upsert; NPM has **no write** yet.
+**Gaps at train open (now landed on `v1.4.0-dev` except as noted):** two-host Job + dual-host exclusive; named-volume Mountpoint rsync; cert/Kuma/topology rebind; Pi-hole `restartdns` fan-out after fabric upsert; NPM narrow PUT `forward_host`. Restore still cannot retarget another host outside migrate. Full NPM CRUD still out.
 
 ---
 
@@ -340,7 +340,7 @@ Align with design principles: auditable privileged actions; secrets encrypted at
 | Router / UI | Docker project ⋯ + wizard partial + JobHold |
 | DNS / FTL | wrap `upsert_service_record` + pihole `run_action` fan-out |
 | Tests | `tests/test_service_migrate.py` |
-| Wiki | `wiki/docker/overview.md` + `wiki/docker/service-migration.md` (lock + preflight; copy TBD) |
+| Wiki | `wiki/docker/overview.md` + `wiki/docker/service-migration.md` (full pipeline + leftover) |
 
 ---
 
@@ -424,3 +424,4 @@ An operator can:
 | 2026-08-25 | **M6–M9:** TLS SNI probe + Kuma last_state; rebind maps/Kuma/templates/clone cert targets; leftover `compose down`; devices ack. |
 | 2026-08-25 | **D-F:** demo simulated Files (canned tree, viewer browse, writes refused). |
 | 2026-08-25 | **M-rm:** optional source project + named volume delete after green migrate. Preview + danger confirm + `leftover_remove_ack`. Dest never wiped. |
+| 2026-08-25 | Operator wiki pass: full pipeline + leftover + Journey Move; maintainer QA/PLAN/ROADMAP/SPEC aligned for live validation. |

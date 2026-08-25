@@ -39,7 +39,7 @@ Design principles stay the same as SPEC:
 | **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry · full DB DR · security remediations | Post-1.1 minor | **Tagged** — prior — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
 | **v1.2.x** | Production patches | Patch | Prefer upgrade to **v1.3.x** |
 | **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights (N reports)** · **host files (F manager)** · **AC-fg** Cap · ACME (consideration) | Post-1.2 minor | **Tagged** 2026-08-22 — [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [QA_v1.3.0.md](QA_v1.3.0.md) · Hub `1.3.0` / `1.3` / `latest` |
-| **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME **or NPM backend** retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate) + **host lock** (HAOS refuse, Frigate/TPU-class) + demo simulated Files | Post-1.3 minor | **Active** on `v1.4.0-dev` — [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) |
+| **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME **or NPM backend** retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate, leftover) + **host lock** (HAOS refuse, Frigate/TPU-class) + demo simulated Files | Post-1.3 minor | **Active** on `v1.4.0-dev` — Must + M-rm landed; freeze/QA next — [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · wiki [Move a service](../wiki/docker/service-migration.md) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -89,7 +89,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-08-22):** **v1.3.0 feature freeze + QA complete.** Package **1.3.0**. Tagged on `main`. Cap (**W-mux**, **AC-fg**, **N3**, CSP nonces, ACME) stays Cap. Service migration is [v1.4](PLAN_v1.4.0.md).
 
-**Decision (2026-08-25):** **v1.4.0 train opened** on **`v1.4.0-dev`**. Must: **M1–M9** host lock · preflight · stop+copy · DNS **or NPM backend** · dest up · TLS/Kuma · rebind · leftover `compose down` · `devices:` warn · **D-F** demo Files. **M-npm** Must (narrow proxy-host PUT). **M-rm** Should (source remove + volumes). **ACME-in-herder** out. Package version stays `1.3.0` until freeze. `main` stays patchable for **v1.3.x**. See [PLAN_v1.4.0.md](PLAN_v1.4.0.md).
+**Decision (2026-08-25):** **v1.4.0 train opened** on **`v1.4.0-dev`**. Must: **M1–M9** host lock · preflight · stop+copy · DNS **or NPM backend** · dest up · TLS/Kuma · rebind · leftover `compose down` · `devices:` warn · **D-F** demo Files. **M-npm** Must (narrow proxy-host PUT). **M-rm** Should (source remove + volumes) — **landed**, default off. **ACME-in-herder** out. Package version stays `1.3.0` until freeze. `main` stays patchable for **v1.3.x**. See [PLAN_v1.4.0.md](PLAN_v1.4.0.md).
 
 **Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg). **Slice 3 Deep landed** (L). **Slice 4 Deep landed** (W-id). **Slice 5 Deep landed** (W-audit). **Slice 6 Deep landed** (A). **Slice 7 N2:** `/reports` is history (backups, OS patches, LAN live, Docker, console) — not Grafana, not status portlets. **F Deep (2026-08-20):** Host Files explorer (flag off): edit, zip, perms, search, move, folder upload, preview, `.env` step-up, thin Docker volumes/`docker cp`. API Files expansions → v1.4+ under consideration.
 
@@ -331,7 +331,7 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 | **Nmap worker heartbeat on boot** | **Future (P2)** — touch scanner-online heartbeat when worker process starts, not only mid-scan |
 | **Richer topology** | Focused dep edges polish, force LAN/cloud overrides |
 | **External DNS providers** | Cloudflare (etc.) automation; until then external checklist remains |
-| **Service migrate / remove** | **→ v1.4 Stream M Active** — move stack host↔host with dataset copy + DNS **or NPM backend** retarget + Pi-hole `restartdns` + TLS/Kuma validate; **host lock** for HAOS / hardware. Destructive remove with volume cleanup is **Should** (**M-rm**). [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) |
+| **Service migrate / remove** | **→ v1.4 Stream M Active** on `v1.4.0-dev` — pipeline + **M-rm** leftover wipe (default off) landed; freeze/QA next. [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · wiki [Move a service](../wiki/docker/service-migration.md) |
 
 **Design principle:** one **entity graph** (name, NPM, host, project, container, volume, dep edge, monitor bind, discovered device) — views are projections, not separate data models.
 

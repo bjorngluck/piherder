@@ -1,12 +1,12 @@
 # PiHerder v1.4.0 — operator QA / sign-off
 
 **Branch:** `v1.4.0-dev` → `main` · tag **`v1.4.0`** (cut after merge)  
-**Code freeze:** not yet — train opened 2026-08-25.  
+**Code freeze:** not yet — Must slices landed; live two-host validation next.  
 **Package:** stays **`1.3.0`** until freeze bump.
 
-This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
+This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki. Walk the **operator** pages while ticking boxes: [Move a service](../wiki/docker/service-migration.md) · [Host Files](../wiki/day-to-day/host-files.md) (demo canned tree) · [Journey Move](../wiki/getting-started/operator-scenarios.md#journey-move).
 
-Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · operator wiki: [service-migration.md](../wiki/docker/service-migration.md).
+Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md).
 
 1.3 production sign-off stays [QA_v1.3.0.md](QA_v1.3.0.md) (historical).
 
@@ -81,10 +81,6 @@ Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATIO
 - [ ] Upload / delete / zip refused  
 - [ ] Lab `PIHERDER_HOST_FILES` unchanged (real SFTP)
 
-## Must (later slices)
-
-- [ ] 1.3 regression (policy, Files, console, Reports)
-
 ## M-rm — Source remove + volumes (landed, Should, default off)
 
 - [ ] Leftover default still **stopped** (data on disk)  
@@ -96,6 +92,15 @@ Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATIO
 - [ ] Source cert targets disabled; dest clone kept  
 - [ ] Extra absolute binds outside the project folder left on disk  
 
-## Should
+## Freeze gates (not started)
 
-- [ ] Live two-host E2E of leftover **remove** on a disposable stack
+- [ ] 1.3 regression (policy, Files, console, Reports)  
+- [ ] Unit coverage ≥ 55%  
+- [ ] `mkdocs build --strict`  
+- [ ] Kill switch review (`PIHERDER_SERVICE_MIGRATE` default still **false** at tag unless GA-enough)  
+- [ ] Version bump `1.4.0` · tag · Hub  
+
+## Should (live)
+
+- [ ] Live two-host E2E of leftover **remove** on a disposable stack  
+- [ ] Live NPM-fronted move + direct TLS move on real Pis

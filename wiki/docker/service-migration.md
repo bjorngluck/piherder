@@ -1,26 +1,34 @@
 # Move a service
 
 !!! note "Availability"
-    **Move a service** (lock, preflight, copy, dest up, DNS/NPM, validate, rebind, leftover) ships on `v1.4.0-dev` (will be **v1.4.0**). Behind `PIHERDER_SERVICE_MIGRATE` (default **off**). Source remove + named-volume delete is optional and **off** unless you pick it.
+    **Move a service** ships on `v1.4.0-dev` (will be **v1.4.0**; production Hub/`main` stay **1.3.0** until freeze). Behind `PIHERDER_SERVICE_MIGRATE` (default **off**). Host **lock / unlock** has no flag. Source remove + named-volume delete is optional and **off** unless you pick it. Public demo never copies.
 
 ## What this is
 
-Move a **Docker Compose project** from one fleet host to another as one audited flow: lock hardware-bound stacks so they cannot move, then **preflight** the dest (HAOS, ports, disk, DNS / NPM, busy jobs) before any copy.
+Move one **Docker Compose project** (same boundary as Stop all / Start all) from fleet host A to host B as one audited **Job**: lock hardware-bound stacks, preflight dest, stop source, copy dataset via the herder, start dest, retarget DNS **or** the NPM proxy backend, validate TLS/Kuma when those rows exist, rebind maps / templates / Kuma, then leftover policy.
 
-PiHerder stays **SSH-first**. The herder is the staging hop when copy lands — not a new host-to-host trust mesh.
+PiHerder stays **SSH-first**. The herder is the staging hop (`/backups/_migrate/{job_id}`) — not a new host-to-host trust mesh.
 
 ## Why it exists
 
 Operators already stop a stack, rsync trees, retarget a CNAME, restart Pi-hole, and start on another Pi. Those steps were never **one Job** with a preview of paths, bytes, and dest free space.
 
+## Enable Move
+
+1. Set `PIHERDER_SERVICE_MIGRATE=true` in `.env`.  
+2. Recreate **web** (`docker compose up -d web`).  
+3. **Operator+** only. Viewer **403**. Demo never opens the wizard.
+
+Lock / unlock does **not** need this flag.
+
 ## Lock to this host (always on)
 
-No env flag. **Operator+** only.
+**Operator+** only.
 
 1. Open **Docker** on the source host.  
 2. Project **⋯** → **Lock to this host…**  
 3. Pick a reason: **Hardware** (TPU / USB / Coral), **Operator**, or **Infrastructure**. Optional note (e.g. `Coral TPU on USB`).  
-4. A **Locked** badge appears on the project and on the runtime stack panel.  
+4. A **Locked** badge appears on the project and on the runtime stack panel. **Move** is disabled with the reason.  
 5. **Unlock…** is a confirm.
 
 **HAOS** hosts are always locked — they never appear as a migrate source or destination. You cannot lock/unlock individual HAOS “projects”; the host `os_type` is enough.
@@ -31,18 +39,38 @@ Use lock for Frigate + Coral, USB gadgets, or anything you must not relocate by 
 
 ## Move wizard
 
-Master enable: `PIHERDER_SERVICE_MIGRATE=true` in `.env`, then recreate **web**. Default **off**. Public demo never opens Move. Viewer **403**.
-
 1. Unlock the project if it is locked.  
 2. **⋯** → **Move to another host…**  
 3. Pick a destination (other hosts with **Docker / containers** on; HAOS and the source are excluded).  
-4. Preflight lists **blocks** (hard stop) and **warnings**.  
-5. If green, **Move service** confirms downtime, then a **Job** stops the source, copies via the herder (`/backups/_migrate/{job_id}`), `docker compose up -d` on dest, then **direct** CNAMEs → dest DNS name (both Pi-holes `restartdns`) or **NPM** `forward_host` → dest (public CNAME stays on NPM). Maps / Kuma / template rows follow dest. TLS and Kuma are checked when those rows exist (failure does **not** auto-roll back).  
-6. Leftover (after a **green** move): **leave source stopped** (default), **`compose down`** (volumes kept), or **remove source project + named volumes** (extra danger confirm + checkbox; dest is never wiped). Hardware-looking `/dev` mounts require an acknowledge checkbox (or lock the project instead).
-
-Named Docker volumes copy as **rsync of the volume Mountpoint** (same privilege as backing up `/var/lib/docker/volumes`). Relative binds ride with the project tree. Absolute binds **outside** the docker base dir are a preflight block, not a silent copy.
+4. Preflight lists **blocks** (hard stop) and **warnings**. Dataset lists paths, kinds, byte estimate, dest free space.  
+5. If the stack looks hardware-bound (`/dev/…`), tick the acknowledge checkbox (or lock it instead).  
+6. Choose leftover (see below). Default is **leave source stopped**.  
+7. **Move service** — danger confirm (downtime). **Remove source** also requires the extra checkbox and a stronger confirm.  
+8. **JobHold** live log. Job type `service_migrate`. `Job.server_id` is the **source**; dest is in job details.
 
 Audit on open: `service_migrate_preview`.
+
+### Pipeline (default)
+
+```text
+preflight
+  → compose stop (source)
+  → rsync project + binds + named volumes → herder staging → dest
+  → compose up -d (dest)
+  → DNS CNAME → dest  or  NPM PUT forward_host → dest
+  → rebind maps / Kuma / templates / clone cert targets
+  → TLS (SNI = service FQDN) + Kuma last_state when rows exist
+  → leftover
+  → wipe staging (success) / keep staging (failure)
+```
+
+Default order is **dest up, then name/proxy flip** (clients keep hitting the stopped source until dest answers). Named Docker volumes copy as **rsync of the volume Mountpoint** (same privilege as backing up `/var/lib/docker/volumes`). Relative binds ride with the project tree. Absolute binds **outside** the docker base dir are a preflight **block**, not a silent copy.
+
+Direct TLS rows (`via_proxy` off): **CNAME → dest DNS name**, then both Pi-holes **Restart DNS**. NPM-fronted rows: public CNAME stays on NPM; the job **PUT**s `forward_host` (and keeps port/SSL). Preflight still uses the **NPM poll cache**; unmatched hosts are a block. Poll NPM before moving.
+
+### Dual-host exclusive
+
+A migrate **and** a backup or stack-mutating job cannot run at the same time on the **source or dest**. Second start → **409**. Same lane as Stop all / Deploy / template deploy, plus backup.
 
 ### Blocks (cannot move yet)
 
@@ -72,9 +100,9 @@ Audit on open: `service_migrate_preview`.
 | Kuma looks IP-based | Monitor hostname will not be rewritten (no Kuma write API) |
 | Arch / disk / writable unknown | SSH probe failed — refresh connectivity and retry |
 
-Direct TLS rows (`via_proxy` off): **CNAME → dest DNS name**, then both Pi-holes **Restart DNS**. NPM-fronted rows: public CNAME stays on NPM; the job **PUT**s `forward_host` (and keeps port/SSL). Preflight still uses the **NPM poll cache**; unmatched hosts are a block.
-
 ## Source leftover
+
+After a **green** move only:
 
 | Choice | What happens on the **source** host | Dest |
 |--------|-------------------------------------|------|
@@ -82,13 +110,32 @@ Direct TLS rows (`via_proxy` off): **CNAME → dest DNS name**, then both Pi-hol
 | **`compose down`** | Containers/networks removed; **volumes kept** | Untouched |
 | **Remove source** | `compose down`, then `docker volume rm` for **copied named volumes**, then delete the jailed project directory | **Never wiped** |
 
-Remove is a second danger confirm. Preflight lists the project path and named volume names. Absolute binds **outside** the project folder are left on disk. Source cert deploy targets for that stack are **disabled** (dest clone stays). This cannot be undone from PiHerder — restore from backup if you still need the old copy.
+Remove is a second danger confirm plus checkbox. Preflight lists the project path and named volume names. Absolute binds **outside** the project folder are left on disk. Source cert deploy targets for that stack are **disabled** (dest clone stays). This cannot be undone from PiHerder — restore from backup if you still need the old copy.
 
-## What it does not do yet
+## After a green move (check)
+
+- Dest Docker inventory shows the project **running**.  
+- **Direct:** CNAME target is dest `dns_name`; both Pi-holes restarted.  
+- **NPM-fronted:** public name still on NPM; proxy-host `forward_host` is dest.  
+- Maps / stack panel / template deployment / Kuma **service** bind follow dest.  
+- TLS probe used SNI = service FQDN when a cert is linked.  
+- Source leftover matches what you picked.  
+- Staging dir under `/backups/_migrate/{job_id}` is gone on success.
+
+## Failure
+
+Validate red (TLS mismatch, Kuma down) **does not auto-roll back**. Dest may already be up with DNS/NPM flipped. Fix dest, or start the stack back on source yourself. Staging is **kept** on failure until you dismiss the job / it ages out.
+
+Copy fail: source stopped, dest untouched, staging kept. Dest-up fail: DNS/NPM unchanged.
+
+## What it does not do
 
 - Auto-rollback, live (zero-downtime) copy, cross-arch image rebuild  
 - Moving PiHerder itself, or the Pi-hole you are using to migrate  
-- Deleting dest volumes, or wiping extra binds outside the project folder 
+- Deleting dest volumes, or wiping extra binds outside the project folder  
+- Rewriting IP-based Kuma monitors (checklist only)  
+- Full NPM proxy create/delete/SSL (backend `forward_host` only)  
+- ACME-in-herder  
 
 ## Related
 
@@ -96,4 +143,9 @@ Remove is a second danger confirm. Preflight lists the project path and named vo
 - [HAOS hosts](../day-to-day/haos-hosts.md)  
 - [Network maps / DNS fabric](../integrations/dns-fabric.md)  
 - [NPM](../integrations/npm.md)  
+- [Uptime Kuma](../integrations/uptime-kuma.md)  
+- [Certificates](../integrations/certificates.md)  
+- [Jobs, audit & notifications](../day-to-day/jobs-audit-notifications.md)  
+- [Backups](../day-to-day/backups.md) — same rsync privilege as named-volume Mountpoints  
 - [Env reference](../operations/env-reference.md) — `PIHERDER_SERVICE_MIGRATE`  
+- [Operator scenarios](../getting-started/operator-scenarios.md#journey-move)  

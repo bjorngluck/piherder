@@ -36,7 +36,7 @@ The web console is a PTY. Dropping a Frigate `config.yml`, a compose sidecar, or
 | One-off upload/download (default **512 MiB**; Settings can raise to **32 GiB**) | [Backups](backups.md) for scheduled trees |
 | Zip a folder (save on the host or download) | — |
 | Peek at a PNG / hex of a binary | Full media gallery (not in Files) |
-| Copy a file out of a container into the jail | Service migration copy engine ([v1.4](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/PLAN_v1.4.0.md)) |
+| Copy a file out of a container into the jail | Toolbar **⋯ → Docker mounts** / `docker cp` on this page. Whole-stack host→host copy is [Move a service](../docker/service-migration.md) |
 | HAOS `/mnt/data` via **privileged** (⋯) | Cert deploy (PEM paste) · template deploy |
 
 ## Actions
@@ -84,7 +84,7 @@ Upload onto an existing name: browser **confirm**, then tmp+rename (same as comp
 
 ## API
 
-Token scope **`files`** (not on by default). Fleet identity only. List / download / upload / mkdir / rename / delete-empty. Edit, zip, unzip, chmod, recursive delete, preview, Docker helpers, and privileged stay in the browser (tokens have no 2FA). A richer Files API is **under consideration for v1.4+**. See [API.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/API.md).
+Token scope **`files`** (not on by default). Fleet identity only. List / download / upload / mkdir / rename / delete-empty. Edit, zip, unzip, chmod, recursive delete, preview, Docker helpers, and privileged stay in the browser (tokens have no 2FA). A richer Files API is **under consideration for a later minor**. See [API tokens](../operations/api-tokens.md).
 
 ## Env
 
@@ -113,6 +113,8 @@ Failures store `status=error` and a reason code (`secret_confirm` when 2FA is re
 - [Web SSH console](web-ssh-console.md) — privileged is console **and** Files  
 - [Compose edit](../docker/compose-edit.md) — redacted `.env` / history / deploy  
 - [Docker overview](../docker/overview.md)  
+- [Move a service](../docker/service-migration.md) — not the Files copy engine  
+- [Public demo](../operations/demo-site.md) — canned Files tree, no SFTP  
 - [HAOS hosts](haos-hosts.md)  
 - [API tokens](../operations/api-tokens.md)  
 - [Settings](../operations/settings.md) — kill switch is env; transfer cap is **Settings → Files**  
