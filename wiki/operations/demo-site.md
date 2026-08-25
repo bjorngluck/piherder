@@ -35,6 +35,7 @@ Some deployments also use **Cloudflare Access** as an outer email gate before th
 - **OpenAPI is off** — `/openapi.json`, `/docs`, and `/redoc` return 404 on the public demo (API tokens are disabled anyway). Use your own install for the interactive schema.  
 - **Web SSH console is simulated** on the public demo — open **Console** from a host for a toy shell (help / ls / whoami). **No live SSH**, no network, no real keys. Settings → Console / Security writes **403** (not a multi-tenant shell farm). Your own install uses real Paramiko shells when `PIHERDER_SSH_CONSOLE=true`.  
 - **Host Files is off** on the public demo (no real SFTP tree). Your own install uses jailed SFTP when `PIHERDER_HOST_FILES=true`.  
+- **Service migrate is off** — no dest picker, no dataset copy. Host **lock** is a production Docker ⋯ action on your own install.  
 
 !!! note "Demo screens are not always 100% aligned with a real fleet"
     Some screens and highlighted features on the demo **will not match a real self-hosted implementation pixel-for-pixel**. Hosts, inventory, jobs, maps, and integrations are **seeded or simulated** so the sandbox stays safe and disposable. You may see canned job results, static sample data, or simplified / empty panels where a live deploy would talk to real Pis, Docker, or external services. Treat the demo as a **UI tour** — your own install against real hosts is the accurate product experience.

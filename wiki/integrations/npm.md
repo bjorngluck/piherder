@@ -41,6 +41,8 @@ NPM is often the edge of a homelab. Operators need to see which hostnames are pr
 
 **Why read-only proxy edit:** production focuses on inventory + certs; full proxy CRUD stays in NPM to avoid half-baked edge configs.
 
+**Move a service (v1.4):** if a fabric row is `via_proxy`, preflight matches the FQDN against this **poll cache**. A later slice **PUT**s `forward_host` to the dest host (public CNAME stays on NPM). Poll NPM before moving. [Move a service](../docker/service-migration.md).
+
 ## Certificates
 
 From the NPM integration detail **Certificates** section:
@@ -72,3 +74,4 @@ Optional owner/group, mode (`600` default), and post-deploy shell command (e.g. 
 
 - Deploy NPM via [Templates](../service-templates/overview.md)  
 - Full cert vault behaviour: [Certificates](certificates.md)  
+- [Move a service](../docker/service-migration.md) — NPM-fronted stacks  

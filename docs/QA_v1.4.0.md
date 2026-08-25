@@ -6,36 +6,54 @@
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
-Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md).
+Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · operator wiki: [service-migration.md](../wiki/docker/service-migration.md).
 
-1.3 production sign-off stays [QA_v1.3.0.md](QA_v1.3.0.md) (historical). Fill operator clicks at feature freeze — not at train open.
+1.3 production sign-off stays [QA_v1.3.0.md](QA_v1.3.0.md) (historical).
 
 ---
 
-## How to run this (at freeze)
+## How to run this
 
 | | |
 |--|--|
-| **Instance** | Rebuilt **`v1.4.0-dev`** stack (`docker compose build web && docker compose up -d`). About / footer show **1.4.0** after the version bump |
+| **Instance** | Rebuild **`v1.4.0-dev`** (`docker compose build web && docker compose up -d`). Alembic **`042_compose_project_meta`**. About / footer stay **1.3.0** until freeze |
 | **Browsers** | Desktop Chrome or Firefox **and** one phone |
 | **Accounts** | One **admin**, one **operator** (2FA enrolled), one **viewer** |
-| **Hosts** | At least **two** real SSH Docker hosts + one HAOS (refuse) + one locked hardware-bound project |
-| **Flags** | `PIHERDER_SERVICE_MIGRATE` default **off** until M is complete enough; demo never copies |
+| **Hosts** | At least **two** real SSH Docker hosts + one HAOS + one hardware-bound project (Frigate-class) |
+| **Flags** | Lock needs no flag. Move wizard: `PIHERDER_SERVICE_MIGRATE=true` then recreate web. Demo never copies |
 
 ---
 
-## Must (stub — expand at freeze)
+## M1 — Host lock (landed)
 
-- [ ] **M1** Host lock + HAOS refuse  
-- [ ] **M2** Preflight (arch, ports, disk, exclusive, NPM match)  
+- [ ] Docker project ⋯ **Lock to this host…** (hardware / operator / infra + note)  
+- [ ] Badge on project + runtime stack panel  
+- [ ] **Unlock…** confirm; badge gone  
+- [ ] Locked **Move** is disabled with the reason  
+- [ ] HAOS never lock/unlock; never in dest list  
+- [ ] Viewer POST 403  
+- [ ] Audit `service_host_lock` / `service_host_unlock` (no PEM / `.env` bodies)
+
+## M2 — Preflight (landed, no copy)
+
+- [ ] Flag **off** → Move 404; lock still works  
+- [ ] Flag **on** → ⋯ **Move to another host…** (unlocked project)  
+- [ ] Dest picker: other Docker hosts only  
+- [ ] Blocks: dest project name taken, port clash, dest without DNS name (direct CNAME), `via_proxy` unmatched NPM cache, busy backup on dest  
+- [ ] Warnings: `/dev` mounts, Cloudflare checklist  
+- [ ] **Move service** disabled (“copy is next”)  
+- [ ] Viewer 403; demo no wizard  
+- [ ] Audit `service_migrate_preview`
+
+## Must (later slices)
+
 - [ ] **M3–M7** Direct migrate (Grafana/Authentik-class)  
 - [ ] **M-npm** NPM-fronted migrate (`forward_host` updates; CNAME stays on NPM)  
 - [ ] **M8** leftover `compose down` keep volumes  
-- [ ] **M9** `devices:` warning + lock-or-acknowledge  
+- [ ] **M9** `devices:` warning + lock-or-acknowledge on confirm  
 - [ ] **D-F** demo simulated Files (no SFTP)  
-- [ ] Viewer 403; demo does not copy  
 - [ ] 1.3 regression (policy, Files, console, Reports)
 
-## Should (stub)
+## Should
 
 - [ ] **M-rm** source remove + volume delete (preview + danger confirm)
