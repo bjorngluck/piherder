@@ -24,7 +24,7 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 5. **Check updates** vs **Deploy** when you want pull-only vs pull+up ([Updates](../day-to-day/updates-and-patching.md)).  
 6. For compose edits, use [Compose edit](compose-edit.md) (quick modal or full editor with history).  
 7. For a sidecar / log sitting next to the stack, or to copy a file out of a container, use [Host Files](../day-to-day/host-files.md) (jailed SFTP; flag `PIHERDER_HOST_FILES`).  
-8. Hardware-bound stacks: **⋯ → Lock to this host**. Optional **Move to another host…** is preflight-only until copy ships — [Move a service](service-migration.md).  
+8. Hardware-bound stacks: **⋯ → Lock to this host**. Optional **Move to another host…** — [Move a service](service-migration.md).  
 
 ---
 
@@ -44,7 +44,7 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | Logs | Per container / service (modal or full page). Multi-service projects: pick a service **or All services** (project-level `docker compose logs`). Live SSE requires a **signed-in** session |
 | **Stop / Start / Restart all** | Project ⋯ menu → confirm → **Job** with live log (`docker_stack_stop` / `_start` / `_restart`) — **operator+** |
 | **Lock to this host** | Project ⋯ — [Move a service](service-migration.md). Hardware / operator / infra. HAOS always locked. Operator+. |
-| **Move to another host…** | Flag `PIHERDER_SERVICE_MIGRATE` (default **off**). Preflight wizard only (no copy yet). Operator+. [Move a service](service-migration.md). |
+| **Move to another host…** | Flag `PIHERDER_SERVICE_MIGRATE` (default **off**). Preflight then Job: stop → copy → dest up. DNS/NPM later. [Move a service](service-migration.md). |
 | Container start / stop / restart | Row ⋯ on a single service (immediate; not a full-stack job) — **operator+**; actions allowlisted (`start`/`stop`/`restart`) |
 | Quick edit / Full editor | ⋯ menu — quick modal is compose (± Dockerfile) only; **`.env` and sidecars** are full editor — [Compose edit](compose-edit.md) |
 | Multi-file compose edit | primary compose + override + `.env` + Dockerfile + **compose sets** |
