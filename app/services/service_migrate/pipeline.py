@@ -13,6 +13,7 @@ from ...models import Server
 from .. import docker_inventory as inventory_svc
 from .. import docker_management as docker_svc
 from .copy import copy_named_volume, rsync_herder_to_host, rsync_host_to_herder
+from .cutover import CutoverError, retarget_dns_npm
 from .facts import docker_base_abs
 from .host_lock import compose_project_name
 from .preflight import named_volume_id, run_preflight
@@ -54,8 +55,9 @@ def run_copy_and_start(
     vol_fn=None,
     stop_fn=None,
     up_fn=None,
+    cutover_fn=None,
 ) -> dict[str, Any]:
-    """Preflight → stop source → copy → dest ``up -d``. DNS/NPM is a later slice."""
+    """Preflight → stop source → copy → dest ``up -d`` → DNS/NPM."""
     name = compose_project_name(project)
     pf = run_preflight(
         session,
@@ -129,19 +131,27 @@ def run_copy_and_start(
     if isinstance(started, dict) and not started.get("success", True):
         raise MigrateError(started.get("error") or started.get("output") or "dest up failed")
 
+    dns_fn = cutover_fn or retarget_dns_npm
+    _log(log, "Retargeting DNS / NPM…")
+    try:
+        dns_out = dns_fn(session, source=source, dest=dest, project=name, log=log)
+    except CutoverError as e:
+        raise MigrateError(str(e)) from e
+
     try:
         inventory_svc.mark_stale(session, source)
         inventory_svc.mark_stale(session, dest)
     except Exception:
         pass
 
-    _log(log, "Copy complete. DNS / NPM retarget is a later step.")
+    _log(log, "Copy and name/proxy retarget complete.")
     return {
         "ok": True,
         "project": name,
         "source_id": source.id,
         "dest_id": dest.id,
         "staging": str(stage),
+        "dns": dns_out if isinstance(dns_out, dict) else {"ok": True},
     }
 
 

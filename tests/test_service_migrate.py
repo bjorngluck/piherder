@@ -778,6 +778,7 @@ def test_pipeline_copy_and_start_mocked(lock_db, tmp_path, monkeypatch):
         vol_fn=vol,
         stop_fn=stop,
         up_fn=up,
+        cutover_fn=lambda *a, **kw: {"ok": True, "records": []},
     )
     assert r["ok"] is True
     assert stops and stops[0][0] == src.id
@@ -844,4 +845,218 @@ def test_http_migrate_start_queues_job(lock_client, monkeypatch):
         follow_redirects=False,
     )
     assert r_v.status_code == 403
+
+
+def test_cutover_direct_cname_and_restartdns(lock_db):
+    from app.services.service_migrate.cutover import retarget_dns_npm
+
+    src = Server(
+        name="a",
+        hostname="a.local",
+        container_patch_enabled=True,
+        dns_name="a.example.test",
+    )
+    dest = Server(
+        name="b",
+        hostname="b.local",
+        container_patch_enabled=True,
+        dns_name="b.example.test",
+        ip_address="10.0.0.9",
+    )
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    lock_db.refresh(src)
+    lock_db.refresh(dest)
+    rec = ServiceDnsRecord(
+        fqdn="app.example.test",
+        target_server_id=src.id,
+        backend_server_id=src.id,
+        docker_project="grafana",
+        via_proxy=False,
+        managed_on_pihole=True,
+        external_dns_status="none",
+    )
+    lock_db.add(rec)
+    lock_db.commit()
+    lock_db.refresh(rec)
+    upserts = []
+    restarts = []
+
+    def upsert(session, **kw):
+        upserts.append(kw)
+        return rec, []
+
+    r = retarget_dns_npm(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="grafana",
+        upsert_fn=upsert,
+        npm_put_fn=lambda *a, **k: (_ for _ in ()).throw(AssertionError("npm")),
+        restartdns_fn=lambda: restarts.append({"ok": True, "name": "ph"}) or [
+            {"ok": True, "name": "ph"}
+        ],
+    )
+    assert r["ok"] is True
+    assert upserts[0]["target_server_id"] == dest.id
+    assert upserts[0]["backend_server_id"] == dest.id
+    assert upserts[0]["via_proxy"] is False
+    assert restarts
+    assert r["records"][0]["action"] == "cname"
+
+
+def test_cutover_npm_keeps_edge_cname(lock_db):
+    from app.services.service_migrate.cutover import retarget_dns_npm
+
+    src = Server(name="a", hostname="a.local", container_patch_enabled=True, dns_name="a.test")
+    dest = Server(
+        name="b",
+        hostname="b.local",
+        container_patch_enabled=True,
+        dns_name="b.test",
+        ip_address="10.1.2.3",
+    )
+    npm_edge = Server(name="npm", hostname="npm.local", dns_name="npm.test")
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.add(npm_edge)
+    lock_db.commit()
+    lock_db.refresh(src)
+    lock_db.refresh(dest)
+    lock_db.refresh(npm_edge)
+    rec = ServiceDnsRecord(
+        fqdn="app.example.test",
+        target_server_id=npm_edge.id,
+        backend_server_id=src.id,
+        docker_project="grafana",
+        via_proxy=True,
+        managed_on_pihole=True,
+        external_dns_status="done",
+    )
+    lock_db.add(rec)
+    npm = Integration(
+        type="npm",
+        name="edge",
+        base_url="http://npm.test",
+        enabled=True,
+        last_status_json=json.dumps(
+            {
+                "ok": True,
+                "proxy_hosts": [
+                    {
+                        "id": "12",
+                        "domain_names": ["app.example.test"],
+                        "forward_host": "10.0.0.1",
+                    }
+                ],
+            }
+        ),
+    )
+    lock_db.add(npm)
+    lock_db.commit()
+    lock_db.refresh(rec)
+    puts = []
+    upserts = []
+
+    def upsert(session, **kw):
+        upserts.append(kw)
+        return rec, []
+
+    r = retarget_dns_npm(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="grafana",
+        upsert_fn=upsert,
+        npm_put_fn=lambda fqdn, hid, host: puts.append((fqdn, hid, host))
+        or {"id": hid, "forward_host": host},
+        restartdns_fn=lambda: (_ for _ in ()).throw(AssertionError("ftl")),
+    )
+    assert r["ok"] is True
+    assert puts[0][0] == "app.example.test"
+    assert puts[0][2] == "10.1.2.3"
+    assert upserts[0]["target_server_id"] == npm_edge.id
+    assert upserts[0]["backend_server_id"] == dest.id
+    assert upserts[0]["via_proxy"] is True
+
+
+def test_cutover_skips_host_identity(lock_db):
+    from app.services.service_migrate.cutover import retarget_dns_npm
+
+    src = Server(
+        name="a",
+        hostname="a.local",
+        container_patch_enabled=True,
+        dns_name="host.example.test",
+    )
+    dest = Server(
+        name="b",
+        hostname="b.local",
+        container_patch_enabled=True,
+        dns_name="b.example.test",
+    )
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    lock_db.refresh(src)
+    lock_db.refresh(dest)
+    rec = ServiceDnsRecord(
+        fqdn="host.example.test",
+        target_server_id=src.id,
+        backend_server_id=src.id,
+        docker_project="grafana",
+        via_proxy=False,
+    )
+    lock_db.add(rec)
+    lock_db.commit()
+    r = retarget_dns_npm(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="grafana",
+        upsert_fn=lambda *a, **k: (_ for _ in ()).throw(AssertionError("upsert")),
+        restartdns_fn=lambda: [],
+    )
+    assert r["records"][0]["action"] == "skip_host_identity"
+
+
+def test_npm_retarget_put_full_object(monkeypatch):
+    from app.services.integrations import npm as npm_mod
+
+    captured = {}
+
+    def fake_get(base_url, token, path, **kw):
+        if path.endswith("/12"):
+            return {
+                "id": 12,
+                "domain_names": ["app.example.test"],
+                "forward_host": "10.0.0.1",
+                "forward_port": 81,
+                "forward_scheme": "http",
+                "ssl_forced": True,
+                "certificate_id": 3,
+                "enabled": True,
+                "created_on": "ignore-me",
+            }
+        return []
+
+    def fake_put(base_url, token, path, body, **kw):
+        captured["path"] = path
+        captured["body"] = body
+        return {"id": 12}
+
+    monkeypatch.setattr(npm_mod, "_get_json", fake_get)
+    monkeypatch.setattr(npm_mod, "_put_json", fake_put)
+    r = npm_mod.retarget_proxy_host_backend(
+        "http://npm.test", "tok", "12", "10.1.2.3"
+    )
+    assert r["old_forward_host"] == "10.0.0.1"
+    assert r["forward_host"] == "10.1.2.3"
+    assert captured["path"] == "/api/nginx/proxy-hosts/12"
+    assert captured["body"]["forward_host"] == "10.1.2.3"
+    assert captured["body"]["forward_port"] == 81
+    assert captured["body"]["ssl_forced"] is True
+    assert captured["body"]["certificate_id"] == 3
+    assert "created_on" not in captured["body"]
 

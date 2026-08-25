@@ -5,6 +5,8 @@ Auth: POST /api/tokens {"identity": email, "secret": password}
 
 Observed routes (unofficial public API):
   GET  /api/nginx/proxy-hosts
+  GET  /api/nginx/proxy-hosts/{id}
+  PUT  /api/nginx/proxy-hosts/{id}   (full object; migrate uses forward_host only)
   GET  /api/nginx/certificates
   GET  /api/nginx/certificates/{id}/download  (zip)
   POST /api/nginx/certificates/{id}/renew
@@ -140,6 +142,119 @@ def _get_json(
         if not r.content:
             return []
         return r.json()
+
+
+_PROXY_PUT_KEYS = (
+    "domain_names",
+    "forward_scheme",
+    "forward_host",
+    "forward_port",
+    "access_list_id",
+    "certificate_id",
+    "ssl_forced",
+    "caching_enabled",
+    "block_exploits",
+    "advanced_config",
+    "allow_websocket_upgrade",
+    "http2_support",
+    "hsts_enabled",
+    "hsts_subdomains",
+    "locations",
+    "meta",
+    "enabled",
+)
+
+
+def _put_json(
+    base_url: str,
+    token: str,
+    path: str,
+    body: dict[str, Any],
+    *,
+    tls_verify: bool = True,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> Any:
+    origin = normalize_base_url(base_url)
+    url = f"{origin}{path if path.startswith('/') else '/' + path}"
+    with httpx.Client(verify=tls_verify, timeout=timeout) as client:
+        r = client.put(url, headers=_auth_headers(token), json=body)
+        if r.status_code >= 400:
+            raise RuntimeError(f"NPM PUT {path} HTTP {r.status_code}: {r.text[:200]}")
+        if not r.content:
+            return {}
+        return r.json()
+
+
+def get_proxy_host(
+    base_url: str,
+    token: str,
+    host_id: str | int,
+    *,
+    tls_verify: bool = True,
+) -> dict[str, Any]:
+    """Raw proxy-host object (GET by id, then list fallback)."""
+    cid = str(host_id).strip()
+    if not cid:
+        raise ValueError("proxy host id required")
+    try:
+        data = _get_json(
+            base_url, token, f"/api/nginx/proxy-hosts/{cid}", tls_verify=tls_verify
+        )
+        if isinstance(data, dict) and data:
+            return data
+    except RuntimeError:
+        pass
+    raw = _get_json(base_url, token, "/api/nginx/proxy-hosts", tls_verify=tls_verify)
+    rows = raw if isinstance(raw, list) else (raw.get("data") if isinstance(raw, dict) else [])
+    for row in rows or []:
+        if isinstance(row, dict) and str(row.get("id") or "") == cid:
+            return row
+    raise RuntimeError(f"NPM proxy host {cid} not found")
+
+
+def retarget_proxy_host_backend(
+    base_url: str,
+    token: str,
+    host_id: str | int,
+    forward_host: str,
+    *,
+    forward_port: int | None = None,
+    tls_verify: bool = True,
+) -> dict[str, Any]:
+    """PUT existing proxy host: replace forward_host (and optional port). Full object.
+
+    Does not create/delete hosts or change certificate_id / SSL flags.
+    """
+    new_host = (forward_host or "").strip()
+    if not new_host:
+        raise ValueError("forward_host required")
+    raw = get_proxy_host(base_url, token, host_id, tls_verify=tls_verify)
+    cid = str(raw.get("id") or host_id).strip()
+    body: dict[str, Any] = {}
+    for key in _PROXY_PUT_KEYS:
+        if key in raw:
+            body[key] = raw[key]
+    body["domain_names"] = raw.get("domain_names") or body.get("domain_names") or []
+    old = str(raw.get("forward_host") or "")
+    body["forward_host"] = new_host
+    if forward_port is not None:
+        body["forward_port"] = int(forward_port)
+    elif "forward_port" not in body:
+        body["forward_port"] = raw.get("forward_port") or 80
+    _put_json(
+        base_url,
+        token,
+        f"/api/nginx/proxy-hosts/{cid}",
+        body,
+        tls_verify=tls_verify,
+    )
+    return {
+        "id": cid,
+        "domain_names": body.get("domain_names") or [],
+        "old_forward_host": old,
+        "forward_host": new_host,
+        "forward_port": body.get("forward_port"),
+    }
 
 
 def list_proxy_hosts(
