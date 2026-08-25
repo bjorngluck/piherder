@@ -995,7 +995,9 @@ async def server_detail(
     files_on = False
     files_jail = ""
     try:
-        files_on = hf_svc.files_enabled() and role_at_least(user, ROLE_OPERATOR)
+        files_on = hf_svc.files_surface_allowed() and (
+            role_at_least(user, ROLE_OPERATOR) or hf_svc.is_demo_files()
+        )
         if files_on:
             files_jail = hf_svc.jail_path(server)
     except Exception:

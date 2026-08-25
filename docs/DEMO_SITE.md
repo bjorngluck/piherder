@@ -40,6 +40,7 @@ Access (if enabled) remains an optional outer gate for spam reduction — do not
 | Jobs | Canned success (“Demo simulation”) — no live SSH |
 | nmap / cert edge | Live outbound blocked |
 | Webshell (**D5**) | **Simulated only** — xterm UI + in-process fake shell (no Paramiko / no TCP). Shared **viewer** may open Console. No live host access |
+| Files (**D-F**) | **Simulated only** — canned tree, same chrome as 1.3 Files. No SFTP. Viewer may browse. Writes refused |
 | Seed | Auto on empty DB; **ops CLI only** (no in-app restore — shared admin vandalism) |
 | Scheduled reset (**D4**) | **Live** on public demo VPS — `demo-maintain` cron (see § Cron) |
 | Shared login role | **`viewer`** — same RBAC/menus as production viewers (not shared admin) |

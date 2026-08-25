@@ -17,6 +17,11 @@ from app.services import api_tokens as tok
 
 @pytest.fixture()
 def files_client(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.security.auth.force_2fa_required", lambda: False)
+    monkeypatch.setattr(
+        "app.services.account_stepup.force_2fa_applies",
+        lambda *a, **k: False,
+    )
     engine = create_engine(
         f"sqlite:///{tmp_path / 'files.db'}",
         connect_args={"check_same_thread": False},
@@ -192,13 +197,49 @@ def test_files_ls_json_flag_on(files_client, monkeypatch):
         assert "entries" in body
 
 
-def test_files_demo_403(files_client, monkeypatch):
-    monkeypatch.setattr(hf.settings, "PIHERDER_HOST_FILES", True, raising=False)
+def test_files_demo_simulated_tree(files_client, monkeypatch):
+    monkeypatch.setattr(hf.settings, "PIHERDER_HOST_FILES", False, raising=False)
     monkeypatch.setattr(hf.settings, "PIHERDER_DEMO_MODE", True, raising=False)
+    monkeypatch.setattr("app.services.demo.settings.PIHERDER_DEMO_MODE", True, raising=False)
     client, ids = files_client
     r = client.get(f"/servers/{ids['server']}/files", cookies=_cookie(ids["admin"]))
-    assert r.status_code == 403
-    assert "demo" in (r.json() or {}).get("detail", r.text).lower()
+    assert r.status_code == 200, r.text[:1500]
+    assert 'data-testid="demo-files-banner"' in r.text
+    assert "simulated" in r.text.lower()
+    r2 = client.get(
+        f"/servers/{ids['server']}/files/ls",
+        cookies=_cookie(ids["admin"]),
+        headers={"Accept": "application/json", "X-PiHerder-Files": "1"},
+    )
+    assert r2.status_code == 200, r2.text[:1500]
+    body = r2.json()
+    names = {e["name"] for e in body.get("entries") or []}
+    assert "README.md" in names
+    assert "grafana" in names
+    r3 = client.get(
+        f"/servers/{ids['server']}/files/content",
+        params={"p": "README.md"},
+        cookies=_cookie(ids["admin"]),
+        headers={"Accept": "application/json", "X-PiHerder-Files": "1"},
+    )
+    assert r3.status_code == 200
+    assert "simulated" in (r3.json().get("text") or "").lower()
+    r4 = client.get(
+        f"/servers/{ids['server']}/files/preview",
+        params={"p": "logo.svg"},
+        cookies=_cookie(ids["admin"]),
+    )
+    assert r4.status_code == 200
+    assert b"<svg" in r4.content
+    r_v = client.get(f"/servers/{ids['server']}/files", cookies=_cookie(ids["viewer"]))
+    assert r_v.status_code == 200
+    r_w = client.post(
+        f"/servers/{ids['server']}/files/mkdir",
+        data={"p": "", "name": "nope", "identity": "fleet"},
+        cookies=_cookie(ids["admin"]),
+        headers={"X-PiHerder-Files": "1"},
+    )
+    assert r_w.status_code in (403, 400)
 
 
 def test_files_webauthn_options_same_origin_only(files_client, monkeypatch):

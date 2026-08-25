@@ -291,7 +291,7 @@ Viewer: 403. Demo: disabled or fake preview.
 | **M9** | `devices:` warning / lock suggest | Must | **Done** (ack checkbox) |
 | **M-npm** | NPM proxy backend retarget | Must | **Done** (PUT `forward_host`) |
 | **M-rm** | Destructive remove (source wipe, unused vols) | Should | Planned |
-| **D-F** | Demo simulated Files | Must | Planned (not M; see PLAN §9) |
+| **D-F** | Demo simulated Files | Must | **Done** (canned tree; no SFTP) |
 | **M-live** | Rsync while running + final sync | Out | Parked |
 
 ### Acceptance (Must)
@@ -422,3 +422,4 @@ An operator can:
 | 2026-08-25 | **M1** lock + **M2** preflight + **M3/M5** stop → herder rsync → dest `up -d`. Named volumes = Mountpoint rsync (recipe A). |
 | 2026-08-25 | **M4 / M-npm:** direct CNAME + both Pi-holes `restartdns`; NPM PUT `forward_host` (public CNAME stays on NPM). |
 | 2026-08-25 | **M6–M9:** TLS SNI probe + Kuma last_state; rebind maps/Kuma/templates/clone cert targets; leftover `compose down`; devices ack. |
+| 2026-08-25 | **D-F:** demo simulated Files (canned tree, viewer browse, writes refused). |
