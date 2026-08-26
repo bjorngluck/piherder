@@ -28,6 +28,7 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Files button missing / 404 | Flag `PIHERDER_HOST_FILES` (default off). Viewer 403. [Host Files](../day-to-day/host-files.md) |
 | Move to another host missing / 404 | Flag `PIHERDER_SERVICE_MIGRATE` (default off). Recreate **web**. Viewer 403. Locked / HAOS refused. Demo never copies. [Move a service](../docker/service-migration.md) |
 | Move dest picker looks stuck | Preflight SSHs both hosts — wait modal + “Checking destination…”. Recreate web if the local image is stale |
+| Move job fails “active service_migrate job #N” on itself | Fixed on `v1.4.0-dev` — job preflight no longer treats its own row as busy. Failed job is idle; start Move again after rebuild |
 | Move preflight blocks dest | Same page — remap dest **host port** or **project name/folder**, disk, DNS name, NPM poll cache, busy backup/stack/migrate job |
 | Move job TLS / Kuma red | No auto-rollback. Dest may already be up with names flipped. Fix dest or start the stack on source. Staging kept under `/backups/_migrate/{job_id}` |
 | Move leftover wipe did too little / too much | Default leaves source stopped. **Remove source** only deletes the jailed project dir + copied named volumes — dest never, extra binds outside the project folder stay |

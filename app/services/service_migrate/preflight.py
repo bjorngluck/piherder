@@ -125,8 +125,11 @@ def eligible_destinations(session: Session, source: Server) -> list[Server]:
     return out
 
 
-def _busy_jobs(session: Session, server_id: int) -> list[Job]:
+def _busy_jobs(
+    session: Session, server_id: int, ignore_job_id: Optional[int] = None
+) -> list[Job]:
     sid = int(server_id or 0)
+    ignore = int(ignore_job_id) if ignore_job_id else None
     rows = list(
         session.exec(
             select(Job)
@@ -144,6 +147,8 @@ def _busy_jobs(session: Session, server_id: int) -> list[Job]:
     for job in others:
         if _job_dest_server_id(job) == sid:
             rows.append(job)
+    if ignore:
+        rows = [j for j in rows if int(j.id or 0) != ignore]
     return rows
 
 
@@ -376,6 +381,7 @@ def run_preflight(
     dest_project: Optional[str] = None,
     port_map: Optional[dict[str, str]] = None,
     bind_overrides: Optional[list[dict[str, Any]]] = None,
+    ignore_job_id: Optional[int] = None,
 ) -> dict[str, Any]:
     name = compose_project_name(project)
     dest_name, dest_name_err = normalize_dest_project(name, dest_project)
@@ -569,7 +575,7 @@ def run_preflight(
             )
         )
 
-    for job in _busy_jobs(session, int(source.id or 0)):
+    for job in _busy_jobs(session, int(source.id or 0), ignore_job_id):
         blocks.append(
             _item(
                 "busy_source",
@@ -578,7 +584,7 @@ def run_preflight(
             )
         )
         break
-    for job in _busy_jobs(session, int(dest.id or 0)):
+    for job in _busy_jobs(session, int(dest.id or 0), ignore_job_id):
         blocks.append(
             _item(
                 "busy_dest",

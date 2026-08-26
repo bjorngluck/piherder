@@ -698,6 +698,52 @@ def test_preflight_busy_dest_as_migrate_target(lock_db):
     assert any(b["id"] == "busy_dest" for b in r["blocks"])
 
 
+def test_preflight_ignores_own_running_migrate_job(lock_db):
+    src = Server(name="a", hostname="a.local", container_patch_enabled=True, dns_name="a.test")
+    dest = Server(name="b", hostname="b.local", container_patch_enabled=True, dns_name="b.test")
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    lock_db.refresh(src)
+    lock_db.refresh(dest)
+    src.docker_inventory_json = _inv("openwebui")
+    job = Job(
+        server_id=src.id,
+        job_type="service_migrate",
+        status="running",
+        details=json.dumps({"dest_server_id": dest.id, "project": "openwebui"}),
+    )
+    lock_db.add(src)
+    lock_db.add(job)
+    lock_db.commit()
+    lock_db.refresh(job)
+    blocked = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        source_facts={"arch": "aarch64"},
+        dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+        herder_free=10**12,
+    )
+    ids = {b["id"] for b in blocked["blocks"]}
+    assert "busy_source" in ids
+    assert "busy_dest" in ids
+    ok = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        ignore_job_id=job.id,
+        source_facts={"arch": "aarch64"},
+        dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+        herder_free=10**12,
+    )
+    ids2 = {b["id"] for b in ok["blocks"]}
+    assert "busy_source" not in ids2
+    assert "busy_dest" not in ids2
+
+
 def test_copy_rejects_bad_volume_name(tmp_path):
     from app.services.service_migrate.copy import CopyError, copy_named_volume
 
