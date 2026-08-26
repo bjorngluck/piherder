@@ -781,6 +781,22 @@ def test_preflight_blocks_truncated_docker_ps_mount(lock_db):
         rsync_host_to_herder(src, "/home/piherder…", "/tmp")
 
 
+def test_staging_tree_summary_lists_dotfiles(tmp_path):
+    from app.services.service_migrate.copy import staging_tree_summary
+
+    root = tmp_path / "proj"
+    root.mkdir()
+    (root / "docker-compose.yml").write_text("x\n", encoding="utf-8")
+    (root / ".env").write_text("A=1\n", encoding="utf-8")
+    (root / "data").mkdir()
+    (root / "data" / "db").write_text("z\n", encoding="utf-8")
+    text = staging_tree_summary(root)
+    assert "3 file" in text
+    assert ".env" in text
+    assert "docker-compose.yml" in text
+    assert "data/" in text
+
+
 def test_copy_rejects_bad_volume_name(tmp_path):
     from app.services.service_migrate.copy import CopyError, copy_named_volume
 
@@ -1948,4 +1964,27 @@ def test_compose_rewrite_bind_source(tmp_path):
     text = compose.read_text(encoding="utf-8")
     assert "/home/bjorn/docker/app/data:/data" in text
     assert "/home/bjorn/other/data:" not in text
+
+
+def test_compose_rewrites_tilde_bind_to_absolute_dest(tmp_path):
+    from app.services.service_migrate.overrides import apply_staging_overrides
+
+    compose = tmp_path / "docker-compose.yml"
+    compose.write_text(
+        "services:\n  openwebui:\n    image: ghcr.io/open-webui/open-webui:main\n"
+        "    volumes:\n      - ~/open-webui-data:/app/backend/data\n"
+        "    ports:\n      - \"8090:8080\"\n",
+        encoding="utf-8",
+    )
+    apply_staging_overrides(
+        tmp_path,
+        bind_map={
+            "/home/piherder/open-webui-data": "/home/piherder/open-webui-data"
+        },
+    )
+    text = compose.read_text(encoding="utf-8")
+    assert "- /home/piherder/open-webui-data:/app/backend/data" in text
+    assert "~/open-webui-data" not in text
+    assert "8090:8080" in text
+    assert "ghcr.io/open-webui/open-webui:main" in text
 

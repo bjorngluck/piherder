@@ -437,13 +437,20 @@ def run_preflight(
         blocks.append(_item("host_lock", msg, reason=lock.get("reason")))
 
     src_row = _project_from_inventory(source, name)
+    project_files: list[str] = []
     if src_row is not None and live_inspect:
         try:
-            from .facts import inspect_project_mounts
+            from .facts import inspect_project_mounts, list_project_tree
 
             filled = (inspect_fn or inspect_project_mounts)(source, src_row)
             if isinstance(filled, dict):
                 src_row = filled
+            src_base_early = str(
+                (source_facts or {}).get("docker_base") or docker_base_abs(source)
+            )
+            project_files = list_project_tree(
+                source, f"{src_base_early.rstrip('/')}/{name}"
+            )
         except Exception:
             pass
     if src_row is None:
@@ -722,6 +729,7 @@ def run_preflight(
         "blocks": uniq_blocks,
         "warns": warns,
         "dataset": dataset,
+        "project_files": project_files,
         "dns": dns_out,
         "source": {
             "id": source.id,

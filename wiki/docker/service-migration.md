@@ -65,7 +65,7 @@ preflight
   → wipe staging (success) / keep staging (failure)
 ```
 
-Default order is **dest up, then name/proxy flip** (clients keep hitting the stopped source until dest answers). Named Docker volumes copy as **rsync of the volume Mountpoint** (same privilege as backing up `/var/lib/docker/volumes`). Relative binds ride with the project tree. Absolute binds **outside** the docker base dir are a preflight **block**, not a silent copy.
+Default order is **dest up, then name/proxy flip** (clients keep hitting the stopped source until dest answers). The **project folder** is a verbatim rsync of every file and directory (including `.env` and other hidden files) onto dest’s docker root + folder name. Compose is left as-is except **host ports** you remapped and **bind sources** that must change (e.g. `~/open-webui-data` → the real dest path). Named Docker volumes copy as **rsync of the volume Mountpoint**. Extra absolute binds **outside** the project folder copy separately (default same path on dest).
 
 Direct TLS rows (`via_proxy` off): **CNAME → dest DNS name**, then both Pi-holes **Restart DNS**. NPM-fronted rows: public CNAME stays on NPM; the job **PUT**s `forward_host` (and `forward_port` only if you remapped that published host port). Preflight still uses the **NPM poll cache**; unmatched hosts are a block. Poll NPM before moving.
 
