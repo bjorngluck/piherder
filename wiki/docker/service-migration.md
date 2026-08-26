@@ -43,7 +43,7 @@ Use lock for Frigate + Coral, USB gadgets, or anything you must not relocate by 
 2. **⋯** → **Move to another host…**  
 3. Pick a destination (other hosts with **Docker / containers** on; HAOS and the source are excluded). A **wait modal** runs while PiHerder SSH-probes dest (same overlay as other long tasks).  
 4. Preflight lists **blocks** (hard stop) and **warnings**. Dataset lists paths, kinds, byte estimate, dest free space.  
-5. On dest you can **rename the project/folder** and **remap published host ports** if dest already has that name or port. Recheck, then Move is enabled when blocks are gone.  
+5. **Project folder** is dest docker root + the same folder name (`/home/bjorn/docker/test` → `/home/bjorn/docker/test`). Change **Dest folder name** only if you want `test2`. Named volumes copy with the project. Extra host binds (paths **outside** the project folder) are a separate list — not the project itself.  
 6. If the stack looks hardware-bound (`/dev/…`), tick the acknowledge checkbox (or lock it instead).  
 7. Choose leftover (see below). Default is **leave source stopped**.  
 8. **Move service** — danger confirm (downtime). **Remove source** also requires the extra checkbox and a stronger confirm.  
