@@ -433,7 +433,10 @@ def redeploy_project(
             "up_status": up_status,
             "output": output,
             "error": None if success else (
-                "pull failed" if pull and not pull_ok else "up -d failed"
+                (
+                    "pull failed" if pull and not pull_ok else "up -d failed"
+                )
+                + (f": {output[-700:]}" if output else "")
             ),
         }
     finally:

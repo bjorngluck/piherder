@@ -1287,6 +1287,92 @@ def test_pipeline_leftover_down(lock_db, tmp_path, monkeypatch):
     assert downs and downs[0][0] == src.id
 
 
+def test_pipeline_dest_up_includes_compose_output(lock_db, tmp_path, monkeypatch):
+    from app.services.service_migrate.pipeline import MigrateError, run_copy_and_start
+
+    src, dest = _pair_hosts(lock_db)
+    src.docker_inventory_json = _inv("openwebui")
+    lock_db.add(src)
+    lock_db.commit()
+    monkeypatch.setattr(
+        "app.services.service_migrate.pipeline.staging_root",
+        lambda job_id: tmp_path / str(job_id),
+    )
+
+    def dummy(*a, **k):
+        return {"success": True}
+
+    with pytest.raises(MigrateError, match="bind source path does not exist") as ei:
+        run_copy_and_start(
+            lock_db,
+            source=src,
+            dest=dest,
+            project="openwebui",
+            job_id=12,
+            source_facts={"arch": "aarch64"},
+            dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+            herder_free=10**12,
+            pull_fn=dummy,
+            push_fn=dummy,
+            vol_fn=dummy,
+            stop_fn=dummy,
+            up_fn=lambda *a, **k: {
+                "success": False,
+                "up_ok": False,
+                "pull_ok": True,
+                "error": "up -d failed",
+                "output": "=== docker compose up -d (rc=1) ===\nError: bind source path does not exist: /home/piherder/open-webui-data",
+            },
+            cutover_fn=lambda *a, **k: {"ok": True},
+            rebind_fn=lambda *a, **k: {"ok": True},
+            validate_fn=lambda *a, **k: {"ok": True},
+        )
+    assert "up -d failed" in str(ei.value)
+
+
+def test_pipeline_dest_up_ok_despite_pull_error(lock_db, tmp_path, monkeypatch):
+    from app.services.service_migrate.pipeline import run_copy_and_start
+
+    src, dest = _pair_hosts(lock_db)
+    src.docker_inventory_json = _inv("openwebui")
+    lock_db.add(src)
+    lock_db.commit()
+    monkeypatch.setattr(
+        "app.services.service_migrate.pipeline.staging_root",
+        lambda job_id: tmp_path / str(job_id),
+    )
+
+    def dummy(*a, **k):
+        return {"success": True}
+
+    r = run_copy_and_start(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        job_id=13,
+        source_facts={"arch": "aarch64"},
+        dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+        herder_free=10**12,
+        pull_fn=dummy,
+        push_fn=dummy,
+        vol_fn=dummy,
+        stop_fn=dummy,
+        up_fn=lambda *a, **k: {
+            "success": False,
+            "up_ok": True,
+            "pull": True,
+            "pull_ok": False,
+            "error": "pull failed: unauthorized",
+            "output": "unauthorized",
+        },
+        cutover_fn=lambda *a, **k: {"ok": True},
+        rebind_fn=lambda *a, **k: {"ok": True},
+        validate_fn=lambda *a, **k: {"ok": True},
+    )
+    assert r["ok"] is True
+
+
 def test_normalize_leftover_and_path_jail():
     from app.services.service_migrate.leftover import (
         LeftoverError,
