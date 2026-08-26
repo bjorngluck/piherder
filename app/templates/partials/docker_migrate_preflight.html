@@ -39,27 +39,44 @@
     <input type="hidden" name="project" value="{{ result.project }}">
     <input type="hidden" name="dest" value="{{ result.dest.id }}">
   <fieldset class="mb-4 p-3 rounded border border-border" data-testid="migrate-overrides">
-    <legend class="text-xs text-muted px-1">On destination</legend>
-    <label class="block text-xs text-muted mb-1" for="migrate-dest-project">Project name / folder</label>
-    <input id="migrate-dest-project"
-           type="text"
-           name="dest_project"
-           value="{{ result.dest_project_input or result.dest_project or result.project }}"
-           autocomplete="off"
-           spellcheck="false"
-           class="w-full bg-surface border border-border rounded px-2 py-2 text-sm font-mono min-h-11 mb-1"
-           data-testid="migrate-dest-project"
-           hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
-           hx-target="#migrate-preflight"
-           hx-swap="innerHTML"
-           hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_'], [name^='bind_src_'], [name^='dest_bind_'], [name^='skip_bind_']"
-           hx-indicator="#migrate-preflight-wait"
-           hx-trigger="change">
-    <p class="text-xs text-muted mb-3 break-all">
-      Lands as <span class="font-mono">{{ result.dest.project_path or result.dest.project }}</span>
-      {% if result.dest.project == result.project %}(same name as source){% endif %}.
-      Change this if dest already has that compose project.
+    <legend class="text-xs text-muted px-1">Project folder</legend>
+    <p class="text-sm mb-2 break-all font-mono" data-testid="migrate-source-project-path">
+      {{ result.source.project_path }}
     </p>
+    <p class="text-xs text-muted mb-2">
+      Copies that folder’s contents onto dest under dest’s docker root
+      (<span class="font-mono">{{ result.dest.docker_base }}</span>),
+      same folder name unless you change it. Named volumes copy too.
+    </p>
+    <label class="block text-xs text-muted mb-1" for="migrate-dest-project">Dest folder name</label>
+    <div class="flex flex-wrap items-center gap-1 mb-1">
+      <span class="font-mono text-xs text-muted break-all">{{ result.dest.docker_base }}/</span>
+      <input id="migrate-dest-project"
+             type="text"
+             name="dest_project"
+             value="{{ result.dest_project_input or result.dest_project or result.project }}"
+             autocomplete="off"
+             spellcheck="false"
+             class="flex-1 min-w-[8rem] bg-surface border border-border rounded px-2 py-2 text-sm font-mono min-h-11"
+             data-testid="migrate-dest-project"
+             hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
+             hx-target="#migrate-preflight"
+             hx-swap="innerHTML"
+             hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_'], [name^='bind_src_'], [name^='dest_bind_'], [name^='skip_bind_']"
+             hx-indicator="#migrate-preflight-wait"
+             hx-trigger="change">
+    </div>
+    <p class="text-xs mb-3 break-all">
+      Dest folder:
+      <span class="font-mono text-accent" data-testid="migrate-dest-project-path">{{ result.dest.project_path or result.dest.project }}</span>
+    </p>
+    {% set vols = (result.leftover_remove or {}).named_volumes or [] %}
+    {% if vols %}
+    <p class="text-xs text-muted mb-3 break-all">
+      Named volumes (copied):
+      <span class="font-mono">{{ vols | join(', ') }}</span>
+    </p>
+    {% endif %}
     {% if result.ports %}
     <div class="text-xs text-muted mb-1">Published host ports</div>
     <div class="space-y-2 mb-3" data-testid="migrate-port-map">
@@ -86,10 +103,11 @@
     </div>
     {% endif %}
     {% if result.binds %}
-    <div class="text-xs text-muted mb-1">Absolute binds outside source docker base</div>
+    <div class="text-xs font-semibold mb-1">Extra host folders (not inside the project folder)</div>
     <p class="text-xs text-muted mb-2 break-all">
-      Default dest path is <strong>the same as source</strong>. Change it only if dest should use a different folder
-      (for example under dest jail <span class="font-mono">{{ result.dest.docker_base }}</span>).
+      These are additional bind mounts on the source host, <strong>outside</strong>
+      <span class="font-mono">{{ result.source.project_path }}</span>.
+      They are not the project folder. Default dest path is the same as source; change only if dest should store that data somewhere else.
     </p>
     <div class="space-y-3 mb-3" data-testid="migrate-bind-map">
       {% for b in result.binds %}

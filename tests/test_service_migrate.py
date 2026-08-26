@@ -600,6 +600,7 @@ def test_http_migrate_wizard_and_preflight(lock_client, monkeypatch):
     assert r2.status_code == 200, r2.text[:3000]
     assert 'data-testid="migrate-preflight-result"' in r2.text
     assert 'data-testid="migrate-dest-project"' in r2.text
+    assert 'data-testid="migrate-dest-project-path"' in r2.text
     assert 'data-testid="migrate-recheck"' in r2.text
 
 
