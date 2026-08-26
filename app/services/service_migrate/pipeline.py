@@ -22,7 +22,7 @@ from .cutover import CutoverError, retarget_dns_npm
 from .facts import docker_base_abs
 from .host_lock import compose_project_name
 from .leftover import LeftoverError, apply_leftover, normalize_leftover
-from .overrides import apply_staging_overrides, remap_named_volume
+from .overrides import apply_staging_overrides, compose_volume_lhs, remap_named_volume
 from .preflight import named_volume_id, run_preflight
 from .rebind import rebind_control_plane
 from .validate import ValidateError, validate_migrate
@@ -161,6 +161,7 @@ def run_copy_and_start(
 
     dataset = pf.get("dataset") or {}
     seen_vol: set[str] = set()
+    compose_binds: dict[str, str] = {}
     for it in dataset.get("items") or []:
         kind = it.get("kind")
         src = (it.get("source") or "").strip()
@@ -185,45 +186,50 @@ def run_copy_and_start(
             except TypeError:
                 vol(source, dest, vol_name, stage, log=log)
         elif kind == "bind_absolute":
-            from .overrides import is_truncated_host_path
+            from .overrides import is_truncated_host_path, suggest_dest_bind
 
             if is_truncated_host_path(src):
                 raise MigrateError(
                     f"refusing truncated inventory bind path: {src}"
                 )
-            mapped = (pf.get("bind_map") or {}).get(src) or (
-                dst_base + src[len(src_base) :]
-                if src.startswith(src_base + "/")
-                else ""
+            if src == src_proj or src.startswith(src_proj + "/"):
+                dest_sub = dst_proj + src[len(src_proj) :]
+                compose_binds[src] = compose_volume_lhs(dest_sub, dst_proj)
+                continue
+            mapped = (pf.get("bind_map") or {}).get(src) or suggest_dest_bind(
+                src, src_base, dst_base, dest_name
             )
             if not mapped:
                 _log(log, f"Skip bind {src} (not copied)")
                 continue
-            rel_key = src.lstrip("/").replace("..", "_")
-            extra = stage / "binds" / rel_key
-            extra.mkdir(parents=True, exist_ok=True)
-            _log(log, f"Copy bind {src} → {mapped}")
-            try:
-                pull(source, src, extra, log=log)
-            except TypeError:
-                pull(source, src, extra, log=log)
-            try:
-                push(dest, extra, mapped, log=log, delete=True)
-            except TypeError:
-                push(dest, extra, mapped, log=log)
+            compose_binds[src] = compose_volume_lhs(mapped, dst_proj)
+            if mapped == dst_proj or mapped.startswith(dst_proj + "/"):
+                rel = mapped[len(dst_proj) :].lstrip("/")
+                nested = proj_stage / rel
+                nested.mkdir(parents=True, exist_ok=True)
+                _log(log, f"Fold bind {src} into project as ./{rel}")
+                try:
+                    pull(source, src, nested, log=log)
+                except TypeError:
+                    pull(source, src, nested, log=log)
+            else:
+                extra = stage / "binds" / src.lstrip("/").replace("..", "_")
+                extra.mkdir(parents=True, exist_ok=True)
+                _log(log, f"Copy bind {src} → {mapped}")
+                try:
+                    pull(source, src, extra, log=log)
+                except TypeError:
+                    pull(source, src, extra, log=log)
+                try:
+                    push(dest, extra, mapped, log=log, delete=True)
+                except TypeError:
+                    push(dest, extra, mapped, log=log)
 
     volume_renames = {
         vol_name: remap_named_volume(vol_name, name, dest_name)
         for vol_name in seen_vol
         if remap_named_volume(vol_name, name, dest_name) != vol_name
     }
-    compose_binds = dict(pf.get("bind_map") or {})
-    for it in dataset.get("items") or []:
-        if not isinstance(it, dict) or it.get("kind") != "bind_absolute":
-            continue
-        src = (it.get("source") or "").strip()
-        if src.startswith(src_base + "/") and src not in compose_binds:
-            compose_binds[src] = dst_base + src[len(src_base) :]
     rewritten = apply_staging_overrides(
         proj_stage,
         dest_project=dest_name,
