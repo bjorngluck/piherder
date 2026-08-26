@@ -1088,6 +1088,11 @@ def _list_containers_uncached(server: Server, enrich_mounts: bool = True) -> Lis
             else:
                 # docker ps joins mounts with commas (paths often truncated with …)
                 mounts_list = [m.strip() for m in str(mounts_raw).split(",") if m.strip()]
+            mounts_list = [
+                m
+                for m in mounts_list
+                if m and "…" not in m and "\u2026" not in m and "..." not in m
+            ]
             ports_list = ports if ports else (
                 [p.strip() for p in ports_raw.split(",") if p.strip()] if ports_raw else []
             )

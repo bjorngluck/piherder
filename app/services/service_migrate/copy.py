@@ -43,6 +43,12 @@ def rsync_host_to_herder(
     log: Optional[LogFn] = None,
 ) -> None:
     """Pull remote directory contents into local_dir (trailing slash)."""
+    from .overrides import is_truncated_host_path
+
+    if is_truncated_host_path(remote_path or ""):
+        raise CopyError(
+            f"refusing truncated inventory path (not a real directory): {remote_path}"
+        )
     remote = (remote_path or "").rstrip("/") + "/"
     local_dir.mkdir(parents=True, exist_ok=True)
     dest = str(local_dir).rstrip("/") + "/"

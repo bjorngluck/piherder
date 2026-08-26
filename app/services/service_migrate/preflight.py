@@ -16,6 +16,7 @@ from ..integrations.registry import ROLE_SERVICE, TYPE_NPM
 from .facts import docker_base_abs
 from .host_lock import compose_project_name, lock_state
 from .overrides import (
+    is_truncated_host_path,
     mapped_host_port,
     normalize_dest_project,
     suggest_dest_bind,
@@ -201,8 +202,15 @@ def _dataset_from_project(project_row: Optional[dict[str, Any]], docker_base: st
     total = 0
     known = True
     if not project_row:
-        return {"items": items, "bytes": None, "bytes_human": "unknown", "outside_jail": []}
+        return {
+            "items": items,
+            "bytes": None,
+            "bytes_human": "unknown",
+            "outside_jail": [],
+            "truncated": [],
+        }
     outside: list[str] = []
+    truncated: list[str] = []
     jail = (docker_base or "").rstrip("/") + "/"
     seen: set[str] = set()
     for c in project_row.get("containers") or []:
@@ -215,6 +223,10 @@ def _dataset_from_project(project_row: Optional[dict[str, Any]], docker_base: st
                     continue
                 src = str(m.get("source") or m.get("name") or "").strip()
                 if not src or src in seen:
+                    continue
+                if is_truncated_host_path(src):
+                    truncated.append(src)
+                    seen.add(src)
                     continue
                 seen.add(src)
                 b = m.get("size_bytes")
@@ -253,6 +265,10 @@ def _dataset_from_project(project_row: Optional[dict[str, Any]], docker_base: st
             src = _mount_source_from_line(str(line))
             if not src or src in seen:
                 continue
+            if is_truncated_host_path(src):
+                truncated.append(src)
+                seen.add(src)
+                continue
             seen.add(src)
             vol = named_volume_id(source=src)
             if vol:
@@ -279,6 +295,7 @@ def _dataset_from_project(project_row: Optional[dict[str, Any]], docker_base: st
         "bytes": bytes_out,
         "bytes_human": _human(bytes_out),
         "outside_jail": outside,
+        "truncated": truncated,
     }
 
 
@@ -382,6 +399,8 @@ def run_preflight(
     port_map: Optional[dict[str, str]] = None,
     bind_overrides: Optional[list[dict[str, Any]]] = None,
     ignore_job_id: Optional[int] = None,
+    live_inspect: bool = False,
+    inspect_fn=None,
 ) -> dict[str, Any]:
     name = compose_project_name(project)
     dest_name, dest_name_err = normalize_dest_project(name, dest_project)
@@ -417,6 +436,15 @@ def run_preflight(
         blocks.append(_item("host_lock", msg, reason=lock.get("reason")))
 
     src_row = _project_from_inventory(source, name)
+    if src_row is not None and live_inspect:
+        try:
+            from .facts import inspect_project_mounts
+
+            filled = (inspect_fn or inspect_project_mounts)(source, src_row)
+            if isinstance(filled, dict):
+                src_row = filled
+        except Exception:
+            pass
     if src_row is None:
         blocks.append(
             _item(
@@ -461,6 +489,16 @@ def run_preflight(
 
     src_base = str((source_facts or {}).get("docker_base") or docker_base_abs(source))
     dataset = _dataset_from_project(src_row, src_base)
+    for path in dataset.get("truncated") or []:
+        blocks.append(
+            _item(
+                "bind_truncated",
+                "Inventory mount path is truncated (docker ps ellipsis) — "
+                f"not a real directory, will not rsync: {path}. "
+                "Refresh Docker on the source host so inspect fills full paths, then Recheck.",
+                path=path,
+            )
+        )
     payload = dataset.get("bytes")
     margin = (
         max(int(payload * DISK_MARGIN_RATIO), DISK_MARGIN_MIN) if payload else DISK_MARGIN_MIN
