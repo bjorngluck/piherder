@@ -2579,6 +2579,8 @@ def enqueue_service_migrate(
     devices_ack: bool = False,
     dest_project: str | None = None,
     port_map: dict | None = None,
+    bind_map: dict | None = None,
+    skip_binds: list | None = None,
 ) -> Job:
     """Queue stop-first copy + dest up. Raises JobAlreadyActive if either host is busy."""
     from ..service_migrate.host_lock import HostLockError, compose_project_name
@@ -2626,6 +2628,8 @@ def enqueue_service_migrate(
             project=name,
             dest_project=dest_name,
             port_map=clean_map,
+            bind_map=bind_map or {},
+            skip_binds=list(skip_binds or []),
             leftover=left,
             devices_ack=bool(devices_ack),
         )
@@ -2666,6 +2670,8 @@ def _execute_service_migrate(
     devices_ack = False
     dest_project = project
     port_map: dict = {}
+    bind_map: dict = {}
+    skip_binds: list = []
     with _get_fresh_session() as session:
         job = session.get(Job, job_id)
         if job:
@@ -2677,6 +2683,12 @@ def _execute_service_migrate(
                 raw_map = data.get("port_map") or {}
                 if isinstance(raw_map, dict):
                     port_map = {str(k): str(v) for k, v in raw_map.items()}
+                raw_binds = data.get("bind_map") or {}
+                if isinstance(raw_binds, dict):
+                    bind_map = {str(k): str(v) for k, v in raw_binds.items()}
+                raw_skip = data.get("skip_binds") or []
+                if isinstance(raw_skip, list):
+                    skip_binds = [str(x) for x in raw_skip if str(x).strip()]
             except Exception:
                 pass
             job.status = "running"
@@ -2716,6 +2728,8 @@ def _execute_service_migrate(
                 devices_ack=devices_ack,
                 dest_project=dest_project,
                 port_map=port_map,
+                bind_map=bind_map,
+                skip_binds=skip_binds,
             )
         wipe_staging(job_id)
         _finish(

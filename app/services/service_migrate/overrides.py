@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Any, Mapping, Optional
@@ -14,6 +15,12 @@ from .host_lock import HostLockError, compose_project_name
 logger = logging.getLogger(__name__)
 
 _DEST_PORT_KEY = re.compile(r"^dest_port_(\d{1,5})_(tcp|udp)$", re.I)
+_BIND_SRC_KEY = re.compile(r"^bind_src_(\d+)$")
+_DEST_BIND_KEY = re.compile(r"^dest_bind_(\d+)$")
+_SKIP_BIND_KEY = re.compile(r"^skip_bind_(\d+)$")
+_SHORT_BIND = re.compile(
+    r"^(?P<pre>\s*-\s*)(?P<q>[\"']?)(?P<src>/[^:\"'\s]+)(?P<rest>:[^\n]*)$"
+)
 _SHORT_PORT = re.compile(
     r"^(?P<pre>\s*-\s*)(?P<q>[\"']?)"
     r"(?:(?P<ip>(?:\d{1,3}\.){3}\d{1,3}):)?"
@@ -118,6 +125,97 @@ def remap_named_volume(volume: str, source_project: str, dest_project: str) -> s
         if vol.startswith(prefix):
             return dest + sep + vol[len(prefix) :]
     return vol
+
+
+def path_in_jail(path: str, docker_base: str) -> bool:
+    """True when path is the docker base or a child of it."""
+    p = os.path.normpath((path or "").strip())
+    base = os.path.normpath((docker_base or "").strip())
+    if not p or not base or base == "/":
+        return False
+    return p == base or p.startswith(base.rstrip("/") + "/")
+
+
+def suggest_dest_bind(
+    source_path: str, src_base: str, dest_base: str, dest_project: str
+) -> str:
+    src = os.path.normpath((source_path or "").strip())
+    src_b = os.path.normpath((src_base or "").strip()).rstrip("/")
+    dest_b = os.path.normpath((dest_base or "").strip()).rstrip("/")
+    dest_p = (dest_project or "bind").strip() or "bind"
+    if src_b and (src == src_b or src.startswith(src_b + "/")):
+        rel = src[len(src_b) :] or "/"
+        return dest_b + rel
+    leaf = os.path.basename(src.rstrip("/")) or "bind"
+    return f"{dest_b}/{dest_p}/{leaf}"
+
+
+def validate_dest_bind_path(path: str, dest_base: str) -> Optional[str]:
+    p = (path or "").strip()
+    if not p:
+        return "destination bind path is required (or skip copy)"
+    if not p.startswith("/") or ".." in p.split("/") or "\x00" in p:
+        return "destination bind must be an absolute path without .."
+    if os.path.normpath(p) in ("", "/"):
+        return "refusing dest bind of /"
+    if not path_in_jail(p, dest_base):
+        return f"destination bind must stay under dest docker base {dest_base}"
+    if os.path.normpath(p) == os.path.normpath((dest_base or "").strip()):
+        return "destination bind cannot be the docker base dir itself"
+    return None
+
+
+def parse_bind_overrides_from_mapping(
+    mapping: Mapping[Any, Any] | None,
+) -> list[dict[str, Any]]:
+    """Read bind_src_N / dest_bind_N / skip_bind_N from query or form."""
+    if not mapping:
+        return []
+    items = mapping.multi_items() if hasattr(mapping, "multi_items") else mapping.items()
+    srcs: dict[int, str] = {}
+    dests: dict[int, str] = {}
+    skips: set[int] = set()
+    for k, v in items:
+        ks = str(k)
+        val = str(v or "").strip()
+        m = _BIND_SRC_KEY.match(ks)
+        if m:
+            srcs[int(m.group(1))] = val
+            continue
+        m = _DEST_BIND_KEY.match(ks)
+        if m:
+            dests[int(m.group(1))] = val
+            continue
+        m = _SKIP_BIND_KEY.match(ks)
+        if m and val.lower() in ("1", "true", "on", "yes"):
+            skips.add(int(m.group(1)))
+    out: list[dict[str, Any]] = []
+    for idx in sorted(set(srcs) | set(dests) | skips):
+        src = srcs.get(idx) or ""
+        if not src:
+            continue
+        out.append(
+            {
+                "index": idx,
+                "source": src,
+                "dest": dests.get(idx) or "",
+                "skip": idx in skips,
+            }
+        )
+    return out
+
+
+def bind_map_from_overrides(rows: list[dict[str, Any]]) -> dict[str, str]:
+    """source path → dest path for binds that will be copied (not skipped)."""
+    out: dict[str, str] = {}
+    for row in rows or []:
+        if row.get("skip"):
+            continue
+        src = str(row.get("source") or "").strip()
+        dest = str(row.get("dest") or "").strip()
+        if src and dest:
+            out[src] = dest
+    return out
 
 
 def mapped_host_port(
@@ -263,6 +361,57 @@ def _rewrite_lines_ports(text: str, port_map: Mapping[str, str]) -> str:
     return "".join(out)
 
 
+def _rewrite_bind_spec(spec: Any, bind_map: Mapping[str, str]) -> Any:
+    if not bind_map:
+        return spec
+    if isinstance(spec, str):
+        src = spec.split(":", 1)[0].strip()
+        if src in bind_map:
+            return bind_map[src] + spec[len(src) :]
+        return spec
+    if isinstance(spec, dict):
+        src = spec.get("source") or spec.get("Source")
+        if isinstance(src, str) and src in bind_map:
+            out = dict(spec)
+            if "source" in out:
+                out["source"] = bind_map[src]
+            if "Source" in out:
+                out["Source"] = bind_map[src]
+            return out
+    return spec
+
+
+def _rewrite_binds_in_obj(data: Any, bind_map: Mapping[str, str]) -> None:
+    if not isinstance(data, dict) or not bind_map:
+        return
+    services = data.get("services")
+    if not isinstance(services, dict):
+        return
+    for svc in services.values():
+        if not isinstance(svc, dict):
+            continue
+        vols = svc.get("volumes")
+        if isinstance(vols, list):
+            svc["volumes"] = [_rewrite_bind_spec(v, bind_map) for v in vols]
+
+
+def _rewrite_lines_binds(text: str, bind_map: Mapping[str, str]) -> str:
+    if not bind_map:
+        return text
+    out: list[str] = []
+    for line in text.splitlines(keepends=True):
+        nl = "\n" if line.endswith("\n") else ""
+        body = line[:-1] if nl else line
+        if body.endswith("\r"):
+            body = body[:-1]
+            nl = "\r\n" if nl else "\r"
+        m = _SHORT_BIND.match(body)
+        if m and m.group("src") in bind_map:
+            body = f"{m.group('pre')}{m.group('q')}{bind_map[m.group('src')]}{m.group('rest')}"
+        out.append(body + nl)
+    return "".join(out)
+
+
 def _rewrite_top_name(text: str, dest_project: str) -> str:
     lines = text.splitlines(keepends=True)
     found = False
@@ -298,13 +447,20 @@ def apply_staging_overrides(
     source_project: Optional[str] = None,
     port_map: Optional[Mapping[str, str]] = None,
     volume_renames: Optional[Mapping[str, str]] = None,
+    bind_map: Optional[Mapping[str, str]] = None,
 ) -> dict[str, Any]:
     """Rewrite compose / .env in the herder staging tree before push."""
     changed: list[str] = []
     ports = {k: v for k, v in (port_map or {}).items() if k.split("/", 1)[0] != str(v)}
+    binds = {k: v for k, v in (bind_map or {}).items() if k and v and k != v}
     rename = bool(dest_project and source_project and dest_project != source_project)
     if not staging.is_dir():
-        return {"files": changed, "ports": bool(ports), "rename": rename}
+        return {
+            "files": changed,
+            "ports": bool(ports),
+            "rename": rename,
+            "binds": bool(binds),
+        }
     for path in sorted(staging.rglob("*")):
         if not path.is_file():
             continue
@@ -320,6 +476,8 @@ def apply_staging_overrides(
         if base in _COMPOSE_NAMES:
             if ports:
                 text = _rewrite_lines_ports(text, ports)
+            if binds:
+                text = _rewrite_lines_binds(text, binds)
             if rename and dest_project:
                 try:
                     data = yaml.safe_load(text)
@@ -330,6 +488,8 @@ def apply_staging_overrides(
                         data["name"] = dest_project
                     if ports:
                         _rewrite_ports_in_obj(data, ports)
+                    if binds:
+                        _rewrite_binds_in_obj(data, binds)
                     if volume_renames:
                         _rewrite_volume_names_in_obj(data, volume_renames)
                     text = yaml.safe_dump(
@@ -347,4 +507,9 @@ def apply_staging_overrides(
             path.write_text(text, encoding="utf-8")
             changed.append(rel)
             logger.info("[migrate-overrides] rewrote %s", rel)
-    return {"files": changed, "ports": bool(ports), "rename": rename}
+    return {
+        "files": changed,
+        "ports": bool(ports),
+        "rename": rename,
+        "binds": bool(binds),
+    }
