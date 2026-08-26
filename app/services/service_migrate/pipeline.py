@@ -66,6 +66,8 @@ def run_copy_and_start(
     devices_ack: bool = False,
     dest_project: Optional[str] = None,
     port_map: Optional[dict[str, str]] = None,
+    bind_map: Optional[dict[str, str]] = None,
+    skip_binds: Optional[list[str]] = None,
     down_fn=None,
     rm_vol_fn=None,
     rm_tree_fn=None,
@@ -82,6 +84,16 @@ def run_copy_and_start(
         herder_free=herder_free,
         dest_project=dest_project,
         port_map=port_map,
+        bind_overrides=(
+            [
+                {"source": src, "dest": dest, "skip": False}
+                for src, dest in (bind_map or {}).items()
+            ]
+            + [
+                {"source": src, "dest": "", "skip": True}
+                for src in (skip_binds or [])
+            ]
+        ),
     )
     if not pf.get("ok"):
         msgs = "; ".join(b.get("message") or b.get("id") for b in pf.get("blocks") or [])
@@ -147,26 +159,41 @@ def run_copy_and_start(
                 )
             except TypeError:
                 vol(source, dest, vol_name, stage, log=log)
-        elif kind == "bind_absolute" and src.startswith(src_base + "/"):
-            rel = src[len(src_base) :]
-            extra = stage / "binds" / rel.lstrip("/")
+        elif kind == "bind_absolute":
+            mapped = (pf.get("bind_map") or {}).get(src) or (
+                dst_base + src[len(src_base) :]
+                if src.startswith(src_base + "/")
+                else ""
+            )
+            if not mapped:
+                _log(log, f"Skip bind {src} (not copied)")
+                continue
+            rel_key = src.lstrip("/").replace("..", "_")
+            extra = stage / "binds" / rel_key
             extra.mkdir(parents=True, exist_ok=True)
-            _log(log, f"Copy bind {src}")
+            _log(log, f"Copy bind {src} → {mapped}")
             pull(source, src, extra, log=log)
-            dest_bind = dst_base + rel
-            push(dest, extra, dest_bind, log=log)
+            push(dest, extra, mapped, log=log)
 
     volume_renames = {
         vol_name: remap_named_volume(vol_name, name, dest_name)
         for vol_name in seen_vol
         if remap_named_volume(vol_name, name, dest_name) != vol_name
     }
+    compose_binds = dict(pf.get("bind_map") or {})
+    for it in dataset.get("items") or []:
+        if not isinstance(it, dict) or it.get("kind") != "bind_absolute":
+            continue
+        src = (it.get("source") or "").strip()
+        if src.startswith(src_base + "/") and src not in compose_binds:
+            compose_binds[src] = dst_base + src[len(src_base) :]
     rewritten = apply_staging_overrides(
         proj_stage,
         dest_project=dest_name,
         source_project=name,
         port_map=clean_map,
         volume_renames=volume_renames,
+        bind_map=compose_binds,
     )
     if rewritten.get("files"):
         _log(log, "Rewrote dest compose/env: " + ", ".join(rewritten["files"][:8]))

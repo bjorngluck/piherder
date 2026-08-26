@@ -18,6 +18,8 @@ from .host_lock import compose_project_name, lock_state
 from .overrides import (
     mapped_host_port,
     normalize_dest_project,
+    suggest_dest_bind,
+    validate_dest_bind_path,
     validate_port_map,
 )
 
@@ -373,6 +375,7 @@ def run_preflight(
     herder_free: Optional[int] = None,
     dest_project: Optional[str] = None,
     port_map: Optional[dict[str, str]] = None,
+    bind_overrides: Optional[list[dict[str, Any]]] = None,
 ) -> dict[str, Any]:
     name = compose_project_name(project)
     dest_name, dest_name_err = normalize_dest_project(name, dest_project)
@@ -450,7 +453,7 @@ def run_preflight(
     elif dest_facts is not None and dest_facts.get("docker_base_writable") is None:
         warns.append(_item("dest_writable_unknown", "Could not test destination docker base writability"))
 
-    src_base = docker_base_abs(source)
+    src_base = str((source_facts or {}).get("docker_base") or docker_base_abs(source))
     dataset = _dataset_from_project(src_row, src_base)
     payload = dataset.get("bytes")
     margin = (
@@ -475,12 +478,57 @@ def run_preflight(
             )
         )
 
-    for path in dataset.get("outside_jail") or []:
-        blocks.append(
+    dst_base = str((dest_facts or {}).get("docker_base") or docker_base_abs(dest))
+    by_src = {
+        str(r.get("source") or ""): r
+        for r in (bind_overrides or [])
+        if isinstance(r, dict) and r.get("source")
+    }
+    bind_rows: list[dict[str, Any]] = []
+    unresolved_binds: list[str] = []
+    skipped_binds: list[str] = []
+    bind_map: dict[str, str] = {}
+    for i, path in enumerate(dataset.get("outside_jail") or []):
+        ov = by_src.get(path) or {}
+        dest_default = suggest_dest_bind(path, src_base, dst_base, dest_name)
+        dest_path = str(ov.get("dest") or dest_default).strip()
+        skip = bool(ov.get("skip"))
+        err = None if skip else validate_dest_bind_path(dest_path, dst_base)
+        row = {
+            "index": i,
+            "source": path,
+            "dest": dest_path,
+            "dest_default": dest_default,
+            "skip": skip,
+            "ok": skip or err is None,
+            "error": err,
+        }
+        bind_rows.append(row)
+        if skip:
+            skipped_binds.append(path)
+            warns.append(
+                _item(
+                    "bind_skipped",
+                    f"Will not copy bind {path} — dest compose still needs a dest path or the same host path on dest",
+                    path=path,
+                )
+            )
+        elif err:
+            unresolved_binds.append(path)
+            blocks.append(
+                _item(
+                    "bind_outside_jail",
+                    f"Absolute bind outside source docker base ({src_base}): {path} — set a dest path under {dst_base} or skip copy",
+                    path=path,
+                )
+            )
+        else:
+            bind_map[path] = dest_path
+    if skipped_binds:
+        warns.append(
             _item(
-                "bind_outside_jail",
-                f"Absolute bind outside docker base dir will not be copied silently: {path}",
-                path=path,
+                "bind_skip_ack",
+                "One or more absolute binds will not be copied. Dest may miss that data.",
             )
         )
 
@@ -607,7 +655,6 @@ def run_preflight(
         seen_ids.add(key)
         uniq_blocks.append(b)
 
-    dst_base = docker_base_abs(dest)
     return {
         "ok": len(uniq_blocks) == 0,
         "can_copy": False,
@@ -616,6 +663,8 @@ def run_preflight(
         "dest_project_input": (dest_project or "").strip() or dest_name,
         "port_map": clean_map,
         "ports": port_rows,
+        "binds": bind_rows,
+        "bind_map": bind_map,
         "blocks": uniq_blocks,
         "warns": warns,
         "dataset": dataset,

@@ -1685,3 +1685,98 @@ def test_rebind_renames_dest_project(lock_db):
     assert dep.server_id == dest.id
     assert dep.project_name == "grafana-b"
 
+
+def test_bind_outside_default_dest_clears_block(lock_db):
+    from app.services.service_migrate.overrides import parse_bind_overrides_from_mapping
+
+    src = Server(
+        name="a",
+        hostname="a.local",
+        container_patch_enabled=True,
+        docker_base_dir="/home/bjorn/docker",
+        ssh_username="bjorn",
+        dns_name="a.test",
+    )
+    dest = Server(
+        name="b",
+        hostname="b.local",
+        container_patch_enabled=True,
+        docker_base_dir="/home/bjorn/docker",
+        ssh_username="bjorn",
+        dns_name="b.test",
+    )
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    lock_db.refresh(src)
+    lock_db.refresh(dest)
+    src.docker_inventory_json = _inv(
+        "signal-api",
+        mounts_detail=[
+            {
+                "source": "/home/bjorn/other/signal-data",
+                "destination": "/data",
+                "type": "bind",
+            }
+        ],
+    )
+    lock_db.add(src)
+    lock_db.commit()
+    facts = {"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12}
+    r = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="signal-api",
+        source_facts={**facts, "docker_base": "/home/bjorn/docker"},
+        dest_facts={**facts, "docker_base": "/home/bjorn/docker"},
+        herder_free=10**12,
+    )
+    assert "bind_outside_jail" not in {b["id"] for b in r["blocks"]}
+    assert r["binds"]
+    assert r["binds"][0]["source"] == "/home/bjorn/other/signal-data"
+    assert r["binds"][0]["dest"] == "/home/bjorn/docker/signal-api/signal-data"
+    assert r["bind_map"]["/home/bjorn/other/signal-data"] == "/home/bjorn/docker/signal-api/signal-data"
+    skipped = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="signal-api",
+        bind_overrides=[
+            {
+                "source": "/home/bjorn/other/signal-data",
+                "dest": "",
+                "skip": True,
+            }
+        ],
+        source_facts={**facts, "docker_base": "/home/bjorn/docker"},
+        dest_facts={**facts, "docker_base": "/home/bjorn/docker"},
+        herder_free=10**12,
+    )
+    assert "bind_outside_jail" not in {b["id"] for b in skipped["blocks"]}
+    assert any(w["id"] == "bind_skipped" for w in skipped["warns"])
+    rows = parse_bind_overrides_from_mapping(
+        {
+            "bind_src_0": "/home/bjorn/other/signal-data",
+            "dest_bind_0": "/home/bjorn/docker/signal-api/signal-data",
+        }
+    )
+    assert rows[0]["source"].endswith("signal-data")
+
+
+def test_compose_rewrite_bind_source(tmp_path):
+    from app.services.service_migrate.overrides import apply_staging_overrides
+
+    compose = tmp_path / "docker-compose.yml"
+    compose.write_text(
+        "services:\n  web:\n    volumes:\n      - /home/bjorn/other/data:/data\n",
+        encoding="utf-8",
+    )
+    apply_staging_overrides(
+        tmp_path,
+        bind_map={"/home/bjorn/other/data": "/home/bjorn/docker/app/data"},
+    )
+    text = compose.read_text(encoding="utf-8")
+    assert "/home/bjorn/docker/app/data:/data" in text
+    assert "/home/bjorn/other/data:" not in text
+

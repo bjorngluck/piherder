@@ -42,6 +42,7 @@ Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATIO
 - [ ] Dest pick shows wait modal while facts/preflight run (not a silent hang)  
 - [ ] Dest project name taken → set a new dest name, Recheck, Move enabled  
 - [ ] Port clash → remap dest host port, Recheck, Move enabled  
+- [ ] Absolute bind outside jail: full path visible; dest path default under dest docker base; Move not a no-op (wait overlay clears after Recheck)  
 - [ ] Blocks: dest without DNS name (direct CNAME), `via_proxy` unmatched NPM cache, busy backup on dest  
 - [ ] Warnings: `/dev` mounts, Cloudflare checklist  
 - [ ] Viewer 403; demo no wizard  

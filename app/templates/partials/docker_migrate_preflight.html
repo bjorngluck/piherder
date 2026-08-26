@@ -52,10 +52,10 @@
            hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
            hx-target="#migrate-preflight"
            hx-swap="innerHTML"
-           hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_']"
+           hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_'], [name^='bind_src_'], [name^='dest_bind_'], [name^='skip_bind_']"
            hx-indicator="#migrate-preflight-wait"
            hx-trigger="change">
-    <p class="text-xs text-muted mb-3">
+    <p class="text-xs text-muted mb-3 break-all">
       Lands as <span class="font-mono">{{ result.dest.project_path or result.dest.project }}</span>
       {% if result.dest.project == result.project %}(same name as source){% endif %}.
       Change this if dest already has that compose project.
@@ -77,11 +77,57 @@
                hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
                hx-target="#migrate-preflight"
                hx-swap="innerHTML"
-               hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_']"
+               hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_'], [name^='bind_src_'], [name^='dest_bind_'], [name^='skip_bind_']"
                hx-indicator="#migrate-preflight-wait"
                hx-trigger="change">
         {% if p.clash %}<span class="text-danger text-xs">in use on dest</span>{% endif %}
       </label>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if result.binds %}
+    <div class="text-xs text-muted mb-1">Absolute binds outside source docker base</div>
+    <p class="text-xs text-muted mb-2 break-all">
+      Source jail <span class="font-mono">{{ result.source.docker_base }}</span>
+      · dest jail <span class="font-mono">{{ result.dest.docker_base }}</span>
+    </p>
+    <div class="space-y-3 mb-3" data-testid="migrate-bind-map">
+      {% for b in result.binds %}
+      <div class="p-2 rounded border {% if b.ok %}border-border{% else %}border-danger{% endif %}">
+        <input type="hidden" name="bind_src_{{ b.index }}" value="{{ b.source }}">
+        <div class="font-mono text-xs break-all mb-1" data-testid="migrate-bind-src-{{ b.index }}">{{ b.source }}</div>
+        <label class="block text-xs text-muted mb-1" for="dest-bind-{{ b.index }}">Copy to dest path</label>
+        <input id="dest-bind-{{ b.index }}"
+               type="text"
+               name="dest_bind_{{ b.index }}"
+               value="{{ b.dest }}"
+               {% if b.skip %}disabled{% endif %}
+               autocomplete="off"
+               spellcheck="false"
+               class="w-full bg-surface border rounded px-2 py-2 text-xs font-mono min-h-11 break-all {% if not b.ok and not b.skip %}border-danger{% else %}border-border{% endif %}"
+               data-testid="migrate-dest-bind-{{ b.index }}"
+               hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
+               hx-target="#migrate-preflight"
+               hx-swap="innerHTML"
+               hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_'], [name^='bind_src_'], [name^='dest_bind_'], [name^='skip_bind_']"
+               hx-indicator="#migrate-preflight-wait"
+               hx-trigger="change">
+        {% if b.error %}<p class="text-danger text-xs break-all mt-1">{{ b.error }}</p>{% endif %}
+        <label class="flex items-start gap-2 text-xs mt-2">
+          <input type="checkbox"
+                 name="skip_bind_{{ b.index }}"
+                 value="1"
+                 class="mt-0.5"
+                 {% if b.skip %}checked{% endif %}
+                 hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
+                 hx-target="#migrate-preflight"
+                 hx-swap="innerHTML"
+                 hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_'], [name^='bind_src_'], [name^='dest_bind_'], [name^='skip_bind_']"
+                 hx-indicator="#migrate-preflight-wait"
+                 hx-trigger="change">
+          <span>Skip copy (dest will not get this data)</span>
+        </label>
+      </div>
       {% endfor %}
     </div>
     {% endif %}
@@ -91,7 +137,7 @@
             hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
             hx-target="#migrate-preflight"
             hx-swap="innerHTML"
-            hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_']"
+            hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_'], [name^='bind_src_'], [name^='dest_bind_'], [name^='skip_bind_']"
             hx-indicator="#migrate-preflight-wait">
       Recheck destination
     </button>
@@ -101,7 +147,7 @@
   <h3 class="text-sm font-semibold mb-1">Blocks</h3>
   <ul class="text-sm mb-3 space-y-1" data-testid="migrate-blocks">
     {% for b in result.blocks %}
-    <li class="text-danger">{{ b.message }}</li>
+    <li class="text-danger break-all whitespace-pre-wrap">{{ b.message }}</li>
     {% endfor %}
   </ul>
   {% endif %}
@@ -110,7 +156,7 @@
   <h3 class="text-sm font-semibold mb-1">Warnings</h3>
   <ul class="text-sm mb-3 space-y-1" data-testid="migrate-warns">
     {% for w in result.warns %}
-    <li class="text-warning">{{ w.message }}</li>
+    <li class="text-warning break-all whitespace-pre-wrap">{{ w.message }}</li>
     {% endfor %}
   </ul>
   {% endif %}
@@ -121,9 +167,9 @@
     · dest free {{ result.dest.disk_free_human }}
   </p>
   {% if result.dataset['items'] %}
-  <ul class="text-xs font-mono mb-3 space-y-0.5 max-h-40 overflow-auto">
+  <ul class="text-xs font-mono mb-3 space-y-1 max-h-80 overflow-auto">
     {% for it in result.dataset['items'] %}
-    <li>{{ it.kind }} · {{ it.source }}{% if it.bytes %} · {{ it.bytes }} B{% endif %}</li>
+    <li class="break-all whitespace-pre-wrap">{{ it.kind }} · {{ it.source }}{% if it.bytes %} · {{ it.bytes }} B{% endif %}</li>
     {% endfor %}
   </ul>
   {% else %}
@@ -222,10 +268,14 @@
     })();
   </script>
   {% else %}
-    <button type="button" class="btn btn-accent min-h-11 text-sm" disabled
-            title="Fix preflight blocks first">
+    <button type="button"
+            class="btn btn-accent min-h-11 text-sm"
+            data-testid="migrate-blocked-move"
+            title="Fix preflight blocks first"
+            onclick="var b=document.querySelector('[data-testid=migrate-blocks]'); if(b){ b.scrollIntoView({behavior:'smooth',block:'center'}); }">
       Move service
     </button>
+    <p class="text-xs text-danger mt-2 break-all">Still blocked — fix the items under Blocks (full paths), then Recheck.</p>
   {% endif %}
   </form>
 </div>
