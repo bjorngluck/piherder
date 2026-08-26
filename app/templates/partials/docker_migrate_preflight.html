@@ -88,15 +88,15 @@
     {% if result.binds %}
     <div class="text-xs text-muted mb-1">Absolute binds outside source docker base</div>
     <p class="text-xs text-muted mb-2 break-all">
-      Source jail <span class="font-mono">{{ result.source.docker_base }}</span>
-      · dest jail <span class="font-mono">{{ result.dest.docker_base }}</span>
+      Default dest path is <strong>the same as source</strong>. Change it only if dest should use a different folder
+      (for example under dest jail <span class="font-mono">{{ result.dest.docker_base }}</span>).
     </p>
     <div class="space-y-3 mb-3" data-testid="migrate-bind-map">
       {% for b in result.binds %}
       <div class="p-2 rounded border {% if b.ok %}border-border{% else %}border-danger{% endif %}">
         <input type="hidden" name="bind_src_{{ b.index }}" value="{{ b.source }}">
         <div class="font-mono text-xs break-all mb-1" data-testid="migrate-bind-src-{{ b.index }}">{{ b.source }}</div>
-        <label class="block text-xs text-muted mb-1" for="dest-bind-{{ b.index }}">Copy to dest path</label>
+        <label class="block text-xs text-muted mb-1" for="dest-bind-{{ b.index }}">Copy to dest path (same as source unless you change it)</label>
         <input id="dest-bind-{{ b.index }}"
                type="text"
                name="dest_bind_{{ b.index }}"

@@ -19,6 +19,7 @@ from .overrides import (
     is_truncated_host_path,
     mapped_host_port,
     normalize_dest_project,
+    path_in_jail,
     suggest_dest_bind,
     validate_dest_bind_path,
     validate_port_map,
@@ -568,6 +569,15 @@ def run_preflight(
             )
         else:
             bind_map[path] = dest_path
+            if not path_in_jail(dest_path, dst_base):
+                warns.append(
+                    _item(
+                        "bind_dest_same_path",
+                        f"Dest bind keeps {dest_path} (same layout as source). "
+                        "Fleet SSH user on dest must be able to create/write that path.",
+                        path=dest_path,
+                    )
+                )
     if skipped_binds:
         warns.append(
             _item(
