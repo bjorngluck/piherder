@@ -85,7 +85,7 @@ A migrate **and** a backup or stack-mutating job cannot run at the same time on 
 | Arch mismatch | `uname -m` differs (e.g. aarch64 vs x86_64) — rebuild images yourself |
 | Dest docker base not writable | Fleet SSH user cannot write `docker_base_dir` |
 | Dest / herder disk | Free space below payload + margin (512 MiB or 15%) |
-| Absolute bind outside docker base | Shown in full. Default dest path is under dest docker base (`…/<project>/<basename>`). Change it, or skip copy (dest will not get that data) |
+| Absolute bind outside docker base | Default dest path is **the same as source**. Change it to relocate (e.g. under dest docker base), or skip copy |
 | Inventory mount path truncated (`…`) | `docker ps` ellipsis, not a real directory — Move inspects containers for full Source. Refresh Docker on source if it still blocks |
 | Published port clash | Dest already publishes the same host port — set a free dest host port (compose `ports:` rewritten before dest up; NPM `forward_port` follows if it matched) |
 | Busy job | Backup or stack mutate running on **source or dest** |

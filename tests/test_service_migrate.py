@@ -1817,8 +1817,8 @@ def test_bind_outside_default_dest_clears_block(lock_db):
     assert "bind_outside_jail" not in {b["id"] for b in r["blocks"]}
     assert r["binds"]
     assert r["binds"][0]["source"] == "/home/bjorn/other/signal-data"
-    assert r["binds"][0]["dest"] == "/home/bjorn/docker/signal-api/signal-data"
-    assert r["bind_map"]["/home/bjorn/other/signal-data"] == "/home/bjorn/docker/signal-api/signal-data"
+    assert r["binds"][0]["dest"] == "/home/bjorn/other/signal-data"
+    assert r["bind_map"]["/home/bjorn/other/signal-data"] == "/home/bjorn/other/signal-data"
     skipped = pf.run_preflight(
         lock_db,
         source=src,

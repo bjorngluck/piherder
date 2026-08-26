@@ -148,18 +148,22 @@ def path_in_jail(path: str, docker_base: str) -> bool:
     return p == base or p.startswith(base.rstrip("/") + "/")
 
 
+_FORBIDDEN_BIND_DEST = frozenset(
+    {"/", "/home", "/var", "/opt", "/usr", "/root", "/etc", "/boot", "/dev", "/proc", "/sys"}
+)
+
+
 def suggest_dest_bind(
     source_path: str, src_base: str, dest_base: str, dest_project: str
 ) -> str:
+    """Same absolute path on dest as source (override is optional)."""
     src = os.path.normpath((source_path or "").strip())
     src_b = os.path.normpath((src_base or "").strip()).rstrip("/")
     dest_b = os.path.normpath((dest_base or "").strip()).rstrip("/")
-    dest_p = (dest_project or "bind").strip() or "bind"
-    if src_b and (src == src_b or src.startswith(src_b + "/")):
+    if src_b and dest_b and (src == src_b or src.startswith(src_b + "/")):
         rel = src[len(src_b) :] or "/"
         return dest_b + rel
-    leaf = os.path.basename(src.rstrip("/")) or "bind"
-    return f"{dest_b}/{dest_p}/{leaf}"
+    return src
 
 
 def validate_dest_bind_path(path: str, dest_base: str) -> Optional[str]:
@@ -168,11 +172,10 @@ def validate_dest_bind_path(path: str, dest_base: str) -> Optional[str]:
         return "destination bind path is required (or skip copy)"
     if not p.startswith("/") or ".." in p.split("/") or "\x00" in p:
         return "destination bind must be an absolute path without .."
-    if os.path.normpath(p) in ("", "/"):
-        return "refusing dest bind of /"
-    if not path_in_jail(p, dest_base):
-        return f"destination bind must stay under dest docker base {dest_base}"
-    if os.path.normpath(p) == os.path.normpath((dest_base or "").strip()):
+    n = os.path.normpath(p)
+    if n in _FORBIDDEN_BIND_DEST:
+        return f"refusing dest bind of {n}"
+    if dest_base and n == os.path.normpath((dest_base or "").strip()):
         return "destination bind cannot be the docker base dir itself"
     return None
 

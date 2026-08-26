@@ -181,7 +181,7 @@ Auto-rollback is explicitly **not** Must — two-host undo is its own design.
 | Relative binds (`./data`, `./config.yml`) | **Yes** | Already under the project tree if they live there; extra relative paths one level up → include if still inside `docker_base_dir` |
 | Named volumes | **Yes** | `docker volume create` on dest; copy `_data` as docker user **or** `docker run --rm -v NAME:/data alpine tar` pipe via herder |
 | Absolute binds inside `docker_base_dir` | **Yes** | Remap prefix source base → dest base |
-| Absolute binds **outside** jail (e.g. `/mnt/media`, `/dev`) | **Remap** into dest docker base (default `dest_base/<project>/<basename>`) or **skip** with warning | Not a silent copy of `/mnt` media; `/dev` still warn |
+| Absolute binds **outside** jail (e.g. `/mnt/media`, `/dev`) | Default dest path **same as source**; operator can overwrite or skip | Not silent; `/dev` still warn |
 | `devices:` / privileged / host network | **Warn** | Pair with host lock |
 | Images | **Pull on dest** (`up -d` pulls) | Preflight: dest arch == source arch (`uname -m` / inventory) |
 | Build contexts | **Copy context** if present under project | Do not start a remote build farm |
