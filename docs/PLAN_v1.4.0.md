@@ -288,6 +288,7 @@ Success criteria:
 | 2026-08-25 | Operator wiki + maintainer docs pass for live validation (Move page, leftover, D-F demo Files, QA checklist). Freeze / version bump still later. |
 | 2026-08-26 | Live-lab: dest picker wait modal; dest **project name/folder** override; dest **published port** remap (compose rewrite + NPM `forward_port` when the mapped port was the proxy backend). |
 | 2026-08-26 | Live-lab: full bind paths; Recheck no longer leaves wait overlay stuck; outside binds remap into dest docker base (or skip). |
+| 2026-08-26 | Job preflight ignored its own `service_migrate` row (busy_source/busy_dest self-block). |
 
 ---
 

@@ -94,6 +94,7 @@ def run_copy_and_start(
                 for src in (skip_binds or [])
             ]
         ),
+        ignore_job_id=job_id,
     )
     if not pf.get("ok"):
         msgs = "; ".join(b.get("message") or b.get("id") for b in pf.get("blocks") or [])
