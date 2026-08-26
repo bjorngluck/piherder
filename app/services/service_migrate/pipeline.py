@@ -31,6 +31,19 @@ class MigrateError(Exception):
     pass
 
 
+def _ssh_fail_detail(result: Any, fallback: str) -> str:
+    """Compose/SSH dict → error string that includes command output."""
+    if not isinstance(result, dict):
+        return fallback
+    err = str(result.get("error") or "").strip()
+    out = str(result.get("output") or "").strip()
+    if err and out and err not in out:
+        msg = f"{err}\n{out}"
+    else:
+        msg = out or err or fallback
+    return msg[-1500:] or fallback
+
+
 def staging_root(job_id: int) -> Path:
     root = Path(getattr(settings, "BACKUP_ROOT", None) or "/backups") / "_migrate" / str(int(job_id))
     return root
@@ -132,7 +145,7 @@ def run_copy_and_start(
     _log(log, f"Stopping {name} on {source.name}…")
     stopped = stop(source, src_proj)
     if isinstance(stopped, dict) and not stopped.get("success", True):
-        raise MigrateError(stopped.get("error") or "compose stop failed")
+        raise MigrateError(_ssh_fail_detail(stopped, "compose stop failed"))
 
     _log(log, f"Copy project tree {src_proj} → staging")
     pull(source, src_proj, proj_stage, log=log)
@@ -212,8 +225,18 @@ def run_copy_and_start(
 
     _log(log, f"Starting {dest_name} on {dest.name} (compose up -d)…")
     started = up(dest, dst_proj)
-    if isinstance(started, dict) and not started.get("success", True):
-        raise MigrateError(started.get("error") or started.get("output") or "dest up failed")
+    if isinstance(started, dict) and started.get("output"):
+        _log(log, str(started.get("output") or "")[-1500:])
+    up_ok = True
+    if isinstance(started, dict):
+        if "up_ok" in started:
+            up_ok = bool(started.get("up_ok"))
+        elif started.get("success") is False:
+            up_ok = False
+        if started.get("pull") and started.get("pull_ok") is False and up_ok:
+            _log(log, "compose pull had errors; dest up succeeded — continuing")
+    if not up_ok:
+        raise MigrateError(_ssh_fail_detail(started, "dest up failed"))
 
     dns_fn = cutover_fn or retarget_dns_npm
     _log(log, "Retargeting DNS / NPM…")

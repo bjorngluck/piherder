@@ -30,6 +30,7 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Move dest picker looks stuck | Preflight SSHs both hosts — wait modal + “Checking destination…”. Recreate web if the local image is stale |
 | Move job fails “active service_migrate job #N” on itself | Fixed on `v1.4.0-dev` — job preflight no longer treats its own row as busy. Failed job is idle; start Move again after rebuild |
 | Move rsync `change_dir "/home/…\#342\#200\#246"` | Truncated `docker ps` mount (Unicode ellipsis). Rebuild current `v1.4.0-dev`; inspect fills full paths. Source may be **stopped** — Start all if you need it up before retry |
+| Move job `up -d failed` with no compose text | Older build; current train logs `docker compose pull/up` output on the job. Source is stopped; dest may have files. SSH dest `cd … && docker compose up -d` if you need the stack now |
 | Move preflight blocks dest | Same page — remap dest **host port** or **project name/folder**, disk, DNS name, NPM poll cache, busy backup/stack/migrate job |
 | Move job TLS / Kuma red | No auto-rollback. Dest may already be up with names flipped. Fix dest or start the stack on source. Staging kept under `/backups/_migrate/{job_id}` |
 | Move leftover wipe did too little / too much | Default leaves source stopped. **Remove source** only deletes the jailed project dir + copied named volumes — dest never, extra binds outside the project folder stay |
