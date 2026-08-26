@@ -171,6 +171,7 @@ def apply_leftover(
     leftover: str = "stopped",
     dataset: Optional[dict[str, Any]] = None,
     src_proj: Optional[str] = None,
+    dest_project: Optional[str] = None,
     down_fn=None,
     rm_vol_fn=None,
     rm_tree_fn=None,
@@ -227,7 +228,10 @@ def apply_leftover(
     out["project_removed"] = True
 
     out["certs_disabled"] = _disable_source_cert_targets(
-        session, source=source, dest=dest, project=name
+        session,
+        source=source,
+        dest=dest,
+        project=dest_project or name,
     )
     out["meta_dropped"] = _drop_source_project_meta(
         session, source=source, project=name

@@ -18,7 +18,84 @@
       · arch {{ result.source.arch or '?' }} → {{ result.dest.arch or '?' }}
     </span>
     {% endif %}
+    {% if result.dest.project and result.dest.project != result.project %}
+    <span class="text-xs text-muted">· dest project <span class="font-mono">{{ result.dest.project }}</span></span>
+    {% endif %}
   </p>
+
+  <form {% if result.ok %}method="post"
+        action="/servers/{{ server.id }}/docker/migrate"
+        data-job-hold="Move {{ result.project }}"
+        data-confirm="This stops the stack on {{ result.source.name }}, copies the dataset via the herder, starts it on {{ result.dest.name }} as {{ result.dest_project or result.project }}, then retargets DNS / NPM. Planned downtime."
+        data-confirm-remove="This stops the stack on {{ result.source.name }}, copies it to {{ result.dest.name }} as {{ result.dest_project or result.project }}, then AFTER SUCCESS deletes the source project directory and named volumes on {{ result.source.name }}. Destination is not touched. This cannot be undone from PiHerder."
+        data-confirm-title="Move {{ result.project }}?"
+        data-confirm-label="Move service"
+        data-confirm-danger
+        data-testid="migrate-start-form"
+        {% else %}
+        data-testid="migrate-blocked-form"
+        onsubmit="return false;"
+        {% endif %}>
+    <input type="hidden" name="project" value="{{ result.project }}">
+    <input type="hidden" name="dest" value="{{ result.dest.id }}">
+  <fieldset class="mb-4 p-3 rounded border border-border" data-testid="migrate-overrides">
+    <legend class="text-xs text-muted px-1">On destination</legend>
+    <label class="block text-xs text-muted mb-1" for="migrate-dest-project">Project name / folder</label>
+    <input id="migrate-dest-project"
+           type="text"
+           name="dest_project"
+           value="{{ result.dest_project_input or result.dest_project or result.project }}"
+           autocomplete="off"
+           spellcheck="false"
+           class="w-full bg-surface border border-border rounded px-2 py-2 text-sm font-mono min-h-11 mb-1"
+           data-testid="migrate-dest-project"
+           hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
+           hx-target="#migrate-preflight"
+           hx-swap="innerHTML"
+           hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_']"
+           hx-indicator="#migrate-preflight-wait"
+           hx-trigger="change">
+    <p class="text-xs text-muted mb-3">
+      Lands as <span class="font-mono">{{ result.dest.project_path or result.dest.project }}</span>
+      {% if result.dest.project == result.project %}(same name as source){% endif %}.
+      Change this if dest already has that compose project.
+    </p>
+    {% if result.ports %}
+    <div class="text-xs text-muted mb-1">Published host ports</div>
+    <div class="space-y-2 mb-3" data-testid="migrate-port-map">
+      {% for p in result.ports %}
+      <label class="flex flex-wrap items-center gap-2 text-sm">
+        <span class="font-mono w-28">{{ p.host }}/{{ p.proto }}</span>
+        <span class="text-muted">→</span>
+        <input type="number"
+               name="{{ p.field }}"
+               value="{{ p.dest_host }}"
+               min="1"
+               max="65535"
+               class="w-28 bg-surface border rounded px-2 py-1 font-mono min-h-11 {% if p.clash %}border-danger{% else %}border-border{% endif %}"
+               data-testid="migrate-dest-port-{{ p.host }}-{{ p.proto }}"
+               hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
+               hx-target="#migrate-preflight"
+               hx-swap="innerHTML"
+               hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_']"
+               hx-indicator="#migrate-preflight-wait"
+               hx-trigger="change">
+        {% if p.clash %}<span class="text-danger text-xs">in use on dest</span>{% endif %}
+      </label>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <button type="button"
+            class="btn btn-secondary min-h-11 text-sm"
+            data-testid="migrate-recheck"
+            hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
+            hx-target="#migrate-preflight"
+            hx-swap="innerHTML"
+            hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_']"
+            hx-indicator="#migrate-preflight-wait">
+      Recheck destination
+    </button>
+  </fieldset>
 
   {% if result.blocks %}
   <h3 class="text-sm font-semibold mb-1">Blocks</h3>
@@ -67,17 +144,6 @@
   {% endif %}
 
   {% if result.ok %}
-  <form method="post"
-        action="/servers/{{ server.id }}/docker/migrate"
-        data-job-hold="Move {{ result.project }}"
-        data-confirm="This stops the stack on {{ result.source.name }}, copies the dataset via the herder, starts it on {{ result.dest.name }}, then retargets DNS / NPM. Planned downtime."
-        data-confirm-remove="This stops the stack on {{ result.source.name }}, copies it to {{ result.dest.name }}, then AFTER SUCCESS deletes the source project directory and named volumes on {{ result.source.name }}. Destination is not touched. This cannot be undone from PiHerder."
-        data-confirm-title="Move {{ result.project }}?"
-        data-confirm-label="Move service"
-        data-confirm-danger
-        data-testid="migrate-start-form">
-    <input type="hidden" name="project" value="{{ result.project }}">
-    <input type="hidden" name="dest" value="{{ result.dest.id }}">
     {% set ns = namespace(need_ack=false) %}
     {% for w in result.warns or [] %}
       {% if w.id == 'devices' %}{% set ns.need_ack = true %}{% endif %}
@@ -126,7 +192,6 @@
       </label>
     </div>
     <button type="submit" class="btn btn-accent min-h-11 text-sm">Move service</button>
-  </form>
   <script>
     (function () {
       var form = document.querySelector('[data-testid="migrate-start-form"]');
@@ -157,10 +222,11 @@
     })();
   </script>
   {% else %}
-  <button type="button" class="btn btn-accent min-h-11 text-sm" disabled
-          title="Fix preflight blocks first">
-    Move service
-  </button>
+    <button type="button" class="btn btn-accent min-h-11 text-sm" disabled
+            title="Fix preflight blocks first">
+      Move service
+    </button>
   {% endif %}
+  </form>
 </div>
 {% endif %}

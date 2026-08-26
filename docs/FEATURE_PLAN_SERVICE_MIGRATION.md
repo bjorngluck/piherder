@@ -177,7 +177,7 @@ Auto-rollback is explicitly **not** Must — two-host undo is its own design.
 
 | Kind | Thin slice | Notes |
 |------|------------|--------|
-| Project directory | **Yes** | `docker_base_dir/<project>/` → dest `docker_base_dir/<project>/` (create dest dir) |
+| Project directory | **Yes** | `docker_base_dir/<project>/` → dest `docker_base_dir/<dest_project>/` (same name unless operator remaps) |
 | Relative binds (`./data`, `./config.yml`) | **Yes** | Already under the project tree if they live there; extra relative paths one level up → include if still inside `docker_base_dir` |
 | Named volumes | **Yes** | `docker volume create` on dest; copy `_data` as docker user **or** `docker run --rm -v NAME:/data alpine tar` pipe via herder |
 | Absolute binds inside `docker_base_dir` | **Yes** | Remap prefix source base → dest base |
@@ -263,11 +263,12 @@ Entry: project ⋯ **Move to another host…** (operator+, Docker on, not locked
 
 Steps:
 
-1. Destination picker (Docker hosts only; exclude self, HAOS, dest with same project name)  
-2. Dataset preview (paths, kinds, bytes, dest free)  
-3. DNS / NPM preview (FQDNs that will flip **or** proxy-host backend old → new) + cert / Kuma rows  
-4. Leftover policy: leave stopped (default) · **M8** down keep volumes · **M-rm** remove project + volumes (Should, extra confirm)  
-5. Confirm (downtime copy, danger styling)
+1. Destination picker (Docker hosts only; exclude self, HAOS). Wait modal while SSH facts run.  
+2. Dest **project name / folder** and **published host ports** can be overridden when dest already has that name or port. Recheck.  
+3. Dataset preview (paths, kinds, bytes, dest free)  
+4. DNS / NPM preview (FQDNs that will flip **or** proxy-host backend old → new) + cert / Kuma rows  
+5. Leftover policy: leave stopped (default) · **M8** down keep volumes · **M-rm** remove project + volumes (Should, extra confirm)  
+6. Confirm (downtime copy, danger styling)
 
 Then existing **JobHold** live log with step headers.
 
@@ -420,6 +421,7 @@ An operator can:
 | 2026-08-17 | Initial plan from operator pipeline + HAOS / Frigate lock. Discovery of existing compose, rsync, fabric, restartdns, TLS, Kuma primitives. Parked on **v1.4.0**. |
 | 2026-08-25 | Train open. Must = M1–M9 + M-npm + D-F. M-rm Should. ACME out. NPM backend PUT (not refuse `via_proxy`). Q2–Q6 locked. Preflight matrix + named-volume spike + NPM PUT contract recorded. |
 | 2026-08-25 | **M1** lock + **M2** preflight + **M3/M5** stop → herder rsync → dest `up -d`. Named volumes = Mountpoint rsync (recipe A). |
+| 2026-08-26 | Live-lab dest overrides: wait modal on dest pick; dest project/folder rename; dest published-port remap (compose rewrite; NPM `forward_port` when that backend port moved). |
 | 2026-08-25 | **M4 / M-npm:** direct CNAME + both Pi-holes `restartdns`; NPM PUT `forward_host` (public CNAME stays on NPM). |
 | 2026-08-25 | **M6–M9:** TLS SNI probe + Kuma last_state; rebind maps/Kuma/templates/clone cert targets; leftover `compose down`; devices ack. |
 | 2026-08-25 | **D-F:** demo simulated Files (canned tree, viewer browse, writes refused). |

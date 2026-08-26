@@ -124,7 +124,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | 1 | Enable the flag; recreate **web** | Kill switch default **off** |
 | 2 | [Lock](../docker/service-migration.md) a hardware-bound stack (or HAOS) | Prove Move is refused |
 | 3 | Unlock a disposable stack; **⋯ → Move to another host…** | Wizard |
-| 4 | Pick dest; read preflight (paths, bytes, DNS/NPM) | Blocks before copy |
+| 4 | Pick dest (wait modal) · remap dest name/ports if needed · read preflight | Blocks before copy; dest name/port overrides clear name/port clashes |
 | 5 | Confirm downtime → JobHold | Stop → copy → dest up → name/proxy |
 | 6 | Check dest inventory, CNAME or NPM `forward_host`, maps | Green cutover |
 | 7 | Leave leftover **stopped** on the first run | Data still on source |

@@ -755,6 +755,7 @@ async def docker_migrate_preflight(
     request: Request,
     project: str = "",
     dest: str = "",
+    dest_project: str = "",
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
@@ -778,9 +779,11 @@ async def docker_migrate_preflight(
     except host_lock_svc.HostLockError as e:
         raise HTTPException(e.status_code, detail=e.message) from e
     from ..services.service_migrate.facts import herder_free_bytes, probe_host_facts
+    from ..services.service_migrate.overrides import parse_port_map_from_mapping
 
     src_facts = probe_host_facts(server)
     dest_facts = probe_host_facts(dest_server)
+    port_map = parse_port_map_from_mapping(request.query_params)
     result = migrate_preflight.run_preflight(
         session,
         source=server,
@@ -789,6 +792,8 @@ async def docker_migrate_preflight(
         source_facts=src_facts,
         dest_facts=dest_facts,
         herder_free=herder_free_bytes(),
+        dest_project=dest_project,
+        port_map=port_map,
     )
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -807,11 +812,13 @@ async def docker_migrate_start(
     leftover: str = Form("stopped"),
     leftover_remove_ack: str = Form(""),
     devices_ack: str = Form(""),
+    dest_project: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
     _require_migrate_surface()
     from ..services import jobs as job_service
+    from ..services.service_migrate.overrides import parse_port_map_from_mapping
 
     server = session.get(Server, server_id)
     if not server:
@@ -826,6 +833,8 @@ async def docker_migrate_start(
     try:
         from ..services.service_migrate.leftover import normalize_leftover
 
+        form = await request.form()
+        port_map = parse_port_map_from_mapping(form)
         left = normalize_leftover(leftover)
         if left == "remove":
             rm_ack = (leftover_remove_ack or "").strip().lower() in (
@@ -848,6 +857,8 @@ async def docker_migrate_start(
             background_tasks=background_tasks,
             leftover=left,
             devices_ack=ack,
+            dest_project=dest_project,
+            port_map=port_map,
         )
     except job_service.JobAlreadyActive as e:
         if request.headers.get("X-PiHerder-Async") == "1":

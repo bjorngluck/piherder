@@ -12,6 +12,7 @@ from ..integrations import pihole as ph
 from ..integrations import registry as reg
 from ..integrations.npm import get_token, retarget_proxy_host_backend
 from .host_lock import compose_project_name
+from .overrides import port_map_key
 from .preflight import _dns_rows, _match_npm, _npm_hosts_cached
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,7 @@ def _put_npm_backend(
     fqdn: str,
     cached_id: Optional[str],
     new_host: str,
+    forward_port: Optional[int] = None,
 ) -> dict[str, Any]:
     rows = session.exec(
         select(Integration).where(
@@ -106,6 +108,7 @@ def _put_npm_backend(
                 token,
                 host_id,
                 new_host,
+                forward_port=forward_port,
                 tls_verify=reg.tls_verify(integ),
             )
         except Exception as e:
@@ -120,6 +123,8 @@ def retarget_dns_npm(
     source: Server,
     dest: Server,
     project: str,
+    dest_project: Optional[str] = None,
+    port_map: Optional[dict[str, str]] = None,
     log: Optional[LogFn] = None,
     upsert_fn=None,
     npm_put_fn=None,
@@ -127,13 +132,19 @@ def retarget_dns_npm(
 ) -> dict[str, Any]:
     """Direct CNAME → dest dns_name; NPM-fronted PUT forward_host; restartdns if needed."""
     name = compose_project_name(project)
+    dest_name = compose_project_name(dest_project or project)
     rows = _dns_rows(session, int(source.id or 0), name)
     upsert = upsert_fn or upsert_service_record
-    npm_put = npm_put_fn or (
-        lambda fqdn, cached_id, new_host: _put_npm_backend(
-            session, fqdn=fqdn, cached_id=cached_id, new_host=new_host
+    def _default_npm(fqdn, cached_id, new_host, forward_port=None):
+        return _put_npm_backend(
+            session,
+            fqdn=fqdn,
+            cached_id=cached_id,
+            new_host=new_host,
+            forward_port=forward_port,
         )
-    )
+
+    npm_put = npm_put_fn or _default_npm
     restart = restartdns_fn or (lambda: fanout_pihole_restartdns(session))
     out: list[dict[str, Any]] = []
     need_ftl = False
@@ -153,15 +164,34 @@ def retarget_dns_npm(
                 )
             match = _match_npm(npm_hosts, fqdn)
             cached_id = str((match or {}).get("id") or rec.npm_hint or "")
-            _log(log, f"NPM PUT {fqdn} forward_host → {new_backend}")
-            npm_res = npm_put(fqdn, cached_id, new_backend)
+            fwd_port = None
+            raw_fp = (match or {}).get("forward_port")
+            if raw_fp is not None and port_map:
+                try:
+                    old_p = int(raw_fp)
+                    mapped = port_map.get(port_map_key(old_p, "tcp"))
+                    if mapped and str(mapped) != str(old_p):
+                        fwd_port = int(mapped)
+                except (TypeError, ValueError):
+                    fwd_port = None
+            _log(
+                log,
+                f"NPM PUT {fqdn} forward_host → {new_backend}"
+                + (f" forward_port → {fwd_port}" if fwd_port else ""),
+            )
+            try:
+                npm_res = npm_put(
+                    fqdn, cached_id, new_backend, forward_port=fwd_port
+                )
+            except TypeError:
+                npm_res = npm_put(fqdn, cached_id, new_backend)
             upsert(
                 session,
                 fqdn=fqdn,
                 target_server_id=int(rec.target_server_id),
                 backend_server_id=int(dest.id),
                 stack_deployment_id=rec.stack_deployment_id,
-                docker_project=name,
+                docker_project=dest_name,
                 label=rec.label,
                 managed_on_pihole=rec.managed_on_pihole,
                 via_proxy=True,
@@ -193,7 +223,7 @@ def retarget_dns_npm(
                 target_server_id=int(dest.id),
                 backend_server_id=int(dest.id),
                 stack_deployment_id=rec.stack_deployment_id,
-                docker_project=name,
+                docker_project=dest_name,
                 label=rec.label,
                 managed_on_pihole=rec.managed_on_pihole,
                 via_proxy=False,

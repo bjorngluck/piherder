@@ -15,6 +15,11 @@ from ..haos import is_haos_server
 from ..integrations.registry import ROLE_SERVICE, TYPE_NPM
 from .facts import docker_base_abs
 from .host_lock import compose_project_name, lock_state
+from .overrides import (
+    mapped_host_port,
+    normalize_dest_project,
+    validate_port_map,
+)
 
 _IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 _DEV_HINT = re.compile(r"/dev/(apex|bus/usb|dri|kfd|nvidia)", re.I)
@@ -366,10 +371,23 @@ def run_preflight(
     source_facts: Optional[dict[str, Any]] = None,
     dest_facts: Optional[dict[str, Any]] = None,
     herder_free: Optional[int] = None,
+    dest_project: Optional[str] = None,
+    port_map: Optional[dict[str, str]] = None,
 ) -> dict[str, Any]:
     name = compose_project_name(project)
+    dest_name, dest_name_err = normalize_dest_project(name, dest_project)
     blocks: list[dict[str, Any]] = []
     warns: list[dict[str, Any]] = []
+    clean_map, map_errors = validate_port_map(port_map)
+    if dest_name_err:
+        blocks.append(
+            _item(
+                "dest_project_invalid",
+                f"Destination project name is invalid: {dest_name_err}",
+            )
+        )
+    for err in map_errors:
+        blocks.append(_item("port_map_invalid", err))
 
     if is_haos_server(source):
         blocks.append(_item("haos_source", "Source host is HAOS — never a migrate source"))
@@ -399,11 +417,12 @@ def run_preflight(
         )
 
     dest_names = _inventory_project_names(dest)
-    if name in dest_names:
+    if dest_name in dest_names:
         blocks.append(
             _item(
                 "dest_project_exists",
-                f"Destination already has a compose project named {name}",
+                f"Destination already has a compose project named {dest_name} — pick a different dest name",
+                dest_project=dest_name,
             )
         )
 
@@ -471,12 +490,33 @@ def run_preflight(
 
     src_ports = _published_ports(src_row)
     dest_ports = _dest_used_ports(dest)
-    clashes = sorted({f"{h}/{p}" for h, p in src_ports if (h, p) in dest_ports})
+    port_rows: list[dict[str, Any]] = []
+    seen_port: set[tuple[str, str]] = set()
+    clashes: list[str] = []
+    for host, proto in src_ports:
+        key = (str(host), str(proto or "tcp"))
+        if key in seen_port:
+            continue
+        seen_port.add(key)
+        dest_host = mapped_host_port(host, proto, clean_map)
+        used = (dest_host, proto) in dest_ports
+        row = {
+            "host": str(host),
+            "proto": str(proto or "tcp"),
+            "dest_host": dest_host,
+            "field": f"dest_port_{host}_{proto}",
+            "clash": used,
+        }
+        port_rows.append(row)
+        if used:
+            clashes.append(f"{dest_host}/{proto}")
     if clashes:
         blocks.append(
             _item(
                 "port_clash",
-                "Published port clash on destination: " + ", ".join(clashes[:12]),
+                "Published port clash on destination: "
+                + ", ".join(clashes[:12])
+                + " — remap the dest host port below",
                 ports=clashes,
             )
         )
@@ -567,10 +607,15 @@ def run_preflight(
         seen_ids.add(key)
         uniq_blocks.append(b)
 
+    dst_base = docker_base_abs(dest)
     return {
         "ok": len(uniq_blocks) == 0,
         "can_copy": False,
         "project": name,
+        "dest_project": dest_name,
+        "dest_project_input": (dest_project or "").strip() or dest_name,
+        "port_map": clean_map,
+        "ports": port_rows,
         "blocks": uniq_blocks,
         "warns": warns,
         "dataset": dataset,
@@ -609,5 +654,8 @@ def run_preflight(
             "arch": dst_arch,
             "disk_free_bytes": dest_free,
             "disk_free_human": _human(dest_free) if dest_free is not None else "unknown",
+            "project": dest_name,
+            "project_path": f"{dst_base.rstrip('/')}/{dest_name}",
+            "docker_base": dst_base,
         },
     }

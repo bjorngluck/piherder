@@ -286,6 +286,7 @@ Success criteria:
 | 2026-08-25 | **Train opened** on `v1.4.0-dev`. Must = **M1–M9** + **M-npm** + **D-F**. **M-rm** Should. **ACME** out. NPM-in-front is backend PUT, not refuse. Package version stays `1.3.0` until freeze. |
 | 2026-08-25 | **M-rm** landed: leftover `remove` (source project + copied named volumes). Default still leave stopped. Extra ack. Dest never wiped. |
 | 2026-08-25 | Operator wiki + maintainer docs pass for live validation (Move page, leftover, D-F demo Files, QA checklist). Freeze / version bump still later. |
+| 2026-08-26 | Live-lab: dest picker wait modal; dest **project name/folder** override; dest **published port** remap (compose rewrite + NPM `forward_port` when the mapped port was the proxy backend). |
 
 ---
 

@@ -43,10 +43,12 @@ def rebind_control_plane(
     source: Server,
     dest: Server,
     project: str,
+    dest_project: Optional[str] = None,
     log: Optional[LogFn] = None,
 ) -> dict[str, Any]:
     """Rewrite maps / Kuma / templates / certs so they follow dest. DNS is M4."""
     name = compose_project_name(project)
+    dest_name = compose_project_name(dest_project or project)
     sid = int(source.id or 0)
     did = int(dest.id or 0)
     counts = {
@@ -66,6 +68,8 @@ def rebind_control_plane(
         )
     ).all():
         row.server_id = did
+        if dest_name != name:
+            row.project_name = dest_name
         row.updated_at = _now()
         session.add(row)
         counts["stack_deployments"] += 1
@@ -78,6 +82,8 @@ def rebind_control_plane(
         )
     ).all():
         row.server_id = did
+        if dest_name != name:
+            row.docker_project = dest_name
         row.updated_at = _now()
         session.add(row)
         counts["kuma_bindings"] += 1
@@ -89,6 +95,8 @@ def rebind_control_plane(
         )
     ).all():
         row.server_id = did
+        if dest_name != name:
+            row.compose_project = dest_name
         session.add(row)
         counts["visual_stacks"] += 1
 
@@ -99,6 +107,8 @@ def rebind_control_plane(
         )
     ).all():
         row.server_id = did
+        if dest_name != name:
+            row.compose_project = dest_name
         row.updated_at = _now()
         session.add(row)
         counts["annotations"] += 1
@@ -110,6 +120,8 @@ def rebind_control_plane(
         )
     ).all():
         row.server_id = did
+        if dest_name != name:
+            row.owner_project = dest_name
         row.updated_at = _now()
         session.add(row)
         counts["ports"] += 1
@@ -118,9 +130,13 @@ def rebind_control_plane(
         changed = False
         if int(row.from_server_id) == sid and (row.from_project or "") == name:
             row.from_server_id = did
+            if dest_name != name:
+                row.from_project = dest_name
             changed = True
         if int(row.to_server_id) == sid and (row.to_project or "") == name:
             row.to_server_id = did
+            if dest_name != name:
+                row.to_project = dest_name
             changed = True
         if changed:
             row.updated_at = _now()
@@ -128,7 +144,11 @@ def rebind_control_plane(
             counts["edges"] += 1
 
     cert_ids: set[int] = set()
-    for rec in _dns_rows(session, sid, name):
+    recs = list(_dns_rows(session, sid, name))
+    recs.extend(_dns_rows(session, did, dest_name))
+    if dest_name != name:
+        recs.extend(_dns_rows(session, did, name))
+    for rec in recs:
         if rec.certificate_id:
             cert_ids.add(int(rec.certificate_id))
     for cid in cert_ids:

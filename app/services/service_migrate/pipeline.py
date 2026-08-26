@@ -17,6 +17,7 @@ from .cutover import CutoverError, retarget_dns_npm
 from .facts import docker_base_abs
 from .host_lock import compose_project_name
 from .leftover import LeftoverError, apply_leftover, normalize_leftover
+from .overrides import apply_staging_overrides, remap_named_volume
 from .preflight import named_volume_id, run_preflight
 from .rebind import rebind_control_plane
 from .validate import ValidateError, validate_migrate
@@ -63,6 +64,8 @@ def run_copy_and_start(
     validate_fn=None,
     leftover: str = "stopped",
     devices_ack: bool = False,
+    dest_project: Optional[str] = None,
+    port_map: Optional[dict[str, str]] = None,
     down_fn=None,
     rm_vol_fn=None,
     rm_tree_fn=None,
@@ -77,6 +80,8 @@ def run_copy_and_start(
         source_facts=source_facts,
         dest_facts=dest_facts,
         herder_free=herder_free,
+        dest_project=dest_project,
+        port_map=port_map,
     )
     if not pf.get("ok"):
         msgs = "; ".join(b.get("message") or b.get("id") for b in pf.get("blocks") or [])
@@ -94,10 +99,12 @@ def run_copy_and_start(
         lambda srv, path: docker_svc.redeploy_project(srv, path, pull=True)
     )
 
+    dest_name = str(pf.get("dest_project") or name)
+    clean_map = pf.get("port_map") or {}
     src_base = docker_base_abs(source).rstrip("/")
     dst_base = docker_base_abs(dest).rstrip("/")
     src_proj = f"{src_base}/{name}"
-    dst_proj = f"{dst_base}/{name}"
+    dst_proj = f"{dst_base}/{dest_name}"
     stage = staging_root(job_id)
     stage.mkdir(parents=True, exist_ok=True)
     try:
@@ -126,8 +133,20 @@ def run_copy_and_start(
             if not vol_name or vol_name in seen_vol:
                 continue
             seen_vol.add(vol_name)
-            _log(log, f"Copy named volume {vol_name}")
-            vol(source, dest, vol_name, stage, log=log)
+            dest_vol = remap_named_volume(vol_name, name, dest_name)
+            label = vol_name if dest_vol == vol_name else f"{vol_name} → {dest_vol}"
+            _log(log, f"Copy named volume {label}")
+            try:
+                vol(
+                    source,
+                    dest,
+                    vol_name,
+                    stage,
+                    dest_volume=dest_vol,
+                    log=log,
+                )
+            except TypeError:
+                vol(source, dest, vol_name, stage, log=log)
         elif kind == "bind_absolute" and src.startswith(src_base + "/"):
             rel = src[len(src_base) :]
             extra = stage / "binds" / rel.lstrip("/")
@@ -137,10 +156,25 @@ def run_copy_and_start(
             dest_bind = dst_base + rel
             push(dest, extra, dest_bind, log=log)
 
+    volume_renames = {
+        vol_name: remap_named_volume(vol_name, name, dest_name)
+        for vol_name in seen_vol
+        if remap_named_volume(vol_name, name, dest_name) != vol_name
+    }
+    rewritten = apply_staging_overrides(
+        proj_stage,
+        dest_project=dest_name,
+        source_project=name,
+        port_map=clean_map,
+        volume_renames=volume_renames,
+    )
+    if rewritten.get("files"):
+        _log(log, "Rewrote dest compose/env: " + ", ".join(rewritten["files"][:8]))
+
     _log(log, f"Push project tree → {dst_proj}")
     push(dest, proj_stage, dst_proj, log=log)
 
-    _log(log, f"Starting {name} on {dest.name} (compose up -d)…")
+    _log(log, f"Starting {dest_name} on {dest.name} (compose up -d)…")
     started = up(dest, dst_proj)
     if isinstance(started, dict) and not started.get("success", True):
         raise MigrateError(started.get("error") or started.get("output") or "dest up failed")
@@ -148,18 +182,41 @@ def run_copy_and_start(
     dns_fn = cutover_fn or retarget_dns_npm
     _log(log, "Retargeting DNS / NPM…")
     try:
-        dns_out = dns_fn(session, source=source, dest=dest, project=name, log=log)
+        try:
+            dns_out = dns_fn(
+                session,
+                source=source,
+                dest=dest,
+                project=name,
+                dest_project=dest_name,
+                port_map=clean_map,
+                log=log,
+            )
+        except TypeError:
+            dns_out = dns_fn(session, source=source, dest=dest, project=name, log=log)
     except CutoverError as e:
         raise MigrateError(str(e)) from e
 
     rb_fn = rebind_fn or rebind_control_plane
     _log(log, "Rebinding control-plane rows…")
-    rebind_out = rb_fn(session, source=source, dest=dest, project=name, log=log)
+    try:
+        rebind_out = rb_fn(
+            session,
+            source=source,
+            dest=dest,
+            project=name,
+            dest_project=dest_name,
+            log=log,
+        )
+    except TypeError:
+        rebind_out = rb_fn(session, source=source, dest=dest, project=name, log=log)
 
     val_fn = validate_fn or validate_migrate
     _log(log, "Validating TLS / Kuma…")
     try:
-        val_out = val_fn(session, source=source, dest=dest, project=name, log=log)
+        val_out = val_fn(
+            session, source=source, dest=dest, project=dest_name, log=log
+        )
     except ValidateError as e:
         raise MigrateError(str(e)) from e
 
@@ -173,6 +230,7 @@ def run_copy_and_start(
             leftover=leftover_mode,
             dataset=dataset,
             src_proj=src_proj,
+            dest_project=dest_name,
             down_fn=down_fn,
             rm_vol_fn=rm_vol_fn,
             rm_tree_fn=rm_tree_fn,
@@ -191,6 +249,7 @@ def run_copy_and_start(
     return {
         "ok": True,
         "project": name,
+        "dest_project": dest_name,
         "source_id": source.id,
         "dest_id": dest.id,
         "staging": str(stage),
