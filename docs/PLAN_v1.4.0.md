@@ -289,6 +289,7 @@ Success criteria:
 | 2026-08-26 | Live-lab: dest picker wait modal; dest **project name/folder** override; dest **published port** remap (compose rewrite + NPM `forward_port` when the mapped port was the proxy backend). |
 | 2026-08-26 | Live-lab: full bind paths; Recheck no longer leaves wait overlay stuck; outside binds remap into dest docker base (or skip). |
 | 2026-08-26 | Job preflight ignored its own `service_migrate` row (busy_source/busy_dest self-block). |
+| 2026-08-26 | Do not rsync `docker ps` truncated mounts (`…`). Migrate inspects container Source paths. |
 
 ---
 

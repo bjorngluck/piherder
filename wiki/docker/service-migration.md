@@ -86,6 +86,7 @@ A migrate **and** a backup or stack-mutating job cannot run at the same time on 
 | Dest docker base not writable | Fleet SSH user cannot write `docker_base_dir` |
 | Dest / herder disk | Free space below payload + margin (512 MiB or 15%) |
 | Absolute bind outside docker base | Shown in full. Default dest path is under dest docker base (`…/<project>/<basename>`). Change it, or skip copy (dest will not get that data) |
+| Inventory mount path truncated (`…`) | `docker ps` ellipsis, not a real directory — Move inspects containers for full Source. Refresh Docker on source if it still blocks |
 | Published port clash | Dest already publishes the same host port — set a free dest host port (compose `ports:` rewritten before dest up; NPM `forward_port` follows if it matched) |
 | Busy job | Backup or stack mutate running on **source or dest** |
 | Direct DNS, dest has no DNS name | Set dest **DNS name** for CNAME retarget |

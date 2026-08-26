@@ -2730,6 +2730,7 @@ def _execute_service_migrate(
                 port_map=port_map,
                 bind_map=bind_map,
                 skip_binds=skip_binds,
+                live_inspect=True,
             )
         wipe_staging(job_id)
         _finish(

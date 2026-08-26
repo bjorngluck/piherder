@@ -127,6 +127,18 @@ def remap_named_volume(volume: str, source_project: str, dest_project: str) -> s
     return vol
 
 
+def is_truncated_host_path(path: str) -> bool:
+    """True when docker ps (or UI) stored an ellipsis instead of a real path."""
+    p = (path or "").strip()
+    if not p:
+        return False
+    if "…" in p or "\u2026" in p:
+        return True
+    if "..." in p:
+        return True
+    return False
+
+
 def path_in_jail(path: str, docker_base: str) -> bool:
     """True when path is the docker base or a child of it."""
     p = os.path.normpath((path or "").strip())

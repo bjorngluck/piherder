@@ -799,6 +799,7 @@ async def docker_migrate_preflight(
         dest_project=dest_project,
         port_map=port_map,
         bind_overrides=bind_overrides,
+        live_inspect=True,
     )
     return templates_mod.templates.TemplateResponse(
         request=request,

@@ -560,6 +560,10 @@ def test_http_migrate_wizard_and_preflight(lock_client, monkeypatch):
         "app.services.service_migrate.facts.herder_free_bytes",
         lambda: 10**12,
     )
+    monkeypatch.setattr(
+        "app.services.service_migrate.facts.inspect_project_mounts",
+        lambda server, row: row,
+    )
     client, ids, engine = lock_client
     with Session(engine) as s:
         other = Server(
@@ -742,6 +746,38 @@ def test_preflight_ignores_own_running_migrate_job(lock_db):
     ids2 = {b["id"] for b in ok["blocks"]}
     assert "busy_source" not in ids2
     assert "busy_dest" not in ids2
+
+
+def test_preflight_blocks_truncated_docker_ps_mount(lock_db):
+    from app.services.service_migrate.copy import CopyError, rsync_host_to_herder
+    from app.services.service_migrate.overrides import is_truncated_host_path
+
+    assert is_truncated_host_path("/home/piherder…") is True
+    assert is_truncated_host_path("/home/bjorn/docker/openwebui") is False
+    src = Server(name="a", hostname="a.local", container_patch_enabled=True, dns_name="a.test")
+    dest = Server(name="b", hostname="b.local", container_patch_enabled=True, dns_name="b.test")
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    lock_db.refresh(src)
+    lock_db.refresh(dest)
+    src.docker_inventory_json = _inv("openwebui", mounts=["/home/piherder…:/data"])
+    lock_db.add(src)
+    lock_db.commit()
+    r = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        source_facts={"arch": "aarch64"},
+        dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+        herder_free=10**12,
+    )
+    assert any(b["id"] == "bind_truncated" for b in r["blocks"])
+    assert r["dataset"]["truncated"]
+    assert not any(i.get("source") == "/home/piherder…" for i in r["dataset"]["items"])
+    with pytest.raises(CopyError, match="truncated"):
+        rsync_host_to_herder(src, "/home/piherder…", "/tmp")
 
 
 def test_copy_rejects_bad_volume_name(tmp_path):

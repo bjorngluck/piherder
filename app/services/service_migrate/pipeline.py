@@ -68,6 +68,7 @@ def run_copy_and_start(
     port_map: Optional[dict[str, str]] = None,
     bind_map: Optional[dict[str, str]] = None,
     skip_binds: Optional[list[str]] = None,
+    live_inspect: bool = False,
     down_fn=None,
     rm_vol_fn=None,
     rm_tree_fn=None,
@@ -82,6 +83,7 @@ def run_copy_and_start(
         source_facts=source_facts,
         dest_facts=dest_facts,
         herder_free=herder_free,
+        live_inspect=live_inspect,
         dest_project=dest_project,
         port_map=port_map,
         bind_overrides=(
@@ -161,6 +163,12 @@ def run_copy_and_start(
             except TypeError:
                 vol(source, dest, vol_name, stage, log=log)
         elif kind == "bind_absolute":
+            from .overrides import is_truncated_host_path
+
+            if is_truncated_host_path(src):
+                raise MigrateError(
+                    f"refusing truncated inventory bind path: {src}"
+                )
             mapped = (pf.get("bind_map") or {}).get(src) or (
                 dst_base + src[len(src_base) :]
                 if src.startswith(src_base + "/")
