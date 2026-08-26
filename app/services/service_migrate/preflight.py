@@ -579,9 +579,9 @@ def run_preflight(
             if not path_in_jail(dest_path, dst_base):
                 warns.append(
                     _item(
-                        "bind_dest_same_path",
-                        f"Dest bind keeps {dest_path} (same layout as source). "
-                        "Fleet SSH user on dest must be able to create/write that path.",
+                        "bind_dest_outside_project",
+                        f"Dest bind {dest_path} is outside dest docker base — "
+                        "prefer dest project folder unless you overrode it.",
                         path=dest_path,
                     )
                 )

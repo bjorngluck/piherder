@@ -1920,8 +1920,8 @@ def test_bind_outside_default_dest_clears_block(lock_db):
     assert "bind_outside_jail" not in {b["id"] for b in r["blocks"]}
     assert r["binds"]
     assert r["binds"][0]["source"] == "/home/bjorn/other/signal-data"
-    assert r["binds"][0]["dest"] == "/home/bjorn/other/signal-data"
-    assert r["bind_map"]["/home/bjorn/other/signal-data"] == "/home/bjorn/other/signal-data"
+    assert r["binds"][0]["dest"] == "/home/bjorn/docker/signal-api/signal-data"
+    assert r["bind_map"]["/home/bjorn/other/signal-data"] == "/home/bjorn/docker/signal-api/signal-data"
     skipped = pf.run_preflight(
         lock_db,
         source=src,
@@ -1979,11 +1979,11 @@ def test_compose_rewrites_tilde_bind_to_absolute_dest(tmp_path):
     apply_staging_overrides(
         tmp_path,
         bind_map={
-            "/home/piherder/open-webui-data": "/home/piherder/open-webui-data"
+            "/home/piherder/open-webui-data": "./open-webui-data"
         },
     )
     text = compose.read_text(encoding="utf-8")
-    assert "- /home/piherder/open-webui-data:/app/backend/data" in text
+    assert "- ./open-webui-data:/app/backend/data" in text
     assert "~/open-webui-data" not in text
     assert "8090:8080" in text
     assert "ghcr.io/open-webui/open-webui:main" in text

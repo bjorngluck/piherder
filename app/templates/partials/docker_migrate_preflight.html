@@ -111,11 +111,12 @@
     </div>
     {% endif %}
     {% if result.binds %}
-    <div class="text-xs font-semibold mb-1">Extra host folders (not inside the project folder)</div>
+    <div class="text-xs font-semibold mb-1">Extra host folders (not inside the project folder on source)</div>
     <p class="text-xs text-muted mb-2 break-all">
-      These are additional bind mounts on the source host, <strong>outside</strong>
-      <span class="font-mono">{{ result.source.project_path }}</span>.
-      They are not the project folder. Default dest path is the same as source; change only if dest should store that data somewhere else.
+      Source compose used a path outside
+      <span class="font-mono">{{ result.source.project_path }}</span>
+      (often <code>~/…</code>). Dest default is <strong>inside the dest project folder</strong>
+      so the volume travels with the project. Override only if you really want another path.
     </p>
     <div class="space-y-3 mb-3" data-testid="migrate-bind-map">
       {% for b in result.binds %}

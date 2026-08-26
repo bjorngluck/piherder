@@ -156,14 +156,36 @@ _FORBIDDEN_BIND_DEST = frozenset(
 def suggest_dest_bind(
     source_path: str, src_base: str, dest_base: str, dest_project: str
 ) -> str:
-    """Same absolute path on dest as source (override is optional)."""
+    """Outside the source docker base → dest project folder / basename.
+
+    ``~/open-webui-data`` inspects as ``/home/USER/open-webui-data``. Dest
+    still belongs under dest docker root + project (``./open-webui-data``).
+    """
     src = os.path.normpath((source_path or "").strip())
     src_b = os.path.normpath((src_base or "").strip()).rstrip("/")
     dest_b = os.path.normpath((dest_base or "").strip()).rstrip("/")
+    dest_p = (dest_project or "").strip() or "project"
     if src_b and dest_b and (src == src_b or src.startswith(src_b + "/")):
         rel = src[len(src_b) :] or "/"
         return dest_b + rel
-    return src
+    leaf = os.path.basename(src.rstrip("/")) or "data"
+    if leaf in (".", ".."):
+        leaf = "data"
+    return f"{dest_b}/{dest_p}/{leaf}"
+
+
+def compose_volume_lhs(dest_path: str, dest_project_path: str) -> str:
+    """Compose bind LHS: ``./rel`` when dest is inside the dest project dir."""
+    d = os.path.normpath((dest_path or "").strip())
+    p = os.path.normpath((dest_project_path or "").strip()).rstrip("/")
+    if not d or not p:
+        return dest_path
+    if d == p:
+        return "."
+    prefix = p + "/"
+    if d.startswith(prefix):
+        return "./" + d[len(prefix) :]
+    return d
 
 
 def validate_dest_bind_path(path: str, dest_base: str) -> Optional[str]:
