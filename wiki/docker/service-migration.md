@@ -41,12 +41,13 @@ Use lock for Frigate + Coral, USB gadgets, or anything you must not relocate by 
 
 1. Unlock the project if it is locked.  
 2. **⋯** → **Move to another host…**  
-3. Pick a destination (other hosts with **Docker / containers** on; HAOS and the source are excluded).  
+3. Pick a destination (other hosts with **Docker / containers** on; HAOS and the source are excluded). A **wait modal** runs while PiHerder SSH-probes dest (same overlay as other long tasks).  
 4. Preflight lists **blocks** (hard stop) and **warnings**. Dataset lists paths, kinds, byte estimate, dest free space.  
-5. If the stack looks hardware-bound (`/dev/…`), tick the acknowledge checkbox (or lock it instead).  
-6. Choose leftover (see below). Default is **leave source stopped**.  
-7. **Move service** — danger confirm (downtime). **Remove source** also requires the extra checkbox and a stronger confirm.  
-8. **JobHold** live log. Job type `service_migrate`. `Job.server_id` is the **source**; dest is in job details.
+5. On dest you can **rename the project/folder** and **remap published host ports** if dest already has that name or port. Recheck, then Move is enabled when blocks are gone.  
+6. If the stack looks hardware-bound (`/dev/…`), tick the acknowledge checkbox (or lock it instead).  
+7. Choose leftover (see below). Default is **leave source stopped**.  
+8. **Move service** — danger confirm (downtime). **Remove source** also requires the extra checkbox and a stronger confirm.  
+9. **JobHold** live log. Job type `service_migrate`. `Job.server_id` is the **source**; dest is in job details.
 
 Audit on open: `service_migrate_preview`.
 
@@ -66,7 +67,7 @@ preflight
 
 Default order is **dest up, then name/proxy flip** (clients keep hitting the stopped source until dest answers). Named Docker volumes copy as **rsync of the volume Mountpoint** (same privilege as backing up `/var/lib/docker/volumes`). Relative binds ride with the project tree. Absolute binds **outside** the docker base dir are a preflight **block**, not a silent copy.
 
-Direct TLS rows (`via_proxy` off): **CNAME → dest DNS name**, then both Pi-holes **Restart DNS**. NPM-fronted rows: public CNAME stays on NPM; the job **PUT**s `forward_host` (and keeps port/SSL). Preflight still uses the **NPM poll cache**; unmatched hosts are a block. Poll NPM before moving.
+Direct TLS rows (`via_proxy` off): **CNAME → dest DNS name**, then both Pi-holes **Restart DNS**. NPM-fronted rows: public CNAME stays on NPM; the job **PUT**s `forward_host` (and `forward_port` only if you remapped that published host port). Preflight still uses the **NPM poll cache**; unmatched hosts are a block. Poll NPM before moving.
 
 ### Dual-host exclusive
 
@@ -80,12 +81,12 @@ A migrate **and** a backup or stack-mutating job cannot run at the same time on 
 | Project locked | Unlock, or keep it on this host |
 | Dest Docker off | Enable **Docker / containers** on dest |
 | Same host | Pick a different Pi |
-| Dest already has that project name | Rename or remove the dest stack first |
+| Dest already has that project name | Set **Project name / folder** on dest (lands as `docker_base/<new name>`). Named volumes prefixed with the source project are remapped |
 | Arch mismatch | `uname -m` differs (e.g. aarch64 vs x86_64) — rebuild images yourself |
 | Dest docker base not writable | Fleet SSH user cannot write `docker_base_dir` |
 | Dest / herder disk | Free space below payload + margin (512 MiB or 15%) |
 | Absolute bind outside docker base | e.g. `/mnt/media` — not a silent copy |
-| Published port clash | Dest already publishes the same host port |
+| Published port clash | Dest already publishes the same host port — set a free dest host port (compose `ports:` rewritten before dest up; NPM `forward_port` follows if it matched) |
 | Busy job | Backup or stack mutate running on **source or dest** |
 | Direct DNS, dest has no DNS name | Set dest **DNS name** for CNAME retarget |
 | `via_proxy` and no NPM | Enable an NPM integration |

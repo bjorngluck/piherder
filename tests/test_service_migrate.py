@@ -587,6 +587,7 @@ def test_http_migrate_wizard_and_preflight(lock_client, monkeypatch):
     assert r.status_code == 200
     assert "Move grafana" in r.text
     assert 'data-testid="migrate-dest"' in r.text
+    assert 'data-testid="migrate-preflight-wait"' in r.text
     r2 = client.get(
         f"/servers/{ids['pi']}/docker/migrate/preflight?project=grafana&dest={dest_id}",
         cookies=_cookie(ids["admin"]),
@@ -594,6 +595,8 @@ def test_http_migrate_wizard_and_preflight(lock_client, monkeypatch):
     )
     assert r2.status_code == 200, r2.text[:3000]
     assert 'data-testid="migrate-preflight-result"' in r2.text
+    assert 'data-testid="migrate-dest-project"' in r2.text
+    assert 'data-testid="migrate-recheck"' in r2.text
 
 
 def test_http_migrate_viewer_403(lock_client, monkeypatch):
@@ -816,6 +819,8 @@ def test_http_migrate_start_queues_job(lock_client, monkeypatch):
         captured["project"] = project
         captured["leftover"] = kwargs.get("leftover")
         captured["devices_ack"] = kwargs.get("devices_ack")
+        captured["dest_project"] = kwargs.get("dest_project")
+        captured["port_map"] = kwargs.get("port_map")
         return FakeJob()
 
     monkeypatch.setattr("app.services.jobs.enqueue_service_migrate", fake_enqueue)
@@ -841,6 +846,8 @@ def test_http_migrate_start_queues_job(lock_client, monkeypatch):
             "dest": str(dest_id),
             "leftover": "down",
             "devices_ack": "1",
+            "dest_project": "grafana-b",
+            "dest_port_8080_tcp": "8081",
         },
         cookies=_cookie(ids["admin"]),
         headers={"X-PiHerder-Async": "1"},
@@ -855,6 +862,8 @@ def test_http_migrate_start_queues_job(lock_client, monkeypatch):
     assert captured["project"] == "grafana"
     assert captured["leftover"] == "down"
     assert captured["devices_ack"] is True
+    assert captured["dest_project"] == "grafana-b"
+    assert captured["port_map"]["8080/tcp"] == "8081"
     r_rm_no = client.post(
         f"/servers/{ids['pi']}/docker/migrate",
         data={
@@ -1470,4 +1479,209 @@ def test_validate_tls_fail_and_kuma_down(lock_db):
             tls_fn=lambda **kw: {"ok": True, "status": "ok"},
             kuma_poll_fn=lambda iid: None,
         )
+
+
+def test_port_map_and_dest_project_override(lock_db):
+    from app.services.service_migrate.overrides import (
+        parse_port_map_from_mapping,
+        remap_named_volume,
+        validate_port_map,
+    )
+
+    parsed = parse_port_map_from_mapping(
+        {"dest_port_8080_tcp": "8081", "dest_port_53_udp": "5353", "other": "x"}
+    )
+    assert parsed == {"8080/tcp": "8081", "53/udp": "5353"}
+    clean, errs = validate_port_map(parsed)
+    assert not errs
+    assert clean["8080/tcp"] == "8081"
+    _, bad = validate_port_map({"8080/tcp": "0"})
+    assert bad
+    _, dup = validate_port_map({"8080/tcp": "9000", "8081/tcp": "9000"})
+    assert dup
+    assert remap_named_volume("grafana_data", "grafana", "grafana-b") == "grafana-b_data"
+    assert remap_named_volume("shared", "grafana", "grafana-b") == "shared"
+
+    src = Server(name="a", hostname="a.local", container_patch_enabled=True, dns_name="a.test")
+    dest = Server(name="b", hostname="b.local", container_patch_enabled=True, dns_name="b.test")
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    lock_db.refresh(src)
+    lock_db.refresh(dest)
+    src.docker_inventory_json = _inv("app", ports="8080->80/tcp")
+    dest.docker_inventory_json = json.dumps(
+        {
+            "v": 2,
+            "projects": [
+                {
+                    "name": "app",
+                    "containers": [
+                        {
+                            "name": "other",
+                            "running": True,
+                            "ports_display": "8080->80/tcp",
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    blocked = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="app",
+        source_facts={"arch": "aarch64"},
+        dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+    )
+    ids = {b["id"] for b in blocked["blocks"]}
+    assert "port_clash" in ids
+    assert "dest_project_exists" in ids
+    ok = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="app",
+        dest_project="app-b",
+        port_map={"8080/tcp": "8081"},
+        source_facts={"arch": "aarch64"},
+        dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+    )
+    ids2 = {b["id"] for b in ok["blocks"]}
+    assert "port_clash" not in ids2
+    assert "dest_project_exists" not in ids2
+    assert ok["dest_project"] == "app-b"
+    assert ok["ports"][0]["dest_host"] == "8081"
+    still = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="app",
+        dest_project="app-b",
+        port_map={"8080/tcp": "8080"},
+        source_facts={"arch": "aarch64"},
+        dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+    )
+    assert any(b["id"] == "port_clash" for b in still["blocks"])
+
+
+def test_compose_staging_overrides(tmp_path):
+    from app.services.service_migrate.overrides import apply_staging_overrides
+
+    compose = tmp_path / "docker-compose.yml"
+    compose.write_text(
+        "name: app\nservices:\n  web:\n    image: nginx\n    ports:\n      - \"8080:80/tcp\"\n",
+        encoding="utf-8",
+    )
+    env = tmp_path / ".env"
+    env.write_text("COMPOSE_PROJECT_NAME=app\nOTHER=1\n", encoding="utf-8")
+    out = apply_staging_overrides(
+        tmp_path,
+        dest_project="app-b",
+        source_project="app",
+        port_map={"8080/tcp": "8081"},
+        volume_renames={},
+    )
+    assert "docker-compose.yml" in out["files"]
+    text = compose.read_text(encoding="utf-8")
+    assert "8081:80" in text
+    assert "name: app-b" in text
+    assert "COMPOSE_PROJECT_NAME=app-b" in env.read_text(encoding="utf-8")
+
+
+def test_pipeline_dest_project_and_port_map(lock_db, tmp_path, monkeypatch):
+    from app.services.service_migrate.pipeline import run_copy_and_start
+
+    src, dest = _pair_hosts(lock_db)
+    src.docker_inventory_json = _inv(
+        "grafana",
+        ports="8080->80/tcp",
+        mounts_detail=[
+            {
+                "source": "/var/lib/docker/volumes/grafana_data/_data",
+                "destination": "/var/lib/grafana",
+                "type": "volume",
+                "name": "grafana_data",
+            }
+        ],
+    )
+    dest.docker_inventory_json = _inv("other", ports="8080->80/tcp")
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    monkeypatch.setattr(
+        "app.services.service_migrate.pipeline.staging_root",
+        lambda job_id: tmp_path / str(job_id),
+    )
+    pulls, pushes, vols, ups = [], [], [], []
+
+    def pull(server, remote, local, log=None):
+        pulls.append(remote)
+        Path(local).mkdir(parents=True, exist_ok=True)
+        (Path(local) / "docker-compose.yml").write_text(
+            "name: grafana\nservices:\n  web:\n    ports:\n      - '8080:80'\n",
+            encoding="utf-8",
+        )
+
+    def push(server, local, remote, log=None):
+        pushes.append(remote)
+
+    def vol(source, dest, volume, staging, log=None, dest_volume=None):
+        vols.append(dest_volume or volume)
+
+    def stop(srv, path):
+        return {"success": True}
+
+    def up(srv, path):
+        ups.append(path)
+        return {"success": True}
+
+    r = run_copy_and_start(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="grafana",
+        dest_project="grafana-b",
+        port_map={"8080/tcp": "8081"},
+        job_id=11,
+        source_facts={"arch": "aarch64"},
+        dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+        herder_free=10**12,
+        pull_fn=pull,
+        push_fn=push,
+        vol_fn=vol,
+        stop_fn=stop,
+        up_fn=up,
+        cutover_fn=lambda *a, **kw: {"ok": True, "records": []},
+        rebind_fn=lambda *a, **kw: {"ok": True, "counts": {}},
+        validate_fn=lambda *a, **kw: {"ok": True, "tls": [], "kuma": []},
+    )
+    assert r["ok"] is True
+    assert r["dest_project"] == "grafana-b"
+    assert any(p.endswith("/grafana-b") for p in pushes)
+    assert ups and ups[0].endswith("/grafana-b")
+    assert vols == ["grafana-b_data"]
+    staged = tmp_path / "11" / "project" / "docker-compose.yml"
+    text = staged.read_text(encoding="utf-8")
+    assert "8081" in text
+    assert "grafana-b" in text
+
+
+def test_rebind_renames_dest_project(lock_db):
+    from app.services.service_migrate.rebind import rebind_control_plane
+
+    src, dest = _pair_hosts(lock_db)
+    dep = StackDeployment(server_id=src.id, project_name="grafana")
+    lock_db.add(dep)
+    lock_db.commit()
+    rebind_control_plane(
+        lock_db, source=src, dest=dest, project="grafana", dest_project="grafana-b"
+    )
+    lock_db.refresh(dep)
+    assert dep.server_id == dest.id
+    assert dep.project_name == "grafana-b"
 

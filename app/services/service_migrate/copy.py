@@ -151,12 +151,16 @@ def copy_named_volume(
     volume: str,
     staging: Path,
     *,
+    dest_volume: Optional[str] = None,
     log: Optional[LogFn] = None,
 ) -> None:
     """Copy a named Docker volume via herder staging (rsync volume Mountpoint)."""
     name = (volume or "").strip()
     if not name or "/" in name or ".." in name:
         raise CopyError(f"invalid volume name: {volume!r}")
+    dest_name = (dest_volume or name).strip()
+    if not dest_name or "/" in dest_name or ".." in dest_name:
+        raise CopyError(f"invalid dest volume name: {dest_volume!r}")
     local = staging / "volumes" / name
     local.mkdir(parents=True, exist_ok=True)
     src_mp = _volume_mountpoint(source, name)
@@ -165,16 +169,19 @@ def copy_named_volume(
     dest_client = get_ssh_client(dest)
     try:
         st, out, err = run_command(
-            dest_client, f"docker volume create {shlex.quote(name)}", timeout=60
+            dest_client, f"docker volume create {shlex.quote(dest_name)}", timeout=60
         )
         if st != 0:
-            raise CopyError(f"volume create {name}: {(err or out or 'failed')[:300]}")
+            raise CopyError(
+                f"volume create {dest_name}: {(err or out or 'failed')[:300]}"
+            )
     finally:
         try:
             dest_client.close()
         except Exception:
             pass
-    dest_mp = _volume_mountpoint(dest, name)
-    _log(log, f"volume {name}: push {dest_mp}")
+    dest_mp = _volume_mountpoint(dest, dest_name)
+    label = name if dest_name == name else f"{name} → {dest_name}"
+    _log(log, f"volume {label}: push {dest_mp}")
     rsync_herder_to_host(dest, local, dest_mp, log=log)
 

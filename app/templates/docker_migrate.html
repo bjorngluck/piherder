@@ -46,7 +46,8 @@
             hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
             hx-target="#migrate-preflight"
             hx-swap="innerHTML"
-            hx-include="[name='project']"
+            hx-include="[name='project'], [name='dest_project'], [name^='dest_port_']"
+            hx-indicator="#migrate-preflight-wait"
             hx-trigger="change">
       <option value="">Select destination…</option>
       {% for d in destinations %}
@@ -63,8 +64,38 @@
     {% endif %}
   </div>
 
+  <div id="migrate-preflight-wait"
+       class="htmx-indicator card p-4 sm:p-5 mb-3 text-sm"
+       role="status"
+       data-testid="migrate-preflight-wait">
+    Checking destination… reading host facts over SSH.
+  </div>
   <div id="migrate-preflight" data-testid="migrate-preflight">
     <p class="text-sm text-muted">Pick a destination to run preflight.</p>
   </div>
 </div>
+<script>
+  (function () {
+    function forPreflight(e) {
+      var t = e.detail && e.detail.target;
+      return t && t.id === 'migrate-preflight';
+    }
+    document.body.addEventListener('htmx:beforeRequest', function (e) {
+      if (!forPreflight(e)) return;
+      if (window.PiHerderWaitModal) {
+        window.PiHerderWaitModal.show(
+          'Checking destination',
+          'Reading arch, disk, and Docker inventory over SSH…'
+        );
+      }
+    });
+    function hideWait(e) {
+      if (!forPreflight(e)) return;
+      if (window.PiHerderWaitModal) window.PiHerderWaitModal.hide();
+    }
+    document.body.addEventListener('htmx:afterRequest', hideWait);
+    document.body.addEventListener('htmx:responseError', hideWait);
+    document.body.addEventListener('htmx:sendError', hideWait);
+  })();
+</script>
 {% endblock %}

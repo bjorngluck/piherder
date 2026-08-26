@@ -2577,14 +2577,23 @@ def enqueue_service_migrate(
     background_tasks: BackgroundTasks | None = None,
     leftover: str = "stopped",
     devices_ack: bool = False,
+    dest_project: str | None = None,
+    port_map: dict | None = None,
 ) -> Job:
     """Queue stop-first copy + dest up. Raises JobAlreadyActive if either host is busy."""
     from ..service_migrate.host_lock import HostLockError, compose_project_name
+    from ..service_migrate.overrides import normalize_dest_project, validate_port_map
 
     try:
         name = compose_project_name(project)
     except HostLockError as e:
         raise ValueError(e.message) from e
+    dest_name, dest_err = normalize_dest_project(name, dest_project)
+    if dest_err:
+        raise ValueError(dest_err)
+    clean_map, map_errs = validate_port_map(port_map)
+    if map_errs:
+        raise ValueError("; ".join(map_errs[:4]))
     if int(source_id) == int(dest_id):
         raise ValueError("destination must differ from source")
     with _get_fresh_session() as session:
@@ -2615,6 +2624,8 @@ def enqueue_service_migrate(
             dest_server_id=dest.id,
             dest_name=dest.name,
             project=name,
+            dest_project=dest_name,
+            port_map=clean_map,
             leftover=left,
             devices_ack=bool(devices_ack),
         )
@@ -2653,6 +2664,8 @@ def _execute_service_migrate(
     dest, _ = _load_server_for_job(dest_id)
     leftover = "stopped"
     devices_ack = False
+    dest_project = project
+    port_map: dict = {}
     with _get_fresh_session() as session:
         job = session.get(Job, job_id)
         if job:
@@ -2660,6 +2673,10 @@ def _execute_service_migrate(
                 data = json.loads(job.details or "{}") or {}
                 leftover = normalize_leftover(data.get("leftover"))
                 devices_ack = bool(data.get("devices_ack"))
+                dest_project = data.get("dest_project") or project
+                raw_map = data.get("port_map") or {}
+                if isinstance(raw_map, dict):
+                    port_map = {str(k): str(v) for k, v in raw_map.items()}
             except Exception:
                 pass
             job.status = "running"
@@ -2697,6 +2714,8 @@ def _execute_service_migrate(
                 log=log_line,
                 leftover=leftover,
                 devices_ack=devices_ack,
+                dest_project=dest_project,
+                port_map=port_map,
             )
         wipe_staging(job_id)
         _finish(
