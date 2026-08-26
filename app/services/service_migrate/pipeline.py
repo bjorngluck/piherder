@@ -12,7 +12,12 @@ from ...config import settings
 from ...models import Server
 from .. import docker_inventory as inventory_svc
 from .. import docker_management as docker_svc
-from .copy import copy_named_volume, rsync_herder_to_host, rsync_host_to_herder
+from .copy import (
+    copy_named_volume,
+    rsync_herder_to_host,
+    rsync_host_to_herder,
+    staging_tree_summary,
+)
 from .cutover import CutoverError, retarget_dns_npm
 from .facts import docker_base_abs
 from .host_lock import compose_project_name
@@ -147,8 +152,12 @@ def run_copy_and_start(
     if isinstance(stopped, dict) and not stopped.get("success", True):
         raise MigrateError(_ssh_fail_detail(stopped, "compose stop failed"))
 
-    _log(log, f"Copy project tree {src_proj} → staging")
-    pull(source, src_proj, proj_stage, log=log)
+    _log(log, f"Copy project tree {src_proj} → staging (verbatim, all files)")
+    try:
+        pull(source, src_proj, proj_stage, log=log, delete=True)
+    except TypeError:
+        pull(source, src_proj, proj_stage, log=log)
+    _log(log, "Staged project: " + staging_tree_summary(proj_stage))
 
     dataset = pf.get("dataset") or {}
     seen_vol: set[str] = set()
@@ -194,8 +203,14 @@ def run_copy_and_start(
             extra = stage / "binds" / rel_key
             extra.mkdir(parents=True, exist_ok=True)
             _log(log, f"Copy bind {src} → {mapped}")
-            pull(source, src, extra, log=log)
-            push(dest, extra, mapped, log=log)
+            try:
+                pull(source, src, extra, log=log)
+            except TypeError:
+                pull(source, src, extra, log=log)
+            try:
+                push(dest, extra, mapped, log=log, delete=True)
+            except TypeError:
+                push(dest, extra, mapped, log=log)
 
     volume_renames = {
         vol_name: remap_named_volume(vol_name, name, dest_name)
@@ -220,8 +235,11 @@ def run_copy_and_start(
     if rewritten.get("files"):
         _log(log, "Rewrote dest compose/env: " + ", ".join(rewritten["files"][:8]))
 
-    _log(log, f"Push project tree → {dst_proj}")
-    push(dest, proj_stage, dst_proj, log=log)
+    _log(log, f"Push project tree → {dst_proj} (verbatim --delete)")
+    try:
+        push(dest, proj_stage, dst_proj, log=log, delete=True)
+    except TypeError:
+        push(dest, proj_stage, dst_proj, log=log)
 
     _log(log, f"Starting {dest_name} on {dest.name} (compose up -d)…")
     started = up(dest, dst_proj)

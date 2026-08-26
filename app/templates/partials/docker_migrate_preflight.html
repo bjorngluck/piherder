@@ -77,6 +77,14 @@
       <span class="font-mono">{{ vols | join(', ') }}</span>
     </p>
     {% endif %}
+    {% if result.project_files %}
+    <p class="text-xs text-muted mb-1">In the project folder (copied as-is, including hidden files):</p>
+    <ul class="text-xs font-mono mb-3 space-y-0.5 max-h-40 overflow-auto break-all" data-testid="migrate-project-files">
+      {% for f in result.project_files %}
+      <li>{{ f }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     {% if result.ports %}
     <div class="text-xs text-muted mb-1">Published host ports</div>
     <div class="space-y-2 mb-3" data-testid="migrate-port-map">

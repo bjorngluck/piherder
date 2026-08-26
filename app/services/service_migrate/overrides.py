@@ -7,8 +7,6 @@ import re
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
-import yaml
-
 from ..compose_project_files import COMPOSE_BASENAMES, OVERRIDE_BASENAMES
 from .host_lock import HostLockError, compose_project_name
 
@@ -19,7 +17,9 @@ _BIND_SRC_KEY = re.compile(r"^bind_src_(\d+)$")
 _DEST_BIND_KEY = re.compile(r"^dest_bind_(\d+)$")
 _SKIP_BIND_KEY = re.compile(r"^skip_bind_(\d+)$")
 _SHORT_BIND = re.compile(
-    r"^(?P<pre>\s*-\s*)(?P<q>[\"']?)(?P<src>/[^:\"'\s]+)(?P<rest>:[^\n]*)$"
+    r"^(?P<pre>\s*-\s*)(?P<q>[\"']?)"
+    r"(?P<src>(?:\~/|\$HOME/|/)[^:\"'\s]+)"
+    r"(?P<rest>:[^\n]*)$"
 )
 _SHORT_PORT = re.compile(
     r"^(?P<pre>\s*-\s*)(?P<q>[\"']?)"
@@ -410,6 +410,49 @@ def _rewrite_binds_in_obj(data: Any, bind_map: Mapping[str, str]) -> None:
             svc["volumes"] = [_rewrite_bind_spec(v, bind_map) for v in vols]
 
 
+def compose_bind_aliases(abs_source: str) -> list[str]:
+    """Compose LHS forms that resolve to this inspect Source (incl. ~/data)."""
+    src = os.path.normpath((abs_source or "").strip())
+    if not src.startswith("/"):
+        return [src] if src else []
+    aliases = [src]
+    parts = src.split("/")
+    # /home/piherder/open-webui-data → ~/open-webui-data and ~piherder/open-webui-data
+    if len(parts) >= 4 and parts[1] == "home" and parts[2]:
+        user = parts[2]
+        tail = "/".join(parts[3:])
+        if tail:
+            aliases.append("~/" + tail)
+            aliases.append("$HOME/" + tail)
+            aliases.append("~" + user + "/" + tail)
+    leaf = os.path.basename(src.rstrip("/"))
+    if leaf:
+        aliases.append("~/" + leaf)
+        aliases.append("$HOME/" + leaf)
+    # unique, keep order
+    seen: set[str] = set()
+    out: list[str] = []
+    for a in aliases:
+        if a and a not in seen:
+            seen.add(a)
+            out.append(a)
+    return out
+
+
+def expand_bind_map_for_compose(bind_map: Mapping[str, str] | None) -> dict[str, str]:
+    """Map every compose spelling of a source path onto the dest path."""
+    out: dict[str, str] = {}
+    for src, dest in (bind_map or {}).items():
+        dest = (dest or "").strip()
+        src = (src or "").strip()
+        if not src or not dest:
+            continue
+        for alias in compose_bind_aliases(src) + [src]:
+            if alias != dest:
+                out[alias] = dest
+    return out
+
+
 def _rewrite_lines_binds(text: str, bind_map: Mapping[str, str]) -> str:
     if not bind_map:
         return text
@@ -464,10 +507,10 @@ def apply_staging_overrides(
     volume_renames: Optional[Mapping[str, str]] = None,
     bind_map: Optional[Mapping[str, str]] = None,
 ) -> dict[str, Any]:
-    """Rewrite compose / .env in the herder staging tree before push."""
+    """Copy-as-is except: remapped host ports, dest bind paths, dest project name."""
     changed: list[str] = []
     ports = {k: v for k, v in (port_map or {}).items() if k.split("/", 1)[0] != str(v)}
-    binds = {k: v for k, v in (bind_map or {}).items() if k and v and k != v}
+    binds = expand_bind_map_for_compose(bind_map)
     rename = bool(dest_project and source_project and dest_project != source_project)
     if not staging.is_dir():
         return {
@@ -494,27 +537,7 @@ def apply_staging_overrides(
             if binds:
                 text = _rewrite_lines_binds(text, binds)
             if rename and dest_project:
-                try:
-                    data = yaml.safe_load(text)
-                except Exception:
-                    data = None
-                if isinstance(data, dict):
-                    if dest_project:
-                        data["name"] = dest_project
-                    if ports:
-                        _rewrite_ports_in_obj(data, ports)
-                    if binds:
-                        _rewrite_binds_in_obj(data, binds)
-                    if volume_renames:
-                        _rewrite_volume_names_in_obj(data, volume_renames)
-                    text = yaml.safe_dump(
-                        data,
-                        default_flow_style=False,
-                        sort_keys=False,
-                        allow_unicode=True,
-                    )
-                else:
-                    text = _rewrite_top_name(text, dest_project)
+                text = _rewrite_top_name(text, dest_project)
         elif base in (".env", "env") or base.startswith(".env"):
             if rename and dest_project:
                 text = _rewrite_env_project(text, dest_project)

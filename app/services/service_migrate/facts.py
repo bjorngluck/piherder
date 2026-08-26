@@ -87,6 +87,32 @@ def inspect_project_mounts(server: Server, project_row: dict[str, Any]) -> dict[
             pass
 
 
+def list_project_tree(server: Server, project_path: str, *, limit: int = 60) -> list[str]:
+    """Relative paths under the compose project dir (what the tree rsync copies)."""
+    path = (project_path or "").rstrip("/")
+    if not path or path == "/" or ".." in path:
+        return []
+    q = shlex.quote(path)
+    client = get_ssh_client(server)
+    try:
+        st, out, _err = run_command(
+            client,
+            f"find {q} -mindepth 1 -maxdepth 4 \\( -type f -o -type d \\) "
+            f"-printf '%P\\n' 2>/dev/null | head -n {int(limit)}",
+            timeout=20,
+        )
+        if st != 0 or not (out or "").strip():
+            return []
+        return [ln.strip() for ln in out.splitlines() if ln.strip()][:limit]
+    except Exception:
+        return []
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
 def docker_base_abs(server: Server) -> str:
     user = (getattr(server, "ssh_username", None) or "pi").strip() or "pi"
     raw = (getattr(server, "docker_base_dir", None) or "~/docker").strip() or "~/docker"

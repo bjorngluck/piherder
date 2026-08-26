@@ -35,12 +35,45 @@ def _ssh_rsync_cmd(key_path: str, server: Server) -> str:
     return f"{base} -p {port}"
 
 
+def staging_tree_summary(root: Path, *, limit: int = 40) -> str:
+    """Short listing of a copied tree (for the job log)."""
+    if not root.is_dir():
+        return "(missing)"
+    names: list[str] = []
+    files = 0
+    dirs = 0
+    for p in sorted(root.rglob("*")):
+        rel = p.relative_to(root).as_posix()
+        if not rel or rel == ".":
+            continue
+        if p.is_dir():
+            dirs += 1
+            names.append(rel + "/")
+        else:
+            files += 1
+            names.append(rel)
+    extra = ""
+    if len(names) > limit:
+        extra = f" … +{len(names) - limit} more"
+        names = names[:limit]
+    return f"{files} file(s), {dirs} dir(s): " + ", ".join(names) + extra
+
+
+def _rsync_core_args(*, delete: bool = False) -> list[str]:
+    # -a: recurse, perms, times, links, devices, **dotfiles**. No gitignore.
+    args = ["rsync", "-aH", "--numeric-ids", "--info=stats1"]
+    if delete:
+        args.append("--delete")
+    return args
+
+
 def rsync_host_to_herder(
     server: Server,
     remote_path: str,
     local_dir: Path,
     *,
     log: Optional[LogFn] = None,
+    delete: bool = False,
 ) -> None:
     """Pull remote directory contents into local_dir (trailing slash)."""
     from .overrides import is_truncated_host_path
@@ -67,9 +100,7 @@ def rsync_host_to_herder(
     with temp_key_file(priv) as key_path:
         ssh_cmd = _ssh_rsync_cmd(key_path, server)
         cmd = [
-            "rsync",
-            "-aHz",
-            "--numeric-ids",
+            *_rsync_core_args(delete=delete),
             "-e",
             ssh_cmd,
             "--rsync-path",
@@ -80,8 +111,11 @@ def rsync_host_to_herder(
         _log(log, f"rsync ← {server.name}:{remote}")
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=7200)
         if proc.returncode != 0:
-            err = (proc.stderr or proc.stdout or "rsync failed")[:500]
+            err = (proc.stderr or proc.stdout or "rsync failed")[:800]
             raise CopyError(f"pull {remote}: {err}")
+        stats = (proc.stdout or "").strip()
+        if stats:
+            _log(log, stats.splitlines()[-1][:240])
 
 
 def rsync_herder_to_host(
@@ -90,6 +124,7 @@ def rsync_herder_to_host(
     remote_path: str,
     *,
     log: Optional[LogFn] = None,
+    delete: bool = False,
 ) -> None:
     """Push local_dir contents to remote_path."""
     local = str(local_dir).rstrip("/") + "/"
@@ -113,9 +148,7 @@ def rsync_herder_to_host(
     with temp_key_file(priv) as key_path:
         ssh_cmd = _ssh_rsync_cmd(key_path, server)
         cmd = [
-            "rsync",
-            "-aHz",
-            "--numeric-ids",
+            *_rsync_core_args(delete=delete),
             "-e",
             ssh_cmd,
             "--rsync-path",
@@ -123,11 +156,14 @@ def rsync_herder_to_host(
             local,
             f"{user}@{server.hostname}:{remote}",
         ]
-        _log(log, f"rsync → {server.name}:{remote}")
+        _log(log, f"rsync → {server.name}:{remote}" + (" (--delete)" if delete else ""))
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=7200)
         if proc.returncode != 0:
-            err = (proc.stderr or proc.stdout or "rsync failed")[:500]
+            err = (proc.stderr or proc.stdout or "rsync failed")[:800]
             raise CopyError(f"push {remote}: {err}")
+        stats = (proc.stdout or "").strip()
+        if stats:
+            _log(log, stats.splitlines()[-1][:240])
 
 
 def _volume_mountpoint(server: Server, volume: str) -> str:
