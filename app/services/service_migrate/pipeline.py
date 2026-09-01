@@ -362,6 +362,17 @@ def run_copy_and_start(
             _ssh_fail_detail(started, "dest up failed"), failed_step="dest_up"
         )
 
+    # Stack / Path map read dest inventory from the DB. Refresh now so a later
+    # rebind fail does not leave dest looking empty (job 1100).
+    try:
+        from .facts import refresh_host_inventory
+
+        if refresh_host_inventory(dest.id):
+            _log(log, f"Refreshed dest Docker inventory on {dest.name}")
+        session.refresh(dest)
+    except Exception as e:
+        logger.debug("dest inventory refresh after up: %s", e)
+
     dns_fn = cutover_fn or retarget_dns_npm
     _log(log, "Retargeting DNS / NPM…")
     try:

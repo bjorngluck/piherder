@@ -67,6 +67,7 @@ def rebind_control_plane(
         "ports": 0,
         "edges": 0,
         "cert_targets": 0,
+        "bindings_dup_dropped": 0,
     }
 
     for row in session.exec(
@@ -82,6 +83,46 @@ def rebind_control_plane(
         session.add(row)
         counts["stack_deployments"] += 1
 
+    dest_scopes: set[tuple] = set()
+    for existing in session.exec(
+        select(IntegrationBinding).where(IntegrationBinding.server_id == did)
+    ).all():
+        dest_scopes.add(
+            (
+                int(existing.integration_id or 0),
+                (existing.role or "").strip(),
+                (existing.external_id or "").strip(),
+                (existing.docker_project or "").strip(),
+                (existing.docker_container or "").strip(),
+            )
+        )
+
+    def _move_bind(row, *, count_key: str) -> None:
+        new_proj = dest_name if dest_name != name else (row.docker_project or name)
+        key = (
+            int(row.integration_id or 0),
+            (row.role or "").strip(),
+            (row.external_id or "").strip(),
+            new_proj,
+            (row.docker_container or "").strip(),
+        )
+        if int(row.server_id or 0) == did:
+            dest_scopes.add(key)
+            return
+        if key in dest_scopes:
+            # Dest already has this Grafana/Kuma/NPM scope (clone from an earlier
+            # stay). Drop the extra source row so unique uq_integ_bind_scope holds.
+            session.delete(row)
+            counts["bindings_dup_dropped"] += 1
+            return
+        row.server_id = did
+        if dest_name != name:
+            row.docker_project = dest_name
+        row.updated_at = _now()
+        session.add(row)
+        dest_scopes.add(key)
+        counts[count_key] += 1
+
     for row in session.exec(
         select(IntegrationBinding).where(
             IntegrationBinding.docker_project == name,
@@ -89,35 +130,16 @@ def rebind_control_plane(
     ).all():
         role = (row.role or "").strip()
         if role == ROLE_PROXY_HOST:
-            # Binding may still sit on an older host after a previous move.
-            row.server_id = did
-            if dest_name != name:
-                row.docker_project = dest_name
-            row.updated_at = _now()
-            session.add(row)
-            counts["proxy_host_bindings"] += 1
+            _move_bind(row, count_key="proxy_host_bindings")
             continue
         if role == ROLE_DASHBOARD:
-            # Host metrics/logs stay. Container/project chips follow dest.
             if binding_grafana_kind(row) != GRAFANA_KIND_CONTAINERS:
                 continue
-            row.server_id = did
-            if dest_name != name:
-                row.docker_project = dest_name
-            row.updated_at = _now()
-            session.add(row)
-            counts["dashboard_bindings"] += 1
+            _move_bind(row, count_key="dashboard_bindings")
             continue
         if role != ROLE_SERVICE:
             continue
-        # Same as proxy-host: follow the compose project, not only the source
-        # host id (stale after an earlier edge/host move).
-        row.server_id = did
-        if dest_name != name:
-            row.docker_project = dest_name
-        row.updated_at = _now()
-        session.add(row)
-        counts["kuma_bindings"] += 1
+        _move_bind(row, count_key="kuma_bindings")
 
     for row in session.exec(
         select(VisualServiceStack).where(
