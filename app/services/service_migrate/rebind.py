@@ -17,7 +17,13 @@ from ...models import (
     StackDeployment,
     VisualServiceStack,
 )
-from ..integrations.registry import ROLE_SERVICE
+from ..integrations.registry import (
+    GRAFANA_KIND_CONTAINERS,
+    ROLE_DASHBOARD,
+    ROLE_PROXY_HOST,
+    ROLE_SERVICE,
+    binding_grafana_kind,
+)
 from .host_lock import compose_project_name
 from .preflight import _dns_rows
 
@@ -54,6 +60,8 @@ def rebind_control_plane(
     counts = {
         "stack_deployments": 0,
         "kuma_bindings": 0,
+        "dashboard_bindings": 0,
+        "proxy_host_bindings": 0,
         "visual_stacks": 0,
         "annotations": 0,
         "ports": 0,
@@ -76,11 +84,34 @@ def rebind_control_plane(
 
     for row in session.exec(
         select(IntegrationBinding).where(
-            IntegrationBinding.server_id == sid,
-            IntegrationBinding.role == ROLE_SERVICE,
             IntegrationBinding.docker_project == name,
         )
     ).all():
+        role = (row.role or "").strip()
+        if role == ROLE_PROXY_HOST:
+            # Binding may still sit on an older host after a previous move.
+            row.server_id = did
+            if dest_name != name:
+                row.docker_project = dest_name
+            row.updated_at = _now()
+            session.add(row)
+            counts["proxy_host_bindings"] += 1
+            continue
+        if role == ROLE_DASHBOARD:
+            # Host metrics/logs stay. Container/project chips follow dest.
+            if binding_grafana_kind(row) != GRAFANA_KIND_CONTAINERS:
+                continue
+            row.server_id = did
+            if dest_name != name:
+                row.docker_project = dest_name
+            row.updated_at = _now()
+            session.add(row)
+            counts["dashboard_bindings"] += 1
+            continue
+        if role != ROLE_SERVICE:
+            continue
+        # Same as proxy-host: follow the compose project, not only the source
+        # host id (stale after an earlier edge/host move).
         row.server_id = did
         if dest_name != name:
             row.docker_project = dest_name

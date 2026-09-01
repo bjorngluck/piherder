@@ -152,6 +152,39 @@ _FORBIDDEN_BIND_DEST = frozenset(
     {"/", "/home", "/var", "/opt", "/usr", "/root", "/etc", "/boot", "/dev", "/proc", "/sys"}
 )
 
+_HOST_LOCAL_PATHS = frozenset(
+    {
+        "/var/run/docker.sock",
+        "/run/docker.sock",
+        "/var/run/docker.sock.raw",
+        "/run/containerd/containerd.sock",
+        "/var/run/podman/podman.sock",
+        "/run/podman/podman.sock",
+        "/var/run/dbus/system_bus_socket",
+        "/run/dbus/system_bus_socket",
+    }
+)
+_HOST_LOCAL_PREFIXES = ("/dev/", "/proc/", "/sys/")
+
+
+def is_host_local_bind(path: str) -> bool:
+    """True for sockets/devices that must stay on the dest host (not rsync).
+
+    Uptime Kuma's ``/var/run/docker.sock`` is a Unix socket. Folding it into
+    the dest project and rsyncing with a trailing slash fails
+    (``change_dir … Not a directory``). Dest should bind dest's own socket.
+    """
+    p = os.path.normpath((path or "").strip())
+    if not p.startswith("/") or p in (".", "/"):
+        return False
+    if p in _HOST_LOCAL_PATHS:
+        return True
+    if p.endswith(".sock"):
+        return True
+    if p in ("/dev", "/proc", "/sys"):
+        return True
+    return any(p.startswith(pref) for pref in _HOST_LOCAL_PREFIXES)
+
 
 def suggest_dest_bind(
     source_path: str, src_base: str, dest_base: str, dest_project: str
@@ -160,8 +193,11 @@ def suggest_dest_bind(
 
     ``~/open-webui-data`` inspects as ``/home/USER/open-webui-data``. Dest
     still belongs under dest docker root + project (``./open-webui-data``).
+    Host sockets/devices keep the same absolute path on dest (not copied).
     """
     src = os.path.normpath((source_path or "").strip())
+    if is_host_local_bind(src):
+        return src
     src_b = os.path.normpath((src_base or "").strip()).rstrip("/")
     dest_b = os.path.normpath((dest_base or "").strip()).rstrip("/")
     dest_p = (dest_project or "").strip() or "project"

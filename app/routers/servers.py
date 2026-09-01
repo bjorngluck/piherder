@@ -405,62 +405,52 @@ async def bulk_server_actions(
                 if not server.os_patch_enabled:
                     skipped.append({"server_id": sid, "name": server.name, "reason": "os_disabled"})
                     continue
-                try:
-                    job = job_service.create_job_and_run(
-                        background_tasks,
-                        session,
-                        server,
-                        "os_patch",
-                        user_id=user.id,
-                    )
-                    started.append(
-                        {
-                            "server_id": sid,
-                            "name": server.name,
-                            "job_id": job.id,
-                            "job_type": job.job_type,
-                        }
-                    )
-                except job_service.JobAlreadyActive as e:
+                job = job_service.enqueue_os_patch_apply(server.id, user_id=user.id)
+                if not job:
+                    active = job_service._active_job_of_type(session, sid, "os_patch")
                     skipped.append(
                         {
                             "server_id": sid,
                             "name": server.name,
                             "reason": "already_active",
-                            "job_id": e.job.id,
+                            "job_id": active.id if active else None,
                         }
                     )
+                    continue
+                started.append(
+                    {
+                        "server_id": sid,
+                        "name": server.name,
+                        "job_id": job.id,
+                        "job_type": job.job_type,
+                    }
+                )
             elif act == "container_patch":
                 if not server.container_patch_enabled:
                     skipped.append(
                         {"server_id": sid, "name": server.name, "reason": "docker_disabled"}
                     )
                     continue
-                try:
-                    job = job_service.create_job_and_run(
-                        background_tasks,
-                        session,
-                        server,
-                        "container_patch",
-                        user_id=user.id,
-                    )
-                    started.append(
-                        {
-                            "server_id": sid,
-                            "name": server.name,
-                            "job_id": job.id,
-                            "job_type": job.job_type,
-                        }
-                    )
-                except job_service.JobAlreadyActive as e:
+                job = job_service.enqueue_container_patch_apply(server.id, user_id=user.id)
+                if not job:
+                    active = job_service._active_job_of_type(session, sid, "container_patch")
                     skipped.append(
                         {
                             "server_id": sid,
                             "name": server.name,
                             "reason": "already_active",
-                            "job_id": e.job.id,
+                            "job_id": active.id if active else None,
                         }
                     )
+                    continue
+                started.append(
+                    {
+                        "server_id": sid,
+                        "name": server.name,
+                        "job_id": job.id,
+                        "job_type": job.job_type,
+                    }
+                )
             elif act == "backup":
                 if not server.backup_enabled:
                     skipped.append(

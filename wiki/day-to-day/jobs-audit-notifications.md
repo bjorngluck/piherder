@@ -46,7 +46,7 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 | `os_update_check` / `container_update_check` | Manual or check schedule | Web background |
 | `docker_stack_check` / `docker_stack_deploy` | Stack ⋯ Check updates / Deploy | Web background |
 | `docker_stack_stop` / `_start` / `_restart` | Project ⋯ Stop/Start/Restart all | Web background |
-| `service_migrate` | Docker **Move to another host…** (flag `PIHERDER_SERVICE_MIGRATE`) | Web background |
+| `service_migrate` | Docker **Move to another host…** (flag `PIHERDER_SERVICE_MIGRATE`) | **Web** background (not Celery). JobHold stays until Close. Copy / dest-up fail: **Start source stack** |
 | `template_deploy` / `template_redeploy` | Catalog template confirm / Save & redeploy | Web background |
 | `template_drift_check` | Deployment **Check drift** (live log) | Web background |
 | `retention` | Per-server backup file retention | As configured |
@@ -56,6 +56,8 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 | `herder_backup` | PiHerder self-backup | As configured |
 
 Statuses: `pending` → `running` → `success` / `failed`.
+
+**Web restart:** OS/container patch and other **web-process** jobs (not Celery backups / nmap) that are still pending or running are **failed on startup**. They cannot still be executing after uvicorn exits; leaving them blocked new exclusive work on that host. Bulk **Upgrade OS** runs on a shared patch thread pool (several hosts at once), not one sequential BackgroundTasks chain.
 
 ### Exclusive jobs (one per type per host)
 

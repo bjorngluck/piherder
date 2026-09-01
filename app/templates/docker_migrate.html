@@ -82,15 +82,11 @@
     }
     document.body.addEventListener('htmx:beforeRequest', function (e) {
       if (!forPreflight(e)) return;
-      var elt = e.detail && e.detail.elt;
-      // Recheck/port/name live inside the swap target — a full-screen wait
-      // modal would stick if that element is replaced. Dest pick is outside.
-      if (elt && elt.id === 'migrate-dest' && window.PiHerderWaitModal) {
-        window.PiHerderWaitModal.show(
-          'Checking destination',
-          'Reading arch, disk, and Docker inventory over SSH…'
-        );
-      }
+      if (!window.PiHerderWaitModal) return;
+      window.PiHerderWaitModal.show(
+        'Checking destination',
+        'Reading dest over SSH (ports, folder, leftover containers)…'
+      );
     });
     function hideWait() {
       if (window.PiHerderWaitModal) window.PiHerderWaitModal.hide();

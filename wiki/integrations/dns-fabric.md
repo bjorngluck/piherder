@@ -352,6 +352,10 @@ When a container terminates TLS itself (e.g. Frigate on `rpi5-4.hacknow.info`) a
 
 Without a linked project the Hosts map shows the host only; stack expand has nothing to fan.
 
+### NPM on the same host
+
+A proxied app can live on the **same Pi as NPM** (e.g. n8n after the proxy moved). Public DNS is still **CNAME → NPM hostname** (`n8n.hacknow.info` → `nginx.hacknow.info`); NPM forwards to localhost/LAN on that box. Path map keeps **name → NPM → host → app** — it does not collapse to direct because target and backend server ids match. Direct TLS (above) is only when the fabric row is **not** `via_proxy`.
+
 ---
 
 ## Pi-hole behaviour
@@ -452,4 +456,4 @@ Resolution also uses Pi-hole inventory, NPM poll cache + proxy_host binds, Kuma 
 - [NPM](npm.md)  
 - [Uptime Kuma](uptime-kuma.md)  
 - [Certificates](certificates.md)  
-- [Move a service](../docker/service-migration.md) — **direct** CNAME → dest `dns_name` + both Pi-holes `restartdns`; **NPM-fronted** keeps the public CNAME on NPM and PUTs `forward_host`
+- [Move a service](../docker/service-migration.md) — **direct** CNAME → dest `dns_name` + both Pi-holes `restartdns`; **NPM-fronted** keeps the public CNAME on NPM and PUTs `forward_host` (proxy-host binding is enough). Optional **Adopt into fabric** adds a `via_proxy` row without rewriting Pi-hole. Path map keeps an NPM hop when the app shares the NPM host.

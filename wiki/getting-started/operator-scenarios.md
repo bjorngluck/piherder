@@ -125,11 +125,11 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | 2 | [Lock](../docker/service-migration.md) a hardware-bound stack (or HAOS) | Prove Move is refused |
 | 3 | Unlock a disposable stack; **⋯ → Move to another host…** | Wizard |
 | 4 | Pick dest (wait modal) · remap dest name/ports if needed · read preflight | Blocks before copy; dest name/port overrides clear name/port clashes |
-| 5 | Confirm downtime → JobHold | Stop → copy → dest up → name/proxy |
-| 6 | Check dest inventory, CNAME or NPM `forward_host`, maps | Green cutover |
+| 5 | Confirm downtime → JobHold | Stop → copy → dest up → name/proxy. Copy/dest-up fail: **Start source stack** |
+| 6 | Check dest inventory, CNAME or NPM `forward_host`, maps, Grafana container chips | Green cutover |
 | 7 | Leave leftover **stopped** on the first run | Data still on source |
 
-Full page: [Move a service](../docker/service-migration.md). Do **not** pick **Remove source** on a stack you still need.
+Full page: [Move a service](../docker/service-migration.md). Do **not** pick **Remove source** on a stack you still need. Tick **Adopt into fabric** only if an NPM-only name should appear on the DNS list (Pi-hole CNAMEs stay).
 
 ---
 

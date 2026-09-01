@@ -41,7 +41,9 @@ NPM is often the edge of a homelab. Operators need to see which hostnames are pr
 
 **Why read-only proxy edit:** production focuses on inventory + certs; full proxy CRUD stays in NPM to avoid half-baked edge configs.
 
-**Move a service (v1.4):** if a fabric row is `via_proxy`, preflight matches the FQDN against this **poll cache**. The migrate job then **PUT**s `forward_host` to the dest host (public CNAME stays on NPM). Poll NPM before moving. [Move a service](../docker/service-migration.md).
+**Move a service (v1.4):** preflight matches the FQDN against this **poll cache**. The migrate job **PUT**s `forward_host` to dest. A fabric DNS row is **not** required — an NPM **proxy-host binding** on the compose project is enough (e.g. `ai.hacknow.info` → Open WebUI). Public CNAME stays on the NPM hostname. Optional **Adopt into fabric** (default off) adds a `via_proxy` DNS list row; it does not rewrite Pi-hole CNAMEs or invent certs. Poll NPM before moving.
+
+**Moving NPM itself:** keep the fleet pattern **service FQDN → CNAME → NPM hostname** (e.g. `ai.hacknow.info` → `nginx.hacknow.info`). Only the NPM hostname CNAME follows dest. Pi-hole APIs that use `https://pihole…` through this proxy fall back to the poll-cache LAN backend during cutover. [Move a service](../docker/service-migration.md).
 
 ## Certificates
 

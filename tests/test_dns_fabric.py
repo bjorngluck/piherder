@@ -96,6 +96,45 @@ def test_fabric_rack_for_server_backend_and_npm_edge():
     assert rack_e["hosts_map_url"] == "/dns/physical?focus=n:host-2#map"
 
 
+def test_fabric_rack_same_host_npm_is_edge():
+    host = SimpleNamespace(
+        id=4, name="RPI5-6", dns_name="rpi5-6.example.com",
+        hostname="10.0.0.4", ip_address="10.0.0.4", dns_ip_override=None,
+    )
+    rec = SimpleNamespace(
+        id=10,
+        fqdn="n8n.example.com",
+        backend_server_id=4,
+        target_server_id=4,
+        via_proxy=True,
+        docker_project="n8n",
+        label="n8n",
+        record_type="cname",
+        npm_hint=None,
+        certificate_id=None,
+        last_sync_status="ok",
+    )
+    session = MagicMock()
+    session.get.return_value = host
+    with patch.object(fabric.core, "list_service_records", return_value=[rec]), patch.object(
+        fabric.core,
+        "build_access_path_for_record",
+        return_value={
+            "via_proxy": True,
+            "path_kind": "npm_app",
+            "path_title": "name → NPM → host → app (same host)",
+            "chain": "n8n.example.com → nginx → RPI5-6 → n8n",
+            "docker_project": "n8n",
+            "docker_container": "n8n",
+        },
+    ):
+        rack = fabric.fabric_rack_for_server(session, 4)
+    assert rack is not None
+    assert rack["is_npm_edge"] is True
+    assert rack["app_count"] == 1
+    assert rack["apps"][0]["via_npm"] is True
+
+
 def test_fabric_rack_for_server_missing():
     session = MagicMock()
     session.get.return_value = None
@@ -333,7 +372,7 @@ def test_build_access_path_direct_ignores_stale_npm():
             fqdn="frigate.example.com",
             target_server_id=4,
             backend_server_id=4,
-            via_proxy=True,
+            via_proxy=False,
             docker_project=None,
         )
     assert path["via_proxy"] is False
@@ -341,6 +380,47 @@ def test_build_access_path_direct_ignores_stale_npm():
     kinds = [h["kind"] for h in path["hops"]]
     assert "npm" not in kinds
     assert kinds == ["name", "host", "service", "container"]
+
+
+def test_build_access_path_npm_same_host():
+    """n8n-style: public name CNAME → NPM hostname, backend on the same Pi."""
+    session = MagicMock()
+    host = SimpleNamespace(
+        id=4, name="RPI5-6", dns_name="rpi5-6.example.com", hostname="rpi5-6",
+        ip_address="192.168.86.34", dns_ip_override=None,
+    )
+    npm_fwd = {
+        "forward_host": "192.168.86.34",
+        "forward_port": 5678,
+        "domain_names": ["n8n.example.com"],
+    }
+    with patch.object(fabric.core, "_servers_by_id", return_value={4: host}), patch.object(
+        fabric.core, "_find_npm_forward", return_value=npm_fwd
+    ), patch.object(
+        fabric.core, "_npm_edge_hostname", return_value="nginx.example.com"
+    ), patch.object(
+        fabric.core, "_find_docker_container", return_value="n8n"
+    ), patch.object(
+        fabric.core,
+        "resolve_app_layers",
+        return_value={"docker_project": "n8n", "docker_container": "n8n", "source": "explicit"},
+    ):
+        path = fabric.build_access_path(
+            session,
+            fqdn="n8n.example.com",
+            target_server_id=4,
+            backend_server_id=4,
+            via_proxy=True,
+            docker_project="n8n",
+        )
+    assert path["via_proxy"] is True
+    assert path["path_kind"] == "npm_app"
+    kinds = [h["kind"] for h in path["hops"]]
+    assert kinds == ["name", "npm", "host", "service", "container"]
+    npm_hop = path["hops"][1]
+    assert npm_hop["label"] == "nginx.example.com"
+    assert npm_hop.get("same_host") is True
+    assert "same host" in (npm_hop.get("sub") or "")
 
 
 def test_link_service_project_sets_docker_and_clears_proxy():

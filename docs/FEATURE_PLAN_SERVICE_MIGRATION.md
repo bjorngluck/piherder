@@ -1,6 +1,6 @@
 # Feature plan — Service migration
 
-**Status:** Train open on `v1.4.0-dev` · M1–M9 + M-npm + D-F + M-rm landed · freeze next  
+**Status:** Train open on `v1.4.0-dev` · M1–M9 + M-npm + D-F + M-rm landed · live QA · freeze next  
 **Train:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) Stream **M** (active)  
 **Horizon:** H2.5 leftover — “Service migrate / remove” ([ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md)) · [SPEC.md](../SPEC.md) Phase 7  
 **Related:** [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md)
@@ -54,7 +54,8 @@ PiHerder stays **SSH-first**. No agent on the Pis. The herder is the staging hop
 | **Anything on HAOS** | **Refuse** | Unique appliance; not a compose dest |
 | **Grafana** / **Authentik** (`sso`) on rpi5-6 | **Yes** (direct) | Direct TLS. DNS CNAME follows dest host. Cert target + `/certs` bind re-applied on dest |
 | **Pi-hole** itself | **Out of happy path** | Fabric depends on it; document “do not migrate the resolver you are using to migrate” |
-| **NPM-fronted** app (CNAME → NPM, `via_proxy=true`) | **Yes** (**M-npm**) | Public name stays on NPM; proxy-host `forward_host` updates to dest LAN/SSH address. Do not migrate the **NPM** edge box as a happy path |
+| **NPM-fronted** app (CNAME → NPM, `via_proxy=true`) | **Yes** (**M-npm**) | Public name stays on NPM; proxy-host `forward_host` updates to dest LAN/SSH address |
+| **NPM edge** (`nginx…` / NPM compose project) | **Yes** | Public names stay **CNAME → NPM hostname**. Only that alias CNAME → dest. Pi-hole admin URLs through the edge use LAN `forward_host` during cutover |
 
 ---
 
@@ -112,7 +113,7 @@ Implied locks (no row required):
 
 - New type `service_migrate` (and later `service_remove`).  
 - `Job.server_id` = **source** (history stays on the host you left).  
-- `details` JSON: `dest_server_id`, `project`, `steps[]`, `bytes`, `fqdns`, `staging_dir`, `pipeline` (`health_then_dns` \| `dns_then_start`).  
+- `details` JSON: `dest_server_id`, `project`, `steps[]`, `bytes`, `fqdns`, `staging_dir`, leftover, `adopt_fabric`, `failed_step` / `recover_source` on copy/dest-up fail. Pipeline order is always dest-up then name/proxy (`health_then_dns`). `dns_then_start` is **out**.  
 - Exclusive: treat as stack-mutating **and** backup-like on **both** server ids. Extend `server_job_lock` with kind `migrate` **or** acquire `backup`+existing stack lane on both ids.
 
 ### Control-plane rebind (same transaction after dest is healthy)
@@ -121,7 +122,9 @@ Implied locks (no row required):
 |-----|--------|
 | `ServiceDnsRecord` | `backend_server_id` → dest; if not `via_proxy`, `target_server_id` → dest; then sync |
 | `StackDeployment` | `server_id` → dest (same `project_name`) |
-| `IntegrationBinding` role=service | `server_id` → dest when `docker_project` matches |
+| `IntegrationBinding` role=service | `server_id` → dest when `docker_project` matches (any host; stale bind after an earlier move) |
+| `IntegrationBinding` role=proxy_host | `server_id` → dest when `docker_project` matches (any host) |
+| `IntegrationBinding` role=dashboard | Grafana **containers** kind + matching `docker_project` → dest. Host metrics/logs stay |
 | `CertificateTarget` | **Clone** onto dest (keep source row until leftover policy) + deploy + verify; or move if operator chose “this cert only served that stack” |
 | `RuntimeEdge` | rewrite `from_server_id` / `to_server_id` when the endpoint project moved |
 | `ContainerAnnotation`, `VisualServiceStack`, `PortAnnotation` | `server_id` → dest for that project |
@@ -155,18 +158,18 @@ preflight
   → wipe staging (success) / keep staging (failure)
 ```
 
-### Alternate order (`dns_then_start`) — operator request
+### Alternate order (`dns_then_start`) — **out of 1.4**
 
-Matches the original verbal list (DNS before dest listen). Shorter “wrong host” window if dest start is instant; longer NXDOMAIN/empty if dest is slow. Offer as a checkbox, default **off**.
+Matches the original verbal list (DNS before dest listen). Not built: longer hole if dest `up` is slow or fails after names already flipped. Default dest-up-then-flip stays the only order.
 
 ### Failure
 
 | Step failed | State | Operator CTA |
 |-------------|--------|----------------|
-| Copy | Source stopped, dest untouched, staging kept | Retry copy, or **Start on source** |
-| Dest up | Source stopped, dest partial, DNS **unchanged** | Logs; retry up; or start source |
+| Copy | Source stopped, dest untouched, staging kept | JobHold **Start source stack** (landed) |
+| Dest up | Source stopped, dest partial, DNS **unchanged** | JobHold **Start source stack** (landed) |
 | DNS / FTL | Dest up, names maybe split across Pi-holes | Re-sync fabric + restartdns |
-| NPM PUT | Dest up, proxy still on old backend | Retry PUT; public name still on NPM |
+| NPM PUT | Dest up, proxy still on old backend | Poll NPM / retry Move; public name still on NPM |
 | Validate | Dest up, DNS/NPM flipped, probe red | Do **not** auto-revert in v1; **Revert DNS/NPM + start source** is a Cap |
 
 Auto-rollback is explicitly **not** Must — two-host undo is its own design.
@@ -181,7 +184,7 @@ Auto-rollback is explicitly **not** Must — two-host undo is its own design.
 | Relative binds (`./data`, `./config.yml`) | **Yes** | Already under the project tree if they live there; extra relative paths one level up → include if still inside `docker_base_dir` |
 | Named volumes | **Yes** | `docker volume create` on dest; copy `_data` as docker user **or** `docker run --rm -v NAME:/data alpine tar` pipe via herder |
 | Absolute binds inside `docker_base_dir` | **Yes** | Remap prefix source base → dest base |
-| Absolute binds **outside** jail (e.g. `/mnt/media`, `/dev`) | Default dest path **same as source**; operator can overwrite or skip | Not silent; `/dev` still warn |
+| Absolute binds **outside** jail (e.g. `/mnt/media`, `/dev`, `~/…`) | Default dest path **dest project folder / basename** (`./open-webui-data`); operator can overwrite or skip | Not silent; `/dev` still warn. Host sockets (`docker.sock`) are **not copied** — dest binds dest host path |
 | `devices:` / privileged / host network | **Warn** | Pair with host lock |
 | Images | **Pull on dest** (`up -d` pulls) | Preflight: dest arch == source arch (`uname -m` / inventory) |
 | Build contexts | **Copy context** if present under project | Do not start a remote build farm |
@@ -214,6 +217,15 @@ Existing `upsert_service_record` already:
 4. **PUT** that host: `forward_host` → dest reachable address (wizard shows old → new: dest SSH/LAN hostname or dest `dns_name`). Keep `forward_port` unless dest published port changed (then update + preview).  
 5. Missing NPM integration, login fail, or **no matching proxy host** → **preflight fail**, not a checklist.  
 6. Do **not** create, delete, or rewrite SSL/ACME on the proxy host.
+
+### NPM edge (moving the proxy stack)
+
+Public names are **CNAME → NPM hostname** (e.g. `ai.hacknow.info` → `nginx.hacknow.info`). Moving the NPM compose project:
+
+1. Retarget **only** the edge FQDN CNAME to dest `dns_name`.  
+2. Leave dependent CNAMEs on the alias — flip fabric `target_server_id` to dest, no Pi-hole rewrite of those names.  
+3. Pi-hole login: public URL first, then NPM poll-cache LAN `forward_host:forward_port` (admin APIs are often via the edge).  
+4. Retry after a failed sync still selects dest-bound fabric rows for that project.
 
 External DNS (Cloudflare) stays the existing checklist flag on the row.
 
@@ -303,6 +315,7 @@ Viewer: 403. Demo: disabled or fake preview.
 - [ ] Unlocked **`via_proxy`** project: dest up → NPM `forward_host` updates to dest; public CNAME stays on NPM  
 - [ ] TLS probe uses SNI = service FQDN when a cert is linked  
 - [ ] Kuma service bindings follow dest `server_id`  
+- [ ] Grafana container dashboard chips follow dest  
 - [ ] `StackDeployment` + annotations follow dest  
 - [ ] Source files still on disk after success unless M8 / M-rm  
 - [ ] Concurrent backup/stack job on either host → 409  
@@ -370,11 +383,11 @@ Implement as a pure function + wizard list. First failing **block** stops the jo
 | Source project `host_locked` | Block | Show reason |
 | Dest Docker feature off | Block | |
 | Dest == source | Block | |
-| Dest project name already exists | Block | |
+| Dest project name already exists | Block if dest **folder nonempty** | Leftover dest compose containers with empty folder: warn; Move `docker rm -f` then dest up |
 | Arch mismatch (`uname -m`) | Block | |
 | Dest `docker_base_dir` not writable | Block | |
 | Dest or herder free space < payload + margin | Block | |
-| Published port clash on dest | Block | |
+| Published port clash on dest | Block | Live dest `docker ps`, not dest inventory cache |
 | Active backup or stack-mutating job on source **or** dest | Block | 409 |
 | Absolute bind outside `docker_base_dir` | Block unless allow-listed in preview | |
 | Direct row: dest missing `dns_name` | Block | |
@@ -427,3 +440,6 @@ An operator can:
 | 2026-08-25 | **D-F:** demo simulated Files (canned tree, viewer browse, writes refused). |
 | 2026-08-25 | **M-rm:** optional source project + named volume delete after green migrate. Preview + danger confirm + `leftover_remove_ack`. Dest never wiped. |
 | 2026-08-25 | Operator wiki pass: full pipeline + leftover + Journey Move; maintainer QA/PLAN/ROADMAP/SPEC aligned for live validation. |
+| 2026-08-30 | **NPM edge move:** dependents keep CNAME on the NPM hostname; alias follows dest; Pi-hole login falls back to NPM LAN backend; cutover retries DNS when fabric already points at dest. |
+| 2026-08-30 | **NPM proxy-host binding:** PUT ``forward_host`` for the compose project even with no fabric DNS row (openwebui / ``ai.hacknow.info``). Rebind follows the project, not only the source host. |
+| 2026-09-01 | Grafana **container** dashboard binds follow dest. Optional **Adopt into fabric** (via_proxy, no cert, no Pi-hole rewrite). JobHold **Start source stack** after copy / dest-up fail. ``dns_then_start`` stays out. |

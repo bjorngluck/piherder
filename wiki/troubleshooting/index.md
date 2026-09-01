@@ -21,6 +21,7 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | From-host missing config sidecar / host labels | [From host](../service-templates/from-host.md) · [Templates troubleshooting](templates-docker.md#from-host-pull-incomplete) |
 | Reboot hangs / UI stuck after reboot | [Updates — Reboot](../day-to-day/updates-and-patching.md#reboot) |
 | Same patch job appears twice | [Jobs — Exclusive jobs](../day-to-day/jobs-audit-notifications.md#exclusive-jobs-one-per-type-per-host) · [Multi-worker](../operations/multi-worker.md) |
+| Bulk **Upgrade OS** stuck pending while one host stays running | One request used to run patches **sequentially**. Recreate **web** on current `v1.4.0-dev` — orphan `os_patch` rows fail on startup so the exclusive lock clears; bulk now uses the patch pool (hosts in parallel). [Updates](../day-to-day/updates-and-patching.md) |
 | Full editor link does nothing | [Compose edit](../docker/compose-edit.md#opening-the-editor) — use ⋯ **Full editor…** or deployment **Open host file editor** |
 | Drift after intentional host edit (keep change) | [Deploy — Accept host as desired](../service-templates/deploy.md#redeploy-ops-deployment-page) |
 | Fleet Services empty | [Dashboard & Services](../day-to-day/dashboard-and-services.md) — bind Kuma monitors |
@@ -32,7 +33,15 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Move rsync `change_dir "/home/…\#342\#200\#246"` | Truncated `docker ps` mount (Unicode ellipsis). Rebuild current `v1.4.0-dev`; inspect fills full paths. Source may be **stopped** — Start all if you need it up before retry |
 | Move job `up -d failed` with no compose text | Older build; current train logs `docker compose pull/up` output on the job. Source is stopped; dest may have files. SSH dest `cd … && docker compose up -d` if you need the stack now |
 | Move preflight blocks dest | Same page — remap dest **host port** or **project name/folder**, disk, DNS name, NPM poll cache, busy backup/stack/migrate job |
-| Move job TLS / Kuma red | No auto-rollback. Dest may already be up with names flipped. Fix dest or start the stack on source. Staging kept under `/backups/_migrate/{job_id}` |
+| Move dest `up` `address already in use` | Recheck now uses live dest `ss` listen + docker. Remap dest host port. Leftover dest folder from a failed Move is overwrite, not a block. If the source stack uses **host network**, remap does not apply — dest must have that port free |
+| Move rsync `change_dir "/var/run/docker.sock"` / Not a directory | Host socket (Uptime Kuma Docker monitor). Rebuild current `v1.4.0-dev` — Move no longer rsyncs `docker.sock`; dest binds dest’s own socket |
+| Move dest project owned `root:root` / fleet SSH user | Rebuild current `v1.4.0-dev` — Move chowns dest project to dest **docker root owner** (`bjorn` for `/home/bjorn/docker`), not `piherder` / root |
+| Recheck destination looks like a no-op | Wait modal should show for dest pick, port change, and Recheck. Rebuild web |
+| Move job overlay vanishes with no success/fail | Overlay now stays with Succeeded/Failed until Close. Rebuild web |
+| Move job TLS / Kuma red | No auto-rollback. Dest may already be up with names flipped. Fix dest. Staging kept under `/backups/_migrate/{job_id}` |
+| Move succeeded but NPM still points at the old Pi | Job skipped PUT when there was no fabric DNS row. Current train PUTs from the **proxy-host binding**. Rebuild **web**, poll NPM, or Move again. Optional **Adopt into fabric** puts the name on the DNS list without rewriting Pi-hole |
+| Move copy / dest-up failed; source is stopped | JobHold **Start source stack** (same as Docker ⋯ Start all). Dest names were not flipped |
+| Grafana chip missing on dest after Move | Only **Containers** (project/container) binds follow dest. Host metrics/logs stay. Rebuild web if dest Docker still shows the old host |
 | Move leftover wipe did too little / too much | Default leaves source stopped. **Remove source** only deletes the jailed project dir + copied named volumes — dest never, extra binds outside the project folder stay |
 | Files upload fails / too large | Default 512 MiB; **Settings → Files** (ceiling 32 GiB) or lock with `PIHERDER_HOST_FILES_MAX_BYTES`; raise any extra reverse-proxy body cap / timeout |
 | Files download stuck ~12 MiB | Dedicated SFTP + Caddy must not gzip `application/octet-stream` (`flush_interval -1`). Rebuild web + Caddy. [Host Files](../day-to-day/host-files.md) |

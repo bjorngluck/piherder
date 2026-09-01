@@ -279,8 +279,19 @@
           </button>
           <form method="post" action="/servers/{{ server.id }}/docker/compose/down" data-sec="undeploy">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
+            <input type="hidden" name="remove_volumes" value="">
             <button type="submit" data-sec-btn="undeploy">Undeploy</button>
           </form>
+          {% if hl.locked %}
+          <button type="button" data-sec-btn="remove-project" disabled aria-disabled="true"
+                  title="Unlock this project before deleting the folder">Delete project…</button>
+          {% else %}
+          <form method="post" action="/servers/{{ server.id }}/docker/compose/remove" data-sec="remove-project">
+            <input type="hidden" name="project_path" value="{{ proj.path }}">
+            <input type="hidden" name="remove_ack" value="">
+            <button type="submit" data-sec-btn="remove-project">Delete project…</button>
+          </form>
+          {% endif %}
         </div>
       </div>
 

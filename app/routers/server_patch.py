@@ -253,6 +253,8 @@ async def get_server_job_status(
         "log_lines": log_lines,
         "summary": details.get("summary") or "",
         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+        "failed_step": details.get("failed_step"),
+        "recover_source": details.get("recover_source"),
     }
 
 

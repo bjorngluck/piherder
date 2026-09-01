@@ -67,6 +67,37 @@ def _rsync_core_args(*, delete: bool = False) -> list[str]:
     return args
 
 
+def remote_path_kind(server: Server, remote_path: str) -> str:
+    """Classify a remote path: dir, file, socket, fifo, chr, blk, missing, other."""
+    path = (remote_path or "").strip().rstrip("/")
+    if not path or path == "/" or ".." in path.split("/"):
+        return "missing"
+    q = shlex.quote(path)
+    cmd = (
+        f"p={q}; "
+        'if [ -d "$p" ]; then echo dir; '
+        'elif [ -S "$p" ]; then echo socket; '
+        'elif [ -p "$p" ]; then echo fifo; '
+        'elif [ -b "$p" ]; then echo blk; '
+        'elif [ -c "$p" ]; then echo chr; '
+        'elif [ -f "$p" ]; then echo file; '
+        'elif [ -e "$p" ]; then echo other; '
+        "else echo missing; fi"
+    )
+    client = get_ssh_client(server)
+    try:
+        st, out, _err = run_command(client, cmd, timeout=15)
+        kind = (out or "").strip().splitlines()[-1] if (out or "").strip() else ""
+        if st != 0 or not kind:
+            return "missing"
+        return kind
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
 def rsync_host_to_herder(
     server: Server,
     remote_path: str,
@@ -74,17 +105,34 @@ def rsync_host_to_herder(
     *,
     log: Optional[LogFn] = None,
     delete: bool = False,
+    as_file: bool = False,
 ) -> None:
-    """Pull remote directory contents into local_dir (trailing slash)."""
-    from .overrides import is_truncated_host_path
+    """Pull remote directory contents into local_dir (trailing slash).
+
+    ``as_file=True`` copies a single regular file onto ``local_dir`` as the
+    destination file path (no trailing slash). Sockets/devices must not be
+    pulled — callers skip those.
+    """
+    from .overrides import is_host_local_bind, is_truncated_host_path
 
     if is_truncated_host_path(remote_path or ""):
         raise CopyError(
             f"refusing truncated inventory path (not a real directory): {remote_path}"
         )
-    remote = (remote_path or "").rstrip("/") + "/"
-    local_dir.mkdir(parents=True, exist_ok=True)
-    dest = str(local_dir).rstrip("/") + "/"
+    if is_host_local_bind(remote_path or ""):
+        raise CopyError(
+            f"refusing to rsync host socket/device {remote_path} "
+            "(dest should bind the dest host path)"
+        )
+    if as_file:
+        remote = (remote_path or "").rstrip("/")
+        dest_path = Path(local_dir)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        dest = str(dest_path)
+    else:
+        remote = (remote_path or "").rstrip("/") + "/"
+        local_dir.mkdir(parents=True, exist_ok=True)
+        dest = str(local_dir).rstrip("/") + "/"
     priv = get_private_key_plain(server)
     if not priv:
         raise CopyError("No SSH private key on source")
@@ -164,6 +212,62 @@ def rsync_herder_to_host(
         stats = (proc.stdout or "").strip()
         if stats:
             _log(log, stats.splitlines()[-1][:240])
+
+
+def chown_remote_tree(
+    server: Server,
+    remote_path: str,
+    *,
+    owner_from: Optional[str] = None,
+    log: Optional[LogFn] = None,
+) -> None:
+    """Make dest project files owned like dest docker root (not root / fleet SSH).
+
+    Herder ``sudo rsync --numeric-ids`` lands ``root:root``. Dest SSH user is often
+    ``piherder`` while ``/home/bjorn/docker`` is ``bjorn`` — use the docker-root
+    owner, else ``/home/<user>``.
+    Named Docker volume mountpoints are not passed here.
+    """
+    import os
+
+    path = os.path.normpath((remote_path or "").strip()).rstrip("/")
+    ref = os.path.normpath((owner_from or os.path.dirname(path) or "").strip()).rstrip("/")
+    if not path or path == "/" or ".." in path.split("/"):
+        raise CopyError(f"refusing chown of {remote_path}")
+    if path in ("/home", "/var", "/opt", "/usr", "/etc", "/root", "/boot"):
+        raise CopyError(f"refusing chown of {path}")
+    if not ref or ref == "/" or ".." in ref.split("/"):
+        ref = os.path.dirname(path)
+    qpath = shlex.quote(path)
+    qref = shlex.quote(ref)
+    cmd = (
+        f"ref={qref}; path={qpath}; "
+        "og=$(stat -c '%U:%G' \"$ref\" 2>/dev/null || true); "
+        "u=${og%%:*}; g=${og#*:}; "
+        "if [ -z \"$u\" ] || [ \"$u\" = root ]; then "
+        "home=$(echo \"$ref\" | awk -F/ '$2==\"home\" && NF>=3 {print \"/\" $2 \"/\" $3; exit}'); "
+        "if [ -n \"$home\" ]; then og=$(stat -c '%U:%G' \"$home\" 2>/dev/null || true); "
+        "u=${og%%:*}; g=${og#*:}; fi; fi; "
+        "if [ -z \"$u\" ] || [ \"$u\" = root ]; then echo no_dest_owner >&2; exit 1; fi; "
+        "if sudo -n true >/dev/null 2>&1; then sudo -n chown -R \"$u:$g\" \"$path\"; "
+        "else chown -R \"$u:$g\" \"$path\"; fi; "
+        "stat -c '%U:%G' \"$path\"; "
+        "if [ -f \"$path/docker-compose.yml\" ]; then stat -c '%U:%G' \"$path/docker-compose.yml\"; fi"
+    )
+    client = get_ssh_client(server)
+    try:
+        st, out, err = run_command(client, cmd, timeout=60)
+        who = (out or "").strip().splitlines()[-1] if (out or "").strip() else ""
+        if st != 0:
+            raise CopyError(
+                f"chown {path} from {ref}: {(err or out or 'failed')[:300]}"
+            )
+        _log(log, f"Dest ownership {path} → {who or 'ok'} (from {ref})")
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
 
 
 def _volume_mountpoint(server: Server, volume: str) -> str:

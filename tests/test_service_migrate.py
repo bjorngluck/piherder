@@ -44,6 +44,20 @@ def lock_db(tmp_path):
         yield s
 
 
+def test_parse_ss_listen_ports():
+    from app.services.service_migrate.facts import _parse_ss_listen
+
+    sample = (
+        "LISTEN 0 4096 0.0.0.0:8090 0.0.0.0:*\n"
+        "LISTEN 0 4096 [::]:22 [::]:*\n"
+        "LISTEN 0 4096 127.0.0.1:631 0.0.0.0:*\n"
+    )
+    ports = set(_parse_ss_listen(sample, "tcp"))
+    assert ("8090", "tcp") in ports
+    assert ("22", "tcp") in ports
+    assert ("631", "tcp") in ports
+
+
 def test_compose_project_name_rejects_paths():
     with pytest.raises(hl.HostLockError):
         hl.compose_project_name("../etc")
@@ -315,9 +329,27 @@ def test_http_lock_rejects_path_project(lock_client):
     assert "error=host_lock" in (r.headers.get("location") or "")
 
 
-def _inv(*names, ports=None, mounts=None, extra=None, mounts_detail=None):
+def _inv(
+    *names,
+    ports=None,
+    mounts=None,
+    extra=None,
+    mounts_detail=None,
+    networks=None,
+    network_mode=None,
+    exposed_ports=None,
+    privileged=None,
+):
     containers = []
-    if ports or mounts or mounts_detail:
+    if (
+        ports
+        or mounts
+        or mounts_detail
+        or networks
+        or network_mode
+        or exposed_ports
+        or privileged
+    ):
         row = {
             "name": "web",
             "running": True,
@@ -326,6 +358,14 @@ def _inv(*names, ports=None, mounts=None, extra=None, mounts_detail=None):
         }
         if mounts_detail:
             row["mounts_detail"] = mounts_detail
+        if networks is not None:
+            row["networks"] = networks
+        if network_mode is not None:
+            row["network_mode"] = network_mode
+        if exposed_ports is not None:
+            row["exposed_ports"] = exposed_ports
+        if privileged is not None:
+            row["privileged"] = privileged
         containers.append(row)
     projects = [{"name": n, "containers": list(containers)} for n in names]
     payload = {"v": 2, "projects": projects}
@@ -372,6 +412,109 @@ def test_preflight_dest_docker_off_and_project_exists(lock_db):
     assert any(b["id"] == "dest_docker_off" for b in r["blocks"])
     r2 = pf.run_preflight(lock_db, source=src, dest=dest2, project="grafana")
     assert any(b["id"] == "dest_project_exists" for b in r2["blocks"])
+
+
+def test_preflight_dest_exists_live_occupancy_ignores_stale_inventory(lock_db):
+    src = Server(name="a", hostname="a.local", container_patch_enabled=True)
+    dest = Server(name="b", hostname="b.local", container_patch_enabled=True)
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    lock_db.refresh(src)
+    lock_db.refresh(dest)
+    src.docker_inventory_json = _inv("openwebui")
+    dest.docker_inventory_json = _inv("openwebui")
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    facts = {"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12}
+
+    empty = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        source_facts=facts,
+        dest_facts=facts,
+        live_inspect=True,
+        dest_occupy_fn=lambda *_a, **_k: {
+            "nonempty": False,
+            "files": [],
+            "containers": [],
+        },
+    )
+    assert "dest_project_exists" not in {b["id"] for b in empty["blocks"]}
+
+    leftover_dir = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        source_facts=facts,
+        dest_facts=facts,
+        live_inspect=True,
+        dest_occupy_fn=lambda *_a, **_k: {
+            "nonempty": True,
+            "files": ["docker-compose.yml"],
+            "containers": [],
+        },
+    )
+    assert "dest_project_exists" not in {b["id"] for b in leftover_dir["blocks"]}
+    assert any(w["id"] == "dest_folder_overwrite" for w in leftover_dir["warns"])
+
+    running = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        source_facts=facts,
+        dest_facts=facts,
+        live_inspect=True,
+        dest_occupy_fn=lambda *_a, **_k: {
+            "nonempty": True,
+            "files": ["docker-compose.yml"],
+            "containers": ["openwebui running"],
+        },
+    )
+    msg = next(b["message"] for b in running["blocks"] if b["id"] == "dest_project_exists")
+    assert "running" in msg
+
+    leftover_ct = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        source_facts=facts,
+        dest_facts=facts,
+        live_inspect=True,
+        dest_occupy_fn=lambda *_a, **_k: {
+            "nonempty": False,
+            "files": [],
+            "containers": ["openwebui created"],
+            "ports": [],
+            "project_ports": [],
+        },
+    )
+    assert "dest_project_exists" not in {b["id"] for b in leftover_ct["blocks"]}
+    assert leftover_ct["ok"]
+    warn = next(
+        w["message"] for w in leftover_ct["warns"] if w["id"] == "dest_leftover_containers"
+    )
+    assert "openwebui created" in warn
+    assert "Move will remove" in warn
+
+    unreachable = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        source_facts=facts,
+        dest_facts=facts,
+        live_inspect=True,
+        dest_occupy_fn=lambda *_a, **_k: {"error": "ssh timeout"},
+    )
+    assert any(b["id"] == "dest_live_failed" for b in unreachable["blocks"])
+    assert "dest_project_exists" not in {b["id"] for b in unreachable["blocks"]}
 
 
 def test_preflight_host_lock_and_arch(lock_db):
@@ -564,6 +707,19 @@ def test_http_migrate_wizard_and_preflight(lock_client, monkeypatch):
         "app.services.service_migrate.facts.inspect_project_mounts",
         lambda server, row: row,
     )
+    monkeypatch.setattr(
+        "app.services.service_migrate.facts.refresh_host_inventory",
+        lambda *_a, **_k: True,
+    )
+    monkeypatch.setattr(
+        "app.services.service_migrate.preflight.probe_dest_occupancy",
+        lambda *_a, **_k: {
+            "nonempty": False,
+            "files": [],
+            "containers": [],
+            "ports": [],
+        },
+    )
     client, ids, engine = lock_client
     with Session(engine) as s:
         other = Server(
@@ -602,6 +758,8 @@ def test_http_migrate_wizard_and_preflight(lock_client, monkeypatch):
     assert 'data-testid="migrate-dest-project"' in r2.text
     assert 'data-testid="migrate-dest-project-path"' in r2.text
     assert 'data-testid="migrate-recheck"' in r2.text
+    if 'data-testid="migrate-start-form"' in r2.text:
+        assert 'data-job-hold-close="hold"' in r2.text
 
 
 def test_http_migrate_viewer_403(lock_client, monkeypatch):
@@ -853,7 +1011,7 @@ def test_pipeline_copy_and_start_mocked(lock_db, tmp_path, monkeypatch):
         "app.services.service_migrate.pipeline.staging_root",
         lambda job_id: tmp_path / str(job_id),
     )
-    pulls, pushes, vols, stops, ups = [], [], [], [], []
+    pulls, pushes, vols, stops, ups, rms, chowns = [], [], [], [], [], [], []
 
     def pull(server, remote, local, log=None):
         pulls.append((server.id, remote, str(local)))
@@ -873,6 +1031,13 @@ def test_pipeline_copy_and_start_mocked(lock_db, tmp_path, monkeypatch):
         ups.append((srv.id, path))
         return {"success": True}
 
+    def dest_rm(srv, name):
+        rms.append((srv.id, name))
+        return {"ok": True, "output": "no_containers"}
+
+    def dest_chown(srv, path, log=None):
+        chowns.append((srv.id, path))
+
     r = run_copy_and_start(
         lock_db,
         source=src,
@@ -887,11 +1052,15 @@ def test_pipeline_copy_and_start_mocked(lock_db, tmp_path, monkeypatch):
         vol_fn=vol,
         stop_fn=stop,
         up_fn=up,
+        dest_rm_fn=dest_rm,
+        dest_chown_fn=dest_chown,
         cutover_fn=lambda *a, **kw: {"ok": True, "records": []},
         rebind_fn=lambda *a, **kw: {"ok": True, "counts": {}},
         validate_fn=lambda *a, **kw: {"ok": True, "tls": [], "kuma": []},
     )
     assert r["ok"] is True
+    assert rms == [(dest.id, "grafana")]
+    assert chowns and "/grafana" in chowns[0][1]
     assert stops and stops[0][0] == src.id
     assert ups and ups[0][0] == dest.id
     assert "grafana_data" in vols
@@ -918,6 +1087,7 @@ def test_http_migrate_start_queues_job(lock_client, monkeypatch):
         captured["project"] = project
         captured["leftover"] = kwargs.get("leftover")
         captured["devices_ack"] = kwargs.get("devices_ack")
+        captured["adopt_fabric"] = kwargs.get("adopt_fabric")
         captured["dest_project"] = kwargs.get("dest_project")
         captured["port_map"] = kwargs.get("port_map")
         return FakeJob()
@@ -945,6 +1115,7 @@ def test_http_migrate_start_queues_job(lock_client, monkeypatch):
             "dest": str(dest_id),
             "leftover": "down",
             "devices_ack": "1",
+            "adopt_fabric": "1",
             "dest_project": "grafana-b",
             "dest_port_8080_tcp": "8081",
         },
@@ -961,6 +1132,7 @@ def test_http_migrate_start_queues_job(lock_client, monkeypatch):
     assert captured["project"] == "grafana"
     assert captured["leftover"] == "down"
     assert captured["devices_ack"] is True
+    assert captured["adopt_fabric"] is True
     assert captured["dest_project"] == "grafana-b"
     assert captured["port_map"]["8080/tcp"] == "8081"
     r_rm_no = client.post(
@@ -1133,6 +1305,154 @@ def test_cutover_npm_keeps_edge_cname(lock_db):
     assert upserts[0]["via_proxy"] is True
 
 
+def test_cutover_npm_from_proxy_host_binding_without_fabric(lock_db):
+    from app.services.service_migrate.cutover import retarget_dns_npm
+
+    src, dest = _pair_hosts(lock_db)
+    dest.ip_address = "10.9.8.7"
+    lock_db.add(dest)
+    other = Server(name="old-edge", hostname="old.local", dns_name="old.test")
+    lock_db.add(other)
+    lock_db.commit()
+    lock_db.refresh(other)
+    lock_db.refresh(dest)
+    npm = Integration(
+        type="npm",
+        name="edge",
+        base_url="http://npm.test",
+        enabled=True,
+        last_status_json=json.dumps(
+            {
+                "ok": True,
+                "proxy_hosts": [
+                    {
+                        "id": "16",
+                        "domain_names": ["ai.example.test"],
+                        "forward_host": "10.0.0.1",
+                        "forward_port": 8091,
+                    }
+                ],
+            }
+        ),
+    )
+    lock_db.add(npm)
+    lock_db.commit()
+    lock_db.refresh(npm)
+    lock_db.add(
+        IntegrationBinding(
+            integration_id=npm.id,
+            server_id=other.id,
+            role="proxy_host",
+            docker_project="openwebui",
+            external_id="16",
+            external_label="ai.example.test",
+        )
+    )
+    lock_db.commit()
+    puts = []
+
+    r = retarget_dns_npm(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        upsert_fn=lambda *a, **k: (_ for _ in ()).throw(AssertionError("upsert")),
+        npm_put_fn=lambda fqdn, hid, host, forward_port=None: puts.append(
+            (fqdn, hid, host, forward_port)
+        )
+        or {"id": hid, "forward_host": host},
+        restartdns_fn=lambda: [],
+    )
+    assert r["ok"] is True
+    assert puts == [("ai.example.test", "16", "10.9.8.7", None)]
+    assert r["records"][0]["action"] == "npm"
+    assert r["records"][0].get("from_binding") is True
+
+
+def test_cutover_adopt_fabric_from_binding(lock_db):
+    from app.services.service_migrate.cutover import retarget_dns_npm
+
+    src, dest = _pair_hosts(lock_db)
+    dest.ip_address = "10.9.8.7"
+    edge = Server(
+        name="npm-host",
+        hostname="npm.local",
+        dns_name="rpi.example.test",
+        container_patch_enabled=True,
+    )
+    lock_db.add(dest)
+    lock_db.add(edge)
+    lock_db.commit()
+    lock_db.refresh(edge)
+    lock_db.refresh(dest)
+    npm = Integration(
+        type="npm",
+        name="edge",
+        base_url="http://nginx.example.test",
+        enabled=True,
+        last_status_json=json.dumps(
+            {
+                "ok": True,
+                "proxy_hosts": [
+                    {
+                        "id": "16",
+                        "domain_names": ["ai.example.test"],
+                        "forward_host": "10.0.0.1",
+                    }
+                ],
+            }
+        ),
+    )
+    lock_db.add(npm)
+    lock_db.add(
+        ServiceDnsRecord(
+            fqdn="nginx.example.test",
+            target_server_id=edge.id,
+            backend_server_id=edge.id,
+            docker_project="nginxproxymanager",
+            via_proxy=False,
+            managed_on_pihole=True,
+            external_dns_status="none",
+        )
+    )
+    lock_db.add(
+        IntegrationBinding(
+            integration_id=1,
+            server_id=src.id,
+            role="proxy_host",
+            docker_project="openwebui",
+            external_id="16",
+            external_label="ai.example.test",
+        )
+    )
+    lock_db.commit()
+    upserts = []
+
+    def upsert(session, **kw):
+        upserts.append(kw)
+        return None, []
+
+    r = retarget_dns_npm(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        adopt_fabric=True,
+        upsert_fn=upsert,
+        npm_put_fn=lambda *a, **k: {"id": "16", "forward_host": "10.9.8.7"},
+        restartdns_fn=lambda: [],
+    )
+    assert r["records"][0].get("from_binding") is True
+    assert r["records"][0].get("adopted") is True
+    assert upserts
+    assert upserts[0]["via_proxy"] is True
+    assert upserts[0]["managed_on_pihole"] is False
+    assert upserts[0]["certificate_id"] is None
+    assert upserts[0]["sync_now"] is False
+    assert upserts[0]["target_server_id"] == edge.id
+    assert upserts[0]["backend_server_id"] == dest.id
+
+
 def test_cutover_skips_host_identity(lock_db):
     from app.services.service_migrate.cutover import retarget_dns_npm
 
@@ -1171,6 +1491,345 @@ def test_cutover_skips_host_identity(lock_db):
         restartdns_fn=lambda: [],
     )
     assert r["records"][0]["action"] == "skip_host_identity"
+
+
+def test_cutover_retries_cname_already_on_dest(lock_db):
+    from app.services.service_migrate.cutover import retarget_dns_npm
+
+    src, dest = _pair_hosts(lock_db)
+    rec = ServiceDnsRecord(
+        fqdn="app.example.test",
+        target_server_id=dest.id,
+        backend_server_id=dest.id,
+        docker_project="grafana",
+        via_proxy=False,
+        managed_on_pihole=True,
+        external_dns_status="none",
+    )
+    lock_db.add(rec)
+    lock_db.commit()
+    upserts = []
+
+    def upsert(session, **kw):
+        upserts.append(kw)
+        return rec, []
+
+    r = retarget_dns_npm(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="grafana",
+        upsert_fn=upsert,
+        npm_put_fn=lambda *a, **k: (_ for _ in ()).throw(AssertionError("npm")),
+        restartdns_fn=lambda: [{"ok": True, "name": "ph"}],
+    )
+    assert r["ok"] is True
+    assert upserts
+    assert upserts[0]["target_server_id"] == dest.id
+    assert r["records"][0]["action"] == "cname"
+
+
+def test_cutover_npm_edge_keeps_dependent_cnames(lock_db):
+    from app.services.service_migrate.cutover import retarget_dns_npm
+
+    src, dest = _pair_hosts(lock_db)
+    backend = Server(
+        name="app-host",
+        hostname="app.local",
+        container_patch_enabled=True,
+        dns_name="app-host.test",
+    )
+    lock_db.add(backend)
+    lock_db.commit()
+    lock_db.refresh(backend)
+    npm = Integration(
+        type="npm",
+        name="edge",
+        base_url="https://nginx.example.test",
+        enabled=True,
+        last_status_json=json.dumps({"ok": True, "proxy_hosts": []}),
+    )
+    lock_db.add(npm)
+    edge = ServiceDnsRecord(
+        fqdn="nginx.example.test",
+        target_server_id=src.id,
+        backend_server_id=src.id,
+        docker_project="nginxproxymanager",
+        via_proxy=False,
+        managed_on_pihole=True,
+        external_dns_status="none",
+    )
+    dep = ServiceDnsRecord(
+        fqdn="ai.example.test",
+        target_server_id=src.id,
+        backend_server_id=backend.id,
+        docker_project="openwebui",
+        via_proxy=True,
+        managed_on_pihole=True,
+        external_dns_status="done",
+    )
+    lock_db.add(edge)
+    lock_db.add(dep)
+    lock_db.commit()
+    lock_db.refresh(dep)
+    upserts = []
+
+    def upsert(session, **kw):
+        upserts.append(kw)
+        return edge, []
+
+    r = retarget_dns_npm(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="nginxproxymanager",
+        upsert_fn=upsert,
+        npm_put_fn=lambda *a, **k: (_ for _ in ()).throw(AssertionError("npm")),
+        restartdns_fn=lambda: [{"ok": True, "name": "ph"}],
+    )
+    assert r["ok"] is True
+    assert len(upserts) == 1
+    assert upserts[0]["fqdn"] == "nginx.example.test"
+    assert upserts[0]["via_proxy"] is False
+    actions = {row["fqdn"]: row["action"] for row in r["records"]}
+    assert actions["nginx.example.test"] == "cname"
+    assert actions["ai.example.test"] == "keep_cname_on_edge"
+    lock_db.refresh(dep)
+    assert dep.target_server_id == dest.id
+    assert dep.backend_server_id == backend.id
+    assert dep.via_proxy is True
+
+
+def test_preflight_npm_edge_lists_dependents(lock_db):
+    src, dest = _pair_hosts(lock_db)
+    src.container_patch_enabled = True
+    dest.container_patch_enabled = True
+    lock_db.add(src)
+    lock_db.add(dest)
+    backend = Server(
+        name="app-host",
+        hostname="app.local",
+        container_patch_enabled=True,
+        dns_name="app-host.test",
+    )
+    lock_db.add(backend)
+    lock_db.commit()
+    lock_db.refresh(backend)
+    npm = Integration(
+        type="npm",
+        name="edge",
+        base_url="https://nginx.example.test",
+        enabled=True,
+        last_status_json=json.dumps({"ok": True, "proxy_hosts": []}),
+    )
+    lock_db.add(npm)
+    lock_db.add(
+        ServiceDnsRecord(
+            fqdn="nginx.example.test",
+            target_server_id=src.id,
+            backend_server_id=src.id,
+            docker_project="nginxproxymanager",
+            via_proxy=False,
+            external_dns_status="none",
+        )
+    )
+    lock_db.add(
+        ServiceDnsRecord(
+            fqdn="ai.example.test",
+            target_server_id=src.id,
+            backend_server_id=backend.id,
+            docker_project="openwebui",
+            via_proxy=True,
+            external_dns_status="done",
+        )
+    )
+    lock_db.commit()
+    r = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="nginxproxymanager",
+        source_facts={"arch": "aarch64"},
+        dest_facts={
+            "arch": "aarch64",
+            "docker_base_writable": True,
+            "disk_free_bytes": 10**12,
+        },
+    )
+    assert r["npm_edge"] is True
+    assert any(w["id"] == "npm_edge" for w in r["warns"])
+    assert any(d["fqdn"] == "ai.example.test" for d in r["npm_edge_dependents"])
+    assert any(d["fqdn"] == "nginx.example.test" for d in r["dns"])
+
+
+def test_rebind_moves_proxy_host(lock_db):
+    from app.services.service_migrate.rebind import rebind_control_plane
+
+    src, dest = _pair_hosts(lock_db)
+    npm = Integration(type="npm", name="edge", base_url="https://nginx.test", enabled=True)
+    lock_db.add(npm)
+    lock_db.commit()
+    lock_db.refresh(npm)
+    bind = IntegrationBinding(
+        integration_id=npm.id,
+        server_id=src.id,
+        role="proxy_host",
+        docker_project="nginxproxymanager",
+        external_id="5",
+        external_label="nginx.example.test",
+    )
+    lock_db.add(bind)
+    lock_db.commit()
+    out = rebind_control_plane(
+        lock_db, source=src, dest=dest, project="nginxproxymanager"
+    )
+    assert out["counts"]["proxy_host_bindings"] == 1
+    lock_db.refresh(bind)
+    assert bind.server_id == dest.id
+
+
+def test_rebind_proxy_host_from_other_server(lock_db):
+    from app.services.service_migrate.rebind import rebind_control_plane
+
+    src, dest = _pair_hosts(lock_db)
+    other = Server(name="stale", hostname="stale.local", dns_name="stale.test")
+    npm = Integration(type="npm", name="edge", base_url="https://nginx.test", enabled=True)
+    lock_db.add(other)
+    lock_db.add(npm)
+    lock_db.commit()
+    lock_db.refresh(other)
+    lock_db.refresh(npm)
+    bind = IntegrationBinding(
+        integration_id=npm.id,
+        server_id=other.id,
+        role="proxy_host",
+        docker_project="openwebui",
+        external_id="16",
+        external_label="ai.example.test",
+    )
+    lock_db.add(bind)
+    lock_db.commit()
+    out = rebind_control_plane(lock_db, source=src, dest=dest, project="openwebui")
+    assert out["counts"]["proxy_host_bindings"] == 1
+    lock_db.refresh(bind)
+    assert bind.server_id == dest.id
+
+
+def test_rebind_kuma_service_from_other_server(lock_db):
+    from app.services.service_migrate.rebind import rebind_control_plane
+
+    src, dest = _pair_hosts(lock_db)
+    other = Server(name="stale", hostname="stale.local", dns_name="stale.test")
+    lock_db.add(other)
+    lock_db.commit()
+    lock_db.refresh(other)
+    bind = IntegrationBinding(
+        integration_id=1,
+        server_id=other.id,
+        role="service",
+        docker_project="grafana",
+        external_id="9",
+        last_state="up",
+    )
+    lock_db.add(bind)
+    lock_db.commit()
+    out = rebind_control_plane(lock_db, source=src, dest=dest, project="grafana")
+    assert out["counts"]["kuma_bindings"] == 1
+    lock_db.refresh(bind)
+    assert bind.server_id == dest.id
+
+
+def test_rebind_grafana_dashboard_follows_dest(lock_db):
+    from app.services.service_migrate.rebind import rebind_control_plane
+
+    src, dest = _pair_hosts(lock_db)
+    other = Server(name="old", hostname="old.local", dns_name="old.test")
+    lock_db.add(other)
+    lock_db.commit()
+    lock_db.refresh(other)
+    dash = IntegrationBinding(
+        integration_id=1,
+        server_id=other.id,
+        role="dashboard",
+        docker_project="grafana",
+        external_id="uid-ow",
+        external_meta_json=json.dumps({"kind": "containers"}),
+    )
+    host = IntegrationBinding(
+        integration_id=1,
+        server_id=src.id,
+        role="dashboard",
+        docker_project="grafana",
+        external_id="uid-host",
+        external_meta_json=json.dumps({"kind": "metrics"}),
+    )
+    lock_db.add(dash)
+    lock_db.add(host)
+    lock_db.commit()
+    out = rebind_control_plane(lock_db, source=src, dest=dest, project="grafana")
+    assert out["counts"]["dashboard_bindings"] == 1
+    lock_db.refresh(dash)
+    lock_db.refresh(host)
+    assert dash.server_id == dest.id
+    assert host.server_id == src.id
+
+
+def test_preflight_npm_binding_without_fabric(lock_db):
+    src, dest = _pair_hosts(lock_db)
+    dest.ip_address = "10.1.2.3"
+    src.docker_inventory_json = '{"projects":[{"name":"openwebui","containers":[]}]}'
+    dest.docker_inventory_json = '{"projects":[]}'
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    npm = Integration(
+        type="npm",
+        name="edge",
+        base_url="http://npm.test",
+        enabled=True,
+        last_status_json=json.dumps(
+            {
+                "ok": True,
+                "proxy_hosts": [
+                    {
+                        "id": "16",
+                        "domain_names": ["ai.example.test"],
+                        "forward_host": "10.0.0.9",
+                        "forward_port": 8091,
+                    }
+                ],
+            }
+        ),
+    )
+    lock_db.add(npm)
+    lock_db.commit()
+    lock_db.refresh(npm)
+    lock_db.add(
+        IntegrationBinding(
+            integration_id=npm.id,
+            server_id=src.id,
+            role="proxy_host",
+            docker_project="openwebui",
+            external_id="16",
+            external_label="ai.example.test",
+        )
+    )
+    lock_db.commit()
+    r = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        source_facts={"arch": "aarch64"},
+        dest_facts={
+            "arch": "aarch64",
+            "docker_base_writable": True,
+            "disk_free_bytes": 10**12,
+        },
+    )
+    assert any(d["fqdn"] == "ai.example.test" and d["action"] == "npm" for d in r["dns"])
+    assert any(w["id"] == "npm_binding" for w in r["warns"])
+    assert not any(b["id"].startswith("npm_") for b in r["blocks"]), r["blocks"]
 
 
 def test_npm_retarget_put_full_object(monkeypatch):
@@ -1344,6 +2003,7 @@ def test_pipeline_dest_up_includes_compose_output(lock_db, tmp_path, monkeypatch
             validate_fn=lambda *a, **k: {"ok": True},
         )
     assert "up -d failed" in str(ei.value)
+    assert ei.value.failed_step == "dest_up"
 
 
 def test_pipeline_dest_up_ok_despite_pull_error(lock_db, tmp_path, monkeypatch):
@@ -1491,6 +2151,65 @@ def test_pipeline_leftover_remove_source_only(lock_db, tmp_path, monkeypatch):
         select(ComposeProjectMeta).where(ComposeProjectMeta.server_id == src.id)
     ).all()
     assert remaining == []
+
+
+def test_wipe_compose_project_down_v_and_tree(lock_db):
+    from app.services.service_migrate.leftover import wipe_compose_project
+
+    src, _dest = _pair_hosts(lock_db)
+    downs = []
+    trees = []
+    out = wipe_compose_project(
+        lock_db,
+        server=src,
+        project_path="/home/pi/docker/grafana",
+        remove_volumes=True,
+        delete_tree=True,
+        down_fn=lambda srv, p, vols: downs.append((srv.name, p, vols)) or {"success": True},
+        rm_tree_fn=lambda srv, p: trees.append((srv.name, p)) or {"success": True},
+    )
+    assert downs == [("a", "/home/pi/docker/grafana", True)]
+    assert trees == [("a", "/home/pi/docker/grafana")]
+    assert out["project_removed"] is True
+    assert out["volumes_removed"] is True
+
+
+def test_wipe_compose_project_refuses_wrong_path(lock_db):
+    from app.services.service_migrate.leftover import LeftoverError, wipe_compose_project
+
+    src, _dest = _pair_hosts(lock_db)
+    with pytest.raises(LeftoverError, match="not '/home/pi/docker/grafana'"):
+        wipe_compose_project(
+            lock_db,
+            server=src,
+            project_path="/etc/grafana",
+            down_fn=lambda *a, **k: {"success": True},
+            rm_tree_fn=lambda *a, **k: {"success": True},
+        )
+
+
+def test_wipe_compose_project_refuses_locked(lock_db):
+    from app.services.service_migrate.leftover import LeftoverError, wipe_compose_project
+
+    src, _dest = _pair_hosts(lock_db)
+    hl.set_host_lock(lock_db, src, "grafana", reason="hardware", note="TPU")
+    lock_db.commit()
+    with pytest.raises(LeftoverError, match="Locked"):
+        wipe_compose_project(
+            lock_db,
+            server=src,
+            project_path="/home/pi/docker/grafana",
+            down_fn=lambda *a, **k: {"success": True},
+            rm_tree_fn=lambda *a, **k: {"success": True},
+        )
+
+
+def test_rm_tree_cmd_retries_sudo():
+    from app.services.service_migrate.leftover import _rm_tree_cmd
+
+    cmd = _rm_tree_cmd("/home/pi/docker/grafana")
+    assert "rm -rf -- '/home/pi/docker/grafana'" in cmd or "rm -rf -- /home/pi/docker/grafana" in cmd
+    assert "sudo -n rm -rf" in cmd
 
 
 def test_leftover_remove_refuses_wrong_path(lock_db):
@@ -1754,6 +2473,93 @@ def test_port_map_and_dest_project_override(lock_db):
     assert any(b["id"] == "port_clash" for b in still["blocks"])
 
 
+def test_preflight_dest_ports_from_live_not_stale_inventory(lock_db):
+    src = Server(name="a", hostname="a.local", container_patch_enabled=True)
+    dest = Server(name="b", hostname="b.local", container_patch_enabled=True)
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    lock_db.refresh(src)
+    lock_db.refresh(dest)
+    src.docker_inventory_json = _inv("openwebui", ports="8090->8080/tcp")
+    dest.docker_inventory_json = _inv("ghost", ports="8090->80/tcp")
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    facts = {"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12}
+    free = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        source_facts=facts,
+        dest_facts=facts,
+        live_inspect=True,
+        dest_occupy_fn=lambda *_a, **_k: {
+            "nonempty": False,
+            "files": [],
+            "containers": [],
+            "ports": [],
+        },
+    )
+    ids = {b["id"] for b in free["blocks"]}
+    assert "port_clash" not in ids
+    assert "dest_project_exists" not in ids
+    clash = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        source_facts=facts,
+        dest_facts=facts,
+        live_inspect=True,
+        dest_occupy_fn=lambda *_a, **_k: {
+            "nonempty": False,
+            "files": [],
+            "containers": [],
+            "ports": [("8090", "tcp")],
+        },
+    )
+    assert any(b["id"] == "port_clash" for b in clash["blocks"])
+    ghost_port = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        source_facts=facts,
+        dest_facts=facts,
+        live_inspect=True,
+        dest_occupy_fn=lambda *_a, **_k: {
+            "nonempty": False,
+            "files": [],
+            "containers": ["openwebui created"],
+            "ports": [("8090", "tcp")],
+            "project_ports": [("8090", "tcp")],
+        },
+    )
+    assert "port_clash" not in {b["id"] for b in ghost_port["blocks"]}
+    assert any(w["id"] == "dest_leftover_containers" for w in ghost_port["warns"])
+    listen = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="openwebui",
+        source_facts=facts,
+        dest_facts=facts,
+        live_inspect=True,
+        dest_occupy_fn=lambda *_a, **_k: {
+            "nonempty": False,
+            "files": [],
+            "containers": ["openwebui created"],
+            "ports": [],
+            "project_ports": [],
+            "listen_ports": [("8090", "tcp")],
+        },
+    )
+    assert any(b["id"] == "port_clash" for b in listen["blocks"])
+    assert "8090" in next(b["message"] for b in listen["blocks"] if b["id"] == "port_clash")
+
+
 def test_compose_staging_overrides(tmp_path):
     from app.services.service_migrate.overrides import apply_staging_overrides
 
@@ -1987,4 +2793,323 @@ def test_compose_rewrites_tilde_bind_to_absolute_dest(tmp_path):
     assert "~/open-webui-data" not in text
     assert "8090:8080" in text
     assert "ghcr.io/open-webui/open-webui:main" in text
+
+
+def test_is_host_local_bind_docker_sock():
+    from app.services.service_migrate.overrides import (
+        is_host_local_bind,
+        suggest_dest_bind,
+    )
+    from app.services.service_migrate.copy import CopyError, rsync_host_to_herder
+
+    assert is_host_local_bind("/var/run/docker.sock") is True
+    assert is_host_local_bind("/run/docker.sock") is True
+    assert is_host_local_bind("/dev/apex_0") is True
+    assert is_host_local_bind("/home/bjorn/docker/uptime-kuma/data") is False
+    assert (
+        suggest_dest_bind(
+            "/var/run/docker.sock",
+            "/home/bjorn/docker",
+            "/home/bjorn/docker",
+            "uptime-kuma",
+        )
+        == "/var/run/docker.sock"
+    )
+    src = Server(name="a", hostname="a.local")
+    with pytest.raises(CopyError, match="socket/device"):
+        rsync_host_to_herder(src, "/var/run/docker.sock", "/tmp")
+
+
+def test_preflight_docker_sock_is_host_local_not_folded(lock_db):
+    src = Server(
+        name="a",
+        hostname="a.local",
+        container_patch_enabled=True,
+        docker_base_dir="/home/bjorn/docker",
+        ssh_username="bjorn",
+        dns_name="a.test",
+    )
+    dest = Server(
+        name="b",
+        hostname="b.local",
+        container_patch_enabled=True,
+        docker_base_dir="/home/bjorn/docker",
+        ssh_username="bjorn",
+        dns_name="b.test",
+    )
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    lock_db.refresh(src)
+    lock_db.refresh(dest)
+    src.docker_inventory_json = _inv(
+        "uptime-kuma",
+        mounts_detail=[
+            {
+                "source": "/home/bjorn/docker/uptime-kuma/data",
+                "destination": "/app/data",
+                "type": "bind",
+            },
+            {
+                "source": "/var/run/docker.sock",
+                "destination": "/var/run/docker.sock",
+                "type": "bind",
+            },
+        ],
+    )
+    lock_db.add(src)
+    lock_db.commit()
+    facts = {"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12}
+    r = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="uptime-kuma",
+        source_facts={**facts, "docker_base": "/home/bjorn/docker"},
+        dest_facts={**facts, "docker_base": "/home/bjorn/docker"},
+        herder_free=10**12,
+    )
+    kinds = {i["source"]: i["kind"] for i in r["dataset"]["items"]}
+    assert kinds["/var/run/docker.sock"] == "bind_host_local"
+    sock = [b for b in r["binds"] if b["source"] == "/var/run/docker.sock"]
+    assert sock and sock[0]["host_local"] is True
+    assert sock[0]["skip"] is True
+    assert sock[0]["dest"] == "/var/run/docker.sock"
+    assert "/var/run/docker.sock" not in r["bind_map"]
+    assert any(w["id"] == "bind_host_local" for w in r["warns"])
+    assert "bind_outside_jail" not in {b["id"] for b in r["blocks"]}
+
+
+def test_pipeline_does_not_rsync_docker_sock(lock_db, tmp_path, monkeypatch):
+    from app.services.service_migrate.pipeline import run_copy_and_start
+
+    src, dest = _pair_hosts(lock_db)
+    src.docker_base_dir = "/home/bjorn/docker"
+    dest.docker_base_dir = "/home/bjorn/docker"
+    src.ssh_username = "bjorn"
+    dest.ssh_username = "bjorn"
+    src.docker_inventory_json = _inv(
+        "uptime-kuma",
+        mounts_detail=[
+            {
+                "source": "/var/run/docker.sock",
+                "destination": "/var/run/docker.sock",
+                "type": "bind",
+            }
+        ],
+    )
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    monkeypatch.setattr(
+        "app.services.service_migrate.pipeline.staging_root",
+        lambda job_id: tmp_path / str(job_id),
+    )
+    pulls = []
+
+    def pull(server, remote, local, log=None):
+        pulls.append(remote)
+        Path(local).mkdir(parents=True, exist_ok=True)
+
+    def dummy(*a, **k):
+        return {"success": True}
+
+    r = run_copy_and_start(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="uptime-kuma",
+        job_id=21,
+        source_facts={"arch": "aarch64", "docker_base": "/home/bjorn/docker"},
+        dest_facts={
+            "arch": "aarch64",
+            "docker_base_writable": True,
+            "disk_free_bytes": 10**12,
+            "docker_base": "/home/bjorn/docker",
+        },
+        herder_free=10**12,
+        pull_fn=pull,
+        push_fn=lambda *a, **k: None,
+        vol_fn=lambda *a, **k: None,
+        stop_fn=dummy,
+        up_fn=dummy,
+        cutover_fn=lambda *a, **kw: {"ok": True, "records": []},
+        rebind_fn=lambda *a, **kw: {"ok": True, "counts": {}},
+        validate_fn=lambda *a, **kw: {"ok": True, "tls": [], "kuma": []},
+    )
+    assert r["ok"] is True
+    assert not any("docker.sock" in str(p) for p in pulls)
+    assert any("uptime-kuma" in str(p) for p in pulls)
+
+
+def test_pipeline_honors_skip_binds(lock_db, tmp_path, monkeypatch):
+    from app.services.service_migrate.pipeline import run_copy_and_start
+
+    src, dest = _pair_hosts(lock_db)
+    extra = "/home/pi/other/data"
+    src.docker_inventory_json = _inv(
+        "grafana",
+        mounts_detail=[
+            {
+                "source": extra,
+                "destination": "/data",
+                "type": "bind",
+            }
+        ],
+    )
+    lock_db.add(src)
+    lock_db.commit()
+    monkeypatch.setattr(
+        "app.services.service_migrate.pipeline.staging_root",
+        lambda job_id: tmp_path / str(job_id),
+    )
+    pulls = []
+
+    def pull(server, remote, local, log=None):
+        pulls.append(remote)
+        Path(local).mkdir(parents=True, exist_ok=True)
+
+    def dummy(*a, **k):
+        return {"success": True}
+
+    r = run_copy_and_start(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="grafana",
+        job_id=22,
+        skip_binds=[extra],
+        source_facts={"arch": "aarch64"},
+        dest_facts={"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12},
+        herder_free=10**12,
+        pull_fn=pull,
+        push_fn=lambda *a, **k: None,
+        vol_fn=lambda *a, **k: None,
+        stop_fn=dummy,
+        up_fn=dummy,
+        cutover_fn=lambda *a, **kw: {"ok": True, "records": []},
+        rebind_fn=lambda *a, **kw: {"ok": True, "counts": {}},
+        validate_fn=lambda *a, **kw: {"ok": True, "tls": [], "kuma": []},
+    )
+    assert r["ok"] is True
+    assert extra not in pulls
+
+
+def test_preflight_host_network_port_clash_and_remap_block(lock_db):
+    src = Server(name="a", hostname="a.local", container_patch_enabled=True, dns_name="a.test")
+    dest = Server(name="b", hostname="b.local", container_patch_enabled=True, dns_name="b.test")
+    lock_db.add(src)
+    lock_db.add(dest)
+    lock_db.commit()
+    lock_db.refresh(src)
+    lock_db.refresh(dest)
+    src.docker_inventory_json = _inv(
+        "signal-api",
+        network_mode="host",
+        networks=["host"],
+        exposed_ports=["8080/tcp"],
+    )
+    lock_db.add(src)
+    lock_db.commit()
+    facts = {"arch": "aarch64", "docker_base_writable": True, "disk_free_bytes": 10**12}
+
+    def occupy(_dest, _name, _path):
+        return {
+            "files": [],
+            "containers": [],
+            "ports": [],
+            "project_ports": [],
+            "listen_ports": [("8080", "tcp")],
+        }
+
+    blocked = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="signal-api",
+        source_facts=facts,
+        dest_facts=facts,
+        herder_free=10**12,
+        live_inspect=True,
+        inspect_fn=lambda _s, row: row,
+        dest_occupy_fn=occupy,
+    )
+    assert blocked["host_network"] is True
+    ids = {b["id"] for b in blocked["blocks"]}
+    assert "port_clash" in ids
+    assert "host network" in next(
+        b["message"] for b in blocked["blocks"] if b["id"] == "port_clash"
+    ).lower()
+    assert any(w["id"] == "devices" for w in blocked["warns"])
+    remap = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="signal-api",
+        port_map={"8080/tcp": "8081"},
+        source_facts=facts,
+        dest_facts=facts,
+        herder_free=10**12,
+        live_inspect=True,
+        inspect_fn=lambda _s, row: row,
+        dest_occupy_fn=lambda *a, **k: {
+            "files": [],
+            "containers": [],
+            "ports": [],
+            "project_ports": [],
+            "listen_ports": [],
+        },
+    )
+    assert any(b["id"] == "host_network_remap" for b in remap["blocks"])
+    free = pf.run_preflight(
+        lock_db,
+        source=src,
+        dest=dest,
+        project="signal-api",
+        source_facts=facts,
+        dest_facts=facts,
+        herder_free=10**12,
+        live_inspect=True,
+        inspect_fn=lambda _s, row: row,
+        dest_occupy_fn=lambda *a, **k: {
+            "files": [],
+            "containers": [],
+            "ports": [],
+            "project_ports": [],
+            "listen_ports": [],
+        },
+    )
+    assert "port_clash" not in {b["id"] for b in free["blocks"]}
+    assert "host_network_remap" not in {b["id"] for b in free["blocks"]}
+    assert free["host_network"] is True
+
+
+def test_pipeline_host_network_requires_devices_ack(lock_db):
+    from app.services.service_migrate.pipeline import MigrateError, run_copy_and_start
+
+    src, dest = _pair_hosts(lock_db)
+    src.docker_inventory_json = _inv(
+        "signal-api",
+        network_mode="host",
+        networks=["host"],
+        exposed_ports=["8080/tcp"],
+    )
+    lock_db.add(src)
+    lock_db.commit()
+    with pytest.raises(MigrateError, match="host network"):
+        run_copy_and_start(
+            lock_db,
+            source=src,
+            dest=dest,
+            project="signal-api",
+            job_id=23,
+            source_facts={"arch": "aarch64"},
+            dest_facts={
+                "arch": "aarch64",
+                "docker_base_writable": True,
+                "disk_free_bytes": 10**12,
+            },
+            herder_free=10**12,
+            devices_ack=False,
+        )
 
