@@ -1774,6 +1774,40 @@ def test_rebind_grafana_dashboard_follows_dest(lock_db):
     assert host.server_id == src.id
 
 
+def test_rebind_drops_duplicate_dashboard_on_dest(lock_db):
+    from app.services.service_migrate.rebind import rebind_control_plane
+
+    src, dest = _pair_hosts(lock_db)
+    dest_bind = IntegrationBinding(
+        integration_id=2,
+        server_id=dest.id,
+        role="dashboard",
+        docker_project="openwebui",
+        docker_container="openwebui",
+        external_id="uid-ow",
+        external_meta_json=json.dumps({"kind": "containers"}),
+    )
+    src_bind = IntegrationBinding(
+        integration_id=2,
+        server_id=src.id,
+        role="dashboard",
+        docker_project="openwebui",
+        docker_container="openwebui",
+        external_id="uid-ow",
+        external_meta_json=json.dumps({"kind": "containers"}),
+    )
+    lock_db.add(dest_bind)
+    lock_db.add(src_bind)
+    lock_db.commit()
+    src_id = src_bind.id
+    out = rebind_control_plane(lock_db, source=src, dest=dest, project="openwebui")
+    assert out["counts"]["bindings_dup_dropped"] == 1
+    assert out["counts"]["dashboard_bindings"] == 0
+    assert lock_db.get(IntegrationBinding, src_id) is None
+    lock_db.refresh(dest_bind)
+    assert dest_bind.server_id == dest.id
+
+
 def test_preflight_npm_binding_without_fabric(lock_db):
     src, dest = _pair_hosts(lock_db)
     dest.ip_address = "10.1.2.3"
