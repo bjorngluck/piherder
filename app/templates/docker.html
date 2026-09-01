@@ -244,7 +244,7 @@
   {% set _life = request.query_params.get('lifecycle') %}
   {% if _life %}
     <div class="mb-3 p-2 text-xs rounded border border-border banner-success">
-      <strong>{{ _life|capitalize }} all services</strong> queued for
+      <strong>{% if _life == 'down' %}Undeploy{% elif _life == 'remove' %}Delete project{% else %}{{ _life|capitalize }} all services{% endif %}</strong> queued for
       <span class="font-mono">{{ request.query_params.get('project') or 'stack' }}</span>
       {% if request.query_params.get('job_id') %}(job #{{ request.query_params.get('job_id') }}){% endif %}.
       Follow under <a href="/jobs" class="text-primary underline">Jobs</a>
@@ -396,6 +396,7 @@ const MORE_ACTIONS = [
   { key: 'build', label: 'Build…' },
   { key: 'check-updates', label: 'Check updates' },
   { key: 'undeploy', label: 'Undeploy', danger: true },
+  { key: 'remove-project', label: 'Delete project…', danger: true },
 ];
 
 function moreActionLabel(item, real) {

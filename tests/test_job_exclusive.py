@@ -116,6 +116,70 @@ def test_enqueue_os_update_check_returns_existing():
     pool.submit.assert_not_called()
 
 
+def test_cleanup_orphan_web_jobs_fails_os_patch_keeps_backup():
+    from datetime import datetime
+
+    from sqlmodel import Session, SQLModel, create_engine, select
+
+    from app.models import AuditLog, Job, Server
+
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        srv = Server(name="pi", hostname="pi.local")
+        s.add(srv)
+        s.commit()
+        s.refresh(srv)
+        patch = Job(
+            server_id=srv.id,
+            job_type="os_patch",
+            status="pending",
+            details='{"current":"queued","log_lines":["OS patch queued…"]}',
+        )
+        running = Job(
+            server_id=srv.id,
+            job_type="os_patch",
+            status="running",
+            started_at=datetime.utcnow(),
+            details='{"current":"patching"}',
+        )
+        bak = Job(
+            server_id=srv.id,
+            job_type="backup",
+            status="running",
+            celery_task_id="celery-abc",
+        )
+        nmap = Job(server_id=srv.id, job_type="nmap_discover", status="pending")
+        s.add(patch)
+        s.add(running)
+        s.add(bak)
+        s.add(nmap)
+        s.commit()
+        s.refresh(patch)
+        s.refresh(running)
+        audit = AuditLog(
+            server_id=srv.id,
+            action="os_patch",
+            status="running",
+            details=f"Job #{running.id} started",
+        )
+        s.add(audit)
+        s.commit()
+        n = job_service.cleanup_orphan_web_jobs(s)
+        assert n == 2
+        s.refresh(patch)
+        s.refresh(running)
+        s.refresh(bak)
+        s.refresh(nmap)
+        s.refresh(audit)
+        assert patch.status == "failed"
+        assert running.status == "failed"
+        assert bak.status == "running"
+        assert nmap.status == "pending"
+        assert audit.status == "failed"
+        assert "no longer running" in (audit.details or "")
+
+
 def test_exclusive_types_do_not_include_backup():
     assert "backup" not in job_service._EXCLUSIVE_JOB_TYPES
     assert "container_patch" in job_service._EXCLUSIVE_JOB_TYPES

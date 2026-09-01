@@ -26,6 +26,7 @@
   <form {% if result.ok %}method="post"
         action="/servers/{{ server.id }}/docker/migrate"
         data-job-hold="Move {{ result.project }}"
+        data-job-hold-close="hold"
         data-confirm="This stops the stack on {{ result.source.name }}, copies the dataset via the herder, starts it on {{ result.dest.name }} as {{ result.dest_project or result.project }}, then retargets DNS / NPM. Planned downtime."
         data-confirm-remove="This stops the stack on {{ result.source.name }}, copies it to {{ result.dest.name }} as {{ result.dest_project or result.project }}, then AFTER SUCCESS deletes the source project directory and named volumes on {{ result.source.name }}. Destination is not touched. This cannot be undone from PiHerder."
         data-confirm-title="Move {{ result.project }}?"
@@ -87,6 +88,13 @@
     {% endif %}
     {% if result.ports %}
     <div class="text-xs text-muted mb-1">Published host ports</div>
+    {% if result.host_network %}
+    <p class="text-xs text-warning mb-2" data-testid="migrate-host-network-note">
+      This stack uses <strong>host network</strong>. The process binds the same
+      host ports on dest — changing the number below does not move the listen port.
+      Dest must have those ports free.
+    </p>
+    {% endif %}
     <div class="space-y-2 mb-3" data-testid="migrate-port-map">
       {% for p in result.ports %}
       <label class="flex flex-wrap items-center gap-2 text-sm">
@@ -99,12 +107,14 @@
                max="65535"
                class="w-28 bg-surface border rounded px-2 py-1 font-mono min-h-11 {% if p.clash %}border-danger{% else %}border-border{% endif %}"
                data-testid="migrate-dest-port-{{ p.host }}-{{ p.proto }}"
+               {% if p.host_network %}disabled title="Host network — remap does not apply"{% endif %}
                hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
                hx-target="#migrate-preflight"
                hx-swap="innerHTML"
                hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_'], [name^='bind_src_'], [name^='dest_bind_'], [name^='skip_bind_']"
                hx-indicator="#migrate-preflight-wait"
                hx-trigger="change">
+        {% if p.host_network %}<span class="text-xs text-muted">host network</span>{% endif %}
         {% if p.clash %}<span class="text-danger text-xs">in use on dest</span>{% endif %}
       </label>
       {% endfor %}
@@ -123,7 +133,16 @@
       <div class="p-2 rounded border {% if b.ok %}border-border{% else %}border-danger{% endif %}">
         <input type="hidden" name="bind_src_{{ b.index }}" value="{{ b.source }}">
         <div class="font-mono text-xs break-all mb-1" data-testid="migrate-bind-src-{{ b.index }}">{{ b.source }}</div>
-        <label class="block text-xs text-muted mb-1" for="dest-bind-{{ b.index }}">Copy to dest path (same as source unless you change it)</label>
+        {% if b.host_local %}
+        <input type="hidden" name="dest_bind_{{ b.index }}" value="{{ b.source }}">
+        <input type="hidden" name="skip_bind_{{ b.index }}" value="1">
+        <p class="text-xs text-muted" data-testid="migrate-bind-host-local-{{ b.index }}">
+          Host socket/device — not copied. Dest will bind
+          <span class="font-mono">{{ b.source }}</span> on the dest host
+          (Uptime Kuma docker.sock, D-Bus, /dev, …).
+        </p>
+        {% else %}
+        <label class="block text-xs text-muted mb-1" for="dest-bind-{{ b.index }}">Copy to dest path (dest project folder unless you change it)</label>
         <input id="dest-bind-{{ b.index }}"
                type="text"
                name="dest_bind_{{ b.index }}"
@@ -154,6 +173,7 @@
                  hx-trigger="change">
           <span>Skip copy (dest will not get this data)</span>
         </label>
+        {% endif %}
       </div>
       {% endfor %}
     </div>
@@ -203,14 +223,26 @@
   <p class="text-xs text-muted mb-3">No mount inventory on the snapshot — copy will classify at job time.</p>
   {% endif %}
 
-  {% if result.dns %}
+  {% if result.dns or result.npm_edge %}
   <h3 class="text-sm font-semibold mb-1">DNS / NPM</h3>
+  {% if result.npm_edge %}
+  <p class="text-sm mb-2" data-testid="migrate-npm-edge">
+    This is the <strong>NPM edge</strong>. Public names stay CNAME to that alias;
+    only the alias follows dest.
+  </p>
+  {% endif %}
   <ul class="text-sm mb-3 space-y-1" data-testid="migrate-dns">
     {% for d in result.dns %}
     <li>
       <span class="font-mono">{{ d.fqdn }}</span>
       · {% if d.via_proxy %}NPM backend{% else %}CNAME → dest{% endif %}
       {% if d.forward_host %}<span class="text-muted">(now {{ d.forward_host }})</span>{% endif %}
+    </li>
+    {% endfor %}
+    {% for d in result.npm_edge_dependents or [] %}
+    <li>
+      <span class="font-mono">{{ d.fqdn }}</span>
+      · stays CNAME on NPM edge
     </li>
     {% endfor %}
   </ul>
@@ -224,7 +256,20 @@
     {% if ns.need_ack %}
     <label class="flex items-start gap-2 text-sm mb-3" data-testid="migrate-devices-ack">
       <input type="checkbox" name="devices_ack" value="1" class="mt-1" required>
-      <span>This stack looks hardware-bound. I still want to move it (or lock it instead).</span>
+      <span>This stack looks bound to this host (devices, host network, or privileged). I still want to move it (or lock it instead).</span>
+    </label>
+    {% endif %}
+    {% set ns_adopt = namespace(n=0) %}
+    {% for d in result.dns or [] %}
+      {% if d.from_binding %}{% set ns_adopt.n = ns_adopt.n + 1 %}{% endif %}
+    {% endfor %}
+    {% if ns_adopt.n %}
+    <label class="flex items-start gap-2 text-sm mb-3" data-testid="migrate-adopt-fabric">
+      <input type="checkbox" name="adopt_fabric" value="1" class="mt-1">
+      <span>
+        Also add {{ ns_adopt.n }} NPM name{{ 's' if ns_adopt.n != 1 else '' }} to DNS fabric
+        (via proxy). No certs. Does not rewrite Pi-hole CNAMEs.
+      </span>
     </label>
     {% endif %}
     <fieldset class="mb-3 text-sm">

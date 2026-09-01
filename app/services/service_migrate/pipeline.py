@@ -13,7 +13,10 @@ from ...models import Server
 from .. import docker_inventory as inventory_svc
 from .. import docker_management as docker_svc
 from .copy import (
+    CopyError,
+    chown_remote_tree,
     copy_named_volume,
+    remote_path_kind,
     rsync_herder_to_host,
     rsync_host_to_herder,
     staging_tree_summary,
@@ -22,7 +25,12 @@ from .cutover import CutoverError, retarget_dns_npm
 from .facts import docker_base_abs
 from .host_lock import compose_project_name
 from .leftover import LeftoverError, apply_leftover, normalize_leftover
-from .overrides import apply_staging_overrides, compose_volume_lhs, remap_named_volume
+from .overrides import (
+    apply_staging_overrides,
+    compose_volume_lhs,
+    is_host_local_bind,
+    remap_named_volume,
+)
 from .preflight import named_volume_id, run_preflight
 from .rebind import rebind_control_plane
 from .validate import ValidateError, validate_migrate
@@ -33,7 +41,14 @@ LogFn = Callable[[str], None]
 
 
 class MigrateError(Exception):
-    pass
+    """Pipeline failure. ``failed_step`` is copy/dest_up/… for JobHold recover CTAs."""
+
+    def __init__(self, message: str, *, failed_step: str | None = None):
+        super().__init__(message)
+        self.failed_step = failed_step
+
+
+RECOVER_SOURCE_STEPS = frozenset({"stop", "copy", "dest_up"})
 
 
 def _ssh_fail_detail(result: Any, fallback: str) -> str:
@@ -82,6 +97,7 @@ def run_copy_and_start(
     validate_fn=None,
     leftover: str = "stopped",
     devices_ack: bool = False,
+    adopt_fabric: bool = False,
     dest_project: Optional[str] = None,
     port_map: Optional[dict[str, str]] = None,
     bind_map: Optional[dict[str, str]] = None,
@@ -90,6 +106,8 @@ def run_copy_and_start(
     down_fn=None,
     rm_vol_fn=None,
     rm_tree_fn=None,
+    dest_rm_fn=None,
+    dest_chown_fn=None,
 ) -> dict[str, Any]:
     """Preflight → stop → copy → dest up → DNS/NPM → rebind → validate → leftover."""
     name = compose_project_name(project)
@@ -118,15 +136,29 @@ def run_copy_and_start(
     )
     if not pf.get("ok"):
         msgs = "; ".join(b.get("message") or b.get("id") for b in pf.get("blocks") or [])
-        raise MigrateError(f"preflight blocked: {msgs}")
+        raise MigrateError(f"preflight blocked: {msgs}", failed_step="preflight")
     if any(w.get("id") == "devices" for w in (pf.get("warns") or [])) and not devices_ack:
+        hw = next(
+            (w.get("message") for w in (pf.get("warns") or []) if w.get("id") == "devices"),
+            "hardware / host network / privileged",
+        )
         raise MigrateError(
-            "Hardware-looking mounts: lock the project or acknowledge the warning"
+            f"{hw}: lock the project or acknowledge the warning",
+            failed_step="preflight",
         )
 
-    pull = pull_fn or rsync_host_to_herder
-    push = push_fn or rsync_herder_to_host
-    vol = vol_fn or copy_named_volume
+    def _guard_copy(fn):
+        def wrapped(*a, **k):
+            try:
+                return fn(*a, **k)
+            except CopyError as e:
+                raise MigrateError(str(e), failed_step="copy") from e
+
+        return wrapped
+
+    pull = _guard_copy(pull_fn or rsync_host_to_herder)
+    push = _guard_copy(push_fn or rsync_herder_to_host)
+    vol = _guard_copy(vol_fn or copy_named_volume)
     stop = stop_fn or (lambda srv, path: docker_svc.compose_action(srv, path, "stop"))
     up = up_fn or (
         lambda srv, path: docker_svc.redeploy_project(srv, path, pull=True)
@@ -150,7 +182,9 @@ def run_copy_and_start(
     _log(log, f"Stopping {name} on {source.name}…")
     stopped = stop(source, src_proj)
     if isinstance(stopped, dict) and not stopped.get("success", True):
-        raise MigrateError(_ssh_fail_detail(stopped, "compose stop failed"))
+        raise MigrateError(
+            _ssh_fail_detail(stopped, "compose stop failed"), failed_step="stop"
+        )
 
     _log(log, f"Copy project tree {src_proj} → staging (verbatim, all files)")
     try:
@@ -162,6 +196,11 @@ def run_copy_and_start(
     dataset = pf.get("dataset") or {}
     seen_vol: set[str] = set()
     compose_binds: dict[str, str] = {}
+    skip_set = {
+        str(s).strip().rstrip("/")
+        for s in list(skip_binds or []) + list(pf.get("skip_binds") or [])
+        if str(s).strip()
+    }
     for it in dataset.get("items") or []:
         kind = it.get("kind")
         src = (it.get("source") or "").strip()
@@ -185,16 +224,29 @@ def run_copy_and_start(
                 )
             except TypeError:
                 vol(source, dest, vol_name, stage, log=log)
-        elif kind == "bind_absolute":
+        elif kind in ("bind_absolute", "bind_host_local"):
             from .overrides import is_truncated_host_path, suggest_dest_bind
 
             if is_truncated_host_path(src):
                 raise MigrateError(
-                    f"refusing truncated inventory bind path: {src}"
+                    f"refusing truncated inventory bind path: {src}",
+                    failed_step="copy",
                 )
             if src == src_proj or src.startswith(src_proj + "/"):
                 dest_sub = dst_proj + src[len(src_proj) :]
                 compose_binds[src] = compose_volume_lhs(dest_sub, dst_proj)
+                continue
+            src_key = src.rstrip("/")
+            host_local = kind == "bind_host_local" or is_host_local_bind(src)
+            if host_local or src_key in skip_set or src in skip_set:
+                if host_local:
+                    _log(
+                        log,
+                        f"Keep host-local bind {src} (socket/device — not copied; "
+                        "dest uses dest host path)",
+                    )
+                else:
+                    _log(log, f"Skip bind {src} (not copied)")
                 continue
             mapped = (pf.get("bind_map") or {}).get(src) or suggest_dest_bind(
                 src, src_base, dst_base, dest_name
@@ -202,16 +254,37 @@ def run_copy_and_start(
             if not mapped:
                 _log(log, f"Skip bind {src} (not copied)")
                 continue
+            as_file = False
+            if pull_fn is None or pull_fn is rsync_host_to_herder:
+                try:
+                    rkind = remote_path_kind(source, src)
+                except Exception:
+                    rkind = "dir"
+                if rkind in ("socket", "fifo", "chr", "blk"):
+                    _log(
+                        log,
+                        f"Keep host-local bind {src} ({rkind} — not copied)",
+                    )
+                    continue
+                as_file = rkind == "file"
             compose_binds[src] = compose_volume_lhs(mapped, dst_proj)
             if mapped == dst_proj or mapped.startswith(dst_proj + "/"):
                 rel = mapped[len(dst_proj) :].lstrip("/")
                 nested = proj_stage / rel
-                nested.mkdir(parents=True, exist_ok=True)
-                _log(log, f"Fold bind {src} into project as ./{rel}")
-                try:
-                    pull(source, src, nested, log=log)
-                except TypeError:
-                    pull(source, src, nested, log=log)
+                if as_file:
+                    nested.parent.mkdir(parents=True, exist_ok=True)
+                    _log(log, f"Fold bind file {src} into project as ./{rel}")
+                    try:
+                        pull(source, src, nested, log=log, as_file=True)
+                    except TypeError:
+                        pull(source, src, nested, log=log)
+                else:
+                    nested.mkdir(parents=True, exist_ok=True)
+                    _log(log, f"Fold bind {src} into project as ./{rel}")
+                    try:
+                        pull(source, src, nested, log=log)
+                    except TypeError:
+                        pull(source, src, nested, log=log)
             else:
                 extra = stage / "binds" / src.lstrip("/").replace("..", "_")
                 extra.mkdir(parents=True, exist_ok=True)
@@ -247,6 +320,31 @@ def run_copy_and_start(
     except TypeError:
         push(dest, proj_stage, dst_proj, log=log)
 
+    if dest_chown_fn is not None or live_inspect:
+        chown = _guard_copy(dest_chown_fn or chown_remote_tree)
+        _log(log, f"Chown dest project like {dst_base} (not root / fleet SSH)…")
+        try:
+            chown(dest, dst_proj, log=log, owner_from=dst_base)
+        except TypeError:
+            try:
+                chown(dest, dst_proj, log=log)
+            except TypeError:
+                chown(dest, dst_proj)
+
+    if dest_rm_fn is not None or live_inspect:
+        from .facts import remove_dest_project_ghosts
+
+        _log(log, f"Removing leftover dest containers for {dest_name} (if any)…")
+        rm = (dest_rm_fn or remove_dest_project_ghosts)(dest, dest_name)
+        if isinstance(rm, dict):
+            if rm.get("output"):
+                _log(log, str(rm.get("output") or "")[:500])
+            if rm.get("ok") is False:
+                raise MigrateError(
+                    str(rm.get("error") or "failed to remove leftover dest containers"),
+                    failed_step="dest_up",
+                )
+
     _log(log, f"Starting {dest_name} on {dest.name} (compose up -d)…")
     started = up(dest, dst_proj)
     if isinstance(started, dict) and started.get("output"):
@@ -260,7 +358,9 @@ def run_copy_and_start(
         if started.get("pull") and started.get("pull_ok") is False and up_ok:
             _log(log, "compose pull had errors; dest up succeeded — continuing")
     if not up_ok:
-        raise MigrateError(_ssh_fail_detail(started, "dest up failed"))
+        raise MigrateError(
+            _ssh_fail_detail(started, "dest up failed"), failed_step="dest_up"
+        )
 
     dns_fn = cutover_fn or retarget_dns_npm
     _log(log, "Retargeting DNS / NPM…")
@@ -273,12 +373,13 @@ def run_copy_and_start(
                 project=name,
                 dest_project=dest_name,
                 port_map=clean_map,
+                adopt_fabric=bool(adopt_fabric),
                 log=log,
             )
         except TypeError:
             dns_out = dns_fn(session, source=source, dest=dest, project=name, log=log)
     except CutoverError as e:
-        raise MigrateError(str(e)) from e
+        raise MigrateError(str(e), failed_step="cutover") from e
 
     rb_fn = rebind_fn or rebind_control_plane
     _log(log, "Rebinding control-plane rows…")
@@ -301,7 +402,7 @@ def run_copy_and_start(
             session, source=source, dest=dest, project=dest_name, log=log
         )
     except ValidateError as e:
-        raise MigrateError(str(e)) from e
+        raise MigrateError(str(e), failed_step="validate") from e
 
     leftover_mode = normalize_leftover(leftover)
     try:
@@ -320,7 +421,7 @@ def run_copy_and_start(
             log=log,
         )
     except LeftoverError as e:
-        raise MigrateError(str(e)) from e
+        raise MigrateError(str(e), failed_step="leftover") from e
 
     try:
         inventory_svc.mark_stale(session, source)

@@ -446,11 +446,18 @@ def redeploy_project(
             pass
 
 
-def compose_action(server: Server, project_path: str, action: str, service: str = None) -> Dict:
+def compose_action(
+    server: Server,
+    project_path: str,
+    action: str,
+    service: str = None,
+    remove_volumes: bool = False,
+) -> Dict:
     """stop, start, restart, down (undeploy) for a whole compose project or specific service.
 
-    Whole-project stop/start/restart are also driven by Jobs
-    (``docker_stack_stop`` / ``_start`` / ``_restart``) for live logs.
+    Whole-project stop/start/restart/down are also driven by Jobs
+    (``docker_stack_stop`` / ``_start`` / ``_restart`` / ``_down``) for live logs.
+    ``remove_volumes`` adds ``-v`` on whole-project ``down`` only.
     """
     valid = ("stop", "start", "restart", "down")
     act = (action or "").strip().lower()
@@ -469,6 +476,8 @@ def compose_action(server: Server, project_path: str, action: str, service: str 
     qpath = shlex.quote(path)
     cmd = f"cd {qpath} && docker compose {act}"
     svc = (service or "").strip() or None
+    if act == "down" and remove_volumes and not svc:
+        cmd += " -v"
     if svc:
         cmd += f" {shlex.quote(svc)}"
     cmd += " 2>&1"

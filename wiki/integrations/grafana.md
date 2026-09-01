@@ -74,7 +74,12 @@ Grafana variables need the **`var-`** prefix (`var-job=…`).
 
 Without a token you can still deep-link by pasting dashboard UIDs; inventory list will be empty.
 
+## Move a service
+
+[Move a service](../docker/service-migration.md) rebinds **Containers** (project or container) dashboard chips onto dest so the Docker page still shows Grafana. **Host metrics / Host logs** chips stay on the old host — those are host graphs, not the moved stack.
+
 ## Related
 
 - [Reports](../day-to-day/reports.md) — PiHerder job / scan / console history (not host graphs)  
-- [Dashboard & Services](../day-to-day/dashboard-and-services.md)
+- [Dashboard & Services](../day-to-day/dashboard-and-services.md)  
+- [Move a service](../docker/service-migration.md)

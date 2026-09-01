@@ -269,6 +269,10 @@ async def redeploy(
     )
 
 
+def _form_flag(raw: str) -> bool:
+    return (raw or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 @router.post("/{server_id}/docker/compose/{action}")
 async def compose_project_action(
     request: Request,
@@ -277,13 +281,15 @@ async def compose_project_action(
     background_tasks: BackgroundTasks,
     project_path: str = Form(...),
     service: str = Form(""),
+    remove_volumes: str = Form(""),
+    remove_ack: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """Compose project action: stop/start/restart/down.
+    """Compose project action: stop/start/restart/down/remove.
 
-    Whole-project stop/start/restart run as Jobs with live log (H2.75 P1).
-    Single-service stop/start/restart and ``down`` stay synchronous.
+    Whole-project stop/start/restart/down/remove run as Jobs with live log.
+    Single-service stop/start/restart stay synchronous.
     """
     from ..services import jobs as job_service
     from ..security.auth import role_at_least, ROLE_OPERATOR
@@ -297,9 +303,10 @@ async def compose_project_action(
     act = (action or "").strip().lower()
     path = (project_path or "").strip()
     svc = (service or "").strip() or None
+    drop_vols = _form_flag(remove_volumes)
 
     # Bulk lifecycle → Job + JobHold (exclusive with other stack mutations)
-    if act in ("stop", "start", "restart") and not svc:
+    if act in ("stop", "start", "restart", "down") and not svc:
         if not role_at_least(user, ROLE_OPERATOR):
             raise HTTPException(403, "Operator or admin role required")
         already_active = False
@@ -310,6 +317,7 @@ async def compose_project_action(
                 act,
                 user_id=user.id if user else None,
                 background_tasks=background_tasks,
+                remove_volumes=drop_vols if act == "down" else False,
             )
         except job_service.JobAlreadyActive as e:
             job = e.job
@@ -328,7 +336,7 @@ async def compose_project_action(
                     "status": job.status,
                     "job_type": job_type,
                     "project": proj_name,
-                    "action": act,
+                    "action": "down -v" if act == "down" and drop_vols else act,
                     "already_active": already_active,
                 },
                 status_code=409 if already_active else 200,
@@ -340,8 +348,52 @@ async def compose_project_action(
             status_code=303,
         )
 
-    # Single-service lifecycle or compose down (undeploy)
-    res = docker_svc.compose_action(server, path, act, service=svc)
+    if act == "remove" and not svc:
+        if not role_at_least(user, ROLE_OPERATOR):
+            raise HTTPException(403, "Operator or admin role required")
+        if not _form_flag(remove_ack):
+            raise HTTPException(
+                400, "delete project requires remove_ack"
+            )
+        already_active = False
+        try:
+            job = job_service.enqueue_docker_stack_remove(
+                server.id,
+                path,
+                user_id=user.id if user else None,
+                background_tasks=background_tasks,
+            )
+        except job_service.JobAlreadyActive as e:
+            job = e.job
+            already_active = True
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        if not job:
+            raise HTTPException(500, "Could not queue project delete")
+        proj_name = os.path.basename(path.rstrip("/")) or path
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse(
+                {
+                    "job_id": job.id,
+                    "status": job.status,
+                    "job_type": "docker_stack_remove",
+                    "project": proj_name,
+                    "action": "remove",
+                    "already_active": already_active,
+                },
+                status_code=409 if already_active else 200,
+            )
+        return RedirectResponse(
+            f"/servers/{server_id}/docker?lifecycle=remove"
+            f"&project={quote(str(proj_name), safe='')}"
+            f"&job_id={job.id}",
+            status_code=303,
+        )
+
+    # Single-service lifecycle
+    res = docker_svc.compose_action(
+        server, path, act, service=svc, remove_volumes=drop_vols
+    )
     try:
         details = f"Project {path}"
         if svc:
@@ -778,7 +830,11 @@ async def docker_migrate_preflight(
         proj = host_lock_svc.compose_project_name(project)
     except host_lock_svc.HostLockError as e:
         raise HTTPException(e.status_code, detail=e.message) from e
-    from ..services.service_migrate.facts import herder_free_bytes, probe_host_facts
+    from ..services.service_migrate.facts import (
+        herder_free_bytes,
+        probe_host_facts,
+        refresh_host_inventory,
+    )
     from ..services.service_migrate.overrides import (
         parse_bind_overrides_from_mapping,
         parse_port_map_from_mapping,
@@ -786,6 +842,11 @@ async def docker_migrate_preflight(
 
     src_facts = probe_host_facts(server)
     dest_facts = probe_host_facts(dest_server)
+    try:
+        refresh_host_inventory(dest_server.id)
+        session.refresh(dest_server)
+    except Exception:
+        pass
     port_map = parse_port_map_from_mapping(request.query_params)
     bind_overrides = parse_bind_overrides_from_mapping(request.query_params)
     result = migrate_preflight.run_preflight(
@@ -818,6 +879,7 @@ async def docker_migrate_start(
     leftover: str = Form("stopped"),
     leftover_remove_ack: str = Form(""),
     devices_ack: str = Form(""),
+    adopt_fabric: str = Form(""),
     dest_project: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
@@ -866,6 +928,12 @@ async def docker_migrate_start(
                     "source remove requires leftover_remove_ack",
                 )
         ack = (devices_ack or "").strip().lower() in ("1", "true", "on", "yes")
+        adopt = (adopt_fabric or "").strip().lower() in (
+            "1",
+            "true",
+            "on",
+            "yes",
+        )
         job = job_service.enqueue_service_migrate(
             server_id,
             dest_id,
@@ -874,6 +942,7 @@ async def docker_migrate_start(
             background_tasks=background_tasks,
             leftover=left,
             devices_ack=ack,
+            adopt_fabric=adopt,
             dest_project=dest_project,
             port_map=port_map,
             bind_map=bind_map,

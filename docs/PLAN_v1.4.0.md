@@ -6,7 +6,7 @@
 **Package / image version (at tag):** `1.4.0` — tree stays **`1.3.0` until freeze**  
 **Theme:** **Service migration** — move a Docker Compose project host→host with dataset copy, DNS / NPM retarget, resolver flush, TLS / Kuma validate, **host lock**, and leftover policy  
 **Baseline:** `v1.3.0` (tagged 2026-08-22)  
-**Mode:** Active train · Must signed · **M1–M9** + **M-npm** + **D-F** + **M-rm** landed; next is freeze / QA  
+**Mode:** Active train · Must signed · **M1–M9** + **M-npm** + **D-F** + **M-rm** landed · live QA; Grafana container rebind + adopt-fabric + Start-source CTA in; freeze / version bump not started  
 **QA:** [QA_v1.4.0.md](QA_v1.4.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [SPEC.md](../SPEC.md) · wiki [Docker](../wiki/docker/overview.md) · [DNS fabric](../wiki/integrations/dns-fabric.md) · [Backups](../wiki/day-to-day/backups.md) · [HAOS](../wiki/day-to-day/haos-hosts.md)
 
@@ -81,7 +81,7 @@ main @ v1.3.0 (+ v1.3.x patches)
 | 1e | **D-F** | Demo simulated Files (canned tree, 1.3 chrome, no SFTP). Real Files **demo never** |
 | 1f | **M-rm** | **Should** (not default): after green migrate, optionally remove source project + `docker volume rm` for copied named volumes. Preview + danger confirm. Never wipe dest |
 | 2 | Out of 1.4 | **ACME-in-herder**. Also: **M-live** · full NPM CRUD · Files token API · W-mux · AC-fg · N3 · CSP nonces · branding |
-| 3 | Cutover | **Stop-first**. Default pipeline **`health_then_dns`**. Checkbox `dns_then_start` default **off** |
+| 3 | Cutover | **Stop-first**. Pipeline is dest-up then name/proxy (`health_then_dns`). **`dns_then_start` is out of 1.4** |
 | 4 | Copy transport | Herder staging `BACKUP_ROOT/_migrate/{job_id}/` |
 | 5 | DNS + NPM | **Direct:** fabric upsert CNAME → dest `dns_name` + both Pi-hole `restartdns`. **NPM-in-front:** keep CNAME on the edge; PUT `forward_host`; `backend_server_id` → dest. Missing NPM integration or unmatched proxy host → preflight **fail** |
 | 6 | Host lock | HAOS never source or dest. Per-project `ComposeProjectMeta.host_locked` + reason |
@@ -156,8 +156,8 @@ One **operator+** wizard + one **Job** (`service_migrate`) with a live log, prev
 | M3 | **Copy** | Must | Stop source → rsync project dir + classified binds + named volumes via herder staging → dest paths remapped |
 | M4 | **DNS / NPM** | Must | Direct: fabric CNAME + both `restartdns`. NPM: PUT `forward_host`; keep edge CNAME |
 | M5 | **Start dest** | Must | `docker compose up -d` on dest project path; refresh inventory both hosts |
-| M6 | **Validate** | Must when rows exist | TLS probe; Kuma poll; fail ≠ auto rollback (operator **Start on source** CTA) |
-| M7 | **Control-plane rebind** | Must | Maps / Services / certs / Kuma coverage follow dest |
+| M6 | **Validate** | Must when rows exist | TLS probe; Kuma poll; fail ≠ auto rollback. Copy / dest-up fail: JobHold **Start source stack** |
+| M7 | **Control-plane rebind** | Must | Maps / Services / certs / Kuma coverage / Grafana **container** chips follow dest |
 | M8 | **Source leftover down** | Must | After green: leave stopped (default) · optional `compose down` (keep volumes) |
 | M9 | **`devices:` warning** | Must | Warn + lock-or-acknowledge; not the only gate |
 | M-npm | **NPM backend retarget** | Must | Narrow PUT on existing proxy host. Unmatched host fails preflight |
@@ -189,7 +189,7 @@ Docker → project ⋯ → Move to another host…
 - Path policy: no `..`, refuse absolute binds **outside** source `docker_base_dir` unless allow-listed in the preview.  
 - Dual host lock: do not interleave backup / stack mutate / a second migrate on source **or** dest.  
 - Audit: `service_migrate_preview` / `_start` / `_step` / `_done` / `_fail` with source, dest, project, bytes, fqdns, NPM old/new host — never PEM / `.env` / NPM password.  
-- Default pipeline: **copy → start dest health → DNS/NPM → validate**. `dns_then_start` is an explicit option.
+- Default pipeline: **copy → start dest health → DNS/NPM → validate**. `dns_then_start` is **out**.
 
 ### 2.4 Non-goals (M) / defer past this minor
 
@@ -290,6 +290,9 @@ Success criteria:
 | 2026-08-26 | Live-lab: full bind paths; Recheck no longer leaves wait overlay stuck; outside binds remap into dest docker base (or skip). |
 | 2026-08-26 | Job preflight ignored its own `service_migrate` row (busy_source/busy_dest self-block). |
 | 2026-08-26 | Do not rsync `docker ps` truncated mounts (`…`). Migrate inspects container Source paths. |
+| 2026-08-30 | NPM edge move: dependents keep CNAME on the NPM hostname; Pi-hole login LAN fallback. |
+| 2026-08-30 | NPM PUT from **proxy-host binding** (no fabric DNS row required). |
+| 2026-09-01 | Grafana container dashboard rebind; optional **Adopt into fabric**; JobHold **Start source stack** after copy/dest-up fail. **`dns_then_start` out.** |
 
 ---
 
@@ -304,7 +307,7 @@ Success criteria:
 | 5 | Land **M2** preflight (no copy) | **Done** |
 | 6 | Land **M3–M6** + **M-npm** job + wizard; then **M7** | **Done** |
 | 7 | **M8** leftover down · **M9** devices: · **M-rm** Should · **D-F** | **Done** |
-| 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | Operator wiki + QA stub ready for live two-host validation; **freeze / version bump not started** |
+| 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | Operator wiki + QA updated for live two-host validation; **freeze / version bump not started** |
 
 ---
 

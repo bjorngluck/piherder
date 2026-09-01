@@ -1,9 +1,13 @@
-"""Source leftover after a green migrate (v1.4 M8 / M-rm).
+"""Source leftover after a green migrate (v1.4 M8 / M-rm)
+and standalone Docker undeploy / delete-project.
 
-Default: leave the source stack stopped with data on disk.
+Default leftover: leave the source stack stopped with data on disk.
 ``down``: ``compose down`` (volumes kept).
 ``remove``: compose down, ``docker volume rm`` copied named volumes, delete
 the jailed project directory. Never touches dest.
+
+Standalone wipe: ``compose down -v`` then delete the jailed folder (Job
+``docker_stack_remove``). Host-locked / HAOS stacks are refused.
 """
 from __future__ import annotations
 
@@ -100,13 +104,23 @@ def _rm_volume(server: Server, volume: str) -> dict[str, Any]:
             pass
 
 
+def _rm_tree_cmd(path: str) -> str:
+    """Remove a jailed project dir; retry with ``sudo -n`` for root-owned trees."""
+    q = shlex.quote(path)
+    return (
+        f"if [ -e {q} ]; then "
+        f"(rm -rf -- {q} || sudo -n rm -rf -- {q}); fi; "
+        f"if [ -e {q} ]; then echo rm-failed; exit 1; fi"
+    )
+
+
 def _rm_tree(server: Server, path: str) -> dict[str, Any]:
     p = (path or "").rstrip("/")
     if not p or p == "/" or ".." in p:
         return {"success": False, "error": "refusing rm of unsafe path"}
     client = get_ssh_client(server)
     try:
-        st, out, err = run_command(client, f"rm -rf -- {shlex.quote(p)}", timeout=180)
+        st, out, err = run_command(client, _rm_tree_cmd(p), timeout=180)
         output = ((out or "") + (err or "")).strip()
         return {
             "success": st == 0,
@@ -160,6 +174,86 @@ def _drop_source_project_meta(
         return 0
     session.delete(row)
     return 1
+
+
+def assert_wipe_allowed(
+    session: Session, server: Server, project_path: str
+) -> tuple[str, str]:
+    """Jail + unlock check. Returns ``(project_name, jailed_path)``."""
+    from .host_lock import HostLockError, assert_unlocked
+
+    raw_name = (project_path or "").rstrip("/").rsplit("/", 1)[-1]
+    try:
+        name = compose_project_name(raw_name)
+    except HostLockError as e:
+        raise LeftoverError(e.message) from e
+    want = jailed_source_project_path(server, name)
+    path = (project_path or "").rstrip("/")
+    if path != want:
+        raise LeftoverError(
+            f"refusing project wipe: path {path!r} is not {want!r}"
+        )
+    try:
+        assert_unlocked(session, server, name)
+    except HostLockError as e:
+        raise LeftoverError(e.message) from e
+    return name, want
+
+
+def wipe_compose_project(
+    session: Session,
+    *,
+    server: Server,
+    project_path: str,
+    remove_volumes: bool = True,
+    delete_tree: bool = True,
+    down_fn=None,
+    rm_tree_fn=None,
+    log: Optional[LogFn] = None,
+) -> dict[str, Any]:
+    """``compose down`` (optional ``-v``) then optionally delete the jailed folder.
+
+    Never walks outside ``{docker_base}/{project}``. Host-locked and HAOS stacks
+    are refused. Control-plane DNS / NPM / Kuma rows are left for the operator.
+    """
+    name, path = assert_wipe_allowed(session, server, project_path)
+
+    out: dict[str, Any] = {
+        "project": name,
+        "project_path": path,
+        "volumes_removed": bool(remove_volumes),
+        "project_removed": False,
+        "meta_dropped": 0,
+    }
+    down = down_fn or (
+        lambda srv, p, vols: docker_svc.compose_action(
+            srv, p, "down", remove_volumes=bool(vols)
+        )
+    )
+    label = "docker compose down -v" if remove_volumes else "docker compose down"
+    _log(log, f"{label} on {server.name} ({path})")
+    stopped = down(server, path, bool(remove_volumes))
+    if isinstance(stopped, dict) and not stopped.get("success", True):
+        raise LeftoverError(stopped.get("error") or "compose down failed")
+
+    if not delete_tree:
+        return out
+
+    _log(log, f"remove project dir {path}")
+    rm_tree = rm_tree_fn or _rm_tree
+    tree = rm_tree(server, path)
+    if isinstance(tree, dict) and not tree.get("success", True):
+        raise LeftoverError(tree.get("error") or "project dir remove failed")
+    out["project_removed"] = True
+    out["meta_dropped"] = _drop_source_project_meta(
+        session, source=server, project=name
+    )
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    return out
 
 
 def apply_leftover(

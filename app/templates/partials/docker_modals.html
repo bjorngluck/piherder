@@ -142,14 +142,40 @@
 <div id="undeploy-confirm-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="modal-content card p-6 w-full max-w-md mx-4">
     <h3 class="text-lg font-medium mb-2">Undeploy project?</h3>
-    <p class="text-sm text-muted mb-4">
+    <p class="text-sm text-muted mb-3">
       This will run <code class="text-danger">docker compose down</code> for
       <strong id="undeploy-project-name" class="font-mono text-accent"></strong>.
-      <br>Containers and networks will be removed. Volumes are preserved.
+      Containers and networks are removed. The project folder stays.
     </p>
+    <label class="flex items-start gap-2 text-sm mb-4 cursor-pointer">
+      <input type="checkbox" id="undeploy-remove-volumes" class="mt-1">
+      <span>Also remove named volumes (<code class="text-danger">docker compose down -v</code>). Bind data in the project folder is kept.</span>
+    </label>
     <div class="flex flex-wrap gap-2 justify-end">
       <button type="button" onclick="hideUndeployConfirm()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
       <button type="button" id="undeploy-confirm-btn" class="btn btn-danger min-h-11 text-sm">Undeploy</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete project folder + volumes -->
+<div id="remove-project-confirm-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="modal-content card p-6 w-full max-w-md mx-4">
+    <h3 class="text-lg font-medium mb-2 text-danger">Delete this project?</h3>
+    <p class="text-sm text-muted mb-2">
+      Runs <code class="text-danger">docker compose down -v</code> then deletes
+      <strong id="remove-project-path" class="font-mono text-accent"></strong>
+      and everything in it. Named volumes in compose are removed.
+      Absolute binds <em>outside</em> that folder stay. DNS / NPM / Kuma rows are not deleted.
+      This cannot be undone from PiHerder.
+    </p>
+    <label class="flex items-start gap-2 text-sm mb-4 cursor-pointer text-danger">
+      <input type="checkbox" id="remove-project-ack" class="mt-1">
+      <span>Delete this project folder, compose files, and named volumes.</span>
+    </label>
+    <div class="flex flex-wrap gap-2 justify-end">
+      <button type="button" onclick="hideRemoveProjectConfirm()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+      <button type="button" id="remove-project-confirm-btn" class="btn btn-danger min-h-11 text-sm" disabled>Delete project</button>
     </div>
   </div>
 </div>
@@ -577,16 +603,44 @@ function quickSaveDeploy() { quickSave('deploy'); }
 
 // Undeploy confirmation helpers (custom modal for consistency with build/quick-edit modals)
 let pendingUndeployForm = null;
+let pendingRemoveProjectForm = null;
 
 function showUndeployConfirm(form, projectName) {
   pendingUndeployForm = form;
   const nameEl = document.getElementById('undeploy-project-name');
   if (nameEl) nameEl.textContent = projectName || 'project';
+  const vol = document.getElementById('undeploy-remove-volumes');
+  if (vol) vol.checked = false;
   const modal = document.getElementById('undeploy-confirm-modal');
   if (modal) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
   }
+}
+
+function showRemoveProjectConfirm(form, projectName) {
+  pendingRemoveProjectForm = form;
+  const pathInp = form && form.querySelector('input[name="project_path"]');
+  const pathEl = document.getElementById('remove-project-path');
+  if (pathEl) pathEl.textContent = (pathInp && pathInp.value) || projectName || 'project';
+  const ack = document.getElementById('remove-project-ack');
+  const confirmBtn = document.getElementById('remove-project-confirm-btn');
+  if (ack) ack.checked = false;
+  if (confirmBtn) confirmBtn.disabled = true;
+  const modal = document.getElementById('remove-project-confirm-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+
+function hideRemoveProjectConfirm() {
+  const modal = document.getElementById('remove-project-confirm-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+  pendingRemoveProjectForm = null;
 }
 
 function hideHostLockModal() {
@@ -643,17 +697,44 @@ function hideUndeployConfirm() {
   pendingUndeployForm = null;
 }
 
+function submitConfirmedForm(form) {
+  if (!form) return;
+  form.dataset.confirmed = '1';
+  if (typeof form.requestSubmit === 'function') form.requestSubmit();
+  else form.submit();
+}
+
 // Wire the confirm button
 setTimeout(function() {
   const confirmBtn = document.getElementById('undeploy-confirm-btn');
   if (confirmBtn) {
     confirmBtn.addEventListener('click', function() {
-      if (pendingUndeployForm) {
-        const form = pendingUndeployForm;
-        hideUndeployConfirm();
-        form.dataset.confirmed = '1';
-        form.submit();
-      }
+      if (!pendingUndeployForm) return;
+      const form = pendingUndeployForm;
+      const vol = document.getElementById('undeploy-remove-volumes');
+      const hidden = form.querySelector('input[name="remove_volumes"]');
+      if (hidden) hidden.value = (vol && vol.checked) ? '1' : '';
+      hideUndeployConfirm();
+      submitConfirmedForm(form);
+    });
+  }
+  const removeAck = document.getElementById('remove-project-ack');
+  const removeBtn = document.getElementById('remove-project-confirm-btn');
+  if (removeAck && removeBtn) {
+    removeAck.addEventListener('change', function() {
+      removeBtn.disabled = !removeAck.checked;
+    });
+  }
+  if (removeBtn) {
+    removeBtn.addEventListener('click', function() {
+      if (!pendingRemoveProjectForm) return;
+      const ack = document.getElementById('remove-project-ack');
+      if (!ack || !ack.checked) return;
+      const form = pendingRemoveProjectForm;
+      const hidden = form.querySelector('input[name="remove_ack"]');
+      if (hidden) hidden.value = '1';
+      hideRemoveProjectConfirm();
+      submitConfirmedForm(form);
     });
   }
 }, 0);
@@ -1122,6 +1203,8 @@ document.addEventListener('click', function(e) {
     if (a.includes('/compose/stop')) return 'stop';
     if (a.includes('/compose/start')) return 'start';
     if (a.includes('/compose/restart')) return 'restart';
+    if (a.includes('/compose/down')) return 'down';
+    if (a.includes('/compose/remove')) return 'remove';
     return null;
   }
 
@@ -1129,6 +1212,7 @@ document.addEventListener('click', function(e) {
     const a = form.getAttribute('action') || '';
     if (a.includes('/check-updates')) return 'Checking...';
     if (a.includes('/redeploy')) return 'Deploying...';
+    if (a.includes('/compose/remove')) return 'Deleting...';
     if (a.includes('/compose/down')) return 'Undeploying...';
     if (a.includes('/compose/stop')) return 'Stopping...';
     if (a.includes('/compose/start')) return 'Starting...';
@@ -1174,6 +1258,11 @@ document.addEventListener('click', function(e) {
       showUndeployConfirm(form, projName);
       return;
     }
+    if (actionLabel.includes('Delet') && !form.dataset.confirmed) {
+      e.preventDefault();
+      showRemoveProjectConfirm(form, projName);
+      return;
+    }
     if ((actionLabel.includes('Deploy') || actionLabel.includes('Deploying')) && !form.dataset.confirmed) {
       e.preventDefault();
       showDeployConfirm(form, projName);
@@ -1197,6 +1286,8 @@ document.addEventListener('click', function(e) {
       }
       var holdTitle;
       if (actionLabel.includes('Check')) holdTitle = 'Check updates: ' + projName;
+      else if (life === 'down') holdTitle = 'Undeploy: ' + projName;
+      else if (life === 'remove') holdTitle = 'Delete project: ' + projName;
       else if (life) holdTitle = (life.charAt(0).toUpperCase() + life.slice(1)) + ' all: ' + projName;
       else holdTitle = 'Deploy: ' + projName;
       window.PiHerderJobHold.run({

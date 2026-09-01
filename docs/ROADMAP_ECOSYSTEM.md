@@ -39,7 +39,7 @@ Design principles stay the same as SPEC:
 | **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry · full DB DR · security remediations | Post-1.1 minor | **Tagged** — prior — [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
 | **v1.2.x** | Production patches | Patch | Prefer upgrade to **v1.3.x** |
 | **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights (N reports)** · **host files (F manager)** · **AC-fg** Cap · ACME (consideration) | Post-1.2 minor | **Tagged** 2026-08-22 — [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [QA_v1.3.0.md](QA_v1.3.0.md) · Hub `1.3.0` / `1.3` / `latest` |
-| **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME **or NPM backend** retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate, leftover) + **host lock** (HAOS refuse, Frigate/TPU-class) + demo simulated Files | Post-1.3 minor | **Active** on `v1.4.0-dev` — Must + M-rm landed; freeze/QA next — [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · wiki [Move a service](../wiki/docker/service-migration.md) |
+| **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME **or NPM backend** retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate, leftover) + **host lock** (HAOS refuse, Frigate/TPU-class) + demo simulated Files | Post-1.3 minor | **Active** on `v1.4.0-dev` — Must + M-rm landed; live QA — [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · wiki [Move a service](../wiki/docker/service-migration.md) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -331,7 +331,7 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 | **Nmap worker heartbeat on boot** | **Future (P2)** — touch scanner-online heartbeat when worker process starts, not only mid-scan |
 | **Richer topology** | Focused dep edges polish, force LAN/cloud overrides |
 | **External DNS providers** | Cloudflare (etc.) automation; until then external checklist remains |
-| **Service migrate / remove** | **→ v1.4 Stream M Active** on `v1.4.0-dev` — pipeline + **M-rm** leftover wipe (default off) landed; freeze/QA next. [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · wiki [Move a service](../wiki/docker/service-migration.md) |
+| **Service migrate / remove** | **→ v1.4 Stream M Active** on `v1.4.0-dev` — pipeline + **M-rm** leftover wipe (default off) landed; live QA. [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · wiki [Move a service](../wiki/docker/service-migration.md) |
 
 **Design principle:** one **entity graph** (name, NPM, host, project, container, volume, dep edge, monitor bind, discovered device) — views are projections, not separate data models.
 
