@@ -1,7 +1,7 @@
 # Move a service
 
 !!! note "Availability"
-    **Move a service** ships on `v1.4.0-dev` (will be **v1.4.0**; production Hub/`main` stay **1.3.0** until freeze). Behind `PIHERDER_SERVICE_MIGRATE` (default **off**). Host **lock / unlock** has no flag. Source remove + named-volume delete is optional and **off** unless you pick it. Public demo never copies.
+    **Move a service** is **v1.4.0 pending sign-off** on `v1.4.0-dev` (Hub/`main` stay **1.3.0** until tag). Behind `PIHERDER_SERVICE_MIGRATE` (default **off**). Host **lock / unlock** has no flag. Source remove + named-volume delete is optional and **off** unless you pick it. Public demo never copies. User notes: [RELEASE_v1.4.0](https://github.com/bjorngluck/piherder/blob/v1.4.0-dev/docs/RELEASE_v1.4.0.md). Technical: [PLAN_v1.4.0](https://github.com/bjorngluck/piherder/blob/v1.4.0-dev/docs/PLAN_v1.4.0.md).
 
 ## What this is
 

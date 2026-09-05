@@ -15,17 +15,17 @@ docker compose run --rm --no-deps \
 pip install --require-hashes -r requirements.lock.txt
 pip install --no-deps -e .
 pytest -q
-# Coverage (hold ≥55% for v1.0; CI fail-under 55 + XML artifact)
+# Coverage (v1.4 freeze: ≥62%; CI fail-under 62 + XML artifact)
 pip install pytest-cov
-pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=55
+pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=62
 ```
 
 Unit tests live under `tests/` — no live SSH required for the main suite. Default `pytest` only collects `tests/` (not `e2e/`).
 
 | Bar | Value |
 |-----|--------|
-| **Suite freeze target** | **≥ 55%** line on `app` (~57% baseline; no 60% gate for 1.0) |
-| **CI fail-under** | **55** |
+| **Suite freeze target** | **≥ 62%** line on `app` (v1.4; was 55% through 1.3) |
+| **CI fail-under** | **62** |
 | **v1.0 production** | Authz matrix + input validation + credential recovery tests; no 100% target |
 
 ### v1.0 production-hardening packs
@@ -88,4 +88,4 @@ CI covers unit + Playwright on fixtures. Live fleet validation (real SSH, HAOS, 
 1. Unit `pytest -q` green  
 2. **E2E** `pytest e2e -q` green (CI or local; rebuild e2e image if app templates changed)  
 3. Manual smoke on a live fleet: add-server wizard, HAOS check, from-host, template deploy, backup, metrics, API token  
-4. Release notes: [RELEASE_v1.3.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md)
+4. Release notes: [RELEASE_v1.4.0](https://github.com/bjorngluck/piherder/blob/v1.4.0-dev/docs/RELEASE_v1.4.0.md) (pending) · production [RELEASE_v1.3.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md)

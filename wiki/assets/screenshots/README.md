@@ -19,14 +19,14 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.1.0** | Freeze pack landed — [RELEASE_v1.1.0.md](../../../docs/RELEASE_v1.1.0.md) |
 | **v1.2.0** | Prior Hub — screenshot pack **landed** 2026-08-18. [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) |
 | **v1.3.0** | Prior Hub — pack **landed** 2026-08-22. Maintainer QA: [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.3.0.md) (not the operator wiki). [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md) |
-| **v1.4.0** | **Current train** (`v1.4.0-dev`) — pack **not landed**. Maintainer QA: [QA_v1.4.0.md](../../../docs/QA_v1.4.0.md). Theme: [Move a service](../../docker/service-migration.md) |
+| **v1.4.0** | **Dev freeze / pending sign-off** (`v1.4.0-dev`) — pack **not landed**. Maintainer QA: [QA_v1.4.0.md](../../../docs/QA_v1.4.0.md). Theme: [Move a service](../../docker/service-migration.md) · [RELEASE](../../../docs/RELEASE_v1.4.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from the freeze branch"
     Rebuild **`v1.4.0-dev`**: `docker compose build web && docker compose up -d web`.  
     App code is **not** bind-mounted — stale containers = stale chrome.  
-    About / footer stay **1.3.0** until the freeze version bump.  
+    About / footer stay **1.3.0** until the version bump at tag.  
     Move wizard shots need `PIHERDER_SERVICE_MIGRATE=true` then recreate **web**.
 
 ---
