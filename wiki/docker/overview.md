@@ -24,6 +24,7 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 5. **Check updates** vs **Deploy** when you want pull-only vs pull+up ([Updates](../day-to-day/updates-and-patching.md)).  
 6. For compose edits, use [Compose edit](compose-edit.md) (quick modal or full editor with history).  
 7. For a sidecar / log sitting next to the stack, or to copy a file out of a container, use [Host Files](../day-to-day/host-files.md) (jailed SFTP; flag `PIHERDER_HOST_FILES`).  
+8. Hardware-bound stacks: **⋯ → Lock to this host**. Optional **Move to another host…** — [Move a service](service-migration.md).  
 
 ---
 
@@ -42,6 +43,8 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | Runtime stack / Path map | Project **Stack** / **Path map** pills → Network stack panel + map expand ([Network maps](../integrations/dns-fabric.md#runtime-stack-detail-altitude)) |
 | Logs | Per container / service (modal or full page). Multi-service projects: pick a service **or All services** (project-level `docker compose logs`). Live SSE requires a **signed-in** session |
 | **Stop / Start / Restart all** | Project ⋯ menu → confirm → **Job** with live log (`docker_stack_stop` / `_start` / `_restart`) — **operator+** |
+| **Lock to this host** | Project ⋯ — [Move a service](service-migration.md). Hardware / operator / infra. HAOS always locked. Operator+. |
+| **Move to another host…** | Flag `PIHERDER_SERVICE_MIGRATE` (default **off**). Preflight then Job: stop → copy → dest up → DNS/NPM. NPM proxy-host binding is enough (no fabric row required). Optional leftover: leave stopped, `compose down`, or remove source + named volumes. [Move a service](service-migration.md). |
 | Container start / stop / restart | Row ⋯ on a single service (immediate; not a full-stack job) — **operator+**; actions allowlisted (`start`/`stop`/`restart`) |
 | Quick edit / Full editor | ⋯ menu — quick modal is compose (± Dockerfile) only; **`.env` and sidecars** are full editor — [Compose edit](compose-edit.md) |
 | Multi-file compose edit | primary compose + override + `.env` + Dockerfile + **compose sets** |
@@ -49,12 +52,12 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | Version history | Snapshots; rollback |
 | Build / redeploy | **POST-only** SSE stream of `docker compose build` for a **named** project (**operator+**). Paths are quoted; there is no GET `/path` fallback. Redeploy as Jobs. |
 | Check updates vs Deploy | Pull-only vs pull+up as **Jobs** — [Updates](../day-to-day/updates-and-patching.md) |
-
-!!! note "Browser Back on Docker"
-    Leaving Docker for another tool (template deployment, full editor) and pressing **Back** must not leave a stuck “Collecting information from host via SSH” overlay. The page clears the wait chrome when the stack is already loaded (bfcache-safe).
 | Cleanup unused | List dangling images / exited containers (escaped HTML); optional prune |
 | New project wizard | Create a stack on the host |
 | Template-managed stacks | Badge + gated full editor — [Templates](../service-templates/overview.md) |
+
+!!! note "Browser Back on Docker"
+    Leaving Docker for another tool (template deployment, full editor) and pressing **Back** must not leave a stuck “Collecting information from host via SSH” overlay. The page clears the wait chrome when the stack is already loaded (bfcache-safe).
 
 ### Compose sets (same folder, one project card) {#compose-sets-same-folder-one-project-card}
 
@@ -105,5 +108,6 @@ Only **one** stack mutation runs at a time per host (shared lane with Deploy and
 
 - [Inventory cache](inventory.md)  
 - [Compose edit & deploy](compose-edit.md)  
+- [Move a service](service-migration.md) — lock, preflight, copy, dest up, DNS/NPM, rebind, leftover  
 - [Service templates](../service-templates/overview.md)  
 - [Reports](../day-to-day/reports.md) — deploy / patch job history (running-now is last inventory only)  

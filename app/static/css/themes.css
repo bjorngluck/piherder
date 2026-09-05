@@ -2698,6 +2698,16 @@ a.docker-popover-item {
 .docker-popover-item.is-danger:hover {
   background: var(--banner-error-bg, rgba(220, 38, 38, 0.08));
 }
+.docker-popover-item.is-disabled,
+.docker-popover-item:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  color: var(--color-muted);
+}
+.docker-popover-item.is-disabled:hover,
+.docker-popover-item:disabled:hover {
+  background: transparent;
+}
 
 .status-muted {
   background: var(--color-bg);

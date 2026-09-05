@@ -11,6 +11,7 @@ import logging
 import re
 from datetime import datetime
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 from sqlmodel import Session, select
 
@@ -228,6 +229,8 @@ def _npm_proxy_hosts_cached(session: Session) -> list[dict[str, Any]]:
                     "domain_names": [normalize_fqdn(str(d)) for d in domains if d],
                     "forward_host": str(h.get("forward_host") or "").strip(),
                     "forward_port": h.get("forward_port"),
+                    "forward_scheme": str(h.get("forward_scheme") or "http").strip()
+                    or "http",
                     "server_id": b.server_id if b else None,
                     "docker_project": (b.docker_project if b else None)
                     or meta.get("docker_project"),
@@ -259,6 +262,26 @@ def find_npm_host_server(session: Session) -> Optional[Server]:
             if s:
                 return s
     return None
+
+
+def _npm_edge_hostname(session: Session) -> str:
+    """Public NPM hostname from the integration base URL (e.g. nginx.hacknow.info)."""
+    try:
+        rows = [
+            r
+            for r in reg.list_integrations(session, type_filter=reg.TYPE_NPM)
+            if getattr(r, "enabled", True)
+        ]
+    except Exception:
+        return ""
+    for integ in rows:
+        try:
+            host = normalize_fqdn(urlparse(getattr(integ, "base_url", "") or "").hostname)
+        except Exception:
+            host = ""
+        if host:
+            return host
+    return ""
 
 
 def resolve_service_dns_plan(
@@ -362,16 +385,16 @@ def resolve_service_dns_plan(
     target_reason = "backend host DNS name (direct)"
 
     if npm_hit:
-        # Service is published via NPM → CNAME to NPM edge host when known
-        if npm_edge and npm_edge.id != backend.id:
+        # Published via NPM even when the backend is on the same host as the edge.
+        if npm_edge:
             target = npm_edge
             via_proxy = True
-            target_reason = f"NPM edge ({npm_edge.name})"
-        elif npm_edge:
-            target = npm_edge
-            via_proxy = npm_edge.id != backend.id
-            target_reason = f"NPM host ({npm_edge.name})"
+            if npm_edge.id != backend.id:
+                target_reason = f"NPM edge ({npm_edge.name})"
+            else:
+                target_reason = f"NPM on same host ({npm_edge.name})"
         else:
+            via_proxy = True
             target_reason = "NPM publishes this name; set host DNS on NPM server for CNAME target"
 
     target_dns = normalize_fqdn(target.dns_name) if target else ""
@@ -1020,11 +1043,7 @@ def fanout_pihole_dns(
             "already_present": False,
         }
         try:
-            sess = ph.login(
-                r.base_url,
-                reg.pihole_password(r),
-                tls_verify=reg.tls_verify(r),
-            )
+            sess = pihole_login_with_fallback(session, r)
             try:
                 if kind == "host":
                     if op == "add":
@@ -1056,6 +1075,87 @@ def fanout_pihole_dns(
                 logger.warning("pihole dns %s %s on %s: %s", op, kind, r.name, e)
         results.append(item)
     return results
+
+
+def pihole_login_urls(session: Session, integ: Any) -> list[str]:
+    """Public admin URL first, then NPM LAN backend if that FQDN is proxied.
+
+    Pi-hole integrations are often ``https://pihole.example`` behind NPM. When
+    the edge is down or mid-move, login on the public name fails; the poll
+    cache still has ``forward_host:forward_port`` on the Pi-hole host.
+    """
+    urls: list[str] = []
+    seen: set[str] = set()
+
+    def _add(u: str) -> None:
+        s = (u or "").strip().rstrip("/")
+        if not s or s in seen:
+            return
+        seen.add(s)
+        urls.append(s)
+
+    _add(getattr(integ, "base_url", None) or "")
+    host = ""
+    if urls:
+        try:
+            host = normalize_fqdn(urlparse(urls[0]).hostname)
+        except Exception:
+            host = ""
+    if not host:
+        return urls
+    for h in _npm_proxy_hosts_cached(session):
+        domains = {normalize_fqdn(str(d)) for d in (h.get("domain_names") or [])}
+        if host not in domains:
+            continue
+        fwd = (h.get("forward_host") or "").strip()
+        if not fwd or not _lan_forward_host_ok(fwd):
+            continue
+        scheme = (h.get("forward_scheme") or "http").strip().lower() or "http"
+        if scheme not in ("http", "https"):
+            scheme = "http"
+        netloc = fwd
+        try:
+            p = int(h.get("forward_port"))
+            default = 443 if scheme == "https" else 80
+            if p and p != default:
+                netloc = f"{fwd}:{p}"
+        except (TypeError, ValueError):
+            pass
+        _add(f"{scheme}://{netloc}")
+        break
+    return urls
+
+
+def _lan_forward_host_ok(host: str) -> bool:
+    h = (host or "").strip()
+    if not h:
+        return False
+    low = h.lower()
+    if low in {"localhost", "127.0.0.1", "::1"}:
+        return False
+    if is_valid_ipv4(h):
+        return True
+    return "." in h
+
+
+def pihole_login_with_fallback(session: Session, integ: Any):
+    """Login on each candidate URL until one answers."""
+    last: Exception | None = None
+    urls = pihole_login_urls(session, integ)
+    if not urls:
+        raise RuntimeError("Pi-hole has no base URL")
+    for url in urls:
+        try:
+            return ph.login(
+                url,
+                reg.pihole_password(integ),
+                tls_verify=reg.tls_verify(integ),
+            )
+        except Exception as e:
+            last = e
+            logger.info("pihole login %s at %s failed: %s", integ.name, url, e)
+    assert last is not None
+    raise last
 
 
 def _summarize_results(results: list[dict[str, Any]]) -> tuple[str, str]:
@@ -1874,23 +1974,29 @@ def build_access_path(
     npm_fwd = None if host_identity else _find_npm_forward(
         session, name, project, backend.id if backend else None
     )
-    # NPM hop only when CNAME target is a *different* host (the edge).
-    # If DNS already lands on the backend (direct TLS on the container),
-    # leftover NPM proxy-host inventory must not keep the path as via-NPM.
-    edge_differs = (
-        not host_identity
-        and target is not None
+    # Same-host NPM is real (n8n on the NPM box): public CNAME → nginx…,
+    # proxy forward on the same Pi. Honor via_proxy even when target == backend.
+    # Direct TLS: CNAME/A already on the backend host — leftover NPM inventory
+    # is not the edge unless the fabric row is still flagged via_proxy.
+    same_host = (
+        target is not None
         and backend is not None
-        and target.id != backend.id
+        and target.id == backend.id
     )
-    if host_identity or (target is not None and backend is not None and target.id == backend.id):
+    edge_differs = not host_identity and not same_host and target is not None and backend is not None
+    if host_identity:
+        edge_is_proxy = False
+        npm_fwd = None
+    elif bool(via_proxy):
+        edge_is_proxy = True
+    elif same_host:
         edge_is_proxy = False
         npm_fwd = None
     else:
-        edge_is_proxy = bool(via_proxy) or edge_differs
-        if npm_fwd and (edge_differs or via_proxy):
+        edge_is_proxy = bool(edge_differs)
+        if npm_fwd and edge_differs:
             edge_is_proxy = True
-        if not npm_fwd and not edge_differs and not via_proxy:
+        if not npm_fwd and not edge_differs:
             edge_is_proxy = False
 
     hops: list[dict[str, Any]] = []
@@ -1911,21 +2017,30 @@ def build_access_path(
     )
 
     if edge_is_proxy and target:
+        edge_host = _npm_edge_hostname(session)
         hop_npm: dict[str, Any] = {
             "kind": "npm",
-            "label": target.name,
-            "sub": normalize_fqdn(target.dns_name)
-            or (npm_fwd or {}).get("forward_host")
-            or "NPM edge",
+            "label": edge_host or target.name,
+            "sub": (
+                f"{target.name} · same host"
+                if same_host
+                else (
+                    normalize_fqdn(target.dns_name)
+                    or (npm_fwd or {}).get("forward_host")
+                    or "NPM edge"
+                )
+            ),
             "href": f"/servers/{target.id}",
             "server_id": target.id,
             "entity": "npm_edge",
+            "same_host": bool(same_host),
         }
         if npm_fwd and npm_fwd.get("forward_host"):
             hop_npm["forward"] = (
                 f"{npm_fwd.get('forward_host')}:{npm_fwd.get('forward_port')}"
             )
-            hop_npm["sub"] = hop_npm.get("sub") or hop_npm["forward"]
+            if not same_host:
+                hop_npm["sub"] = hop_npm.get("sub") or hop_npm["forward"]
         hops.append(hop_npm)
 
     if backend:
@@ -1973,10 +2088,16 @@ def build_access_path(
         path_title = "A name = host"
     elif has_npm and has_app:
         path_kind = "npm_app"
-        path_title = "name → NPM → host → app"
+        path_title = (
+            "name → NPM → host → app (same host)"
+            if same_host
+            else "name → NPM → host → app"
+        )
     elif has_npm:
         path_kind = "npm_host"
-        path_title = "name → NPM → host"
+        path_title = (
+            "name → NPM → host (same host)" if same_host else "name → NPM → host"
+        )
     elif has_app:
         path_kind = "app"
         path_title = "name → host → app"
@@ -2150,7 +2271,7 @@ def fabric_rack_for_server(
     for r in records:
         path = build_access_path_for_record(session, r, persist_links=False)
         via = bool(path.get("via_proxy") if path.get("via_proxy") is not None else r.via_proxy)
-        if int(r.target_server_id) == sid and via and int(r.backend_server_id) != sid:
+        if int(r.target_server_id) == sid and via:
             is_npm_edge = True
             ingress_count += 1
         # Apps list = backend landings (same as Hosts map racks)

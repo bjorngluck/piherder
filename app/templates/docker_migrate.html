@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<script>window.PIHERDER_SERVER_ID = {{ server.id }};</script>
+<div class="max-w-3xl mx-auto">
+  <section class="ops-hero ops-hero--docker is-ok mb-4">
+    <div class="ops-hero-main">
+      <div class="ops-hero-kicker host-kicker-line">
+        <a href="/servers/{{ server.id }}/docker" class="host-switcher-name-link">{{ server.name }}</a>
+        <span class="host-kicker-sep">·</span>
+        <span>Docker</span>
+        <span class="host-kicker-sep">·</span>
+        <span>Move</span>
+      </div>
+      <h1 class="ops-hero-title">Move {{ project }}</h1>
+      <p class="ops-hero-sub">
+        Stop-first cutover: preflight, stop → copy → dest <code>up -d</code> → DNS / NPM → validate.
+      </p>
+      <div class="ops-hero-actions">
+        <a href="/servers/{{ server.id }}/docker" class="btn btn-secondary min-h-11 text-sm">Back to Docker</a>
+      </div>
+    </div>
+  </section>
+
+  {% set hl = host_lock or {} %}
+  {% if hl.locked %}
+  <div class="mb-4 p-3 text-sm rounded border border-border banner-warning" data-testid="migrate-locked">
+    Locked to this host{% if hl.reason_label %} ({{ hl.reason_label }}){% endif %}{% if hl.note %}: {{ hl.note }}{% endif %}.
+    Unlock on the Docker project ⋯ menu before a move can run.
+  </div>
+  {% endif %}
+
+  <div class="card p-4 sm:p-5 mb-4">
+    <div class="ph-detail-kicker">From</div>
+    <p class="text-sm mb-4">
+      <strong>{{ server.name }}</strong>
+      <span class="text-muted font-mono">{{ server.hostname }}</span>
+      · project <span class="font-mono text-accent">{{ project }}</span>
+    </p>
+    <label class="block text-xs text-muted mb-1" for="migrate-dest">To (Docker hosts only)</label>
+    {% if destinations %}
+    <select id="migrate-dest"
+            name="dest"
+            class="w-full bg-surface border border-border rounded px-2 py-2 text-sm min-h-11"
+            data-testid="migrate-dest"
+            hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
+            hx-target="#migrate-preflight"
+            hx-swap="innerHTML"
+            hx-include="[name='project'], [name='dest_project'], [name^='dest_port_'], [name^='bind_src_'], [name^='dest_bind_'], [name^='skip_bind_']"
+            hx-indicator="#migrate-preflight-wait"
+            hx-trigger="change">
+      <option value="">Select destination…</option>
+      {% for d in destinations %}
+      <option value="{{ d.id }}">
+        {{ d.name }} · {{ d.hostname }}{% if d.dns_name %} · {{ d.dns_name }}{% endif %}
+      </option>
+      {% endfor %}
+    </select>
+    <input type="hidden" name="project" value="{{ project }}">
+    {% else %}
+    <p class="text-sm text-muted" data-testid="migrate-no-dest">
+      No other Docker hosts available (HAOS and this host are excluded).
+    </p>
+    {% endif %}
+  </div>
+
+  <div id="migrate-preflight-wait"
+       class="htmx-indicator card p-4 sm:p-5 mb-3 text-sm"
+       role="status"
+       data-testid="migrate-preflight-wait">
+    Checking destination… reading host facts over SSH.
+  </div>
+  <div id="migrate-preflight" data-testid="migrate-preflight">
+    <p class="text-sm text-muted">Pick a destination to run preflight.</p>
+  </div>
+</div>
+<script>
+  (function () {
+    function forPreflight(e) {
+      var t = e.detail && e.detail.target;
+      return t && t.id === 'migrate-preflight';
+    }
+    document.body.addEventListener('htmx:beforeRequest', function (e) {
+      if (!forPreflight(e)) return;
+      if (!window.PiHerderWaitModal) return;
+      window.PiHerderWaitModal.show(
+        'Checking destination',
+        'Reading dest over SSH (ports, folder, leftover containers)…'
+      );
+    });
+    function hideWait() {
+      if (window.PiHerderWaitModal) window.PiHerderWaitModal.hide();
+    }
+    document.body.addEventListener('htmx:afterSwap', hideWait);
+    document.body.addEventListener('htmx:afterRequest', hideWait);
+    document.body.addEventListener('htmx:responseError', hideWait);
+    document.body.addEventListener('htmx:sendError', hideWait);
+    document.body.addEventListener('htmx:abort', hideWait);
+  })();
+</script>
+{% endblock %}

@@ -10,7 +10,7 @@ Backups and self-backup are only as durable as the disk under these paths. Celer
 
 | Host path | Container | Purpose | In self-backup? |
 |-----------|-----------|---------|-----------------|
-| `${PIHERDER_BACKUP_HOST_PATH:-./backups}` | `/backups` | rsync destinations for **server** backups | **No** — separate DR ([Backups](../day-to-day/backups.md)) |
+| `${PIHERDER_BACKUP_HOST_PATH:-./backups}` | `/backups` | rsync destinations for **server** backups; migrate staging under `_migrate/{job_id}/` (mode 700; wiped on success) | **No** — separate DR ([Backups](../day-to-day/backups.md) · [Move a service](../docker/service-migration.md)) |
 | `./piherder_backups` | `/herder_backups` | PiHerder **self-backup** archives (chown uid **1000** if permission errors) | These *are* the archives |
 | `./piherder_data` | `/data` | Avatars, service logos, **nmap run XML** under `nmap/runs/` (Settings live in Postgres) | Avatars/logos **yes**; nmap XML **no** ([Self-backup](self-backup.md)) |
 | `${PIHERDER_NMAP_VULN_PATH:-./piherder_nmap_vuln}` | `/var/lib/piherder/nmap-vuln` | Opt-in **vuln pack** (web **:ro**, nmap worker **rw**) — [LAN Discovery](../integrations/lan-discovery.md) | **No** |

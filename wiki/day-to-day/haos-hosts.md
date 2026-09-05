@@ -86,6 +86,7 @@ Schedules reuse the same check/apply machinery as Debian hosts; the backend bran
 - Poll Home Assistant **REST** with a long-lived access token  
 - Manage **add-on** updates one-by-one  
 - Treat HA as a **Docker Compose** project on the appliance  
+- Appear as a **Move** source or destination ([Move a service](../docker/service-migration.md)) — HAOS is always host-locked  
 - Run **apt** upgrade on HAOS  
 - Ship an HA custom component that talks to PiHerder (use [API tokens](../operations/api-tokens.md) for HA → PiHerder automations today)
 
@@ -100,3 +101,4 @@ Schedules reuse the same check/apply machinery as Debian hosts; the backend bran
 | Backups | [Backups](backups.md) |
 | SSH / rsync issues | [SSH, rsync & dependencies](../troubleshooting/ssh-rsync.md) |
 | API from HA | [API tokens](../operations/api-tokens.md) · [API.md](https://github.com/bjorngluck/piherder/blob/main/docs/API.md) |
+| Move a compose stack | [Move a service](../docker/service-migration.md) — HAOS is never source or dest |

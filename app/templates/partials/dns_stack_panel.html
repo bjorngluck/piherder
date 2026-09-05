@@ -30,6 +30,9 @@
         {% elif p.kuma_path_coverage == 'none' %}
         · <span class="text-error">path no Kuma</span>
         {% endif %}
+        {% if p.host_lock and p.host_lock.locked %}
+        · <span class="text-warning" title="{{ p.host_lock.reason_label }}{% if p.host_lock.note %} — {{ p.host_lock.note }}{% endif %}">locked{% if p.host_lock.reason_label %} · {{ p.host_lock.reason_label }}{% endif %}</span>
+        {% endif %}
       </p>
     </div>
     <div class="shrink-0">

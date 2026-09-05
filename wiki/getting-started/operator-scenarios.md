@@ -115,6 +115,24 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 
 ---
 
+### Journey Move — Compose project to another host {#journey-move}
+
+**Goal:** An unlocked stack (Grafana-class) runs on dest with its data, name, and maps. Requires `PIHERDER_SERVICE_MIGRATE=true` and two Docker hosts. Production Hub image is still **1.3.0** until **v1.4.0** tags — use the `v1.4.0-dev` tree (dev freeze / pending sign-off).
+
+| Step | Action | Why |
+|------|--------|-----|
+| 1 | Enable the flag; recreate **web** | Kill switch default **off** |
+| 2 | [Lock](../docker/service-migration.md) a hardware-bound stack (or HAOS) | Prove Move is refused |
+| 3 | Unlock a disposable stack; **⋯ → Move to another host…** | Wizard |
+| 4 | Pick dest (wait modal) · remap dest name/ports if needed · read preflight | Blocks before copy; dest name/port overrides clear name/port clashes |
+| 5 | Confirm downtime → JobHold | Stop → copy → dest up → name/proxy. Copy/dest-up fail: **Start source stack** |
+| 6 | Check dest inventory, CNAME or NPM `forward_host`, maps, Grafana container chips | Green cutover |
+| 7 | Leave leftover **stopped** on the first run | Data still on source |
+
+Full page: [Move a service](../docker/service-migration.md). Do **not** pick **Remove source** on a stack you still need. Tick **Adopt into fabric** only if an NPM-only name should appear on the DNS list (Pi-hole CNAMEs stay).
+
+---
+
 ### Journey E — Homelab map (DNS + proxy + certs) {#journey-e}
 
 **Goal:** Names, paths, and TLS are visible and mostly automated.
@@ -177,6 +195,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | 2 | Optional Settings → **SSO** | BYO IdP; keep an admin password |
 | 3 | Leave `PIHERDER_SSH_CONSOLE=false` unless you need a browser shell | Default off; XSS on the herder origin is shell-equivalent when on |
 | 3b | Leave `PIHERDER_HOST_FILES=false` until you want jailed SFTP | Default off; [Host Files](../day-to-day/host-files.md) |
+| 3c | Leave `PIHERDER_SERVICE_MIGRATE=false` until you want host→host copy | Default off; [Move a service](../docker/service-migration.md) |
 | 4 | If you enable it: **Settings → Console** for idle / max / slots; Security for 2FA grant | [Web SSH console](../day-to-day/web-ssh-console.md) · [Settings](../operations/settings.md#console) |
 | 5 | Then: operator + 2FA → Console → **+ Shell** | Same wiki |
 | 6 | **Test connection** pins the host key; reset only after a rebuild | TOFU — mismatch is refused |
@@ -239,6 +258,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 |----------|-----|
 | Browse projects / containers / logs | [Docker overview](../docker/overview.md) |
 | Stop / Start / Restart **all** services in a project | [Docker overview — lifecycle](../docker/overview.md#project-lifecycle-stop--start--restart-all) |
+| Move a compose project to another host | [Move a service](../docker/service-migration.md) · Journey Move |
 | Split services across compose files (same folder) | [Compose sets](../docker/overview.md#compose-sets-same-folder-one-project-card) · [Compose edit](../docker/compose-edit.md#compose-sets-vs-override) |
 | Runtime stack view groups on the map | [Network — view groups](../integrations/dns-fabric.md#visual-service-stacks--view-groups) |
 | First cert → map / Apply to this PiHerder | [Managed certificates](../integrations/certificates.md) · [Trusted HTTPS](https-tls.md) |

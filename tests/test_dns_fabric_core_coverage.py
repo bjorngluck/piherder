@@ -598,6 +598,81 @@ def test_fanout_pihole_dns_add_delete_and_duplicate():
         assert all(r["id"] != ph1.id for r in res5)
 
 
+def test_pihole_login_urls_uses_npm_lan():
+    session, _ = _engine_session()
+    ph_row = _pihole(session)
+    ph_row.base_url = "https://pihole.example.test"
+    session.add(ph_row)
+    npm = Integration(
+        type="npm",
+        name="edge",
+        base_url="https://nginx.example.test",
+        enabled=True,
+        last_status_json=json.dumps(
+            {
+                "ok": True,
+                "proxy_hosts": [
+                    {
+                        "id": "2",
+                        "domain_names": ["pihole.example.test"],
+                        "forward_host": "192.168.86.34",
+                        "forward_port": 88,
+                        "forward_scheme": "http",
+                    }
+                ],
+            }
+        ),
+    )
+    session.add(npm)
+    session.commit()
+    urls = fabric.pihole_login_urls(session, ph_row)
+    assert urls[0].rstrip("/") == "https://pihole.example.test"
+    assert "http://192.168.86.34:88" in urls
+
+
+def test_pihole_login_fallback_second_url():
+    session, _ = _engine_session()
+    ph_row = _pihole(session)
+    ph_row.base_url = "https://pihole.example.test"
+    session.add(ph_row)
+    npm = Integration(
+        type="npm",
+        name="edge",
+        base_url="https://nginx.example.test",
+        enabled=True,
+        last_status_json=json.dumps(
+            {
+                "ok": True,
+                "proxy_hosts": [
+                    {
+                        "id": "2",
+                        "domain_names": ["pihole.example.test"],
+                        "forward_host": "10.1.2.3",
+                        "forward_port": 88,
+                        "forward_scheme": "http",
+                    }
+                ],
+            }
+        ),
+    )
+    session.add(npm)
+    session.commit()
+    calls = []
+
+    def login(url, password, **kw):
+        calls.append(url)
+        if "10.1.2.3" in url:
+            return MagicMock()
+        raise ConnectionError("connection refused")
+
+    with patch("app.services.dns_fabric.core.ph") as ph:
+        ph.login.side_effect = login
+        sess = fabric.pihole_login_with_fallback(session, ph_row)
+        assert sess is not None
+    assert len(calls) == 2
+    assert "10.1.2.3" in calls[1]
+
+
 def test_host_dns_form_defaults_saved_and_suggested():
     session, _ = _engine_session()
     saved = _server(

@@ -71,6 +71,13 @@
   border-top: 1px solid var(--md-default-fg-color--lightest);
 }
 
+/* BMC / sponsor buttons — keep native size in cards */
+.md-typeset a img[alt="Buy me a coffee"] {
+  height: 50px;
+  width: auto;
+  max-width: 100%;
+}
+
 /* Step callouts */
 .ph-steps ol {
   counter-reset: ph-step;

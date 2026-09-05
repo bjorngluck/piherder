@@ -57,7 +57,8 @@ def test_redeploy_pull_fail_marked():
     assert r["success"] is False
     assert r["pull_ok"] is False
     assert r["up_ok"] is True
-    assert r["error"] == "pull failed"
+    assert r["error"].startswith("pull failed")
+    assert "unauthorized" in r["error"]
 
 
 def test_redeploy_up_only_no_pull():

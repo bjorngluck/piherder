@@ -9,7 +9,7 @@ How to move a running compose install to a newer **git tag or `main`**, pull the
 Upgrades change code *and* schema. A self-backup + unchanged master key is the difference between a smooth pull and an unrecoverable encrypted store.
 
 !!! tip "Prefer tags"
-    Prefer **tagged production releases** (`v1.3.0` / later `1.3.x`). Treat untagged `main` as moving. See [Home](../index.md#release-status) · [RELEASE_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md).
+    Prefer **tagged production releases** (`v1.3.0` / later `1.3.x`; **v1.4.0** after sign-off). Treat untagged `main` as moving. See [Home](../index.md#release-status) · [RELEASE_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md) · [v1.4.0 pending](https://github.com/bjorngluck/piherder/blob/v1.4.0-dev/docs/RELEASE_v1.4.0.md).
 
 ```bash
 # Config DR first
@@ -28,7 +28,7 @@ docker compose up -d
 
 - [ ] Self-backup successful (**admin** — Settings → PiHerder backup)  
 - [ ] `PIHERDER_MASTER_KEY` unchanged and backed up offline  
-- [ ] Read [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md) for the version you jump to  
+- [ ] Read [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md) for the version you jump to (1.4: [pending](https://github.com/bjorngluck/piherder/blob/v1.4.0-dev/docs/RELEASE_v1.4.0.md))  
 - [ ] `docker compose ps` healthy (image `bjorngluck/piherder:…`)  
 - [ ] Smoke: login, Users recovery (if multi-user), one server, maps/ports, optional template  
 - [ ] Hard-refresh browser once after UI/CSS deploys (query-busted stylesheets)  
@@ -74,6 +74,19 @@ Settings policy is JSON in `appsetting`. Alembic **`040_ssh_identities`** (fleet
 9. **Host Files** is **off** until you set `PIHERDER_HOST_FILES=true` and restart web. Transfer cap is **Settings → Files** (default 512 MiB, ceiling 32 GiB) unless you lock `PIHERDER_HOST_FILES_MAX_BYTES`. [Host Files](../day-to-day/host-files.md).  
 10. **Reports** is on at `/reports` (no flag) — [Reports](../day-to-day/reports.md).  
 11. Immediately run **Settings → PiHerder backup → Full DR** once and copy the archive off-box. Hard-refresh the browser.
+
+## 1.3 → 1.4 {#13--14}
+
+Jump from **v1.3.x** to **v1.4.0** (after tag). Notes: [RELEASE_v1.4.0.md](https://github.com/bjorngluck/piherder/blob/v1.4.0-dev/docs/RELEASE_v1.4.0.md). Until Hub tags, only the `v1.4.0-dev` tree.
+
+Alembic **`042_compose_project_meta`** (per-project host lock). **Move a service** stays **off** until `PIHERDER_SERVICE_MIGRATE=true` and you recreate **web**.
+
+1. Self-backup first (**Full DR**). Keep `PIHERDER_MASTER_KEY`.  
+2. After tag: `git fetch --tags && git checkout v1.4.0` (or pull `bjorngluck/piherder:1.4.0`).  
+3. `docker compose pull && docker compose up -d` — Alembic runs on web start.  
+4. Optional: enable Move, recreate **web**, walk [Move a service](../docker/service-migration.md) on a disposable stack.  
+5. Smoke: lock a hardware-bound project · 1.3 Settings / Reports / Files / console.  
+6. Immediately run **Full DR** again. Hard-refresh the browser.
 
 ## Breaking notes
 

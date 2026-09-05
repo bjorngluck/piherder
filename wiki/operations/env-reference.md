@@ -34,7 +34,8 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 | `PIHERDER_CSP` | **true** (default) — send Content-Security-Policy. Scripts are **self-hosted** (compiled Tailwind, no Play CDN, **no `unsafe-eval`**). `connect-src` is `'self'` plus `PIHERDER_PUBLIC_URL` / its `wss:` — **no** wildcard `ws:`/`wss:`. Inline script/style still allowed (1.3 nonces). |
 | `PIHERDER_CSP_REPORT_ONLY` | **false** (default) — if true, send Report-Only CSP instead of enforcing |
 | `PIHERDER_SSH_CONSOLE` | **false** (default) — **master enable** for web SSH (operator+ / 2FA; in-app only). Not a Settings checkbox. |
-| `PIHERDER_HOST_FILES` | **false** (default) — **master enable** for host Files (operator+; jailed SFTP). Not a Settings checkbox. [Host Files](../day-to-day/host-files.md). Optional `PIHERDER_HOST_FILES_MAX_BYTES` **locks** the cap (otherwise **Settings → Files**, default 512 MiB, ceiling 32 GiB) — do not inject a compose default. |
+| `PIHERDER_HOST_FILES` | **false** (default) — **master enable** for host Files (operator+; jailed SFTP). Not a Settings checkbox. Public demo uses a **canned** tree instead (leave this **off** on the demo VPS). [Host Files](../day-to-day/host-files.md). Optional `PIHERDER_HOST_FILES_MAX_BYTES` **locks** the cap (otherwise **Settings → Files**, default 512 MiB, ceiling 32 GiB) — do not inject a compose default. |
+| `PIHERDER_SERVICE_MIGRATE` | **false** (default) — **master enable** for Docker **Move to another host…** (stop → copy → dest up → DNS/NPM). Host **lock / unlock** is always available (operator+). Optional leftover: leave stopped, `compose down`, or remove source project + named volumes (extra ack). Optional **Adopt into fabric** on preflight (default off). Leave off until you want operators using copy. Demo never copies. [Move a service](../docker/service-migration.md). |
 
 Idle, max session, concurrency, ticket, hold, bind, revalidate, scrollback, grant, and 2FA factor knobs live in **Settings** ([Console](settings.md#console) + Security). Set a **non-empty** env value to **lock** that knob (air-gap). Bundled compose does **not** inject defaults for these, or Settings cannot apply. Names if you lock:
 
@@ -169,5 +170,6 @@ docker compose --profile nmap up -d celery-worker-nmap
 - [LAN Discovery](../integrations/lan-discovery.md)  
 - [Volumes](volumes.md)  
 - [ADMIN.md — production env](https://github.com/bjorngluck/piherder/blob/main/docs/ADMIN.md)  
+- [v1.4.0 QA](https://github.com/bjorngluck/piherder/blob/v1.4.0-dev/docs/QA_v1.4.0.md) (maintainer `docs/` — freeze pending; not this wiki)  
 - [v1.3.0 QA](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.3.0.md) (maintainer `docs/` — not this wiki)  
 - [v1.2.0 QA / sign-off](qa-v1.2.0.md) (prior)

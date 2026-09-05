@@ -95,6 +95,10 @@
             {% if proj.has_pending_update %}
             <span class="status-pill status-failed" title="{% if proj.update_container_count %}{{ proj.update_container_count }} service(s){% else %}Stack{% endif %} with image updates">Update available</span>
             {% endif %}
+            {% set hl = proj.host_lock or {} %}
+            {% if hl.locked %}
+            <span class="status-pill feature-off" title="{{ hl.reason_label or 'Locked' }}{% if hl.note %} — {{ hl.note }}{% endif %}">Locked{% if hl.reason_label %} · {{ hl.reason_label }}{% endif %}</span>
+            {% endif %}
             {% set proj_kuma = (kuma_by_project or {}).get(proj.name) or [] %}
             {% for chip in proj_kuma %}
             <a href="{{ chip.open_url or '#' }}"
@@ -175,6 +179,39 @@
             Template settings…
           </a>
           {% endif %}
+          {% set hl = proj.host_lock or {} %}
+          {% if can_host_lock|default(false) and not hl.implicit %}
+          {% if hl.locked %}
+          <form method="post" action="/servers/{{ server.id }}/docker/host-unlock" data-sec="host-unlock">
+            <input type="hidden" name="project" value="{{ proj.name }}">
+            <button type="submit" data-sec-btn="host-unlock"
+                    title="{% if hl.note %}{{ hl.reason_label }}: {{ hl.note }}{% else %}{{ hl.reason_label or 'Unlock' }}{% endif %}">Unlock…</button>
+          </form>
+          {% else %}
+          <form method="post" action="/servers/{{ server.id }}/docker/host-lock" data-sec="host-lock">
+            <input type="hidden" name="project" value="{{ proj.name }}">
+            <input type="hidden" name="reason" value="operator">
+            <input type="hidden" name="note" value="">
+            <button type="submit" data-sec-btn="host-lock">Lock to this host…</button>
+          </form>
+          {% endif %}
+          {% endif %}
+          {% if migrate_enabled|default(false) and can_host_lock|default(false) %}
+          {% if hl.locked %}
+          <button type="button" data-sec-btn="host-move" disabled aria-disabled="true"
+                  title="Locked{% if hl.reason_label %} ({{ hl.reason_label }}){% endif %}{% if hl.note %}: {{ hl.note }}{% endif %}">
+            Move to another host…
+          </button>
+          {% else %}
+          <a href="/servers/{{ server.id }}/docker/migrate?project={{ proj.name | urlencode }}"
+             data-sec-btn="host-move"
+             class="no-underline"
+             data-nav-loading="Opening move wizard…"
+             title="Preflight then (later) stop-first copy">
+            Move to another host…
+          </a>
+          {% endif %}
+          {% endif %}
           <form method="post" action="/servers/{{ server.id }}/docker/redeploy" data-sec="deploy">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
             <input type="hidden" name="pull" value="true">
@@ -242,8 +279,19 @@
           </button>
           <form method="post" action="/servers/{{ server.id }}/docker/compose/down" data-sec="undeploy">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
+            <input type="hidden" name="remove_volumes" value="">
             <button type="submit" data-sec-btn="undeploy">Undeploy</button>
           </form>
+          {% if hl.locked %}
+          <button type="button" data-sec-btn="remove-project" disabled aria-disabled="true"
+                  title="Unlock this project before deleting the folder">Delete project…</button>
+          {% else %}
+          <form method="post" action="/servers/{{ server.id }}/docker/compose/remove" data-sec="remove-project">
+            <input type="hidden" name="project_path" value="{{ proj.path }}">
+            <input type="hidden" name="remove_ack" value="">
+            <button type="submit" data-sec-btn="remove-project">Delete project…</button>
+          </form>
+          {% endif %}
         </div>
       </div>
 

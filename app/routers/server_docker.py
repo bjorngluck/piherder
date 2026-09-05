@@ -11,6 +11,7 @@ from sqlmodel import Session
 import json
 from typing import Optional
 from datetime import datetime
+from urllib.parse import quote
 
 from ..database import get_session
 from ..models import Server
@@ -18,8 +19,17 @@ from ..services.audit_write import make_audit_log
 from ..services import docker_management as docker_svc
 from ..services import docker_inventory as inventory_svc
 from ..services import env_file_ui
+from ..services.service_migrate import host_lock as host_lock_svc
+from ..services.service_migrate import preflight as migrate_preflight
+from ..services.nav_shortcuts import host_feature_context
 from .. import templates as templates_mod
-from ..security.auth import get_current_user, get_operator_user, secrets_unlock_active
+from ..security.auth import (
+    get_current_user,
+    get_operator_user,
+    secrets_unlock_active,
+    role_at_least,
+    ROLE_OPERATOR,
+)
 from ..models import User
 
 router = APIRouter()
@@ -259,6 +269,10 @@ async def redeploy(
     )
 
 
+def _form_flag(raw: str) -> bool:
+    return (raw or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 @router.post("/{server_id}/docker/compose/{action}")
 async def compose_project_action(
     request: Request,
@@ -267,13 +281,15 @@ async def compose_project_action(
     background_tasks: BackgroundTasks,
     project_path: str = Form(...),
     service: str = Form(""),
+    remove_volumes: str = Form(""),
+    remove_ack: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """Compose project action: stop/start/restart/down.
+    """Compose project action: stop/start/restart/down/remove.
 
-    Whole-project stop/start/restart run as Jobs with live log (H2.75 P1).
-    Single-service stop/start/restart and ``down`` stay synchronous.
+    Whole-project stop/start/restart/down/remove run as Jobs with live log.
+    Single-service stop/start/restart stay synchronous.
     """
     from ..services import jobs as job_service
     from ..security.auth import role_at_least, ROLE_OPERATOR
@@ -287,9 +303,10 @@ async def compose_project_action(
     act = (action or "").strip().lower()
     path = (project_path or "").strip()
     svc = (service or "").strip() or None
+    drop_vols = _form_flag(remove_volumes)
 
     # Bulk lifecycle → Job + JobHold (exclusive with other stack mutations)
-    if act in ("stop", "start", "restart") and not svc:
+    if act in ("stop", "start", "restart", "down") and not svc:
         if not role_at_least(user, ROLE_OPERATOR):
             raise HTTPException(403, "Operator or admin role required")
         already_active = False
@@ -300,6 +317,7 @@ async def compose_project_action(
                 act,
                 user_id=user.id if user else None,
                 background_tasks=background_tasks,
+                remove_volumes=drop_vols if act == "down" else False,
             )
         except job_service.JobAlreadyActive as e:
             job = e.job
@@ -318,7 +336,7 @@ async def compose_project_action(
                     "status": job.status,
                     "job_type": job_type,
                     "project": proj_name,
-                    "action": act,
+                    "action": "down -v" if act == "down" and drop_vols else act,
                     "already_active": already_active,
                 },
                 status_code=409 if already_active else 200,
@@ -330,8 +348,52 @@ async def compose_project_action(
             status_code=303,
         )
 
-    # Single-service lifecycle or compose down (undeploy)
-    res = docker_svc.compose_action(server, path, act, service=svc)
+    if act == "remove" and not svc:
+        if not role_at_least(user, ROLE_OPERATOR):
+            raise HTTPException(403, "Operator or admin role required")
+        if not _form_flag(remove_ack):
+            raise HTTPException(
+                400, "delete project requires remove_ack"
+            )
+        already_active = False
+        try:
+            job = job_service.enqueue_docker_stack_remove(
+                server.id,
+                path,
+                user_id=user.id if user else None,
+                background_tasks=background_tasks,
+            )
+        except job_service.JobAlreadyActive as e:
+            job = e.job
+            already_active = True
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        if not job:
+            raise HTTPException(500, "Could not queue project delete")
+        proj_name = os.path.basename(path.rstrip("/")) or path
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse(
+                {
+                    "job_id": job.id,
+                    "status": job.status,
+                    "job_type": "docker_stack_remove",
+                    "project": proj_name,
+                    "action": "remove",
+                    "already_active": already_active,
+                },
+                status_code=409 if already_active else 200,
+            )
+        return RedirectResponse(
+            f"/servers/{server_id}/docker?lifecycle=remove"
+            f"&project={quote(str(proj_name), safe='')}"
+            f"&job_id={job.id}",
+            status_code=303,
+        )
+
+    # Single-service lifecycle
+    res = docker_svc.compose_action(
+        server, path, act, service=svc, remove_volumes=drop_vols
+    )
     try:
         details = f"Project {path}"
         if svc:
@@ -538,6 +600,12 @@ async def stack_fragment(
     except Exception:
         fabric_by_project = {}
 
+    try:
+        host_lock_svc.annotate_projects(session, server, projects)
+    except Exception:
+        pass
+    can_host_lock = role_at_least(user, ROLE_OPERATOR)
+
     docker_keep = lq.query_string(
         {
             "q": lp["q"],
@@ -591,9 +659,325 @@ async def stack_fragment(
             "fabric_by_project": fabric_by_project,
             "hosts_map_url": hosts_map_url,
             "template_deployments_count": template_deployments_count,
+            "user": user,
+            "can_host_lock": can_host_lock,
+            "migrate_enabled": host_lock_svc.migrate_enabled(),
         },
     )
     return lq.attach_per_page_cookie(resp, lp["per_page"])
+
+
+def _docker_redirect(server_id: int, *, msg: str = "", error: str = "", detail: str = "") -> RedirectResponse:
+    q = ["nocache=1"]
+    if msg:
+        q.append(f"msg={quote(msg, safe='')}")
+    if error:
+        q.append(f"error={quote(error, safe='')}")
+    if detail:
+        q.append(f"detail={quote(detail[:160], safe='')}")
+    return RedirectResponse(
+        f"/servers/{server_id}/docker?{'&'.join(q)}",
+        status_code=303,
+    )
+
+
+@router.post("/{server_id}/docker/host-lock")
+async def docker_host_lock(
+    request: Request,
+    server_id: int,
+    project: str = Form(...),
+    reason: str = Form("operator"),
+    note: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        row = host_lock_svc.set_host_lock(
+            session,
+            server,
+            project,
+            reason=reason,
+            note=note,
+            user_id=user.id if user else None,
+        )
+        session.add(
+            make_audit_log(
+                user_id=user.id if user else None,
+                server_id=server_id,
+                action="service_host_lock",
+                status="success",
+                details=(
+                    f"project={row.compose_project} reason={row.lock_reason}"
+                    + (f" note={row.lock_note}" if row.lock_note else "")
+                ),
+            )
+        )
+        session.commit()
+    except host_lock_svc.HostLockError as e:
+        return _docker_redirect(server_id, error="host_lock", detail=e.message)
+    return _docker_redirect(server_id, msg="host_locked")
+
+
+@router.post("/{server_id}/docker/host-unlock")
+async def docker_host_unlock(
+    request: Request,
+    server_id: int,
+    project: str = Form(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        row = host_lock_svc.unlock_host(session, server, project)
+        session.add(
+            make_audit_log(
+                user_id=user.id if user else None,
+                server_id=server_id,
+                action="service_host_unlock",
+                status="success",
+                details=f"project={row.compose_project}",
+            )
+        )
+        session.commit()
+    except host_lock_svc.HostLockError as e:
+        return _docker_redirect(server_id, error="host_lock", detail=e.message)
+    return _docker_redirect(server_id, msg="host_unlocked")
+
+
+def _require_migrate_surface() -> None:
+    if not host_lock_svc.migrate_surface_allowed():
+        raise HTTPException(404, "Service migration is off")
+
+
+@router.get("/{server_id}/docker/migrate", response_class=HTMLResponse)
+async def docker_migrate_wizard(
+    server_id: int,
+    request: Request,
+    project: str = "",
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    _require_migrate_surface()
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        proj = host_lock_svc.compose_project_name(project)
+    except host_lock_svc.HostLockError as e:
+        raise HTTPException(e.status_code, detail=e.message) from e
+    dests = migrate_preflight.eligible_destinations(session, server)
+    lock = host_lock_svc.lock_state(session, server, proj)
+    _nav = host_feature_context(session, int(user.id) if user else None, server, "docker")
+    try:
+        session.add(
+            make_audit_log(
+                user_id=user.id if user else None,
+                server_id=server_id,
+                action="service_migrate_preview",
+                status="success",
+                details=f"project={proj}",
+            )
+        )
+        session.commit()
+    except Exception:
+        session.rollback()
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="docker_migrate.html",
+        context={
+            "title": f"Move {proj} — {server.name}",
+            "server": server,
+            "project": proj,
+            "destinations": dests,
+            "host_lock": lock,
+            "user": user,
+            **_nav,
+        },
+    )
+
+
+@router.get("/{server_id}/docker/migrate/preflight", response_class=HTMLResponse)
+async def docker_migrate_preflight(
+    server_id: int,
+    request: Request,
+    project: str = "",
+    dest: str = "",
+    dest_project: str = "",
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    _require_migrate_surface()
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        dest_id = int((dest or "").strip() or "0")
+    except ValueError:
+        dest_id = 0
+    dest_server = session.get(Server, dest_id) if dest_id else None
+    if not dest_server:
+        return templates_mod.templates.TemplateResponse(
+            request=request,
+            name="partials/docker_migrate_preflight.html",
+            context={"result": None, "project": project, "server": server},
+        )
+    try:
+        proj = host_lock_svc.compose_project_name(project)
+    except host_lock_svc.HostLockError as e:
+        raise HTTPException(e.status_code, detail=e.message) from e
+    from ..services.service_migrate.facts import (
+        herder_free_bytes,
+        probe_host_facts,
+        refresh_host_inventory,
+    )
+    from ..services.service_migrate.overrides import (
+        parse_bind_overrides_from_mapping,
+        parse_port_map_from_mapping,
+    )
+
+    src_facts = probe_host_facts(server)
+    dest_facts = probe_host_facts(dest_server)
+    try:
+        refresh_host_inventory(dest_server.id)
+        session.refresh(dest_server)
+    except Exception:
+        pass
+    port_map = parse_port_map_from_mapping(request.query_params)
+    bind_overrides = parse_bind_overrides_from_mapping(request.query_params)
+    result = migrate_preflight.run_preflight(
+        session,
+        source=server,
+        dest=dest_server,
+        project=proj,
+        source_facts=src_facts,
+        dest_facts=dest_facts,
+        herder_free=herder_free_bytes(),
+        dest_project=dest_project,
+        port_map=port_map,
+        bind_overrides=bind_overrides,
+        live_inspect=True,
+    )
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="partials/docker_migrate_preflight.html",
+        context={"result": result, "project": proj, "server": server},
+    )
+
+
+@router.post("/{server_id}/docker/migrate")
+async def docker_migrate_start(
+    request: Request,
+    server_id: int,
+    background_tasks: BackgroundTasks,
+    project: str = Form(...),
+    dest: str = Form(...),
+    leftover: str = Form("stopped"),
+    leftover_remove_ack: str = Form(""),
+    devices_ack: str = Form(""),
+    adopt_fabric: str = Form(""),
+    dest_project: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    _require_migrate_surface()
+    from ..services import jobs as job_service
+    from ..services.service_migrate.overrides import (
+        bind_map_from_overrides,
+        parse_bind_overrides_from_mapping,
+        parse_port_map_from_mapping,
+    )
+
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        dest_id = int((dest or "").strip() or "0")
+    except ValueError:
+        dest_id = 0
+    dest_server = session.get(Server, dest_id) if dest_id else None
+    if not dest_server:
+        raise HTTPException(400, "destination required")
+    try:
+        from ..services.service_migrate.leftover import normalize_leftover
+
+        form = await request.form()
+        port_map = parse_port_map_from_mapping(form)
+        bind_rows = parse_bind_overrides_from_mapping(form)
+        bind_map = bind_map_from_overrides(bind_rows)
+        skip_binds = [
+            str(r.get("source") or "")
+            for r in bind_rows
+            if r.get("skip") and r.get("source")
+        ]
+        left = normalize_leftover(leftover)
+        if left == "remove":
+            rm_ack = (leftover_remove_ack or "").strip().lower() in (
+                "1",
+                "true",
+                "on",
+                "yes",
+            )
+            if not rm_ack:
+                raise HTTPException(
+                    400,
+                    "source remove requires leftover_remove_ack",
+                )
+        ack = (devices_ack or "").strip().lower() in ("1", "true", "on", "yes")
+        adopt = (adopt_fabric or "").strip().lower() in (
+            "1",
+            "true",
+            "on",
+            "yes",
+        )
+        job = job_service.enqueue_service_migrate(
+            server_id,
+            dest_id,
+            project,
+            user_id=user.id if user else None,
+            background_tasks=background_tasks,
+            leftover=left,
+            devices_ack=ack,
+            adopt_fabric=adopt,
+            dest_project=dest_project,
+            port_map=port_map,
+            bind_map=bind_map,
+            skip_binds=skip_binds,
+        )
+    except job_service.JobAlreadyActive as e:
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse(
+                {
+                    "job_id": e.job.id,
+                    "status": e.job.status,
+                    "job_type": "service_migrate",
+                    "already_active": True,
+                },
+                status_code=409,
+            )
+        raise HTTPException(409, "A stack or backup job is already running on source or dest") from e
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    except host_lock_svc.HostLockError as e:
+        raise HTTPException(e.status_code, e.message) from e
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse(
+            {
+                "job_id": job.id,
+                "status": job.status,
+                "job_type": "service_migrate",
+                "project": project,
+                "already_active": False,
+            }
+        )
+    return RedirectResponse(
+        f"/jobs?highlight={job.id}",
+        status_code=303,
+    )
 
 
 @router.post("/{server_id}/docker/check-updates")

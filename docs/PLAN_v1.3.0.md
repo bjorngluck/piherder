@@ -1,17 +1,17 @@
 # PiHerder v1.3.0 — operator policy, scale UX, multi-identity console, alerts, insights, host files
 
-**Status:** **Ready to tag** — QA complete 2026-08-22 · branch `v1.3.0-dev`  
-**Date opened:** 2026-08-18 (planning capture 2026-08-10) · **Feature freeze:** 2026-08-22  
-**Git branch:** `v1.3.0-dev` (integration) · merge → `main` → tag `v1.3.0`  
+**Status:** **Tagged** — production on `main` · 2026-08-22  
+**Date opened:** 2026-08-18 (planning capture 2026-08-10) · **Feature freeze:** 2026-08-22 · **Tagged:** 2026-08-22  
+**Git branch:** `v1.3.0-dev` (merged) · `main` · tag `v1.3.0`  
 **Package / image version:** `1.3.0`  
 **Theme:** Operator-configurable security policy · multi-identity console · optional command audit · console knobs · map/alert granularity · fleet-scale list UX · Reports history · **host Files manager (flag off)**  
 **Baseline:** `v1.2.0` (identity + webshell + gated demo — 2026-08-18)  
-**Mode:** **Q complete** — QA signed · screenshot pack landed · version **1.3.0**. Remaining: merge → tag → Hub.  
+**Mode:** **Shipped.** Next train: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) on `v1.4.0-dev`.  
 **QA:** [QA_v1.3.0.md](QA_v1.3.0.md) (maintainer — **not** in the operator wiki) · screenshots [inventory](../wiki/assets/screenshots/README.md)  
 **RELEASE:** [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) — operator-facing note (scope honesty **§ Where the plan bent**)  
 **Related:** [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [wiki/operations/alerts-email-webhooks.md](../wiki/operations/alerts-email-webhooks.md) · [SECURITY.md](../SECURITY.md)
 
-> **Feature freeze 2026-08-22.** Must + Should product streams for 1.3 are **done** (P, T, L, W-id, W-cfg, W-audit, A, N2, F). QA + screenshot pack + version bump **1.3.0** are on this PR. Cap stays Cap (**W-mux**, **AC-fg**, **N3**, CSP nonces, ACME, branding). Service migration stays [v1.4](PLAN_v1.4.0.md). Hub / `main` remain **v1.2.0** until merge + tag.
+> **Tagged 2026-08-22.** Must + Should product streams for 1.3 shipped (P, T, L, W-id, W-cfg, W-audit, A, N2, F). Cap stays Cap (**W-mux**, **AC-fg**, **N3**, CSP nonces, ACME, branding). Service migration is the [v1.4](PLAN_v1.4.0.md) train on `v1.4.0-dev`. Hub / `main` are **v1.3.0**.
 
 ---
 
@@ -553,13 +553,13 @@ Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3�
 | 8 | Run **N0** insights discovery (one-pager) → **N2** | **Done** — `/reports` history (backups, OS, LAN, Docker, console) |
 | 9 | Run **F0** files sign-off → **F Deep** (flag off until ready) | **Done** — feature complete; flag still **off** until GA |
 | 10 | **Feature freeze** | **Enforced 2026-08-22** |
-| 11 | Operator QA ([QA_v1.3.0.md](QA_v1.3.0.md)) + screenshot pack | **Current** |
-| 12 | Coverage ≥ 55% · `mkdocs build --strict` · version `1.3.0` · tag · Hub | After QA **Yes** |
+| 11 | Operator QA ([QA_v1.3.0.md](QA_v1.3.0.md)) + screenshot pack | **Done** |
+| 12 | Coverage ≥ 55% · `mkdocs build --strict` · version `1.3.0` · tag · Hub | **Done** — tagged 2026-08-22 |
 
 **Phase 1 execution order (parallelizable):** **L1** shared list chrome · **P1/P2** password-policy schema · **W-id1/W-id2** identity model + migrate single key.
 
-Service migration stays on [PLAN_v1.4.0.md](PLAN_v1.4.0.md) — do not add it to this freeze.
+Service migration is [PLAN_v1.4.0.md](PLAN_v1.4.0.md) on `v1.4.0-dev` (opened 2026-08-25).
 
 ---
 
-*Living on `v1.3.0-dev` until freeze into `RELEASE_v1.3.0.md`.*
+*Shipped as [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md). Next train: [PLAN_v1.4.0.md](PLAN_v1.4.0.md).*

@@ -6,7 +6,7 @@ The **operator freeze checklist** for **PiHerder v1.2.0**. This is the **prior**
 
 Maintainer copy (same tests + post-tag steps): [docs/QA_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.2.0.md).  
 What shipped: [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md).  
-**v1.3.0** is in **feature freeze**. Maintainer sign-off lives in [docs/QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/QA_v1.3.0.md) (not this wiki). This page stays the **1.2 production** checklist.
+**v1.3.0** is tagged production. **v1.4.0** is in **dev freeze** ([QA_v1.4.0.md](https://github.com/bjorngluck/piherder/blob/v1.4.0-dev/docs/QA_v1.4.0.md) — not this wiki). This page stays the **1.2 production** checklist.
 
 ## Why it exists
 

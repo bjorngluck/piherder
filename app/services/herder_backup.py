@@ -53,6 +53,7 @@ from ..models import (
     IntegrationBinding,
     ServiceTemplate,
     StackDeployment,
+    ComposeProjectMeta,
     NmapScanSchedule,
     NmapScanRun,
     NmapDevice,
@@ -424,6 +425,10 @@ def _snapshot_stack_deployments() -> List[Dict[str, Any]]:
     return _snapshot_table(StackDeployment)
 
 
+def _snapshot_compose_project_meta() -> List[Dict[str, Any]]:
+    return _snapshot_table(ComposeProjectMeta)
+
+
 def _snapshot_service_dns_records() -> List[Dict[str, Any]]:
     from ..models import ServiceDnsRecord
 
@@ -616,6 +621,7 @@ def _build_backup_payload(
             "certificate_targets",
             "service_templates",
             "stack_deployments",
+            "compose_project_meta",
             "service_dns_records",
             "runtime_edges",
             "topology_categories",
@@ -664,6 +670,7 @@ def _build_backup_payload(
         "certificate_targets": _snapshot_certificate_targets(),
         "service_templates": _snapshot_service_templates(),
         "stack_deployments": _snapshot_stack_deployments(),
+        "compose_project_meta": _snapshot_compose_project_meta(),
         "service_dns_records": _snapshot_service_dns_records(),
         "runtime_edges": _snapshot_runtime_edges(),
         "topology_categories": _snapshot_topology_categories(),
@@ -1156,6 +1163,7 @@ def restore_herder_backup(
         "restored_certificate_targets": 0,
         "restored_service_templates": 0,
         "restored_stack_deployments": 0,
+        "restored_compose_project_meta": 0,
         "restored_nmap_scan_schedules": 0,
         "restored_nmap_scan_runs": 0,
         "restored_nmap_devices": 0,
@@ -1295,6 +1303,9 @@ def restore_herder_backup(
         result["would_restore_stack_deployments"] = len(
             payload.get("stack_deployments") or []
         )
+        result["would_restore_compose_project_meta"] = len(
+            payload.get("compose_project_meta") or []
+        )
         result["would_restore_service_dns_records"] = len(
             payload.get("service_dns_records") or []
         )
@@ -1425,6 +1436,10 @@ def restore_herder_backup(
         s.flush()
         result["restored_stack_deployments"] = _upsert_rows(
             s, StackDeployment, payload.get("stack_deployments") or []
+        )
+        s.flush()
+        result["restored_compose_project_meta"] = _upsert_rows(
+            s, ComposeProjectMeta, payload.get("compose_project_meta") or []
         )
         s.flush()
         from ..models import ServiceDnsRecord
