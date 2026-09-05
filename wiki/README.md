@@ -30,6 +30,7 @@ mkdocs build --strict
 
 | Path | Content |
 |------|---------|
+| `support.md` | GitHub Sponsors and Buy me a coffee |
 | `getting-started/` | Install, TLS, first login, appearance, scenarios |
 | `day-to-day/` | Dashboard, Services, servers, HAOS hosts, backups, updates, jobs |
 | `docker/` | Host Docker browser, inventory, compose edit |

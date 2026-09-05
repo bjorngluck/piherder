@@ -76,4 +76,6 @@ Dependency versions are locked for reproducible builds. After changes:
 
 Open an Issue (or use Discussions when enabled).
 
+If you want to fund development and the public demo instead of (or as well as) contributing code: [GitHub Sponsors](https://github.com/sponsors/bjorngluck) or [Buy me a coffee](https://www.buymeacoffee.com/bjorngluck). Operator wiki: [Support the project](wiki/support.md).
+
 Thank you for helping make PiHerder better!
