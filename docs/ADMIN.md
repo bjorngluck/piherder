@@ -582,9 +582,9 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Auth chrome** | Unauthenticated `/` redirects to login; version string only when signed in |
 | **Roles** | Viewer cannot mutate fleet; Docker **build** stream is operator+ — [wiki roles](../wiki/account-security/roles.md) |
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
-| **Image pin** | Prefer a tagged image: Hub **`1.3.0`** / `1.3` / `latest` (`1.2.0` / `1.2` / `1.1.1` / `1.1` pins remain valid) |
+| **Image pin** | Prefer a tagged image: Hub **`1.3.0`** / `1.3` / `latest` until **v1.4.0** tags (`1.2.0` / `1.2` / `1.1.1` / `1.1` pins remain valid) |
 
-Current production: [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [QA_v1.3.0.md](QA_v1.3.0.md). Active train: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) on `v1.4.0-dev`. Prior: [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current production: [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [QA_v1.3.0.md](QA_v1.3.0.md). **v1.4.0 pending sign-off:** [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [QA_v1.4.0.md](QA_v1.4.0.md) on `v1.4.0-dev`. Prior: [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 

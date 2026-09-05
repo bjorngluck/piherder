@@ -1,12 +1,12 @@
 # PiHerder v1.4.0 — service migration
 
-**Status:** **Active** — train opened 2026-08-25 on `v1.4.0-dev`  
-**Date opened:** 2026-08-25 (planning capture 2026-08-17)  
-**Git branch:** `v1.4.0-dev` (integration) · merge → `main` → tag `v1.4.0`  
-**Package / image version (at tag):** `1.4.0` — tree stays **`1.3.0` until freeze**  
+**Status:** **Dev freeze — pending sign-off** (QA, screenshots, bugfixes only)  
+**Date opened:** 2026-08-25 (planning capture 2026-08-17) · **freeze:** 2026-09-04  
+**Git branch:** `v1.4.0-dev` (integration) · draft PR → `main` → tag `v1.4.0` after sign-off  
+**Package / image version (at tag):** `1.4.0` — tree stays **`1.3.0` until version bump / tag**  
 **Theme:** **Service migration** — move a Docker Compose project host→host with dataset copy, DNS / NPM retarget, resolver flush, TLS / Kuma validate, **host lock**, and leftover policy  
 **Baseline:** `v1.3.0` (tagged 2026-08-22)  
-**Mode:** Active train · Must signed · **M1–M9** + **M-npm** + **D-F** + **M-rm** landed · live QA; Grafana container rebind + adopt-fabric + Start-source CTA in; freeze / version bump not started  
+**Mode:** **Freeze** · Must signed · **M1–M9** + **M-npm** + **D-F** + **M-rm** landed · user notes [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · no new features until tag  
 **QA:** [QA_v1.4.0.md](QA_v1.4.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [SPEC.md](../SPEC.md) · wiki [Docker](../wiki/docker/overview.md) · [DNS fabric](../wiki/integrations/dns-fabric.md) · [Backups](../wiki/day-to-day/backups.md) · [HAOS](../wiki/day-to-day/haos-hosts.md)
 
@@ -48,7 +48,7 @@ This is SPEC / H2.5 **“Service migrate host→host; destructive service remove
 | In-scope streams | **M** service migration (**M1–M9** + **M-npm**) · **D-F** demo simulated Files · **Q** quality/freeze. **M-rm** Should |
 | Out-of-focus | **ACME-in-herder** · **M-live** · full NPM CRUD · Files token API · **W-mux** · **AC-fg** · **N3** · CSP nonces · branding · multi-tenant · Swarm/k8s |
 | Mode | Stop-first migrate · no half-built two-host jobs · Must → freeze |
-| Coverage | **≥ 55%** unit; focused tests for preflight, lock, path remap, CNAME, NPM PUT, HAOS refuse |
+| Coverage | **≥ 62%** unit; CI fail-under **62**; focused tests for preflight, lock, path remap, CNAME, NPM PUT, HAOS refuse |
 | E2E | Wizard chrome + lock disabled CTA (no live two-host in CI) |
 | Semver | Additive minor; new job type + `ComposeProjectMeta` |
 | Version bump | `1.4.0` **at freeze only** |
@@ -108,8 +108,8 @@ Phase 4  M7 control-plane rebind
 Phase 5  M8 leftover down · M9 devices:    Must
          M-rm source remove + volumes      Should
          D-F demo simulated Files          Must; can parallel after Phase 1
-Phase 6  Q freeze: tests ≥55% · wiki       version 1.4.0 · tag · Hub
-         · QA · kill-switch review
+Phase 6  Q freeze: tests ≥62% · wiki       version 1.4.0 · tag · Hub
+         · QA · kill-switch review          ← **in freeze** (sign-off + screenshots)
 ```
 
 **D-F** must not block **M3**. **M-rm** does not block the tag if leftover wipe slips.
@@ -238,7 +238,7 @@ Success criteria:
 
 | Gate | Target |
 |------|--------|
-| Unit | Hold ≥ 55%; preflight matrix · lock enforce · path remap · CNAME old/new · NPM PUT backend · HAOS refuse |
+| Unit | **≥ 62%** (fail-under **62**); preflight matrix · lock enforce · path remap · CNAME old/new · NPM PUT backend · HAOS refuse |
 | Tests | `tests/test_service_migrate.py` (new) — no live SSH; mock compose/rsync/Pi-hole/NPM |
 | E2E | Wizard chrome + lock disabled CTA (no live two-host in CI) |
 | Docs | FEATURE_PLAN + wiki Docker “Move a service” + DNS fabric + HAOS note; `mkdocs build --strict` at freeze |
@@ -293,6 +293,7 @@ Success criteria:
 | 2026-08-30 | NPM edge move: dependents keep CNAME on the NPM hostname; Pi-hole login LAN fallback. |
 | 2026-08-30 | NPM PUT from **proxy-host binding** (no fabric DNS row required). |
 | 2026-09-01 | Grafana container dashboard rebind; optional **Adopt into fabric**; JobHold **Start source stack** after copy/dest-up fail. **`dns_then_start` out.** |
+| 2026-09-04 | **Dev freeze.** Unit **~62%**; CI fail-under **62**. User notes [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Remaining: operator QA, screenshot pack, version bump, tag, Hub. |
 
 ---
 
@@ -307,7 +308,7 @@ Success criteria:
 | 5 | Land **M2** preflight (no copy) | **Done** |
 | 6 | Land **M3–M6** + **M-npm** job + wizard; then **M7** | **Done** |
 | 7 | **M8** leftover down · **M9** devices: · **M-rm** Should · **D-F** | **Done** |
-| 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | Operator wiki + QA updated for live two-host validation; **freeze / version bump not started** |
+| 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | **Dev freeze 2026-09-04** — notes + wiki pending sign-off; version bump / tag after QA + screenshots |
 
 ---
 
@@ -329,4 +330,4 @@ Success: visitor opens **Files** on a seeded host, browses a fake tree, cannot e
 
 ---
 
-*Living on `v1.4.0-dev` until freeze into `RELEASE_v1.4.0.md`.*
+*Frozen into [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) (pending sign-off). This PLAN stays the technical record.*

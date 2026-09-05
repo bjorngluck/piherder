@@ -117,7 +117,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 
 ### Journey Move — Compose project to another host {#journey-move}
 
-**Goal:** An unlocked stack (Grafana-class) runs on dest with its data, name, and maps. Requires `PIHERDER_SERVICE_MIGRATE=true` and two Docker hosts. Production Hub image is still **1.3.0** until freeze — use the `v1.4.0-dev` tree.
+**Goal:** An unlocked stack (Grafana-class) runs on dest with its data, name, and maps. Requires `PIHERDER_SERVICE_MIGRATE=true` and two Docker hosts. Production Hub image is still **1.3.0** until **v1.4.0** tags — use the `v1.4.0-dev` tree (dev freeze / pending sign-off).
 
 | Step | Action | Why |
 |------|--------|-----|

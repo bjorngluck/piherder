@@ -21,7 +21,7 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | From-host missing config sidecar / host labels | [From host](../service-templates/from-host.md) · [Templates troubleshooting](templates-docker.md#from-host-pull-incomplete) |
 | Reboot hangs / UI stuck after reboot | [Updates — Reboot](../day-to-day/updates-and-patching.md#reboot) |
 | Same patch job appears twice | [Jobs — Exclusive jobs](../day-to-day/jobs-audit-notifications.md#exclusive-jobs-one-per-type-per-host) · [Multi-worker](../operations/multi-worker.md) |
-| Bulk **Upgrade OS** stuck pending while one host stays running | One request used to run patches **sequentially**. Recreate **web** on current `v1.4.0-dev` — orphan `os_patch` rows fail on startup so the exclusive lock clears; bulk now uses the patch pool (hosts in parallel). [Updates](../day-to-day/updates-and-patching.md) |
+| Bulk **Upgrade OS** stuck pending while one host stays running | One request used to run patches **sequentially**. Recreate **web** on `v1.4.0-dev` — orphan `os_patch` rows fail on startup so the exclusive lock clears; bulk now uses the patch pool (hosts in parallel). [Updates](../day-to-day/updates-and-patching.md) |
 | Full editor link does nothing | [Compose edit](../docker/compose-edit.md#opening-the-editor) — use ⋯ **Full editor…** or deployment **Open host file editor** |
 | Drift after intentional host edit (keep change) | [Deploy — Accept host as desired](../service-templates/deploy.md#redeploy-ops-deployment-page) |
 | Fleet Services empty | [Dashboard & Services](../day-to-day/dashboard-and-services.md) — bind Kuma monitors |
@@ -29,13 +29,13 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Files button missing / 404 | Flag `PIHERDER_HOST_FILES` (default off). Viewer 403. [Host Files](../day-to-day/host-files.md) |
 | Move to another host missing / 404 | Flag `PIHERDER_SERVICE_MIGRATE` (default off). Recreate **web**. Viewer 403. Locked / HAOS refused. Demo never copies. [Move a service](../docker/service-migration.md) |
 | Move dest picker looks stuck | Preflight SSHs both hosts — wait modal + “Checking destination…”. Recreate web if the local image is stale |
-| Move job fails “active service_migrate job #N” on itself | Fixed on `v1.4.0-dev` — job preflight no longer treats its own row as busy. Failed job is idle; start Move again after rebuild |
-| Move rsync `change_dir "/home/…\#342\#200\#246"` | Truncated `docker ps` mount (Unicode ellipsis). Rebuild current `v1.4.0-dev`; inspect fills full paths. Source may be **stopped** — Start all if you need it up before retry |
+| Move job fails “active service_migrate job #N” on itself | Fixed on this freeze branch — job preflight no longer treats its own row as busy. Failed job is idle; start Move again after rebuild |
+| Move rsync `change_dir "/home/…\#342\#200\#246"` | Truncated `docker ps` mount (Unicode ellipsis). Rebuild this freeze branch; inspect fills full paths. Source may be **stopped** — Start all if you need it up before retry |
 | Move job `up -d failed` with no compose text | Older build; current train logs `docker compose pull/up` output on the job. Source is stopped; dest may have files. SSH dest `cd … && docker compose up -d` if you need the stack now |
 | Move preflight blocks dest | Same page — remap dest **host port** or **project name/folder**, disk, DNS name, NPM poll cache, busy backup/stack/migrate job |
 | Move dest `up` `address already in use` | Recheck now uses live dest `ss` listen + docker. Remap dest host port. Leftover dest folder from a failed Move is overwrite, not a block. If the source stack uses **host network**, remap does not apply — dest must have that port free |
-| Move rsync `change_dir "/var/run/docker.sock"` / Not a directory | Host socket (Uptime Kuma Docker monitor). Rebuild current `v1.4.0-dev` — Move no longer rsyncs `docker.sock`; dest binds dest’s own socket |
-| Move dest project owned `root:root` / fleet SSH user | Rebuild current `v1.4.0-dev` — Move chowns dest project to dest **docker root owner** (`bjorn` for `/home/bjorn/docker`), not `piherder` / root |
+| Move rsync `change_dir "/var/run/docker.sock"` / Not a directory | Host socket (Uptime Kuma Docker monitor). Rebuild this freeze branch — Move no longer rsyncs `docker.sock`; dest binds dest’s own socket |
+| Move dest project owned `root:root` / fleet SSH user | Rebuild this freeze branch — Move chowns dest project to dest **docker root owner** (`bjorn` for `/home/bjorn/docker`), not `piherder` / root |
 | Recheck destination looks like a no-op | Wait modal should show for dest pick, port change, and Recheck. Rebuild web |
 | Move job overlay vanishes with no success/fail | Overlay now stays with Succeeded/Failed until Close. Rebuild web |
 | Move job TLS / Kuma red | No auto-rollback. Dest may already be up with names flipped. Fix dest. Staging kept under `/backups/_migrate/{job_id}` |

@@ -1,8 +1,8 @@
 # PiHerder v1.4.0 — operator QA / sign-off
 
 **Branch:** `v1.4.0-dev` → `main` · tag **`v1.4.0`** (cut after merge)  
-**Code freeze:** not yet — Must slices landed; live two-host validation next.  
-**Package:** stays **`1.3.0`** until freeze bump.
+**Code freeze:** **2026-09-04** — QA, screenshots, and bugfixes only.  
+**Package:** stays **`1.3.0`** until version bump / tag.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki. Walk the **operator** pages while ticking boxes: [Move a service](../wiki/docker/service-migration.md) · [Host Files](../wiki/day-to-day/host-files.md) (demo canned tree) · [Journey Move](../wiki/getting-started/operator-scenarios.md#journey-move). Screenshot capture list: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md) (**v1.4.0 pack**, not landed).
 
@@ -16,7 +16,7 @@ Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATIO
 
 | | |
 |--|--|
-| **Instance** | Rebuild **`v1.4.0-dev`** (`docker compose build web && docker compose up -d`). Alembic **`042_compose_project_meta`**. About / footer stay **1.3.0** until freeze |
+| **Instance** | Rebuild **`v1.4.0-dev`** (`docker compose build web && docker compose up -d`). Alembic **`042_compose_project_meta`**. About / footer stay **1.3.0** until version bump |
 | **Browsers** | Desktop Chrome or Firefox **and** one phone |
 | **Accounts** | One **admin**, one **operator** (2FA enrolled), one **viewer** |
 | **Hosts** | At least **two** real SSH Docker hosts + one HAOS + one hardware-bound project (Frigate-class) |
@@ -146,10 +146,10 @@ Capture on **`v1.4.0-dev`** after rebuild (`docker compose build web && docker c
 
 After files land: wire `![…]` on [Move a service](../wiki/docker/service-migration.md) (and Path map / demo Files as needed) · `mkdocs build --strict` · commit PNGs + captions together.
 
-## Freeze gates (not started)
+## Freeze gates
 
 - [ ] 1.3 regression (policy, Files, console, Reports)  
-- [ ] Unit coverage ≥ 55%  
+- [x] Unit coverage **≥ 62%** (CI fail-under **62**)  
 - [ ] `mkdocs build --strict`  
 - [ ] Screenshot pack **P0** landed (this section + wiki assets README)  
 - [ ] Kill switch review (`PIHERDER_SERVICE_MIGRATE` default still **false** at tag unless GA-enough)  
