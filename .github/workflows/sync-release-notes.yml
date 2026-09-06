@@ -9,15 +9,15 @@ on:
       tag:
         description: "Git tag / release to update (e.g. v1.1.0)"
         required: true
-        default: "v1.1.0"
+        default: "v1.4.0"
       notes_path:
         description: "Path to release notes markdown"
         required: true
-        default: "docs/RELEASE_v1.1.0.md"
+        default: "docs/RELEASE_v1.4.0.md"
   push:
     branches: [main]
     paths:
-      - "docs/RELEASE_v1.1.0.md"
+      - "docs/RELEASE_v1.4.0.md"
       - ".github/workflows/sync-release-notes.yml"
 
 permissions:
@@ -36,8 +36,8 @@ jobs:
             TAG="${{ inputs.tag }}"
             NOTES="${{ inputs.notes_path }}"
           else
-            TAG="v1.1.0"
-            NOTES="docs/RELEASE_v1.1.0.md"
+            TAG="v1.4.0"
+            NOTES="docs/RELEASE_v1.4.0.md"
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "notes=$NOTES" >> "$GITHUB_OUTPUT"

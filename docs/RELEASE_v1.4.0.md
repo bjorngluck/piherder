@@ -4,7 +4,7 @@
 
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.4.0` · `1.4` · `latest` (amd64 + arm64). Pins `1.3.0` / `1.3` stay valid.
 
-Technical pipeline, Must IDs, and freeze gates: **[PLAN_v1.4.0.md](PLAN_v1.4.0.md)**. Operator how-to: wiki [Move a service](../wiki/docker/service-migration.md). Maintainer ticks: [QA_v1.4.0.md](QA_v1.4.0.md).
+Operator how-to: wiki [Move a service](https://piherder-docs.hacknow.info/docker/service-migration/). Technical record: [PLAN_v1.4.0](https://github.com/bjorngluck/piherder/blob/v1.4.0/docs/PLAN_v1.4.0.md). Maintainer QA: [QA_v1.4.0](https://github.com/bjorngluck/piherder/blob/v1.4.0/docs/QA_v1.4.0.md).
 
 ---
 
@@ -18,13 +18,13 @@ Default leftover: source stays **stopped** with data on disk. You can also undep
 
 Kill switch **`PIHERDER_SERVICE_MIGRATE`** (default **off**). Recreate **web** after you turn it on. Operator+ only. Public demo never copies.
 
-Wiki: [Move a service](../wiki/docker/service-migration.md) · [Journey Move](../wiki/getting-started/operator-scenarios.md#journey-move)
+Wiki: [Move a service](https://piherder-docs.hacknow.info/docker/service-migration/) · [Journey Move](https://piherder-docs.hacknow.info/getting-started/operator-scenarios/#journey-move)
 
 ### Demo Files (public sandbox)
 
-On the [public demo](../wiki/operations/demo-site.md), **Files** is a canned tree — browse README / compose / a logo, no SFTP, writes refused. Real Host Files on your herder is unchanged (still flag-off).
+On the [public demo](https://piherder-docs.hacknow.info/operations/demo-site/), **Files** is a canned tree — browse README / compose / a logo, no SFTP, writes refused. Real Host Files on your herder is unchanged (still flag-off).
 
-Wiki: [Host Files](../wiki/day-to-day/host-files.md)
+Wiki: [Host Files](https://piherder-docs.hacknow.info/day-to-day/host-files/)
 
 ---
 
@@ -48,7 +48,7 @@ Wiki: [Host Files](../wiki/day-to-day/host-files.md)
 4. Move stays **off** until you set `PIHERDER_SERVICE_MIGRATE=true` and recreate **web**.  
 5. Smoke: lock a hardware-bound stack · optional Move on a disposable unlocked stack · 1.3 surfaces (policy, Reports, Files, console).
 
-[Wiki upgrades](../wiki/operations/upgrades.md#13--14)
+[Wiki upgrades](https://piherder-docs.hacknow.info/operations/upgrades/#13--14)
 
 ---
 
@@ -59,9 +59,9 @@ Wiki: [Host Files](../wiki/day-to-day/host-files.md)
 | Move | Stop-first (brief downtime). Not live/zero-downtime. Runs on the **web** process — do not recreate **web** while a Move is in flight (a restart marks the job failed; staging is kept). A later worker/Celery path is a **v1.5 candidate**. |
 | NPM | Backend retarget only — no create/delete proxy hosts, no ACME in the herder. |
 | Leftover remove | Optional; dest is never deleted. |
-| Screenshots | Freeze pack **landed** 2026-09-06 — wiki [Move a service](../wiki/docker/service-migration.md). |
+| Screenshots | Freeze pack **landed** 2026-09-06 — wiki [Move a service](https://piherder-docs.hacknow.info/docker/service-migration/). |
 | Not this release | Auto-rollback · full NPM CRUD · Files token API · host `tmux`/`screen` · CSP nonces |
 
 ---
 
-From [v1.3.0](RELEASE_v1.3.0.md). Docs: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
+From [v1.3.0](https://github.com/bjorngluck/piherder/releases/tag/v1.3.0). Docs: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
