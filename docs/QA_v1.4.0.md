@@ -57,6 +57,7 @@ Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATIO
 
 - [ ] Flag **on**, green preflight → confirm **Move service** → JobHold  
 - [ ] Job `service_migrate`: stop source → herder rsync (`/backups/_migrate/{job_id}`) → dest `up -d`  
+- [ ] Do **not** recreate **web** while a Move is running (job is web `BackgroundTasks`; restart fails it)  
 - [ ] Named volume data present on dest (Mountpoint rsync)  
 - [ ] Source left **stopped**, files still on disk  
 - [ ] Concurrent backup/stack/migrate on source **or dest** → 409  

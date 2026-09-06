@@ -31,7 +31,7 @@ Wanted pipeline:
 
 This is SPEC / H2.5 **“Service migrate host→host; destructive service remove”** — named **service migration**. Destructive wipe is **Should**, default **off**.
 
-**Out of 1.4:** live zero-downtime cutover, ACME-in-herder, full NPM proxy CRUD, auto hardware detection as the only lock, cross-arch image rebuild, richer Files token API.
+**Out of 1.4:** live zero-downtime cutover, ACME-in-herder, full NPM proxy CRUD, auto hardware detection as the only lock, cross-arch image rebuild, richer Files token API. **M-worker** (run `service_migrate` on Celery instead of web `BackgroundTasks`) is a **v1.5 candidate**, not this freeze.
 
 **Must (not M):** **D-F** demo simulated Files — canned tree, same chrome as 1.3 Files, no SFTP. Real SFTP stays **demo never**.
 
@@ -273,6 +273,7 @@ Success criteria:
 - Full NPM proxy create/delete/SSL  
 - Multi-tenant / two-person approve  
 - Cloudflare / external DNS (still checklist)  
+- **M-worker** — Move job on Celery worker + progress heartbeats so a web recycle cannot kill mid-copy. **Candidate v1.5.0**, not 1.4. 1.4 stays web `BackgroundTasks`; a web restart **fails** a running Move (same as other web-process jobs). Do not recycle **web** during a Move.  
 
 ---
 
@@ -294,6 +295,7 @@ Success criteria:
 | 2026-08-30 | NPM PUT from **proxy-host binding** (no fabric DNS row required). |
 | 2026-09-01 | Grafana container dashboard rebind; optional **Adopt into fabric**; JobHold **Start source stack** after copy/dest-up fail. **`dns_then_start` out.** |
 | 2026-09-04 | **Dev freeze.** Unit **~62%**; CI fail-under **62**. User notes [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Remaining: operator QA, screenshot pack, version bump, tag, Hub. |
+| 2026-09-06 | PR review: **M-worker** parked — Celery Move + heartbeats is a **v1.5 candidate**. Freeze keeps web `BackgroundTasks`. |
 
 ---
 

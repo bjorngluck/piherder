@@ -48,7 +48,7 @@ Use lock for Frigate + Coral, USB gadgets, or anything you must not relocate by 
 7. If preflight lists NPM names with **no fabric DNS row**, optional **Adopt into fabric** (default off) — see below.  
 8. Choose leftover (see below). Default is **leave source stopped**.  
 9. **Move service** — danger confirm (downtime). **Remove source** also requires the extra checkbox and a stronger confirm.  
-10. **JobHold** live log stays open with **Succeeded** or **Failed** until you Close (does not vanish). Job type `service_migrate`. `Job.server_id` is the **source**; dest is in job details. Copy / dest-up fail offers **Start source stack**.
+10. **JobHold** live log stays open with **Succeeded** or **Failed** until you Close (does not vanish). Job type `service_migrate`. `Job.server_id` is the **source**; dest is in job details. Copy / dest-up fail offers **Start source stack**. The job runs on the **web** process — do **not** recreate **web** (or `compose up` the herder) until it finishes. A web restart marks a running Move **failed**; staging stays under `/backups/_migrate/{job_id}` and you can **Start source stack**.
 
 Audit on open: `service_migrate_preview`.
 
