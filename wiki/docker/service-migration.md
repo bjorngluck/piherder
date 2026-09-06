@@ -37,6 +37,16 @@ Audit: `service_host_lock` / `service_host_unlock` (project, reason, note — no
 
 Use lock for Frigate + Coral, USB gadgets, or anything you must not relocate by accident.
 
+<figure class="ph-figure" markdown>
+  ![Lock / Move on project menu](../assets/screenshots/docker-host-lock.png)
+  <figcaption>Locked project ⋯ — **Unlock…**; **Move to another host…** is disabled.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Docker project menu](../assets/screenshots/docker-project-lifecycle.png)
+  <figcaption>Project ⋯ **Lock to this host…** and **Move to another host…**. A hardware-locked stack shows **Locked · Hardware** on the row.</figcaption>
+</figure>
+
 ## Move wizard
 
 1. Unlock the project if it is locked.  
@@ -49,6 +59,26 @@ Use lock for Frigate + Coral, USB gadgets, or anything you must not relocate by 
 8. Choose leftover (see below). Default is **leave source stopped**.  
 9. **Move service** — danger confirm (downtime). **Remove source** also requires the extra checkbox and a stronger confirm.  
 10. **JobHold** live log stays open with **Succeeded** or **Failed** until you Close (does not vanish). Job type `service_migrate`. `Job.server_id` is the **source**; dest is in job details. Copy / dest-up fail offers **Start source stack**. The job runs on the **web** process — do **not** recreate **web** (or `compose up` the herder) until it finishes. A web restart marks a running Move **failed**; staging stays under `/backups/_migrate/{job_id}` and you can **Start source stack**.
+
+<figure class="ph-figure" markdown>
+  ![Move wizard dest picker](../assets/screenshots/docker-migrate-wizard.png)
+  <figcaption>Move wizard — **From** this host/project, **To** another Docker host (HAOS excluded).</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Move preflight](../assets/screenshots/docker-migrate-preflight.png)
+  <figcaption>Ready for copy — dest folder, leftover **Leave stopped**, **Move service**.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Adopt into fabric](../assets/screenshots/docker-migrate-preflight-adopt.png)
+  <figcaption>NPM-only names: optional **Adopt into fabric** (default off). Move still PUTs the proxy backend.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Move JobHold](../assets/screenshots/docker-migrate-jobhold.png)
+  <figcaption>JobHold — live log stays until **Close** (`service_migrate`).</figcaption>
+</figure>
 
 Audit on open: `service_migrate_preview`.
 
@@ -148,6 +178,11 @@ Validate red (TLS mismatch, Kuma down) **does not auto-roll back**. Dest may alr
 | Validate | Dest up, names already flipped | No **Start source** (would dual-run) |
 
 **Start source stack** queues the existing Docker **Start all** job on the source project. It is not a full migrate rollback.
+
+<figure class="ph-figure" markdown>
+  ![Start source stack](../assets/screenshots/docker-migrate-jobhold-start-source.png)
+  <figcaption>Copy or dest-up fail — **Start source stack** on JobHold (not a full rollback).</figcaption>
+</figure>
 
 ## What it does not do
 

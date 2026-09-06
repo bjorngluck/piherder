@@ -94,7 +94,7 @@ Only **one** stack mutation runs at a time per host (shared lane with Deploy and
 
 <figure class="ph-figure" markdown>
   ![Docker project lifecycle](../assets/screenshots/docker-project-lifecycle.png)
-  <figcaption>Project ⋯ Stop / Start / Restart all — confirm then Job with live log.</figcaption>
+  <figcaption>Project ⋯ **Lock to this host…** / **Move to another host…** plus Stop / Start / Restart all.</figcaption>
 </figure>
 
 ## Template vs free-form stacks

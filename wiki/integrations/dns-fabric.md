@@ -59,7 +59,7 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
 
 <figure class="ph-figure" markdown>
   ![Stack panel](../assets/screenshots/dns-stack-panel.png)
-  <figcaption>Path map stack panel — host→container port chips and runtime topology.</figcaption>
+  <figcaption>Path map stack panel — host→container port chips, runtime topology, **Locked · Hardware** when the project is host-locked.</figcaption>
 </figure>
 
 ---

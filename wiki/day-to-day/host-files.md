@@ -11,6 +11,11 @@ A **file manager** on each SSH host (confined SFTP): browse, upload/download (pr
   <figcaption>Host Files — fleet nav, ops hero, **Limited access**, breadcrumb path, folder tree + list.</figcaption>
 </figure>
 
+<figure class="ph-figure" markdown>
+  ![Demo Files](../assets/screenshots/demo-files.png)
+  <figcaption>Public demo Files — canned tree, **simulated** banner, viewer browse only (no SFTP).</figcaption>
+</figure>
+
 Use the normal PiHerder header (Dashboard / Servers / ☰) to leave the page — Files always receives the logged-in `user` so that chrome renders. Folder tree on the left, file list on the right — both **scroll inside the window** (the page does not grow with the folder). The path box is a breadcrumb: **one** leading `/` (privileged) or the fleet jail, then folder names; separators are **green** (not a doubled `//`). Toolbar: parent, path, search, **Upload**, **⋯** (New folder, Docker mounts, Refresh, Fleet/Privileged, Maximize), and the **expand** control (same idea as console Maximize / Hosts map full screen). **Maximize** hides the hero so the list fills the remaining height — especially useful on a phone. Restore brings the hero back. The choice sticks in this browser. Those ⋯ actions are **not** extra toolbar buttons. Selection actions appear only after you select rows. **Tap or click the name** to open a folder, edit text, or preview an image. On a phone, **Folders** slides the tree over the list; **long-press** selects and shows actions. Desktop: right-click for the row menu (no per-row **⋯**). Drag files **or folders** onto the list (or a tree folder) to upload. Switch **Fleet / Privileged** from the toolbar **⋯**.
 
 The herder **keeps one SFTP session per host/identity for ~75 seconds idle** so folder clicks are not a new SSH handshake each time. Transfers use **1 MiB** buffers on a **dedicated SFTP connection** (browse stays on the pooled session). Do not prefetch/pipeline whole files — that stalled around ~12 MiB. Caddy must **not gzip** `application/octet-stream` and uses `flush_interval -1` so the browser download bar can move. Upload progress is two-phase: send to PiHerder, then write on the host. Traffic still goes browser → herder → host (not a raw LAN `scp`).

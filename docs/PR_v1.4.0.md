@@ -37,18 +37,18 @@ User-facing notes: [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Design and Must IDs s
 ### Freeze / CI
 - [x] Unit suite green; coverage **≥ 62%** (fail-under **62**)
 - [ ] Playwright E2E (Should — wizard chrome; no live two-host in CI)
-- [ ] `mkdocs build --strict`
+- [x] `mkdocs build --strict`
 - [ ] Upgrade path: Alembic `042` on existing 1.3 hosts
 
 ### Operator QA (sign-off — [QA_v1.4.0.md](QA_v1.4.0.md))
-- [ ] Host lock + HAOS refuse
-- [ ] NPM-fronted Move (PUT `forward_host`)
-- [ ] Direct TLS Move
-- [ ] Leftover / optional source remove (disposable stack)
-- [ ] Rebind / Path map / Grafana container chips
-- [ ] Demo Files canned tree
-- [ ] 1.3 regression
-- [ ] Wiki screenshot pack P0/P1
+- [x] Host lock + HAOS refuse
+- [x] NPM-fronted Move (PUT `forward_host`)
+- [x] Direct TLS Move
+- [x] Leftover / optional source remove (disposable stack)
+- [x] Rebind / Path map / Grafana container chips
+- [x] Demo Files canned tree
+- [x] 1.3 regression
+- [x] Wiki screenshot pack P0/P1
 
 ## Out of scope (deferred)
 
