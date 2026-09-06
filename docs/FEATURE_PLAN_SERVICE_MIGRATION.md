@@ -1,6 +1,6 @@
 # Feature plan — Service migration
 
-**Status:** Train open on `v1.4.0-dev` · M1–M9 + M-npm + D-F + M-rm landed · live QA · freeze next  
+**Status:** **Tagged v1.4.0** · M1–M9 + M-npm + D-F + M-rm landed · **M-worker** is a v1.5 candidate  
 **Train:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) Stream **M** (active)  
 **Horizon:** H2.5 leftover — “Service migrate / remove” ([ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md)) · [SPEC.md](../SPEC.md) Phase 7  
 **Related:** [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md)

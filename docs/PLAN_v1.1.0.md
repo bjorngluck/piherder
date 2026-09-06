@@ -241,7 +241,7 @@ Not abandoned — scheduled as paths. Items may move between 1.2 and 1.3 as the 
 
 ### v1.3 path
 
-Full plan: **[PLAN_v1.3.0.md](PLAN_v1.3.0.md)** — **Tagged**. Current train: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) on `v1.4.0-dev`.
+Full plan: **[PLAN_v1.3.0.md](PLAN_v1.3.0.md)** — **Tagged**. Current production: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) (**tagged**).
 
 | Theme | Items |
 |-------|--------|

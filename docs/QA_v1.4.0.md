@@ -2,8 +2,8 @@
 
 **Branch:** `v1.4.0-dev` → `main` · tag **`v1.4.0`** (cut after merge)  
 **Code freeze:** **2026-09-04** — QA, screenshots, and bugfixes only.  
-**Package:** stays **`1.3.0`** until version bump / tag.  
-**Operator QA:** **complete 2026-09-06**. Screenshot pack **landed**. Remaining: kill-switch review at tag, version bump, merge, Hub.
+**Package:** **`1.4.0`**.  
+**Operator QA:** **complete 2026-09-06**. Screenshot pack **landed**. Kill switch stays **false**. Remaining: merge, tag, Hub.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki. Walk the **operator** pages while ticking boxes: [Move a service](../wiki/docker/service-migration.md) · [Host Files](../wiki/day-to-day/host-files.md) (demo canned tree) · [Journey Move](../wiki/getting-started/operator-scenarios.md#journey-move). Screenshot capture list: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md) (**v1.4.0 pack landed**).
 
@@ -17,7 +17,7 @@ Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATIO
 
 | | |
 |--|--|
-| **Instance** | Rebuild **`v1.4.0-dev`** (`docker compose build web && docker compose up -d`). Alembic **`042_compose_project_meta`**. About / footer stay **1.3.0** until version bump |
+| **Instance** | Rebuild **`v1.4.0`** (`docker compose build web && docker compose up -d`). Alembic **`042_compose_project_meta`**. About / footer **1.4.0** |
 | **Browsers** | Desktop Chrome or Firefox **and** one phone |
 | **Accounts** | One **admin**, one **operator** (2FA enrolled), one **viewer** |
 | **Hosts** | At least **two** real SSH Docker hosts + one HAOS + one hardware-bound project (Frigate-class) |
@@ -156,8 +156,9 @@ Wired into [Move a service](../wiki/docker/service-migration.md), [Docker](../wi
 - [x] Unit coverage **≥ 62%** (CI fail-under **62**)  
 - [x] Screenshot pack **P0/P1** landed + wiki `![…]`  
 - [x] `mkdocs build --strict`  
-- [ ] Kill switch review (`PIHERDER_SERVICE_MIGRATE` default still **false** at tag unless GA-enough)  
-- [ ] Version bump `1.4.0` · tag · Hub  
+- [x] Kill switch review — leave `PIHERDER_SERVICE_MIGRATE` **false** at tag (opt-in)  
+- [x] Version bump `1.4.0`  
+- [ ] Tag · Hub  
 
 ## Should (live)
 

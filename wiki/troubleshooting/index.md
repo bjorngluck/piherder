@@ -21,7 +21,7 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | From-host missing config sidecar / host labels | [From host](../service-templates/from-host.md) · [Templates troubleshooting](templates-docker.md#from-host-pull-incomplete) |
 | Reboot hangs / UI stuck after reboot | [Updates — Reboot](../day-to-day/updates-and-patching.md#reboot) |
 | Same patch job appears twice | [Jobs — Exclusive jobs](../day-to-day/jobs-audit-notifications.md#exclusive-jobs-one-per-type-per-host) · [Multi-worker](../operations/multi-worker.md) |
-| Bulk **Upgrade OS** stuck pending while one host stays running | One request used to run patches **sequentially**. Recreate **web** on `v1.4.0-dev` — orphan `os_patch` rows fail on startup so the exclusive lock clears; bulk now uses the patch pool (hosts in parallel). [Updates](../day-to-day/updates-and-patching.md) |
+| Bulk **Upgrade OS** stuck pending while one host stays running | One request used to run patches **sequentially**. Recreate **web** on **v1.4.0** — orphan `os_patch` rows fail on startup so the exclusive lock clears; bulk now uses the patch pool (hosts in parallel). [Updates](../day-to-day/updates-and-patching.md) |
 | Full editor link does nothing | [Compose edit](../docker/compose-edit.md#opening-the-editor) — use ⋯ **Full editor…** or deployment **Open host file editor** |
 | Drift after intentional host edit (keep change) | [Deploy — Accept host as desired](../service-templates/deploy.md#redeploy-ops-deployment-page) |
 | Fleet Services empty | [Dashboard & Services](../day-to-day/dashboard-and-services.md) — bind Kuma monitors |

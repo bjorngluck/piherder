@@ -2,7 +2,7 @@
 
 **22 August 2026.** You run the fleet; you own the policy. Password rules, 2FA, console timeouts, and alert volume live in Settings — no image rebuild. Lists scale. History Grafana never sees lives at `/reports`. Optional jailed **Host Files** and **Connect as…** when you need them.
 
-**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.3.0` · `1.3` · `latest` (amd64 + arm64). Pins `1.2.0` / `1.2` stay valid.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.3.0` · `1.3` (amd64 + arm64). Prefer **[v1.4.0](RELEASE_v1.4.0.md)** (`latest`). Pins `1.2.0` / `1.2` stay valid.
 
 ---
 

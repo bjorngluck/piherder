@@ -7,11 +7,11 @@
 **Theme:** Identity + webshell + gated demo · backup reliability · self-backup full DB DR · security remediations  
 **Baseline:** [v1.1.1](RELEASE_v1.1.1.md) · [v1.1.0](RELEASE_v1.1.0.md)  
 **Plan:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md)  
-**Next train:** [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) (current) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md)  
+**Next train:** [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) (current) · [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md)  
 **Operator QA:** [QA_v1.2.0.md](QA_v1.2.0.md) · wiki [v1.2.0 QA / sign-off](../wiki/operations/qa-v1.2.0.md)
 
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) — multi-arch `linux/amd64` + `linux/arm64`  
-**Tags:** `1.2.0` · `1.2` (older `1.1.1` / `1.1` / `1.0.x` pins remain valid). Hub `latest` becomes **1.3.0** after the 1.3 Hub push.
+**Tags:** `1.2.0` · `1.2` (older `1.1.1` / `1.1` / `1.0.x` pins remain valid). Hub `latest` is **1.4.0**.
 
 ---
 
