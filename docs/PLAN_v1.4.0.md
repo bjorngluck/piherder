@@ -312,7 +312,7 @@ Success criteria:
 | 5 | Land **M2** preflight (no copy) | **Done** |
 | 6 | Land **M3–M6** + **M-npm** job + wizard; then **M7** | **Done** |
 | 7 | **M8** leftover down · **M9** devices: · **M-rm** Should · **D-F** | **Done** |
-| 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | **Version bump 2026-09-06** — merge · tag · Hub |
+| 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | **Done** 2026-09-06 — merge PR #4 · tag `v1.4.0` · Hub digest `sha256:ec7395f46461aa794c7f4a59370de5512d85839beb5f7eceb59d7be39cfbb210` |
 
 ---
 
