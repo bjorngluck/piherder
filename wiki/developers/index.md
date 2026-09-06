@@ -23,6 +23,8 @@ Operators need “what / why / how on a running instance.” Developers need set
 
 Public contributors may open Issues and Pull Requests. **Only the project maintainer merges to `main`.** See [CONTRIBUTING.md](https://github.com/bjorngluck/piherder/blob/main/CONTRIBUTING.md).
 
+To fund development and the public demo (optional): [GitHub Sponsors](https://github.com/sponsors/bjorngluck) and [Buy me a coffee](https://www.buymeacoffee.com/bjorngluck) — [Support the project](../support.md).
+
 ## Repo maintainer docs (not in this nav)
 
 | Path | Role |

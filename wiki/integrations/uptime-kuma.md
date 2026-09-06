@@ -74,3 +74,4 @@ Auto favicon fetch + manual upload under `DATA_ROOT/service_logos/` (`./piherder
 
 - [Dashboard & Services](../day-to-day/dashboard-and-services.md)  
 - [PWA & Web Push](../account-security/pwa-push.md)  
+- [Move a service](../docker/service-migration.md) — **service** bindings follow dest by compose project (even if the bind still sat on an older host). IP-based monitors are a checklist (no Kuma write API). A `docker.sock` bind is not copied — dest uses dest’s socket.  

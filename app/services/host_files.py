@@ -101,9 +101,29 @@ class FilesError(Exception):
 
 
 def files_enabled() -> bool:
+    """Real jailed SFTP. Demo never."""
     if bool(getattr(settings, "PIHERDER_DEMO_MODE", False)):
         return False
     return bool(getattr(settings, "PIHERDER_HOST_FILES", False))
+
+
+def is_demo_files() -> bool:
+    try:
+        from .demo import demo_mode
+
+        return bool(demo_mode())
+    except Exception:
+        return bool(getattr(settings, "PIHERDER_DEMO_MODE", False))
+
+
+def files_surface_allowed() -> bool:
+    """UI Files: live SFTP when flagged, or canned demo tree (D-F)."""
+    return files_enabled() or is_demo_files()
+
+
+def _refuse_demo_write() -> None:
+    if is_demo_files():
+        raise FilesError("demo", "Demo Files is simulated — writes are disabled")
 
 
 def files_max_env_locked() -> bool:
@@ -255,6 +275,10 @@ def is_secretish(name: str) -> bool:
 
 
 def jail_path(server: Any, *, role: str = ROLE_FLEET, identity: Any = None) -> str:
+    if is_demo_files():
+        from .demo_files import JAIL
+
+        return JAIL
     role = normalize_role(role)
     user = identity_username(server, identity if role == ROLE_PRIVILEGED else None)
     if role == ROLE_PRIVILEGED:
@@ -731,6 +755,10 @@ def list_dir(
     identity: Any = None,
     sftp: Any = None,
 ) -> dict[str, Any]:
+    if is_demo_files():
+        from .demo_files import list_dir as _demo_list
+
+        return _demo_list(server, rel)
     role = normalize_role(role)
     jail, abs_path = resolve_logical(server, rel, role=role, identity=identity)
     with sftp_session(server, identity, sftp, with_client=True) as pair:
@@ -828,6 +856,21 @@ def stat_file(
     identity: Any = None,
     sftp: Any = None,
 ) -> dict[str, Any]:
+    if is_demo_files():
+        from .demo_files import stat_file as _demo_stat
+
+        return _demo_stat(server, rel)
+    return _stat_file_live(server, rel, role=role, identity=identity, sftp=sftp)
+
+
+def _stat_file_live(
+    server: Any,
+    rel: str,
+    *,
+    role: str = ROLE_FLEET,
+    identity: Any = None,
+    sftp: Any = None,
+) -> dict[str, Any]:
     role = normalize_role(role)
     jail, abs_path = resolve_logical(server, rel, role=role, identity=identity)
     with sftp_session(server, identity, sftp) as fs:
@@ -867,6 +910,11 @@ def iter_file(
     sftp: Any = None,
 ) -> Iterator[bytes]:
     """Yield file bytes on one SFTP session (stat + read). Hash while iterating."""
+    if is_demo_files():
+        from .demo_files import iter_file as _demo_iter
+
+        yield from _demo_iter(server, rel)
+        return
     role = normalize_role(role)
     jail, abs_path = resolve_logical(server, rel, role=role, identity=identity)
     with sftp_session(server, identity, sftp, pooled=False) as fs:
@@ -907,6 +955,7 @@ def put_file(
     client: Any = None,
     progress: Any = None,
 ) -> dict[str, Any]:
+    _refuse_demo_write()
     name = sanitize_basename(filename)
     role = normalize_role(role)
     cap = max_upload_bytes()
@@ -1007,6 +1056,7 @@ def mkdir(
     identity: Any = None,
     sftp: Any = None,
 ) -> dict[str, Any]:
+    _refuse_demo_write()
     base = sanitize_basename(name)
     role = normalize_role(role)
     jail, dest_dir = resolve_logical(server, rel_dir, role=role, identity=identity)
@@ -1209,6 +1259,10 @@ def read_text(
     sftp: Any = None,
 ) -> dict[str, Any]:
     """Read a text file for the in-app editor (same 512 KiB cap as compose sidecars)."""
+    if is_demo_files():
+        from .demo_files import read_text as _demo_read
+
+        return _demo_read(server, rel)
     role = normalize_role(role)
     jail, abs_path = resolve_logical(server, rel, role=role, identity=identity)
     with sftp_session(server, identity, sftp) as fs:
@@ -1255,6 +1309,7 @@ def write_text(
     identity: Any = None,
     sftp: Any = None,
 ) -> dict[str, Any]:
+    _refuse_demo_write()
     data = (text if isinstance(text, str) else str(text or "")).encode("utf-8")
     if len(data) > EDIT_MAX:
         raise FilesError("too_large", f"Save exceeds {human_size(EDIT_MAX)}")
@@ -2124,6 +2179,10 @@ def search(
     ``contents=True`` also greps UTF-8 text files (512 KiB cap). Secret-ish
     files are skipped unless ``allow_secrets``.
     """
+    if is_demo_files():
+        from .demo_files import search as _demo_search
+
+        return _demo_search(server, query, rel=rel)
     q = (query or "").strip()
     if not q:
         raise FilesError("invalid", "Type something to search")
@@ -2358,6 +2417,10 @@ def peek_file(
     sftp: Any = None,
 ) -> dict[str, Any]:
     """Small sample for the preview overlay (image flag or hex)."""
+    if is_demo_files():
+        from .demo_files import peek_file as _demo_peek
+
+        return _demo_peek(server, rel)
     role = normalize_role(role)
     jail, abs_path = resolve_logical(server, rel, role=role, identity=identity)
     with sftp_session(server, identity, sftp) as fs:
@@ -2403,6 +2466,11 @@ def iter_preview(
     identity: Any = None,
     sftp: Any = None,
 ) -> Iterator[bytes]:
+    if is_demo_files():
+        from .demo_files import iter_preview as _demo_prev
+
+        yield from _demo_prev(server, rel)
+        return
     """Stream an image (or small file) for in-browser preview. Caps at PREVIEW_MAX."""
     role = normalize_role(role)
     jail, abs_path = resolve_logical(server, rel, role=role, identity=identity)
@@ -2463,6 +2531,8 @@ def list_docker_volumes(
     sftp: Any = None,
 ) -> list[dict[str, Any]]:
     """Named volumes on the host (docker volume ls). Open path needs privileged jail."""
+    if is_demo_files():
+        return []
     role = normalize_role(role)
     jail, _ = resolve_logical(server, "", role=role, identity=identity)
     out: list[dict[str, Any]] = []
@@ -2510,6 +2580,8 @@ def list_container_mounts(
     sftp: Any = None,
 ) -> list[dict[str, Any]]:
     """Bind mounts and named volumes on one container (docker inspect Mounts)."""
+    if is_demo_files():
+        return []
     import json
 
     if not _docker_name_ok(container):
@@ -2576,6 +2648,8 @@ def list_docker_containers(
     identity: Any = None,
     sftp: Any = None,
 ) -> list[str]:
+    if is_demo_files():
+        return []
     with sftp_session(server, identity, sftp, with_client=True) as pair:
         cli, _fs = pair
         if cli is None:
@@ -2602,6 +2676,7 @@ def docker_cp_into(
     sftp: Any = None,
 ) -> dict[str, Any]:
     """``docker cp`` a container path into a jail-relative folder."""
+    _refuse_demo_write()
     if not _docker_name_ok(container):
         raise FilesError("invalid", "Invalid container name")
     src_path = parse_container_path(src)

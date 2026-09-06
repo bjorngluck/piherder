@@ -114,7 +114,7 @@ PiHerder vaults and **deploys** material; it does not yet issue ACME certs in-ap
 
 Each target answers: *for this service, where and how should the cert land?*
 
-Targets are **per service** (not whole stack). The cert detail page groups targets **under each host** (1–N deploys per machine). List rows are compact — click opens a detail modal (Deploy · Edit · Remove · sudoers copy).
+Targets are **per service** (not whole stack). The cert detail page groups targets **under each host** (1–N deploys per machine). List rows are compact — click opens a detail modal (Deploy · Edit · Remove · sudoers copy). [Move a service](../docker/service-migration.md) **clones** matching targets onto dest (source row stays until leftover **remove**, which disables it).
 
 | Field | Purpose |
 |-------|---------|

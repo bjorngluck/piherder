@@ -62,9 +62,12 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "docker_stack_stop",
         "docker_stack_start",
         "docker_stack_restart",
+        "docker_stack_down",
+        "docker_stack_remove",
         "template_deploy",
         "template_redeploy",
         "template_drift_check",
+        "service_migrate",
     }
 )
 
@@ -75,13 +78,16 @@ _STACK_MUTATING_JOB_TYPES = frozenset(
         "docker_stack_stop",
         "docker_stack_start",
         "docker_stack_restart",
+        "docker_stack_down",
+        "docker_stack_remove",
         "template_deploy",
         "template_redeploy",
+        "service_migrate",
     }
 )
 
-# Whole-project lifecycle: compose stop / start / restart (no pull/up)
-_STACK_LIFECYCLE_ACTIONS = frozenset({"stop", "start", "restart"})
+# Whole-project lifecycle: compose stop / start / restart / down (no pull/up)
+_STACK_LIFECYCLE_ACTIONS = frozenset({"stop", "start", "restart", "down"})
 _STACK_LIFECYCLE_JOB_TYPES = frozenset(
     {f"docker_stack_{a}" for a in _STACK_LIFECYCLE_ACTIONS}
 )
@@ -257,6 +263,8 @@ JOB_TYPE_LABELS = {
     "docker_stack_stop": "Stack stop",
     "docker_stack_start": "Stack start",
     "docker_stack_restart": "Stack restart",
+    "docker_stack_down": "Stack undeploy",
+    "docker_stack_remove": "Stack delete",
     "template_deploy": "Template deploy",
     "template_redeploy": "Template redeploy",
     "template_drift_check": "Template drift check",
@@ -270,6 +278,7 @@ JOB_TYPE_LABELS = {
     "nmap_detailed": "Nmap detailed",
     "nmap_host_deep": "Nmap deep scan",
     "nmap_vuln_db_update": "Nmap vuln DB update",
+    "service_migrate": "Service migrate",
 }
 
 
@@ -416,6 +425,8 @@ def job_public_dict(job: Job, *, detail: bool = False) -> dict:
         "error": details.get("error"),
         "redirect_url": details.get("redirect_url"),
         "deployment_id": details.get("deployment_id"),
+        "failed_step": details.get("failed_step"),
+        "recover_source": details.get("recover_source"),
     }
     if detail:
         # Full log for JobHold / jobs modal (alias log_lines for poll UIs)
@@ -650,6 +661,72 @@ def cleanup_stale_backup_jobs(session: Session, max_age_minutes: int = 120) -> i
     return len(stale)
 
 
+# Celery-owned types survive a web restart. Everything else runs in this
+# process (BackgroundTasks / thread pools) and is dead after uvicorn exits.
+_CELERY_JOB_TYPES = frozenset({"backup"})
+
+
+def _is_celery_owned_job(job: Job) -> bool:
+    if (job.celery_task_id or "").strip():
+        return True
+    jt = job.job_type or ""
+    return jt in _CELERY_JOB_TYPES or jt.startswith("nmap_")
+
+
+def _finish_running_audit_for_job(
+    session: Session, job: Job, *, status: str, message: str
+) -> None:
+    """Close the matching running AuditLog row (Job #N started)."""
+    if not job or not job.id:
+        return
+    needle = f"Job #{job.id}"
+    rows = session.exec(
+        select(AuditLog).where(
+            AuditLog.status == "running",
+            AuditLog.action == (job.job_type or ""),
+        )
+    ).all()
+    now = datetime.utcnow()
+    for audit in rows:
+        if needle not in (audit.details or ""):
+            continue
+        if job.server_id and audit.server_id and int(audit.server_id) != int(job.server_id):
+            continue
+        audit.status = status
+        audit.finished_at = now
+        audit.details = f"{needle} · {message}"[:500]
+        session.add(audit)
+
+
+def cleanup_orphan_web_jobs(
+    session: Session,
+    *,
+    reason: str = "Web process restarted — this job was no longer running",
+) -> int:
+    """Fail pending/running web-process jobs left behind after a restart.
+
+    Exclusive types (os_patch, container_patch, …) otherwise block new work
+    forever: bulk OS patch uses one request's BackgroundTasks (sequential),
+    then a web recreate kills the in-flight task while the row stays running.
+    """
+    stale = session.exec(
+        select(Job).where(Job.status.in_(["pending", "running"]))
+    ).all()
+    n = 0
+    for job in stale:
+        if _is_celery_owned_job(job):
+            continue
+        _mark_job_failed(job, reason, session, record_audit=False)
+        _finish_running_audit_for_job(
+            session, job, status="failed", message=reason
+        )
+        n += 1
+    if n:
+        session.commit()
+        logger.info("[Jobs] Failed %s orphan web job(s) after process restart", n)
+    return n
+
+
 def _send_summary_webhook(server_hostname: str, job_type: str, status: str, summary: str):
     try:
         from ..alert_channels import send_webhook
@@ -723,6 +800,8 @@ def create_job_and_run(
             "docker_stack_stop": "Stack stop queued…",
             "docker_stack_start": "Stack start queued…",
             "docker_stack_restart": "Stack restart queued…",
+            "docker_stack_down": "Stack undeploy queued…",
+            "docker_stack_remove": "Stack delete queued…",
         }
         job.details = _initial_job_details(
             labels.get(job_type, f"{job_type} queued…"),
@@ -843,6 +922,15 @@ def create_job_and_run(
             audit.id,
             project_path,
             action,
+        )
+    elif job_type == "docker_stack_remove":
+        project_path = (source_filter or "").strip()
+        background_tasks.add_task(
+            _run_docker_stack_remove_job,
+            job.id,
+            server.id,
+            audit.id,
+            project_path,
         )
     elif job_type == "retention":
         background_tasks.add_task(_run_retention_job, job.id, server.id, audit.id)
@@ -1182,6 +1270,12 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
             return f"{proj}: {act} ok"
         err = data.get("error") or status
         return f"{proj}: {act} failed — {err}"[:200]
+    if job_type == "docker_stack_remove" and isinstance(data, dict):
+        proj = data.get("project") or data.get("project_path") or "stack"
+        if data.get("success") or status == "success":
+            return f"{proj}: project deleted"
+        err = data.get("error") or status
+        return f"{proj}: delete failed — {err}"[:200]
     if job_type in ("template_deploy", "template_redeploy") and isinstance(data, dict):
         proj = data.get("project_name") or data.get("project") or "template"
         slug = data.get("template_slug") or ""
@@ -1606,8 +1700,9 @@ async def _run_herder_backup_job(job_id: int, audit_id: int):
 from concurrent.futures import ThreadPoolExecutor
 
 _update_check_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="upd-check")
-# Apply jobs are heavier — serialize globally (one patch stream at a time)
-_patch_apply_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="patch-apply")
+# Independent SSH per host — bulk Upgrade OS must not serialize the fleet
+# behind one hung apt (Starlette BackgroundTasks on one request are sequential).
+_patch_apply_pool = ThreadPoolExecutor(max_workers=6, thread_name_prefix="patch-apply")
 
 
 def _parse_os_apply_steps(raw: str | None) -> list[str]:
@@ -2511,10 +2606,12 @@ def enqueue_docker_stack_lifecycle(
     *,
     user_id: int | None = None,
     background_tasks: BackgroundTasks | None = None,
+    remove_volumes: bool = False,
 ) -> Job:
-    """Queue compose stop / start / restart for a whole project (H2.75 P1).
+    """Queue compose stop / start / restart / down for a whole project (H2.75 P1).
 
     Raises JobAlreadyActive if another stack mutation is pending/running on this host.
+    ``remove_volumes`` is only used for ``down`` (``docker compose down -v``).
     """
     act = (action or "").strip().lower()
     if act not in _STACK_LIFECYCLE_ACTIONS:
@@ -2522,6 +2619,7 @@ def enqueue_docker_stack_lifecycle(
     path = (project_path or "").strip()
     if not path:
         raise ValueError("project_path required")
+    drop_vols = bool(remove_volumes) and act == "down"
     job_type = f"docker_stack_{act}"
     with _get_fresh_session() as session:
         server = session.get(Server, server_id)
@@ -2538,16 +2636,18 @@ def enqueue_docker_stack_lifecycle(
             session.expunge(active)
             raise JobAlreadyActive(active)
         proj = _project_basename(path)
+        act_label = "down -v" if drop_vols else act
         job, audit = _create_queued_job_with_audit(
             session,
             server_id=server.id,
             job_type=job_type,
-            queue_message=f"Stack {act} queued for {proj}…",
+            queue_message=f"Stack {act_label} queued for {proj}…",
             user_id=user_id,
-            audit_details=f"Job #{{job_id}} · {act} all services · {proj}",
+            audit_details=f"Job #{{job_id}} · {act_label} · {proj}",
             project_path=path,
             project=proj,
-            action=act,
+            action=act_label,
+            remove_volumes=drop_vols,
         )
         jid, aid, sid = job.id, audit.id, server.id
     if background_tasks is not None:
@@ -2565,6 +2665,288 @@ def enqueue_docker_stack_lifecycle(
         return job
 
 
+def enqueue_docker_stack_remove(
+    server_id: int,
+    project_path: str,
+    *,
+    user_id: int | None = None,
+    background_tasks: BackgroundTasks | None = None,
+) -> Job:
+    """Queue ``compose down -v`` + delete jailed project dir.
+
+    Raises JobAlreadyActive if another stack mutation is pending/running.
+    """
+    path = (project_path or "").strip()
+    if not path:
+        raise ValueError("project_path required")
+    job_type = "docker_stack_remove"
+    with _get_fresh_session() as session:
+        server = session.get(Server, server_id)
+        if not server:
+            raise ValueError("server not found")
+        from ..service_migrate.leftover import LeftoverError, assert_wipe_allowed
+
+        try:
+            assert_wipe_allowed(session, server, path)
+        except LeftoverError as e:
+            raise ValueError(str(e)) from e
+        active = _active_docker_stack_job(session, server_id, job_type, path)
+        if not active:
+            active = _active_stack_mutating_job(session, server_id)
+        if active:
+            logger.info(
+                f"[Jobs] {job_type} skip — job #{active.id} already active "
+                f"for server {server_id}"
+            )
+            session.expunge(active)
+            raise JobAlreadyActive(active)
+        proj = _project_basename(path)
+        job, audit = _create_queued_job_with_audit(
+            session,
+            server_id=server.id,
+            job_type=job_type,
+            queue_message=f"Delete project queued for {proj}…",
+            user_id=user_id,
+            audit_details=f"Job #{{job_id}} · delete project · {proj}",
+            project_path=path,
+            project=proj,
+            action="remove",
+        )
+        jid, aid, sid = job.id, audit.id, server.id
+    if background_tasks is not None:
+        background_tasks.add_task(
+            _run_docker_stack_remove_job, jid, sid, aid, path
+        )
+    else:
+        _update_check_pool.submit(
+            _execute_docker_stack_remove, jid, sid, aid, path
+        )
+    with _get_fresh_session() as session:
+        job = session.get(Job, jid)
+        if job:
+            session.expunge(job)
+        return job
+
+
+def enqueue_service_migrate(
+    source_id: int,
+    dest_id: int,
+    project: str,
+    *,
+    user_id: int | None = None,
+    background_tasks: BackgroundTasks | None = None,
+    leftover: str = "stopped",
+    devices_ack: bool = False,
+    adopt_fabric: bool = False,
+    dest_project: str | None = None,
+    port_map: dict | None = None,
+    bind_map: dict | None = None,
+    skip_binds: list | None = None,
+) -> Job:
+    """Queue stop-first copy + dest up. Raises JobAlreadyActive if either host is busy."""
+    from ..service_migrate.host_lock import HostLockError, compose_project_name
+    from ..service_migrate.overrides import normalize_dest_project, validate_port_map
+
+    try:
+        name = compose_project_name(project)
+    except HostLockError as e:
+        raise ValueError(e.message) from e
+    dest_name, dest_err = normalize_dest_project(name, dest_project)
+    if dest_err:
+        raise ValueError(dest_err)
+    clean_map, map_errs = validate_port_map(port_map)
+    if map_errs:
+        raise ValueError("; ".join(map_errs[:4]))
+    if int(source_id) == int(dest_id):
+        raise ValueError("destination must differ from source")
+    with _get_fresh_session() as session:
+        source = session.get(Server, source_id)
+        dest = session.get(Server, dest_id)
+        if not source or not dest:
+            raise ValueError("server not found")
+        for sid in (source_id, dest_id):
+            active = _active_stack_mutating_job(session, sid)
+            if not active:
+                active = _active_migrate_as_dest(session, sid)
+            if not active:
+                backups = get_active_backup_jobs(session, sid)
+                active = backups[0] if backups else None
+            if active:
+                session.expunge(active)
+                raise JobAlreadyActive(active)
+        from ..service_migrate.leftover import normalize_leftover
+
+        left = normalize_leftover(leftover)
+        job, audit = _create_queued_job_with_audit(
+            session,
+            server_id=source.id,
+            job_type="service_migrate",
+            queue_message=f"Migrate {name} queued → {dest.name}…",
+            user_id=user_id,
+            audit_details=f"Job #{{job_id}} · migrate {name} → {dest.name}",
+            dest_server_id=dest.id,
+            dest_name=dest.name,
+            project=name,
+            dest_project=dest_name,
+            port_map=clean_map,
+            bind_map=bind_map or {},
+            skip_binds=list(skip_binds or []),
+            leftover=left,
+            devices_ack=bool(devices_ack),
+            adopt_fabric=bool(adopt_fabric),
+        )
+        jid, aid = job.id, audit.id
+    if background_tasks is not None:
+        background_tasks.add_task(
+            _run_service_migrate_job, jid, source_id, dest_id, name, aid
+        )
+    else:
+        _update_check_pool.submit(
+            _execute_service_migrate, jid, source_id, dest_id, name, aid
+        )
+    with _get_fresh_session() as session:
+        job = session.get(Job, jid)
+        if job:
+            session.expunge(job)
+        return job
+
+
+async def _run_service_migrate_job(
+    job_id: int, source_id: int, dest_id: int, project: str, audit_id: int
+):
+    await run_in_threadpool(
+        _execute_service_migrate, job_id, source_id, dest_id, project, audit_id
+    )
+
+
+def _execute_service_migrate(
+    job_id: int, source_id: int, dest_id: int, project: str, audit_id: int
+) -> None:
+    from ..service_migrate.facts import herder_free_bytes, probe_host_facts, refresh_host_inventory
+    from ..service_migrate.leftover import normalize_leftover
+    from ..service_migrate.pipeline import (
+        RECOVER_SOURCE_STEPS,
+        MigrateError,
+        run_copy_and_start,
+        wipe_staging,
+    )
+
+    source, hostname = _load_server_for_job(source_id)
+    dest, _ = _load_server_for_job(dest_id)
+    leftover = "stopped"
+    devices_ack = False
+    adopt_fabric = False
+    dest_project = project
+    port_map: dict = {}
+    bind_map: dict = {}
+    skip_binds: list = []
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            try:
+                data = json.loads(job.details or "{}") or {}
+                leftover = normalize_leftover(data.get("leftover"))
+                devices_ack = bool(data.get("devices_ack"))
+                adopt_fabric = bool(data.get("adopt_fabric"))
+                dest_project = data.get("dest_project") or project
+                raw_map = data.get("port_map") or {}
+                if isinstance(raw_map, dict):
+                    port_map = {str(k): str(v) for k, v in raw_map.items()}
+                raw_binds = data.get("bind_map") or {}
+                if isinstance(raw_binds, dict):
+                    bind_map = {str(k): str(v) for k, v in raw_binds.items()}
+                raw_skip = data.get("skip_binds") or []
+                if isinstance(raw_skip, list):
+                    skip_binds = [str(x) for x in raw_skip if str(x).strip()]
+            except Exception:
+                pass
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="migrating",
+                log_line=f"Migrating {project}…",
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+    if not source or not dest:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "service_migrate")
+        return
+
+    def log_line(msg: str) -> None:
+        _flush_job_progress(job_id, "migrating", msg, default_current="migrating")
+
+    try:
+        with _get_fresh_session() as session:
+            src = session.get(Server, source_id)
+            dst = session.get(Server, dest_id)
+            if not src or not dst:
+                raise MigrateError("Server not found")
+            log_line("Refreshing dest Docker inventory from the host…")
+            try:
+                refresh_host_inventory(dst.id)
+                session.refresh(dst)
+            except Exception:
+                pass
+            result = run_copy_and_start(
+                session,
+                source=src,
+                dest=dst,
+                project=project,
+                job_id=job_id,
+                source_facts=probe_host_facts(src),
+                dest_facts=probe_host_facts(dst),
+                herder_free=herder_free_bytes(),
+                log=log_line,
+                leftover=leftover,
+                devices_ack=devices_ack,
+                adopt_fabric=adopt_fabric,
+                dest_project=dest_project,
+                port_map=port_map,
+                bind_map=bind_map,
+                skip_binds=skip_binds,
+                live_inspect=True,
+            )
+        wipe_staging(job_id)
+        _finish(
+            audit_id,
+            job_id,
+            "success",
+            json.dumps({"ok": True, "project": project, "dest_id": dest_id}),
+            hostname,
+            "service_migrate",
+        )
+        log_line("Done.")
+        logger.info("[migrate] job %s ok %s", job_id, result)
+    except Exception as e:
+        logger.exception("service_migrate failed")
+        # Keep BACKUP_ROOT/_migrate/{job_id} on failure for operator retry.
+        step = getattr(e, "failed_step", None)
+        if step in RECOVER_SOURCE_STEPS and source:
+            try:
+                from ..service_migrate.leftover import jailed_source_project_path
+
+                path = jailed_source_project_path(source, project)
+                with _get_fresh_session() as session:
+                    job = session.get(Job, job_id)
+                    if job:
+                        _merge_job_details(
+                            job,
+                            failed_step=step,
+                            recover_source={
+                                "server_id": int(source_id),
+                                "project": project,
+                                "project_path": path,
+                            },
+                        )
+                        session.add(job)
+                        session.commit()
+            except Exception:
+                logger.exception("migrate recover_source details")
+        _finish(audit_id, job_id, "failed", str(e)[:800], hostname, "service_migrate")
+
+
 def _execute_docker_stack_lifecycle(
     job_id: int,
     server_id: int,
@@ -2580,15 +2962,22 @@ def _execute_docker_stack_lifecycle(
     server, hostname = _load_server_for_job(server_id)
     path = (project_path or "").strip()
     proj = _project_basename(path)
+    drop_vols = False
     with _get_fresh_session() as session:
         job = session.get(Job, job_id)
         if job:
+            try:
+                det = json.loads(job.details or "{}") or {}
+                drop_vols = bool(det.get("remove_volumes")) and act == "down"
+            except Exception:
+                drop_vols = False
             job.status = "running"
             job.started_at = datetime.utcnow()
+            cmd = f"docker compose {act}" + (" -v" if drop_vols else "")
             _merge_job_details(
                 job,
                 current=act,
-                log_line=f"docker compose {act} for {proj}…",
+                log_line=f"{cmd} for {proj}…",
                 done=False,
             )
             session.add(job)
@@ -2597,13 +2986,16 @@ def _execute_docker_stack_lifecycle(
         _finish(audit_id, job_id, "failed", "Server not found", hostname, job_type)
         return
     try:
+        cmd = f"docker compose {act}" + (" -v" if drop_vols else "")
         _flush_job_progress(
             job_id,
             act,
-            f"Running docker compose {act} in {path}…",
+            f"Running {cmd} in {path}…",
             default_current=act,
         )
-        result = docker_svc.compose_action(server, path, act, service=None) or {}
+        result = docker_svc.compose_action(
+            server, path, act, service=None, remove_volumes=drop_vols
+        ) or {}
         _append_output_log_lines(job_id, act, result.get("output") or "")
         ok = bool(result.get("success"))
         if ok:
@@ -2617,10 +3009,11 @@ def _execute_docker_stack_lifecycle(
         payload = {
             "project": proj,
             "project_path": path,
-            "action": act,
+            "action": f"{act} -v" if drop_vols else act,
             "success": ok,
             "error": result.get("error"),
             "output": (result.get("output") or "")[:1500],
+            "remove_volumes": drop_vols,
         }
         status = "success" if ok else "failed"
         _flush_job_progress(
@@ -2649,6 +3042,102 @@ def _execute_docker_stack_lifecycle(
         )
 
 
+def _execute_docker_stack_remove(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    project_path: str,
+) -> None:
+    from .. import docker_inventory as inventory_svc
+    from ..service_migrate.leftover import LeftoverError, wipe_compose_project
+
+    job_type = "docker_stack_remove"
+    server, hostname = _load_server_for_job(server_id)
+    path = (project_path or "").strip()
+    proj = _project_basename(path)
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="remove",
+                log_line=f"Deleting project {proj} ({path})…",
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, job_type)
+        return
+
+    def log_line(msg: str) -> None:
+        _flush_job_progress(job_id, "remove", msg, default_current="remove")
+
+    try:
+        with _get_fresh_session() as session:
+            srv = session.get(Server, server_id)
+            if not srv:
+                raise LeftoverError("Server not found")
+            result = wipe_compose_project(
+                session,
+                server=srv,
+                project_path=path,
+                remove_volumes=True,
+                delete_tree=True,
+                log=log_line,
+            )
+        try:
+            with _get_fresh_session() as s:
+                srv = s.get(Server, server_id)
+                if srv:
+                    inventory_svc.invalidate_after_mutation(s, srv, None)
+        except Exception as inv_e:
+            logger.debug("inventory invalidate after stack remove: %s", inv_e)
+        payload = {
+            "project": proj,
+            "project_path": path,
+            "action": "remove",
+            "success": True,
+            "project_removed": bool((result or {}).get("project_removed")),
+        }
+        log_line("Project folder removed.")
+        _finish(audit_id, job_id, "success", json.dumps(payload), hostname, job_type)
+    except Exception as e:
+        logger.exception("docker_stack_remove failed")
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps(
+                {
+                    "project": proj,
+                    "project_path": path,
+                    "action": "remove",
+                    "error": str(e),
+                }
+            ),
+            hostname,
+            job_type,
+        )
+
+
+async def _run_docker_stack_remove_job(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    project_path: str,
+):
+    await run_in_threadpool(
+        _execute_docker_stack_remove,
+        job_id,
+        server_id,
+        audit_id,
+        project_path,
+    )
+
+
 async def _run_docker_stack_lifecycle_job(
     job_id: int,
     server_id: int,
@@ -2672,6 +3161,26 @@ def _active_stack_mutating_job(session: Session, server_id: int) -> Job | None:
         active = _active_job_of_type(session, server_id, jt)
         if active:
             return active
+    return None
+
+
+def _active_migrate_as_dest(session: Session, server_id: int) -> Job | None:
+    """Migrate jobs store Job.server_id = source; dest is in details JSON."""
+    sid = int(server_id)
+    rows = session.exec(
+        select(Job)
+        .where(Job.job_type == "service_migrate")
+        .where(Job.status.in_(["pending", "running"]))
+        .where(Job.server_id != sid)
+    ).all()
+    for job in rows:
+        try:
+            data = json.loads(job.details or "{}") or {}
+            dest = data.get("dest_server_id")
+            if dest is not None and int(dest) == sid:
+                return job
+        except Exception:
+            continue
     return None
 
 

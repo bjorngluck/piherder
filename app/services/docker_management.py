@@ -433,7 +433,10 @@ def redeploy_project(
             "up_status": up_status,
             "output": output,
             "error": None if success else (
-                "pull failed" if pull and not pull_ok else "up -d failed"
+                (
+                    "pull failed" if pull and not pull_ok else "up -d failed"
+                )
+                + (f": {output[-700:]}" if output else "")
             ),
         }
     finally:
@@ -443,11 +446,18 @@ def redeploy_project(
             pass
 
 
-def compose_action(server: Server, project_path: str, action: str, service: str = None) -> Dict:
+def compose_action(
+    server: Server,
+    project_path: str,
+    action: str,
+    service: str = None,
+    remove_volumes: bool = False,
+) -> Dict:
     """stop, start, restart, down (undeploy) for a whole compose project or specific service.
 
-    Whole-project stop/start/restart are also driven by Jobs
-    (``docker_stack_stop`` / ``_start`` / ``_restart``) for live logs.
+    Whole-project stop/start/restart/down are also driven by Jobs
+    (``docker_stack_stop`` / ``_start`` / ``_restart`` / ``_down``) for live logs.
+    ``remove_volumes`` adds ``-v`` on whole-project ``down`` only.
     """
     valid = ("stop", "start", "restart", "down")
     act = (action or "").strip().lower()
@@ -466,6 +476,8 @@ def compose_action(server: Server, project_path: str, action: str, service: str 
     qpath = shlex.quote(path)
     cmd = f"cd {qpath} && docker compose {act}"
     svc = (service or "").strip() or None
+    if act == "down" and remove_volumes and not svc:
+        cmd += " -v"
     if svc:
         cmd += f" {shlex.quote(svc)}"
     cmd += " 2>&1"
@@ -1088,6 +1100,11 @@ def _list_containers_uncached(server: Server, enrich_mounts: bool = True) -> Lis
             else:
                 # docker ps joins mounts with commas (paths often truncated with …)
                 mounts_list = [m.strip() for m in str(mounts_raw).split(",") if m.strip()]
+            mounts_list = [
+                m
+                for m in mounts_list
+                if m and "…" not in m and "\u2026" not in m and "..." not in m
+            ]
             ports_list = ports if ports else (
                 [p.strip() for p in ports_raw.split(",") if p.strip()] if ports_raw else []
             )

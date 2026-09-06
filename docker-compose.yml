@@ -42,6 +42,8 @@ x-piherder-app-env: &piherder-app-env
   # Host Files button — default off. Do not inject PIHERDER_HOST_FILES_MAX_BYTES
   # here with a default or operators cannot rely on the code default (512 MiB).
   PIHERDER_HOST_FILES: ${PIHERDER_HOST_FILES:-false}
+  # Service migration Move… — default off (opt-in). Pipeline is on v1.4.0-dev.
+  PIHERDER_SERVICE_MIGRATE: ${PIHERDER_SERVICE_MIGRATE:-false}
   # Content-Security-Policy (v1.2) — default on; Report-Only for staged tighten
   PIHERDER_CSP: ${PIHERDER_CSP:-true}
   PIHERDER_CSP_REPORT_ONLY: ${PIHERDER_CSP_REPORT_ONLY:-false}

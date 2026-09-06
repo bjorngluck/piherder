@@ -118,6 +118,8 @@ Per-host **⋯** menu: open host, backups, OS/container patch, Docker, settings 
 
 Hosts without the matching feature flag are **skipped** (not failed). Confirm dialog shows which hosts will run. Progress is on **Jobs**; a banner summarises started / skipped / failed.
 
+Bulk **Upgrade OS** / **Patch containers** enqueue each host on the apply pool (up to six concurrent SSH sessions). They must not wait for the first host’s apt to finish. After a **web** recreate, leftover pending/running `os_patch` rows are failed so the per-host exclusive lock does not stick.
+
 Bulk does not bypass exclusive-job rules: if a host already has that job type running, it is skipped as already active.
 
 ## Reboot

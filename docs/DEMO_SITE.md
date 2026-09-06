@@ -40,6 +40,7 @@ Access (if enabled) remains an optional outer gate for spam reduction — do not
 | Jobs | Canned success (“Demo simulation”) — no live SSH |
 | nmap / cert edge | Live outbound blocked |
 | Webshell (**D5**) | **Simulated only** — xterm UI + in-process fake shell (no Paramiko / no TCP). Shared **viewer** may open Console. No live host access |
+| Files (**D-F**) | **Simulated only** — canned tree, same chrome as 1.3 Files. No SFTP. Viewer may browse. Writes refused |
 | Seed | Auto on empty DB; **ops CLI only** (no in-app restore — shared admin vandalism) |
 | Scheduled reset (**D4**) | **Live** on public demo VPS — `demo-maintain` cron (see § Cron) |
 | Shared login role | **`viewer`** — same RBAC/menus as production viewers (not shared admin) |
@@ -113,7 +114,7 @@ The **browser** widget talks to Cloudflare directly. Login still needs the **web
 
 | Login `code=` | Meaning | Fix |
 |---------------|---------|-----|
-| `verify-unreachable` | Container cannot reach siteverify | Almost always **DNS inside the container** (`Temporary failure in name resolution`). Recreate `web` after `git pull` (demo overlay sets `dns: 1.1.1.1` / `8.8.8.8` — **must** `up -d --force-recreate`, not restart). Or set host `/etc/docker/daemon.json` → `"dns": ["1.1.1.1","8.8.8.8"]` and `systemctl restart docker`. Probe: `docker compose exec web python -c "import socket; print(socket.getaddrinfo('challenges.cloudflare.com',443))"` then siteverify POST — expect **HTTP 400** + `invalid-input-secret`. |
+| `verify-unreachable` | Container cannot reach siteverify | **DNS inside `web`** (`Temporary failure in name resolution`) **or** `DOCKER-USER` dropped replies. On the **Nomad** demo node the restricted chain must start with **RELATED,ESTABLISHED**, then allow compose-net **DNS** to `1.1.1.1` / `8.8.8.8` / `9.9.9.9` and **HTTPS 443** to Cloudflare ranges — inbound-only `DROP -i eth0` without ESTABLISHED breaks siteverify. Re-apply: `sudo WAN=eth0 COMPOSE_NET=172.18.0.0/16 ./scripts/demo-docker-user.sh` then `netfilter-persistent save`. Overlay `dns:` only applies on **recreate**, not restart. Probe from `web`: `getaddrinfo('challenges.cloudflare.com',443)` then siteverify POST — expect **HTTP 400** + `invalid-input-secret`. |
 | `invalid-input-secret` | Wrong secret in env | Match `PIHERDER_TURNSTILE_SECRET_KEY` to dashboard secret for the same site key |
 | `missing-remoteip` | Proxy did not pass visitor IP | Caddy / CF: `CF-Connecting-IP` or first `X-Forwarded-For` hop |
 | `timeout-or-duplicate` / `invalid-input-response` | Stale or empty token | Complete the widget once, submit login once (do not spam refresh) |
@@ -144,7 +145,7 @@ Nothing in the app installs cron. On the **demo VPS only**, after `git pull`:
 ```bash
 # once
 sudo mkdir -p /var/log/piherder-demo
-sudo chown "$USER:$USER" /var/log/piherder-demo
+sudo chown "$USER:$USER" /var/log/piherder-demo   # cron runs as this user; root-owned dir → silent fail, no seed
 
 # edit user + absolute repo path, then install
 sudo cp scripts/cron.d/piherder-demo.example /etc/cron.d/piherder-demo
