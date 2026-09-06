@@ -296,6 +296,7 @@ Success criteria:
 | 2026-09-01 | Grafana container dashboard rebind; optional **Adopt into fabric**; JobHold **Start source stack** after copy/dest-up fail. **`dns_then_start` out.** |
 | 2026-09-04 | **Dev freeze.** Unit **~62%**; CI fail-under **62**. User notes [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Remaining: operator QA, screenshot pack, version bump, tag, Hub. |
 | 2026-09-06 | PR review: **M-worker** parked — Celery Move + heartbeats is a **v1.5 candidate**. Freeze keeps web `BackgroundTasks`. |
+| 2026-09-06 | Operator QA complete. Screenshot pack landed. Freeze bugfix: Move wizard From/preflight gap (htmx-indicator). Remaining: kill-switch review, version bump, tag, Hub. |
 
 ---
 
@@ -310,7 +311,7 @@ Success criteria:
 | 5 | Land **M2** preflight (no copy) | **Done** |
 | 6 | Land **M3–M6** + **M-npm** job + wizard; then **M7** | **Done** |
 | 7 | **M8** leftover down · **M9** devices: · **M-rm** Should · **D-F** | **Done** |
-| 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | **Dev freeze 2026-09-04** — notes + wiki pending sign-off; version bump / tag after QA + screenshots |
+| 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | **QA + screenshots done 2026-09-06** — version bump / tag / Hub after kill-switch review |
 
 ---
 

@@ -19,7 +19,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.1.0** | Freeze pack landed — [RELEASE_v1.1.0.md](../../../docs/RELEASE_v1.1.0.md) |
 | **v1.2.0** | Prior Hub — screenshot pack **landed** 2026-08-18. [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) |
 | **v1.3.0** | Prior Hub — pack **landed** 2026-08-22. Maintainer QA: [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.3.0.md) (not the operator wiki). [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md) |
-| **v1.4.0** | **Dev freeze / pending sign-off** (`v1.4.0-dev`) — pack **not landed**. Maintainer QA: [QA_v1.4.0.md](../../../docs/QA_v1.4.0.md). Theme: [Move a service](../../docker/service-migration.md) · [RELEASE](../../../docs/RELEASE_v1.4.0.md) |
+| **v1.4.0** | **Dev freeze / pending sign-off** (`v1.4.0-dev`) — pack **landed 2026-09-06**. Maintainer QA: [QA_v1.4.0.md](../../../docs/QA_v1.4.0.md). Theme: [Move a service](../../docker/service-migration.md) · [RELEASE](../../../docs/RELEASE_v1.4.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
@@ -33,23 +33,21 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 
 ## v1.4.0 — pack status {#v140--pack-status}
 
-**Not landed.** 1.3 PNGs stay valid unless a row below says recapture. Do **not** redo Settings / Reports / Files / certs / LAN / templates unless chrome actually drifted.
+**Landed 2026-09-06.** Wired into [Move a service](../../docker/service-migration.md), [Docker](../../docker/overview.md), [Host Files](../../day-to-day/host-files.md), [Public demo](../../operations/demo-site.md), stack panel on [Network maps](../../integrations/dns-fabric.md). 1.3 PNGs stay valid unless a row below says recapture.
 
-Move wizard has **no** wiki figure yet — do not add `![…]` until the PNG exists (`mkdocs --strict` will fail on a missing file).
-
-### Must capture — new 1.4 surfaces (no PNG yet)
+### New 1.4 surfaces (landed)
 
 | Pri | Suggested file | Surface | Must show | Wire into |
 |-----|----------------|---------|-----------|-----------|
 | **P0** | `docker-migrate-wizard.png` | Docker ⋯ **Move to another host…** | Hero **Move \<project\>**; dest select **To (Docker hosts only)**; HAOS and source absent | [Move a service](../../docker/service-migration.md) |
 | **P0** | `docker-migrate-preflight.png` | Same wizard after dest pick | **Ready for copy**; dest folder path; leftover radios (**Leave stopped** checked); **Move service**. Wait overlay not required in frame | [Move a service](../../docker/service-migration.md) |
-| **P0** | `docker-host-lock.png` | Project ⋯ **Lock to this host…** | Confirm modal: reason Hardware / Operator / Infrastructure + optional note | [Move a service](../../docker/service-migration.md) · [Docker](../../docker/overview.md) |
+| **P0** | `docker-host-lock.png` | Locked project ⋯ | **Unlock…**; **Move to another host…** disabled | [Move a service](../../docker/service-migration.md) · [Docker](../../docker/overview.md) |
 | **P0** | `docker-migrate-jobhold.png` | JobHold after Move | Title **Move \<project\>**; live log; **Succeeded** or **Failed** until **Close** (closeMode hold) | [Move a service](../../docker/service-migration.md) · [Jobs](../../day-to-day/jobs-audit-notifications.md) |
 | **P1** | `docker-migrate-preflight-adopt.png` | Preflight on an NPM-only app (no fabric DNS row) | **Adopt into fabric** checkbox **unchecked**; warn that Move will PUT `forward_host` | [Move a service](../../docker/service-migration.md) · [NPM](../../integrations/npm.md) |
 | **P1** | `docker-migrate-jobhold-start-source.png` | JobHold after copy or dest-up **fail** | **Start source stack** visible. Disposable stack only — or skip if you cannot stage a fail | [Move a service](../../docker/service-migration.md) |
 | **P1** | `demo-files.png` | Public demo **Files** | Simulated / canned banner; folder list; no SFTP. Viewer account OK | [Host Files](../../day-to-day/host-files.md) · [Demo](../../operations/demo-site.md) |
 
-### Must recapture — chrome changed in 1.4
+### Recaptured — chrome changed in 1.4
 
 | Pri | File(s) | 1.4 chrome to show |
 |-----|---------|---------------------|

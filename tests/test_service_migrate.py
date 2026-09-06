@@ -748,6 +748,7 @@ def test_http_migrate_wizard_and_preflight(lock_client, monkeypatch):
     assert "Move grafana" in r.text
     assert 'data-testid="migrate-dest"' in r.text
     assert 'data-testid="migrate-preflight-wait"' in r.text
+    assert "#migrate-preflight-wait.htmx-indicator { display: none; }" in r.text
     r2 = client.get(
         f"/servers/{ids['pi']}/docker/migrate/preflight?project=grafana&dest={dest_id}",
         cookies=_cookie(ids["admin"]),
