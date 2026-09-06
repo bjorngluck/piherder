@@ -158,7 +158,7 @@ Wired into [Move a service](../wiki/docker/service-migration.md), [Docker](../wi
 - [x] `mkdocs build --strict`  
 - [x] Kill switch review — leave `PIHERDER_SERVICE_MIGRATE` **false** at tag (opt-in)  
 - [x] Version bump `1.4.0`  
-- [ ] Tag · Hub  
+- [x] Tag · Hub (`sha256:ec7395f46461aa794c7f4a59370de5512d85839beb5f7eceb59d7be39cfbb210`)  
 
 ## Should (live)
 

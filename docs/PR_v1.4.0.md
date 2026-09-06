@@ -63,8 +63,8 @@ User-facing notes: [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Design and Must IDs s
 - [x] Operator **Ready to bump `1.4.0` and tag = Yes** (after QA + screenshots)
 - [x] Version bump `app/version_info.py` + `pyproject.toml` → **1.4.0**
 - [x] Flip [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) + wiki Home to current production
-- [ ] Merge `v1.4.0-dev` → `main`
-- [ ] Tag **`v1.4.0`** · Hub `1.4.0` / `1.4` / `latest`
+- [x] Merge `v1.4.0-dev` → `main`
+- [x] Tag **`v1.4.0`** · Hub `1.4.0` / `1.4` / `latest`
 - [x] Keep `1.3` / `1.3.0` pins valid
 - [x] Kill switch `PIHERDER_SERVICE_MIGRATE` stays **false** at tag
 
