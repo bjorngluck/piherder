@@ -557,6 +557,29 @@ class StackDeployment(SQLModel, table=True):
     template: Optional[ServiceTemplate] = Relationship(back_populates="deployments")
 
 
+class ComposeProjectMeta(SQLModel, table=True):
+    """Per-host compose project flags (v1.4 host lock)."""
+
+    __tablename__ = "composeprojectmeta"
+    __table_args__ = (
+        UniqueConstraint(
+            "server_id", "compose_project", name="uq_composeprojectmeta_server_project"
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    server_id: int = Field(foreign_key="server.id", index=True)
+    compose_project: str = Field(max_length=128, index=True)
+    host_locked: bool = False
+    # operator | hardware | infra  (haos is implicit on Server.os_type, no row)
+    lock_reason: Optional[str] = Field(default=None, max_length=16)
+    lock_note: Optional[str] = Field(default=None, max_length=255)
+    locked_at: Optional[datetime] = None
+    locked_by_user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class IntegrationBinding(SQLModel, table=True):
     """Map fleet resources to external monitors (e.g. Kuma).
 

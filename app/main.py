@@ -59,8 +59,9 @@ async def lifespan(app: FastAPI):
             print(f"init_db after migrate: {e}")
 
     try:
-        from .services.jobs import cleanup_stale_backup_jobs
+        from .services.jobs import cleanup_orphan_web_jobs, cleanup_stale_backup_jobs
         with Session(engine) as db:
+            cleanup_orphan_web_jobs(db)
             cleanup_stale_backup_jobs(db)
     except Exception as e:
         logger.warning(f"Stale job cleanup skipped: {e}")

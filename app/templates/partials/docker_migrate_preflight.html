@@ -1,0 +1,354 @@
+{% if not result %}
+<p class="text-sm text-muted">Pick a destination to run preflight.</p>
+{% else %}
+<div class="card p-4 sm:p-5" data-testid="migrate-preflight-result" data-ok="{{ '1' if result.ok else '0' }}">
+  <div class="flex flex-wrap items-center gap-2 mb-3">
+    <span class="status-pill {% if result.ok %}status-success{% else %}status-failed{% endif %}">
+      {% if result.ok %}Ready for copy{% else %}Cannot move yet{% endif %}
+    </span>
+    <span class="text-xs text-muted">{% if result.ok %}Stop → copy → dest up → DNS/NPM → validate.{% else %}Fix blocks before copy.{% endif %}</span>
+  </div>
+
+  <p class="text-sm mb-3">
+    {{ result.source.name }}
+    <span class="text-muted">→</span>
+    {{ result.dest.name }}
+    {% if result.dest.arch or result.source.arch %}
+    <span class="text-xs text-muted">
+      · arch {{ result.source.arch or '?' }} → {{ result.dest.arch or '?' }}
+    </span>
+    {% endif %}
+    {% if result.dest.project and result.dest.project != result.project %}
+    <span class="text-xs text-muted">· dest project <span class="font-mono">{{ result.dest.project }}</span></span>
+    {% endif %}
+  </p>
+
+  <form {% if result.ok %}method="post"
+        action="/servers/{{ server.id }}/docker/migrate"
+        data-job-hold="Move {{ result.project }}"
+        data-job-hold-close="hold"
+        data-confirm="This stops the stack on {{ result.source.name }}, copies the dataset via the herder, starts it on {{ result.dest.name }} as {{ result.dest_project or result.project }}, then retargets DNS / NPM. Planned downtime."
+        data-confirm-remove="This stops the stack on {{ result.source.name }}, copies it to {{ result.dest.name }} as {{ result.dest_project or result.project }}, then AFTER SUCCESS deletes the source project directory and named volumes on {{ result.source.name }}. Destination is not touched. This cannot be undone from PiHerder."
+        data-confirm-title="Move {{ result.project }}?"
+        data-confirm-label="Move service"
+        data-confirm-danger
+        data-testid="migrate-start-form"
+        {% else %}
+        data-testid="migrate-blocked-form"
+        onsubmit="return false;"
+        {% endif %}>
+    <input type="hidden" name="project" value="{{ result.project }}">
+    <input type="hidden" name="dest" value="{{ result.dest.id }}">
+  <fieldset class="mb-4 p-3 rounded border border-border" data-testid="migrate-overrides">
+    <legend class="text-xs text-muted px-1">Project folder</legend>
+    <p class="text-sm mb-2 break-all font-mono" data-testid="migrate-source-project-path">
+      {{ result.source.project_path }}
+    </p>
+    <p class="text-xs text-muted mb-2">
+      Copies that folder’s contents onto dest under dest’s docker root
+      (<span class="font-mono">{{ result.dest.docker_base }}</span>),
+      same folder name unless you change it. Named volumes copy too.
+    </p>
+    <label class="block text-xs text-muted mb-1" for="migrate-dest-project">Dest folder name</label>
+    <div class="flex flex-wrap items-center gap-1 mb-1">
+      <span class="font-mono text-xs text-muted break-all">{{ result.dest.docker_base }}/</span>
+      <input id="migrate-dest-project"
+             type="text"
+             name="dest_project"
+             value="{{ result.dest_project_input or result.dest_project or result.project }}"
+             autocomplete="off"
+             spellcheck="false"
+             class="flex-1 min-w-[8rem] bg-surface border border-border rounded px-2 py-2 text-sm font-mono min-h-11"
+             data-testid="migrate-dest-project"
+             hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
+             hx-target="#migrate-preflight"
+             hx-swap="innerHTML"
+             hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_'], [name^='bind_src_'], [name^='dest_bind_'], [name^='skip_bind_']"
+             hx-indicator="#migrate-preflight-wait"
+             hx-trigger="change">
+    </div>
+    <p class="text-xs mb-3 break-all">
+      Dest folder:
+      <span class="font-mono text-accent" data-testid="migrate-dest-project-path">{{ result.dest.project_path or result.dest.project }}</span>
+    </p>
+    {% set vols = (result.leftover_remove or {}).named_volumes or [] %}
+    {% if vols %}
+    <p class="text-xs text-muted mb-3 break-all">
+      Named volumes (copied):
+      <span class="font-mono">{{ vols | join(', ') }}</span>
+    </p>
+    {% endif %}
+    {% if result.project_files %}
+    <p class="text-xs text-muted mb-1">In the project folder (copied as-is, including hidden files):</p>
+    <ul class="text-xs font-mono mb-3 space-y-0.5 max-h-40 overflow-auto break-all" data-testid="migrate-project-files">
+      {% for f in result.project_files %}
+      <li>{{ f }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if result.ports %}
+    <div class="text-xs text-muted mb-1">Published host ports</div>
+    {% if result.host_network %}
+    <p class="text-xs text-warning mb-2" data-testid="migrate-host-network-note">
+      This stack uses <strong>host network</strong>. The process binds the same
+      host ports on dest — changing the number below does not move the listen port.
+      Dest must have those ports free.
+    </p>
+    {% endif %}
+    <div class="space-y-2 mb-3" data-testid="migrate-port-map">
+      {% for p in result.ports %}
+      <label class="flex flex-wrap items-center gap-2 text-sm">
+        <span class="font-mono w-28">{{ p.host }}/{{ p.proto }}</span>
+        <span class="text-muted">→</span>
+        <input type="number"
+               name="{{ p.field }}"
+               value="{{ p.dest_host }}"
+               min="1"
+               max="65535"
+               class="w-28 bg-surface border rounded px-2 py-1 font-mono min-h-11 {% if p.clash %}border-danger{% else %}border-border{% endif %}"
+               data-testid="migrate-dest-port-{{ p.host }}-{{ p.proto }}"
+               {% if p.host_network %}disabled title="Host network — remap does not apply"{% endif %}
+               hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
+               hx-target="#migrate-preflight"
+               hx-swap="innerHTML"
+               hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_'], [name^='bind_src_'], [name^='dest_bind_'], [name^='skip_bind_']"
+               hx-indicator="#migrate-preflight-wait"
+               hx-trigger="change">
+        {% if p.host_network %}<span class="text-xs text-muted">host network</span>{% endif %}
+        {% if p.clash %}<span class="text-danger text-xs">in use on dest</span>{% endif %}
+      </label>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if result.binds %}
+    <div class="text-xs font-semibold mb-1">Extra host folders (not inside the project folder on source)</div>
+    <p class="text-xs text-muted mb-2 break-all">
+      Source compose used a path outside
+      <span class="font-mono">{{ result.source.project_path }}</span>
+      (often <code>~/…</code>). Dest default is <strong>inside the dest project folder</strong>
+      so the volume travels with the project. Override only if you really want another path.
+    </p>
+    <div class="space-y-3 mb-3" data-testid="migrate-bind-map">
+      {% for b in result.binds %}
+      <div class="p-2 rounded border {% if b.ok %}border-border{% else %}border-danger{% endif %}">
+        <input type="hidden" name="bind_src_{{ b.index }}" value="{{ b.source }}">
+        <div class="font-mono text-xs break-all mb-1" data-testid="migrate-bind-src-{{ b.index }}">{{ b.source }}</div>
+        {% if b.host_local %}
+        <input type="hidden" name="dest_bind_{{ b.index }}" value="{{ b.source }}">
+        <input type="hidden" name="skip_bind_{{ b.index }}" value="1">
+        <p class="text-xs text-muted" data-testid="migrate-bind-host-local-{{ b.index }}">
+          Host socket/device — not copied. Dest will bind
+          <span class="font-mono">{{ b.source }}</span> on the dest host
+          (Uptime Kuma docker.sock, D-Bus, /dev, …).
+        </p>
+        {% else %}
+        <label class="block text-xs text-muted mb-1" for="dest-bind-{{ b.index }}">Copy to dest path (dest project folder unless you change it)</label>
+        <input id="dest-bind-{{ b.index }}"
+               type="text"
+               name="dest_bind_{{ b.index }}"
+               value="{{ b.dest }}"
+               {% if b.skip %}disabled{% endif %}
+               autocomplete="off"
+               spellcheck="false"
+               class="w-full bg-surface border rounded px-2 py-2 text-xs font-mono min-h-11 break-all {% if not b.ok and not b.skip %}border-danger{% else %}border-border{% endif %}"
+               data-testid="migrate-dest-bind-{{ b.index }}"
+               hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
+               hx-target="#migrate-preflight"
+               hx-swap="innerHTML"
+               hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_'], [name^='bind_src_'], [name^='dest_bind_'], [name^='skip_bind_']"
+               hx-indicator="#migrate-preflight-wait"
+               hx-trigger="change">
+        {% if b.error %}<p class="text-danger text-xs break-all mt-1">{{ b.error }}</p>{% endif %}
+        <label class="flex items-start gap-2 text-xs mt-2">
+          <input type="checkbox"
+                 name="skip_bind_{{ b.index }}"
+                 value="1"
+                 class="mt-0.5"
+                 {% if b.skip %}checked{% endif %}
+                 hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
+                 hx-target="#migrate-preflight"
+                 hx-swap="innerHTML"
+                 hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_'], [name^='bind_src_'], [name^='dest_bind_'], [name^='skip_bind_']"
+                 hx-indicator="#migrate-preflight-wait"
+                 hx-trigger="change">
+          <span>Skip copy (dest will not get this data)</span>
+        </label>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <button type="button"
+            class="btn btn-secondary min-h-11 text-sm"
+            data-testid="migrate-recheck"
+            hx-get="/servers/{{ server.id }}/docker/migrate/preflight"
+            hx-target="#migrate-preflight"
+            hx-swap="innerHTML"
+            hx-include="#migrate-dest, [name='project'], [name='dest_project'], [name^='dest_port_'], [name^='bind_src_'], [name^='dest_bind_'], [name^='skip_bind_']"
+            hx-indicator="#migrate-preflight-wait">
+      Recheck destination
+    </button>
+  </fieldset>
+
+  {% if result.blocks %}
+  <h3 class="text-sm font-semibold mb-1">Blocks</h3>
+  <ul class="text-sm mb-3 space-y-1" data-testid="migrate-blocks">
+    {% for b in result.blocks %}
+    <li class="text-danger break-all whitespace-pre-wrap">{{ b.message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if result.warns %}
+  <h3 class="text-sm font-semibold mb-1">Warnings</h3>
+  <ul class="text-sm mb-3 space-y-1" data-testid="migrate-warns">
+    {% for w in result.warns %}
+    <li class="text-warning break-all whitespace-pre-wrap">{{ w.message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <h3 class="text-sm font-semibold mb-1">Dataset</h3>
+  <p class="text-xs text-muted mb-2">
+    Estimate {{ result.dataset.bytes_human }}
+    · dest free {{ result.dest.disk_free_human }}
+  </p>
+  {% if result.dataset['items'] %}
+  <ul class="text-xs font-mono mb-3 space-y-1 max-h-80 overflow-auto">
+    {% for it in result.dataset['items'] %}
+    <li class="break-all whitespace-pre-wrap">{{ it.kind }} · {{ it.source }}{% if it.bytes %} · {{ it.bytes }} B{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-xs text-muted mb-3">No mount inventory on the snapshot — copy will classify at job time.</p>
+  {% endif %}
+
+  {% if result.dns or result.npm_edge %}
+  <h3 class="text-sm font-semibold mb-1">DNS / NPM</h3>
+  {% if result.npm_edge %}
+  <p class="text-sm mb-2" data-testid="migrate-npm-edge">
+    This is the <strong>NPM edge</strong>. Public names stay CNAME to that alias;
+    only the alias follows dest.
+  </p>
+  {% endif %}
+  <ul class="text-sm mb-3 space-y-1" data-testid="migrate-dns">
+    {% for d in result.dns %}
+    <li>
+      <span class="font-mono">{{ d.fqdn }}</span>
+      · {% if d.via_proxy %}NPM backend{% else %}CNAME → dest{% endif %}
+      {% if d.forward_host %}<span class="text-muted">(now {{ d.forward_host }})</span>{% endif %}
+    </li>
+    {% endfor %}
+    {% for d in result.npm_edge_dependents or [] %}
+    <li>
+      <span class="font-mono">{{ d.fqdn }}</span>
+      · stays CNAME on NPM edge
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if result.ok %}
+    {% set ns = namespace(need_ack=false) %}
+    {% for w in result.warns or [] %}
+      {% if w.id == 'devices' %}{% set ns.need_ack = true %}{% endif %}
+    {% endfor %}
+    {% if ns.need_ack %}
+    <label class="flex items-start gap-2 text-sm mb-3" data-testid="migrate-devices-ack">
+      <input type="checkbox" name="devices_ack" value="1" class="mt-1" required>
+      <span>This stack looks bound to this host (devices, host network, or privileged). I still want to move it (or lock it instead).</span>
+    </label>
+    {% endif %}
+    {% set ns_adopt = namespace(n=0) %}
+    {% for d in result.dns or [] %}
+      {% if d.from_binding %}{% set ns_adopt.n = ns_adopt.n + 1 %}{% endif %}
+    {% endfor %}
+    {% if ns_adopt.n %}
+    <label class="flex items-start gap-2 text-sm mb-3" data-testid="migrate-adopt-fabric">
+      <input type="checkbox" name="adopt_fabric" value="1" class="mt-1">
+      <span>
+        Also add {{ ns_adopt.n }} NPM name{{ 's' if ns_adopt.n != 1 else '' }} to DNS fabric
+        (via proxy). No certs. Does not rewrite Pi-hole CNAMEs.
+      </span>
+    </label>
+    {% endif %}
+    <fieldset class="mb-3 text-sm">
+      <legend class="text-xs text-muted mb-1">After success, source leftover</legend>
+      <label class="flex items-center gap-2 mb-1">
+        <input type="radio" name="leftover" value="stopped" checked>
+        Leave stopped (data kept)
+      </label>
+      <label class="flex items-center gap-2 mb-1">
+        <input type="radio" name="leftover" value="down">
+        <code>compose down</code> (volumes kept)
+      </label>
+      <label class="flex items-start gap-2" data-testid="migrate-leftover-remove">
+        <input type="radio" name="leftover" value="remove" class="mt-1">
+        <span>
+          Remove source project + named volumes
+          <span class="text-danger"> (cannot undo; dest is not touched)</span>
+        </span>
+      </label>
+    </fieldset>
+    {% set wipe = result.leftover_remove or {} %}
+    <div class="hidden text-xs mb-3 p-2 rounded border border-danger/40" data-testid="migrate-leftover-remove-preview" id="migrate-leftover-remove-preview">
+      <p class="text-danger mb-1">Will delete on {{ result.source.name }} after a green move:</p>
+      <ul class="font-mono space-y-0.5">
+        <li>project {{ wipe.project_path or result.source.project_path }}</li>
+        {% if wipe.named_volumes %}
+          {% for v in wipe.named_volumes %}
+          <li>volume {{ v }}</li>
+          {% endfor %}
+        {% else %}
+          <li>named volumes: none in this snapshot</li>
+        {% endif %}
+      </ul>
+      <p class="text-muted mt-1">Absolute binds outside the project folder are left on disk. {{ result.dest.name }} is never wiped.</p>
+      <label class="flex items-start gap-2 mt-2 text-sm text-danger" data-testid="migrate-leftover-remove-ack">
+        <input type="checkbox" name="leftover_remove_ack" value="1" class="mt-1">
+        <span>I understand this deletes the source project and listed named volumes after a green move. Dest is not wiped.</span>
+      </label>
+    </div>
+    <button type="submit" class="btn btn-accent min-h-11 text-sm">Move service</button>
+  <script>
+    (function () {
+      var form = document.querySelector('[data-testid="migrate-start-form"]');
+      if (!form) return;
+      var safeMsg = form.getAttribute('data-confirm');
+      var wipeMsg = form.getAttribute('data-confirm-remove');
+      var preview = document.getElementById('migrate-leftover-remove-preview');
+      var ack = form.querySelector('input[name="leftover_remove_ack"]');
+      function sync() {
+        var checked = form.querySelector('input[name="leftover"]:checked');
+        var v = checked ? checked.value : 'stopped';
+        if (v === 'remove') {
+          form.setAttribute('data-confirm', wipeMsg || safeMsg);
+          form.setAttribute('data-confirm-title', 'Wipe source after move?');
+          form.setAttribute('data-confirm-label', 'Move and wipe source');
+          if (preview) preview.classList.remove('hidden');
+          if (ack) ack.required = true;
+        } else {
+          form.setAttribute('data-confirm', safeMsg);
+          form.setAttribute('data-confirm-title', 'Move {{ result.project }}?');
+          form.setAttribute('data-confirm-label', 'Move service');
+          if (preview) preview.classList.add('hidden');
+          if (ack) { ack.required = false; ack.checked = false; }
+        }
+      }
+      form.addEventListener('change', sync);
+      sync();
+    })();
+  </script>
+  {% else %}
+    <button type="button"
+            class="btn btn-accent min-h-11 text-sm"
+            data-testid="migrate-blocked-move"
+            title="Fix preflight blocks first"
+            onclick="var b=document.querySelector('[data-testid=migrate-blocks]'); if(b){ b.scrollIntoView({behavior:'smooth',block:'center'}); }">
+      Move service
+    </button>
+    <p class="text-xs text-danger mt-2 break-all">Still blocked — fix the items under Blocks (full paths), then Recheck.</p>
+  {% endif %}
+  </form>
+</div>
+{% endif %}

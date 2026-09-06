@@ -6,6 +6,7 @@ from .models import (  # ensure registered for create_all / alembic
     AppSetting,
     ServiceTemplate,
     StackDeployment,
+    ComposeProjectMeta,
 )
 
 engine = create_engine(

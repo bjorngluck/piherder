@@ -132,11 +132,18 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/bjorngluck/piherder
       name: GitHub
+    - icon: fontawesome/solid/heart
+      link: https://github.com/sponsors/bjorngluck
+      name: GitHub Sponsors
+    - icon: simple/buymeacoffee
+      link: https://www.buymeacoffee.com/bjorngluck
+      name: Buy Me a Coffee
   generator: false
 
 
 nav:
   - Home: index.md
+  - Support the project: support.md
   - Getting started:
       - Overview: getting-started/index.md
       - Requirements: getting-started/requirements.md
@@ -160,6 +167,7 @@ nav:
       - Overview: docker/overview.md
       - Inventory cache: docker/inventory.md
       - Compose edit & deploy: docker/compose-edit.md
+      - Move a service: docker/service-migration.md
   - Service templates:
       - Overview: service-templates/overview.md
       - Deploy a template: service-templates/deploy.md

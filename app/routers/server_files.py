@@ -21,7 +21,7 @@ from ..models import Server, User
 from ..security.auth import (
     cookie_auth_kwargs,
     cookie_delete_kwargs,
-    get_operator_user,
+    get_console_user,
     user_session_version,
 )
 from ..services import host_files as hf
@@ -29,7 +29,6 @@ from ..services import ssh_console as cons
 from ..services import ssh_identities as idents
 from ..services import webauthn_svc as wa_svc
 from ..services.audit_write import make_audit_log
-from ..services.demo import demo_mode
 from ..services.nav_shortcuts import host_feature_context
 from ..services.request_ip import client_ip_from_request
 
@@ -52,10 +51,8 @@ _STATUS = {
 
 
 def _files_gate() -> None:
-    if demo_mode():
-        raise HTTPException(status_code=403, detail="Files is off in demo")
-    if not hf.files_enabled():
-        raise HTTPException(status_code=404)
+    if not hf.files_surface_allowed():
+        raise HTTPException(404)
 
 
 def _http(err: hf.FilesError) -> HTTPException:
@@ -147,6 +144,8 @@ def _get_server(session: Session, server_id: int) -> Server:
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
+    if hf.is_demo_files():
+        return server
     if not hf.files_supported(server):
         raise HTTPException(status_code=400, detail="Host has no SSH identity for Files")
     return server
@@ -225,7 +224,7 @@ async def files_page(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     p: str = "",
     identity: str = "fleet",
 ):
@@ -320,6 +319,7 @@ async def files_page(
             "has_grant": _has_grant(request, user),
             "docker_on": bool(getattr(server, "container_patch_enabled", False)),
             "files_app": True,
+            "demo_files": hf.is_demo_files(),
             **_nav,
         },
     )
@@ -330,7 +330,7 @@ async def files_ls(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     p: str = "",
     identity: str = "fleet",
 ):
@@ -350,7 +350,7 @@ async def files_search(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     q: str = "",
     p: str = "",
     identity: str = "fleet",
@@ -380,7 +380,7 @@ async def files_unlock(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     totp_code: str = Form(""),
     p: str = Form(""),
     identity: str = Form("privileged"),
@@ -425,7 +425,7 @@ async def files_webauthn_options(
     request: Request,
     server_id: int,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
 ):
     """Passkey options for Files step-up (privileged or secret-ish files)."""
     _files_gate()
@@ -456,7 +456,7 @@ async def files_webauthn_verify(
     request: Request,
     server_id: int,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
 ):
     """Verify passkey and set the same grant cookie the console uses."""
     _files_gate()
@@ -519,7 +519,7 @@ async def files_download(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     p: str = "",
     identity: str = "fleet",
 ):
@@ -579,7 +579,7 @@ async def files_content(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     p: str = "",
     identity: str = "fleet",
 ):
@@ -599,7 +599,7 @@ async def files_peek(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     p: str = "",
     identity: str = "fleet",
 ):
@@ -619,7 +619,7 @@ async def files_preview(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     p: str = "",
     identity: str = "fleet",
 ):
@@ -650,7 +650,7 @@ async def files_docker_volumes(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     identity: str = "fleet",
 ):
     _files_gate()
@@ -670,7 +670,7 @@ async def files_docker_containers(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     identity: str = "fleet",
 ):
     _files_gate()
@@ -690,7 +690,7 @@ async def files_docker_mounts(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     identity: str = "fleet",
     container: str = "",
 ):
@@ -713,7 +713,7 @@ async def files_docker_cp(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     p: str = Form(""),
     identity: str = Form("fleet"),
     container: str = Form(...),
@@ -748,7 +748,7 @@ async def files_save(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     p: str = Form(""),
     identity: str = Form("fleet"),
     content: str = Form(""),
@@ -786,7 +786,7 @@ async def files_archive(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     p: str = Form(""),
     identity: str = Form("fleet"),
     names: list[str] = Form(default=[]),
@@ -855,7 +855,7 @@ async def files_unzip(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     p: str = Form(""),
     identity: str = Form("fleet"),
     name: str = Form(...),
@@ -883,7 +883,7 @@ async def files_rm(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     p: str = Form(""),
     identity: str = Form("fleet"),
     names: list[str] = Form(default=[]),
@@ -915,7 +915,7 @@ async def files_perms(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     p: str = Form(""),
     identity: str = Form("fleet"),
     names: list[str] = Form(default=[]),
@@ -975,7 +975,7 @@ async def files_move(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     p: str = Form(""),
     identity: str = Form("fleet"),
     dest: str = Form(...),
@@ -1016,7 +1016,7 @@ async def files_upload(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     file: UploadFile = File(...),
     p: str = Form(""),
     identity: str = Form("fleet"),
@@ -1157,7 +1157,7 @@ async def files_mkdir(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     name: str = Form(...),
     p: str = Form(""),
     identity: str = Form("fleet"),
@@ -1192,7 +1192,7 @@ async def files_rename(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     src: str = Form(...),
     dest: str = Form(...),
     p: str = Form(""),
@@ -1228,7 +1228,7 @@ async def files_delete(
     server_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     name: str = Form(...),
     p: str = Form(""),
     identity: str = Form("fleet"),

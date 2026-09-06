@@ -537,6 +537,11 @@
       <p id="job-hold-status" class="text-sm text-accent font-mono mb-2 min-h-[1.25rem] flex-shrink-0">Starting…</p>
       <pre id="job-hold-log" class="ph-detail-log flex-1 min-h-[8rem] max-h-[40vh]">…</pre>
       <p id="job-hold-hint" class="text-[10px] text-muted mt-2 mb-0 flex-shrink-0">Please wait — this page will refresh when finished.</p>
+      <div id="job-hold-recover" class="hidden mt-3 flex-shrink-0">
+        <button type="button" id="job-hold-start-source" class="btn btn-secondary min-h-11 text-sm">
+          Start source stack
+        </button>
+      </div>
     </div>
   </div>
 
@@ -1450,7 +1455,7 @@
    */
   window.PiHerderJobHold = (function () {
     var pollKey = 'job-hold';
-    var state = { serverId: null, jobId: null, closeMode: 'reload', reloadDelayMs: 1200, redirectUrl: null };
+    var state = { serverId: null, jobId: null, closeMode: 'reload', reloadDelayMs: 1200, redirectUrl: null, recoverSource: null };
 
     function els() {
       return {
@@ -1459,7 +1464,16 @@
         status: document.getElementById('job-hold-status'),
         log: document.getElementById('job-hold-log'),
         hint: document.getElementById('job-hold-hint'),
+        recover: document.getElementById('job-hold-recover'),
+        startSource: document.getElementById('job-hold-start-source'),
       };
+    }
+
+    function hideRecover() {
+      var e = els();
+      state.recoverSource = null;
+      if (e.recover) e.recover.classList.add('hidden');
+      if (e.startSource) e.startSource.disabled = false;
     }
 
     function hide() {
@@ -1503,6 +1517,7 @@
         e.hint.textContent = opts.hint
           || 'Please wait — this page will refresh when finished.';
       }
+      hideRecover();
       // base.css: .hidden { display:none !important } — must remove before flex can show
       e.modal.classList.remove('hidden');
       e.modal.classList.add('flex');
@@ -1544,13 +1559,32 @@
             state.redirectUrl = data.redirect_url;
           }
           if (data.done || data.status === 'success' || data.status === 'failed' || data.status === 'cancelled') {
+            var hold = (state.closeMode === 'hold' || state.closeMode === 'none');
+            if (e.status) {
+              e.status.textContent = data.status === 'success' ? '✓ Succeeded'
+                : (data.status === 'cancelled' ? 'Cancelled' : '✗ Failed');
+            }
             if (e.hint) {
-              e.hint.textContent = state.redirectUrl && data.status === 'success'
-                ? 'Opening deployment…'
-                : 'Refreshing…';
+              if (hold) {
+                e.hint.textContent = data.status === 'success'
+                  ? 'Finished successfully. Read the log, then Close.'
+                  : 'Finished with failure. Read the log, then Close.';
+              } else {
+                e.hint.textContent = state.redirectUrl && data.status === 'success'
+                  ? 'Opening deployment…'
+                  : 'Refreshing…';
+              }
+            }
+            if (data.status === 'failed' && data.recover_source && data.recover_source.project_path) {
+              state.recoverSource = data.recover_source;
+              if (e.recover) e.recover.classList.remove('hidden');
+              if (e.hint && hold) {
+                e.hint.textContent = 'Copy / dest up failed. Source is stopped. Start it back, or Close.';
+              }
             }
             // On failure keep reload so banners/errors show; only redirect on success
             if (data.status !== 'success') state.redirectUrl = null;
+            if (hold) return true;
             setTimeout(finishClose, state.reloadDelayMs);
             return true;
           }
@@ -1636,6 +1670,46 @@
     if (closeBtn) closeBtn.addEventListener('click', function () {
       // Manual close: still reload so badges update if job already finished
       finishClose();
+    });
+    var startSrc = document.getElementById('job-hold-start-source');
+    if (startSrc) startSrc.addEventListener('click', function () {
+      var rec = state.recoverSource || {};
+      var sid = rec.server_id || state.serverId;
+      var path = rec.project_path;
+      if (!sid || !path) return;
+      startSrc.disabled = true;
+      var body = new FormData();
+      body.set('project_path', path);
+      fetch('/servers/' + encodeURIComponent(sid) + '/docker/compose/start', {
+        method: 'POST',
+        body: body,
+        credentials: 'same-origin',
+        headers: { 'X-PiHerder-Async': '1', 'Accept': 'application/json' },
+      }).then(function (res) {
+        return res.text().then(function (text) {
+          var data = {};
+          try { data = text ? JSON.parse(text) : {}; } catch (err) { data = {}; }
+          var e = els();
+          if (!res.ok && res.status !== 409) {
+            if (e.log) e.log.textContent += (data.detail || ('HTTP ' + res.status)) + '\n';
+            startSrc.disabled = false;
+            return;
+          }
+          if (data.job_id) {
+            if (e.title) e.title.textContent = 'Start source stack';
+            if (e.status) e.status.textContent = 'Starting source…';
+            if (e.hint) e.hint.textContent = 'Starting the source project. Close when finished.';
+            if (e.recover) e.recover.classList.add('hidden');
+            startPoll(sid, data.job_id, data.poll_url || null);
+          } else {
+            startSrc.disabled = false;
+          }
+        });
+      }).catch(function (err) {
+        startSrc.disabled = false;
+        var e = els();
+        if (e.log) e.log.textContent += (err && err.message ? err.message : 'start failed') + '\n';
+      });
     });
 
     return { open: open, hide: hide, startPoll: startPoll, run: run };

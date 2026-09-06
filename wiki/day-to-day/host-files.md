@@ -4,11 +4,16 @@
 
 A **file manager** on each SSH host (confined SFTP): browse, upload/download (progress, default 512 MiB), create folders, rename, **move**, **edit** UTF-8 text, **zip / unzip**, **chmod / chown**, **search** (names and file contents), **preview** images / hex, delete files or folder trees, and a thin **Docker** helper (named volumes + `docker cp` into the current folder). It is **not** WinSCP, **not** dual-pane, **not** console zmodem, not a backup job, and not the [compose editor](../docker/compose-edit.md) (no version history, no deploy). The token API stays fleet list/get/put (+ limited mkdir/rename); extra verbs are UI + 2FA. The hero says **Limited access** (fleet) or **Elevated access** (privileged) — not “jailed SFTP”.
 
-**Where:** host overview **Files** button (next to Console) → `/servers/{id}/files`. Same **ops hero** as Docker / Backups / Services (host jump, ★ pin, Server / Docker / Hosts map). Kill switch **`PIHERDER_HOST_FILES`** (default **off**). Operator+ only. Viewer never. Demo never.
+**Where:** host overview **Files** button (next to Console) → `/servers/{id}/files`. Same **ops hero** as Docker / Backups / Services (host jump, ★ pin, Server / Docker / Hosts map). Kill switch **`PIHERDER_HOST_FILES`** (default **off**). Operator+ only on a real herder. The **public demo** shows a **simulated** tree (no SFTP); viewers may browse; writes are refused.
 
 <figure class="ph-figure" markdown>
   ![Host Files](../assets/screenshots/host-files.png)
   <figcaption>Host Files — fleet nav, ops hero, **Limited access**, breadcrumb path, folder tree + list.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Demo Files](../assets/screenshots/demo-files.png)
+  <figcaption>Public demo Files — canned tree, **simulated** banner, viewer browse only (no SFTP).</figcaption>
 </figure>
 
 Use the normal PiHerder header (Dashboard / Servers / ☰) to leave the page — Files always receives the logged-in `user` so that chrome renders. Folder tree on the left, file list on the right — both **scroll inside the window** (the page does not grow with the folder). The path box is a breadcrumb: **one** leading `/` (privileged) or the fleet jail, then folder names; separators are **green** (not a doubled `//`). Toolbar: parent, path, search, **Upload**, **⋯** (New folder, Docker mounts, Refresh, Fleet/Privileged, Maximize), and the **expand** control (same idea as console Maximize / Hosts map full screen). **Maximize** hides the hero so the list fills the remaining height — especially useful on a phone. Restore brings the hero back. The choice sticks in this browser. Those ⋯ actions are **not** extra toolbar buttons. Selection actions appear only after you select rows. **Tap or click the name** to open a folder, edit text, or preview an image. On a phone, **Folders** slides the tree over the list; **long-press** selects and shows actions. Desktop: right-click for the row menu (no per-row **⋯**). Drag files **or folders** onto the list (or a tree folder) to upload. Switch **Fleet / Privileged** from the toolbar **⋯**.
@@ -36,7 +41,7 @@ The web console is a PTY. Dropping a Frigate `config.yml`, a compose sidecar, or
 | One-off upload/download (default **512 MiB**; Settings can raise to **32 GiB**) | [Backups](backups.md) for scheduled trees |
 | Zip a folder (save on the host or download) | — |
 | Peek at a PNG / hex of a binary | Full media gallery (not in Files) |
-| Copy a file out of a container into the jail | Service migration copy engine ([v1.4](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/PLAN_v1.4.0.md)) |
+| Copy a file out of a container into the jail | Toolbar **⋯ → Docker mounts** / `docker cp` on this page. Whole-stack host→host copy is [Move a service](../docker/service-migration.md) |
 | HAOS `/mnt/data` via **privileged** (⋯) | Cert deploy (PEM paste) · template deploy |
 
 ## Actions
@@ -84,7 +89,7 @@ Upload onto an existing name: browser **confirm**, then tmp+rename (same as comp
 
 ## API
 
-Token scope **`files`** (not on by default). Fleet identity only. List / download / upload / mkdir / rename / delete-empty. Edit, zip, unzip, chmod, recursive delete, preview, Docker helpers, and privileged stay in the browser (tokens have no 2FA). A richer Files API is **under consideration for v1.4+**. See [API.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/API.md).
+Token scope **`files`** (not on by default). Fleet identity only. List / download / upload / mkdir / rename / delete-empty. Edit, zip, unzip, chmod, recursive delete, preview, Docker helpers, and privileged stay in the browser (tokens have no 2FA). A richer Files API is **under consideration for a later minor**. See [API tokens](../operations/api-tokens.md).
 
 ## Env
 
@@ -113,6 +118,8 @@ Failures store `status=error` and a reason code (`secret_confirm` when 2FA is re
 - [Web SSH console](web-ssh-console.md) — privileged is console **and** Files  
 - [Compose edit](../docker/compose-edit.md) — redacted `.env` / history / deploy  
 - [Docker overview](../docker/overview.md)  
+- [Move a service](../docker/service-migration.md) — not the Files copy engine  
+- [Public demo](../operations/demo-site.md) — canned Files tree, no SFTP  
 - [HAOS hosts](haos-hosts.md)  
 - [API tokens](../operations/api-tokens.md)  
 - [Settings](../operations/settings.md) — kill switch is env; transfer cap is **Settings → Files**  

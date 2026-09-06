@@ -400,6 +400,9 @@
         {% include "partials/host_feature_nav.html" %}
       </div>
       <h1 class="ops-hero-title">Files</h1>
+      {% if demo_files|default(false) %}
+      <p class="text-warning text-sm mb-2" data-testid="demo-files-banner"><strong>Demo Files</strong> — simulated tree (no SFTP, no host disk). Browse only.</p>
+      {% endif %}
       <p class="ops-hero-sub">
         {{ server.hostname }}
         · {{ _ident_lab }} ({{ _ident_user }})

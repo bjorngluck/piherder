@@ -408,7 +408,10 @@ def test_max_upload_uses_settings_when_env_unlocked(monkeypatch):
 
 def test_upload_over_cap_rejected(monkeypatch):
     monkeypatch.setattr(hf, "MAX_UPLOAD_DEFAULT", 8)
+    monkeypatch.setattr(hf, "files_max_env_locked", lambda: False)
+    monkeypatch.setattr(hf, "max_upload_bytes", lambda: 8)
     monkeypatch.setattr(hf.settings, "PIHERDER_HOST_FILES_MAX_BYTES", 8, raising=False)
+    monkeypatch.setattr(hf.settings, "PIHERDER_DEMO_MODE", False, raising=False)
     s = _server()
     fs = MemSFTP()
     fs.add_dir("/home/piherder/docker")
