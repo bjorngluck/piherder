@@ -58,7 +58,7 @@ Wiki: [Host Files](../wiki/day-to-day/host-files.md)
 
 | | |
 |--|--|
-| Move | Stop-first (brief downtime). Not live/zero-downtime. |
+| Move | Stop-first (brief downtime). Not live/zero-downtime. Runs on the **web** process — do not recreate **web** while a Move is in flight (a restart marks the job failed; staging is kept). A later worker/Celery path is a **v1.5 candidate**. |
 | NPM | Backend retarget only — no create/delete proxy hosts, no ACME in the herder. |
 | Leftover remove | Optional; dest is never deleted. |
 | Screenshots | Freeze pack **not captured yet** — wiki figures for Move land with PNGs. |

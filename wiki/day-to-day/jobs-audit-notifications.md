@@ -46,7 +46,7 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 | `os_update_check` / `container_update_check` | Manual or check schedule | Web background |
 | `docker_stack_check` / `docker_stack_deploy` | Stack ⋯ Check updates / Deploy | Web background |
 | `docker_stack_stop` / `_start` / `_restart` | Project ⋯ Stop/Start/Restart all | Web background |
-| `service_migrate` | Docker **Move to another host…** (flag `PIHERDER_SERVICE_MIGRATE`) | **Web** background (not Celery). JobHold stays until Close. Copy / dest-up fail: **Start source stack** |
+| `service_migrate` | Docker **Move to another host…** (flag `PIHERDER_SERVICE_MIGRATE`) | **Web** background (not Celery). Do not recycle **web** mid-job. JobHold stays until Close. Copy / dest-up fail: **Start source stack**. Celery Move is a later candidate (**v1.5**) |
 | `template_deploy` / `template_redeploy` | Catalog template confirm / Save & redeploy | Web background |
 | `template_drift_check` | Deployment **Check drift** (live log) | Web background |
 | `retention` | Per-server backup file retention | As configured |

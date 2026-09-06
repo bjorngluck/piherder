@@ -53,6 +53,7 @@ User-facing notes: [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Design and Must IDs s
 ## Out of scope (deferred)
 
 - Live / zero-downtime cutover (**M-live**)
+- Move on Celery worker (**M-worker**) — **v1.5 candidate**
 - ACME-in-herder · full NPM CRUD · auto-rollback
 - Richer Files token API
 - Host `tmux`/`screen` (**W-mux**) · fine-grained roles (**AC-fg**) · N3 · CSP nonces

@@ -112,6 +112,7 @@ Implied locks (no row required):
 ### `Job`
 
 - New type `service_migrate` (and later `service_remove`).  
+- **Runtime (1.4):** FastAPI `BackgroundTasks` on **web**, not Celery. A web recycle **fails** a running Move (same fail-on-startup as other web-process jobs). **M-worker** (Celery + heartbeats) is a **v1.5 candidate**.  
 - `Job.server_id` = **source** (history stays on the host you left).  
 - `details` JSON: `dest_server_id`, `project`, `steps[]`, `bytes`, `fqdns`, `staging_dir`, leftover, `adopt_fabric`, `failed_step` / `recover_source` on copy/dest-up fail. Pipeline order is always dest-up then name/proxy (`health_then_dns`). `dns_then_start` is **out**.  
 - Exclusive: treat as stack-mutating **and** backup-like on **both** server ids. Extend `server_job_lock` with kind `migrate` **or** acquire `backup`+existing stack lane on both ids.
@@ -443,3 +444,4 @@ An operator can:
 | 2026-08-30 | **NPM edge move:** dependents keep CNAME on the NPM hostname; alias follows dest; Pi-hole login falls back to NPM LAN backend; cutover retries DNS when fabric already points at dest. |
 | 2026-08-30 | **NPM proxy-host binding:** PUT ``forward_host`` for the compose project even with no fabric DNS row (openwebui / ``ai.hacknow.info``). Rebind follows the project, not only the source host. |
 | 2026-09-01 | Grafana **container** dashboard binds follow dest. Optional **Adopt into fabric** (via_proxy, no cert, no Pi-hole rewrite). JobHold **Start source stack** after copy / dest-up fail. ``dns_then_start`` stays out. |
+| 2026-09-06 | **M-worker** parked for **v1.5 candidate**: Celery Move + heartbeats. 1.4 stays web `BackgroundTasks`. |
