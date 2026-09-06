@@ -1,16 +1,16 @@
 # PiHerder v1.4.0 — service migration
 
-**Status:** **Dev freeze — pending sign-off** (QA, screenshots, bugfixes only)  
-**Date opened:** 2026-08-25 (planning capture 2026-08-17) · **freeze:** 2026-09-04  
-**Git branch:** `v1.4.0-dev` (integration) · draft PR → `main` → tag `v1.4.0` after sign-off  
-**Package / image version (at tag):** `1.4.0` — tree stays **`1.3.0` until version bump / tag**  
+**Status:** **Tagged** — current production  
+**Date opened:** 2026-08-25 (planning capture 2026-08-17) · **freeze:** 2026-09-04 · **tag:** 2026-09-06  
+**Git branch:** `v1.4.0-dev` → `main` · tag `v1.4.0`  
+**Package / image version:** `1.4.0`  
 **Theme:** **Service migration** — move a Docker Compose project host→host with dataset copy, DNS / NPM retarget, resolver flush, TLS / Kuma validate, **host lock**, and leftover policy  
 **Baseline:** `v1.3.0` (tagged 2026-08-22)  
-**Mode:** **Freeze** · Must signed · **M1–M9** + **M-npm** + **D-F** + **M-rm** landed · user notes [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · no new features until tag  
+**Mode:** **Shipped.** Must **M1–M9** + **M-npm** + **D-F** + **M-rm**. User notes [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). **M-worker** is a v1.5 candidate.  
 **QA:** [QA_v1.4.0.md](QA_v1.4.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [SPEC.md](../SPEC.md) · wiki [Docker](../wiki/docker/overview.md) · [DNS fabric](../wiki/integrations/dns-fabric.md) · [Backups](../wiki/day-to-day/backups.md) · [HAOS](../wiki/day-to-day/haos-hosts.md)
 
-> **Single development target.** Production stays **v1.3.x on `main`**. This branch implements Stream **M**. **v1.4.0 does not tag without a working stop-first migrate** of an unlocked compose project (direct TLS **and** NPM-fronted).
+> **Tagged 2026-09-06.** Stream **M** (stop-first migrate, direct TLS **and** NPM-fronted) + **D-F** demo Files. Kill switch `PIHERDER_SERVICE_MIGRATE` stays **false** at tag.
 
 ---
 
@@ -297,6 +297,7 @@ Success criteria:
 | 2026-09-04 | **Dev freeze.** Unit **~62%**; CI fail-under **62**. User notes [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Remaining: operator QA, screenshot pack, version bump, tag, Hub. |
 | 2026-09-06 | PR review: **M-worker** parked — Celery Move + heartbeats is a **v1.5 candidate**. Freeze keeps web `BackgroundTasks`. |
 | 2026-09-06 | Operator QA complete. Screenshot pack landed. Freeze bugfix: Move wizard From/preflight gap (htmx-indicator). Remaining: kill-switch review, version bump, tag, Hub. |
+| 2026-09-06 | **Ready to bump.** Kill switch stays **false** at tag. Package **1.4.0**. |
 
 ---
 
@@ -311,7 +312,7 @@ Success criteria:
 | 5 | Land **M2** preflight (no copy) | **Done** |
 | 6 | Land **M3–M6** + **M-npm** job + wizard; then **M7** | **Done** |
 | 7 | **M8** leftover down · **M9** devices: · **M-rm** Should · **D-F** | **Done** |
-| 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | **QA + screenshots done 2026-09-06** — version bump / tag / Hub after kill-switch review |
+| 8 | Wiki + ADMIN + QA + freeze · version `1.4.0` · tag · Hub | **Version bump 2026-09-06** — merge · tag · Hub |
 
 ---
 
@@ -333,4 +334,4 @@ Success: visitor opens **Files** on a seeded host, browses a fake tree, cannot e
 
 ---
 
-*Frozen into [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) (pending sign-off). This PLAN stays the technical record.*
+*Frozen into [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). This PLAN stays the technical record.*

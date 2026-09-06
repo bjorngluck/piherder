@@ -1,10 +1,8 @@
 # PiHerder v1.4.0
 
-**Pending sign-off.** Feature freeze on `v1.4.0-dev` (2026-09-04). Hub / `main` stay **[v1.3.0](RELEASE_v1.3.0.md)** until QA, screenshots, and any last bugfixes land — then merge, tag `v1.4.0`, Hub `1.4.0` / `1.4` / `latest`. Package footer still reads **1.3.0** until that bump.
+**6 September 2026.** You already stop a stack, copy its files, retarget a name, and start it on another Pi. This release makes that **one audited job** — with a lock so hardware-bound stacks stay put.
 
-You already stop a stack, copy its files, retarget a name, and start it on another Pi. This release makes that **one audited job** — with a lock so hardware-bound stacks stay put.
-
-**Image (when tagged):** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.4.0` · `1.4` · `latest` (amd64 + arm64). Pins `1.3.0` / `1.3` stay valid.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.4.0` · `1.4` · `latest` (amd64 + arm64). Pins `1.3.0` / `1.3` stay valid.
 
 Technical pipeline, Must IDs, and freeze gates: **[PLAN_v1.4.0.md](PLAN_v1.4.0.md)**. Operator how-to: wiki [Move a service](../wiki/docker/service-migration.md). Maintainer ticks: [QA_v1.4.0.md](QA_v1.4.0.md).
 
@@ -45,7 +43,7 @@ Wiki: [Host Files](../wiki/day-to-day/host-files.md)
 ## Upgrade from 1.3
 
 1. Full DR self-backup. Keep `PIHERDER_MASTER_KEY`.  
-2. After tag: pull `bjorngluck/piherder:1.4.0` (or `git checkout v1.4.0`). Until then, only the `v1.4.0-dev` tree.  
+2. Pull `bjorngluck/piherder:1.4.0` (or `git checkout v1.4.0`).  
 3. `docker compose pull && docker compose up -d` — Alembic **`042_compose_project_meta`**.  
 4. Move stays **off** until you set `PIHERDER_SERVICE_MIGRATE=true` and recreate **web**.  
 5. Smoke: lock a hardware-bound stack · optional Move on a disposable unlocked stack · 1.3 surfaces (policy, Reports, Files, console).
