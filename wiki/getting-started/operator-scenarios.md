@@ -117,15 +117,15 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 
 ### Journey Move — Compose project to another host {#journey-move}
 
-**Goal:** An unlocked stack (Grafana-class) runs on dest with its data, name, and maps. Requires `PIHERDER_SERVICE_MIGRATE=true` and two Docker hosts (**v1.4.0**, flag off by default).
+**Goal:** An unlocked stack (Grafana-class) runs on dest with its data, name, and maps. Requires `PIHERDER_SERVICE_MIGRATE=true` and two Docker hosts (**v1.4.0** product; **v1.5** runs the Job on Celery). Flag off by default.
 
 | Step | Action | Why |
 |------|--------|-----|
-| 1 | Enable the flag; recreate **web** | Kill switch default **off** |
+| 1 | Enable the flag; recreate **web** (and **celery-worker** if you rebuilt the image) | Kill switch default **off**; Move runs on the worker |
 | 2 | [Lock](../docker/service-migration.md) a hardware-bound stack (or HAOS) | Prove Move is refused |
 | 3 | Unlock a disposable stack; **⋯ → Move to another host…** | Wizard |
 | 4 | Pick dest (wait modal) · remap dest name/ports if needed · read preflight | Blocks before copy; dest name/port overrides clear name/port clashes |
-| 5 | Confirm downtime → JobHold | Stop → copy → dest up → name/proxy. Copy/dest-up fail: **Start source stack** |
+| 5 | Confirm downtime → JobHold | Stop → copy → dest up → name/proxy on **Celery**. Recycle **web** is safe. Copy/dest-up fail: **Start source stack** |
 | 6 | Check dest inventory, CNAME or NPM `forward_host`, maps, Grafana container chips | Green cutover |
 | 7 | Leave leftover **stopped** on the first run | Data still on source |
 

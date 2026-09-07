@@ -27,7 +27,8 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Fleet Services empty | [Dashboard & Services](../day-to-day/dashboard-and-services.md) — bind Kuma monitors |
 | Reports empty / history shorter than expected | [Reports](../day-to-day/reports.md) — needs finished Jobs / nmap runs / console Audit; [Cleanup](../operations/settings.md#stale-data-cleanup) can trim rows |
 | Files button missing / 404 | Flag `PIHERDER_HOST_FILES` (default off). Viewer 403. [Host Files](../day-to-day/host-files.md) |
-| Move to another host missing / 404 | Flag `PIHERDER_SERVICE_MIGRATE` (default off). Recreate **web**. Viewer 403. Locked / HAOS refused. Demo never copies. [Move a service](../docker/service-migration.md) |
+| Move to another host missing / 404 | Flag `PIHERDER_SERVICE_MIGRATE` (default off). Recreate **web** (and **celery-worker** if you rebuilt). Viewer 403. Locked / HAOS refused. Demo never copies. [Move a service](../docker/service-migration.md) |
+| Move died after recreating **web** | **v1.4** did that (job on web). **v1.5** Move is Celery — recycle **web** is safe. Recycle **celery-worker** mid-copy **fails** the job; staging stays under `/backups/_migrate/{job_id}`; **Start source stack** when copy/dest-up had begun |
 | Move dest picker looks stuck | Preflight SSHs both hosts — wait modal + “Checking destination…”. Recreate web if the local image is stale |
 | Move job fails “active service_migrate job #N” on itself | Fixed on this freeze branch — job preflight no longer treats its own row as busy. Failed job is idle; start Move again after rebuild |
 | Move rsync `change_dir "/home/…\#342\#200\#246"` | Truncated `docker ps` mount (Unicode ellipsis). Rebuild this freeze branch; inspect fills full paths. Source may be **stopped** — Start all if you need it up before retry |

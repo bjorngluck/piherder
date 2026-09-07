@@ -446,4 +446,4 @@ An operator can:
 | 2026-09-01 | Grafana **container** dashboard binds follow dest. Optional **Adopt into fabric** (via_proxy, no cert, no Pi-hole rewrite). JobHold **Start source stack** after copy / dest-up fail. ``dns_then_start`` stays out. |
 | 2026-09-06 | **M-worker** parked for **v1.5 candidate**: Celery Move + heartbeats. 1.4 stays web `BackgroundTasks`. |
 | 2026-09-07 | **M-worker** promoted: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) Must on `v1.5.0-dev`. |
-| 2026-09-07 | **M-worker landed:** Celery `service_migrate`; dual backup mutex; web recycle keeps running Move; worker redelivery of `running` fails the job. |
+| 2026-09-07 | **M-worker landed:** Celery `service_migrate`; dual backup mutex; web recycle keeps running Move; worker redelivery of `running` fails the job. Live Job #1314 NPM-fronted Open WebUI. Operator wiki + ADMIN current truth (1.4 RELEASE stays historical). |

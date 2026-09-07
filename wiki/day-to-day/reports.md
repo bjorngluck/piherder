@@ -32,7 +32,7 @@ Windows: **7 / 30 / 90** days in the [app timezone](../operations/settings.md). 
 
 <figure class="ph-figure" markdown>
   ![Reports](../assets/screenshots/reports.png)
-  <figcaption>Reports — 7 / 30 / 90 day windows and history tabs (Backups, OS patches, LAN live, Docker, Console).</figcaption>
+  <figcaption>Reports — 7 / 30 / 90 day windows, history cards, and v1.5 pin / hide / reorder chrome.</figcaption>
 </figure>
 
 Tables keep numeric columns right-aligned. On a **phone**, the Day / host column is not clipped — swipe the table sideways to see dates and dest sizes.
