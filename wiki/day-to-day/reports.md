@@ -24,7 +24,9 @@ Sources: **Jobs** (and the JSON each job stored), **nmap scan runs** (`hosts_up`
 
 ## Where
 
-Header **Reports** (after **Catalog**). Phone: hamburger. **Viewer+**. No writes.
+Header **Reports** (after **Catalog**). Phone: hamburger. **Viewer+**. History tables are read-only.
+
+**Layout (v1.5):** each card has **pin** (★, moves to top), **↑ / ↓**, and **Hide**. Hidden cards sit in a **Hidden:** row — click the name to show again. **Reset layout** in the hero restores the default order (Backups → OS patches → LAN live → Docker → Console). The choice is remembered in your browser (`ph_reports_layout`) — not a fleet setting.
 
 Windows: **7 / 30 / 90** days in the [app timezone](../operations/settings.md). Some averages still scan up to 365 days of leftover rows.
 
