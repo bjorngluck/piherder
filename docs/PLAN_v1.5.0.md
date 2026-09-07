@@ -43,7 +43,7 @@ This is the migrate slice of 1.3’s parked “one job runtime.” It is **not**
 | In-scope streams | **M-worker** Must · **N3a** Should · **M-hb** Should · **Q** · Discover catalog |
 | Out-of-focus | **AC-fg** · **M-live** · ACME · full NPM CRUD · Files token API · **N3c** · HA-p2 **plugin code** · multi-tenant · Swarm/k8s |
 | Mode | Worker Move · no half-built Celery migrate · Must → freeze; Should may slip |
-| Coverage | **≥ 62%** unit; CI fail-under **62**; focused tests for enqueue, fail-on-worker-restart, dual-host lock |
+| Coverage | **≥ 65%** unit; CI fail-under **65**; focused tests for enqueue, fail-on-worker-restart, dual-host lock |
 | E2E | Wizard chrome still loads (no live two-host in CI) |
 | Semver | Additive minor; no migrate pipeline behaviour change except **where it runs** |
 | Version bump | `1.5.0` **at freeze only** |
@@ -82,7 +82,7 @@ main @ v1.4.0 (+ v1.4.x patches)
 | 11 | **N3** | **Should = N3a** (pin/hide/reorder `/reports` cards, per-user). **N3b** Move card stretch. **N3c** Out |
 | 12 | **HA-p2** | Discover in 1.5 (shape, entities, auth, API gaps). **Plugin ship = v1.6.0** |
 | 13 | Files token API / ACME / NPM CRUD | Out |
-| 14 | Coverage | CI fail-under **62** |
+| 14 | Coverage | CI fail-under **65** |
 | 15 | Version bump | `1.5.0` at freeze only |
 | 16 | E2E | Wizard chrome. No live two-host in CI |
 
@@ -96,7 +96,7 @@ Phase 1  M-worker enqueue on Celery          dual-host lock spike first
 Phase 2  M-hb heartbeats + JobHold           fail-on-worker-restart honest
 Phase 3  N3a Reports pin/hide/reorder        Should; must not block Must
 Phase 4  Wiki + QA + Discover notes          HA-p2 / undo / CSP counts
-Phase 5  Q freeze: tests ≥62% · version      1.5.0 · tag · Hub
+Phase 5  Q freeze: tests ≥65% · version      1.5.0 · tag · Hub
          bump · M-flag freeze question
 ```
 
@@ -202,7 +202,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | **Must** | **M-worker** | Move runs on Celery; web recycle does not fail it; worker recycle does; dual-host lock; JobHold |
 | **Should** | **N3a** | Pin/hide/reorder `/reports` cards per user |
 | **Should** | **M-hb** | Heartbeats / stall visible |
-| **Should** | **Q** | Tests; wiki truth; coverage ≥ 62% |
+| **Should** | **Q** | Tests; wiki truth; coverage ≥ 65% |
 | **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only |
 | **Out** | **AC-fg** · M-live · ACME · NPM CRUD · Files token API · N3c · HA-p2 **code** | Park AC-fg + HA plugin on **v1.6.0** |
 
@@ -212,7 +212,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 
 | Gate | Target |
 |------|--------|
-| Unit | **≥ 62%** (fail-under **62**); enqueue on Celery · fail-on-worker-restart · dual-host exclusive · N3a persist |
+| Unit | **≥ 65%** (fail-under **65**); enqueue on Celery · fail-on-worker-restart · dual-host exclusive · N3a persist |
 | Tests | Extend `tests/test_service_migrate.py` (or sibling); no live SSH; mock Celery |
 | E2E | Wizard chrome + lock disabled CTA (same as 1.4). Reports layout smoke if N3a lands |
 | Docs | Wiki Move + Jobs + Reports; `mkdocs build --strict` at freeze |
@@ -242,6 +242,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 2026-09-07 | **Train opened** on `v1.5.0-dev`. Must **M-worker**. Should **N3a** + **M-hb** + **Q**. Discover: M-undo, CSP-n, Brand, M-flag, W-mux, HA-p2, J-runtime. **AC-fg out** (park ≥1.6). HA-p2 plugin **v1.6.0**. Package stays `1.4.0` until freeze. `main` patchable as **v1.4.x** |
 | 2026-09-07 | **M-worker landed:** `app.tasks.service_migrate` on the backup worker queue. Dual-host **backup** Redis mutex (lower id first). `cleanup_orphan_web_jobs` skips Move. Worker redelivery of a `running` Move **fails** (staging kept, Start source stack). Unit tests inline via `PYTEST_CURRENT_TEST`. |
 | 2026-09-07 | **N3a landed:** `/reports` pin / hide / reorder; cookie `ph_reports_layout`; Reset layout; viewer and demo POSTs allowed. Not Grafana. |
+| 2026-09-07 | **Q coverage:** suite **~65%** line (`app`); CI fail-under raised **62 → 65**. Pack `tests/test_coverage_v15_pure.py` (job runners, backup progress/profiles, herder restore, OS-patch stream, onboarding scripts). |
 
 ---
 
@@ -256,7 +257,8 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 5 | Wiki Move + Jobs (worker truth) | **Done** 2026-09-07 |
 | 6 | **N3a** Reports layout (Should; after M-worker moving) | **Done** 2026-09-07 — pin/hide/↑↓, cookie `ph_reports_layout`, viewer+demo allowed |
 | 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | Parallel after 3 |
-| 8 | Freeze · **M-flag** question · version `1.5.0` · tag · Hub | |
+| 8 | **Q** raise unit coverage **62 → 65** | **Done** 2026-09-07 — `test_coverage_v15_pure.py`; CI fail-under **65** |
+| 9 | Freeze · **M-flag** question · version `1.5.0` · tag · Hub | |
 
 ---
 

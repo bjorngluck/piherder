@@ -53,7 +53,7 @@ Plan: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · migrate design: [FEATURE_PLAN_SERVICE_
 
 ## Freeze
 
-- [ ] Unit ≥ 62% (fail-under 62)  
+- [ ] Unit ≥ 65% (fail-under 65)  
 - [ ] `mkdocs build --strict`  
 - [ ] **M-flag** freeze question recorded (default stays false unless decided otherwise)  
 - [ ] Version bump `1.5.0` · tag · Hub  

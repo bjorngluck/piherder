@@ -15,17 +15,17 @@ docker compose run --rm --no-deps \
 pip install --require-hashes -r requirements.lock.txt
 pip install --no-deps -e .
 pytest -q
-# Coverage (v1.4 freeze: ≥62%; CI fail-under 62 + XML artifact)
+# Coverage (v1.5: ≥65%; CI fail-under 65 + XML artifact)
 pip install pytest-cov
-pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=62
+pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=65
 ```
 
 Unit tests live under `tests/` — no live SSH required for the main suite. Default `pytest` only collects `tests/` (not `e2e/`).
 
 | Bar | Value |
 |-----|--------|
-| **Suite freeze target** | **≥ 62%** line on `app` (v1.4; was 55% through 1.3) |
-| **CI fail-under** | **62** |
+| **Suite freeze target** | **≥ 65%** line on `app` (v1.5; was 62% in 1.4, 55% through 1.3) |
+| **CI fail-under** | **65** |
 | **v1.0 production** | Authz matrix + input validation + credential recovery tests; no 100% target |
 
 ### v1.0 production-hardening packs
