@@ -346,11 +346,11 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [x] **LAN discovery (nmap-class)** — opt-in LAN CIDR scan, network view, Hosts overlay, map identity + wiki screenshots — **v0.8.0 tagged** ([RELEASE_v0.8.0.md](docs/RELEASE_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md)); operator chrome polish continues in [PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md)
 - [ ] Cloudflare DNS automation from template hints / fabric
 - [ ] Pi-hole / NPM write paths beyond local DNS (full proxy host CRUD, lists, etc.) — **v1.4 M-npm** is backend retarget only
-- [ ] Service migrate host→host; destructive service remove — **→ v1.4 Stream M freeze pending** on `v1.4.0-dev` ([RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [PLAN](docs/PLAN_v1.4.0.md) · wiki [Move a service](wiki/docker/service-migration.md)); host lock (HAOS / hardware); NPM backend retarget; leftover wipe optional / default off
+- [x] Service migrate host→host; destructive service remove — **v1.4.0 tagged** ([RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [PLAN](docs/PLAN_v1.4.0.md) · wiki [Move a service](wiki/docker/service-migration.md)); host lock (HAOS / hardware); NPM backend retarget; leftover wipe optional / default off. **v1.5 M-worker:** run the job on Celery ([PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md))
 - [ ] Expanded curated pack (Frigate, HA, n8n, media, …)
 - [ ] Plugin hooks / event webhooks (`job.completed`, `server.added`, …) — prefer REST + n8n over code exec
 - [ ] Ansible inventory / cloud-init bootstrap for new Pis (overlaps H2.75 P4 imaging depth)
-- [ ] Home Assistant: custom component or REST sensors (read + safe actions)
+- [ ] Home Assistant: custom component or REST sensors (read + safe actions) — **v1.5 Discover / v1.6 ship** ([PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7)
 - [ ] Optional AI (OpenAI-compatible BYO; off by default; no private keys in prompts)
 - [ ] Community: Discord + Discussions; project website / clickthrough
 

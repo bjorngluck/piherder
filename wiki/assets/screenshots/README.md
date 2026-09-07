@@ -352,7 +352,7 @@ Maintainer freeze clicks (not wiki): [QA_v1.3.0.md](https://github.com/bjorngluc
 **Best practice: local git → commit → push** (binaries + markdown).
 
 ```bash
-git checkout v1.4.0-dev && git pull
+git checkout v1.5.0-dev && git pull
 # optional: git checkout -b docs/screenshots-1.4
 
 python3 -m venv .venv-docs && source .venv-docs/bin/activate

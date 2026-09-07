@@ -1,6 +1,6 @@
 # Feature plan — Home Assistant integration (architecture + discovery)
 
-**Status:** **v0.9.0 path 1 shipped (S2 HAOS over SSH)** — frozen for this release; REST / container HA / path 2 later  
+**Status:** **v0.9.0 path 1 shipped (S2 HAOS over SSH)** — REST / container HA later · **path 2 plugin: v1.5 Discover / v1.6.0 ship** ([PLAN_v1.5.0.md](PLAN_v1.5.0.md))  
 **Ship framing:** [PLAN_v0.9.0.md](PLAN_v0.9.0.md) stream **HA**  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 3 · [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [API.md](API.md) · [SPEC.md](../SPEC.md)
 
@@ -26,7 +26,7 @@ Today PiHerder:
 | HAOS capability envelope (no Docker fleet; HA updates ≠ apt) | **Done** |
 | Host deps (SSH add-on, rsync, `ha` CLI) | **Done** (copy + probes; wiki install detail later) |
 | Core REST (LLAT) / Supervisor add-ons list | **No** (later) |
-| HA custom component → PiHerder | **No** (≥1.0) |
+| HA custom component → PiHerder | **No** — v1.5 Discover / **v1.6.0 ship** |
 
 **v0.9 outcome:** full **HAOS + SSH** is a first-class host: detect, auto-mark, System Info + CLI stats, OS check/apply via `ha`, honest capability bar. **Further HA integration (REST, S1 container, path 2, add-ons) is parked for a later release.**
 
@@ -265,9 +265,24 @@ Document only: Core `GET /api/`, `/api/config` with LLAT; Supervisor HTTP for ad
 
 ---
 
-## 7. Path 2 — HA → PiHerder (post-0.9)
+## 7. Path 2 — HA → PiHerder (v1.5 Discover / **v1.6.0 ship**)
 
-Unchanged: custom component / add-on ≥1.0. Operators can already use API tokens ([API.md](API.md)). Not part of 0.9 ship bar.
+Operators can already use API tokens ([API.md](API.md)) so HA *can* call PiHerder REST today (manual). There is **no** custom component and **no** Supervisor add-on from us.
+
+**v1.5 (this train):** written discover only — lock shape, auth, entities, API gaps. **Do not** open a plugin repo or HA manifest on `v1.5.0-dev` except docs. See [PLAN_v1.5.0.md](PLAN_v1.5.0.md) **HA-p2**.
+
+**v1.6.0:** ship the integration.
+
+| # | Lock (lean 2026-09-07) |
+|---|------------------------|
+| 1 | **Shape:** custom **integration** first (HACS / `custom_components/piherder`). Supervisor **add-on** later if a long-running bridge is needed |
+| 2 | **Auth:** existing API token, least scopes (`read` / `jobs` as needed). No second OAuth. Token in HA credentials |
+| 3 | **Entities (draft):** herder up, host count / host down, last backup per host (ok/fail/age), outstanding OS updates, running Jobs, Move in progress |
+| 4 | **Events:** `piherder_job_completed`, `piherder_alert` on the HA bus. Prefer REST + HA bus over executing code on the herder |
+| 5 | **Non-goals:** managing HAOS from HA (that is path 1 SSH); decryptable SSH keys; writing compose; Move-from-HA-switch without preview/confirm; vendoring HA **inside** the PiHerder image |
+| 6 | **Herder API:** document read APIs; add a thin `GET /api/v1/summary` in **1.6** if the current API is too chatty — not a stealth 1.5 feature |
+
+PiHerder image does **not** ship an HA add-on inside itself.
 
 ---
 
@@ -313,7 +328,7 @@ Unchanged: custom component / add-on ≥1.0. Operators can already use API token
 | **P3b** | System Info: HA versions + `ha host` disk / usage | **Done** |
 | **P4** | Host-deps copy + wiki install detail | **Partial** — SSH modal guidance; operator wiki steps when ready |
 | **P5** | REST + S1 container | **Later** (post-0.9) |
-| **P6** | Path 2 component; add-on updates; version pins UI | **Later** |
+| **P6** | Path 2 component; add-on updates; version pins UI | **v1.5 Discover / v1.6 ship** |
 
 Unit tests: pure parsers for `ha * info` fixtures + branch in `check_os_updates` / apply. E2E: HAOS chrome only if UI landed — no live HAOS.
 
@@ -357,5 +372,6 @@ Unit tests: pure parsers for `ha * info` fixtures + branch in `check_os_updates`
 | 2026-07-23 | **Implement start:** `app/services/haos.py`; `os_patching` / host_deps / jobs auto-mark; server UI chip + HA update modal; unit `tests/test_haos.py` |
 | 2026-07-23 | System Info: unwrap HA CLI JSON `data` envelope; disk via `ha host info` + `disks usage`; busybox `df` fallback; live-verified on HAOS |
 | 2026-07-23 | **v0.9 HA path 1 closed** — further HA integration deferred to later release |
+| 2026-09-07 | **Path 2** locked as **v1.5 Discover / v1.6.0 ship**: integration first, API token, draft entities/events. No plugin code on `v1.5.0-dev` |
 
 **End of feature plan** — living; implement against §2.1 and §6.

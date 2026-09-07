@@ -6,7 +6,7 @@
 **Package / image version:** `1.4.0`  
 **Theme:** **Service migration** — move a Docker Compose project host→host with dataset copy, DNS / NPM retarget, resolver flush, TLS / Kuma validate, **host lock**, and leftover policy  
 **Baseline:** `v1.3.0` (tagged 2026-08-22)  
-**Mode:** **Shipped.** Must **M1–M9** + **M-npm** + **D-F** + **M-rm**. User notes [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). **M-worker** is a v1.5 candidate.  
+**Mode:** **Shipped.** Must **M1–M9** + **M-npm** + **D-F** + **M-rm**. User notes [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Next train: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) (**Active** — **M-worker**).  
 **QA:** [QA_v1.4.0.md](QA_v1.4.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [SPEC.md](../SPEC.md) · wiki [Docker](../wiki/docker/overview.md) · [DNS fabric](../wiki/integrations/dns-fabric.md) · [Backups](../wiki/day-to-day/backups.md) · [HAOS](../wiki/day-to-day/haos-hosts.md)
 
@@ -31,7 +31,7 @@ Wanted pipeline:
 
 This is SPEC / H2.5 **“Service migrate host→host; destructive service remove”** — named **service migration**. Destructive wipe is **Should**, default **off**.
 
-**Out of 1.4:** live zero-downtime cutover, ACME-in-herder, full NPM proxy CRUD, auto hardware detection as the only lock, cross-arch image rebuild, richer Files token API. **M-worker** (run `service_migrate` on Celery instead of web `BackgroundTasks`) is a **v1.5 candidate**, not this freeze.
+**Out of 1.4:** live zero-downtime cutover, ACME-in-herder, full NPM proxy CRUD, auto hardware detection as the only lock, cross-arch image rebuild, richer Files token API. **M-worker** (run `service_migrate` on Celery instead of web `BackgroundTasks`) is **[v1.5.0](PLAN_v1.5.0.md) Must** (train opened 2026-09-07).
 
 **Must (not M):** **D-F** demo simulated Files — canned tree, same chrome as 1.3 Files, no SFTP. Real SFTP stays **demo never**.
 
@@ -273,7 +273,7 @@ Success criteria:
 - Full NPM proxy create/delete/SSL  
 - Multi-tenant / two-person approve  
 - Cloudflare / external DNS (still checklist)  
-- **M-worker** — Move job on Celery worker + progress heartbeats so a web recycle cannot kill mid-copy. **Candidate v1.5.0**, not 1.4. 1.4 stays web `BackgroundTasks`; a web restart **fails** a running Move (same as other web-process jobs). Do not recycle **web** during a Move.  
+- **M-worker** — Move job on Celery worker + progress heartbeats so a web recycle cannot kill mid-copy. **→ [v1.5.0](PLAN_v1.5.0.md) Must** (opened 2026-09-07). 1.4 stays web `BackgroundTasks`; a web restart **fails** a running Move. Do not recycle **web** during a Move on **1.4**.  
 
 ---
 
@@ -298,6 +298,7 @@ Success criteria:
 | 2026-09-06 | PR review: **M-worker** parked — Celery Move + heartbeats is a **v1.5 candidate**. Freeze keeps web `BackgroundTasks`. |
 | 2026-09-06 | Operator QA complete. Screenshot pack landed. Freeze bugfix: Move wizard From/preflight gap (htmx-indicator). Remaining: kill-switch review, version bump, tag, Hub. |
 | 2026-09-06 | **Ready to bump.** Kill switch stays **false** at tag. Package **1.4.0**. |
+| 2026-09-07 | Next train opened: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) on `v1.5.0-dev`. **M-worker** is 1.5 Must. |
 
 ---
 
