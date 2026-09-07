@@ -2,13 +2,13 @@
 
 ## What this is
 
-How PiHerder runs **backup jobs** on Celery: pool slots, optional multiple worker containers, and a **per-server Redis mutex** so one host is never rsync’d twice at once.
+How PiHerder runs **backup** and **Move** jobs on Celery: pool slots, optional multiple worker containers, and a **per-server Redis mutex** so one host is never rsync’d twice at once.
 
 ## Why it exists
 
 Large fleets want parallel backups; a single host’s destination tree must stay consistent. Mutex + concurrency knobs give both without inventing a second queue system.
 
-Backups run **in parallel across different hosts**. The same host never has two active backups (Redis mutex `piherder:server_lock:backup:{server_id}`).
+Backups run **in parallel across different hosts**. The same host never has two active backups (Redis mutex `piherder:server_lock:backup:{server_id}`). **Move** takes that same mutex on **both** source and dest (lower server id first) so a backup cannot overlap a copy.
 
 | Concept | Meaning |
 |---------|---------|
@@ -46,6 +46,7 @@ OS patch, container patch, and OS/container **update checks** run on the **web**
 | Job family | Execution | Parallelism rule |
 |------------|-----------|------------------|
 | `backup` | Celery | Many hosts in parallel; **one backup per host** (Redis mutex) |
+| `service_migrate` | Celery | Dual-host backup mutex + DB exclusive with stack mutation on **both** ids. Recycle **web** is safe; recycle **worker** fails a running Move |
 | `os_patch` / `container_patch` | Web process | **One active job of that type per host** (DB exclusive) |
 | `os_update_check` / `container_update_check` | Web process | **One active check of that type per host** |
 | `docker_stack_check` | Web process | **One active stack check per host** |

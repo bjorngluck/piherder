@@ -240,6 +240,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 2026-09-06 | 1.4 PR review parked **M-worker** (Celery Move + heartbeats). 1.4 stays web `BackgroundTasks` |
 | 2026-09-06 | **v1.4.0 tagged.** Kill switch false. Hub `1.4.0` / `1.4` / `latest` |
 | 2026-09-07 | **Train opened** on `v1.5.0-dev`. Must **M-worker**. Should **N3a** + **M-hb** + **Q**. Discover: M-undo, CSP-n, Brand, M-flag, W-mux, HA-p2, J-runtime. **AC-fg out** (park ≥1.6). HA-p2 plugin **v1.6.0**. Package stays `1.4.0` until freeze. `main` patchable as **v1.4.x** |
+| 2026-09-07 | **M-worker landed:** `app.tasks.service_migrate` on the backup worker queue. Dual-host **backup** Redis mutex (lower id first). `cleanup_orphan_web_jobs` skips Move. Worker redelivery of a `running` Move **fails** (staging kept, Start source stack). Unit tests inline via `PYTEST_CURRENT_TEST`. |
 
 ---
 
@@ -248,10 +249,10 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | # | Step | Status |
 |---|------|--------|
 | 1 | Delete spent `v1.4.0-dev` · open **`v1.5.0-dev`** + lock Must/Should | **Done** 2026-09-07 |
-| 2 | Spike dual-host Celery lock vs per-server backup mutex | Next |
-| 3 | Land **MW1–MW4** enqueue + fail-on-worker-restart | |
-| 4 | **M-hb** heartbeats + JobHold | |
-| 5 | Wiki Move + Jobs (worker truth) | |
+| 2 | Spike dual-host Celery lock vs per-server backup mutex | **Done** — reuse `backup` mutex on both ids |
+| 3 | Land **MW1–MW4** enqueue + fail-on-worker-restart | **Done** 2026-09-07 |
+| 4 | **M-hb** heartbeats + JobHold | **Done** — reuse `_flush_job_progress` on the worker (JobHold polls DB) |
+| 5 | Wiki Move + Jobs (worker truth) | **Done** 2026-09-07 |
 | 6 | **N3a** Reports layout (Should; after M-worker moving) | |
 | 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | Parallel after 3 |
 | 8 | Freeze · **M-flag** question · version `1.5.0` · tag · Hub | |

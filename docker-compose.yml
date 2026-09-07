@@ -136,8 +136,9 @@ services:
     ports:
       - "127.0.0.1:6379:6379"
 
-  # Multi-worker: raise CELERY_CONCURRENCY (default 2) so backups run in parallel
-  # across hosts. Per-server Redis mutex prevents two rsyncs to the same host.
+  # Multi-worker: raise CELERY_CONCURRENCY (default 2) so backups (and Move) run
+  # in parallel across hosts. Per-server Redis mutex prevents two rsyncs to the
+  # same host; Move holds that mutex on both source and dest.
   # Shared volume mounts with `web` are required. Cancel still uses Job.celery_task_id.
   # To run multiple containers instead: remove container_name and
   # `docker compose up -d --scale celery-worker=N` (each replica needs the same volumes).

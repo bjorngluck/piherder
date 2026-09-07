@@ -5,7 +5,7 @@ Fleet job queue: create Job rows, run work, stream progress for UI polling.
 Execution paths (do not merge without care):
 - UI / BackgroundTasks: create_job_and_run → async _run_*_job
 - Scheduler / thread pool: enqueue_*_apply / enqueue_*_update_check → _execute_*_sync
-- Backups: Celery only (enqueue_backup_for_server / create_job_and_run backup branch)
+- Backups + service_migrate: Celery only (web recycle does not fail them)
 
 Shared helpers: _initial_job_details, _merge_job_details, _flush_job_progress,
 _create_queued_job_with_audit, _finish, job_public_dict.
@@ -16,6 +16,7 @@ from ...database import engine
 from ...models import Job, AuditLog, Server
 from datetime import datetime, timedelta
 import json
+import os
 import re
 import httpx
 from ...config import settings
@@ -42,8 +43,8 @@ class JobAlreadyActive(Exception):
     """Raised when an exclusive job type is already pending/running for the server.
 
     Container/OS patch and update-check jobs must not stack on the same host.
-    Celery multi-worker concurrency only applies to backups; these job types run
-    on the web process (BackgroundTasks / in-process thread pools).
+    Celery multi-worker concurrency applies to backups and Move; other exclusive
+    types still run on the web process (BackgroundTasks / in-process thread pools).
     """
 
     def __init__(self, job: Job):
@@ -97,10 +98,12 @@ _STACK_LIFECYCLE_JOB_TYPES = frozenset(
 # This file lives in app.services.jobs — use three dots to reach app.tasks.
 try:
     from ...tasks import backup_server
+    from ...tasks import service_migrate as service_migrate_task
     HAS_CELERY = True
 except Exception as e:
     HAS_CELERY = False
     backup_server = None
+    service_migrate_task = None
     logger.warning("Celery backup task unavailable (backups will not enqueue): %s", e)
 
 
@@ -663,7 +666,7 @@ def cleanup_stale_backup_jobs(session: Session, max_age_minutes: int = 120) -> i
 
 # Celery-owned types survive a web restart. Everything else runs in this
 # process (BackgroundTasks / thread pools) and is dead after uvicorn exits.
-_CELERY_JOB_TYPES = frozenset({"backup"})
+_CELERY_JOB_TYPES = frozenset({"backup", "service_migrate"})
 
 
 def _is_celery_owned_job(job: Job) -> bool:
@@ -2728,6 +2731,18 @@ def enqueue_docker_stack_remove(
         return job
 
 
+def _migrate_run_inline() -> bool:
+    """Unit tests have no Celery worker; run the pipeline in-process.
+
+    Production always enqueues ``app.tasks.service_migrate``. Override with
+    ``PIHERDER_MIGRATE_INLINE=1`` only for local debugging.
+    """
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return True
+    flag = (os.environ.get("PIHERDER_MIGRATE_INLINE") or "").strip().lower()
+    return flag in ("1", "true", "yes")
+
+
 def enqueue_service_migrate(
     source_id: int,
     dest_id: int,
@@ -2743,7 +2758,11 @@ def enqueue_service_migrate(
     bind_map: dict | None = None,
     skip_binds: list | None = None,
 ) -> Job:
-    """Queue stop-first copy + dest up. Raises JobAlreadyActive if either host is busy."""
+    """Queue stop-first copy + dest up on Celery. Raises JobAlreadyActive if either host is busy.
+
+    ``background_tasks`` is ignored (kept so callers do not break). Under pytest
+    the pipeline runs inline so unit tests need no worker.
+    """
     from ..service_migrate.host_lock import HostLockError, compose_project_name
     from ..service_migrate.overrides import normalize_dest_project, validate_port_map
 
@@ -2796,14 +2815,38 @@ def enqueue_service_migrate(
             adopt_fabric=bool(adopt_fabric),
         )
         jid, aid = job.id, audit.id
-    if background_tasks is not None:
-        background_tasks.add_task(
-            _run_service_migrate_job, jid, source_id, dest_id, name, aid
-        )
+    if _migrate_run_inline():
+        _execute_service_migrate(jid, source_id, dest_id, name, aid)
+    elif not HAS_CELERY or not service_migrate_task:
+        msg = "Celery worker required for Move — start celery-worker container"
+        with _get_fresh_session() as session:
+            job = session.get(Job, jid)
+            if job:
+                _mark_job_terminal(job, msg, session, status="failed", record_audit=True)
+                session.commit()
+        raise RuntimeError(msg)
     else:
-        _update_check_pool.submit(
-            _execute_service_migrate, jid, source_id, dest_id, name, aid
-        )
+        try:
+            async_result = service_migrate_task.delay(
+                jid, source_id, dest_id, name, aid
+            )
+            with _get_fresh_session() as session:
+                job = session.get(Job, jid)
+                if job:
+                    job.celery_task_id = async_result.id
+                    session.add(job)
+                    session.commit()
+        except Exception as e:
+            msg = f"Failed to enqueue Move to Celery: {e}"
+            logger.exception("[Jobs] %s", msg)
+            with _get_fresh_session() as session:
+                job = session.get(Job, jid)
+                if job:
+                    _mark_job_terminal(
+                        job, msg, session, status="failed", record_audit=True
+                    )
+                    session.commit()
+            raise RuntimeError(msg) from e
     with _get_fresh_session() as session:
         job = session.get(Job, jid)
         if job:
@@ -2811,16 +2854,119 @@ def enqueue_service_migrate(
         return job
 
 
-async def _run_service_migrate_job(
-    job_id: int, source_id: int, dest_id: int, project: str, audit_id: int
-):
-    await run_in_threadpool(
-        _execute_service_migrate, job_id, source_id, dest_id, project, audit_id
+def fail_migrate_worker_restart(job_id: int, audit_id: int) -> None:
+    """Mark a running Move failed after Celery redelivery (worker recycle).
+
+    Does not re-run the pipeline. Staging under ``BACKUP_ROOT/_migrate/{job_id}``
+    is kept. Offers **Start source stack** when we still know the project path.
+    """
+    hostname = ""
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if not job or job.status in ("success", "failed", "cancelled"):
+            return
+        source = session.get(Server, job.server_id) if job.server_id else None
+        hostname = (source.hostname if source else "") or ""
+        project = ""
+        try:
+            data = json.loads(job.details or "{}") or {}
+            project = str(data.get("project") or "")
+        except Exception:
+            data = {}
+        if source and project:
+            try:
+                from ..service_migrate.leftover import jailed_source_project_path
+
+                path = jailed_source_project_path(source, project)
+                _merge_job_details(
+                    job,
+                    failed_step="worker_restart",
+                    recover_source={
+                        "server_id": int(source.id),
+                        "project": project,
+                        "project_path": path,
+                    },
+                    log_line="Worker restarted — Move is no longer running. Staging kept.",
+                )
+                session.add(job)
+                session.commit()
+            except Exception:
+                logger.exception("migrate worker-restart recover_source")
+    _finish(
+        audit_id,
+        job_id,
+        "failed",
+        "Worker restarted — Move was no longer running. Staging kept.",
+        hostname,
+        "service_migrate",
     )
 
 
 def _execute_service_migrate(
-    job_id: int, source_id: int, dest_id: int, project: str, audit_id: int
+    job_id: int,
+    source_id: int,
+    dest_id: int,
+    project: str,
+    audit_id: int,
+    *,
+    hold_host_locks: bool = True,
+) -> None:
+    from ..server_job_lock import (
+        release_dual_server_lock,
+        try_acquire_dual_server_lock,
+    )
+
+    lock_tokens: tuple[str, str] | None = None
+    if hold_host_locks:
+        lock_tokens = try_acquire_dual_server_lock(
+            "backup", source_id, dest_id, holder=str(job_id)
+        )
+        if not lock_tokens:
+            source, hostname = _load_server_for_job(source_id)
+            _finish(
+                audit_id,
+                job_id,
+                "failed",
+                "A backup or Move is already using the source or destination host",
+                hostname,
+                "service_migrate",
+            )
+            return
+
+    source, hostname = _load_server_for_job(source_id)
+    dest, _ = _load_server_for_job(dest_id)
+    try:
+        _run_service_migrate_pipeline(
+            job_id,
+            source_id,
+            dest_id,
+            project,
+            audit_id,
+            source=source,
+            dest=dest,
+            hostname=hostname,
+        )
+    finally:
+        if lock_tokens:
+            release_dual_server_lock(
+                "backup",
+                source_id,
+                lock_tokens[0],
+                dest_id,
+                lock_tokens[1],
+            )
+
+
+def _run_service_migrate_pipeline(
+    job_id: int,
+    source_id: int,
+    dest_id: int,
+    project: str,
+    audit_id: int,
+    *,
+    source,
+    dest,
+    hostname: str,
 ) -> None:
     from ..service_migrate.facts import herder_free_bytes, probe_host_facts, refresh_host_inventory
     from ..service_migrate.leftover import normalize_leftover
@@ -2831,8 +2977,6 @@ def _execute_service_migrate(
         wipe_staging,
     )
 
-    source, hostname = _load_server_for_job(source_id)
-    dest, _ = _load_server_for_job(dest_id)
     leftover = "stopped"
     devices_ack = False
     adopt_fabric = False

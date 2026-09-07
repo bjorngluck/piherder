@@ -28,6 +28,29 @@ def test_acquire_release_local():
     assert not lock.is_server_locked("backup", 1)
 
 
+def test_dual_acquire_lower_id_first_releases_on_partial():
+    a = lock.try_acquire_server_lock("backup", 2, holder="other")
+    assert a
+    # 1 is free, 2 is held — must not leave 1 locked
+    assert lock.try_acquire_dual_server_lock("backup", 1, 2, holder="mig") is None
+    assert not lock.is_server_locked("backup", 1)
+    assert lock.is_server_locked("backup", 2)
+    lock.release_server_lock("backup", 2, a)
+
+
+def test_dual_acquire_and_release_caller_order():
+    toks = lock.try_acquire_dual_server_lock("backup", 20, 10, holder="mig")
+    assert toks is not None
+    ta, tb = toks
+    assert lock.is_server_locked("backup", 20)
+    assert lock.is_server_locked("backup", 10)
+    # second dual acquire fails
+    assert lock.try_acquire_dual_server_lock("backup", 10, 20, holder="other") is None
+    lock.release_dual_server_lock("backup", 20, ta, 10, tb)
+    assert not lock.is_server_locked("backup", 20)
+    assert not lock.is_server_locked("backup", 10)
+
+
 def test_different_servers_independent():
     a = lock.try_acquire_server_lock("backup", 10, holder="a")
     b = lock.try_acquire_server_lock("backup", 11, holder="b")

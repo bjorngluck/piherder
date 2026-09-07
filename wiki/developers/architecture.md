@@ -30,6 +30,7 @@ flowchart TB
 | Work | Runs on | Concurrency rule |
 |------|---------|------------------|
 | Backups | Celery | Parallel across hosts; one backup per host (Redis mutex) |
+| Move (`service_migrate`) | Celery | Dual-host backup mutex; recycle web is safe; recycle worker fails a running Move |
 | OS/container patch & update checks | Web (`BackgroundTasks` / thread pools) | One active job of that type per host |
 | Bulk fleet actions | Web → same enqueue paths | Feature-flag skip + exclusive rules |
 | LAN nmap scans / vuln pack update | **celery-worker-nmap** (`-Q nmap`, concurrency 1) | Opt-in profile; host network; `PIHERDER_NMAP_WORKER=1` only here |
