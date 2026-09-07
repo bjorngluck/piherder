@@ -1,6 +1,6 @@
 # Feature plan — Service migration
 
-**Status:** **Tagged v1.4.0** · M1–M9 + M-npm + D-F + M-rm landed · **M-worker** is [v1.5.0](PLAN_v1.5.0.md) Must  
+**Status:** **Tagged v1.4.0** · M1–M9 + M-npm + D-F + M-rm landed · **M-worker landed** on [v1.5.0](PLAN_v1.5.0.md)  
 **Train:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) Stream **M** (tagged) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) **M-worker** (active)  
 **Horizon:** H2.5 leftover — “Service migrate / remove” ([ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md)) · [SPEC.md](../SPEC.md) Phase 7  
 **Related:** [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md)
@@ -112,10 +112,10 @@ Implied locks (no row required):
 ### `Job`
 
 - New type `service_migrate` (and later `service_remove`).  
-- **Runtime (1.4):** FastAPI `BackgroundTasks` on **web**, not Celery. A web recycle **fails** a running Move (same fail-on-startup as other web-process jobs). **M-worker** (Celery + heartbeats) is **[v1.5.0](PLAN_v1.5.0.md) Must**.  
+- **Runtime (1.5):** Celery task `app.tasks.service_migrate` on the default worker. Recycle **web** does **not** fail a running Move. Recycle **worker** after the job is `running` **fails** it (no pipeline re-run; staging kept). Dual-host Redis mutex is the **backup** key on both ids (lower id first). **1.4** ran on web `BackgroundTasks`.  
 - `Job.server_id` = **source** (history stays on the host you left).  
 - `details` JSON: `dest_server_id`, `project`, `steps[]`, `bytes`, `fqdns`, `staging_dir`, leftover, `adopt_fabric`, `failed_step` / `recover_source` on copy/dest-up fail. Pipeline order is always dest-up then name/proxy (`health_then_dns`). `dns_then_start` is **out**.  
-- Exclusive: treat as stack-mutating **and** backup-like on **both** server ids. Extend `server_job_lock` with kind `migrate` **or** acquire `backup`+existing stack lane on both ids.
+- Exclusive: treat as stack-mutating **and** backup-like on **both** server ids. Acquire the existing **`backup`** Redis mutex on both ids (plus DB stack-mutation exclusive).
 
 ### Control-plane rebind (same transaction after dest is healthy)
 
@@ -446,3 +446,4 @@ An operator can:
 | 2026-09-01 | Grafana **container** dashboard binds follow dest. Optional **Adopt into fabric** (via_proxy, no cert, no Pi-hole rewrite). JobHold **Start source stack** after copy / dest-up fail. ``dns_then_start`` stays out. |
 | 2026-09-06 | **M-worker** parked for **v1.5 candidate**: Celery Move + heartbeats. 1.4 stays web `BackgroundTasks`. |
 | 2026-09-07 | **M-worker** promoted: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) Must on `v1.5.0-dev`. |
+| 2026-09-07 | **M-worker landed:** Celery `service_migrate`; dual backup mutex; web recycle keeps running Move; worker redelivery of `running` fails the job. |

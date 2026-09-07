@@ -174,6 +174,56 @@ def try_acquire_server_lock(
     return None
 
 
+def try_acquire_dual_server_lock(
+    kind: LockKind,
+    server_id_a: int,
+    server_id_b: int,
+    *,
+    holder: str,
+    ttl_sec: int | None = None,
+) -> tuple[str, str] | None:
+    """Acquire both hosts (lower id first) so two Moves cannot deadlock.
+
+    Returns ``(token_a, token_b)`` in the **caller's** a/b order, or None if
+    either host is busy. On a partial fail the first lock is released.
+    """
+    if server_id_a is None or server_id_b is None:
+        return None
+    a, b = int(server_id_a), int(server_id_b)
+    if a == b:
+        tok = try_acquire_server_lock(kind, a, holder=holder, ttl_sec=ttl_sec)
+        return (tok, tok) if tok else None
+    first, second = (a, b) if a < b else (b, a)
+    t_first = try_acquire_server_lock(kind, first, holder=holder, ttl_sec=ttl_sec)
+    if not t_first:
+        return None
+    t_second = try_acquire_server_lock(kind, second, holder=holder, ttl_sec=ttl_sec)
+    if not t_second:
+        release_server_lock(kind, first, t_first)
+        return None
+    if a < b:
+        return (t_first, t_second)
+    return (t_second, t_first)
+
+
+def release_dual_server_lock(
+    kind: LockKind,
+    server_id_a: int,
+    token_a: str | None,
+    server_id_b: int,
+    token_b: str | None,
+) -> None:
+    """Release both tokens; same-id pair is released once."""
+    if server_id_a is None or server_id_b is None:
+        return
+    a, b = int(server_id_a), int(server_id_b)
+    if a == b:
+        release_server_lock(kind, a, token_a or token_b)
+        return
+    release_server_lock(kind, a, token_a)
+    release_server_lock(kind, b, token_b)
+
+
 def release_server_lock(
     kind: LockKind,
     server_id: int,

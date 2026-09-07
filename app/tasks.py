@@ -20,7 +20,9 @@ from app.services.backup import (
 from app.services.backup_audit import compact_backup_snippet, record_backup_audit_from_job
 from app.services.server_job_lock import (
     try_acquire_server_lock,
+    try_acquire_dual_server_lock,
     release_server_lock,
+    release_dual_server_lock,
 )
 from app.database import engine
 from app.models import Server, Job
@@ -422,6 +424,132 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
             except Exception as e:
                 logger.warning(f"[Celery] Failed to release backup lock server={server_id}: {e}")
         db.close()
+
+
+@celery.task(
+    name="app.tasks.service_migrate",
+    bind=True,
+    max_retries=_LOCK_MAX_RETRIES,
+    default_retry_delay=30,
+)
+def service_migrate(
+    self,
+    job_id: int,
+    source_id: int,
+    dest_id: int,
+    project: str,
+    audit_id: int,
+):
+    """Move a compose project host→host. Same default queue as backups.
+
+    Holds the **backup** Redis mutex on **both** hosts (lower id first) so a
+    backup cannot rsync a host while Move is copying. Recycle **web** is safe.
+    Recycle **worker** after the job is ``running`` fails it (do not restart
+    a half-copied pipeline). Staging is kept.
+    """
+    from celery.exceptions import Retry
+
+    from app.services.jobs.service import (
+        _execute_service_migrate,
+        fail_migrate_worker_restart,
+    )
+
+    db = Session(engine)
+    lock_tokens: tuple[str, str] | None = None
+    try:
+        job = db.get(Job, job_id)
+        if not job:
+            return {"status": "skipped", "job_id": job_id}
+        if job.status == "cancelled":
+            return {"status": "cancelled", "job_id": job_id}
+        if job.status not in ("pending", "running"):
+            logger.info(
+                "[Celery] migrate job %s no longer active (status=%s), skipping",
+                job_id,
+                job.status,
+            )
+            return {"status": "skipped", "job_id": job_id}
+        if job.status == "running":
+            # Redelivery after worker death mid-copy — do not re-run the pipeline.
+            db.close()
+            db = None
+            fail_migrate_worker_restart(job_id, audit_id)
+            return {"status": "failed", "job_id": job_id, "reason": "worker_restart"}
+
+        job.celery_task_id = self.request.id
+        db.add(job)
+        db.commit()
+
+        holder = str(job_id or self.request.id or f"migrate-{source_id}-{dest_id}")
+        lock_tokens = try_acquire_dual_server_lock(
+            "backup", source_id, dest_id, holder=holder
+        )
+        if not lock_tokens:
+            if self.request.retries >= _LOCK_MAX_RETRIES:
+                msg = "Timed out waiting for a backup or Move on the source or destination host"
+                logger.error("[Celery] %s (job=%s src=%s dest=%s)", msg, job_id, source_id, dest_id)
+                _update_job_status(
+                    job_id,
+                    "failed",
+                    {"error": msg, "current": "failed", "log_lines": [msg]},
+                )
+                return {
+                    "status": "failed",
+                    "job_id": job_id,
+                    "error": msg,
+                }
+            _update_job_status(
+                job_id,
+                "pending",
+                {
+                    "current": "waiting_for_server",
+                    "log_lines": [
+                        "Waiting for a backup or Move on the source or destination host…",
+                    ],
+                },
+            )
+            logger.info(
+                "[Celery] migrate job %s dual backup lock busy — retry in %ss "
+                "(attempt %s/%s)",
+                job_id,
+                _LOCK_WAIT_COUNTDOWN_SEC,
+                self.request.retries + 1,
+                _LOCK_MAX_RETRIES,
+            )
+            raise self.retry(countdown=_LOCK_WAIT_COUNTDOWN_SEC)
+
+        _execute_service_migrate(
+            job_id,
+            source_id,
+            dest_id,
+            project,
+            audit_id,
+            hold_host_locks=False,
+        )
+        return {"status": "ok", "job_id": job_id}
+    except Exception as exc:
+        if isinstance(exc, Retry):
+            raise
+        logger.exception("service_migrate celery task failed job=%s", job_id)
+        return {"status": "error", "job_id": job_id, "error": str(exc)[:500]}
+    finally:
+        if lock_tokens:
+            try:
+                release_dual_server_lock(
+                    "backup",
+                    source_id,
+                    lock_tokens[0],
+                    dest_id,
+                    lock_tokens[1],
+                )
+            except Exception as e:
+                logger.warning(
+                    "[Celery] Failed to release migrate dual lock job=%s: %s",
+                    job_id,
+                    e,
+                )
+        if db is not None:
+            db.close()
 
 
 def _update_job_status(job_id: int, status: str, extra: dict):
