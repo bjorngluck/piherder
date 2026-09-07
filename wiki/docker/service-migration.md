@@ -1,7 +1,7 @@
 # Move a service
 
 !!! note "Availability"
-    **Move a service** is **v1.4.0**. Behind `PIHERDER_SERVICE_MIGRATE` (default **off**). Host **lock / unlock** has no flag. Source remove + named-volume delete is optional and **off** unless you pick it. Public demo never copies. User notes: [RELEASE_v1.4.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.4.0.md). Technical: [PLAN_v1.4.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.4.0.md).
+    **Move a service** shipped in **v1.4.0** (pipeline + lock). Behind `PIHERDER_SERVICE_MIGRATE` (default **off**). Host **lock / unlock** has no flag. Source remove + named-volume delete is optional and **off** unless you pick it. Public demo never copies. **v1.5 train:** the job runs on the **Celery worker** (same as backups) — recycle **web** mid-Move is safe; recycle **celery-worker** fails it. Production Hub is still **1.4.0** until 1.5 freeze. User notes: [RELEASE_v1.4.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.4.0.md) (1.4 ran on web). Technical: [PLAN_v1.5.0](https://github.com/bjorngluck/piherder/blob/v1.5.0-dev/docs/PLAN_v1.5.0.md).
 
 ## What this is
 

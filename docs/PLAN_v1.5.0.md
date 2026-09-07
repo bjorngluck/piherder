@@ -1,6 +1,6 @@
 # PiHerder v1.5.0 — job runtime (Move on the worker)
 
-**Status:** **Active** — train opened 2026-09-07  
+**Status:** **Active** — Must **M-worker**, Should **N3a**, **M-hb**, **Q** (65%) **landed** 2026-09-07. Remaining: leftover live recycle QA · Discover notes · freeze (**M-flag**, version, tag, Hub)  
 **Date opened:** 2026-09-07  
 **Git branch:** `v1.5.0-dev` → `main` · tag `v1.5.0` (at freeze)  
 **Package / image version:** stays **`1.4.0` until freeze**  
@@ -10,7 +10,7 @@
 **QA:** [QA_v1.5.0.md](QA_v1.5.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · wiki [Move a service](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Reports](../wiki/day-to-day/reports.md)
 
-> **Train open 2026-09-07.** Production stays **v1.4.x** on `main`. Kill switch `PIHERDER_SERVICE_MIGRATE` stays **false** at train open. HAOS path-2 **plugin ships v1.6.0** (discover only here).
+> **Train open 2026-09-07.** Production stays **v1.4.x** on `main`. Kill switch `PIHERDER_SERVICE_MIGRATE` stays **false**. HAOS path-2 **plugin ships v1.6.0** (discover only here). Package stays **1.4.0** until freeze.
 
 ---
 
@@ -27,6 +27,8 @@ Wanted:
 5. **N3a:** pin / hide / reorder existing `/reports` cards per user (Should; may slip the tag)
 
 This is the migrate slice of 1.3’s parked “one job runtime.” It is **not** moving OS-patch / stack / template jobs off web unless Discover **J-runtime** is later promoted.
+
+**Now (2026-09-07):** Move enqueues `app.tasks.service_migrate` on the backup worker. Dual-host **backup** Redis mutex (lower id first). Web recycle does not fail a running Move; worker redelivery of `running` fails it. **N3a** pin/hide/↑↓ on `/reports` (cookie `ph_reports_layout`). Unit **~65%**; CI fail-under **65**. Leftover live proof: recycle **web** mid-copy and recycle **worker** mid-copy.
 
 **Out of 1.5 product code:** **AC-fg**, **M-live**, ACME-in-herder, full NPM CRUD, Files token API, **N3c** widget picker, HA custom component **code** (discover only; ship **v1.6.0**).
 
@@ -95,8 +97,8 @@ Phase 0  Open train + docs lock              ← this commit 2026-09-07
 Phase 1  M-worker enqueue on Celery          dual-host lock spike first
 Phase 2  M-hb heartbeats + JobHold           fail-on-worker-restart honest
 Phase 3  N3a Reports pin/hide/reorder        Should; must not block Must
-Phase 4  Wiki + QA + Discover notes          HA-p2 / undo / CSP counts
-Phase 5  Q freeze: tests ≥65% · version      1.5.0 · tag · Hub
+Phase 4  Wiki + QA + Discover notes          wiki/QA pass 2026-09-07; Discover notes still open
+Phase 5  Q freeze: tests ≥65% · version      coverage bar met; freeze = M-flag · 1.5.0 · tag · Hub
          bump · M-flag freeze question
 ```
 
@@ -106,9 +108,9 @@ Discover notes may parallel after Phase 1. **HA-p2 plugin code is v1.6.** **AC-f
 
 ## 2. Stream **M-worker** — Move on Celery (Must)
 
-**Today (1.4):** `enqueue_service_migrate` → FastAPI `BackgroundTasks` → `_execute_service_migrate` on **web**. Startup fail-on-running-web-jobs marks a recycled Move **failed**. Staging is kept. Wiki: do not recreate **web** mid-Move.
+**1.4 (historical):** `enqueue_service_migrate` → FastAPI `BackgroundTasks` → `_execute_service_migrate` on **web**. Startup fail-on-running-web-jobs marked a recycled Move **failed**. Wiki said do not recreate **web** mid-Move.
 
-**Wanted:** same pipeline, different process.
+**Landed (1.5):** same pipeline, **Celery** process. Wiki current truth: recycle **web** is safe; recycle **worker** fails honestly.
 
 | ID | Item | Notes |
 |----|------|--------|
@@ -197,14 +199,14 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 
 ## 5. Ship bar
 
-| Priority | Item | Bar |
-|----------|------|-----|
-| **Must** | **M-worker** | Move runs on Celery; web recycle does not fail it; worker recycle does; dual-host lock; JobHold |
-| **Should** | **N3a** | Pin/hide/reorder `/reports` cards per user |
-| **Should** | **M-hb** | Heartbeats / stall visible |
-| **Should** | **Q** | Tests; wiki truth; coverage ≥ 65% |
-| **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only |
-| **Out** | **AC-fg** · M-live · ACME · NPM CRUD · Files token API · N3c · HA-p2 **code** | Park AC-fg + HA plugin on **v1.6.0** |
+| Priority | Item | Bar | Status |
+|----------|------|-----|--------|
+| **Must** | **M-worker** | Move runs on Celery; web recycle does not fail it; worker recycle does; dual-host lock; JobHold | **Code landed.** Live Job #1314 NPM-fronted Move green. Recycle web/worker mid-copy **not** live-proved |
+| **Should** | **N3a** | Pin/hide/reorder `/reports` cards per user | **Done** — operator signed 2026-09-07 |
+| **Should** | **M-hb** | Heartbeats / stall visible | **Done** — reuse `_flush_job_progress` / JobHold DB poll |
+| **Should** | **Q** | Tests; wiki truth; coverage ≥ 65% | **Bar met** (~65.05%; fail-under **65**). Wiki/ADMIN pass this commit |
+| **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only | **Open** — catalog exists; write-ups not started |
+| **Out** | **AC-fg** · M-live · ACME · NPM CRUD · Files token API · N3c · HA-p2 **code** | Park AC-fg + HA plugin on **v1.6.0** | Unchanged |
 
 ---
 
@@ -214,7 +216,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 |------|--------|
 | Unit | **≥ 65%** (fail-under **65**); enqueue on Celery · fail-on-worker-restart · dual-host exclusive · N3a persist |
 | Tests | Extend `tests/test_service_migrate.py` (or sibling); no live SSH; mock Celery |
-| E2E | Wizard chrome + lock disabled CTA (same as 1.4). Reports layout smoke if N3a lands |
+| E2E | Wizard chrome + lock disabled CTA (same as 1.4). Reports layout is unit-tested (`test_report_layout.py` + HTTP) |
 | Docs | Wiki Move + Jobs + Reports; `mkdocs build --strict` at freeze |
 | Security | Dual-host lock, staging wipe, path jail, audit without secret bodies, demo off |
 
@@ -243,6 +245,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 2026-09-07 | **M-worker landed:** `app.tasks.service_migrate` on the backup worker queue. Dual-host **backup** Redis mutex (lower id first). `cleanup_orphan_web_jobs` skips Move. Worker redelivery of a `running` Move **fails** (staging kept, Start source stack). Unit tests inline via `PYTEST_CURRENT_TEST`. |
 | 2026-09-07 | **N3a landed:** `/reports` pin / hide / reorder; cookie `ph_reports_layout`; Reset layout; viewer and demo POSTs allowed. Not Grafana. |
 | 2026-09-07 | **Q coverage:** suite **~65%** line (`app`); CI fail-under raised **62 → 65**. Pack `tests/test_coverage_v15_pure.py` (job runners, backup progress/profiles, herder restore, OS-patch stream, onboarding scripts). |
+| 2026-09-07 | **Docs pass:** wiki Move / Jobs / Reports / multi-worker / architecture / upgrades 1.4→1.5 / troubleshooting; ADMIN migrate+Celery; README / SPEC / ROADMAP / QA aligned. 1.4 RELEASE stays historical (web `BackgroundTasks`). |
 
 ---
 
@@ -254,11 +257,12 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 2 | Spike dual-host Celery lock vs per-server backup mutex | **Done** — reuse `backup` mutex on both ids |
 | 3 | Land **MW1–MW4** enqueue + fail-on-worker-restart | **Done** 2026-09-07 |
 | 4 | **M-hb** heartbeats + JobHold | **Done** — reuse `_flush_job_progress` on the worker (JobHold polls DB) |
-| 5 | Wiki Move + Jobs (worker truth) | **Done** 2026-09-07 |
-| 6 | **N3a** Reports layout (Should; after M-worker moving) | **Done** 2026-09-07 — pin/hide/↑↓, cookie `ph_reports_layout`, viewer+demo allowed |
-| 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | Parallel after 3 |
+| 5 | Wiki Move + Jobs (worker truth) | **Done** 2026-09-07; docs pass widened 2026-09-07 |
+| 6 | **N3a** Reports layout (Should; after M-worker moving) | **Done** 2026-09-07 — pin/hide/↑↓, cookie `ph_reports_layout`; operator signed |
+| 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | **Open** |
 | 8 | **Q** raise unit coverage **62 → 65** | **Done** 2026-09-07 — `test_coverage_v15_pure.py`; CI fail-under **65** |
-| 9 | Freeze · **M-flag** question · version `1.5.0` · tag · Hub | |
+| 9 | Leftover live QA: recycle **web** mid-Move; recycle **worker** mid-Move | **Open** (Job #1314 was a clean run) |
+| 10 | Freeze · **M-flag** question · version `1.5.0` · tag · Hub | |
 
 ---
 
