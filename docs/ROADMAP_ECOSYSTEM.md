@@ -1,8 +1,8 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-09-06 (**v1.4.0** current production — [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md))  
-**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [RELEASE_v1.1.1.md](RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)
+**Date:** 2026-07-12 · **Refreshed:** 2026-09-07 (**v1.4.0** current production — [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md); **v1.5.0** train **Active** on `v1.5.0-dev` — [PLAN_v1.5.0.md](PLAN_v1.5.0.md))  
+**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [RELEASE_v1.1.1.md](RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
 This document is the public multi-horizon roadmap for taking PiHerder from a production-ready **fleet manager** to the hub of a self-hosted **homelab / security ops** ecosystem (DNS, proxy, monitoring, smart home, media, automation).
@@ -40,7 +40,8 @@ Design principles stay the same as SPEC:
 | **v1.2.x** | Production patches | Patch | Prefer upgrade to **v1.3.x** |
 | **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights (N reports)** · **host files (F manager)** · **AC-fg** Cap · ACME (consideration) | Post-1.2 minor | **Tagged** 2026-08-22 — [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [QA_v1.3.0.md](QA_v1.3.0.md) · Hub `1.3.0` / `1.3` / `latest` |
 | **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME **or NPM backend** retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate, leftover) + **host lock** (HAOS refuse, Frigate/TPU-class) + demo simulated Files | Post-1.3 minor | **Tagged** 2026-09-06 — [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · wiki [Move a service](../wiki/docker/service-migration.md) · Hub `1.4.0` / `1.4` / `latest` |
-| **v1.5.0** | **Candidate** — Move job on **Celery worker** (**M-worker**: heartbeats so web recycle cannot kill a long copy). Not opened; not a 1.4 freeze item. | Post-1.4 minor | Under consideration — [PLAN_v1.4.0.md](PLAN_v1.4.0.md) §6 |
+| **v1.5.0** | **Job runtime** — Move on **Celery worker** (**M-worker**) + **N3a** custom Reports layout (Should). Discover: rollback, CSP nonces, branding, migrate default, W-mux, HAOS path-2. **AC-fg out.** | Post-1.4 minor | **Active** on `v1.5.0-dev` — [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [QA_v1.5.0.md](QA_v1.5.0.md). Package stays `1.4.0` until freeze |
+| **v1.6.0** | **Candidate** — HAOS path 2 **plugin** (HA → PiHerder custom integration; discover in 1.5). Parked: **AC-fg** fine-grained roles. | Post-1.5 minor | Under consideration — [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -56,7 +57,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-19):** **v0.7.0 feature-locked and tagged**. Wizard, E2E A+B, annotations, compose sets, drift Job shipped. Screenshot pack deferred; residual polish + E2E/coverage growth + full docs review + **nmap** → **v0.8.0 RC3**. See [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md).
 
-**Production path:** ~~RC line through v0.9.0~~ → **v1.0.0** → **v1.1.0** → **v1.2.0 tagged** ([RELEASE_v1.2.0.md](RELEASE_v1.2.0.md)) → **v1.3.0 tagged** ([RELEASE_v1.3.0.md](RELEASE_v1.3.0.md)) → **v1.4.0 tagged** ([RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md)).
+**Production path:** ~~RC line through v0.9.0~~ → **v1.0.0** → **v1.1.0** → **v1.2.0 tagged** ([RELEASE_v1.2.0.md](RELEASE_v1.2.0.md)) → **v1.3.0 tagged** ([RELEASE_v1.3.0.md](RELEASE_v1.3.0.md)) → **v1.4.0 tagged** ([RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md)) → **v1.5.0 Active** ([PLAN_v1.5.0.md](PLAN_v1.5.0.md)).
 
 **Decision (2026-07-22):** Post-0.8 operator UX triage — micro-pass **B1/E4/E8** on main for 0.8 screenshots; remaining discovery/Network/coverage polish → **v0.9.0** ([PLAN_v0.9.0.md](PLAN_v0.9.0.md)). Cross-cutting human-readable schedules, selectable hero stats, and full templates catalog redesign stay **post-1.0 discovery** (see Quality & platform § below).
 
@@ -97,6 +98,8 @@ Design principles stay the same as SPEC:
 **Decision (2026-09-06):** **v1.4.0 tagged.** Package **1.4.0**. Kill switch `PIHERDER_SERVICE_MIGRATE` stays **false**. Hub `1.4.0` / `1.4` / `latest`. **M-worker** remains a v1.5 candidate.
 
 **Decision (2026-09-06):** **M-worker** (run `service_migrate` on Celery instead of web `BackgroundTasks`, with progress heartbeats) is a **v1.5.0 candidate** — not 1.4. 1.4 Move stays on the web process; do not recycle **web** during a Move.
+
+**Decision (2026-09-07):** **v1.5.0 train opened** on **`v1.5.0-dev`**. Must: **M-worker**. Should: **N3a** pin/hide/reorder `/reports` cards · **M-hb** heartbeats · **Q**. Discover: **M-undo**, **CSP-n**, **Brand**, **M-flag**, **W-mux**, **HA-p2**, **J-runtime**. **AC-fg out** (park ≥1.6). HAOS path-2 **plugin ships v1.6.0** (discover only in 1.5). Package version stays `1.4.0` until freeze. `main` stays patchable for **v1.4.x**. See [PLAN_v1.5.0.md](PLAN_v1.5.0.md).
 
 **Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg). **Slice 3 Deep landed** (L). **Slice 4 Deep landed** (W-id). **Slice 5 Deep landed** (W-audit). **Slice 6 Deep landed** (A). **Slice 7 N2:** `/reports` is history (backups, OS patches, LAN live, Docker, console) — not Grafana, not status portlets. **F Deep (2026-08-20):** Host Files explorer (flag off): edit, zip, perms, search, move, folder upload, preview, `.env` step-up, thin Docker volumes/`docker cp`. API Files expansions → v1.4+ under consideration.
 
@@ -290,15 +293,15 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Cross-host feature jump (K)** | **Shipped v1.1** — Jump host on Overview / Docker / Backups / Services. |
 | **Quick editor scope (L)** | **Lean no** for `.env`/sidecars in quick editor; full editor only — document in UI. Open discussion only. |
 | **Template fleet deployment overview (M)** | **Post-1.0** — which hosts/services have a given template (beyond stack-level badge). |
-| **Insights / custom dashboards (N)** | **→ v1.3 Stream N** — `/reports` history (Jobs / nmap runs / console Audit). N3 custom layout Cap. Not Grafana-in-herder. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
+| **Insights / custom dashboards (N)** | **N2 shipped v1.3** — `/reports` history. **N3a → v1.5 Should** — pin/hide/reorder existing cards per user. **N3c** widget picker stays Out. Not Grafana-in-herder. [PLAN_v1.5.0.md](PLAN_v1.5.0.md). |
 | **Host files (F)** | **→ v1.3 Stream F Deep** — host **Files** button + explorer (edit/zip/perms/search/move/preview/folder upload/`.env` step-up; thin Docker volumes + `docker cp` into the jail). Fleet + privileged. API `files` fleet list/get/put only; richer API **under consideration v1.4+**. Not console zmodem. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
 | **Service migration (M)** | **→ v1.4 Stream M tagged** — move one compose project host→host with dataset copy, fabric CNAME **or NPM backend** retarget + both Pi-hole resolver restarts, TLS/Kuma validate, and per-project **host lock** (HAOS / hardware). Leftover wipe is Should. [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md). |
-| **Web console host mux (`screen`/`tmux`)** | **Under consideration · low priority** — optional host-side multiplexer for durable reattach beyond herder soft-park. **→ v1.3 Stream W-mux** ([PLAN_v1.3.0.md](PLAN_v1.3.0.md)). Not in 1.2. |
+| **Web console host mux (`screen`/`tmux`)** | **v1.5 Discover (W-mux)** — optional host-side multiplexer for durable reattach beyond herder soft-park. Low priority; do not start unless M-worker is green. [PLAN_v1.5.0.md](PLAN_v1.5.0.md). |
 | **Git-rich service onboard (Q)** | **Post-1.0** — full git clone/pull; more files than compose + Dockerfile. |
 | **Discovery hygiene (S)** | **S1–S4 shipped v1.1** — last seen, hide, purge, filters. Residual **S-hb**; **S-icon** → map interactivity M1 ([FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md)). |
 | **API management (Y)** | **Shipped v1.1 (partial)** — Settings → API **Try a token** + OpenAPI / ReDoc deep links. |
 | **SSO / OIDC (Z)** | **→ v1.2 Stream S** — BYO OIDC, groups → roles, link/unlink + optional password remove; [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md). |
-| **Fine-grained roles / feature ACLs (AC-fg)** | **→ v1.3 path** — beyond global viewer/operator/admin: per-**host** allowlists and/or per-**feature** gates (backups, Docker, patch, webshell, certs, templates, integrations, Settings slices). OIDC groups may map to custom roles later. **Not** multi-tenant SaaS orgs. See [PLAN_v1.3.0.md](PLAN_v1.3.0.md) §6. |
+| **Fine-grained roles / feature ACLs (AC-fg)** | **Out of v1.5** (pushed 2026-09-07). Park **≥ v1.6**. Three global roles stay. Per-host allowlists / per-feature gates later. **Not** multi-tenant SaaS. [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §7. |
 | **Trusted device detail (AB)** | **Shipped v1.1** — type, last IP, rename; **AB-polish** ✎ edit control (not always-visible form). |
 
 ### Playwright phases
@@ -459,7 +462,7 @@ Reuse existing SSH access actions; the wizard is **orchestration + progress**, n
 
 | Area | Direction |
 |------|-----------|
-| Home Assistant | **0.9 path 1 done (HAOS/S2 over SSH)** — [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md): auto-mark, System Info, OS check/apply via `ha` CLI; deps SSH add-on + rsync. **Later:** container HA, REST/LLAT, path 2 component, add-ons. API tokens already work ([API.md](API.md)). |
+| Home Assistant | **0.9 path 1 done (HAOS/S2 over SSH)** — [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md): auto-mark, System Info, OS check/apply via `ha` CLI; deps SSH add-on + rsync. **v1.5 Discover / v1.6 ship:** path 2 custom integration (HA → PiHerder). API tokens already work ([API.md](API.md)). |
 | Plugin hooks | Prefer REST + n8n over arbitrary code on the herder host |
 | Ansible / cloud-init | Inventory export + first-boot snippets for new Pis — **overlaps H2.75 bootstrap D/E**; keep imaging depth here |
 | **Advanced secrets** | Explore beyond locked `.env`: Swarm/file permissions hardening, sealed host store for offline recreate, optional vault — never require PiHerder for normal container restart |
