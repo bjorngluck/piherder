@@ -82,6 +82,7 @@ def test_viewer_write_allowlist():
     assert _viewer_write_allowed("/auth/force-2fa")
     assert _viewer_write_allowed("/auth/me/avatar")
     assert _viewer_write_allowed("/notifications/dismiss/1")
+    assert _viewer_write_allowed("/reports/layout")
     # Fleet mutations blocked for viewers
     assert not _viewer_write_allowed("/servers/1/run/backup")
     assert not _viewer_write_allowed("/servers/1/run/os_patch")

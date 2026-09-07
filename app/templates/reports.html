@@ -7,6 +7,9 @@
 {% set dk = docker or {} %}
 {% set con = console or {} %}
 {% set health = 'hot' if (b.fail or o.fail or n.scans_fail or dk.deploy_fail or dk.patch_fail or con.denied) else 'ok' %}
+{% set layout_visible = layout_visible|default([]) %}
+{% set layout_hidden = layout_hidden|default([]) %}
+{% set layout_is_default = layout_is_default if layout_is_default is defined else true %}
 <style>
   .rpt-windows { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   .rpt-grid {
@@ -111,7 +114,49 @@
   .rpt-note { font-size: 0.75rem; color: var(--color-muted); margin: 0.65rem 0 0; }
   .rpt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .rpt-day-fail { font-size: 0.65rem; color: var(--color-danger, #dc2626); }
+  .rpt-layout-form {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.15rem;
+  }
+  .rpt-layout-btn {
+    min-height: 1.75rem;
+    min-width: 1.75rem;
+    padding: 0 0.35rem;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: var(--color-surface);
+    color: var(--color-muted);
+    font-size: 0.7rem;
+    line-height: 1;
+  }
+  .rpt-layout-btn:hover:not(:disabled) { color: var(--color-text); border-color: var(--color-accent); }
+  .rpt-layout-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .rpt-layout-btn.is-pinned { color: var(--color-accent); }
+  .rpt-hidden {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--color-muted);
+  }
 </style>
+{% macro rpt_layout_toolbar(spec) %}
+<form method="post" action="/reports/layout" class="rpt-layout-form" data-testid="reports-layout-{{ spec.id }}">
+  <input type="hidden" name="card" value="{{ spec.id }}">
+  <input type="hidden" name="days" value="{{ days }}">
+  {% if spec.pinned %}
+  <button type="submit" name="action" value="unpin" class="rpt-layout-btn is-pinned" title="Unpin {{ spec.title }}" aria-label="Unpin {{ spec.title }}" aria-pressed="true" data-testid="reports-layout-pin-{{ spec.id }}">★</button>
+  {% else %}
+  <button type="submit" name="action" value="pin" class="rpt-layout-btn" title="Pin {{ spec.title }} to top" aria-label="Pin {{ spec.title }}" aria-pressed="false" data-testid="reports-layout-pin-{{ spec.id }}">☆</button>
+  {% endif %}
+  <button type="submit" name="action" value="up" class="rpt-layout-btn" {% if spec.first %}disabled{% endif %} title="Move up" aria-label="Move {{ spec.title }} up" data-testid="reports-layout-up-{{ spec.id }}">↑</button>
+  <button type="submit" name="action" value="down" class="rpt-layout-btn" {% if spec.last %}disabled{% endif %} title="Move down" aria-label="Move {{ spec.title }} down" data-testid="reports-layout-down-{{ spec.id }}">↓</button>
+  <button type="submit" name="action" value="hide" class="rpt-layout-btn" title="Hide {{ spec.title }}" aria-label="Hide {{ spec.title }}" data-testid="reports-layout-hide-{{ spec.id }}">Hide</button>
+</form>
+{% endmacro %}
 
 <section class="ops-hero ops-hero--reports is-{{ health }} mb-4">
   <div class="ops-hero-main">
@@ -128,14 +173,24 @@
       </a>
       {% endfor %}
       <a href="/jobs?job_type=backup" class="btn btn-secondary text-xs min-h-9 px-2.5">Jobs</a>
+      {% if not layout_is_default %}
+      <form method="post" action="/reports/layout" class="inline">
+        <input type="hidden" name="action" value="reset">
+        <input type="hidden" name="days" value="{{ days }}">
+        <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5" data-testid="reports-layout-reset">Reset layout</button>
+      </form>
+      {% endif %}
     </div>
   </div>
 </section>
 
 <div class="rpt-grid">
+{% for spec in layout_visible %}
+{% if spec.id == 'backups' %}
   <section class="card p-4 sm:p-5" data-testid="reports-backups" id="report-backups">
     <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
       <h2 class="font-semibold text-text">Backups</h2>
+      {{ rpt_layout_toolbar(spec) }}
       <a href="{{ b.jobs_href }}" class="text-xs text-accent hover:underline">Backup jobs →</a>
     </div>
     <div class="rpt-kpis">
@@ -239,10 +294,11 @@
     {% endif %}
     <p class="rpt-note">{{ b.note }}</p>
   </section>
-
+{% elif spec.id == 'os_patch' %}
   <section class="card p-4 sm:p-5" data-testid="reports-os-patch" id="report-os-patch">
     <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
       <h2 class="font-semibold text-text">OS patches</h2>
+      {{ rpt_layout_toolbar(spec) }}
       <a href="{{ o.jobs_href }}" class="text-xs text-accent hover:underline">OS patch jobs →</a>
     </div>
     <div class="rpt-kpis">
@@ -335,10 +391,11 @@
     {% endif %}
     <p class="rpt-note">{{ o.note }} Job retention (Settings → Cleanup) caps how far back this can go. Host CPU/disk graphs stay in Grafana.</p>
   </section>
-
+{% elif spec.id == 'lan' %}
   <section class="card p-4 sm:p-5" data-testid="reports-lan" id="report-lan">
     <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
       <h2 class="font-semibold text-text">LAN live</h2>
+      {{ rpt_layout_toolbar(spec) }}
       <a href="{{ n.href }}" class="text-xs text-accent hover:underline">Discovery →</a>
     </div>
     <div class="rpt-kpis">
@@ -437,10 +494,11 @@
     {% endif %}
     <p class="rpt-note">{{ n.note }} nmap run purge (Settings → Cleanup) is off by default.</p>
   </section>
-
+{% elif spec.id == 'docker' %}
   <section class="card p-4 sm:p-5" data-testid="reports-docker" id="report-docker">
     <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
       <h2 class="font-semibold text-text">Docker</h2>
+      {{ rpt_layout_toolbar(spec) }}
       <a href="{{ dk.jobs_href }}" class="text-xs text-accent hover:underline">Docker jobs →</a>
     </div>
     <div class="rpt-kpis">
@@ -537,10 +595,11 @@
     {% endif %}
     <p class="rpt-note">{{ dk.note }}</p>
   </section>
-
+{% elif spec.id == 'console' %}
   <section class="card p-4 sm:p-5" data-testid="reports-console" id="report-console">
     <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
       <h2 class="font-semibold text-text">Console</h2>
+      {{ rpt_layout_toolbar(spec) }}
       <a href="{{ con.href }}" class="text-xs text-accent hover:underline">Console audit →</a>
     </div>
     <div class="rpt-kpis">
@@ -637,5 +696,19 @@
     {% endif %}
     <p class="rpt-note">{{ con.note }}</p>
   </section>
+{% endif %}
+{% endfor %}
 </div>
+{% if layout_hidden %}
+<section class="rpt-hidden mt-4" data-testid="reports-hidden">
+  <span>Hidden:</span>
+  {% for spec in layout_hidden %}
+  <form method="post" action="/reports/layout" class="rpt-layout-form">
+    <input type="hidden" name="card" value="{{ spec.id }}">
+    <input type="hidden" name="days" value="{{ days }}">
+    <button type="submit" name="action" value="show" class="rpt-layout-btn" data-testid="reports-layout-show-{{ spec.id }}" title="Show {{ spec.title }}">{{ spec.title }}</button>
+  </form>
+  {% endfor %}
+</section>
+{% endif %}
 {% endblock %}

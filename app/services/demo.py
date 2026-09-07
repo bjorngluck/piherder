@@ -101,6 +101,7 @@ _DEMO_WRITE_PREFIXES = (
     "/notifications/",
     "/account/favourites",  # favourites toggle under /account/favourites
     "/api/push/",  # personal push subscribe (optional UX)
+    "/reports/layout",  # personal Reports pin/hide/reorder (cookie)
 )
 
 # Canned job runs — demo experience (no live SSH)

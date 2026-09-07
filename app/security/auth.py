@@ -285,6 +285,7 @@ _VIEWER_WRITE_PREFIXES = (
     "/auth/me/",
     "/notifications/",
     "/api/push",
+    "/reports/layout",
 )
 # Admin-only management surfaces (mutating methods on these prefixes)
 _ADMIN_ONLY_PREFIXES = (
