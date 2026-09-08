@@ -55,7 +55,7 @@ Plan: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · migrate design: [FEATURE_PLAN_SERVICE_
 
 ## Freeze
 
-- [x] Unit ≥ 65% (fail-under 65) — suite **~65.05%**; CI `--cov-fail-under=65`  
+- [x] Unit ≥ 70% (fail-under 70) — suite **~70.6%**; CI `--cov-fail-under=70`  
 - [x] `mkdocs build --strict` — green 2026-09-07 docs pass  
 - [ ] **M-flag** freeze question recorded (default stays false unless decided otherwise)  
 - [ ] Version bump `1.5.0` · tag · Hub  
