@@ -1,8 +1,8 @@
-"""Per-user Reports card layout (v1.5 N3a).
+"""Per-user Reports card layout (v1.5 N3a / N3b).
 
-Pin / hide / reorder the five history cards. Remembered in cookie
+Pin / hide / reorder history cards. Remembered in cookie
 ``ph_reports_layout`` (not a DB row — the public demo shares one viewer).
-Default = 1.3 order, all visible. At least one card stays visible.
+Default = 1.3 order plus **Move jobs** last, all visible. At least one card stays visible.
 """
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ CARD_IDS: tuple[str, ...] = (
     "lan",
     "docker",
     "console",
+    "move",
 )
 
 CARD_META: dict[str, dict[str, str]] = {
@@ -26,6 +27,7 @@ CARD_META: dict[str, dict[str, str]] = {
     "lan": {"title": "LAN live", "testid": "reports-lan"},
     "docker": {"title": "Docker", "testid": "reports-docker"},
     "console": {"title": "Console", "testid": "reports-console"},
+    "move": {"title": "Move jobs", "testid": "reports-move"},
 }
 
 _ACTIONS = frozenset({"pin", "unpin", "hide", "show", "up", "down", "reset"})

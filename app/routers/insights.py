@@ -42,6 +42,7 @@ async def reports_page(
             "os_patch": data["os_patch"],
             "lan": data["lan"],
             "docker": data["docker"],
+            "move": data["move"],
             "console": data["console"],
             "layout_visible": cards["visible"],
             "layout_hidden": cards["hidden"],

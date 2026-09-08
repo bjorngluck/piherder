@@ -5,8 +5,9 @@
 {% set o = os_patch or {} %}
 {% set n = lan or {} %}
 {% set dk = docker or {} %}
+{% set m = move or {} %}
 {% set con = console or {} %}
-{% set health = 'hot' if (b.fail or o.fail or n.scans_fail or dk.deploy_fail or dk.patch_fail or con.denied) else 'ok' %}
+{% set health = 'hot' if (b.fail or o.fail or n.scans_fail or dk.deploy_fail or dk.patch_fail or m.fail or con.denied) else 'ok' %}
 {% set layout_visible = layout_visible|default([]) %}
 {% set layout_hidden = layout_hidden|default([]) %}
 {% set layout_is_default = layout_is_default if layout_is_default is defined else true %}
@@ -34,6 +35,7 @@
   }
   .rpt-kpi-l { font-size: 0.68rem; color: var(--color-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
   .rpt-kpi-v { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.03em; color: var(--color-text); line-height: 1.15; margin-top: 0.15rem; }
+  .rpt-kpi-v.is-long { font-size: 1.05rem; word-break: break-word; }
   .rpt-kpi.is-hot .rpt-kpi-v { color: var(--color-warning, #d97706); }
   .rpt-kpi-s { font-size: 0.7rem; color: var(--color-muted); margin-top: 0.15rem; }
   .rpt-bars {
@@ -163,7 +165,7 @@
     <div class="ops-hero-kicker">History Grafana never sees</div>
     <h1 class="ops-hero-title">Reports</h1>
     <p class="ops-hero-sub">
-      Backups, OS patches, LAN census, Docker deploys/patches, and console sessions — from Jobs, nmap runs, and Audit. Grafana never sees this.
+      Backups, OS patches, LAN census, Docker deploys/patches, Move jobs, and console sessions — from Jobs, nmap runs, and Audit. Grafana never sees this.
     </p>
     <div class="ops-hero-actions rpt-windows">
       {% for w in day_choices %}
@@ -594,6 +596,101 @@
     {% endif %}
     {% endif %}
     <p class="rpt-note">{{ dk.note }}</p>
+  </section>
+{% elif spec.id == 'move' %}
+  <section class="card p-4 sm:p-5" data-testid="reports-move" id="report-move">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+      <h2 class="font-semibold text-text">Move jobs</h2>
+      {{ rpt_layout_toolbar(spec) }}
+      <a href="{{ m.jobs_href }}" class="text-xs text-accent hover:underline">Move jobs →</a>
+    </div>
+    <div class="rpt-kpis">
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Moves</div>
+        <div class="rpt-kpi-v">{{ m.runs or 0 }}</div>
+        <div class="rpt-kpi-s">last {{ m.days }}d</div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Success</div>
+        <div class="rpt-kpi-v">{{ m.ok_pct or 0 }}%</div>
+        <div class="rpt-kpi-s"><span class="rpt-ok">{{ m.ok or 0 }} ok</span></div>
+      </div>
+      <div class="rpt-kpi {% if m.fail %}is-hot{% endif %}">
+        <div class="rpt-kpi-l">Failed</div>
+        <div class="rpt-kpi-v">{{ m.fail or 0 }}</div>
+        <div class="rpt-kpi-s">{% if m.fail %}<span class="rpt-fail">copy / dest-up / worker recycle</span>{% else %}finished jobs{% endif %}</div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Last dest</div>
+        <div class="rpt-kpi-v is-long">{{ m.last_dest or '—' }}</div>
+        <div class="rpt-kpi-s">{{ m.last_project or 'no Move in this window' }}</div>
+      </div>
+    </div>
+    {% if m.empty %}
+    <p class="text-sm text-muted mb-0">No finished Move jobs in this window. After a service migrate, this fills from Job history.</p>
+    {% else %}
+    <div class="rpt-scroll mt-3">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-dest">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th class="rpt-num">Ok</th>
+            <th class="rpt-num">Fail</th>
+            <th class="rpt-dest">Last dest</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in m.day_rows %}
+          {% if d.ok or d.fail %}
+          <tr>
+            <td class="rpt-label font-mono">{{ d.day }}</td>
+            <td class="rpt-num">{{ d.ok }}</td>
+            <td class="rpt-num {% if d.fail %}rpt-fail{% endif %}">{{ d.fail }}</td>
+            <td class="rpt-dest">{{ d.last_dest }}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if m.hosts %}
+    <div class="rpt-scroll mt-4">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-dest">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th class="rpt-num">Ok</th>
+            <th class="rpt-num">Fail</th>
+            <th class="rpt-dest">Last dest</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in m.hosts %}
+          <tr>
+            <td class="rpt-label"><a href="{{ h.href }}">{{ h.name }}</a></td>
+            <td class="rpt-num">{{ h.ok }}</td>
+            <td class="rpt-num {% if h.fail %}rpt-fail{% endif %}">{{ h.fail }}</td>
+            <td class="rpt-dest">{{ h.last_dest }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% endif %}
+    <p class="rpt-note">{{ m.note }}</p>
   </section>
 {% elif spec.id == 'console' %}
   <section class="card p-4 sm:p-5" data-testid="reports-console" id="report-console">

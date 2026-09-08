@@ -93,7 +93,7 @@ Alembic **`042_compose_project_meta`** (per-project host lock). **Move a service
 Not tagged. Checkout **`v1.5.0-dev`**, rebuild **web and celery-worker** (`docker compose build web celery-worker && docker compose up -d`). About / footer stay **1.4.0** until freeze.
 
 - **Move** runs on **celery-worker** (same queue as backups). Recycle **web** mid-copy is safe. Recycle **worker** fails a running Move (staging kept). [Move a service](../docker/service-migration.md).  
-- **Reports** pin / hide / reorder — [Reports](../day-to-day/reports.md). Cookie `ph_reports_layout`, not a fleet setting.  
+- **Reports** pin / hide / reorder + **Move jobs** card — [Reports](../day-to-day/reports.md). Cookie `ph_reports_layout`, not a fleet setting.  
 - Kill switch `PIHERDER_SERVICE_MIGRATE` still **false** until the freeze **M-flag** question.  
 - Plan: [PLAN_v1.5.0.md](https://github.com/bjorngluck/piherder/blob/v1.5.0-dev/docs/PLAN_v1.5.0.md).
 

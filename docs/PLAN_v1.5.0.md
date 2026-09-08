@@ -1,14 +1,14 @@
 # PiHerder v1.5.0 — job runtime (Move on the worker)
 
-**Status:** **Active** — Must **M-worker**, Should **N3a**, **M-hb**, **Q** (70%) **landed** 2026-09-08. Remaining: leftover live recycle QA · Discover notes · freeze (**M-flag**, version, tag, Hub)  
+**Status:** **Active** — Must **M-worker**, Should **N3a**, **N3b**, **M-hb**, **Q** (70%) **landed** 2026-09-08. Remaining: leftover live recycle QA · Discover notes · freeze (**M-flag**, version, tag, Hub)  
 **Date opened:** 2026-09-07  
 **Git branch:** `v1.5.0-dev` → `main` · tag `v1.5.0` (at freeze)  
 **Package / image version:** stays **`1.4.0` until freeze**  
 **Theme:** **Job runtime** — run `service_migrate` on Celery so recycling **web** cannot kill a long copy; **N3** custom Reports layout (Should)  
 **Baseline:** `v1.4.0` (tagged 2026-09-06)  
-**Mode:** **Must → Should → Discover.** Must **M-worker**. Should **N3a** + **M-hb** + **Q**. **AC-fg is out.**  
+**Mode:** **Must → Should → Discover.** Must **M-worker**. Should **N3a** + **N3b** + **M-hb** + **Q**. **AC-fg is out.**  
 **QA:** [QA_v1.5.0.md](QA_v1.5.0.md) (maintainer stub — **not** the operator wiki)  
-**Related:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · wiki [Move a service](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Reports](../wiki/day-to-day/reports.md)
+**Related:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) (candidate inbox) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · wiki [Move a service](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Reports](../wiki/day-to-day/reports.md)
 
 > **Train open 2026-09-07.** Production stays **v1.4.x** on `main`. Kill switch `PIHERDER_SERVICE_MIGRATE` stays **false**. HAOS path-2 **plugin ships v1.6.0** (discover only here). Package stays **1.4.0** until freeze.
 
@@ -28,7 +28,7 @@ Wanted:
 
 This is the migrate slice of 1.3’s parked “one job runtime.” It is **not** moving OS-patch / stack / template jobs off web unless Discover **J-runtime** is later promoted.
 
-**Now (2026-09-08):** Move enqueues `app.tasks.service_migrate` on the backup worker. Dual-host **backup** Redis mutex (lower id first). Web recycle does not fail a running Move; worker redelivery of `running` fails it. **N3a** pin/hide/↑↓ on `/reports` (cookie `ph_reports_layout`). Unit **~70.6%**; CI fail-under **70**. Leftover live proof: recycle **web** mid-copy and recycle **worker** mid-copy.
+**Now (2026-09-08):** Move enqueues `app.tasks.service_migrate` on the backup worker. Dual-host **backup** Redis mutex (lower id first). Web recycle does not fail a running Move; worker redelivery of `running` fails it. **N3a** pin/hide/↑↓ on `/reports` (cookie `ph_reports_layout`). **N3b** Move jobs card (count / fail / last dest). Unit **~70.6%**; CI fail-under **70**. Leftover live proof: recycle **web** mid-copy and recycle **worker** mid-copy. **0.x PLAN/RELEASE archive** parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 **Out of 1.5 product code:** **AC-fg**, **M-live**, ACME-in-herder, full NPM CRUD, Files token API, **N3c** widget picker, HA custom component **code** (discover only; ship **v1.6.0**).
 
@@ -42,7 +42,7 @@ This is the migrate slice of 1.3’s parked “one job runtime.” It is **not**
 | Production line | **`main` @ `v1.4.0`** — hotfixes → **`v1.4.x`**, port into `v1.5.0-dev` |
 | Git tag (freeze) | **`v1.5.0`** (RCs: `1.5.0-rc.N` if needed) |
 | Image tags (freeze) | `1.5.0` · `1.5` · `latest` (multi-arch); keep `1.4` / `1.4.x` pins valid |
-| In-scope streams | **M-worker** Must · **N3a** Should · **M-hb** Should · **Q** · Discover catalog |
+| In-scope streams | **M-worker** Must · **N3a** Should · **N3b** Should stretch · **M-hb** Should · **Q** · Discover catalog |
 | Out-of-focus | **AC-fg** · **M-live** · ACME · full NPM CRUD · Files token API · **N3c** · HA-p2 **plugin code** · multi-tenant · Swarm/k8s |
 | Mode | Worker Move · no half-built Celery migrate · Must → freeze; Should may slip |
 | Coverage | **≥ 70%** unit; CI fail-under **70**; focused tests for enqueue, fail-on-worker-restart, dual-host lock. **1.x end goal 80%** is later trains, not this freeze |
@@ -143,15 +143,15 @@ Discover notes may parallel after Phase 1. **HA-p2 plugin code is v1.6.** **AC-f
 
 | ID | Item | Notes |
 |----|------|--------|
-| N3a1 | Layout chrome on `/reports` | Pin, hide, reorder the **existing** five history cards |
-| N3a2 | Per-user remember | Cookie or user setting. Default = current 1.3 order, all visible. Reset-to-default exists |
+| N3a1 | Layout chrome on `/reports` | Pin, hide, reorder history cards (1.3 five + **N3b** Move) |
+| N3a2 | Per-user remember | Cookie or user setting. Default = 1.3 order + Move last, all visible. Reset-to-default exists |
 | N3a3 | Viewer | Same chrome; still read-only data |
 | N3a4 | Demo | Works on seeded Jobs |
 | N3a5 | Wiki | [reports.md](../wiki/day-to-day/reports.md) |
 
-**Stretch (does not block N3a):** **N3b** one extra built-in card — **Move jobs** (count / fail / last dest). Cert expiry / nmap new-device stay later.
+**Stretch (does not block N3a):** **N3b** one extra built-in card — **Move jobs** (count / fail / last dest). **Landed 2026-09-08.** Cert expiry / nmap new-device stay later.
 
-**Success (Should):** operator can hide LAN live, pin Backups first, reload, order sticks. No Grafana iframes. Tag does **not** wait on N3 if M-worker is green.
+**Success (Should):** operator can hide LAN live, pin Backups first, reload, order sticks. Move jobs card shows count / fail / last dest from `service_migrate` Jobs. No Grafana iframes. Tag does **not** wait on N3 if M-worker is green.
 
 ---
 
@@ -203,6 +203,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 |----------|------|-----|--------|
 | **Must** | **M-worker** | Move runs on Celery; web recycle does not fail it; worker recycle does; dual-host lock; JobHold | **Code landed.** Live Job #1314 NPM-fronted Move green. Recycle web/worker mid-copy **not** live-proved |
 | **Should** | **N3a** | Pin/hide/reorder `/reports` cards per user | **Done** — operator signed 2026-09-07 |
+| **Should** | **N3b** | Move jobs card: count / fail / last dest | **Code landed** 2026-09-08 |
 | **Should** | **M-hb** | Heartbeats / stall visible | **Done** — reuse `_flush_job_progress` / JobHold DB poll |
 | **Should** | **Q** | Tests; wiki truth; coverage ≥ 70% | **Bar met** (~70.6%; fail-under **70**) |
 | **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only | **Open** — catalog exists; write-ups not started |
@@ -230,7 +231,8 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 - ACME-in-herder · full NPM proxy CRUD · Files token API  
 - **N3c** widget picker / Grafana-in-herder  
 - HA custom component **implementation** (Discover here; **v1.6.0** ship)  
-- **80% unit coverage** — 1.x end goal; later trains. This freeze stays **70%**
+- **80% unit coverage** — 1.x end goal; later trains. This freeze stays **70%**  
+- **Archive 0.x PLAN/RELEASE** — parked [PLAN_v1.6.0.md](PLAN_v1.6.0.md) **Docs-archive-0x** (stubs + `docs/archive/v0/`)
 - Moving OS-patch / stack / template jobs to Celery unless **J-runtime** is promoted  
 - Multi-tenant SaaS · k8s/bare · branding theme engine · forcing `tmux` onto fleet hosts  
 
@@ -248,6 +250,8 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 2026-09-07 | **Q coverage:** suite **~65%** line (`app`); CI fail-under raised **62 → 65**. Pack `tests/test_coverage_v15_pure.py` (job runners, backup progress/profiles, herder restore, OS-patch stream, onboarding scripts). |
 | 2026-09-08 | **Q2 coverage:** suite **~70.6%** line (`app`); CI fail-under raised **65 → 70**. Packs `tests/test_coverage_v15_q2.py` (template apply/redeploy/drift, job enqueue, OIDC, SSH onboarding, docker write/validate, host Files docker, DNS plan) + `tests/test_coverage_v15_q2b.py` (WebAuthn, alert policy, registry bindings, Kuma coverage, harden/editor, backup Celery, TOTP QR). |
 | 2026-09-08 | **1.x coverage end goal locked at 80%.** v1.5 freeze stays **70**. Later 1.x minors step the fail-under (~5pp) until 80. Service tests first; no 100% target. |
+| 2026-09-08 | **0.x PLAN/RELEASE archive** pushed to **v1.6** ([PLAN_v1.6.0.md](PLAN_v1.6.0.md) Docs-archive-0x). Not this freeze. |
+| 2026-09-08 | **N3b landed:** `/reports` **Move jobs** card — count / fail / last dest from finished `service_migrate` Jobs. Cookie layout treats `move` as a sixth card (appended on old cookies). |
 | 2026-09-07 | **Docs pass:** wiki Move / Jobs / Reports / multi-worker / architecture / upgrades 1.4→1.5 / troubleshooting; ADMIN migrate+Celery; README / SPEC / ROADMAP / QA aligned. 1.4 RELEASE stays historical (web `BackgroundTasks`). |
 
 ---
@@ -262,6 +266,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 4 | **M-hb** heartbeats + JobHold | **Done** — reuse `_flush_job_progress` on the worker (JobHold polls DB) |
 | 5 | Wiki Move + Jobs (worker truth) | **Done** 2026-09-07; docs pass widened 2026-09-07 |
 | 6 | **N3a** Reports layout (Should; after M-worker moving) | **Done** 2026-09-07 — pin/hide/↑↓, cookie `ph_reports_layout`; operator signed |
+| 6b | **N3b** Move jobs Reports card | **Done** 2026-09-08 — count / fail / last dest |
 | 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | **Open** |
 | 8 | **Q** raise unit coverage **62 → 70** | **Done** 2026-09-07 (65%) · **Q2 2026-09-08 (70%)** — `test_coverage_v15_q2.py` + `test_coverage_v15_q2b.py`; CI fail-under **70** |
 | 9 | Leftover live QA: recycle **web** mid-Move; recycle **worker** mid-Move | **Open** (Job #1314 was a clean run) |

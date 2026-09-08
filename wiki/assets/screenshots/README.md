@@ -20,7 +20,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.2.0** | Prior Hub — screenshot pack **landed** 2026-08-18. [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) |
 | **v1.3.0** | Prior Hub — pack **landed** 2026-08-22. Maintainer QA: [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.3.0.md) (not the operator wiki). [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md) |
 | **v1.4.0** | **Tagged** — pack **landed 2026-09-06**. Maintainer QA: [QA_v1.4.0.md](../../../docs/QA_v1.4.0.md). Theme: [Move a service](../../docker/service-migration.md) · [RELEASE](../../../docs/RELEASE_v1.4.0.md) |
-| **v1.5.0** | Dev train on `v1.5.0-dev` — recapture **Reports** pin/hide/reorder at freeze. Move JobHold shots still valid. Rebuild **web and celery-worker**. [PLAN](../../../docs/PLAN_v1.5.0.md) |
+| **v1.5.0** | Dev train on `v1.5.0-dev` — recapture **Reports** pin/hide/reorder + **Move jobs** card at freeze. Move JobHold shots still valid. Rebuild **web and celery-worker**. [PLAN](../../../docs/PLAN_v1.5.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
