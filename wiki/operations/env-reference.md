@@ -31,7 +31,7 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 |----------|---------|
 | `PIHERDER_HOSTNAME` | Caddy site hostname; must match cert SANs; WebAuthn RP ID |
 | `PIHERDER_PUBLIC_URL` | Canonical origin (include `:8443` if mapped); HTTPS enables Secure cookies; **OIDC redirect** base `{PUBLIC_URL}/auth/oidc/callback`; CSP `upgrade-insecure-requests` when https |
-| `PIHERDER_CSP` | **true** (default) — send Content-Security-Policy. Scripts are **self-hosted** (compiled Tailwind, no Play CDN, **no `unsafe-eval`**). `connect-src` is `'self'` plus `PIHERDER_PUBLIC_URL` / its `wss:` — **no** wildcard `ws:`/`wss:`. Inline script/style still allowed (1.3 nonces). |
+| `PIHERDER_CSP` | **true** (default) — send Content-Security-Policy. Scripts are **self-hosted** (compiled Tailwind, no Play CDN, **no `unsafe-eval`**). `connect-src` is `'self'` plus `PIHERDER_PUBLIC_URL` / its `wss:` — **no** wildcard `ws:`/`wss:`. Inline script/style still `'unsafe-inline'` (nonces are **v1.6 Slice 1**, not 1.3/1.5). |
 | `PIHERDER_CSP_REPORT_ONLY` | **false** (default) — if true, send Report-Only CSP instead of enforcing |
 | `PIHERDER_SSH_CONSOLE` | **false** (default) — **master enable** for web SSH (operator+ / 2FA; in-app only). Not a Settings checkbox. |
 | `PIHERDER_HOST_FILES` | **false** (default) — **master enable** for host Files (operator+; jailed SFTP). Not a Settings checkbox. Public demo uses a **canned** tree instead (leave this **off** on the demo VPS). [Host Files](../day-to-day/host-files.md). Optional `PIHERDER_HOST_FILES_MAX_BYTES` **locks** the cap (otherwise **Settings → Files**, default 512 MiB, ceiling 32 GiB) — do not inject a compose default. |
