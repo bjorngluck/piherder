@@ -45,7 +45,7 @@ This is the migrate slice of 1.3’s parked “one job runtime.” It is **not**
 | In-scope streams | **M-worker** Must · **N3a** Should · **M-hb** Should · **Q** · Discover catalog |
 | Out-of-focus | **AC-fg** · **M-live** · ACME · full NPM CRUD · Files token API · **N3c** · HA-p2 **plugin code** · multi-tenant · Swarm/k8s |
 | Mode | Worker Move · no half-built Celery migrate · Must → freeze; Should may slip |
-| Coverage | **≥ 70%** unit; CI fail-under **70**; focused tests for enqueue, fail-on-worker-restart, dual-host lock |
+| Coverage | **≥ 70%** unit; CI fail-under **70**; focused tests for enqueue, fail-on-worker-restart, dual-host lock. **1.x end goal 80%** is later trains, not this freeze |
 | E2E | Wizard chrome still loads (no live two-host in CI) |
 | Semver | Additive minor; no migrate pipeline behaviour change except **where it runs** |
 | Version bump | `1.5.0` **at freeze only** |
@@ -230,6 +230,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 - ACME-in-herder · full NPM proxy CRUD · Files token API  
 - **N3c** widget picker / Grafana-in-herder  
 - HA custom component **implementation** (Discover here; **v1.6.0** ship)  
+- **80% unit coverage** — 1.x end goal; later trains. This freeze stays **70%**
 - Moving OS-patch / stack / template jobs to Celery unless **J-runtime** is promoted  
 - Multi-tenant SaaS · k8s/bare · branding theme engine · forcing `tmux` onto fleet hosts  
 
@@ -246,6 +247,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 2026-09-07 | **N3a landed:** `/reports` pin / hide / reorder; cookie `ph_reports_layout`; Reset layout; viewer and demo POSTs allowed. Not Grafana. |
 | 2026-09-07 | **Q coverage:** suite **~65%** line (`app`); CI fail-under raised **62 → 65**. Pack `tests/test_coverage_v15_pure.py` (job runners, backup progress/profiles, herder restore, OS-patch stream, onboarding scripts). |
 | 2026-09-08 | **Q2 coverage:** suite **~70.6%** line (`app`); CI fail-under raised **65 → 70**. Packs `tests/test_coverage_v15_q2.py` (template apply/redeploy/drift, job enqueue, OIDC, SSH onboarding, docker write/validate, host Files docker, DNS plan) + `tests/test_coverage_v15_q2b.py` (WebAuthn, alert policy, registry bindings, Kuma coverage, harden/editor, backup Celery, TOTP QR). |
+| 2026-09-08 | **1.x coverage end goal locked at 80%.** v1.5 freeze stays **70**. Later 1.x minors step the fail-under (~5pp) until 80. Service tests first; no 100% target. |
 | 2026-09-07 | **Docs pass:** wiki Move / Jobs / Reports / multi-worker / architecture / upgrades 1.4→1.5 / troubleshooting; ADMIN migrate+Celery; README / SPEC / ROADMAP / QA aligned. 1.4 RELEASE stays historical (web `BackgroundTasks`). |
 
 ---

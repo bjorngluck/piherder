@@ -26,7 +26,8 @@ Unit tests live under `tests/` — no live SSH required for the main suite. Defa
 |-----|--------|
 | **Suite freeze target** | **≥ 70%** line on `app` (v1.5; was 65% mid-train, 62% in 1.4, 55% through 1.3) |
 | **CI fail-under** | **70** |
-| **v1.0 production** | Authz matrix + input validation + credential recovery tests; no 100% target |
+| **1.x end goal** | **80%** — step fail-under in later 1.x minors (~5pp per quality-leaning train). Not a 1.5 leftover. |
+| **v1.0 production** | Authz matrix + input validation + credential recovery tests; no 100% target; prefer service tests over router % |
 
 ### v1.0 production-hardening packs
 
