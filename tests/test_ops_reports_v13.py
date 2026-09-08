@@ -159,6 +159,7 @@ def test_collect_ops_reports_empty():
     assert data["days"] == 30
     assert data["backup"]["empty"] is True
     assert data["os_patch"]["empty"] is True
+    assert data["move"]["empty"] is True
 
 
 def test_clamp_days():
@@ -265,6 +266,66 @@ def test_docker_deploys_and_patches():
     assert card["hosts"][0]["name"] == "box"
     data = rpt.collect_ops_reports(session, days=7)
     assert data["docker"]["deploy_ok"] == 1
+
+
+def test_move_jobs_count_fail_last_dest():
+    session = _memory_session()
+    src = _server(session, name="rpi5-4", hostname="rpi5-4")
+    dest = _server(session, name="rpi5-3", hostname="rpi5-3")
+    now = datetime.utcnow()
+    _job(
+        session,
+        server_id=src.id,
+        job_type="service_migrate",
+        status="failed",
+        finished_at=now - timedelta(days=2),
+        details={
+            "project": "openwebui",
+            "dest_server_id": dest.id,
+            "dest_name": dest.name,
+        },
+    )
+    _job(
+        session,
+        server_id=src.id,
+        job_type="service_migrate",
+        status="success",
+        finished_at=now - timedelta(hours=3),
+        details={
+            "project": "openwebui",
+            "dest_server_id": dest.id,
+            "dest_name": dest.name,
+        },
+    )
+    card = rpt.collect_move_history(session, days=7, now=now)
+    assert card["ok"] == 1
+    assert card["fail"] == 1
+    assert card["runs"] == 2
+    assert card["last_dest"] == "rpi5-3"
+    assert card["last_project"] == "openwebui"
+    assert card["hosts"][0]["name"] == "rpi5-4"
+    assert "openwebui → rpi5-3" in card["hosts"][0]["last_dest"]
+    data = rpt.collect_ops_reports(session, days=7)
+    assert data["move"]["ok"] == 1
+    assert data["move"]["fail"] == 1
+
+
+def test_move_dest_from_server_id_when_name_missing():
+    session = _memory_session()
+    src = _server(session, name="alpha", hostname="alpha")
+    dest = _server(session, name="bravo", hostname="bravo")
+    now = datetime.utcnow()
+    _job(
+        session,
+        server_id=src.id,
+        job_type="service_migrate",
+        status="success",
+        finished_at=now - timedelta(hours=1),
+        details={"project": "caddy", "dest_server_id": dest.id},
+    )
+    card = rpt.collect_move_history(session, days=7, now=now)
+    assert card["last_dest"] == "bravo"
+    assert card["ok"] == 1
 
 
 def test_console_sessions_duration_and_privileged():

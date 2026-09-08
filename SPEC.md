@@ -348,6 +348,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [ ] Pi-hole / NPM write paths beyond local DNS (full proxy host CRUD, lists, etc.) — **v1.4 M-npm** is backend retarget only
 - [x] Service migrate host→host; destructive service remove — **v1.4.0 tagged** ([RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [PLAN](docs/PLAN_v1.4.0.md) · wiki [Move a service](wiki/docker/service-migration.md)); host lock (HAOS / hardware); NPM backend retarget; leftover wipe optional / default off. **v1.5 M-worker landed** on `v1.5.0-dev`: Celery `service_migrate`, dual-host backup mutex, web recycle safe ([PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md))
 - [x] Reports layout (**N3a**) — pin / hide / reorder `/reports` cards; cookie `ph_reports_layout` — **v1.5 Should** on `v1.5.0-dev`
+- [x] Reports Move jobs card (**N3b**) — count / fail / last dest from `service_migrate` Jobs — **v1.5 stretch** on `v1.5.0-dev`
 - [ ] Expanded curated pack (Frigate, HA, n8n, media, …)
 - [ ] Plugin hooks / event webhooks (`job.completed`, `server.added`, …) — prefer REST + n8n over code exec
 - [ ] Ansible inventory / cloud-init bootstrap for new Pis (overlaps H2.75 P4 imaging depth)

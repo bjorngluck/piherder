@@ -19,13 +19,13 @@ def test_hide_lan_keeps_others():
     n = rl.apply_action(rl.default_layout(), "hide", "lan")
     assert "lan" not in rl.visible_ids(n)
     assert "lan" in n["hidden"]
-    assert rl.visible_ids(n) == ["backups", "os_patch", "docker", "console"]
+    assert rl.visible_ids(n) == ["backups", "os_patch", "docker", "console", "move"]
     assert not rl.is_default(n)
 
 
 def test_cannot_hide_last_card():
     n = rl.default_layout()
-    for cid in ("os_patch", "lan", "docker", "console"):
+    for cid in ("os_patch", "lan", "docker", "console", "move"):
         n = rl.apply_action(n, "hide", cid)
     assert rl.visible_ids(n) == ["backups"]
     stuck = rl.apply_action(n, "hide", "backups")
@@ -67,6 +67,20 @@ def test_cookie_roundtrip_and_junk():
     parsed = rl.parse_cookie(extra)
     assert "nope" not in parsed["order"]
     assert "docker" in parsed["order"]
+
+
+def test_old_cookie_appends_move_card():
+    raw = json.dumps(
+        {
+            "order": ["backups", "os_patch", "lan", "docker", "console"],
+            "hidden": [],
+            "pinned": [],
+        }
+    )
+    parsed = rl.parse_cookie(raw)
+    assert parsed["order"][-1] == "move"
+    assert "move" in rl.visible_ids(parsed)
+    assert rl.is_default(parsed)
 
 
 def test_show_unhides():

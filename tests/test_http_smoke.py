@@ -307,6 +307,7 @@ def test_reports_board_viewer_200(smoke_client):
     assert 'data-testid="reports-lan"' in r.text
     assert 'data-testid="reports-docker"' in r.text
     assert 'data-testid="reports-console"' in r.text
+    assert 'data-testid="reports-move"' in r.text
     assert "Reports" in r.text
     assert "report-card-alerts_by_severity" not in r.text
     assert "min-width: 28rem" in r.text
@@ -364,7 +365,7 @@ def test_reports_layout_hide_and_pin_viewer(smoke_client, monkeypatch):
     assert 'data-testid="reports-hidden"' in page.text
     assert 'data-testid="reports-layout-reset"' in page.text
     ids = re.findall(
-        r'data-testid="reports-(backups|os-patch|lan|docker|console)"',
+        r'data-testid="reports-(backups|os-patch|lan|docker|console|move)"',
         page.text,
     )
     assert ids[0] == "backups"

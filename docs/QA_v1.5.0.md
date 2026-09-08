@@ -45,6 +45,13 @@ Plan: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · migrate design: [FEATURE_PLAN_SERVICE_
 - [x] Viewer can use layout chrome; data still read-only  
 - [x] No Grafana iframes / widget picker  
 
+## N3b — Move jobs card (Should stretch)
+
+- [ ] `/reports` **Move jobs** card: runs / fail / last dest from finished `service_migrate` Jobs  
+- [ ] Empty window copy when no Moves  
+- [ ] Pin / hide / reorder includes Move (sixth card; old cookies append it)  
+- [ ] Viewer can see the card (read-only)  
+
 ## 1.4 regression
 
 - [ ] Host lock + HAOS refuse  
