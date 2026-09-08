@@ -41,7 +41,7 @@ Design principles stay the same as SPEC:
 | **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights (N reports)** · **host files (F manager)** · **AC-fg** Cap · ACME (consideration) | Post-1.2 minor | **Tagged** 2026-08-22 — [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [QA_v1.3.0.md](QA_v1.3.0.md) · Hub `1.3.0` / `1.3` / `latest` |
 | **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME **or NPM backend** retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate, leftover) + **host lock** (HAOS refuse, Frigate/TPU-class) + demo simulated Files | Post-1.3 minor | **Tagged** 2026-09-06 — [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · wiki [Move a service](../wiki/docker/service-migration.md) · Hub `1.4.0` / `1.4` / `latest` |
 | **v1.5.0** | **Job runtime** — Move on **Celery worker** (**M-worker**, landed) + **N3a** Reports pin/hide/reorder (landed) + unit **≥ 70%**. Discover: rollback, CSP nonces, branding, migrate default, W-mux, HAOS path-2. **AC-fg out.** | Post-1.4 minor | **Active** on `v1.5.0-dev` — [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [QA_v1.5.0.md](QA_v1.5.0.md). Package stays `1.4.0` until freeze |
-| **v1.6.0** | **Candidate** — HAOS path 2 **plugin** (HA → PiHerder custom integration; discover in 1.5). Parked: **AC-fg** fine-grained roles. | Post-1.5 minor | Under consideration — [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 |
+| **v1.6.0** | **Candidate** — HAOS path 2 **plugin** (HA → PiHerder custom integration; discover in 1.5). Parked: **AC-fg** fine-grained roles. Unit coverage steps toward **1.x 80%** (not a 1.5 leftover). | Post-1.5 minor | Under consideration — [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -102,6 +102,8 @@ Design principles stay the same as SPEC:
 **Decision (2026-09-07):** **v1.5.0 train opened** on **`v1.5.0-dev`**. Must: **M-worker**. Should: **N3a** pin/hide/reorder `/reports` cards · **M-hb** heartbeats · **Q**. Discover: **M-undo**, **CSP-n**, **Brand**, **M-flag**, **W-mux**, **HA-p2**, **J-runtime**. **AC-fg out** (park ≥1.6). HAOS path-2 **plugin ships v1.6.0** (discover only in 1.5). Package version stays `1.4.0` until freeze. `main` stays patchable for **v1.4.x**. See [PLAN_v1.5.0.md](PLAN_v1.5.0.md).
 
 **Progress (2026-09-08):** **M-worker landed** (Celery `service_migrate`, dual-host backup mutex). **N3a landed** (cookie `ph_reports_layout`; operator signed). **Q** unit **~70.6%**; CI fail-under **70**. Leftover: recycle web/worker mid-Move live QA, Discover write-ups, freeze (**M-flag**, tag, Hub).
+
+**Decision (2026-09-08):** **1.x unit coverage end goal is 80%** line on `app` (`--cov=app`). **v1.5 freeze stays 70%**. Raise the CI fail-under in later 1.x minors (typically ~5pp per quality-leaning train) until 80. Same rules as today: mocked service tests first, no 100% target, do not chase router %. 80 is a 1.x ceiling, not a 1.5 leftover.
 
 **Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg). **Slice 3 Deep landed** (L). **Slice 4 Deep landed** (W-id). **Slice 5 Deep landed** (W-audit). **Slice 6 Deep landed** (A). **Slice 7 N2:** `/reports` is history (backups, OS patches, LAN live, Docker, console) — not Grafana, not status portlets. **F Deep (2026-08-20):** Host Files explorer (flag off): edit, zip, perms, search, move, folder upload, preview, `.env` step-up, thin Docker volumes/`docker cp`. API Files expansions → v1.4+ under consideration.
 
@@ -276,7 +278,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 
 | Track | Direction |
 |-------|-----------|
-| **Unit / service coverage** | **v0.8 freeze ~49–50%**; **v0.9.0 freeze ≥55%** line (`app`) — **~57.4% reached**. CI fail-under **55** (stepped 35 → 45 → 50 → 55). Critical paths first; **no** 100% target; prefer service tests over router %. Deeper packs for **v1.0**. See [PLAN_v0.9.0.md](PLAN_v0.9.0.md) stream Q. |
+| **Unit / service coverage** | Stepped freeze bars: **0.8 ~50%** · **0.9 ≥55%** · **1.4 ≥62%** · **1.5 ≥70%** (CI fail-under **70**, suite ~70.6%). **1.x end goal 80%** — raise fail-under in later 1.x minors (~5pp per quality-leaning train). Critical paths first; **no** 100% target; prefer service tests over router %. See [PLAN_v1.5.0.md](PLAN_v1.5.0.md) stream Q. |
 | **HTTP smoke (pytest TestClient)** | **Done (0.8)** — auth redirects + main shells + seeded surfaces; extend when routes land. |
 | **UI walkthrough — Playwright** | **Must since v0.7.0** — shell + wizard + B6 + nmap shells. **v0.9 rule:** any UX/code touched in the release gets **basic** E2E coverage (no live SSH/nmap/HA in CI). |
 | **Dependency hygiene** | **Done for RC path:** `uv.lock` + hashed `requirements*.lock.txt`; Dockerfile/CI install with `--require-hashes`. Ongoing: periodic `pip-audit` / Dependabot; intentional bumps via `scripts/refresh-lockfiles.sh`. |
