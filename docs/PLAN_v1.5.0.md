@@ -1,6 +1,6 @@
 # PiHerder v1.5.0 — job runtime (Move on the worker)
 
-**Status:** **Active** — Must **M-worker**, Should **N3a**, **N3b**, **M-hb**, **Q** (70%) **landed** 2026-09-08. Remaining: leftover live recycle QA · Discover notes · freeze (**M-flag**, version, tag, Hub)  
+**Status:** **Active** — Must **M-worker**, Should **N3a**, **N3b**, **M-hb**, **Q** (70%) **landed** 2026-09-08. **CSP-n** Discover written (not Should). Remaining: leftover live recycle QA · other Discover notes · freeze (**M-flag**, version, tag, Hub)  
 **Date opened:** 2026-09-07  
 **Git branch:** `v1.5.0-dev` → `main` · tag `v1.5.0` (at freeze)  
 **Package / image version:** stays **`1.4.0` until freeze**  
@@ -77,7 +77,7 @@ main @ v1.4.0 (+ v1.4.x patches)
 | 4 | Dual-host lock on Celery | Extend exclusive + backup mutex so a Move holds **both** server ids. Spike if Redis lock is single-id only |
 | 5 | **M-flag** | Stay **false** at train open. Freeze question. Prefer Settings+env over compose default `true` |
 | 6 | **M-undo** | **Discover** (undo matrix). No silent `finally`. **M-live** Out |
-| 7 | **CSP-n** | Discover + inline-script count. Promote to Should only if the spike is small (script nonces; style may stay unsafe-inline) |
+| 7 | **CSP-n** | Discover + inline-script count. **Written 2026-09-08 — not Should.** 71 scripts / 190 `on*`. Slice 1 → v1.6 |
 | 8 | **Brand** | Discover. Pull **B1** only if Must green and we want it |
 | 9 | **W-mux** | Discover (tmux vs screen + isolation). Low priority; do not start by default |
 | 10 | **AC-fg** | **Out of 1.5.** Park ≥1.6. No discover spike |
@@ -167,7 +167,36 @@ Write the undo matrix (which steps are reversible, preview vs automatic, dest st
 
 ### **CSP-n** — CSP nonces
 
-CSP is on; no `unsafe-eval`; `script-src` / `style-src` still `'unsafe-inline'`. Count inline `<script>` tags. If small: candidate Should “script nonces, style stays unsafe-inline.” Report-Only on demo first. Do not break Turnstile / OpenAPI UI.
+**Written 2026-09-08. Not 1.5 Should.** Catalog said promote only if the inline-script spike is small. It is not.
+
+**Today:** CSP on (`PIHERDER_CSP=true`); no `unsafe-eval` (compiled Tailwind); `script-src` / `style-src` still `'self' 'unsafe-inline'`. Turnstile allowlist when keys are set. `/docs` `/redoc` only: jsDelivr + Google Fonts. Report-Only already exists (`PIHERDER_CSP_REPORT_ONLY`). Middleware stamps headers **after** the response — no per-request nonce. Jinja `env.globals` is process-wide, not request-scoped.
+
+**Count (templates, 2026-09-08):**
+
+| Kind | Count | Files |
+|------|------:|------:|
+| Inline executable `<script>` (no `src`) | **71** | 43 |
+| `onclick` / `onchange` / `onsubmit` / `onerror` | **190** (148 / 30 / 11 / 1) | 40 |
+| `<style>` blocks | 13 | 11 |
+| `style="…"` attributes | 62 | 22 |
+| Alpine (`x-data` / `@click`) | 64 hits | 3 (template edit / from-host / deploy) |
+| `type=application/json` data blocks | 5 | 5 (not executed) |
+
+**CSP3 trap:** `script-src 'nonce-…' 'unsafe-inline'` → modern browsers **drop** `'unsafe-inline'`. The 190 HTML event handlers die unless we rewrite them **or** split `script-src-attr 'unsafe-inline'`. Hashes are worse here (Jinja inside scripts).
+
+**Slice 1 (v1.6 candidate):** script nonces, style stays unsafe-inline.
+
+```
+script-src 'self' 'nonce-{n}'
+script-src-attr 'unsafe-inline'
+style-src 'self' 'unsafe-inline'
+```
+
+Per-request nonce on `request.state` **before** `call_next`; stamp on the 71 inline tags; `'self'` covers `/static` src; JSON blocks stay un-nonced; OpenAPI paths keep today’s `'unsafe-inline'`; Turnstile host allowlist unchanged, login boot script gets nonce; Report-Only on demo first. Safari 15.4+ for `script-src-attr`.
+
+**Slice 2 (later):** convert `on*` to `addEventListener` / HTMX, then drop `script-src-attr 'unsafe-inline'`. Real XSS win; large; easy to regress Docker/console modals.
+
+**Out of 1.5:** do not change `headers.py` or templates. Do not flip Report-Only on production. Park Slice 1 on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 ### **Brand** — Branding
 
@@ -206,7 +235,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | **Should** | **N3b** | Move jobs card: count / fail / last dest | **Code landed** 2026-09-08 |
 | **Should** | **M-hb** | Heartbeats / stall visible | **Done** — reuse `_flush_job_progress` / JobHold DB poll |
 | **Should** | **Q** | Tests; wiki truth; coverage ≥ 70% | **Bar met** (~70.6%; fail-under **70**) |
-| **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only | **Open** — catalog exists; write-ups not started |
+| **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only | **CSP-n written** 2026-09-08 (not Should; Slice 1 → v1.6). Others open |
 | **Out** | **AC-fg** · M-live · ACME · NPM CRUD · Files token API · N3c · HA-p2 **code** | Park AC-fg + HA plugin on **v1.6.0** | Unchanged |
 
 ---
@@ -252,6 +281,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 2026-09-08 | **1.x coverage end goal locked at 80%.** v1.5 freeze stays **70**. Later 1.x minors step the fail-under (~5pp) until 80. Service tests first; no 100% target. |
 | 2026-09-08 | **0.x PLAN/RELEASE archive** pushed to **v1.6** ([PLAN_v1.6.0.md](PLAN_v1.6.0.md) Docs-archive-0x). Not this freeze. |
 | 2026-09-08 | **N3b landed:** `/reports` **Move jobs** card — count / fail / last dest from finished `service_migrate` Jobs. Cookie layout treats `move` as a sixth card (appended on old cookies). |
+| 2026-09-08 | **CSP-n Discover written.** 71 inline scripts · 190 `on*` handlers. Not 1.5 Should (CSP3 nonce drops `'unsafe-inline'`). Slice 1 (nonce + `script-src-attr`) parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Style stays unsafe-inline. |
 | 2026-09-07 | **Docs pass:** wiki Move / Jobs / Reports / multi-worker / architecture / upgrades 1.4→1.5 / troubleshooting; ADMIN migrate+Celery; README / SPEC / ROADMAP / QA aligned. 1.4 RELEASE stays historical (web `BackgroundTasks`). |
 
 ---
@@ -267,7 +297,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 5 | Wiki Move + Jobs (worker truth) | **Done** 2026-09-07; docs pass widened 2026-09-07 |
 | 6 | **N3a** Reports layout (Should; after M-worker moving) | **Done** 2026-09-07 — pin/hide/↑↓, cookie `ph_reports_layout`; operator signed |
 | 6b | **N3b** Move jobs Reports card | **Done** 2026-09-08 — count / fail / last dest |
-| 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | **Open** |
+| 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | **CSP-n done** 2026-09-08. Undo / HA-p2 / others still open |
 | 8 | **Q** raise unit coverage **62 → 70** | **Done** 2026-09-07 (65%) · **Q2 2026-09-08 (70%)** — `test_coverage_v15_q2.py` + `test_coverage_v15_q2b.py`; CI fail-under **70** |
 | 9 | Leftover live QA: recycle **web** mid-Move; recycle **worker** mid-Move | **Open** (Job #1314 was a clean run) |
 | 10 | Freeze · **M-flag** question · version `1.5.0` · tag · Hub | |

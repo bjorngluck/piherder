@@ -18,8 +18,9 @@ Theme and Must/Should lock at **train open**. This file is only the parked inbox
 | **AC-fg** | Fine-grained / per-host / per-feature grants | Out of 1.5. Three global roles stay until this train. Not multi-tenant SaaS. |
 | **Q-80** | Unit coverage step toward **1.x 80%** | 1.5 freeze stays **70%**. Typical step ~5pp on a quality-leaning minor. Service tests first. |
 | **Docs-archive-0x** | Archive spent **0.x** `PLAN_*` / `RELEASE_*` | `docs/archive/v0/` + stubs at old paths (link, do not 404). Keep `FEATURE_PLAN_*`, ROADMAP, SPEC, ADMIN, and **1.0+** PLAN/RELEASE in `docs/`. Not a 1.5 freeze leftover. |
+| **CSP-n Slice 1** | Script nonces; style stays `'unsafe-inline'` | 1.5 Discover: **not small**. 71 inline `<script>` · 190 `on*` handlers. CSP3: a nonce on `script-src` drops `'unsafe-inline'` unless `script-src-attr 'unsafe-inline'`. Per-request nonce before render; stamp 71 tags; OpenAPI paths keep `'unsafe-inline'`; Turnstile host allowlist + nonce the login boot script; Report-Only on demo first. Do **not** rewrite onclick this train. [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 CSP-n. |
 
-**Not parked here:** 1.5 Discover catalog (M-undo, CSP-n, Brand, M-flag, W-mux, J-runtime) — write those notes on the 1.5 train if we write them; promote later.
+**Not parked here:** remaining 1.5 Discover catalog (M-undo, Brand, M-flag, W-mux, J-runtime, HA-p2 write-up) — write those notes on the 1.5 train if we write them; promote later.
 
 ---
 
@@ -41,5 +42,6 @@ Do this **after** 1.5 is tagged, on `v1.6.0-dev`.
 | Date | Note |
 |------|------|
 | 2026-09-08 | Candidate file created. Inbox: HA-p2 ship, AC-fg, coverage step toward 80%, **0.x PLAN/RELEASE archive**. Train not opened. |
+| 2026-09-08 | **CSP-n Slice 1** parked (script nonces + `script-src-attr`; style stays unsafe-inline). Not 1.5. |
 
 *Open the train with a real Must/Should lock. Until then production is still [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) (then 1.5).*
