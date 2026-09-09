@@ -713,7 +713,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <span>⚠️</span>
   <strong>Pending reboot</strong>{% if server.os_updates_count %} · {{ server.os_updates_count }} OS update(s) available{% endif %}.
   <form method="post" action="/servers/{{ server.id }}/reboot" class="sm:ml-auto"
-        data-confirm="Reboot {{ server.name }} now?"
+        data-confirm="Reboot {{ server.name }} now? Active SSH and desktop sessions will be logged off."
         data-confirm-title="Reboot server"
         data-confirm-label="Reboot"
         data-confirm-danger>

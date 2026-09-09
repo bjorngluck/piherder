@@ -801,7 +801,7 @@
       items.push({ label: 'Docker', href: '/servers/' + id + '/docker' });
     }
     items.push({ label: 'Settings', href: '/servers/' + id + '?edit=1' });
-    items.push({ label: 'Reboot…', post: '/servers/' + id + '/reboot', danger: true, confirm: 'Reboot ' + name + ' now?' });
+    items.push({ label: 'Reboot…', post: '/servers/' + id + '/reboot', danger: true, confirm: 'Reboot ' + name + ' now? Active SSH and desktop sessions will be logged off.' });
 
     listEl.innerHTML = '';
     items.forEach(function (item) {
