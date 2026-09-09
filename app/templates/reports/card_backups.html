@@ -1,0 +1,108 @@
+{% from "reports/_macros.html" import rpt_layout_toolbar %}
+  <section class="card p-4 sm:p-5" data-testid="reports-backups" id="report-backups">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+      <h2 class="font-semibold text-text">Backups</h2>
+      {{ rpt_layout_toolbar(spec) }}
+      <a href="{{ b.jobs_href }}" class="text-xs text-accent hover:underline">Backup jobs →</a>
+    </div>
+    <div class="rpt-kpis">
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Runs</div>
+        <div class="rpt-kpi-v">{{ b.runs or 0 }}</div>
+        <div class="rpt-kpi-s">last {{ b.days }}d</div>
+      </div>
+      <div class="rpt-kpi {% if b.fail %}is-hot{% endif %}">
+        <div class="rpt-kpi-l">Success</div>
+        <div class="rpt-kpi-v">{{ b.ok_pct or 0 }}%</div>
+        <div class="rpt-kpi-s"><span class="rpt-ok">{{ b.ok or 0 }} ok</span> · <span class="{% if b.fail %}rpt-fail{% endif %}">{{ b.fail or 0 }} fail</span></div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Dest after last run</div>
+        <div class="rpt-kpi-v">{{ b.dest_last_human or '—' }}</div>
+        <div class="rpt-kpi-s">
+          {% if b.dest_grew %}+{{ b.dest_delta_human }} over window
+          {% elif b.dest_shrank %}−{{ b.dest_delta_human }} over window
+          {% else %}no dest change in window{% endif %}
+        </div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Dest on disk now</div>
+        <div class="rpt-kpi-v">{{ (b.dest_now and b.dest_now.human) or '—' }}</div>
+        <div class="rpt-kpi-s">{{ (b.dest_now and b.dest_now.message) or 'from last Settings → Status check' }}</div>
+      </div>
+    </div>
+
+    {% if b.empty %}
+    <p class="text-sm text-muted mb-0">No finished backup jobs in this window. Run a backup, then this fills from Job history.</p>
+    {% else %}
+    <div class="text-xs text-muted mb-1">Dest occupancy by day (carry-forward)</div>
+    <div class="rpt-bars" aria-hidden="true">
+      {% for d in b.day_rows %}
+      <div class="rpt-bar-col" title="{{ d.day }} · {{ d.ok }} ok · {{ d.fail }} fail · {{ d.dest_human }}">
+        <div class="rpt-bar {% if not d.dest_bytes %}is-empty{% endif %}" style="height: {{ d.bar_pct if d.bar_pct else 2 }}%"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="rpt-scroll mt-3">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-dest">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th class="rpt-num">Ok</th>
+            <th class="rpt-num">Fail</th>
+            <th class="rpt-dest">Dest</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in b.day_rows %}
+          {% if d.ok or d.fail %}
+          <tr>
+            <td class="rpt-label font-mono">{{ d.day }}</td>
+            <td class="rpt-num">{{ d.ok }}</td>
+            <td class="rpt-num {% if d.fail %}rpt-fail{% endif %}">{{ d.fail }}</td>
+            <td class="rpt-dest">{{ d.dest_human }}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if b.hosts %}
+    <div class="rpt-scroll mt-4">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-dest">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Host</th>
+            <th class="rpt-num">Ok</th>
+            <th class="rpt-num">Fail</th>
+            <th class="rpt-dest">Last dest</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in b.hosts %}
+          <tr>
+            <td class="rpt-label"><a href="{{ h.href }}">{{ h.name }}</a></td>
+            <td class="rpt-num">{{ h.ok }}</td>
+            <td class="rpt-num {% if h.fail %}rpt-fail{% endif %}">{{ h.fail }}</td>
+            <td class="rpt-dest">{{ h.dest_human }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% endif %}
+    <p class="rpt-note">{{ b.note }}</p>
+  </section>

@@ -46,7 +46,7 @@ flowchart TB
 | Password policy | `app/services/password_policy.py` · Settings Security |
 | Account / 2FA step-up policy | `app/services/account_stepup.py` · Settings Security |
 | Web SSH console | `app/services/ssh_console.py` · `app/routers/server_console.py` · Settings Console (timeouts) / Security (factors) |
-| Jobs / progress / exclusive types | `app/services/jobs/` (`service.py`; package preserves `patch.object` surface). Backups + **Move** on Celery (`app/tasks.py`) |
+| Jobs / progress / exclusive types | `app/services/jobs/` (`service.py`; package preserves `patch.object` surface). Move enqueue/execute: `app/services/jobs_migrate.py`. Backups + **Move** on Celery (`app/tasks.py`) |
 | Reports layout (N3a) + Move card (N3b) | `app/services/report_layout.py` · cookie `ph_reports_layout` · `POST /reports/layout` · Move stats from `ops_reports.collect_move_history` (`service_migrate` Jobs) |
 | Service migrate pipeline | `app/services/service_migrate/` · Celery `app.tasks.service_migrate` |
 | Docker unused cleanup HTML | `app/services/docker_unused_html.py` |

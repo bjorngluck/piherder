@@ -1,0 +1,97 @@
+{% from "reports/_macros.html" import rpt_layout_toolbar %}
+  <section class="card p-4 sm:p-5" data-testid="reports-os-patch" id="report-os-patch">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+      <h2 class="font-semibold text-text">OS patches</h2>
+      {{ rpt_layout_toolbar(spec) }}
+      <a href="{{ o.jobs_href }}" class="text-xs text-accent hover:underline">OS patch jobs →</a>
+    </div>
+    <div class="rpt-kpis">
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Applies</div>
+        <div class="rpt-kpi-v">{{ o.ok or 0 }}</div>
+        <div class="rpt-kpi-s">{{ o.runs or 0 }} runs · last {{ o.days }}d</div>
+      </div>
+      <div class="rpt-kpi {% if o.fail %}is-hot{% endif %}">
+        <div class="rpt-kpi-l">Success</div>
+        <div class="rpt-kpi-v">{{ o.ok_pct or 0 }}%</div>
+        <div class="rpt-kpi-s"><span class="{% if o.fail %}rpt-fail{% endif %}">{{ o.fail or 0 }} failed</span></div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Packages (when logged)</div>
+        <div class="rpt-kpi-v">{% if o.packages_known %}{{ o.packages }}{% else %}—{% endif %}</div>
+        <div class="rpt-kpi-s">{% if o.avg_packages_per_host is not none %}{{ o.avg_packages_per_host }} / host in window{% else %}apt line not in older jobs{% endif %}</div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Hosts in denom</div>
+        <div class="rpt-kpi-v">{{ o.host_denom or 0 }}</div>
+        <div class="rpt-kpi-s">{{ o.enabled_hosts or 0 }} with OS patch on</div>
+      </div>
+    </div>
+
+    {% if o.rates %}
+    <div class="rpt-scroll mb-3">
+      <table class="rpt-table">
+        <thead>
+          <tr>
+            <th>Average per host</th>
+            <th>Applies</th>
+            <th>Packages</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in o.rates %}
+          <tr>
+            <td>Per {{ r.label }} ({{ r.days }}d)</td>
+            <td>{{ r.applies_per_host }} <span class="text-muted">({{ r.applies }} total)</span></td>
+            <td>{% if r.packages_per_host is not none %}{{ r.packages_per_host }} <span class="text-muted">({{ r.packages }})</span>{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if o.empty %}
+    <p class="text-sm text-muted mb-0">No finished OS patch apply jobs in this window.</p>
+    {% else %}
+    <div class="text-xs text-muted mb-1">Successful applies by day</div>
+    <div class="rpt-bars" aria-hidden="true">
+      {% for d in o.day_rows %}
+      <div class="rpt-bar-col" title="{{ d.day }} · {{ d.ok }} ok · {{ d.fail }} fail">
+        <div class="rpt-bar {% if not d.ok %}is-empty{% endif %}" style="height: {{ d.bar_pct if d.bar_pct else 2 }}%"></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% if o.hosts %}
+    <div class="rpt-scroll mt-3">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-dest">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Host</th>
+            <th class="rpt-num">Ok</th>
+            <th class="rpt-num">Fail</th>
+            <th class="rpt-num">Packages</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in o.hosts %}
+          <tr>
+            <td class="rpt-label"><a href="{{ h.href }}">{{ h.name }}</a></td>
+            <td class="rpt-num">{{ h.ok }}</td>
+            <td class="rpt-num {% if h.fail %}rpt-fail{% endif %}">{{ h.fail }}</td>
+            <td class="rpt-num">{% if h.packages_known %}{{ h.packages }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% endif %}
+    <p class="rpt-note">{{ o.note }} Job retention (Settings → Cleanup) caps how far back this can go. Host CPU/disk graphs stay in Grafana.</p>
+  </section>

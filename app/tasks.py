@@ -524,14 +524,37 @@ def service_migrate(
             dest_id,
             project,
             audit_id,
-            hold_host_locks=False,
         )
         return {"status": "ok", "job_id": job_id}
     except Exception as exc:
         if isinstance(exc, Retry):
             raise
         logger.exception("service_migrate celery task failed job=%s", job_id)
-        return {"status": "error", "job_id": job_id, "error": str(exc)[:500]}
+        err = str(exc)[:800]
+        try:
+            from app.services.jobs.service import _finish, _load_server_for_job
+
+            _src, hostname = _load_server_for_job(source_id)
+            _finish(
+                audit_id,
+                job_id,
+                "failed",
+                err,
+                hostname,
+                "service_migrate",
+            )
+        except Exception:
+            logger.exception("service_migrate fail-close")
+            _update_job_status(
+                job_id,
+                "failed",
+                {
+                    "error": err,
+                    "current": "failed",
+                    "log_lines": [err[:240]],
+                },
+            )
+        return {"status": "error", "job_id": job_id, "error": err[:500]}
     finally:
         if lock_tokens:
             try:

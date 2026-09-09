@@ -108,8 +108,19 @@ def run_copy_and_start(
     rm_tree_fn=None,
     dest_rm_fn=None,
     dest_chown_fn=None,
+    on_step: Optional[Callable[[str], None]] = None,
 ) -> dict[str, Any]:
     """Preflight → stop → copy → dest up → DNS/NPM → rebind → validate → leftover."""
+
+    def _step(name: str) -> None:
+        if not on_step:
+            return
+        try:
+            on_step(name)
+        except Exception:
+            logger.debug("migrate on_step %s", name, exc_info=True)
+
+    _step("preflight")
     name = compose_project_name(project)
     pf = run_preflight(
         session,
@@ -179,6 +190,7 @@ def run_copy_and_start(
     proj_stage = stage / "project"
     proj_stage.mkdir(exist_ok=True)
 
+    _step("stop")
     _log(log, f"Stopping {name} on {source.name}…")
     stopped = stop(source, src_proj)
     if isinstance(stopped, dict) and not stopped.get("success", True):
@@ -186,6 +198,7 @@ def run_copy_and_start(
             _ssh_fail_detail(stopped, "compose stop failed"), failed_step="stop"
         )
 
+    _step("copy")
     _log(log, f"Copy project tree {src_proj} → staging (verbatim, all files)")
     try:
         pull(source, src_proj, proj_stage, log=log, delete=True)
@@ -345,6 +358,7 @@ def run_copy_and_start(
                     failed_step="dest_up",
                 )
 
+    _step("dest_up")
     _log(log, f"Starting {dest_name} on {dest.name} (compose up -d)…")
     started = up(dest, dst_proj)
     if isinstance(started, dict) and started.get("output"):
@@ -374,6 +388,7 @@ def run_copy_and_start(
         logger.debug("dest inventory refresh after up: %s", e)
 
     dns_fn = cutover_fn or retarget_dns_npm
+    _step("cutover")
     _log(log, "Retargeting DNS / NPM…")
     try:
         try:
@@ -407,6 +422,7 @@ def run_copy_and_start(
         rebind_out = rb_fn(session, source=source, dest=dest, project=name, log=log)
 
     val_fn = validate_fn or validate_migrate
+    _step("validate")
     _log(log, "Validating TLS / Kuma…")
     try:
         val_out = val_fn(
@@ -416,6 +432,7 @@ def run_copy_and_start(
         raise MigrateError(str(e), failed_step="validate") from e
 
     leftover_mode = normalize_leftover(leftover)
+    _step("leftover")
     try:
         leftover_out = apply_leftover(
             session,

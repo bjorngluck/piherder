@@ -127,7 +127,6 @@ def test_service_migrate_task_runs_execute_after_lock():
 
     assert out["status"] == "ok"
     exe.assert_called_once()
-    assert exe.call_args.kwargs.get("hold_host_locks") is False
     rel.assert_called_once_with("backup", 4, "tok-a", 5, "tok-b")
 
 
@@ -204,10 +203,150 @@ def test_execute_fails_when_backup_lock_held():
         patch.object(job_service, "_get_fresh_session", _fresh),
         patch.object(job_service, "_load_server_for_job", return_value=(None, "a.local")),
     ):
-        job_service._execute_service_migrate(jid, sid, did, "grafana", aid)
+        job_service._run_migrate_holding_locks(jid, sid, did, "grafana", aid)
 
     with Session(engine) as s:
         row = s.get(Job, jid)
         assert row.status == "failed"
         assert "backup or Move" in (row.details or "")
     assert lock.is_server_locked("backup", sid)
+
+
+def test_service_migrate_task_fail_closes_unexpected_error():
+    from app.tasks import service_migrate
+
+    job = SimpleNamespace(id=9, status="pending", celery_task_id=None, details="{}")
+    mock_db = MagicMock()
+    mock_db.get.return_value = job
+
+    with (
+        patch("app.tasks.Session", return_value=mock_db),
+        patch(
+            "app.tasks.try_acquire_dual_server_lock",
+            return_value=("tok-a", "tok-b"),
+        ),
+        patch("app.tasks.release_dual_server_lock"),
+        patch(
+            "app.services.jobs.service._execute_service_migrate",
+            side_effect=RuntimeError("boom"),
+        ),
+        patch("app.services.jobs.service._finish") as fin,
+        patch(
+            "app.services.jobs.service._load_server_for_job",
+            return_value=(None, "pi"),
+        ),
+    ):
+        out = service_migrate.run(9, 1, 2, "grafana", 3)
+
+    assert out["status"] == "error"
+    fin.assert_called_once()
+    assert fin.call_args.args[2] == "failed"
+
+
+def test_worker_restart_recover_source_only_on_copy_step():
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    from app.models import AuditLog
+
+    with Session(engine) as s:
+        src = Server(name="a", hostname="a.local")
+        s.add(src)
+        s.commit()
+        s.refresh(src)
+        job = Job(
+            server_id=src.id,
+            job_type="service_migrate",
+            status="running",
+            details='{"project":"grafana","migrate_step":"cutover"}',
+        )
+        audit = AuditLog(
+            server_id=src.id, action="service_migrate", status="running", details=""
+        )
+        s.add(job)
+        s.add(audit)
+        s.commit()
+        s.refresh(job)
+        s.refresh(audit)
+        jid, aid = job.id, audit.id
+
+    def _fresh():
+        return Session(engine)
+
+    with patch.object(job_service, "_get_fresh_session", _fresh):
+        job_service.fail_migrate_worker_restart(jid, aid)
+
+    with Session(engine) as s:
+        row = s.get(Job, jid)
+        assert row.status == "failed"
+        det = __import__("json").loads(row.details or "{}")
+        assert not det.get("recover_source")
+
+
+def test_worker_restart_recover_source_on_copy_step():
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    from app.models import AuditLog
+
+    with Session(engine) as s:
+        src = Server(name="a", hostname="a.local")
+        s.add(src)
+        s.commit()
+        s.refresh(src)
+        job = Job(
+            server_id=src.id,
+            job_type="service_migrate",
+            status="running",
+            details='{"project":"grafana","migrate_step":"copy"}',
+        )
+        audit = AuditLog(
+            server_id=src.id, action="service_migrate", status="running", details=""
+        )
+        s.add(job)
+        s.add(audit)
+        s.commit()
+        s.refresh(job)
+        s.refresh(audit)
+        jid, aid, sid = job.id, audit.id, src.id
+
+    def _fresh():
+        return Session(engine)
+
+    with (
+        patch.object(job_service, "_get_fresh_session", _fresh),
+        patch(
+            "app.services.service_migrate.leftover.jailed_source_project_path",
+            return_value="/home/pi/docker/grafana",
+        ),
+    ):
+        job_service.fail_migrate_worker_restart(jid, aid)
+
+    with Session(engine) as s:
+        row = s.get(Job, jid)
+        assert row.status == "failed"
+        det = __import__("json").loads(row.details or "{}")
+        assert det.get("recover_source", {}).get("server_id") == sid
+
+
+def test_stale_cleanup_includes_service_migrate():
+    from datetime import datetime, timedelta
+
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        srv = Server(name="a", hostname="a.local")
+        s.add(srv)
+        s.commit()
+        s.refresh(srv)
+        old = Job(
+            server_id=srv.id,
+            job_type="service_migrate",
+            status="running",
+            details="{}",
+            created_at=datetime.utcnow() - timedelta(hours=5),
+        )
+        s.add(old)
+        s.commit()
+        n = job_service.cleanup_stale_backup_jobs(s, max_age_minutes=60)
+        s.refresh(old)
+        assert n == 1
+        assert old.status == "failed"
