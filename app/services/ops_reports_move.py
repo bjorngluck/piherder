@@ -7,25 +7,26 @@ from typing import Any, Optional
 from sqlmodel import Session, select
 
 from ..models import Job, Server
-
-
-def _rpt():
-    from . import ops_reports as rpt
-
-    return rpt
+from .ops_reports import (
+    _MOVE_TYPES,
+    _app_day,
+    _day_list,
+    _host_label,
+    _load_jobs,
+    _parse_details,
+)
 
 
 def _move_dest_facts(
     details: dict[str, Any], servers: dict[int, Server]
 ) -> dict[str, str]:
     """Project + dest host from a service_migrate Job.details blob."""
-    rpt = _rpt()
     project = str(details.get("project") or details.get("dest_project") or "").strip()
     dest_project = str(details.get("dest_project") or "").strip()
     dest_name = str(details.get("dest_name") or "").strip()
     dest_id = details.get("dest_server_id")
     if not dest_name and dest_id is not None:
-        dest_name = rpt._host_label(servers, dest_id)
+        dest_name = _host_label(servers, dest_id)
     label = dest_name or "—"
     if project:
         label = f"{project} → {dest_name}" if dest_name else project
@@ -46,12 +47,11 @@ def collect_move_history(
     servers: Optional[dict[int, Server]] = None,
 ) -> dict[str, Any]:
     """Finished ``service_migrate`` jobs: count / fail / last dest."""
-    rpt = _rpt()
     now = now or datetime.utcnow()
     days = max(1, int(days))
     since = now - timedelta(days=days)
     if jobs is None:
-        jobs = rpt._load_jobs(session, rpt._MOVE_TYPES, since)
+        jobs = _load_jobs(session, _MOVE_TYPES, since)
     else:
         jobs = [
             j
@@ -64,7 +64,7 @@ def collect_move_history(
     if servers is None:
         servers = {int(s.id): s for s in session.exec(select(Server)).all() if s.id}
 
-    day_keys = rpt._day_list(now, days)
+    day_keys = _day_list(now, days)
     by_day = {d: {"day": d, "ok": 0, "fail": 0, "last_dest": ""} for d in day_keys}
     host_rows: dict[int, dict[str, Any]] = {}
     ok_n = fail_n = 0
@@ -81,7 +81,7 @@ def collect_move_history(
             key,
             {
                 "server_id": sid,
-                "name": rpt._host_label(servers, sid),
+                "name": _host_label(servers, sid),
                 "href": f"/servers/{sid}" if sid else "/servers",
                 "ok": 0,
                 "fail": 0,
@@ -90,10 +90,10 @@ def collect_move_history(
         )
 
     for j in jobs:
-        day = rpt._app_day(j.finished_at)
+        day = _app_day(j.finished_at)
         if day not in by_day:
             continue
-        facts = _move_dest_facts(rpt._parse_details(j), servers)
+        facts = _move_dest_facts(_parse_details(j), servers)
         row = by_day[day]
         hr = _host(j.server_id)
         ok = j.status == "success"

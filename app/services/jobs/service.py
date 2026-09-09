@@ -2735,14 +2735,7 @@ def enqueue_docker_stack_remove(
         return job
 
 
-from ..jobs_migrate import (  # noqa: E402
-    _execute_service_migrate,
-    _migrate_run_inline,
-    _run_migrate_holding_locks,
-    _run_service_migrate_pipeline,
-    enqueue_service_migrate,
-    fail_migrate_worker_restart,
-)
+from ..jobs_migrate import enqueue_service_migrate, fail_migrate_worker_restart  # noqa: E402
 
 def _execute_docker_stack_lifecycle(
     job_id: int,

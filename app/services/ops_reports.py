@@ -21,7 +21,6 @@ from ..models import (
 )
 from .backup_profiles import human_size
 from .console_audit import parse_kv_details
-from .ops_reports_move import collect_move_history
 
 logger = logging.getLogger(__name__)
 
@@ -915,6 +914,9 @@ def collect_console_history(
             "when Settings → Console audit is on."
         ),
     }
+
+
+from .ops_reports_move import collect_move_history  # noqa: E402
 
 
 def collect_ops_reports(
