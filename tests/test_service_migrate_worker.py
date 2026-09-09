@@ -97,7 +97,7 @@ def test_service_migrate_task_fails_redelivered_running_job():
         patch("app.tasks.Session", return_value=mock_db),
         patch("app.tasks.try_acquire_dual_server_lock") as acq,
         patch(
-            "app.services.jobs.service.fail_migrate_worker_restart"
+            "app.services.jobs_migrate.fail_migrate_worker_restart"
         ) as fail,
     ):
         out = service_migrate.run(9, 1, 2, "grafana", 3)
@@ -121,7 +121,7 @@ def test_service_migrate_task_runs_execute_after_lock():
             return_value=("tok-a", "tok-b"),
         ),
         patch("app.tasks.release_dual_server_lock") as rel,
-        patch("app.services.jobs.service._execute_service_migrate") as exe,
+        patch("app.services.jobs_migrate._execute_service_migrate") as exe,
     ):
         out = service_migrate.run(9, 4, 5, "n8n", 8)
 
@@ -131,7 +131,9 @@ def test_service_migrate_task_runs_execute_after_lock():
 
 
 def test_enqueue_uses_celery_when_not_inline(monkeypatch):
-    monkeypatch.setattr(job_service, "_migrate_run_inline", lambda: False)
+    from app.services import jobs_migrate as jm
+
+    monkeypatch.setattr(jm, "_migrate_run_inline", lambda: False)
     delay = MagicMock()
     delay.return_value = SimpleNamespace(id="celery-mig-1")
     monkeypatch.setattr(job_service, "HAS_CELERY", True)
@@ -203,7 +205,9 @@ def test_execute_fails_when_backup_lock_held():
         patch.object(job_service, "_get_fresh_session", _fresh),
         patch.object(job_service, "_load_server_for_job", return_value=(None, "a.local")),
     ):
-        job_service._run_migrate_holding_locks(jid, sid, did, "grafana", aid)
+        from app.services.jobs_migrate import _run_migrate_holding_locks
+
+        _run_migrate_holding_locks(jid, sid, did, "grafana", aid)
 
     with Session(engine) as s:
         row = s.get(Job, jid)
@@ -227,7 +231,7 @@ def test_service_migrate_task_fail_closes_unexpected_error():
         ),
         patch("app.tasks.release_dual_server_lock"),
         patch(
-            "app.services.jobs.service._execute_service_migrate",
+            "app.services.jobs_migrate._execute_service_migrate",
             side_effect=RuntimeError("boom"),
         ),
         patch("app.services.jobs.service._finish") as fin,
@@ -241,6 +245,46 @@ def test_service_migrate_task_fail_closes_unexpected_error():
     assert out["status"] == "error"
     fin.assert_called_once()
     assert fin.call_args.args[2] == "failed"
+
+
+def test_worker_restart_no_recover_source_on_dest_up():
+    """dest_up may already have dest running — do not Start source stack."""
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    from app.models import AuditLog
+
+    with Session(engine) as s:
+        src = Server(name="a", hostname="a.local")
+        s.add(src)
+        s.commit()
+        s.refresh(src)
+        job = Job(
+            server_id=src.id,
+            job_type="service_migrate",
+            status="running",
+            details='{"project":"grafana","migrate_step":"dest_up"}',
+        )
+        audit = AuditLog(
+            server_id=src.id, action="service_migrate", status="running", details=""
+        )
+        s.add(job)
+        s.add(audit)
+        s.commit()
+        s.refresh(job)
+        s.refresh(audit)
+        jid, aid = job.id, audit.id
+
+    def _fresh():
+        return Session(engine)
+
+    with patch.object(job_service, "_get_fresh_session", _fresh):
+        job_service.fail_migrate_worker_restart(jid, aid)
+
+    with Session(engine) as s:
+        row = s.get(Job, jid)
+        assert row.status == "failed"
+        det = __import__("json").loads(row.details or "{}")
+        assert not det.get("recover_source")
 
 
 def test_worker_restart_recover_source_only_on_copy_step():

@@ -657,7 +657,9 @@ def test_jobs_enqueue_and_execute_mocked(monkeypatch):
     # execute os patch server missing
     jobs_mod._execute_os_patch_sync(1, 99999, 1, ["update"])
     jobs_mod._execute_container_patch_sync(1, 99999, 1)
-    jobs_mod._execute_service_migrate(1, 99999, dest.id, "x", 1)
+    from app.services.jobs_migrate import _execute_service_migrate
+
+    _execute_service_migrate(1, 99999, dest.id, "x", 1)
 
     # os patch exception path
     monkeypatch.setattr(

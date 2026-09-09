@@ -449,7 +449,7 @@ def service_migrate(
     """
     from celery.exceptions import Retry
 
-    from app.services.jobs.service import (
+    from app.services.jobs_migrate import (
         _execute_service_migrate,
         fail_migrate_worker_restart,
     )

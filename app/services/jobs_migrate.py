@@ -1,7 +1,7 @@
 """Move job enqueue / execute / worker-restart fail (Celery-owned).
 
 Lives beside ``jobs.service`` so the jobs god-file does not grow more migrate
-orchestration. ``jobs.service`` re-exports these names for historical patches.
+orchestration. ``jobs.service`` re-exports enqueue / fail-restart only.
 """
 from __future__ import annotations
 
@@ -112,7 +112,7 @@ def enqueue_service_migrate(
             adopt_fabric=bool(adopt_fabric),
         )
         jid, aid = job.id, audit.id
-    if js._migrate_run_inline():
+    if _migrate_run_inline():
         _run_migrate_holding_locks(jid, source_id, dest_id, name, aid)
     elif not js.HAS_CELERY or not js.service_migrate_task:
         msg = "Celery worker required for Move — start celery-worker container"
@@ -155,9 +155,11 @@ def fail_migrate_worker_restart(job_id: int, audit_id: int) -> None:
     """Mark a running Move failed after Celery redelivery (worker recycle).
 
     Does not re-run the pipeline. Staging under ``BACKUP_ROOT/_migrate/{job_id}``
-    is kept. **Start source stack** only when ``migrate_step`` is stop/copy/dest_up.
+    is kept. **Start source stack** only when ``migrate_step`` is stop/copy
+    (dest never started). ``dest_up`` on worker-restart is not recoverable that
+    way — dest may already be up.
     """
-    from .service_migrate.pipeline import RECOVER_SOURCE_STEPS
+    from .service_migrate.pipeline import WORKER_RESTART_RECOVER_STEPS
 
     js = _jobs()
     hostname = ""
@@ -175,7 +177,7 @@ def fail_migrate_worker_restart(job_id: int, audit_id: int) -> None:
             step = str(data.get("migrate_step") or data.get("failed_step") or "")
         except Exception:
             data = {}
-        if source and project and step in RECOVER_SOURCE_STEPS:
+        if source and project and step in WORKER_RESTART_RECOVER_STEPS:
             try:
                 from .service_migrate.leftover import jailed_source_project_path
 

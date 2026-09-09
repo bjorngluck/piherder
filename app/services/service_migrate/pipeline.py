@@ -49,6 +49,9 @@ class MigrateError(Exception):
 
 
 RECOVER_SOURCE_STEPS = frozenset({"stop", "copy", "dest_up"})
+# Worker death while dest_up is *in progress* may already have dest running.
+# Only offer Start source when we know dest was never started.
+WORKER_RESTART_RECOVER_STEPS = frozenset({"stop", "copy"})
 
 
 def _ssh_fail_detail(result: Any, fallback: str) -> str:
