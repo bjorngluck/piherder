@@ -52,6 +52,12 @@ Plan: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · migrate design: [FEATURE_PLAN_SERVICE_
 - [ ] Pin / hide / reorder includes Move (sixth card; old cookies append it)  
 - [ ] Viewer can see the card (read-only)  
 
+## B-reboot-i — Host reboot vs logind inhibitors (bug)
+
+- [ ] **Reboot now** on a host with a kernel/OS reboot pending actually restarts (including the herder host, and a Pi with a desktop seat / extra SSH).  
+- [ ] Confirm copy mentions SSH/desktop sessions are logged off.  
+- [ ] Does **not** use `systemctl reboot --force`. From a shell, `systemctl reboot -i` is the same as the UI path. Wiki [Updates — Reboot](../wiki/day-to-day/updates-and-patching.md#reboot).
+
 ## 1.4 regression
 
 - [ ] Host lock + HAOS refuse  

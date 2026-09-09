@@ -267,6 +267,14 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 
 ---
 
+## 7a. Bugs this train
+
+| ID | Bug | Fix |
+|----|-----|-----|
+| **B-reboot-i** | Host **Reboot now** used plain `reboot` / `systemctl reboot`. systemd logind **inhibits** while PiHerder SSH, a GUI seat (`gnome-session`), or another tty is logged in — CLI: *Operation inhibited… retry after logging out… `systemctl reboot -i`*. The command was backgrounded, so the UI could show success while the host stayed up (kernel update pending). | **Landed 2026-09-08** (`ad070db`): `systemctl reboot --ignore-inhibitors` (clean shutdown, not `--force`). Confirm copy notes SSH/desktop sessions are logged off. Wiki [Updates — Reboot](../wiki/day-to-day/updates-and-patching.md#reboot). Tests `tests/test_host_reboot.py`. Still allow Reboot now after kernel/OS pending. |
+
+---
+
 ## 8. Capture log
 
 | Date | Note |
@@ -282,6 +290,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 2026-09-08 | **0.x PLAN/RELEASE archive** pushed to **v1.6** ([PLAN_v1.6.0.md](PLAN_v1.6.0.md) Docs-archive-0x). Not this freeze. |
 | 2026-09-08 | **N3b landed:** `/reports` **Move jobs** card — count / fail / last dest from finished `service_migrate` Jobs. Cookie layout treats `move` as a sixth card (appended on old cookies). |
 | 2026-09-08 | **CSP-n Discover written.** 71 inline scripts · 190 `on*` handlers. Not 1.5 Should (CSP3 nonce drops `'unsafe-inline'`). Slice 1 (nonce + `script-src-attr`) parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Style stays unsafe-inline. |
+| 2026-09-08 | **Bug B-reboot-i:** Reboot now ignored systemd inhibitors (SSH/GUI/tty). Now `systemctl reboot --ignore-inhibitors`. |
 | 2026-09-07 | **Docs pass:** wiki Move / Jobs / Reports / multi-worker / architecture / upgrades 1.4→1.5 / troubleshooting; ADMIN migrate+Celery; README / SPEC / ROADMAP / QA aligned. 1.4 RELEASE stays historical (web `BackgroundTasks`). |
 
 ---
@@ -297,6 +306,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 5 | Wiki Move + Jobs (worker truth) | **Done** 2026-09-07; docs pass widened 2026-09-07 |
 | 6 | **N3a** Reports layout (Should; after M-worker moving) | **Done** 2026-09-07 — pin/hide/↑↓, cookie `ph_reports_layout`; operator signed |
 | 6b | **N3b** Move jobs Reports card | **Done** 2026-09-08 — count / fail / last dest |
+| 6c | **B-reboot-i** systemd inhibit on host reboot | **Done** 2026-09-08 — `--ignore-inhibitors` |
 | 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | **CSP-n done** 2026-09-08. Undo / HA-p2 / others still open |
 | 8 | **Q** raise unit coverage **62 → 70** | **Done** 2026-09-07 (65%) · **Q2 2026-09-08 (70%)** — `test_coverage_v15_q2.py` + `test_coverage_v15_q2b.py`; CI fail-under **70** |
 | 9 | Leftover live QA: recycle **web** mid-Move; recycle **worker** mid-Move | **Open** (Job #1314 was a clean run) |
