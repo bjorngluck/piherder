@@ -686,6 +686,10 @@ def build_sudoers_content(
             "/bin/systemctl, /usr/bin/systemctl"
         )
         grants.append(f"{user} ALL=(root) NOPASSWD: PIHERDER_APT, PIHERDER_REBOOT")
+        grants.append(
+            "# Reboot uses: systemctl reboot --ignore-inhibitors "
+            "(logind otherwise blocks while SSH/GUI sessions exist)"
+        )
 
     if docker:
         # Prefer docker group membership (provision script). Optional sudo paths for CLI only.
