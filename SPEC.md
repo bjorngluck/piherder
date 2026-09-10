@@ -352,7 +352,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [ ] Expanded curated pack (Frigate, HA, n8n, media, …)
 - [ ] Plugin hooks / event webhooks (`job.completed`, `server.added`, …) — prefer REST + n8n over code exec
 - [ ] Ansible inventory / cloud-init bootstrap for new Pis (overlaps H2.75 P4 imaging depth)
-- [ ] Home Assistant: custom component or REST sensors (read + safe actions) — **v1.5 Discover / v1.6 ship** ([PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7)
+- [ ] Home Assistant: HACS integration on HA (fleet + host devices; container/service entities from snapshots; details in PiHerder) — **v1.5 Discover written / v1.6 ship** ([PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7)
 - [ ] Optional AI (OpenAI-compatible BYO; off by default; no private keys in prompts)
 - [ ] Community: Discord + Discussions; project website / clickthrough
 

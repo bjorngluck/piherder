@@ -1,6 +1,6 @@
 # Feature plan — Home Assistant integration (architecture + discovery)
 
-**Status:** **v0.9.0 path 1 shipped (S2 HAOS over SSH)** — REST / container HA later · **path 2 plugin: v1.5 Discover / v1.6.0 ship** ([PLAN_v1.5.0.md](PLAN_v1.5.0.md))  
+**Status:** **v0.9.0 path 1 shipped (S2 HAOS over SSH)** — REST / container HA later · **path 2: v1.5 Discover written / v1.6.0 Slice 1 ship** ([PLAN_v1.5.0.md](PLAN_v1.5.0.md) **HA-p2**)  
 **Ship framing:** [PLAN_v0.9.0.md](PLAN_v0.9.0.md) stream **HA**  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 3 · [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [API.md](API.md) · [SPEC.md](../SPEC.md)
 
@@ -26,7 +26,7 @@ Today PiHerder:
 | HAOS capability envelope (no Docker fleet; HA updates ≠ apt) | **Done** |
 | Host deps (SSH add-on, rsync, `ha` CLI) | **Done** (copy + probes; wiki install detail later) |
 | Core REST (LLAT) / Supervisor add-ons list | **No** (later) |
-| HA custom component → PiHerder | **No** — v1.5 Discover / **v1.6.0 ship** |
+| HA custom component → PiHerder | **No code yet** — v1.5 Discover **written** / **v1.6.0 Slice 1 ship** |
 
 **v0.9 outcome:** full **HAOS + SSH** is a first-class host: detect, auto-mark, System Info + CLI stats, OS check/apply via `ha`, honest capability bar. **Further HA integration (REST, S1 container, path 2, add-ons) is parked for a later release.**
 
@@ -93,7 +93,7 @@ Path 2 (later) — HA → PiHerder custom component (≥1.0)
 7. **Mutating updates are opt-in + audited** (same bar as `os_patch_enabled` on Debian).  
 8. **Secrets later:** LLAT when REST ships; not required for 0.9.  
 9. **No live HA in CI** — fixtures + mocked SSH CLI JSON only.  
-10. **Bidirectional is two products:** path 2 remains ≥1.0; API tokens already work today.
+10. **Bidirectional is two products:** path 2 is a HACS integration **on HA** (v1.6 ship); API tokens already work today (manual REST).
 
 ---
 
@@ -265,22 +265,92 @@ Document only: Core `GET /api/`, `/api/config` with LLAT; Supervisor HTTP for ad
 
 ---
 
-## 7. Path 2 — HA → PiHerder (v1.5 Discover / **v1.6.0 ship**)
+## 7. Path 2 — HA → PiHerder (v1.5 Discover **written** / **v1.6.0 ship**)
 
-Operators can already use API tokens ([API.md](API.md)) so HA *can* call PiHerder REST today (manual). There is **no** custom component and **no** Supervisor add-on from us.
+A **Home Assistant custom integration** that **runs on HA** and talks to PiHerder `/api/v1`. It is a **fleet remote** (dashboard, entities, a few confirmed actions). Compose editor, Move, Files, and console stay in PiHerder (deep link).
 
-**v1.5 (this train):** written discover only — lock shape, auth, entities, API gaps. **Do not** open a plugin repo or HA manifest on `v1.5.0-dev` except docs. See [PLAN_v1.5.0.md](PLAN_v1.5.0.md) **HA-p2**.
+Operators can already glue YAML `rest` / `rest_command` to tokens ([API.md](API.md)). Path 2 is that, first-class. There is **no** component and **no** Supervisor add-on from us yet.
 
-**v1.6.0:** ship the integration.
+**v1.5:** written discover only. **Do not** open a plugin repo or HA manifest on `v1.5.0-dev` except docs. [PLAN_v1.5.0.md](PLAN_v1.5.0.md) **HA-p2**.
 
-| # | Lock (lean 2026-09-07) |
-|---|------------------------|
-| 1 | **Shape:** custom **integration** first (HACS / `custom_components/piherder`). Supervisor **add-on** later if a long-running bridge is needed |
-| 2 | **Auth:** existing API token, least scopes (`read` / `jobs` as needed). No second OAuth. Token in HA credentials |
-| 3 | **Entities (draft):** herder up, host count / host down, last backup per host (ok/fail/age), outstanding OS updates, running Jobs, Move in progress |
-| 4 | **Events:** `piherder_job_completed`, `piherder_alert` on the HA bus. Prefer REST + HA bus over executing code on the herder |
-| 5 | **Non-goals:** managing HAOS from HA (that is path 1 SSH); decryptable SSH keys; writing compose; Move-from-HA-switch without preview/confirm; vendoring HA **inside** the PiHerder image |
-| 6 | **Herder API:** document read APIs; add a thin `GET /api/v1/summary` in **1.6** if the current API is too chatty — not a stealth 1.5 feature |
+**v1.6.0:** ship Slice 1 (read-only fleet + host devices). Slice **1b** (container/service entities) needs new **snapshot** read APIs — Should. Herder `GET /api/v1/summary` optional on that train, not before.
+
+### 7.1 Two products
+
+| | **Path 1** (v0.9 shipped) | **Path 2** (this section) |
+|--|---------------------------|---------------------------|
+| Direction | PiHerder **manages HAOS** | HA **observes the PiHerder fleet** |
+| Transport | SSH + `ha` CLI | HTTPS + Bearer `ph_…` |
+| Code | This repo / image | **Separate** HACS repo (`custom_components/piherder`) |
+| Operator job | Updates, backup, facts on the appliance | Dashboard / automations; tap through to PiHerder for detail |
+
+The HAOS box may *run* the integration (HA Core) while PiHerder still manages that same box over SSH — two arrows, two credentials.
+
+### 7.2 Product (operator lean 2026-09-10)
+
+| In HA | Open PiHerder |
+|-------|----------------|
+| Fleet: herder up, host count, OS/container updates, reboot pending, running jobs, Move in progress | Settings, users, API tokens |
+| **Host device:** OS type, last seen, reboot pending, backup age, disk when last facts are on the API | System info refresh, SSH, reboot confirm |
+| **Container entities (1b):** name, running/exited, image, uptime — last **inventory snapshot** | Logs, start/stop, compose edit |
+| **Service entities (1b):** fleet service / Kuma chip state | NPM, TLS, bind, Move |
+| Basic action (Slice 2): **Backup this host** (confirm) | OS apply, container patch, Move wizard |
+
+“Open in PiHerder” → `{origin}/servers/{id}` (Docker tab, job, service).
+
+**Hard rule:** HA’s poll must **only read PiHerder DB snapshots**. Never SSH the fleet every 30s.
+
+### 7.3 Locks (2026-09-10)
+
+| # | Lock |
+|---|------|
+| 1 | **Shape:** HACS **integration** on HA. Config flow: base URL + token + TLS verify + poll interval. `DataUpdateCoordinator` poll. **No** Supervisor add-on until a long-running bridge is needed. |
+| 2 | **Repo:** **new git repo**, not `custom_components/` inside PiHerder. Do **not** vendor HA in the PiHerder image. |
+| 3 | **Auth:** existing API token. Slice 1 = **`read` only**. Slice 2 actions add `jobs` + `feature:backup`. No OAuth, no session cookie, no CORS (HA Core is server-side). Token **IP allowlist** = HA host (HAOS ≈ appliance LAN IP; container HA may be a Docker/bridge IP — that 403 is expected until the allowlist matches egress). |
+| 4 | Hosts are HA **devices** from day one. Containers/services become entities only from **snapshot APIs** (1b). |
+| 5 | **No** start/stop/restart from HA on the first plugin tag. Details → PiHerder. |
+| 6 | **Never** from HA: Move, compose write, Files, console, decrypt keys, OS **apply**. **`service_migrate` stays off** `POST /api/v1/…/jobs`. |
+| 7 | “Host down” is **`last_seen` age**, not a live SSH ping. “Is HA UI up?” stays Kuma. |
+| 8 | Events Slice 1: poll-diff → `piherder_job_completed` on the HA bus. **No** herder→HA webhook in Must (needs HA URL + LLAT the other way). `piherder_alert` waits until notifications exist on `/api/v1`. |
+| 9 | **Herder API Slice 1:** today’s `GET /health`, `/servers`, `/jobs?active_only=true` is enough. Optional **1.6** `GET /api/v1/summary` (`read`) — `{ ok, version, hosts, os_updates, container_updates, reboot_pending, jobs_running, move_running, last_backup_oldest_at }`. |
+| 10 | **Herder API 1b (Should):** last Docker **inventory**, **fleet services**, last **disk/OS facts**. Read-only. Same snapshots the UI already stores. |
+| 11 | **CI:** no live Home Assistant. Integration tests mock `/api/v1`. `tests/test_haos.py` stays path 1. Demo never. |
+
+### 7.4 Suggested `GET /api/v1/summary` (1.6, if pulled)
+
+```json
+{
+  "ok": true,
+  "version": "1.6.0",
+  "hosts": 6,
+  "os_updates": 2,
+  "container_updates": 4,
+  "reboot_pending": 1,
+  "jobs_running": 1,
+  "move_running": false,
+  "last_backup_oldest_at": "2026-09-09T02:00:00"
+}
+```
+
+Per-host detail stays `GET /servers`. Summary is the coordinator’s cheap heartbeat.
+
+### 7.5 1.6 slices (lock at v1.6 train open)
+
+| Slice | Content | Priority |
+|-------|---------|----------|
+| **1** | Repo, manifest, config flow, coordinator, fleet sensors, per-host devices, Open in PiHerder, wiki, HACS readme. Optional herder `summary`. Token `read`. | **Must** |
+| **1b** | Snapshot APIs + HA entities: container (running/uptime/image), service (up/down), host disk. Still no start/stop. | **Should** |
+| **2** | Confirm + `piherder.backup`; poll-diff job events; optional OS **check** (not apply) | Should |
+| **3** | Start/stop from HA, webhooks, alerts API, add-on, custom Lovelace card, Move-from-HA, Files | Out |
+
+### 7.6 Non-goals
+
+- Managing HAOS from HA (path 1).  
+- YAML `rest:` as the *supported* path once Slice 1 exists (manual REST remains possible).  
+- Mirroring HA entities into PiHerder Postgres.  
+- Shipping HA Core / an add-on **inside** the PiHerder image.  
+- Requiring CORS or a browser token.  
+- Live HA in GitHub Actions.  
 
 PiHerder image does **not** ship an HA add-on inside itself.
 
@@ -296,7 +366,7 @@ PiHerder image does **not** ship an HA add-on inside itself.
 | **Docker inventory** | Do not present HAOS as a compose fleet host |
 | **Integrations / Kuma** | Host-service bind remains the “is HA UI up?” path |
 | **LAN Discovery** | Port ≠ identity; optional weak kind only |
-| **API tokens** | Path 2 client only |
+| **API tokens** | Path 2 client (HA integration + manual REST) |
 
 ---
 
@@ -328,7 +398,7 @@ PiHerder image does **not** ship an HA add-on inside itself.
 | **P3b** | System Info: HA versions + `ha host` disk / usage | **Done** |
 | **P4** | Host-deps copy + wiki install detail | **Partial** — SSH modal guidance; operator wiki steps when ready |
 | **P5** | REST + S1 container | **Later** (post-0.9) |
-| **P6** | Path 2 component; add-on updates; version pins UI | **v1.5 Discover / v1.6 ship** |
+| **P6** | Path 2 HACS integration (fleet remote; details in PiHerder) | **v1.5 Discover written / v1.6 Slice 1 ship** |
 
 Unit tests: pure parsers for `ha * info` fixtures + branch in `check_os_updates` / apply. E2E: HAOS chrome only if UI landed — no live HAOS.
 
@@ -373,5 +443,6 @@ Unit tests: pure parsers for `ha * info` fixtures + branch in `check_os_updates`
 | 2026-07-23 | System Info: unwrap HA CLI JSON `data` envelope; disk via `ha host info` + `disks usage`; busybox `df` fallback; live-verified on HAOS |
 | 2026-07-23 | **v0.9 HA path 1 closed** — further HA integration deferred to later release |
 | 2026-09-07 | **Path 2** locked as **v1.5 Discover / v1.6.0 ship**: integration first, API token, draft entities/events. No plugin code on `v1.5.0-dev` |
+| 2026-09-10 | **HA-p2 Discover written.** HACS integration **on HA**; Slice 1 read-only fleet + host devices; details open PiHerder. Slice 1b: container/service entities from **DB snapshots** (new read APIs). Backup button Slice 2. No start/stop, no Move-from-HA, no plugin on this branch. |
 
 **End of feature plan** — living; implement against §2.1 and §6.
