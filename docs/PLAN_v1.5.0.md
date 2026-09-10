@@ -1,6 +1,6 @@
 # PiHerder v1.5.0 — job runtime (Move on the worker)
 
-**Status:** **Active** — Must **M-worker**, Should **N3a**, **N3b**, **M-hb**, **Q** (70%) **landed** 2026-09-08. **CSP-n** Discover written (not Should). Remaining: leftover live recycle QA · other Discover notes · freeze (**M-flag**, version, tag, Hub)  
+**Status:** **Active** — Must **M-worker**, Should **N3a**, **N3b**, **M-hb**, **Q** (70%) **landed** 2026-09-08. **CSP-n** / **HA-p2** Discover written (not Should). **B-reboot-i** / **B-login-json** landed. Remaining: leftover live recycle QA · other Discover notes · freeze (**M-flag**, version, tag, Hub)  
 **Date opened:** 2026-09-07  
 **Git branch:** `v1.5.0-dev` → `main` · tag `v1.5.0` (at freeze)  
 **Package / image version:** stays **`1.4.0` until freeze**  
@@ -28,7 +28,7 @@ Wanted:
 
 This is the migrate slice of 1.3’s parked “one job runtime.” It is **not** moving OS-patch / stack / template jobs off web unless Discover **J-runtime** is later promoted.
 
-**Now (2026-09-08):** Move enqueues `app.tasks.service_migrate` on the backup worker. Dual-host **backup** Redis mutex (lower id first). Web recycle does not fail a running Move; worker redelivery of `running` fails it. **N3a** pin/hide/↑↓ on `/reports` (cookie `ph_reports_layout`). **N3b** Move jobs card (count / fail / last dest). Unit **~70.6%**; CI fail-under **70**. Leftover live proof: recycle **web** mid-copy and recycle **worker** mid-copy. **0.x PLAN/RELEASE archive** parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
+**Now (2026-09-10):** Move enqueues `app.tasks.service_migrate` on the backup worker. Dual-host **backup** Redis mutex (lower id first). Web recycle does not fail a running Move; worker redelivery of `running` fails it. **N3a** pin/hide/↑↓ on `/reports` (cookie `ph_reports_layout`). **N3b** Move jobs card (count / fail / last dest). Unit **~70.6%**; CI fail-under **70**. **HA-p2** Discover written (HACS on HA; ship v1.6). Leftover live proof: recycle **web** mid-copy and recycle **worker** mid-copy. **0.x PLAN/RELEASE archive** parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 **Out of 1.5 product code:** **AC-fg**, **M-live**, ACME-in-herder, full NPM CRUD, Files token API, **N3c** widget picker, HA custom component **code** (discover only; ship **v1.6.0**).
 
@@ -82,7 +82,7 @@ main @ v1.4.0 (+ v1.4.x patches)
 | 9 | **W-mux** | Discover (tmux vs screen + isolation). Low priority; do not start by default |
 | 10 | **AC-fg** | **Out of 1.5.** Park ≥1.6. No discover spike |
 | 11 | **N3** | **Should = N3a** (pin/hide/reorder `/reports` cards, per-user). **N3b** Move card stretch. **N3c** Out |
-| 12 | **HA-p2** | Discover in 1.5 (shape, entities, auth, API gaps). **Plugin ship = v1.6.0** |
+| 12 | **HA-p2** | Discover **written 2026-09-10**. HACS on HA; Slice 1 fleet+hosts; 1b containers/services. **Plugin ship = v1.6.0** |
 | 13 | Files token API / ACME / NPM CRUD | Out |
 | 14 | Coverage | CI fail-under **70** |
 | 15 | Version bump | `1.5.0` at freeze only |
@@ -212,13 +212,39 @@ Freeze choices: **A** compose default `true` · **B** Settings toggle + env (pre
 
 Soft park is herder-side. Discover: tmux vs screen, isolation between operators, missing-binary fallback (plain PTY). Do not start unless Must is green. Non-goals: replacing soft-park, recording inside tmux, apt-installing tmux on every host.
 
-### **HA-p2** — HAOS plugin (discover 1.5, **ship v1.6.0**)
+### **HA-p2** — HA → PiHerder integration (discover 1.5, **ship v1.6.0**)
 
-Path 1 (v0.9) is PiHerder → HAOS over SSH. Path 2 is HA → PiHerder.
+**Written 2026-09-10. Not 1.5 Should.** No plugin repo, no `custom_components/` on `v1.5.0-dev`, no vendoring HA in the PiHerder image. Owning doc: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7.
 
-**1.5 write-up** (FEATURE_PLAN + this PLAN): integration first (HACS / `custom_components/piherder`), API token auth, draft entities (herder up, host down, last backup, OS updates, running Jobs, Move in progress), events on HA bus. No plugin repo on `v1.5.0-dev` except docs. Do not vendor HA inside the PiHerder image.
+**Product:** a **Home Assistant custom integration that runs on HA**. Fleet remote: dashboard, host/container/service entities, a few confirmed actions. Compose / Move / Files / console stay in **PiHerder** (deep link). Path 1 (PiHerder **manages HAOS** over SSH) is a different arrow — do not mix.
 
-**1.6:** ship the integration. See [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7.
+**Today (API, no plugin):**
+
+- Token `read`: `GET /health`, `/servers` (`os_type`, `last_backup_at`, `os_updates_count`, `container_updates_count`, `reboot_pending`, `last_seen`), `/jobs?active_only=true`.
+- Token `jobs`: POST backup / OS / container. **`service_migrate` is not an API job type** — keep it that way.
+- No `GET /api/v1/summary`. No docker **list**, fleet **services**, or **disk facts** on the API. No notifications. No herder→HA webhook.
+- CORS off is correct (HA Core is server-side). Token **IP allowlist** = HA host (HAOS ≈ LAN IP; container HA may be a bridge IP).
+
+**Locks:**
+
+1. **HACS** `custom_components/piherder` in a **new repo**. Config flow: URL + `ph_…` + TLS + poll interval. Coordinator poll.
+2. Slice 1 token = **`read` only**. No OAuth, no add-on until a bridge is needed.
+3. HA poll reads **DB snapshots only** — never SSH the fleet every 30s.
+4. Hosts = HA **devices** from day one. Containers/services = entities in **1b** once snapshot APIs exist.
+5. **No** start/stop from HA on the first plugin tag. Never Move / Files / console / OS apply from HA.
+6. Events: poll-diff `piherder_job_completed`. Webhooks / `piherder_alert` later.
+7. Optional 1.6 `GET /api/v1/summary` for the cheap heartbeat.
+
+**1.6 slices (lock at that train open):**
+
+| Slice | What | Bar |
+|-------|------|-----|
+| **1 (Must)** | Repo + config flow + fleet sensors + per-host devices + Open in PiHerder. Optional `summary`. | HA dashboard of the fleet without YAML |
+| **1b (Should)** | Herder: last docker inventory, fleet services, last disk/OS facts. HA: container (running/uptime/image), service up/down, host disk. Still no start/stop. | Discovered items as entities |
+| **2 (Should)** | Confirm + Backup this host (`jobs` + `feature:backup`). Optional OS check. | |
+| **3 (Out)** | Start/stop, webhooks, alerts API, custom card, Move-from-HA, Files | |
+
+**1.6:** ship Slice 1 in the separate repo; pull 1b/2 if the train wants them. See FEATURE_PLAN §7.
 
 ### **J-runtime** — Rest of web-process jobs
 
@@ -235,7 +261,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | **Should** | **N3b** | Move jobs card: count / fail / last dest | **Code landed** 2026-09-08 |
 | **Should** | **M-hb** | Heartbeats / stall visible | **Done** — reuse `_flush_job_progress` / JobHold DB poll |
 | **Should** | **Q** | Tests; wiki truth; coverage ≥ 70% | **Bar met** (~70.6%; fail-under **70**) |
-| **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only | **CSP-n written** 2026-09-08 (not Should; Slice 1 → v1.6). Others open |
+| **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only | **CSP-n** 2026-09-08 · **HA-p2** 2026-09-10 (not Should; plugin → v1.6). Undo / Brand / M-flag / W-mux / J-runtime still open |
 | **Out** | **AC-fg** · M-live · ACME · NPM CRUD · Files token API · N3c · HA-p2 **code** | Park AC-fg + HA plugin on **v1.6.0** | Unchanged |
 
 ---
@@ -272,6 +298,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | ID | Bug | Fix |
 |----|-----|-----|
 | **B-reboot-i** | Host **Reboot now** used plain `reboot` / `systemctl reboot`. systemd logind **inhibits** while PiHerder SSH, a GUI seat (`gnome-session`), or another tty is logged in — CLI: *Operation inhibited… retry after logging out… `systemctl reboot -i`*. The command was backgrounded, so the UI could show success while the host stayed up (kernel update pending). | **Landed 2026-09-08** (`ad070db`): `systemctl reboot --ignore-inhibitors` (clean shutdown, not `--force`). Confirm copy notes SSH/desktop sessions are logged off. Wiki [Updates — Reboot](../wiki/day-to-day/updates-and-patching.md#reboot). Tests `tests/test_host_reboot.py`. Still allow Reboot now after kernel/OS pending. |
+| **B-login-json** | Expired / missing session painted FastAPI JSON `{"detail":"Please log in to continue"}` on any UI page (full navigation and HTMX swaps). | **Landed 2026-09-10:** HTML navigations **303** `/auth/login`; HTMX **`HX-Redirect`**; `/api/v1` stays JSON 401. Client fallback `session-login-redirect.js`. Tests `tests/test_login_redirect.py`. |
 
 ---
 
@@ -291,6 +318,8 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 2026-09-08 | **N3b landed:** `/reports` **Move jobs** card — count / fail / last dest from finished `service_migrate` Jobs. Cookie layout treats `move` as a sixth card (appended on old cookies). |
 | 2026-09-08 | **CSP-n Discover written.** 71 inline scripts · 190 `on*` handlers. Not 1.5 Should (CSP3 nonce drops `'unsafe-inline'`). Slice 1 (nonce + `script-src-attr`) parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Style stays unsafe-inline. |
 | 2026-09-08 | **Bug B-reboot-i:** Reboot now ignored systemd inhibitors (SSH/GUI/tty). Now `systemctl reboot --ignore-inhibitors`. |
+| 2026-09-10 | **Bug B-login-json:** expired session showed JSON `detail` instead of Sign in. HTML → 303 login; HTMX → `HX-Redirect`; API JSON unchanged. |
+| 2026-09-10 | **HA-p2 Discover written.** HACS integration on HA; Slice 1 fleet+host devices; 1b container/service entities from snapshots; details open PiHerder. Plugin ship v1.6. No code on this branch. |
 | 2026-09-07 | **Docs pass:** wiki Move / Jobs / Reports / multi-worker / architecture / upgrades 1.4→1.5 / troubleshooting; ADMIN migrate+Celery; README / SPEC / ROADMAP / QA aligned. 1.4 RELEASE stays historical (web `BackgroundTasks`). |
 
 ---
@@ -307,7 +336,8 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 6 | **N3a** Reports layout (Should; after M-worker moving) | **Done** 2026-09-07 — pin/hide/↑↓, cookie `ph_reports_layout`; operator signed |
 | 6b | **N3b** Move jobs Reports card | **Done** 2026-09-08 — count / fail / last dest |
 | 6c | **B-reboot-i** systemd inhibit on host reboot | **Done** 2026-09-08 — `--ignore-inhibitors` |
-| 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | **CSP-n done** 2026-09-08. Undo / HA-p2 / others still open |
+| 6d | **B-login-json** expired session JSON on UI pages | **Done** 2026-09-10 — 303 / `HX-Redirect` / fetch fallback |
+| 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | **CSP-n** 2026-09-08 · **HA-p2** 2026-09-10. Undo / Brand / W-mux / J-runtime still open |
 | 8 | **Q** raise unit coverage **62 → 70** | **Done** 2026-09-07 (65%) · **Q2 2026-09-08 (70%)** — `test_coverage_v15_q2.py` + `test_coverage_v15_q2b.py`; CI fail-under **70** |
 | 9 | Leftover live QA: recycle **web** mid-Move; recycle **worker** mid-Move | **Open** (Job #1314 was a clean run) |
 | 10 | Freeze · **M-flag** question · version `1.5.0` · tag · Hub | |

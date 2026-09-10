@@ -88,7 +88,7 @@ Schedules reuse the same check/apply machinery as Debian hosts; the backend bran
 - Treat HA as a **Docker Compose** project on the appliance  
 - Appear as a **Move** source or destination ([Move a service](../docker/service-migration.md)) — HAOS is always host-locked  
 - Run **apt** upgrade on HAOS  
-- Ship an HA custom component that talks to PiHerder (use [API tokens](../operations/api-tokens.md) for HA → PiHerder automations today)
+- Ship an HA custom component **in this image**. HA → PiHerder automations today use [API tokens](../operations/api-tokens.md) (`rest` sensors). A first-class **HACS integration** (dashboard, host/container entities, details open PiHerder) is **v1.6** — [FEATURE_PLAN path 2](https://github.com/bjorngluck/piherder/blob/v1.5.0-dev/docs/FEATURE_PLAN_HOME_ASSISTANT.md)
 
 ---
 
