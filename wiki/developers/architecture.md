@@ -42,7 +42,7 @@ flowchart TB
 
 | Concern | Location |
 |---------|----------|
-| Roles / middleware | `app/security/auth.py` |
+| Roles / middleware | `app/security/auth.py` — expired session: HTML **303** `/auth/login`, HTMX `HX-Redirect`, `/api/v1` JSON 401 |
 | Password policy | `app/services/password_policy.py` · Settings Security |
 | Account / 2FA step-up policy | `app/services/account_stepup.py` · Settings Security |
 | Web SSH console | `app/services/ssh_console.py` · `app/routers/server_console.py` · Settings Console (timeouts) / Security (factors) |

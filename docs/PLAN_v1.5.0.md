@@ -1,6 +1,6 @@
 # PiHerder v1.5.0 — job runtime (Move on the worker)
 
-**Status:** **Active** — Must **M-worker**, Should **N3a**, **N3b**, **M-hb**, **Q** (70%) **landed** 2026-09-08. **CSP-n** / **HA-p2** Discover written (not Should). **B-reboot-i** / **B-login-json** landed. Remaining: leftover live recycle QA · other Discover notes · freeze (**M-flag**, version, tag, Hub)  
+**Status:** **Active** — Must **M-worker**, Should **N3a**, **N3b**, **M-hb**, **Q** (70%) **landed** 2026-09-08. **CSP-n** / **HA-p2** Discover written (not Should). **B-reboot-i** / **B-login-json** landed. Remaining: leftover live recycle QA **in progress** · remaining operator QA **in progress** · other Discover notes · freeze (**M-flag**, version, tag, Hub)  
 **Date opened:** 2026-09-07  
 **Git branch:** `v1.5.0-dev` → `main` · tag `v1.5.0` (at freeze)  
 **Package / image version:** stays **`1.4.0` until freeze**  
@@ -28,7 +28,7 @@ Wanted:
 
 This is the migrate slice of 1.3’s parked “one job runtime.” It is **not** moving OS-patch / stack / template jobs off web unless Discover **J-runtime** is later promoted.
 
-**Now (2026-09-10):** Move enqueues `app.tasks.service_migrate` on the backup worker. Dual-host **backup** Redis mutex (lower id first). Web recycle does not fail a running Move; worker redelivery of `running` fails it. **N3a** pin/hide/↑↓ on `/reports` (cookie `ph_reports_layout`). **N3b** Move jobs card (count / fail / last dest). Unit **~70.6%**; CI fail-under **70**. **HA-p2** Discover written (HACS on HA; ship v1.6). Leftover live proof: recycle **web** mid-copy and recycle **worker** mid-copy. **0.x PLAN/RELEASE archive** parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
+**Now (2026-09-13):** Move enqueues `app.tasks.service_migrate` on the backup worker. Dual-host **backup** Redis mutex (lower id first). Web recycle does not fail a running Move; worker redelivery of `running` fails it. **N3a** pin/hide/↑↓ on `/reports` (cookie `ph_reports_layout`). **N3b** Move jobs card (count / fail / last dest). Unit **~70.6%**; CI fail-under **70**. **HA-p2** Discover written (HACS on HA; ship v1.6). **B-login-json** landed. Leftover live proof (recycle **web** / **worker** mid-copy) and remaining operator boxes: **QA in progress**. **0.x PLAN/RELEASE archive** parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 **Out of 1.5 product code:** **AC-fg**, **M-live**, ACME-in-herder, full NPM CRUD, Files token API, **N3c** widget picker, HA custom component **code** (discover only; ship **v1.6.0**).
 
@@ -256,9 +256,9 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
-| **Must** | **M-worker** | Move runs on Celery; web recycle does not fail it; worker recycle does; dual-host lock; JobHold | **Code landed.** Live Job #1314 NPM-fronted Move green. Recycle web/worker mid-copy **not** live-proved |
+| **Must** | **M-worker** | Move runs on Celery; web recycle does not fail it; worker recycle does; dual-host lock; JobHold | **Code landed.** Live Job #1314 NPM-fronted Move green. Recycle web/worker mid-copy **QA in progress** |
 | **Should** | **N3a** | Pin/hide/reorder `/reports` cards per user | **Done** — operator signed 2026-09-07 |
-| **Should** | **N3b** | Move jobs card: count / fail / last dest | **Code landed** 2026-09-08 |
+| **Should** | **N3b** | Move jobs card: count / fail / last dest | **Code landed** 2026-09-08. Operator QA **in progress** |
 | **Should** | **M-hb** | Heartbeats / stall visible | **Done** — reuse `_flush_job_progress` / JobHold DB poll |
 | **Should** | **Q** | Tests; wiki truth; coverage ≥ 70% | **Bar met** (~70.6%; fail-under **70**) |
 | **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only | **CSP-n** 2026-09-08 · **HA-p2** 2026-09-10 (not Should; plugin → v1.6). Undo / Brand / M-flag / W-mux / J-runtime still open |
@@ -297,8 +297,8 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 
 | ID | Bug | Fix |
 |----|-----|-----|
-| **B-reboot-i** | Host **Reboot now** used plain `reboot` / `systemctl reboot`. systemd logind **inhibits** while PiHerder SSH, a GUI seat (`gnome-session`), or another tty is logged in — CLI: *Operation inhibited… retry after logging out… `systemctl reboot -i`*. The command was backgrounded, so the UI could show success while the host stayed up (kernel update pending). | **Landed 2026-09-08** (`ad070db`): `systemctl reboot --ignore-inhibitors` (clean shutdown, not `--force`). Confirm copy notes SSH/desktop sessions are logged off. Wiki [Updates — Reboot](../wiki/day-to-day/updates-and-patching.md#reboot). Tests `tests/test_host_reboot.py`. Still allow Reboot now after kernel/OS pending. |
-| **B-login-json** | Expired / missing session painted FastAPI JSON `{"detail":"Please log in to continue"}` on any UI page (full navigation and HTMX swaps). | **Landed 2026-09-10:** HTML navigations **303** `/auth/login`; HTMX **`HX-Redirect`**; `/api/v1` stays JSON 401. Client fallback `session-login-redirect.js`. Tests `tests/test_login_redirect.py`. |
+| **B-reboot-i** | Host **Reboot now** used plain `reboot` / `systemctl reboot`. systemd logind **inhibits** while PiHerder SSH, a GUI seat (`gnome-session`), or another tty is logged in — CLI: *Operation inhibited… retry after logging out… `systemctl reboot -i`*. The command was backgrounded, so the UI could show success while the host stayed up (kernel update pending). | **Landed 2026-09-08** (`ad070db`): `systemctl reboot --ignore-inhibitors` (clean shutdown, not `--force`). Confirm copy notes SSH/desktop sessions are logged off. Wiki [Updates — Reboot](../wiki/day-to-day/updates-and-patching.md#reboot). Tests `tests/test_host_reboot.py`. Still allow Reboot now after kernel/OS pending. Operator QA **in progress**. |
+| **B-login-json** | Expired / missing session painted FastAPI JSON `{"detail":"Please log in to continue"}` on any UI page (full navigation and HTMX swaps). | **Landed 2026-09-13:** HTML navigations **303** `/auth/login`; HTMX **`HX-Redirect`**; `/api/v1` stays JSON 401. Client fallback `session-login-redirect.js`. Tests `tests/test_login_redirect.py`. Operator QA **in progress**. |
 
 ---
 
@@ -318,8 +318,9 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 2026-09-08 | **N3b landed:** `/reports` **Move jobs** card — count / fail / last dest from finished `service_migrate` Jobs. Cookie layout treats `move` as a sixth card (appended on old cookies). |
 | 2026-09-08 | **CSP-n Discover written.** 71 inline scripts · 190 `on*` handlers. Not 1.5 Should (CSP3 nonce drops `'unsafe-inline'`). Slice 1 (nonce + `script-src-attr`) parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Style stays unsafe-inline. |
 | 2026-09-08 | **Bug B-reboot-i:** Reboot now ignored systemd inhibitors (SSH/GUI/tty). Now `systemctl reboot --ignore-inhibitors`. |
-| 2026-09-10 | **Bug B-login-json:** expired session showed JSON `detail` instead of Sign in. HTML → 303 login; HTMX → `HX-Redirect`; API JSON unchanged. |
+| 2026-09-10 | **Bug B-login-json:** expired session showed JSON `detail` instead of Sign in. HTML → 303 login; HTMX → `HX-Redirect`; API JSON unchanged. Code committed 2026-09-13. |
 | 2026-09-10 | **HA-p2 Discover written.** HACS integration on HA; Slice 1 fleet+host devices; 1b container/service entities from snapshots; details open PiHerder. Plugin ship v1.6. No code on this branch. |
+| 2026-09-13 | **Operator QA in progress:** leftover recycle **web** / **worker** mid-Move; remaining boxes N3b · B-login-json · B-reboot-i · leftover M-worker · 1.4 regression. Boxes stay open until signed. |
 | 2026-09-07 | **Docs pass:** wiki Move / Jobs / Reports / multi-worker / architecture / upgrades 1.4→1.5 / troubleshooting; ADMIN migrate+Celery; README / SPEC / ROADMAP / QA aligned. 1.4 RELEASE stays historical (web `BackgroundTasks`). |
 
 ---
@@ -336,10 +337,11 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 6 | **N3a** Reports layout (Should; after M-worker moving) | **Done** 2026-09-07 — pin/hide/↑↓, cookie `ph_reports_layout`; operator signed |
 | 6b | **N3b** Move jobs Reports card | **Done** 2026-09-08 — count / fail / last dest |
 | 6c | **B-reboot-i** systemd inhibit on host reboot | **Done** 2026-09-08 — `--ignore-inhibitors` |
-| 6d | **B-login-json** expired session JSON on UI pages | **Done** 2026-09-10 — 303 / `HX-Redirect` / fetch fallback |
+| 6d | **B-login-json** expired session JSON on UI pages | **Done** 2026-09-13 — 303 / `HX-Redirect` / fetch fallback. Operator QA **in progress** |
 | 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | **CSP-n** 2026-09-08 · **HA-p2** 2026-09-10. Undo / Brand / W-mux / J-runtime still open |
 | 8 | **Q** raise unit coverage **62 → 70** | **Done** 2026-09-07 (65%) · **Q2 2026-09-08 (70%)** — `test_coverage_v15_q2.py` + `test_coverage_v15_q2b.py`; CI fail-under **70** |
-| 9 | Leftover live QA: recycle **web** mid-Move; recycle **worker** mid-Move | **Open** (Job #1314 was a clean run) |
+| 9 | Leftover live QA: recycle **web** mid-Move; recycle **worker** mid-Move | **In progress** 2026-09-13 (Job #1314 was a clean run) |
+| 9b | Remaining operator boxes: N3b · B-login-json · B-reboot-i · leftover M-worker · 1.4 regression | **In progress** 2026-09-13 |
 | 10 | Freeze · **M-flag** question · version `1.5.0` · tag · Hub | |
 
 ---

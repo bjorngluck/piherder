@@ -17,6 +17,7 @@ self-registration open for the **first account only**.
 
 1. Open the app URL from [Install](install.md).  
    Unauthenticated `/` redirects to **Sign in** (no empty public dashboard).  
+   An expired session on any UI page does the same — never a JSON `detail` error.  
 2. On first start, choose **Create account** / Register with a strong email + password.  
 3. You are the first user → role **admin**.  
 4. Self-registration then **closes** automatically.

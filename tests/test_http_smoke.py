@@ -112,7 +112,7 @@ def test_favicon_and_static_present(smoke_client):
 def test_protected_paths_require_login(smoke_client, path):
     client, _ = smoke_client
     r = client.get(path)
-    # get_current_user raises 401 JSON (not a soft redirect)
+    # TestClient Accept is */* → JSON 401. Browser text/html → 303 (test_login_redirect).
     assert r.status_code == 401, f"{path} → {r.status_code}"
     detail = (r.json() or {}).get("detail", "")
     assert "log in" in detail.lower() or "unauthorized" in detail.lower() or detail
