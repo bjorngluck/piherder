@@ -3,7 +3,7 @@
 **Branch:** `v1.5.0-dev` → `main` · tag **`v1.5.0`** (cut after merge)  
 **Code freeze:** *not yet*  
 **Package:** stays **`1.4.0`** until freeze.  
-**Operator QA:** **partial** — **N3a** signed 2026-09-07. **M-worker** live Job **#1314** (NPM-fronted Open WebUI) green. Recycle **web** / **worker** mid-copy **not** live-proved.
+**Operator QA:** **in progress** (2026-09-13) — **N3a** signed 2026-09-07. **M-worker** live Job **#1314** (NPM-fronted Open WebUI) green. Recycle **web** / **worker** mid-copy **in progress**. Remaining boxes (N3b, B-login-json, B-reboot-i, leftover M-worker, 1.4 regression) **in progress**. Boxes stay open until signed.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki. Walk the **operator** pages while ticking boxes: [Move a service](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Reports](../wiki/day-to-day/reports.md). Screenshot capture list: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md).
 
@@ -27,6 +27,8 @@ Plan: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · migrate design: [FEATURE_PLAN_SERVICE_
 
 ## M-worker — Move on Celery (Must)
 
+**QA in progress** 2026-09-13 (recycle web/worker + leftover boxes).
+
 - [ ] Flag **off** → Move 404; lock still works  
 - [ ] Start a disposable Move; recreate **web** mid-copy → job still **running**; JobHold still streams  
 - [ ] Recreate **celery-worker** mid-copy → job **failed** (honest); staging kept; **Start source stack** when fail is copy/dest-up  
@@ -35,7 +37,7 @@ Plan: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · migrate design: [FEATURE_PLAN_SERVICE_
 - [ ] Demo never copies  
 - [x] Wiki no longer says “do not recycle web during a Move” as current 1.5 truth — [Move](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Multi-worker](../wiki/operations/multi-worker.md)  
 
-**Live:** Job **#1314** (2026-09-07) — Celery worker, NPM-fronted Open WebUI RPI5-4→RPI5-3, `ai.hacknow.info` `forward_host` PUT, leftover remove, staging wiped. Did **not** prove recycle-web-mid-copy or recycle-worker-fail.
+**Live:** Job **#1314** (2026-09-07) — Celery worker, NPM-fronted Open WebUI RPI5-4→RPI5-3, `ai.hacknow.info` `forward_host` PUT, leftover remove, staging wiped. Recycle-web-mid-copy and recycle-worker-fail **QA in progress**.
 
 ## N3a — Reports layout (Should; may slip)
 
@@ -47,18 +49,32 @@ Plan: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · migrate design: [FEATURE_PLAN_SERVICE_
 
 ## N3b — Move jobs card (Should stretch)
 
+**QA in progress** 2026-09-13.
+
 - [ ] `/reports` **Move jobs** card: runs / fail / last dest from finished `service_migrate` Jobs  
 - [ ] Empty window copy when no Moves  
 - [ ] Pin / hide / reorder includes Move (sixth card; old cookies append it)  
 - [ ] Viewer can see the card (read-only)  
 
+## B-login-json — Expired session must Sign in (bug)
+
+**QA in progress** 2026-09-13.
+
+- [ ] Leave a UI page open until the session cookie expires (or delete `access_token`), then click any nav link or refresh. **Sign in** — never a JSON page `{"detail":"Please log in to continue"}`.  
+- [ ] Same after an HTMX click (layout save, fragment refresh): full browser goes to Sign in, not a JSON swap in the page.  
+- [ ] `/api/v1` with a missing/expired Bearer still returns JSON 401 (not a login HTML page).
+
 ## B-reboot-i — Host reboot vs logind inhibitors (bug)
+
+**QA in progress** 2026-09-13.
 
 - [ ] **Reboot now** on a host with a kernel/OS reboot pending actually restarts (including the herder host, and a Pi with a desktop seat / extra SSH).  
 - [ ] Confirm copy mentions SSH/desktop sessions are logged off.  
 - [ ] Does **not** use `systemctl reboot --force`. From a shell, `systemctl reboot -i` is the same as the UI path. Wiki [Updates — Reboot](../wiki/day-to-day/updates-and-patching.md#reboot).
 
 ## 1.4 regression
+
+**QA in progress** 2026-09-13.
 
 - [ ] Host lock + HAOS refuse  
 - [ ] Direct TLS Move still works (on worker)  

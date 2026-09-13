@@ -401,12 +401,17 @@ if _cors_origins:
     logger.info("CORS enabled for origins: %s", ", ".join(_cors_origins))
 
 # Onboarding redirects (must change password / force 2FA)
-from .security.auth import OnboardingRedirect
+from .security.auth import LoginRequired, OnboardingRedirect, login_required_http_response
 
 
 @app.exception_handler(OnboardingRedirect)
 async def onboarding_redirect_handler(request: Request, exc: OnboardingRedirect):
     return RedirectResponse(url=exc.location, status_code=303)
+
+
+@app.exception_handler(LoginRequired)
+async def login_required_handler(request: Request, exc: LoginRequired):
+    return login_required_http_response(request)
 
 
 # Static files (vendored JS for offline support + any other assets).
