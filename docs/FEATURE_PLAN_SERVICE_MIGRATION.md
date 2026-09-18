@@ -169,11 +169,17 @@ Matches the original verbal list (DNS before dest listen). Not built: longer hol
 |-------------|--------|----------------|
 | Copy | Source stopped, dest untouched, staging kept | JobHold **Start source stack** (landed) |
 | Dest up | Source stopped, dest partial, DNS **unchanged** | JobHold **Start source stack** (landed) |
-| DNS / FTL | Dest up, names maybe split across Pi-holes | Re-sync fabric + restartdns |
-| NPM PUT | Dest up, proxy still on old backend | Poll NPM / retry Move; public name still on NPM |
-| Validate | Dest up, DNS/NPM flipped, probe red | Do **not** auto-revert in v1; **Revert DNS/NPM + start source** is a Cap |
+| Dest up **worker restart** | Dest **may** already be up; names unchanged | **No** Start source (would dual-run). Inspect dest. |
+| DNS / FTL | Dest up, names maybe split across Pi-holes | Re-sync fabric + restartdns. **No auto-revert.** |
+| NPM PUT | Dest up, proxy still on old backend | Poll NPM / retry Move; public name still on NPM. **No auto-revert.** |
+| Rebind | Dest up, names flipped, maps/Kuma/Grafana/certs half | **No auto-revert.** |
+| Validate | Dest up, DNS/NPM flipped, probe red | Do **not** auto-revert. Start source would dual-run. |
+| Leftover (`stopped` / `down`) | Dest is the live copy; source leftover partial | Fix source by hand. Never wipe dest. |
+| Leftover `remove` (after **green**) | Source project + copied named volumes gone | Restore from backup. **Not** undoable in PiHerder. |
 
-Auto-rollback is explicitly **not** Must — two-host undo is its own design.
+**Start source stack** is pre-flip only. Auto-rollback is **not** Must and **not** a silent `finally`.
+
+**M-undo (Discover 2026-09-13, job → v1.6):** fail-path only. After names have flipped, a later named job `service_migrate_undo` would preview → confirm: revert DNS/NPM to source, `restartdns`, revert control-plane rows, **compose stop dest**, **compose start source**. Dest dir + volumes stay. Never dest `down -v` / volume rm / project rm. Do **not** reverse a green Move (run a new Move B→A). Token API never POSTs migrate or undo. See [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 M-undo.
 
 ---
 
@@ -447,3 +453,4 @@ An operator can:
 | 2026-09-06 | **M-worker** parked for **v1.5 candidate**: Celery Move + heartbeats. 1.4 stays web `BackgroundTasks`. |
 | 2026-09-07 | **M-worker** promoted: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) Must on `v1.5.0-dev`. |
 | 2026-09-07 | **M-worker landed:** Celery `service_migrate`; dual backup mutex; web recycle keeps running Move; worker redelivery of `running` fails the job. Live Job #1314 NPM-fronted Open WebUI. Operator wiki + ADMIN current truth (1.4 RELEASE stays historical). |
+| 2026-09-13 | **M-undo Discover:** fail-path only; stop dest then start source; never silent `finally` / dest wipe / leftover-remove reverse. Named job `service_migrate_undo` parked v1.6. Not 1.5 Should. |

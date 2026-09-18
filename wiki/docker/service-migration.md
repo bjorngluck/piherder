@@ -168,16 +168,17 @@ Remove is a second danger confirm plus checkbox. Preflight lists the project pat
 
 ## Failure
 
-Validate red (TLS mismatch, Kuma down) **does not auto-roll back**. Dest may already be up with DNS/NPM flipped. Fix dest yourself. Staging is **kept** on failure until you dismiss the job / it ages out.
+Validate red (TLS mismatch, Kuma down) **does not auto-roll back**. Dest may already be up with DNS/NPM flipped. Fix dest yourself. Staging is **kept** on failure until you dismiss the job / it ages out. There is **no** post-flip undo job yet (planned as a later named recover, not a silent revert).
 
 | Fail | State | JobHold |
 |------|--------|---------|
 | Stop / copy | Source stopped (or stop failed), dest untouched | **Start source stack** |
 | Dest up | Source stopped, dest partial, DNS/NPM **unchanged** | **Start source stack** |
+| Dest up, worker recycled mid-up | Dest **may** already be running; names unchanged | **No** Start source — look at dest first (starting source too would dual-run) |
 | NPM PUT / DNS | Dest up, proxy or names maybe stale | Fix dest / poll NPM; no auto-revert |
 | Validate | Dest up, names already flipped | No **Start source** (would dual-run) |
 
-**Start source stack** queues the existing Docker **Start all** job on the source project. It is not a full migrate rollback.
+**Start source stack** queues the existing Docker **Start all** job on the source project. It is pre-flip only — not a full migrate rollback. Leftover **Remove source** cannot be undone from PiHerder; restore from backup.
 
 <figure class="ph-figure" markdown>
   ![Start source stack](../assets/screenshots/docker-migrate-jobhold-start-source.png)
@@ -186,7 +187,7 @@ Validate red (TLS mismatch, Kuma down) **does not auto-roll back**. Dest may alr
 
 ## What it does not do
 
-- Auto-rollback, live (zero-downtime) copy, cross-arch image rebuild  
+- Auto-rollback (or reversing a **green** Move), live (zero-downtime) copy, cross-arch image rebuild  
 - Moving PiHerder itself, or the Pi-hole you are using to migrate  
 - Deleting dest volumes, or wiping extra binds outside the project folder  
 - Remapping published ports on **host-network** stacks (the process still binds the source host port on dest)  

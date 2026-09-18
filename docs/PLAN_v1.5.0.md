@@ -1,6 +1,6 @@
 # PiHerder v1.5.0 — job runtime (Move on the worker)
 
-**Status:** **Active** — Must **M-worker**, Should **N3a**, **N3b**, **M-hb**, **Q** (70%) **landed** 2026-09-08. **CSP-n** / **HA-p2** Discover written (not Should). **B-reboot-i** / **B-login-json** landed. Remaining: leftover live recycle QA **in progress** · remaining operator QA **in progress** · other Discover notes · freeze (**M-flag**, version, tag, Hub)  
+**Status:** **Active** — Must **M-worker**, Should **N3a**, **N3b**, **M-hb**, **Q** (70%) **landed** 2026-09-08. **CSP-n** / **HA-p2** / **M-undo** Discover written (not Should). **B-reboot-i** / **B-login-json** landed. Remaining: leftover live recycle QA **in progress** · remaining operator QA **in progress** · other Discover notes · freeze (**M-flag**, version, tag, Hub)  
 **Date opened:** 2026-09-07  
 **Git branch:** `v1.5.0-dev` → `main` · tag `v1.5.0` (at freeze)  
 **Package / image version:** stays **`1.4.0` until freeze**  
@@ -28,7 +28,7 @@ Wanted:
 
 This is the migrate slice of 1.3’s parked “one job runtime.” It is **not** moving OS-patch / stack / template jobs off web unless Discover **J-runtime** is later promoted.
 
-**Now (2026-09-13):** Move enqueues `app.tasks.service_migrate` on the backup worker. Dual-host **backup** Redis mutex (lower id first). Web recycle does not fail a running Move; worker redelivery of `running` fails it. **N3a** pin/hide/↑↓ on `/reports` (cookie `ph_reports_layout`). **N3b** Move jobs card (count / fail / last dest). Unit **~70.6%**; CI fail-under **70**. **HA-p2** Discover written (HACS on HA; ship v1.6). **B-login-json** landed. Leftover live proof (recycle **web** / **worker** mid-copy) and remaining operator boxes: **QA in progress**. **0.x PLAN/RELEASE archive** parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
+**Now (2026-09-13):** Move enqueues `app.tasks.service_migrate` on the backup worker. Dual-host **backup** Redis mutex (lower id first). Web recycle does not fail a running Move; worker redelivery of `running` fails it. **N3a** pin/hide/↑↓ on `/reports` (cookie `ph_reports_layout`). **N3b** Move jobs card (count / fail / last dest). Unit **~70.6%**; CI fail-under **70**. **HA-p2** / **M-undo** Discover written (plugin / undo job → v1.6). **B-login-json** landed. Leftover live proof (recycle **web** / **worker** mid-copy) and remaining operator boxes: **QA in progress**. **0.x PLAN/RELEASE archive** parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 **Out of 1.5 product code:** **AC-fg**, **M-live**, ACME-in-herder, full NPM CRUD, Files token API, **N3c** widget picker, HA custom component **code** (discover only; ship **v1.6.0**).
 
@@ -76,7 +76,7 @@ main @ v1.4.0 (+ v1.4.x patches)
 | 3 | Heartbeats | Reuse backup `_flush_job_progress` / `Job.details`. No new WS protocol |
 | 4 | Dual-host lock on Celery | Extend exclusive + backup mutex so a Move holds **both** server ids. Spike if Redis lock is single-id only |
 | 5 | **M-flag** | Stay **false** at train open. Freeze question. Prefer Settings+env over compose default `true` |
-| 6 | **M-undo** | **Discover** (undo matrix). No silent `finally`. **M-live** Out |
+| 6 | **M-undo** | Discover **written 2026-09-13**. Fail-path only; stop dest then start source. Job → v1.6. No silent `finally`. **M-live** Out |
 | 7 | **CSP-n** | Discover + inline-script count. **Written 2026-09-08 — not Should.** 71 scripts / 190 `on*`. Slice 1 → v1.6 |
 | 8 | **Brand** | Discover. Pull **B1** only if Must green and we want it |
 | 9 | **W-mux** | Discover (tmux vs screen + isolation). Low priority; do not start by default |
@@ -159,11 +159,37 @@ Discover notes may parallel after Phase 1. **HA-p2 plugin code is v1.6.** **AC-f
 
 Written findings this train. No schema / plugin repo until a row is promoted.
 
-### **M-undo** — Auto-rollback
+### **M-undo** — Fail-path recover (not auto-rollback)
 
-Pre-flip fails already offer **Start source stack**. Post-flip (DNS/FTL, NPM PUT, TLS/Kuma, half-rebind) do **not** auto-revert. Two-host undo is its own design.
+**Written 2026-09-13. Not 1.5 Should.** No `service_migrate_undo` job this freeze. Owning doc: [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) Failure.
 
-Write the undo matrix (which steps are reversible, preview vs automatic, dest stop vs leave up, what we **never** auto-wipe). If promoted later: named job `service_migrate_undo`, never a silent `finally`. **M-live** stays Out.
+**Leans:** **Fail-path only** (do not reverse a green Move). After names have flipped: **stop dest, then start source.** Dest project dir and volumes **stay**. Never a silent `finally`.
+
+**Today:**
+
+- Pre-flip (`stop` / `copy` / `dest_up`): JobHold **Start source stack** (Docker Start all on source). Staging kept. Dest names unchanged.
+- Worker restart during `dest_up`: dest **may** already be up — **no** Start source (would dual-run). Inspect dest.
+- Post-flip (`cutover` / rebind / `validate`): dest up, names maybe flipped. **No auto-revert.** Start source would dual-run.
+- Leftover `remove` after a **green** Move cannot be undone from PiHerder.
+
+**Locks (if a job ships later):**
+
+1. Named job **`service_migrate_undo`** — preview → confirm → audit. Dual-host exclusive + backup mutex. Kill switch = `PIHERDER_SERVICE_MIGRATE`. Demo never. Viewer 403.
+2. Consumes a **failed** Move whose `failed_step` is `cutover` / rebind / `validate`. Pre-flip stays Start source.
+3. Inverse cutover: NPM PUT `forward_host` back to source; direct CNAME → source `dns_name` + both `restartdns`.
+4. Inverse rebind: maps / Kuma service / Grafana container chips / template deployment back to source. Cert: **re-enable source target**; do **not** delete dest clone.
+5. **Never auto-wipe:** dest volumes, dest project tree, leftover `remove`, extra binds outside the jail, staging (kept until dismiss).
+6. Green Move: operator who wants the stack back on A runs a **new Move** B→A. **M-live** / `dns_then_start` stay Out.
+7. Token API never POSTs `service_migrate` or `service_migrate_undo`.
+
+**1.6 candidate (not Must):**
+
+| Slice | What |
+|-------|------|
+| **Undo-1** | JobHold CTA: revert names + stop dest + start source. Preview FQDNs / NPM / dest project. |
+| **Undo-2** | dest_up worker-restart helper: inspect dest; optional stop-dest-then-start-source **without** DNS revert. |
+
+Park Undo-1 on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 ### **CSP-n** — CSP nonces
 
@@ -261,7 +287,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | **Should** | **N3b** | Move jobs card: count / fail / last dest | **Code landed** 2026-09-08. Operator QA **in progress** |
 | **Should** | **M-hb** | Heartbeats / stall visible | **Done** — reuse `_flush_job_progress` / JobHold DB poll |
 | **Should** | **Q** | Tests; wiki truth; coverage ≥ 70% | **Bar met** (~70.6%; fail-under **70**) |
-| **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only | **CSP-n** 2026-09-08 · **HA-p2** 2026-09-10 (not Should; plugin → v1.6). Undo / Brand / M-flag / W-mux / J-runtime still open |
+| **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only | **CSP-n** 2026-09-08 · **HA-p2** 2026-09-10 · **M-undo** 2026-09-13 (not Should; undo job → v1.6). Brand / M-flag / W-mux / J-runtime still open |
 | **Out** | **AC-fg** · M-live · ACME · NPM CRUD · Files token API · N3c · HA-p2 **code** | Park AC-fg + HA plugin on **v1.6.0** | Unchanged |
 
 ---
@@ -321,6 +347,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 2026-09-10 | **Bug B-login-json:** expired session showed JSON `detail` instead of Sign in. HTML → 303 login; HTMX → `HX-Redirect`; API JSON unchanged. Code committed 2026-09-13. |
 | 2026-09-10 | **HA-p2 Discover written.** HACS integration on HA; Slice 1 fleet+host devices; 1b container/service entities from snapshots; details open PiHerder. Plugin ship v1.6. No code on this branch. |
 | 2026-09-13 | **Operator QA in progress:** leftover recycle **web** / **worker** mid-Move; remaining boxes N3b · B-login-json · B-reboot-i · leftover M-worker · 1.4 regression. Boxes stay open until signed. |
+| 2026-09-13 | **M-undo Discover written.** Fail-path only; stop dest then start source; never silent `finally` / dest wipe. Job `service_migrate_undo` parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Not 1.5 Should. |
 | 2026-09-07 | **Docs pass:** wiki Move / Jobs / Reports / multi-worker / architecture / upgrades 1.4→1.5 / troubleshooting; ADMIN migrate+Celery; README / SPEC / ROADMAP / QA aligned. 1.4 RELEASE stays historical (web `BackgroundTasks`). |
 
 ---
@@ -338,7 +365,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 6b | **N3b** Move jobs Reports card | **Done** 2026-09-08 — count / fail / last dest |
 | 6c | **B-reboot-i** systemd inhibit on host reboot | **Done** 2026-09-08 — `--ignore-inhibitors` |
 | 6d | **B-login-json** expired session JSON on UI pages | **Done** 2026-09-13 — 303 / `HX-Redirect` / fetch fallback. Operator QA **in progress** |
-| 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | **CSP-n** 2026-09-08 · **HA-p2** 2026-09-10. Undo / Brand / W-mux / J-runtime still open |
+| 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | **CSP-n** 2026-09-08 · **HA-p2** 2026-09-10 · **M-undo** 2026-09-13. Brand / W-mux / J-runtime still open |
 | 8 | **Q** raise unit coverage **62 → 70** | **Done** 2026-09-07 (65%) · **Q2 2026-09-08 (70%)** — `test_coverage_v15_q2.py` + `test_coverage_v15_q2b.py`; CI fail-under **70** |
 | 9 | Leftover live QA: recycle **web** mid-Move; recycle **worker** mid-Move | **In progress** 2026-09-13 (Job #1314 was a clean run) |
 | 9b | Remaining operator boxes: N3b · B-login-json · B-reboot-i · leftover M-worker · 1.4 regression | **In progress** 2026-09-13 |
