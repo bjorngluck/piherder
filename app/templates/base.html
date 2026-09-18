@@ -21,6 +21,9 @@
   <script src="/static/htmx.min.js"></script>
   <script src="/static/js/session-login-redirect.js"></script>
   <script defer src="/static/alpine.min.js"></script>
+  {% if x_conversion_enabled is defined and request is defined and x_conversion_enabled(request) %}
+  {% include "partials/x_conversion.html" %}
+  {% endif %}
 
   <!-- Theme CSS variables (light/dark + Raspberry Pi branding).
        Companion sheets by concern:
