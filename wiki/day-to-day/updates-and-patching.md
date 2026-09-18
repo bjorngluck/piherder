@@ -86,7 +86,7 @@ For a given server, PiHerder allows **at most one** active job of each exclusive
 A second trigger (double-click, concurrent bulk, scheduler overlap) **does not** start a second run. The UI attaches to the existing job; the API returns **HTTP 409** with the existing `job_id`.
 
 !!! note "Celery workers vs container jobs"
-    **Celery multi-slot concurrency** (`CELERY_CONCURRENCY`, default 2) applies to **backups** only. OS/container patch and update checks run on the **web** process (BackgroundTasks / thread pools). Scaling Celery workers does not re-execute a container job twice. See [Multi-worker](../operations/multi-worker.md).
+    **Celery multi-slot concurrency** (`CELERY_CONCURRENCY`, default 2) applies to **backups** and **Move**. OS/container patch and update checks run on the **web** process (BackgroundTasks / thread pools). Scaling Celery workers does not re-execute a container job twice. See [Multi-worker](../operations/multi-worker.md).
 
 ### Docker: Check updates vs Deploy
 
@@ -124,11 +124,13 @@ Bulk does not bypass exclusive-job rules: if a host already has that job type ru
 
 ## Reboot
 
-Least-priv sudoers may allow `/usr/sbin/reboot` (and common alternate paths). PiHerder:
+Least-priv sudoers must allow the exact command PiHerder sends: `systemctl reboot --ignore-inhibitors` (and/or `systemctl reboot -i`). A drop-in that only allows `/usr/sbin/reboot` is **not** enough. PiHerder:
 
-1. Schedules reboot in the background (`sleep 1` then reboot) so the SSH command returns quickly.  
+1. Schedules reboot in the background (`sleep 1` then `systemctl reboot --ignore-inhibitors`) so the SSH command returns quickly.  
 2. Closes SSH with a short timeout (hosts dying mid-session no longer hang the request).  
 3. Clears local `reboot_pending` after a successful send so the UI does not stick.
+
+**Inhibitors:** a plain `sudo reboot` often fails on current systemd with *Operation inhibited* — the PiHerder SSH session itself, a desktop seat (`gnome-session` / tty), or another login. **Reboot now** is an explicit operator action, so we pass `--ignore-inhibitors` (`-i`). That still shuts units down cleanly. We do **not** use `--force` (skip shutdown / kill everything). From a shell, `systemctl reboot -i` is the same.
 
 **Why this design:** rebooting the **same host that runs PiHerder** takes the stack down moments later; the HTTP response and audit row should already be finished.
 

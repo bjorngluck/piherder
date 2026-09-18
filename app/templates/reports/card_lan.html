@@ -1,0 +1,103 @@
+{% from "reports/_macros.html" import rpt_layout_toolbar %}
+  <section class="card p-4 sm:p-5" data-testid="reports-lan" id="report-lan">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+      <h2 class="font-semibold text-text">LAN live</h2>
+      {{ rpt_layout_toolbar(spec) }}
+      <a href="{{ n.href }}" class="text-xs text-accent hover:underline">Discovery →</a>
+    </div>
+    <div class="rpt-kpis">
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Live (last scan day)</div>
+        <div class="rpt-kpi-v">{{ n.live_last or 0 }}</div>
+        <div class="rpt-kpi-s">
+          {% if n.live_grew %}+{{ n.live_delta }} over window
+          {% elif n.live_shrank %}{{ n.live_delta }} over window
+          {% else %}no change in window{% endif %}
+        </div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Catalog now</div>
+        <div class="rpt-kpi-v">{{ n.live_now or 0 }}</div>
+        <div class="rpt-kpi-s">{{ n.stale_now or 0 }} offline · {{ n.ignored_now or 0 }} ignored</div>
+      </div>
+      <div class="rpt-kpi {% if n.scans_fail %}is-hot{% endif %}">
+        <div class="rpt-kpi-l">Scans</div>
+        <div class="rpt-kpi-v">{{ n.scans_ok or 0 }}</div>
+        <div class="rpt-kpi-s">{% if n.scans_fail %}<span class="rpt-fail">{{ n.scans_fail }} failed</span>{% else %}last {{ n.days }}d{% endif %}</div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">First seen</div>
+        <div class="rpt-kpi-v">{{ n.new_window or 0 }}</div>
+        <div class="rpt-kpi-s">new identities in window</div>
+      </div>
+    </div>
+
+    {% if n.rates %}
+    <div class="rpt-scroll mb-3">
+      <table class="rpt-table">
+        <thead>
+          <tr>
+            <th>Average live</th>
+            <th>Avg</th>
+            <th>Min</th>
+            <th>Max</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in n.rates %}
+          <tr>
+            <td>Per {{ r.label }} ({{ r.days }}d)</td>
+            <td>{{ r.avg_live }}</td>
+            <td>{{ r.min_live }}</td>
+            <td>{{ r.max_live }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if n.empty %}
+    <p class="text-sm text-muted mb-0">No successful nmap runs in this window. After a LAN discovery scan, hosts_up is stored per run.</p>
+    {% else %}
+    <div class="text-xs text-muted mb-1">Live devices by day (carry-forward)</div>
+    <div class="rpt-bars" aria-hidden="true">
+      {% for d in n.day_rows %}
+      <div class="rpt-bar-col" title="{{ d.day }} · {{ d.live }} live · {{ d.scans_ok }} scans">
+        <div class="rpt-bar {% if not d.live %}is-empty{% endif %}" style="height: {{ d.bar_pct if d.bar_pct else 2 }}%"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="rpt-scroll mt-3">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th class="rpt-num">Live</th>
+            <th class="rpt-num">Scans</th>
+            <th class="rpt-num">Fail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in n.day_rows %}
+          {% if d.scans_ok or d.scans_fail or d.live %}
+          <tr>
+            <td class="rpt-label font-mono">{{ d.day }}</td>
+            <td class="rpt-num">{{ d.live }}</td>
+            <td class="rpt-num">{{ d.scans_ok }}</td>
+            <td class="rpt-num {% if d.scans_fail %}rpt-fail{% endif %}">{{ d.scans_fail }}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    <p class="rpt-note">{{ n.note }} nmap run purge (Settings → Cleanup) is off by default.</p>
+  </section>

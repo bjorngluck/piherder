@@ -6,7 +6,7 @@
 **Package / image version:** `1.3.0`  
 **Theme:** Operator-configurable security policy · multi-identity console · optional command audit · console knobs · map/alert granularity · fleet-scale list UX · Reports history · **host Files manager (flag off)**  
 **Baseline:** `v1.2.0` (identity + webshell + gated demo — 2026-08-18)  
-**Mode:** **Shipped.** Next train: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) (**tagged**).  
+**Mode:** **Shipped.** Next trains: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) (**tagged**) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) (**Active**).  
 **QA:** [QA_v1.3.0.md](QA_v1.3.0.md) (maintainer — **not** in the operator wiki) · screenshots [inventory](../wiki/assets/screenshots/README.md)  
 **RELEASE:** [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) — operator-facing note (scope honesty **§ Where the plan bent**)  
 **Related:** [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [wiki/operations/alerts-email-webhooks.md](../wiki/operations/alerts-email-webhooks.md) · [SECURITY.md](../SECURITY.md)
@@ -558,8 +558,8 @@ Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3�
 
 **Phase 1 execution order (parallelizable):** **L1** shared list chrome · **P1/P2** password-policy schema · **W-id1/W-id2** identity model + migrate single key.
 
-Service migration is [PLAN_v1.4.0.md](PLAN_v1.4.0.md) on `v1.4.0-dev` (opened 2026-08-25).
+Service migration is [PLAN_v1.4.0.md](PLAN_v1.4.0.md) (**tagged**). Next train: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) on `v1.5.0-dev` (opened 2026-09-07).
 
 ---
 
-*Shipped as [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md). Next train: [PLAN_v1.4.0.md](PLAN_v1.4.0.md).*
+*Shipped as [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md). Next: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) (tagged) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) (Active).*

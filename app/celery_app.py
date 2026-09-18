@@ -10,6 +10,8 @@ celery = Celery(
 
 # Fair multi-worker defaults: one reserved task per child process; ack after finish
 # so a killed worker redelivers. Per-server mutex in app.tasks.backup_server.
+# service_migrate uses the same backup mutex on both hosts; a redelivered
+# running Move is failed (not re-run) — see app.tasks.service_migrate.
 celery.conf.update(
     task_serializer="json",
     accept_content=["json"],

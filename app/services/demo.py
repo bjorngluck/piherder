@@ -101,6 +101,7 @@ _DEMO_WRITE_PREFIXES = (
     "/notifications/",
     "/account/favourites",  # favourites toggle under /account/favourites
     "/api/push/",  # personal push subscribe (optional UX)
+    "/reports/layout",  # personal Reports pin/hide/reorder (cookie)
 )
 
 # Canned job runs — demo experience (no live SSH)
@@ -172,6 +173,51 @@ def demo_write_block_detail() -> str:
 def demo_mode() -> bool:
     """True when this instance is a public demo sandbox."""
     return bool(getattr(settings, "PIHERDER_DEMO_MODE", False))
+
+
+# X Ads conversion "PiHerder site visit". Public demo host only — never home installs.
+X_CONVERSION_PID = "rfe8i"
+PUBLIC_DEMO_HOST = "piherder-demo.hacknow.info"
+
+
+def _hostname_only(raw: Optional[str]) -> str:
+    v = (raw or "").strip().lower()
+    if not v:
+        return ""
+    if "://" in v:
+        try:
+            from urllib.parse import urlparse
+
+            v = (urlparse(v).hostname or "").lower()
+        except Exception:
+            return ""
+    return v.split("/")[0].split(":")[0].strip()
+
+
+def _hosts_for_x_conversion(request=None) -> set[str]:
+    hosts: set[str] = set()
+    if request is not None:
+        h = _hostname_only(getattr(getattr(request, "url", None), "hostname", None))
+        if h:
+            hosts.add(h)
+        xf = (getattr(request, "headers", None) or {}).get("x-forwarded-host") or ""
+        xf = _hostname_only(str(xf).split(",")[0])
+        if xf:
+            hosts.add(xf)
+    pub = _hostname_only(getattr(settings, "PIHERDER_PUBLIC_URL", None))
+    if pub:
+        hosts.add(pub)
+    hn = _hostname_only(getattr(settings, "PIHERDER_HOSTNAME", None))
+    if hn:
+        hosts.add(hn)
+    return hosts
+
+
+def x_conversion_enabled(request=None) -> bool:
+    """True only on the public demo (DEMO_MODE + piherder-demo.hacknow.info)."""
+    if not demo_mode():
+        return False
+    return PUBLIC_DEMO_HOST in _hosts_for_x_conversion(request)
 
 
 # Shared sandbox: never show real visitor IPs to other demo users (Audit trail).

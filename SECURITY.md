@@ -4,7 +4,8 @@
 
 | Version | Support |
 |---------|---------|
-| **v1.4.x** | **Current production** line ([RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](docs/PLAN_v1.4.0.md)) |
+| **v1.5.x** | **Current production** line ([RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · [PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md)) |
+| **v1.4.x** | Prior production; prefer upgrade to **v1.5.x** ([RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](docs/PLAN_v1.4.0.md)) |
 | **v1.3.x** | Prior production; prefer upgrade to **v1.4.x** ([RELEASE_v1.3.0.md](docs/RELEASE_v1.3.0.md) · [PLAN_v1.3.0.md](docs/PLAN_v1.3.0.md)) |
 | **v1.2.x** | Prior production; prefer upgrade to **v1.4.x** ([RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](docs/PLAN_v1.2.0.md)) |
 | **v1.1.x** | Prior production; prefer upgrade to **v1.4.x** ([RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md)) |
@@ -12,7 +13,7 @@
 | **`main`** | Development tip; security fixes land here first |
 | **v0.9.x and older** | Best-effort; prefer upgrade to latest production |
 
-Security fixes are applied on the default branch (`main`) and released as **v1.4.x** (or later) patch tags when warranted. Prefer the latest **1.4.x** tag for production.
+Security fixes are applied on the default branch (`main`) and released as **v1.5.x** (or later) patch tags when warranted. Prefer the latest **1.5.x** tag for production.
 
 ## Reporting a vulnerability
 
@@ -45,7 +46,7 @@ We aim to acknowledge reports within a few days and will work with you on a fix 
 | API tokens (`ph_…`) | Stored as hashes only; shown once at create/rotate; scopes + optional IP allowlist |
 | Sessions | JWT cookie (HS256 via **PyJWT** + cryptography); **HttpOnly**, **SameSite=Lax**, `path=/`, **Secure** when public URL is HTTPS |
 | Cross-origin browser POSTs | Same-origin middleware (Origin/Referer host match when present); Bearer `/api/v1` skipped |
-| **Content-Security-Policy (v1.2+)** | Default **on** (`PIHERDER_CSP=true`): `default-src 'self'`, `object-src 'none'`, `frame-ancestors 'self'` (same-origin console modal only), `frame-src 'self'`, form-action self, **connect-src `'self'` + public origin / its `wss:` only** (no wildcard `ws:`/`wss:`). **No `unsafe-eval`** (Tailwind is compiled CSS). Inline script/style still allowed for template `<script>` / xterm — nonces in a later train. Report-Only: `PIHERDER_CSP_REPORT_ONLY=true`. Also: `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy` (incl. `publickey-credentials-get=(self)` for passkeys in console iframe). |
+| **Content-Security-Policy (v1.2+)** | Default **on** (`PIHERDER_CSP=true`): `default-src 'self'`, `object-src 'none'`, `frame-ancestors 'self'` (same-origin console modal only), `frame-src 'self'`, form-action self, **connect-src `'self'` + public origin / its `wss:` only** (no wildcard `ws:`/`wss:`). **No `unsafe-eval`** (Tailwind is compiled CSS). Inline script/style still `'unsafe-inline'` (71 template `<script>` + 190 `on*` handlers + xterm). **v1.5 Discover CSP-n:** not this tag — a nonce on `script-src` would drop `'unsafe-inline'` in modern browsers. Slice 1 (nonce + `script-src-attr`) is **v1.6**. Report-Only: `PIHERDER_CSP_REPORT_ONLY=true`. Also: `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy` (incl. `publickey-credentials-get=(self)` for passkeys in console iframe). |
 | Auth rate limits | Login / 2FA / register limited per IP (disabled only via `PIHERDER_DISABLE_AUTH_RATE_LIMIT` for E2E) |
 | Streams (SSE) | Docker logs/build, backup/OS progress require session; build stream is **operator+** |
 | Input hygiene | Risk-based validators on paths, hostnames, SSH users, cron, action allowlists (`app/services/input_validation.py`) |
@@ -95,6 +96,7 @@ Demo must use **unique** Fernet/session secrets and never hold decryptable produ
 - If using **SSO / OIDC** (v1.2+): keep at least one **break-glass local admin password**; map IdP groups carefully (default role is **viewer**); treat PiHerder 2FA as defense-in-depth after the IdP (SSO does not skip enrolled 2FA). See [wiki SSO](wiki/account-security/sso-oidc.md) · [FEATURE_PLAN_SSO_OIDC.md](docs/FEATURE_PLAN_SSO_OIDC.md).  
 - **CSP (v1.2+):** leave `PIHERDER_CSP=true` in production. Use `PIHERDER_CSP_REPORT_ONLY=true` only while validating a tighter policy. Console assets (xterm) are vendored under `/static/vendor/xterm/` so they need no CDN allowlist. When Turnstile is configured, CSP allows `https://challenges.cloudflare.com` for script/frame/connect.  
 - **Turnstile (optional):** set both `PIHERDER_TURNSTILE_SITE_KEY` and `PIHERDER_TURNSTILE_SECRET_KEY` to require a challenge on `POST /auth/login`. Empty keys leave login unchanged (lab-friendly). Recommended on the public demo.  
+- **X conversion pixel:** GitHub Pages docs and the **public demo** (`PIHERDER_DEMO_MODE` + host `piherder-demo.hacknow.info`) load Ads event `rfe8i`. **Self-hosted installs never load it.** CSP allows `platform.twitter.com` / `analytics.twitter.com` / `t.co` only when that gate is true.  
 - **Web SSH console** (v1.2+): default **off** (`PIHERDER_SSH_CONSOLE=false`). Designed as **in-app only** (not a public remote API):
   - **operator+ only** (viewer 403); session cookie required (no Bearer `/api/v1` console)
   - Ticket mint requires **same-site browser** Origin/Referer; rejects `Sec-Fetch-Site: cross-site`

@@ -46,6 +46,7 @@ _DOCKER_DEPLOY_TYPES = (
 )
 _DOCKER_PATCH_TYPES = ("container_patch",)
 _DOCKER_JOB_TYPES = _DOCKER_DEPLOY_TYPES + _DOCKER_PATCH_TYPES
+_MOVE_TYPES = ("service_migrate",)
 _CONSOLE_ACTIONS = ("ssh_console_open", "ssh_console_close", "ssh_console_denied")
 
 
@@ -915,6 +916,9 @@ def collect_console_history(
     }
 
 
+from .ops_reports_move import collect_move_history  # noqa: E402
+
+
 def collect_ops_reports(
     session: Session, *, days: int = DEFAULT_REPORT_DAYS
 ) -> dict[str, Any]:
@@ -924,12 +928,13 @@ def collect_ops_reports(
     servers = {int(s.id): s for s in session.exec(select(Server)).all() if s.id}
     year_jobs = _load_jobs(
         session,
-        _BACKUP_TYPES + _OS_PATCH_TYPES + _DOCKER_JOB_TYPES,
+        _BACKUP_TYPES + _OS_PATCH_TYPES + _DOCKER_JOB_TYPES + _MOVE_TYPES,
         since_year,
     )
     backup_jobs = [j for j in year_jobs if j.job_type == "backup"]
     os_jobs = [j for j in year_jobs if j.job_type == "os_patch"]
     docker_jobs = [j for j in year_jobs if j.job_type in _DOCKER_JOB_TYPES]
+    move_jobs = [j for j in year_jobs if j.job_type == "service_migrate"]
     return {
         "days": days,
         "day_choices": list(REPORT_DAY_CHOICES),
@@ -947,6 +952,9 @@ def collect_ops_reports(
         "lan": collect_lan_history(session, days=days, now=now),
         "docker": collect_docker_history(
             session, days=days, now=now, jobs=docker_jobs, servers=servers
+        ),
+        "move": collect_move_history(
+            session, days=days, now=now, jobs=move_jobs, servers=servers
         ),
         "console": collect_console_history(
             session, days=days, now=now, servers=servers

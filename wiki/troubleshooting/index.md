@@ -20,6 +20,7 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Template deploy / Docker editor | [Templates & Docker](templates-docker.md) |
 | From-host missing config sidecar / host labels | [From host](../service-templates/from-host.md) · [Templates troubleshooting](templates-docker.md#from-host-pull-incomplete) |
 | Reboot hangs / UI stuck after reboot | [Updates — Reboot](../day-to-day/updates-and-patching.md#reboot) |
+| `sudo reboot` → *Operation inhibited* (gnome-session / sshd / tty) | systemd logind. PiHerder **Reboot now** uses `systemctl reboot --ignore-inhibitors`. From SSH: `systemctl reboot -i` (not `--force`). [Updates — Reboot](../day-to-day/updates-and-patching.md#reboot) |
 | Same patch job appears twice | [Jobs — Exclusive jobs](../day-to-day/jobs-audit-notifications.md#exclusive-jobs-one-per-type-per-host) · [Multi-worker](../operations/multi-worker.md) |
 | Bulk **Upgrade OS** stuck pending while one host stays running | One request used to run patches **sequentially**. Recreate **web** on **v1.4.0** — orphan `os_patch` rows fail on startup so the exclusive lock clears; bulk now uses the patch pool (hosts in parallel). [Updates](../day-to-day/updates-and-patching.md) |
 | Full editor link does nothing | [Compose edit](../docker/compose-edit.md#opening-the-editor) — use ⋯ **Full editor…** or deployment **Open host file editor** |
@@ -27,7 +28,8 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Fleet Services empty | [Dashboard & Services](../day-to-day/dashboard-and-services.md) — bind Kuma monitors |
 | Reports empty / history shorter than expected | [Reports](../day-to-day/reports.md) — needs finished Jobs / nmap runs / console Audit; [Cleanup](../operations/settings.md#stale-data-cleanup) can trim rows |
 | Files button missing / 404 | Flag `PIHERDER_HOST_FILES` (default off). Viewer 403. [Host Files](../day-to-day/host-files.md) |
-| Move to another host missing / 404 | Flag `PIHERDER_SERVICE_MIGRATE` (default off). Recreate **web**. Viewer 403. Locked / HAOS refused. Demo never copies. [Move a service](../docker/service-migration.md) |
+| Move to another host missing / 404 | Flag `PIHERDER_SERVICE_MIGRATE` (default off). Recreate **web** (and **celery-worker** if you rebuilt). Viewer 403. Locked / HAOS refused. Demo never copies. [Move a service](../docker/service-migration.md) |
+| Move died after recreating **web** | **v1.4** did that (job on web). **v1.5** Move is Celery — recycle **web** is safe. Recycle **celery-worker** mid-copy **fails** the job; staging stays under `/backups/_migrate/{job_id}`; **Start source stack** when copy/dest-up had begun |
 | Move dest picker looks stuck | Preflight SSHs both hosts — wait modal + “Checking destination…”. Recreate web if the local image is stale |
 | Move job fails “active service_migrate job #N” on itself | Fixed on this freeze branch — job preflight no longer treats its own row as busy. Failed job is idle; start Move again after rebuild |
 | Move rsync `change_dir "/home/…\#342\#200\#246"` | Truncated `docker ps` mount (Unicode ellipsis). Rebuild this freeze branch; inspect fills full paths. Source may be **stopped** — Start all if you need it up before retry |
@@ -74,6 +76,7 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Cannot open Settings tabs / herder restore | [Roles](../account-security/roles.md) — control plane is **admin only** |
 | First boot asks to register / no default password | Expected — [First login](../getting-started/first-login.md) |
 | Sole admin forgot password / lost 2FA / locked out | [Locked out / sole admin recovery](locked-out.md) — host CLI `recover-admin` |
+| JSON `{"detail":"Please log in to continue"}` instead of Sign in | Session expired. UI pages must redirect to [Sign in](../getting-started/first-login.md). Recreate **web** if you still see raw JSON. `/api/v1` tokens still return JSON 401. |
 | SSO / OIDC login fails or IdP down | [SSO / OpenID Connect](../account-security/sso-oidc.md) · [Locked out](locked-out.md) for break-glass |
 | Console “too many shells” / idle disconnect | [Web SSH console](../day-to-day/web-ssh-console.md) · [Settings → Console](../operations/settings.md#console) |
 | Console Settings fields read-only | A `PIHERDER_SSH_CONSOLE_*` env var is set (lock). Unset it or [env reference](../operations/env-reference.md) |

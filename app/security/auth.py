@@ -8,6 +8,7 @@ import jwt
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status, Request
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session, select
 from ..models import User, TotpBackupCode, TrustedDevice
@@ -285,6 +286,7 @@ _VIEWER_WRITE_PREFIXES = (
     "/auth/me/",
     "/notifications/",
     "/api/push",
+    "/reports/layout",
 )
 # Admin-only management surfaces (mutating methods on these prefixes)
 _ADMIN_ONLY_PREFIXES = (
@@ -335,6 +337,52 @@ class OnboardingRedirect(Exception):
     def __init__(self, location: str):
         self.location = location
         super().__init__(location)
+
+
+LOGIN_PATH = "/auth/login"
+LOGIN_REQUIRED_DETAIL = "Please log in to continue"
+
+
+class LoginRequired(Exception):
+    """No valid session. HTML/HTMX go to login; APIs stay JSON 401."""
+
+
+def login_required_kind(request: Request) -> str:
+    """How to present a missing session: ``redirect``, ``hx``, or ``json``."""
+    path = request.url.path or ""
+    if path.startswith("/api/v1") or path.startswith("/metrics"):
+        return "json"
+    if request.headers.get("hx-request"):
+        return "hx"
+    dest = (request.headers.get("sec-fetch-dest") or "").lower()
+    mode = (request.headers.get("sec-fetch-mode") or "").lower()
+    if dest == "document" or mode == "navigate":
+        return "redirect"
+    accept = (request.headers.get("accept") or "").lower()
+    if "text/html" in accept:
+        json_at = accept.find("application/json")
+        html_at = accept.find("text/html")
+        if json_at != -1 and json_at < html_at:
+            return "json"
+        return "redirect"
+    return "json"
+
+
+def login_required_http_response(request: Request) -> Response:
+    """Browser pages → login; HTMX → ``HX-Redirect``; APIs → JSON 401."""
+    kind = login_required_kind(request)
+    headers = {"Cache-Control": "no-store"}
+    if kind == "hx":
+        headers["HX-Redirect"] = LOGIN_PATH
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
+    if kind == "redirect":
+        return RedirectResponse(url=LOGIN_PATH, status_code=303, headers=headers)
+    headers["WWW-Authenticate"] = "Bearer"
+    return JSONResponse(
+        {"detail": LOGIN_REQUIRED_DETAIL},
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        headers=headers,
+    )
 
 
 def force_2fa_required() -> bool:
@@ -455,15 +503,9 @@ def get_current_user(
     token: str = Depends(oauth2_scheme),
     session: Session = Depends(get_session)
 ) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Please log in to continue",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
     auth_token = _extract_token(request, token)
     if not auth_token:
-        raise credentials_exception
+        raise LoginRequired()
 
     try:
         payload = jwt.decode(
@@ -473,16 +515,16 @@ def get_current_user(
         )
         # Pending 2FA tokens must not grant access
         if payload.get("2fa_pending"):
-            raise credentials_exception
+            raise LoginRequired()
         user_id: Optional[int] = payload.get("sub")
         if user_id is None:
-            raise credentials_exception
+            raise LoginRequired()
     except InvalidTokenError:
-        raise credentials_exception
+        raise LoginRequired()
 
     user = session.get(User, int(user_id))
     if user is None or not user.is_active:
-        raise credentials_exception
+        raise LoginRequired()
 
     # Session invalidation: admin recovery / password change bumps session_version
     try:
@@ -490,7 +532,7 @@ def get_current_user(
     except (TypeError, ValueError):
         token_sv = 0
     if token_sv != user_session_version(user):
-        raise credentials_exception
+        raise LoginRequired()
 
     path = request.url.path or ""
 
@@ -577,7 +619,7 @@ def get_optional_current_user(
     """Use when login is optional (e.g. public landing page)."""
     try:
         return get_current_user(request, token, session)
-    except HTTPException:
+    except (HTTPException, LoginRequired):
         return None
 
 

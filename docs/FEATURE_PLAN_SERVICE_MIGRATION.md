@@ -1,7 +1,7 @@
 # Feature plan — Service migration
 
-**Status:** **Tagged v1.4.0** · M1–M9 + M-npm + D-F + M-rm landed · **M-worker** is a v1.5 candidate  
-**Train:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) Stream **M** (active)  
+**Status:** **Tagged v1.4.0** · M1–M9 + M-npm + D-F + M-rm landed · **M-worker landed** on [v1.5.0](PLAN_v1.5.0.md)  
+**Train:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) Stream **M** (tagged) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) **M-worker** (active)  
 **Horizon:** H2.5 leftover — “Service migrate / remove” ([ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md)) · [SPEC.md](../SPEC.md) Phase 7  
 **Related:** [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md)
 
@@ -112,10 +112,10 @@ Implied locks (no row required):
 ### `Job`
 
 - New type `service_migrate` (and later `service_remove`).  
-- **Runtime (1.4):** FastAPI `BackgroundTasks` on **web**, not Celery. A web recycle **fails** a running Move (same fail-on-startup as other web-process jobs). **M-worker** (Celery + heartbeats) is a **v1.5 candidate**.  
+- **Runtime (1.5):** Celery task `app.tasks.service_migrate` on the default worker. Recycle **web** does **not** fail a running Move. Recycle **worker** after the job is `running` **fails** it (no pipeline re-run; staging kept). Dual-host Redis mutex is the **backup** key on both ids (lower id first). **1.4** ran on web `BackgroundTasks`.  
 - `Job.server_id` = **source** (history stays on the host you left).  
 - `details` JSON: `dest_server_id`, `project`, `steps[]`, `bytes`, `fqdns`, `staging_dir`, leftover, `adopt_fabric`, `failed_step` / `recover_source` on copy/dest-up fail. Pipeline order is always dest-up then name/proxy (`health_then_dns`). `dns_then_start` is **out**.  
-- Exclusive: treat as stack-mutating **and** backup-like on **both** server ids. Extend `server_job_lock` with kind `migrate` **or** acquire `backup`+existing stack lane on both ids.
+- Exclusive: treat as stack-mutating **and** backup-like on **both** server ids. Acquire the existing **`backup`** Redis mutex on both ids (plus DB stack-mutation exclusive).
 
 ### Control-plane rebind (same transaction after dest is healthy)
 
@@ -169,11 +169,17 @@ Matches the original verbal list (DNS before dest listen). Not built: longer hol
 |-------------|--------|----------------|
 | Copy | Source stopped, dest untouched, staging kept | JobHold **Start source stack** (landed) |
 | Dest up | Source stopped, dest partial, DNS **unchanged** | JobHold **Start source stack** (landed) |
-| DNS / FTL | Dest up, names maybe split across Pi-holes | Re-sync fabric + restartdns |
-| NPM PUT | Dest up, proxy still on old backend | Poll NPM / retry Move; public name still on NPM |
-| Validate | Dest up, DNS/NPM flipped, probe red | Do **not** auto-revert in v1; **Revert DNS/NPM + start source** is a Cap |
+| Dest up **worker restart** | Dest **may** already be up; names unchanged | **No** Start source (would dual-run). Inspect dest. |
+| DNS / FTL | Dest up, names maybe split across Pi-holes | Re-sync fabric + restartdns. **No auto-revert.** |
+| NPM PUT | Dest up, proxy still on old backend | Poll NPM / retry Move; public name still on NPM. **No auto-revert.** |
+| Rebind | Dest up, names flipped, maps/Kuma/Grafana/certs half | **No auto-revert.** |
+| Validate | Dest up, DNS/NPM flipped, probe red | Do **not** auto-revert. Start source would dual-run. |
+| Leftover (`stopped` / `down`) | Dest is the live copy; source leftover partial | Fix source by hand. Never wipe dest. |
+| Leftover `remove` (after **green**) | Source project + copied named volumes gone | Restore from backup. **Not** undoable in PiHerder. |
 
-Auto-rollback is explicitly **not** Must — two-host undo is its own design.
+**Start source stack** is pre-flip only. Auto-rollback is **not** Must and **not** a silent `finally`.
+
+**M-undo (Discover 2026-09-13, job → v1.6):** fail-path only. After names have flipped, a later named job `service_migrate_undo` would preview → confirm: revert DNS/NPM to source, `restartdns`, revert control-plane rows, **compose stop dest**, **compose start source**. Dest dir + volumes stay. Never dest `down -v` / volume rm / project rm. Do **not** reverse a green Move (run a new Move B→A). Token API never POSTs migrate or undo. See [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 M-undo.
 
 ---
 
@@ -445,3 +451,6 @@ An operator can:
 | 2026-08-30 | **NPM proxy-host binding:** PUT ``forward_host`` for the compose project even with no fabric DNS row (openwebui / ``ai.hacknow.info``). Rebind follows the project, not only the source host. |
 | 2026-09-01 | Grafana **container** dashboard binds follow dest. Optional **Adopt into fabric** (via_proxy, no cert, no Pi-hole rewrite). JobHold **Start source stack** after copy / dest-up fail. ``dns_then_start`` stays out. |
 | 2026-09-06 | **M-worker** parked for **v1.5 candidate**: Celery Move + heartbeats. 1.4 stays web `BackgroundTasks`. |
+| 2026-09-07 | **M-worker** promoted: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) Must on `v1.5.0-dev`. |
+| 2026-09-07 | **M-worker landed:** Celery `service_migrate`; dual backup mutex; web recycle keeps running Move; worker redelivery of `running` fails the job. Live Job #1314 NPM-fronted Open WebUI. Operator wiki + ADMIN current truth (1.4 RELEASE stays historical). |
+| 2026-09-13 | **M-undo Discover:** fail-path only; stop dest then start source; never silent `finally` / dest wipe / leftover-remove reverse. Named job `service_migrate_undo` parked v1.6. Not 1.5 Should. |

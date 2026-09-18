@@ -52,6 +52,8 @@ Access (if enabled) remains an optional outer gate for spam reduction — do not
 
 Never point demo at the home-lab network or reuse production `PIHERDER_MASTER_KEY`.
 
+**X conversion pixel:** the public demo (`PIHERDER_DEMO_MODE` **and** host `piherder-demo.hacknow.info`) and GitHub Pages docs inject Ads event `rfe8i` (site visit). Self-hosted herders never load it, even if someone turns demo mode on in a lab. CSP on the demo VPS allows `platform.twitter.com`, `analytics.twitter.com`, and `t.co` only when that gate is true.
+
 ## Environment (Docker Compose)
 
 Use the demo overlay [`docker-compose.demo.yml`](../docker-compose.demo.yml) on the VPS.

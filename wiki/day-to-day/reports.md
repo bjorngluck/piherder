@@ -2,9 +2,9 @@
 
 ## What this is
 
-**Reports** (`/reports`) is PiHerder’s own **history**: how backups, OS patches, the LAN census, Docker deploys, and the web console actually went over the last **7 / 30 / 90** days.
+**Reports** (`/reports`) is PiHerder’s own **history**: how backups, OS patches, the LAN census, Docker deploys, **Move jobs**, and the web console actually went over the last **7 / 30 / 90** days.
 
-Grafana will never know this. It never sees rsync dest size, backup success/fail, apt apply counts, nmap `hosts_up`, compose deploys, or console session time.
+Grafana will never know this. It never sees rsync dest size, backup success/fail, apt apply counts, nmap `hosts_up`, compose deploys, Move dest hosts, or console session time.
 
 It is **not** a second status dashboard and **not** a set of jump-chips. Open [Dashboard](dashboard-and-services.md) for “what needs care right now.” Open Reports for “how did this week / month go?”
 
@@ -18,19 +18,22 @@ It is **not** a second status dashboard and **not** a set of jump-chips. Open [D
 | OS patches applied per host per week / month / year? | **Reports → OS patches** |
 | How many LAN devices were **live each day**? | **Reports → LAN live** |
 | Docker deploys / image patches ok vs fail? | **Reports → Docker** |
+| How many Moves succeeded vs failed? Where did the last stack land? | **Reports → Move jobs** |
 | How much web console was used (sessions, privileged, duration)? | **Reports → Console** |
 
 Sources: **Jobs** (and the JSON each job stored), **nmap scan runs** (`hosts_up`), and **Audit** (`ssh_console_open` / `close`). No SSH and no `du` on page load.
 
 ## Where
 
-Header **Reports** (after **Catalog**). Phone: hamburger. **Viewer+**. No writes.
+Header **Reports** (after **Catalog**). Phone: hamburger. **Viewer+**. History tables are read-only.
+
+**Layout (v1.5):** each card has **pin** (★, moves to top), **↑ / ↓**, and **Hide**. Hidden cards sit in a **Hidden:** row — click the name to show again. **Reset layout** in the hero restores the default order (Backups → OS patches → LAN live → Docker → Console → **Move jobs**). The choice is remembered in your browser (`ph_reports_layout`) — not a fleet setting. Old cookies pick up **Move jobs** at the end.
 
 Windows: **7 / 30 / 90** days in the [app timezone](../operations/settings.md). Some averages still scan up to 365 days of leftover rows.
 
 <figure class="ph-figure" markdown>
   ![Reports](../assets/screenshots/reports.png)
-  <figcaption>Reports — 7 / 30 / 90 day windows and history tabs (Backups, OS patches, LAN live, Docker, Console).</figcaption>
+  <figcaption>Reports — 7 / 30 / 90 day windows, history cards, and v1.5 pin / hide / reorder chrome.</figcaption>
 </figure>
 
 Tables keep numeric columns right-aligned. On a **phone**, the Day / host column is not clipped — swipe the table sideways to see dates and dest sizes.
@@ -74,6 +77,17 @@ Quiet days keep yesterday’s census. Overlapping CIDRs on two nmap integrations
 | Running now | Last Docker **inventory snapshot** (running / total / stacks) — not a daily census; we do not store container counts per day |
 | Per day / host | Ok vs fail for deploys and patches |
 
+## Move jobs
+
+| Figure | Meaning |
+|--------|---------|
+| Moves | Finished `service_migrate` jobs in the window |
+| Success / failed | Ok vs fail (copy, dest-up, worker recycle, preflight) |
+| Last dest | Destination **host** of the last **successful** Move in the window (or last finished if none succeeded) |
+| Per day / source | Ok / fail; last dest is `project → dest-host` |
+
+Job history only — no live two-host probe on page load. [Move a service](../docker/service-migration.md) is the wizard; this card is how the week went.
+
 ## Console
 
 | Figure | Meaning |
@@ -99,6 +113,7 @@ Quiet days keep yesterday’s census. Overlapping CIDRs on two nmap integrations
 - [Backups & restore](backups.md)  
 - [Updates & patching](updates-and-patching.md)  
 - [Docker overview](../docker/overview.md)  
+- [Move a service](../docker/service-migration.md)  
 - [Web SSH console](web-ssh-console.md)  
 - [LAN discovery](../integrations/lan-discovery.md)  
 - [Grafana](../integrations/grafana.md)  

@@ -42,7 +42,7 @@ x-piherder-app-env: &piherder-app-env
   # Host Files button — default off. Do not inject PIHERDER_HOST_FILES_MAX_BYTES
   # here with a default or operators cannot rely on the code default (512 MiB).
   PIHERDER_HOST_FILES: ${PIHERDER_HOST_FILES:-false}
-  # Service migration Move… — default off (opt-in). Pipeline is on v1.4.0-dev.
+  # Service migration Move… — default off (opt-in). Pipeline tagged v1.4.0; Celery worker path is v1.5.0-dev.
   PIHERDER_SERVICE_MIGRATE: ${PIHERDER_SERVICE_MIGRATE:-false}
   # Content-Security-Policy (v1.2) — default on; Report-Only for staged tighten
   PIHERDER_CSP: ${PIHERDER_CSP:-true}
@@ -136,8 +136,9 @@ services:
     ports:
       - "127.0.0.1:6379:6379"
 
-  # Multi-worker: raise CELERY_CONCURRENCY (default 2) so backups run in parallel
-  # across hosts. Per-server Redis mutex prevents two rsyncs to the same host.
+  # Multi-worker: raise CELERY_CONCURRENCY (default 2) so backups (and Move) run
+  # in parallel across hosts. Per-server Redis mutex prevents two rsyncs to the
+  # same host; Move holds that mutex on both source and dest.
   # Shared volume mounts with `web` are required. Cancel still uses Job.celery_task_id.
   # To run multiple containers instead: remove container_name and
   # `docker compose up -d --scale celery-worker=N` (each replica needs the same volumes).

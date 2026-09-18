@@ -105,6 +105,7 @@ from .services import demo as _demo_svc  # noqa: E402
 
 templates.env.globals["demo_mode"] = _demo_svc.demo_mode
 templates.env.globals["demo_banner"] = _demo_svc.demo_banner
+templates.env.globals["x_conversion_enabled"] = _demo_svc.x_conversion_enabled
 
 from .services import turnstile as _turnstile_svc  # noqa: E402
 
