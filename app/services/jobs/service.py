@@ -5,7 +5,7 @@ Fleet job queue: create Job rows, run work, stream progress for UI polling.
 Execution paths (do not merge without care):
 - UI / BackgroundTasks: create_job_and_run → async _run_*_job
 - Scheduler / thread pool: enqueue_*_apply / enqueue_*_update_check → _execute_*_sync
-- Backups: Celery only (enqueue_backup_for_server / create_job_and_run backup branch)
+- Backups + service_migrate: Celery only (web recycle does not fail them)
 
 Shared helpers: _initial_job_details, _merge_job_details, _flush_job_progress,
 _create_queued_job_with_audit, _finish, job_public_dict.
@@ -16,6 +16,7 @@ from ...database import engine
 from ...models import Job, AuditLog, Server
 from datetime import datetime, timedelta
 import json
+import os
 import re
 import httpx
 from ...config import settings
@@ -42,8 +43,8 @@ class JobAlreadyActive(Exception):
     """Raised when an exclusive job type is already pending/running for the server.
 
     Container/OS patch and update-check jobs must not stack on the same host.
-    Celery multi-worker concurrency only applies to backups; these job types run
-    on the web process (BackgroundTasks / in-process thread pools).
+    Celery multi-worker concurrency applies to backups and Move; other exclusive
+    types still run on the web process (BackgroundTasks / in-process thread pools).
     """
 
     def __init__(self, job: Job):
@@ -97,10 +98,12 @@ _STACK_LIFECYCLE_JOB_TYPES = frozenset(
 # This file lives in app.services.jobs — use three dots to reach app.tasks.
 try:
     from ...tasks import backup_server
+    from ...tasks import service_migrate as service_migrate_task
     HAS_CELERY = True
 except Exception as e:
     HAS_CELERY = False
     backup_server = None
+    service_migrate_task = None
     logger.warning("Celery backup task unavailable (backups will not enqueue): %s", e)
 
 
@@ -644,11 +647,14 @@ def supersede_running_backups(session: Session, server_id: int) -> int:
 
 
 def cleanup_stale_backup_jobs(session: Session, max_age_minutes: int = 120) -> int:
-    """Mark old pending/running backup jobs as failed (worker crash / restart recovery)."""
+    """Mark old pending/running Celery jobs failed (worker crash / restart recovery).
+
+    Covers backup and service_migrate so a lost Move cannot pin both hosts.
+    """
     cutoff = datetime.utcnow() - timedelta(minutes=max_age_minutes)
     stale = session.exec(
         select(Job).where(
-            Job.job_type == "backup",
+            Job.job_type.in_(["backup", "service_migrate"]),
             Job.status.in_(["pending", "running"]),
             Job.created_at < cutoff,
         )
@@ -657,13 +663,13 @@ def cleanup_stale_backup_jobs(session: Session, max_age_minutes: int = 120) -> i
         _mark_job_failed(job, "Stale job — worker timeout or restart", session)
     if stale:
         session.commit()
-        logger.info(f"[Jobs] Cleaned up {len(stale)} stale backup job(s)")
+        logger.info(f"[Jobs] Cleaned up {len(stale)} stale Celery job(s)")
     return len(stale)
 
 
 # Celery-owned types survive a web restart. Everything else runs in this
 # process (BackgroundTasks / thread pools) and is dead after uvicorn exits.
-_CELERY_JOB_TYPES = frozenset({"backup"})
+_CELERY_JOB_TYPES = frozenset({"backup", "service_migrate"})
 
 
 def _is_celery_owned_job(job: Job) -> bool:
@@ -1144,7 +1150,7 @@ def _merge_job_details(job: Job, **fields) -> None:
 
 
 def _flush_job_progress(
-    job_id: int, current: str, log_line: str, *, default_current: str = "running"
+    job_id: int, current: str, log_line: str, *, default_current: str = "running", **extra
 ) -> None:
     """Best-effort live Job.details update for JobHold / progress polling."""
     try:
@@ -1157,6 +1163,7 @@ def _flush_job_progress(
                 current=current or default_current,
                 log_line=log_line,
                 done=False,
+                **extra,
             )
             s.add(job)
             s.commit()
@@ -2728,224 +2735,7 @@ def enqueue_docker_stack_remove(
         return job
 
 
-def enqueue_service_migrate(
-    source_id: int,
-    dest_id: int,
-    project: str,
-    *,
-    user_id: int | None = None,
-    background_tasks: BackgroundTasks | None = None,
-    leftover: str = "stopped",
-    devices_ack: bool = False,
-    adopt_fabric: bool = False,
-    dest_project: str | None = None,
-    port_map: dict | None = None,
-    bind_map: dict | None = None,
-    skip_binds: list | None = None,
-) -> Job:
-    """Queue stop-first copy + dest up. Raises JobAlreadyActive if either host is busy."""
-    from ..service_migrate.host_lock import HostLockError, compose_project_name
-    from ..service_migrate.overrides import normalize_dest_project, validate_port_map
-
-    try:
-        name = compose_project_name(project)
-    except HostLockError as e:
-        raise ValueError(e.message) from e
-    dest_name, dest_err = normalize_dest_project(name, dest_project)
-    if dest_err:
-        raise ValueError(dest_err)
-    clean_map, map_errs = validate_port_map(port_map)
-    if map_errs:
-        raise ValueError("; ".join(map_errs[:4]))
-    if int(source_id) == int(dest_id):
-        raise ValueError("destination must differ from source")
-    with _get_fresh_session() as session:
-        source = session.get(Server, source_id)
-        dest = session.get(Server, dest_id)
-        if not source or not dest:
-            raise ValueError("server not found")
-        for sid in (source_id, dest_id):
-            active = _active_stack_mutating_job(session, sid)
-            if not active:
-                active = _active_migrate_as_dest(session, sid)
-            if not active:
-                backups = get_active_backup_jobs(session, sid)
-                active = backups[0] if backups else None
-            if active:
-                session.expunge(active)
-                raise JobAlreadyActive(active)
-        from ..service_migrate.leftover import normalize_leftover
-
-        left = normalize_leftover(leftover)
-        job, audit = _create_queued_job_with_audit(
-            session,
-            server_id=source.id,
-            job_type="service_migrate",
-            queue_message=f"Migrate {name} queued → {dest.name}…",
-            user_id=user_id,
-            audit_details=f"Job #{{job_id}} · migrate {name} → {dest.name}",
-            dest_server_id=dest.id,
-            dest_name=dest.name,
-            project=name,
-            dest_project=dest_name,
-            port_map=clean_map,
-            bind_map=bind_map or {},
-            skip_binds=list(skip_binds or []),
-            leftover=left,
-            devices_ack=bool(devices_ack),
-            adopt_fabric=bool(adopt_fabric),
-        )
-        jid, aid = job.id, audit.id
-    if background_tasks is not None:
-        background_tasks.add_task(
-            _run_service_migrate_job, jid, source_id, dest_id, name, aid
-        )
-    else:
-        _update_check_pool.submit(
-            _execute_service_migrate, jid, source_id, dest_id, name, aid
-        )
-    with _get_fresh_session() as session:
-        job = session.get(Job, jid)
-        if job:
-            session.expunge(job)
-        return job
-
-
-async def _run_service_migrate_job(
-    job_id: int, source_id: int, dest_id: int, project: str, audit_id: int
-):
-    await run_in_threadpool(
-        _execute_service_migrate, job_id, source_id, dest_id, project, audit_id
-    )
-
-
-def _execute_service_migrate(
-    job_id: int, source_id: int, dest_id: int, project: str, audit_id: int
-) -> None:
-    from ..service_migrate.facts import herder_free_bytes, probe_host_facts, refresh_host_inventory
-    from ..service_migrate.leftover import normalize_leftover
-    from ..service_migrate.pipeline import (
-        RECOVER_SOURCE_STEPS,
-        MigrateError,
-        run_copy_and_start,
-        wipe_staging,
-    )
-
-    source, hostname = _load_server_for_job(source_id)
-    dest, _ = _load_server_for_job(dest_id)
-    leftover = "stopped"
-    devices_ack = False
-    adopt_fabric = False
-    dest_project = project
-    port_map: dict = {}
-    bind_map: dict = {}
-    skip_binds: list = []
-    with _get_fresh_session() as session:
-        job = session.get(Job, job_id)
-        if job:
-            try:
-                data = json.loads(job.details or "{}") or {}
-                leftover = normalize_leftover(data.get("leftover"))
-                devices_ack = bool(data.get("devices_ack"))
-                adopt_fabric = bool(data.get("adopt_fabric"))
-                dest_project = data.get("dest_project") or project
-                raw_map = data.get("port_map") or {}
-                if isinstance(raw_map, dict):
-                    port_map = {str(k): str(v) for k, v in raw_map.items()}
-                raw_binds = data.get("bind_map") or {}
-                if isinstance(raw_binds, dict):
-                    bind_map = {str(k): str(v) for k, v in raw_binds.items()}
-                raw_skip = data.get("skip_binds") or []
-                if isinstance(raw_skip, list):
-                    skip_binds = [str(x) for x in raw_skip if str(x).strip()]
-            except Exception:
-                pass
-            job.status = "running"
-            job.started_at = datetime.utcnow()
-            _merge_job_details(
-                job,
-                current="migrating",
-                log_line=f"Migrating {project}…",
-                done=False,
-            )
-            session.add(job)
-            session.commit()
-    if not source or not dest:
-        _finish(audit_id, job_id, "failed", "Server not found", hostname, "service_migrate")
-        return
-
-    def log_line(msg: str) -> None:
-        _flush_job_progress(job_id, "migrating", msg, default_current="migrating")
-
-    try:
-        with _get_fresh_session() as session:
-            src = session.get(Server, source_id)
-            dst = session.get(Server, dest_id)
-            if not src or not dst:
-                raise MigrateError("Server not found")
-            log_line("Refreshing dest Docker inventory from the host…")
-            try:
-                refresh_host_inventory(dst.id)
-                session.refresh(dst)
-            except Exception:
-                pass
-            result = run_copy_and_start(
-                session,
-                source=src,
-                dest=dst,
-                project=project,
-                job_id=job_id,
-                source_facts=probe_host_facts(src),
-                dest_facts=probe_host_facts(dst),
-                herder_free=herder_free_bytes(),
-                log=log_line,
-                leftover=leftover,
-                devices_ack=devices_ack,
-                adopt_fabric=adopt_fabric,
-                dest_project=dest_project,
-                port_map=port_map,
-                bind_map=bind_map,
-                skip_binds=skip_binds,
-                live_inspect=True,
-            )
-        wipe_staging(job_id)
-        _finish(
-            audit_id,
-            job_id,
-            "success",
-            json.dumps({"ok": True, "project": project, "dest_id": dest_id}),
-            hostname,
-            "service_migrate",
-        )
-        log_line("Done.")
-        logger.info("[migrate] job %s ok %s", job_id, result)
-    except Exception as e:
-        logger.exception("service_migrate failed")
-        # Keep BACKUP_ROOT/_migrate/{job_id} on failure for operator retry.
-        step = getattr(e, "failed_step", None)
-        if step in RECOVER_SOURCE_STEPS and source:
-            try:
-                from ..service_migrate.leftover import jailed_source_project_path
-
-                path = jailed_source_project_path(source, project)
-                with _get_fresh_session() as session:
-                    job = session.get(Job, job_id)
-                    if job:
-                        _merge_job_details(
-                            job,
-                            failed_step=step,
-                            recover_source={
-                                "server_id": int(source_id),
-                                "project": project,
-                                "project_path": path,
-                            },
-                        )
-                        session.add(job)
-                        session.commit()
-            except Exception:
-                logger.exception("migrate recover_source details")
-        _finish(audit_id, job_id, "failed", str(e)[:800], hostname, "service_migrate")
-
+from ..jobs_migrate import enqueue_service_migrate, fail_migrate_worker_restart  # noqa: E402
 
 def _execute_docker_stack_lifecycle(
     job_id: int,

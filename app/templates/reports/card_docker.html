@@ -1,0 +1,101 @@
+{% from "reports/_macros.html" import rpt_layout_toolbar %}
+  <section class="card p-4 sm:p-5" data-testid="reports-docker" id="report-docker">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+      <h2 class="font-semibold text-text">Docker</h2>
+      {{ rpt_layout_toolbar(spec) }}
+      <a href="{{ dk.jobs_href }}" class="text-xs text-accent hover:underline">Docker jobs →</a>
+    </div>
+    <div class="rpt-kpis">
+      <div class="rpt-kpi {% if dk.deploy_fail %}is-hot{% endif %}">
+        <div class="rpt-kpi-l">Stack deploys</div>
+        <div class="rpt-kpi-v">{{ dk.deploy_ok or 0 }}</div>
+        <div class="rpt-kpi-s">{% if dk.deploy_fail %}<span class="rpt-fail">{{ dk.deploy_fail }} failed</span>{% else %}up / stop / start / restart / template{% endif %}</div>
+      </div>
+      <div class="rpt-kpi {% if dk.patch_fail %}is-hot{% endif %}">
+        <div class="rpt-kpi-l">Image patches</div>
+        <div class="rpt-kpi-v">{{ dk.patch_ok or 0 }}</div>
+        <div class="rpt-kpi-s">{% if dk.patch_fail %}<span class="rpt-fail">{{ dk.patch_fail }} failed</span>{% else %}container apply jobs{% endif %}</div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Running now</div>
+        <div class="rpt-kpi-v">{{ dk.running_now or 0 }}</div>
+        <div class="rpt-kpi-s">of {{ dk.total_now or 0 }} · {{ dk.stacks_now or 0 }} stacks (last inventory)</div>
+      </div>
+      <div class="rpt-kpi">
+        <div class="rpt-kpi-l">Jobs</div>
+        <div class="rpt-kpi-v">{{ dk.runs or 0 }}</div>
+        <div class="rpt-kpi-s">last {{ dk.days }}d</div>
+      </div>
+    </div>
+    {% if dk.empty %}
+    <p class="text-sm text-muted mb-0">No Docker deploy or container-patch jobs in this window.</p>
+    {% else %}
+    <div class="rpt-scroll mt-3">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th class="rpt-num">Dep ok</th>
+            <th class="rpt-num">Fail</th>
+            <th class="rpt-num">Patch ok</th>
+            <th class="rpt-num">Fail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in dk.day_rows %}
+          {% if d.deploy_ok or d.deploy_fail or d.patch_ok or d.patch_fail %}
+          <tr>
+            <td class="rpt-label font-mono">{{ d.day }}</td>
+            <td class="rpt-num">{{ d.deploy_ok }}</td>
+            <td class="rpt-num {% if d.deploy_fail %}rpt-fail{% endif %}">{{ d.deploy_fail }}</td>
+            <td class="rpt-num">{{ d.patch_ok }}</td>
+            <td class="rpt-num {% if d.patch_fail %}rpt-fail{% endif %}">{{ d.patch_fail }}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if dk.hosts %}
+    <div class="rpt-scroll mt-4">
+      <table class="rpt-table rpt-table-fixed">
+        <colgroup>
+          <col>
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+          <col class="rpt-c-n">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Host</th>
+            <th class="rpt-num">Dep ok</th>
+            <th class="rpt-num">Fail</th>
+            <th class="rpt-num">Patch ok</th>
+            <th class="rpt-num">Fail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in dk.hosts %}
+          <tr>
+            <td class="rpt-label"><a href="{{ h.href }}">{{ h.name }}</a></td>
+            <td class="rpt-num">{{ h.deploy_ok }}</td>
+            <td class="rpt-num {% if h.deploy_fail %}rpt-fail{% endif %}">{{ h.deploy_fail }}</td>
+            <td class="rpt-num">{{ h.patch_ok }}</td>
+            <td class="rpt-num {% if h.patch_fail %}rpt-fail{% endif %}">{{ h.patch_fail }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% endif %}
+    <p class="rpt-note">{{ dk.note }}</p>
+  </section>

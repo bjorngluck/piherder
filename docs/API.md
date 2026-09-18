@@ -254,7 +254,9 @@ HTTP Request node: Method GET/POST, Header `Authorization` = `Bearer ph_…`, JS
 
 ### Home Assistant
 
-Use `rest_command` / `rest` sensor against `/api/v1/servers` and job endpoints with a token that has the least scopes needed. Prefer an IP allowlist for the HA host.
+**Today:** `rest` / `rest_command` against `/api/v1/servers` and job endpoints with the least scopes needed. Prefer an IP allowlist for the HA host (HAOS usually egresses as the appliance LAN IP).
+
+**v1.6:** first-class **HACS integration** (runs on HA) — fleet dashboard, host devices, optional container/service entities from snapshots. Details stay in the PiHerder UI. Discover: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7. YAML REST remains possible. CORS is not required (HA Core is server-side).
 
 ---
 

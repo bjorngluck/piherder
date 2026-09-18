@@ -1158,9 +1158,11 @@ async def reboot_server(
 ):
     """Send reboot to the host via SSH (passwordless sudo full path).
 
-    Least-priv sudoers allow ``/usr/sbin/reboot`` — bare ``sudo reboot`` is not
-    always matched. Clear local reboot_pending optimistically after the command
-    is accepted so the UI does not look stuck.
+    Least-priv sudoers allow ``/usr/sbin/reboot`` and ``systemctl``. Plain
+    ``reboot`` is often inhibited by logind (our SSH session, a GUI seat, another
+    tty) — we use ``systemctl reboot --ignore-inhibitors``. Clear local
+    reboot_pending optimistically after the command is accepted so the UI does
+    not look stuck.
 
     Important: schedule reboot slightly deferred so the SSH command can return
     and PiHerder can finish the HTTP response + audit. Immediate ``reboot``
@@ -1177,11 +1179,9 @@ async def reboot_server(
     # Least-priv sudoers only allow the reboot binary (not sudo sh), so we
     # background via the login shell + nohup, and sudo only the reboot path.
     # sleep 1 gives PiHerder time to finish HTTP/audit when rebooting its own host.
-    reboot_cmds = (
-        "nohup sh -c 'sleep 1; sudo -n /usr/sbin/reboot' >/dev/null 2>&1 &",
-        "nohup sh -c 'sleep 1; sudo -n /sbin/reboot' >/dev/null 2>&1 &",
-        "nohup sh -c 'sleep 1; sudo -n /usr/bin/systemctl reboot' >/dev/null 2>&1 &",
-    )
+    from ..services.host_reboot import deferred_reboot_commands
+
+    reboot_cmds = deferred_reboot_commands()
     try:
         client = ssh_service.get_ssh_client(server)
         last_err = ""

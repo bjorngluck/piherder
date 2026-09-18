@@ -55,7 +55,7 @@ def is_openapi_ui_path(path: str) -> bool:
     return p == "/docs" or p.startswith("/docs/") or p == "/redoc" or p.startswith("/redoc/")
 
 
-def build_csp(*, for_openapi_ui: bool = False) -> str:
+def build_csp(*, for_openapi_ui: bool = False, for_x_conversion: bool = False) -> str:
     """Return the Content-Security-Policy value (no header name)."""
     # script-src: 'unsafe-inline' for template <script> blocks (nonces in a later train)
     # style-src: 'unsafe-inline' for theme/style attributes and xterm
@@ -99,6 +99,14 @@ def build_csp(*, for_openapi_ui: bool = False) -> str:
         worker_src.extend([cf, "blob:"])
         img_src.append(cf)
         style_src.append(cf)
+    if for_x_conversion:
+        # Public demo X conversion pixel only (never home installs).
+        tw_js = "https://platform.twitter.com"
+        script_src.append(tw_js)
+        connect.append(tw_js)
+        for tw_img in ("https://analytics.twitter.com", "https://t.co"):
+            img_src.append(tw_img)
+            connect.append(tw_img)
 
     # de-dupe preserve order
     seen = set()
@@ -137,7 +145,9 @@ def build_csp(*, for_openapi_ui: bool = False) -> str:
     return "; ".join(directives) + ";"
 
 
-def security_headers_dict(*, for_openapi_ui: bool = False) -> dict[str, str]:
+def security_headers_dict(
+    *, for_openapi_ui: bool = False, for_x_conversion: bool = False
+) -> dict[str, str]:
     """All security headers applied to HTML/app responses."""
     headers = {
         "X-Content-Type-Options": "nosniff",
@@ -158,7 +168,9 @@ def security_headers_dict(*, for_openapi_ui: bool = False) -> dict[str, str]:
             if csp_report_only()
             else "Content-Security-Policy"
         )
-        headers[name] = build_csp(for_openapi_ui=for_openapi_ui)
+        headers[name] = build_csp(
+            for_openapi_ui=for_openapi_ui, for_x_conversion=for_x_conversion
+        )
     return headers
 
 
@@ -170,8 +182,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         path = request.url.path or ""
         # Skip CSP on pure static assets? Still useful; leave on.
         # Health/metrics keep headers (no harm).
+        from ..services.demo import x_conversion_enabled
+
         for k, v in security_headers_dict(
-            for_openapi_ui=is_openapi_ui_path(path)
+            for_openapi_ui=is_openapi_ui_path(path),
+            for_x_conversion=x_conversion_enabled(request),
         ).items():
             # Do not overwrite if an endpoint set a more specific CSP
             if k not in response.headers:

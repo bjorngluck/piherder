@@ -112,7 +112,7 @@ def test_favicon_and_static_present(smoke_client):
 def test_protected_paths_require_login(smoke_client, path):
     client, _ = smoke_client
     r = client.get(path)
-    # get_current_user raises 401 JSON (not a soft redirect)
+    # TestClient Accept is */* → JSON 401. Browser text/html → 303 (test_login_redirect).
     assert r.status_code == 401, f"{path} → {r.status_code}"
     detail = (r.json() or {}).get("detail", "")
     assert "log in" in detail.lower() or "unauthorized" in detail.lower() or detail
@@ -307,6 +307,7 @@ def test_reports_board_viewer_200(smoke_client):
     assert 'data-testid="reports-lan"' in r.text
     assert 'data-testid="reports-docker"' in r.text
     assert 'data-testid="reports-console"' in r.text
+    assert 'data-testid="reports-move"' in r.text
     assert "Reports" in r.text
     assert "report-card-alerts_by_severity" not in r.text
     assert "min-width: 28rem" in r.text
@@ -321,6 +322,64 @@ def test_reports_board_viewer_200(smoke_client):
         "/audit",
         "/herder-backups",
     ], nav[:7]
+
+
+def test_reports_layout_hide_and_pin_viewer(smoke_client, monkeypatch):
+    """N3a: viewer can hide LAN and pin Backups; reload keeps order."""
+    import re
+
+    from app.services.report_layout import COOKIE as LAYOUT_COOKIE
+
+    monkeypatch.setattr(
+        "app.services.account_stepup.force_2fa_applies", lambda *a, **k: False
+    )
+    client, engine = smoke_client
+    with Session(engine) as session:
+        user = _make_user(session, role="viewer", email="rpt-layout@smoke.test")
+        uid = user.id
+    auth = _auth_cookie(uid)
+    hide = client.post(
+        "/reports/layout",
+        data={"action": "hide", "card": "lan", "days": "7"},
+        cookies=auth,
+        follow_redirects=False,
+    )
+    assert hide.status_code == 303
+    assert "/reports?days=7" in (hide.headers.get("location") or "")
+    cookies = {**auth}
+    if hide.cookies.get(LAYOUT_COOKIE):
+        cookies[LAYOUT_COOKIE] = hide.cookies.get(LAYOUT_COOKIE)
+    pin = client.post(
+        "/reports/layout",
+        data={"action": "pin", "card": "backups", "days": "7"},
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert pin.status_code == 303
+    if pin.cookies.get(LAYOUT_COOKIE):
+        cookies[LAYOUT_COOKIE] = pin.cookies.get(LAYOUT_COOKIE)
+    page = client.get("/reports?days=7", cookies=cookies)
+    assert page.status_code == 200
+    assert 'data-testid="reports-lan"' not in page.text
+    assert 'data-testid="reports-backups"' in page.text
+    assert 'data-testid="reports-hidden"' in page.text
+    assert 'data-testid="reports-layout-reset"' in page.text
+    ids = re.findall(
+        r'data-testid="reports-(backups|os-patch|lan|docker|console|move)"',
+        page.text,
+    )
+    assert ids[0] == "backups"
+    assert "lan" not in ids
+    reset = client.post(
+        "/reports/layout",
+        data={"action": "reset", "days": "7"},
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert reset.status_code == 303
+    cookies.pop(LAYOUT_COOKIE, None)
+    restored = client.get("/reports", cookies=auth)
+    assert 'data-testid="reports-lan"' in restored.text
 
 
 def test_account_hub_cards(smoke_client):

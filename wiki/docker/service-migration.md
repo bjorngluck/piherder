@@ -1,7 +1,7 @@
 # Move a service
 
 !!! note "Availability"
-    **Move a service** is **v1.4.0**. Behind `PIHERDER_SERVICE_MIGRATE` (default **off**). Host **lock / unlock** has no flag. Source remove + named-volume delete is optional and **off** unless you pick it. Public demo never copies. User notes: [RELEASE_v1.4.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.4.0.md). Technical: [PLAN_v1.4.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.4.0.md).
+    **Move a service** shipped in **v1.4.0** (pipeline + lock). **v1.5.0** runs the job on the **Celery worker** (same as backups) — recycle **web** mid-Move is safe; recycle **celery-worker** fails it. Behind `PIHERDER_SERVICE_MIGRATE` (default **off**). Host **lock / unlock** has no flag. Source remove + named-volume delete is optional and **off** unless you pick it. Public demo never copies. User notes: [RELEASE_v1.5.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.5.0.md). Technical: [PLAN_v1.5.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.5.0.md).
 
 ## What this is
 
@@ -58,7 +58,7 @@ Use lock for Frigate + Coral, USB gadgets, or anything you must not relocate by 
 7. If preflight lists NPM names with **no fabric DNS row**, optional **Adopt into fabric** (default off) — see below.  
 8. Choose leftover (see below). Default is **leave source stopped**.  
 9. **Move service** — danger confirm (downtime). **Remove source** also requires the extra checkbox and a stronger confirm.  
-10. **JobHold** live log stays open with **Succeeded** or **Failed** until you Close (does not vanish). Job type `service_migrate`. `Job.server_id` is the **source**; dest is in job details. Copy / dest-up fail offers **Start source stack**. The job runs on the **web** process — do **not** recreate **web** (or `compose up` the herder) until it finishes. A web restart marks a running Move **failed**; staging stays under `/backups/_migrate/{job_id}` and you can **Start source stack**.
+10. **JobHold** live log stays open with **Succeeded** or **Failed** until you Close (does not vanish). Job type `service_migrate`. `Job.server_id` is the **source**; dest is in job details. Copy / dest-up fail offers **Start source stack**. The job runs on the **Celery worker** (same as backups). Recreating **web** mid-Move is safe. Recreating **celery-worker** (or `compose restart celery-worker`) **fails** a running Move — staging stays under `/backups/_migrate/{job_id}` and you can **Start source stack**.
 
 <figure class="ph-figure" markdown>
   ![Move wizard dest picker](../assets/screenshots/docker-migrate-wizard.png)
@@ -168,16 +168,17 @@ Remove is a second danger confirm plus checkbox. Preflight lists the project pat
 
 ## Failure
 
-Validate red (TLS mismatch, Kuma down) **does not auto-roll back**. Dest may already be up with DNS/NPM flipped. Fix dest yourself. Staging is **kept** on failure until you dismiss the job / it ages out.
+Validate red (TLS mismatch, Kuma down) **does not auto-roll back**. Dest may already be up with DNS/NPM flipped. Fix dest yourself. Staging is **kept** on failure — PiHerder does **not** auto-wipe `/backups/_migrate/{job_id}`. After you have copied what you need (or **Start source stack**), delete that directory yourself so failed Moves do not fill the backup volume. There is **no** post-flip undo job yet (planned as a later named recover, not a silent revert).
 
 | Fail | State | JobHold |
 |------|--------|---------|
 | Stop / copy | Source stopped (or stop failed), dest untouched | **Start source stack** |
 | Dest up | Source stopped, dest partial, DNS/NPM **unchanged** | **Start source stack** |
+| Dest up, worker recycled mid-up | Dest **may** already be running; names unchanged | **No** Start source — look at dest first (starting source too would dual-run) |
 | NPM PUT / DNS | Dest up, proxy or names maybe stale | Fix dest / poll NPM; no auto-revert |
 | Validate | Dest up, names already flipped | No **Start source** (would dual-run) |
 
-**Start source stack** queues the existing Docker **Start all** job on the source project. It is not a full migrate rollback.
+**Start source stack** queues the existing Docker **Start all** job on the source project. It is pre-flip only — not a full migrate rollback. Leftover **Remove source** cannot be undone from PiHerder; restore from backup.
 
 <figure class="ph-figure" markdown>
   ![Start source stack](../assets/screenshots/docker-migrate-jobhold-start-source.png)
@@ -186,7 +187,7 @@ Validate red (TLS mismatch, Kuma down) **does not auto-roll back**. Dest may alr
 
 ## What it does not do
 
-- Auto-rollback, live (zero-downtime) copy, cross-arch image rebuild  
+- Auto-rollback (or reversing a **green** Move), live (zero-downtime) copy, cross-arch image rebuild  
 - Moving PiHerder itself, or the Pi-hole you are using to migrate  
 - Deleting dest volumes, or wiping extra binds outside the project folder  
 - Remapping published ports on **host-network** stacks (the process still binds the source host port on dest)  

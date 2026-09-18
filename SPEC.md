@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** Historical phase checklist (v1.0 era). **Hub production:** [v1.4.0](docs/RELEASE_v1.4.0.md) · [PLAN](docs/PLAN_v1.4.0.md). Prior: [v1.3.0](docs/RELEASE_v1.3.0.md).  
-> **Last updated:** 2026-08-25 — do not treat this file as the operator guide (use the wiki + RELEASE).
+> **Status:** Historical phase checklist (v1.0 era). **Hub production:** [v1.5.0](docs/RELEASE_v1.5.0.md) · [PLAN](docs/PLAN_v1.5.0.md). Prior: [v1.4.0](docs/RELEASE_v1.4.0.md).  
+> **Last updated:** 2026-09-18 — do not treat this file as the operator guide (use the wiki + RELEASE).
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -51,7 +51,7 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 ### Platform reliability & deployment (2026-07-10)
 - **Remote host dependency check** (done): after SSH / least-priv onboard (and **Test connection**), probe tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`); read-only chips on server detail; re-check under SSH access; no auto-install on the remote host.
 - **Settings → Status tab** (done): scheduled health (web, PostgreSQL, Redis, Celery nodes/pool slots, scheduler, **mount free**); backup tree breakdown **on demand**; alert on state change only.
-- **Multi-worker** (done): `CELERY_CONCURRENCY` (default 2 pool slots in one node) + Redis **per-server backup mutex**; parallel across hosts; prefer concurrency over multi-node unless HA; cancel + stale recovery still correct.
+- **Multi-worker** (done): `CELERY_CONCURRENCY` (default 2 pool slots in one node) + Redis **per-server backup mutex**; parallel across hosts; prefer concurrency over multi-node unless HA; cancel + stale recovery still correct. **v1.5:** `service_migrate` on the same worker; dual-host backup mutex (lower id first); web recycle does not fail a running Move.
 - **Deployment:** **Docker Compose is the supported architecture**. Kubernetes and local/bare install are **under consideration only** — no committed Helm charts or dual-path installers in H0–H2.
 - Detail: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) § Horizon 0.5 and § Deployment architecture.
 
@@ -346,11 +346,13 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [x] **LAN discovery (nmap-class)** — opt-in LAN CIDR scan, network view, Hosts overlay, map identity + wiki screenshots — **v0.8.0 tagged** ([RELEASE_v0.8.0.md](docs/RELEASE_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md)); operator chrome polish continues in [PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md)
 - [ ] Cloudflare DNS automation from template hints / fabric
 - [ ] Pi-hole / NPM write paths beyond local DNS (full proxy host CRUD, lists, etc.) — **v1.4 M-npm** is backend retarget only
-- [ ] Service migrate host→host; destructive service remove — **→ v1.4 Stream M freeze pending** on `v1.4.0-dev` ([RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [PLAN](docs/PLAN_v1.4.0.md) · wiki [Move a service](wiki/docker/service-migration.md)); host lock (HAOS / hardware); NPM backend retarget; leftover wipe optional / default off
+- [x] Service migrate host→host; destructive service remove — **v1.4.0 tagged**; **v1.5.0** Move on Celery (web recycle safe) ([RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · wiki [Move a service](wiki/docker/service-migration.md))
+- [x] Reports layout (**N3a**) — pin / hide / reorder `/reports` cards; cookie `ph_reports_layout` — **v1.5 Should** on `v1.5.0-dev`
+- [x] Reports Move jobs card (**N3b**) — count / fail / last dest from `service_migrate` Jobs — **v1.5 stretch** on `v1.5.0-dev`
 - [ ] Expanded curated pack (Frigate, HA, n8n, media, …)
 - [ ] Plugin hooks / event webhooks (`job.completed`, `server.added`, …) — prefer REST + n8n over code exec
 - [ ] Ansible inventory / cloud-init bootstrap for new Pis (overlaps H2.75 P4 imaging depth)
-- [ ] Home Assistant: custom component or REST sensors (read + safe actions)
+- [ ] Home Assistant: HACS integration on HA (fleet + host devices; container/service entities from snapshots; details in PiHerder) — **v1.5 Discover written / v1.6 ship** ([PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7)
 - [ ] Optional AI (OpenAI-compatible BYO; off by default; no private keys in prompts)
 - [ ] Community: Discord + Discussions; project website / clickthrough
 
@@ -367,7 +369,7 @@ flowchart TB
     subgraph Core["Core Services (Docker Compose — supported)"]
         FastAPI --> DB[(PostgreSQL)]
         FastAPI --> Scheduler["APScheduler (cron)"]
-        FastAPI --> Celery["Celery worker(s) — concurrency via CELERY_CONCURRENCY; per-server mutex"]
+        FastAPI --> Celery["Celery worker(s) — backups + Move; CELERY_CONCURRENCY; per-server mutex"]
     end
 
     Scheduler -->|enqueue scheduled jobs| Celery

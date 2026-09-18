@@ -78,6 +78,7 @@ def test_demo_write_guard_allowlist(demo_on, monkeypatch):
     assert demo_svc.demo_write_allowed("POST", "/jobs/9/cancel") is True
     assert demo_svc.demo_write_allowed("POST", "/notifications/1/dismiss") is True
     assert demo_svc.demo_write_allowed("POST", "/account/favourites/toggle") is True
+    assert demo_svc.demo_write_allowed("POST", "/reports/layout") is True
     # Connectors / fleet config blocked
     assert demo_svc.demo_write_allowed("POST", "/integrations/new/pihole") is False
     assert demo_svc.demo_write_allowed("POST", "/integrations/new/generic") is False

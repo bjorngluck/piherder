@@ -395,16 +395,20 @@ def test_jobs_update_checks_cancel_orphan_demo(monkeypatch):
     monkeypatch.setattr(jobs_mod, "_revoke_celery_task", lambda *a, **k: None)
     jobs_mod.cancel_job(session, bak)
 
-    # orphan web jobs (leave celery backup)
-    web = Job(server_id=srv.id, job_type="service_migrate", status="running", details="{}")
+    # orphan web jobs (leave celery backup + Move)
+    web = Job(server_id=srv.id, job_type="os_patch", status="running", details="{}")
     cel = Job(server_id=srv.id, job_type="backup", status="running", details="{}", celery_task_id="x")
+    mig = Job(server_id=srv.id, job_type="service_migrate", status="running", details="{}")
     session.add(web)
     session.add(cel)
+    session.add(mig)
     session.commit()
     n = jobs_mod.cleanup_orphan_web_jobs(session)
     assert n >= 1
     session.refresh(cel)
+    session.refresh(mig)
     assert cel.status == "running"
+    assert mig.status == "running"
 
     # demo create_job_and_run
     monkeypatch.setattr("app.services.demo.demo_mode", lambda: True)

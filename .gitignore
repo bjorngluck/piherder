@@ -1,5 +1,9 @@
 # Python
 __pycache__/
+.coverage
+coverage.xml
+coverage.json
+htmlcov/
 *.py[cod]
 *$py.class
 *.so

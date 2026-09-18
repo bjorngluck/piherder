@@ -1210,8 +1210,10 @@ def test_jobs_source_filter_list_count_and_details():
     assert jobs_mod._is_celery_owned_job(j1) is True
     nm = Job(job_type="nmap_discovery", status="pending")
     assert jobs_mod._is_celery_owned_job(nm) is True
-    web = Job(job_type="service_migrate", status="running", celery_task_id="")
+    web = Job(job_type="os_patch", status="running", celery_task_id="")
     assert jobs_mod._is_celery_owned_job(web) is False
+    mig = Job(job_type="service_migrate", status="running", celery_task_id="")
+    assert jobs_mod._is_celery_owned_job(mig) is True
 
     details = json.loads(jobs_mod._initial_job_details("queued", project="grafana"))
     assert details["current"] == "queued"
