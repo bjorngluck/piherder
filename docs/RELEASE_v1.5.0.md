@@ -2,7 +2,7 @@
 
 **18 September 2026.** Move a stack while you recycle the UI. Pin the Reports cards you actually use. When a session expires you get **Sign in**, not a JSON error.
 
-**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.5.0` · `1.5` · `latest` (amd64 + arm64) after Hub publish. Pins `1.4.0` / `1.4` stay valid.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.5.0` · `1.5` · `latest` (amd64 + arm64). Pins `1.4.0` / `1.4` stay valid.
 
 Operator how-to: wiki [Move a service](https://piherder-docs.hacknow.info/docker/service-migration/) · [Reports](https://piherder-docs.hacknow.info/day-to-day/reports/) · [Jobs](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/). Technical record: [PLAN_v1.5.0](https://github.com/bjorngluck/piherder/blob/v1.5.0/docs/PLAN_v1.5.0.md). Maintainer QA: [QA_v1.5.0](https://github.com/bjorngluck/piherder/blob/v1.5.0/docs/QA_v1.5.0.md).
 
