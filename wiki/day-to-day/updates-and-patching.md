@@ -124,7 +124,7 @@ Bulk does not bypass exclusive-job rules: if a host already has that job type ru
 
 ## Reboot
 
-Least-priv sudoers may allow `/usr/sbin/reboot` and `systemctl`. PiHerder:
+Least-priv sudoers must allow the exact command PiHerder sends: `systemctl reboot --ignore-inhibitors` (and/or `systemctl reboot -i`). A drop-in that only allows `/usr/sbin/reboot` is **not** enough. PiHerder:
 
 1. Schedules reboot in the background (`sleep 1` then `systemctl reboot --ignore-inhibitors`) so the SSH command returns quickly.  
 2. Closes SSH with a short timeout (hosts dying mid-session no longer hang the request).  
