@@ -52,6 +52,8 @@ Some deployments also use **Cloudflare Access** as an outer email gate before th
 - Not an admin sandbox — **viewer-only** RBAC by design  
 - Not a guarantee that every panel looks identical to production data  
 
+The **public demo** and **this docs site** load an X (Twitter) conversion tag so we can see that marketing visits reached the sandbox. **Self-hosted installs do not** — there is no ad pixel in the image you deploy at home.
+
 To run **your own** instance, see [Install](../getting-started/install.md).
 
 Maintainer ops (VPS, seed, Cloudflare, cron): [docs/DEMO_SITE.md](https://github.com/bjorngluck/piherder/blob/main/docs/DEMO_SITE.md) in the repo (not required for self-hosting).
