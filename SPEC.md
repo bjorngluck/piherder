@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** Historical phase checklist (v1.0 era). **Hub production:** [v1.4.0](docs/RELEASE_v1.4.0.md) · [PLAN](docs/PLAN_v1.4.0.md). Prior: [v1.3.0](docs/RELEASE_v1.3.0.md).  
-> **Last updated:** 2026-08-25 — do not treat this file as the operator guide (use the wiki + RELEASE).
+> **Status:** Historical phase checklist (v1.0 era). **Hub production:** [v1.5.0](docs/RELEASE_v1.5.0.md) · [PLAN](docs/PLAN_v1.5.0.md). Prior: [v1.4.0](docs/RELEASE_v1.4.0.md).  
+> **Last updated:** 2026-09-18 — do not treat this file as the operator guide (use the wiki + RELEASE).
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -346,7 +346,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [x] **LAN discovery (nmap-class)** — opt-in LAN CIDR scan, network view, Hosts overlay, map identity + wiki screenshots — **v0.8.0 tagged** ([RELEASE_v0.8.0.md](docs/RELEASE_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md)); operator chrome polish continues in [PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md)
 - [ ] Cloudflare DNS automation from template hints / fabric
 - [ ] Pi-hole / NPM write paths beyond local DNS (full proxy host CRUD, lists, etc.) — **v1.4 M-npm** is backend retarget only
-- [x] Service migrate host→host; destructive service remove — **v1.4.0 tagged** ([RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [PLAN](docs/PLAN_v1.4.0.md) · wiki [Move a service](wiki/docker/service-migration.md)); host lock (HAOS / hardware); NPM backend retarget; leftover wipe optional / default off. **v1.5 M-worker landed** on `v1.5.0-dev`: Celery `service_migrate`, dual-host backup mutex, web recycle safe ([PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md))
+- [x] Service migrate host→host; destructive service remove — **v1.4.0 tagged**; **v1.5.0** Move on Celery (web recycle safe) ([RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · wiki [Move a service](wiki/docker/service-migration.md))
 - [x] Reports layout (**N3a**) — pin / hide / reorder `/reports` cards; cookie `ph_reports_layout` — **v1.5 Should** on `v1.5.0-dev`
 - [x] Reports Move jobs card (**N3b**) — count / fail / last dest from `service_migrate` Jobs — **v1.5 stretch** on `v1.5.0-dev`
 - [ ] Expanded curated pack (Frigate, HA, n8n, media, …)

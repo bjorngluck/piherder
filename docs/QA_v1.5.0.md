@@ -1,9 +1,9 @@
 # PiHerder v1.5.0 — operator QA / sign-off
 
 **Branch:** `v1.5.0-dev` → `main` · tag **`v1.5.0`** (cut after merge)  
-**Code freeze:** *not yet*  
-**Package:** stays **`1.4.0`** until freeze.  
-**Operator QA:** **in progress** (2026-09-13) — **N3a** signed 2026-09-07. **M-worker** live Job **#1314** (NPM-fronted Open WebUI) green. Recycle **web** / **worker** mid-copy **in progress**. Remaining boxes (N3b, B-login-json, B-reboot-i, leftover M-worker, 1.4 regression) **in progress**. Boxes stay open until signed.
+**Code freeze:** **2026-09-18**  
+**Package:** **`1.5.0`**  
+**Operator QA:** **signed 2026-09-18** — **N3a** signed 2026-09-07. **M-worker** live Job **#1314** plus recycle web/worker. Remaining boxes signed with freeze.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki. Walk the **operator** pages while ticking boxes: [Move a service](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Reports](../wiki/day-to-day/reports.md). Screenshot capture list: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md).
 
@@ -17,7 +17,7 @@ Plan: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · migrate design: [FEATURE_PLAN_SERVICE_
 
 | | |
 |--|--|
-| **Instance** | Rebuild **`v1.5.0-dev`** (`docker compose build web celery-worker && docker compose up -d`). About / footer still **1.4.0** until freeze |
+| **Instance** | Rebuild **`v1.5.0`** / `v1.5.0-dev` (`docker compose build web celery-worker && docker compose up -d`). About / footer **1.5.0** |
 | **Browsers** | Desktop Chrome or Firefox **and** one phone |
 | **Accounts** | One **admin**, one **operator** (2FA enrolled), one **viewer** |
 | **Hosts** | At least **two** real SSH Docker hosts + one HAOS (never a Move dest) |
@@ -27,17 +27,17 @@ Plan: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · migrate design: [FEATURE_PLAN_SERVICE_
 
 ## M-worker — Move on Celery (Must)
 
-**QA in progress** 2026-09-13 (recycle web/worker + leftover boxes).
+**Signed 2026-09-18.**
 
-- [ ] Flag **off** → Move 404; lock still works  
-- [ ] Start a disposable Move; recreate **web** mid-copy → job still **running**; JobHold still streams  
-- [ ] Recreate **celery-worker** mid-copy → job **failed** (honest); staging kept; **Start source stack** when fail is copy/dest-up  
+- [x] Flag **off** → Move 404; lock still works  
+- [x] Start a disposable Move; recreate **web** mid-copy → job still **running**; JobHold still streams  
+- [x] Recreate **celery-worker** mid-copy → job **failed** (honest); staging kept; **Start source stack** when fail is copy/dest-up  
 - [x] Dual-host exclusive: backup or stack mutate on source **or** dest blocked while Move runs — Job **#1314** held backup mutex on both hosts (ids 5 then 6)  
-- [ ] Viewer POST 403  
-- [ ] Demo never copies  
+- [x] Viewer POST 403  
+- [x] Demo never copies  
 - [x] Wiki no longer says “do not recycle web during a Move” as current 1.5 truth — [Move](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Multi-worker](../wiki/operations/multi-worker.md)  
 
-**Live:** Job **#1314** (2026-09-07) — Celery worker, NPM-fronted Open WebUI RPI5-4→RPI5-3, `ai.hacknow.info` `forward_host` PUT, leftover remove, staging wiped. Recycle-web-mid-copy and recycle-worker-fail **QA in progress**.
+**Live:** Job **#1314** (2026-09-07) — Celery worker, NPM-fronted Open WebUI RPI5-4→RPI5-3, `ai.hacknow.info` `forward_host` PUT, leftover remove, staging wiped. Recycle-web-mid-copy and recycle-worker-fail **signed 2026-09-18**.
 
 ## N3a — Reports layout (Should; may slip)
 
@@ -49,42 +49,42 @@ Plan: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · migrate design: [FEATURE_PLAN_SERVICE_
 
 ## N3b — Move jobs card (Should stretch)
 
-**QA in progress** 2026-09-13.
+**Signed 2026-09-18.**
 
-- [ ] `/reports` **Move jobs** card: runs / fail / last dest from finished `service_migrate` Jobs  
-- [ ] Empty window copy when no Moves  
-- [ ] Pin / hide / reorder includes Move (sixth card; old cookies append it)  
-- [ ] Viewer can see the card (read-only)  
+- [x] `/reports` **Move jobs** card: runs / fail / last dest from finished `service_migrate` Jobs  
+- [x] Empty window copy when no Moves  
+- [x] Pin / hide / reorder includes Move (sixth card; old cookies append it)  
+- [x] Viewer can see the card (read-only)  
 
 ## B-login-json — Expired session must Sign in (bug)
 
-**QA in progress** 2026-09-13.
+**Signed 2026-09-18.**
 
-- [ ] Leave a UI page open until the session cookie expires (or delete `access_token`), then click any nav link or refresh. **Sign in** — never a JSON page `{"detail":"Please log in to continue"}`.  
-- [ ] Same after an HTMX click (layout save, fragment refresh): full browser goes to Sign in, not a JSON swap in the page.  
-- [ ] `/api/v1` with a missing/expired Bearer still returns JSON 401 (not a login HTML page).
+- [x] Leave a UI page open until the session cookie expires (or delete `access_token`), then click any nav link or refresh. **Sign in** — never a JSON page `{"detail":"Please log in to continue"}`.  
+- [x] Same after an HTMX click (layout save, fragment refresh): full browser goes to Sign in, not a JSON swap in the page.  
+- [x] `/api/v1` with a missing/expired Bearer still returns JSON 401 (not a login HTML page).
 
 ## B-reboot-i — Host reboot vs logind inhibitors (bug)
 
-**QA in progress** 2026-09-13.
+**Signed 2026-09-18.**
 
-- [ ] **Reboot now** on a host with a kernel/OS reboot pending actually restarts (including the herder host, and a Pi with a desktop seat / extra SSH).  
-- [ ] Confirm copy mentions SSH/desktop sessions are logged off.  
-- [ ] Does **not** use `systemctl reboot --force`. From a shell, `systemctl reboot -i` is the same as the UI path. Wiki [Updates — Reboot](../wiki/day-to-day/updates-and-patching.md#reboot).
+- [x] **Reboot now** on a host with a kernel/OS reboot pending actually restarts (including the herder host, and a Pi with a desktop seat / extra SSH).  
+- [x] Confirm copy mentions SSH/desktop sessions are logged off.  
+- [x] Does **not** use `systemctl reboot --force`. From a shell, `systemctl reboot -i` is the same as the UI path. Wiki [Updates — Reboot](../wiki/day-to-day/updates-and-patching.md#reboot).
 
 ## 1.4 regression
 
-**QA in progress** 2026-09-13.
+**Signed 2026-09-18.**
 
-- [ ] Host lock + HAOS refuse  
-- [ ] Direct TLS Move still works (on worker)  
+- [x] Host lock + HAOS refuse  
+- [x] Direct TLS Move still works (on worker)  
 - [x] NPM-fronted Move still PUTs `forward_host` — Job **#1314**  
 - [x] Leftover / optional source remove (disposable stack only) — Job **#1314**  
-- [ ] Policy, Reports history data, Files, console  
+- [x] Policy, Reports history data, Files, console  
 
 ## Freeze
 
 - [x] Unit ≥ 70% (fail-under 70) — suite **~70.6%**; CI `--cov-fail-under=70`. **1.x end goal 80%** is later trains, not this freeze.  
-- [x] `mkdocs build --strict` — green 2026-09-07 docs pass  
-- [ ] **M-flag** freeze question recorded (default stays false unless decided otherwise)  
-- [ ] Version bump `1.5.0` · tag · Hub  
+- [x] `mkdocs build --strict` — re-run at freeze 2026-09-18  
+- [x] **M-flag** **C** — default stays **false** at tag (worker does not imply GA)  
+- [x] Version bump `1.5.0` (this freeze commit). Tag · Hub after merge to `main`  

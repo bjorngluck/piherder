@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Release](https://img.shields.io/badge/release-v1.4.0-green.svg)](docs/RELEASE_v1.4.0.md)
+[![Release](https://img.shields.io/badge/release-v1.5.0-green.svg)](docs/RELEASE_v1.5.0.md)
 [![Docker Hub](https://img.shields.io/badge/docker-bjorngluck%2Fpiherder-blue.svg)](https://hub.docker.com/r/bjorngluck/piherder)
 [![Docs](https://img.shields.io/badge/docs-wiki-red.svg)](https://piherder-docs.hacknow.info/)
 [![Demo](https://img.shields.io/badge/demo-view--only-orange.svg)](https://piherder-demo.hacknow.info)
@@ -65,8 +65,8 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Full docs & wiki: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
-- **Current production:** [docs/RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) — Move a service · demo Files. Technical record: [PLAN_v1.4.0.md](docs/PLAN_v1.4.0.md). Wiki: [Move a service](wiki/docker/service-migration.md)
-- **Next train:** [docs/PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md) — **Active** on `v1.5.0-dev`. Landed: Move on Celery, Reports layout + Move jobs card, unit **≥ 70%**. Remaining: Discover notes, leftover recycle QA, freeze
+- **Current production:** [docs/RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) — Move on Celery · Reports layout. Technical record: [PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md). Wiki: [Move a service](wiki/docker/service-migration.md)
+- **Next train:** [docs/PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md) — candidate (HACS on HA). **v1.7:** [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md) (remaining jobs on Celery)
 - Prior: [docs/RELEASE_v1.3.0.md](docs/RELEASE_v1.3.0.md) · [docs/RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) · [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
 - API reference: [docs/API.md](docs/API.md)
 

@@ -3,7 +3,7 @@
 **Status:** **Under consideration** — train **not** opened. Do not start product code here.  
 **Date parked:** 2026-09-08  
 **Git branch:** none yet (`v1.6.0-dev` at train open)  
-**Production until then:** `main` stays **v1.4.x** until **v1.5.0** freezes, then **v1.5.x**  
+**Production until then:** `main` is **v1.5.x** after the 1.5 tag  
 **Related:** [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7
 
 Theme and Must/Should lock at **train open**. This file is only the parked inbox so 1.5 does not grow leftovers.
