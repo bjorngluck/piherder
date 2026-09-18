@@ -287,7 +287,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **UI walkthrough — Playwright** | **Must since v0.7.0** — shell + wizard + B6 + nmap shells. **v0.9 rule:** any UX/code touched in the release gets **basic** E2E coverage (no live SSH/nmap/HA in CI). |
 | **Dependency hygiene** | **Done for RC path:** `uv.lock` + hashed `requirements*.lock.txt`; Dockerfile/CI install with `--require-hashes`. Ongoing: periodic `pip-audit` / Dependabot; intentional bumps via `scripts/refresh-lockfiles.sh`. |
 | **JWT stack** | **Done (pre-0.5.0 tag):** sessions use **PyJWT[crypto]** HS256 — `python-jose` / `ecdsa` removed. |
-| **Custom branding** | Operator logo + accent colours — **far horizon** (well after 1.0 production). Not near-term polish. Built-in light/dark only for now. |
+| **Custom branding** | **v1.5 Discover written (Brand)** — wordmark + one accent; hide Catalog in nav; official mark + primary red stay. **Brand-1/2** parked v1.6. No theme engine. [PLAN_v1.5.0.md](PLAN_v1.5.0.md). |
 | **Custom password policy** | Admin-configurable policy (min length, required classes, optional specials) instead of fixed code defaults. Soft max remains ~72 characters (storage limit). **Landed on `v1.3.0-dev` (slice 1 / P)** — Settings → Security. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
 | **Console timeouts / concurrency (W-cfg)** | Idle, max session, slot caps, ticket, park hold, bind, revalidate, scrollback in Settings. Kill switch stays `PIHERDER_SSH_CONSOLE`. **Landed on `v1.3.0-dev` (slice 2 Deep).** [web SSH](../wiki/day-to-day/web-ssh-console.md). |
 | **Fleet lists (L)** | Shared pager + page size + smart free-text on Servers, Docker stacks, discovery list. **Landed on `v1.3.0-dev` (slice 3 Deep).** |
@@ -476,7 +476,7 @@ Reuse existing SSH access actions; the wizard is **orchestration + progress**, n
 | **Advanced secrets** | Explore beyond locked `.env`: Swarm/file permissions hardening, sealed host store for offline recreate, optional vault — never require PiHerder for normal container restart |
 | Optional AI | OpenAI-compatible BYO (cloud or private LLM); **off by default**; never send private keys; Frigate vision stays on Frigate / AI Hat |
 | **Topology plugins** | Optional export to graph tools (e.g. Mermaid, Graphviz DOT, or browser libraries like Cytoscape.js / vis-network) for large fleets — keep core views offline-first CSS/SVG |
-| **Custom theme / branding** | Operator logo + primary colours (instance skin). **Not** in v0.5 / v1.0 first production — revisit only after quality + fabric depth |
+| **Custom theme / branding** | **v1.5 Discover written.** Thin slice = wordmark + one accent + hide Catalog. **Not** a theme engine. Brand-1 parked [PLAN_v1.6.0.md](PLAN_v1.6.0.md). |
 
 ---
 
