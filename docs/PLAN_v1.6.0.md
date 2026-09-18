@@ -4,7 +4,7 @@
 **Date parked:** 2026-09-08  
 **Git branch:** none yet (`v1.6.0-dev` at train open)  
 **Production until then:** `main` stays **v1.4.x** until **v1.5.0** freezes, then **v1.5.x**  
-**Related:** [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7
+**Related:** [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7
 
 Theme and Must/Should lock at **train open**. This file is only the parked inbox so 1.5 does not grow leftovers.
 
@@ -23,7 +23,7 @@ Theme and Must/Should lock at **train open**. This file is only the parked inbox
 | **W-mux** | Host `tmux` / `screen` for web console | **1.5 Discover written.** **Mux-1:** per-host opt-in; prefer tmux then screen else plain PTY; named session per user+host+tab; ✕ kills, Hide detaches; herder park stays. Never apt-install, never refuse console, never shared `piherder` session. **Mux-2:** reattach after web recycle; leftover list/kill. Not Must until this train locks. [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 W-mux. |
 | **Brand** | Instance wordmark + one accent; hide Catalog | **1.5 Discover written.** **Brand-1:** Settings instance name + one accent (`--color-accent` only); official mark + primary red stay; demo ignored. **Brand-2:** instance-wide hide Catalog in nav (`/catalog` still works). **Brand-3:** own-docs MkDocs skin later. No theme engine, no logo upload. Not Must until this train locks. [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. |
 
-**Not parked here:** remaining 1.5 Discover catalog (M-flag, J-runtime) — write those notes on the 1.5 train if we write them; promote later. **HA-p2 / M-undo / W-mux / Brand write-ups are done** (1.5); **ship** stays this inbox.
+**Not parked here:** freeze question **M-flag** (1.5). **J-runtime** is **v1.7** — [PLAN_v1.7.0.md](PLAN_v1.7.0.md). **HA-p2 / M-undo / W-mux / Brand write-ups are done** (1.5); **ship** stays this inbox.
 
 ---
 
@@ -50,5 +50,6 @@ Do this **after** 1.5 is tagged, on `v1.6.0-dev`.
 | 2026-09-13 | **M-undo Discover** landed on 1.5. This inbox: Undo-1 named job (fail-path, stop dest then start source). No undo code on `v1.5.0-dev`. |
 | 2026-09-13 | **W-mux Discover** landed on 1.5. This inbox: Mux-1 per-host opt-in tmux/screen. No mux code on `v1.5.0-dev`. |
 | 2026-09-18 | **Brand Discover** landed on 1.5. This inbox: Brand-1 wordmark + one accent; Brand-2 hide Catalog. No chrome code on `v1.5.0-dev`. |
+| 2026-09-18 | **J-runtime** Discover written on 1.5; parked on **[PLAN_v1.7.0.md](PLAN_v1.7.0.md)** (not this inbox). |
 
 *Open the train with a real Must/Should lock. Until then production is still [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) (then 1.5).*

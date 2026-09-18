@@ -1,6 +1,6 @@
 # PiHerder v1.5.0 — job runtime (Move on the worker)
 
-**Status:** **Active** — Must **M-worker**, Should **N3a**, **N3b**, **M-hb**, **Q** (70%) **landed** 2026-09-08. **CSP-n** / **HA-p2** / **M-undo** / **W-mux** / **Brand** Discover written (not Should). **B-reboot-i** / **B-login-json** landed. Remaining: leftover live recycle QA **in progress** · remaining operator QA **in progress** · other Discover notes · freeze (**M-flag**, version, tag, Hub)  
+**Status:** **Active** — Must **M-worker**, Should **N3a**, **N3b**, **M-hb**, **Q** (70%) **landed** 2026-09-08. Discover notes **written** (CSP-n · HA-p2 · M-undo · W-mux · Brand · **J-runtime**). **B-reboot-i** / **B-login-json** landed. Remaining: leftover live recycle QA **in progress** · remaining operator QA **in progress** · freeze (**M-flag**, version, tag, Hub)  
 **Date opened:** 2026-09-07  
 **Git branch:** `v1.5.0-dev` → `main` · tag `v1.5.0` (at freeze)  
 **Package / image version:** stays **`1.4.0` until freeze**  
@@ -8,7 +8,7 @@
 **Baseline:** `v1.4.0` (tagged 2026-09-06)  
 **Mode:** **Must → Should → Discover.** Must **M-worker**. Should **N3a** + **N3b** + **M-hb** + **Q**. **AC-fg is out.**  
 **QA:** [QA_v1.5.0.md](QA_v1.5.0.md) (maintainer stub — **not** the operator wiki)  
-**Related:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) (candidate inbox) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · wiki [Move a service](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Reports](../wiki/day-to-day/reports.md)
+**Related:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (candidate inboxes) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · wiki [Move a service](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Reports](../wiki/day-to-day/reports.md)
 
 > **Train open 2026-09-07.** Production stays **v1.4.x** on `main`. Kill switch `PIHERDER_SERVICE_MIGRATE` stays **false**. HAOS path-2 **plugin ships v1.6.0** (discover only here). Package stays **1.4.0** until freeze.
 
@@ -28,7 +28,7 @@ Wanted:
 
 This is the migrate slice of 1.3’s parked “one job runtime.” It is **not** moving OS-patch / stack / template jobs off web unless Discover **J-runtime** is later promoted.
 
-**Now (2026-09-18):** Move enqueues `app.tasks.service_migrate` on the backup worker. Dual-host **backup** Redis mutex (lower id first). Web recycle does not fail a running Move; worker redelivery of `running` fails it. **N3a** pin/hide/↑↓ on `/reports` (cookie `ph_reports_layout`). **N3b** Move jobs card (count / fail / last dest). Unit **~70.6%**; CI fail-under **70**. **HA-p2** / **M-undo** / **W-mux** / **Brand** Discover written (plugin / undo / mux / wordmark → v1.6). **B-login-json** landed. Leftover live proof (recycle **web** / **worker** mid-copy) and remaining operator boxes: **QA in progress**. **0.x PLAN/RELEASE archive** parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
+**Now (2026-09-18):** Move enqueues `app.tasks.service_migrate` on the backup worker. Dual-host **backup** Redis mutex (lower id first). Web recycle does not fail a running Move; worker redelivery of `running` fails it. **N3a** pin/hide/↑↓ on `/reports` (cookie `ph_reports_layout`). **N3b** Move jobs card (count / fail / last dest). Unit **~70.6%**; CI fail-under **70**. Discover notes written (plugin / undo / mux / wordmark → v1.6; **J-runtime → v1.7**). **B-login-json** landed. Leftover live proof (recycle **web** / **worker** mid-copy) and remaining operator boxes: **QA in progress**. **0.x PLAN/RELEASE archive** parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 **Out of 1.5 product code:** **AC-fg**, **M-live**, ACME-in-herder, full NPM CRUD, Files token API, **N3c** widget picker, HA custom component **code** (discover only; ship **v1.6.0**).
 
@@ -72,7 +72,7 @@ main @ v1.4.0 (+ v1.4.x patches)
 | # | Question | Decision |
 |---|----------|----------|
 | 1 | Theme / Must | **M-worker**. Recycle web must not fail a running Move |
-| 2 | Broader “one job runtime”? | **J-runtime Discover.** Do not start OS-patch / stack / template Celery moves |
+| 2 | Broader “one job runtime”? | **J-runtime Discover written 2026-09-18.** All remaining exclusive types later, in one go. Host-down queue/retry. Park **v1.7**. Not this freeze. |
 | 3 | Heartbeats | Reuse backup `_flush_job_progress` / `Job.details`. No new WS protocol |
 | 4 | Dual-host lock on Celery | Extend exclusive + backup mutex so a Move holds **both** server ids. Spike if Redis lock is single-id only |
 | 5 | **M-flag** | Stay **false** at train open. Freeze question. Prefer Settings+env over compose default `true` |
@@ -321,7 +321,30 @@ Park Mux-1 on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 ### **J-runtime** — Rest of web-process jobs
 
-Inventory only: OS/container patch, stack check/deploy/lifecycle, templates still die on web recycle. Do not move them in 1.5 unless Must is green and we explicitly pull.
+**Written 2026-09-18. Not 1.5 Should.** Do not move OS-patch / stack / template jobs this freeze.
+
+**Leans:** Later Celery move is **all remaining exclusive jobs in one go**. If the **host is down** (Kuma / SSH not connecting), **queue and retry** — do not fail immediately. Worker kill of a **running** apt/compose stays **fail honest** (cannot resume mid-flight).
+
+**Today — Celery:** `backup`, `service_migrate`, `nmap_*`, stale-data cleanup. Web recycle does not fail them.
+
+**Today — web** (`BackgroundTasks` / thread pools; recycle web → startup `cleanup_orphan_web_jobs` fails the row):
+
+| Family | Types |
+|--------|-------|
+| Patch | `os_patch`, `container_patch` |
+| Checks | `os_update_check`, `container_update_check`, `docker_stack_check` |
+| Stack mutate | `docker_stack_deploy` / `_stop` / `_start` / `_restart` / `_down` / `_remove` (shared lane) |
+| Templates | `template_deploy`, `template_redeploy`, `template_drift_check` |
+| Other | `herder_backup`, `retention` (not exclusive) |
+
+**Locks (if Jr-1 ships later):**
+
+1. One slice onto the **default Celery queue**. nmap stays `-Q nmap`. Keep DB exclusive + stack-mutating lane. Do not steal Move’s dual-host backup mutex for single-host apt.
+2. Host unreachable: job stays **pending**, backoff until SSH works or **max wait**. Kuma/last_seen may **signal**; SSH probe is source of truth. Exclusive slot held. Not “fire a stored compose on wake.”
+3. Worker recycle of **running** mutate: fail honest. Pending wait-for-host **redelivers**.
+4. Demo never live-runs.
+
+**1.7 candidate (not Must):** **Jr-1** exclusive types → Celery + wait-for-host. **Jr-2** Kuma/last_seen + Settings max wait. Park on [PLAN_v1.7.0.md](PLAN_v1.7.0.md) — **not** 1.6.
 
 ---
 
@@ -334,7 +357,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | **Should** | **N3b** | Move jobs card: count / fail / last dest | **Code landed** 2026-09-08. Operator QA **in progress** |
 | **Should** | **M-hb** | Heartbeats / stall visible | **Done** — reuse `_flush_job_progress` / JobHold DB poll |
 | **Should** | **Q** | Tests; wiki truth; coverage ≥ 70% | **Bar met** (~70.6%; fail-under **70**) |
-| **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only | **CSP-n** 2026-09-08 · **HA-p2** 2026-09-10 · **M-undo** / **W-mux** 2026-09-13 · **Brand** 2026-09-18 (not Should; jobs → v1.6). M-flag / J-runtime still open |
+| **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only | **All Discover write-ups done** except freeze question **M-flag**. Most jobs → v1.6; **J-runtime → v1.7**. |
 | **Out** | **AC-fg** · M-live · ACME · NPM CRUD · Files token API · N3c · HA-p2 **code** | Park AC-fg + HA plugin on **v1.6.0** | Unchanged |
 
 ---
@@ -397,6 +420,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 2026-09-13 | **M-undo Discover written.** Fail-path only; stop dest then start source; never silent `finally` / dest wipe. Job `service_migrate_undo` parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Not 1.5 Should. |
 | 2026-09-13 | **W-mux Discover written.** tmux then screen else PTY; opt-in per host; ✕ kills session, Hide detaches; herder park stays. Mux-1 parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Not 1.5 Should. |
 | 2026-09-18 | **Brand Discover written.** Wordmark + one accent; hide Catalog in nav; official mark + primary red stay. Brand-1/2 parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Not 1.5 Should. |
+| 2026-09-18 | **J-runtime Discover written.** Remaining exclusive jobs still web. Later: all of them on Celery in one go; host-down queue/retry; running mutate fail-honest. Jr-1 parked on [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (**not** 1.6). Not 1.5 Should. |
 | 2026-09-07 | **Docs pass:** wiki Move / Jobs / Reports / multi-worker / architecture / upgrades 1.4→1.5 / troubleshooting; ADMIN migrate+Celery; README / SPEC / ROADMAP / QA aligned. 1.4 RELEASE stays historical (web `BackgroundTasks`). |
 
 ---
@@ -414,7 +438,7 @@ Inventory only: OS/container patch, stack check/deploy/lifecycle, templates stil
 | 6b | **N3b** Move jobs Reports card | **Done** 2026-09-08 — count / fail / last dest |
 | 6c | **B-reboot-i** systemd inhibit on host reboot | **Done** 2026-09-08 — `--ignore-inhibitors` |
 | 6d | **B-login-json** expired session JSON on UI pages | **Done** 2026-09-13 — 303 / `HX-Redirect` / fetch fallback. Operator QA **in progress** |
-| 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | **CSP-n** 2026-09-08 · **HA-p2** 2026-09-10 · **M-undo** / **W-mux** 2026-09-13 · **Brand** 2026-09-18. J-runtime still open |
+| 7 | Discover notes: undo matrix, CSP count, HA-p2 entities | **Done** 2026-09-18 — CSP-n · HA-p2 · M-undo · W-mux · Brand · J-runtime. **M-flag** stays freeze. |
 | 8 | **Q** raise unit coverage **62 → 70** | **Done** 2026-09-07 (65%) · **Q2 2026-09-08 (70%)** — `test_coverage_v15_q2.py` + `test_coverage_v15_q2b.py`; CI fail-under **70** |
 | 9 | Leftover live QA: recycle **web** mid-Move; recycle **worker** mid-Move | **In progress** 2026-09-13 (Job #1314 was a clean run) |
 | 9b | Remaining operator boxes: N3b · B-login-json · B-reboot-i · leftover M-worker · 1.4 regression | **In progress** 2026-09-13 |
