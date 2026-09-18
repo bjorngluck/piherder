@@ -1,6 +1,6 @@
 # Publishing a PiHerder image (Docker Hub / GHCR)
 
-**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64**. Production line **v1.4.0**.
+**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64**. Production line **v1.5.0**.
 **Related:** [ADMIN](https://piherder-docs.hacknow.info/operations/upgrades/) · [wiki publish page](https://piherder-docs.hacknow.info/developers/publish-image/) · live docs: https://piherder-docs.hacknow.info/
 
 Official compose pulls the published image:
@@ -8,7 +8,7 @@ Official compose pulls the published image:
 ```bash
 docker compose up -d
 # optional pin:
-# PIHERDER_IMAGE=bjorngluck/piherder:1.4.0 docker compose up -d
+# PIHERDER_IMAGE=bjorngluck/piherder:1.5.0 docker compose up -d
 ```
 
 **Dependency pins:** the image installs from committed `requirements.lock.txt` (`pip install --require-hashes`). Bump deps with `./scripts/refresh-lockfiles.sh` before a release build so Hub tags match the lockfile in the git tag.
@@ -60,8 +60,10 @@ echo "$GITHUB_TOKEN" | docker login ghcr.io -u bjorngluck --password-stdin
 
 | Tag | Meaning |
 |-----|---------|
-| `1.4.0` | Immutable release (match git tag `v1.4.0`) |
-| `1.4` | Rolling minor |
+| `1.5.0` | Immutable release (match git tag `v1.5.0`) |
+| `1.5` | Rolling minor |
+| `1.4.0` | Prior 1.4 pin (still valid) |
+| `1.4` | Prior rolling minor |
 | `1.3.0` | Prior 1.3 pin (still valid) |
 | `1.3` | Prior rolling minor |
 | `1.2.0` | Prior 1.2 pin (still valid) |
@@ -84,7 +86,7 @@ Arm64 matters for Raspberry Pi hosts running the herder itself.
 ```bash
 # From repo root, after docker login
 export IMAGE=bjorngluck/piherder
-export VERSION=1.4.0   # match release
+export VERSION=1.5.0   # match release
 
 docker buildx create --use --name piherder-builder --driver docker-container 2>/dev/null || true
 docker buildx use piherder-builder
@@ -95,7 +97,7 @@ docker buildx inspect --bootstrap
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t "${IMAGE}:${VERSION}" \
-  -t "${IMAGE}:1.4" \
+  -t "${IMAGE}:1.5" \
   -t "${IMAGE}:latest" \
   --push \
   .
@@ -162,7 +164,14 @@ Add when account + token exist and first manual push has worked once.
 
 ---
 
-## v1.4.0 publish checklist (maintainer)
+## v1.5.0 publish checklist (maintainer)
+
+- [x] `APP_VERSION` / `pyproject.toml` = `1.5.0`
+- [x] [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) finalized
+- [x] Merge `v1.5.0-dev` → `main` · git tag `v1.5.0`
+- [x] Multi-arch push: `1.5.0` / `1.5` / `latest` (amd64 + arm64) · digest `sha256:98cf929a6577b84ca03c5f8145f7cf24021ed56176a986a314f3b3cb59145949`
+
+### Prior: v1.4.0
 
 - [x] `APP_VERSION` / `pyproject.toml` = `1.4.0`
 - [x] [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) finalized · Status **Tagged**
