@@ -20,7 +20,7 @@ Backups run **in parallel across different hosts**. The same host never has two 
 | Knob | Default | Notes |
 |------|---------|--------|
 | `CELERY_CONCURRENCY` | `2` | Pool slots per Celery node |
-| `PIHERDER_SERVER_LOCK_TTL` | `7200` | Lock TTL if worker dies mid-rsync |
+| `PIHERDER_SERVER_LOCK_TTL` | `7200` | Lock TTL if worker dies mid-rsync. **Not refreshed** during a long copy — a Move/backup longer than this can lose the mutex. Raise the TTL for huge datasets. |
 | Shared volumes | required | Same `/backups` (and herder/data mounts) on **web** + **celery-worker** |
 | Cancel | — | Revoke via `celery_task_id`; mutex released in `finally` |
 

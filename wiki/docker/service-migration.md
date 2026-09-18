@@ -168,7 +168,7 @@ Remove is a second danger confirm plus checkbox. Preflight lists the project pat
 
 ## Failure
 
-Validate red (TLS mismatch, Kuma down) **does not auto-roll back**. Dest may already be up with DNS/NPM flipped. Fix dest yourself. Staging is **kept** on failure until you dismiss the job / it ages out. There is **no** post-flip undo job yet (planned as a later named recover, not a silent revert).
+Validate red (TLS mismatch, Kuma down) **does not auto-roll back**. Dest may already be up with DNS/NPM flipped. Fix dest yourself. Staging is **kept** on failure — PiHerder does **not** auto-wipe `/backups/_migrate/{job_id}`. After you have copied what you need (or **Start source stack**), delete that directory yourself so failed Moves do not fill the backup volume. There is **no** post-flip undo job yet (planned as a later named recover, not a silent revert).
 
 | Fail | State | JobHold |
 |------|--------|---------|

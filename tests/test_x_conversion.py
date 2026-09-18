@@ -59,15 +59,24 @@ def test_csp_twitter_only_when_pixel():
     assert "https://t.co" in on
 
 
-def test_login_html_has_no_twitter_on_normal_install():
-    from app.main import app
+def test_login_html_has_no_twitter_on_normal_install(monkeypatch):
+    """Home installs never load the pixel. Do not GET /auth/login — that hits Postgres."""
+    from pathlib import Path
 
-    client = TestClient(app)
-    r = client.get("/auth/login")
-    body = r.text
-    assert "platform.twitter.com" not in body
-    assert "rfe8i" not in body
-    assert "analytics.twitter.com" not in body
+    monkeypatch.setattr(demo_svc.settings, "PIHERDER_DEMO_MODE", False)
+    monkeypatch.setattr(demo_svc.settings, "PIHERDER_PUBLIC_URL", "https://piherder.lan")
+    monkeypatch.setattr(demo_svc.settings, "PIHERDER_HOSTNAME", "piherder.lan")
+    req = SimpleNamespace(
+        url=SimpleNamespace(hostname="piherder.lan"),
+        headers={},
+    )
+    assert demo_svc.x_conversion_enabled(req) is False
+    csp = hdr.build_csp(for_x_conversion=False)
+    assert "platform.twitter.com" not in csp
+    assert "analytics.twitter.com" not in csp
+    base = Path("app/templates/base.html").read_text()
+    assert "x_conversion_enabled(request)" in base
+    assert "partials/x_conversion.html" in base
 
 
 def test_login_html_has_twitter_on_public_demo(monkeypatch):
