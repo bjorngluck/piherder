@@ -179,7 +179,7 @@ Matches the original verbal list (DNS before dest listen). Not built: longer hol
 
 **Start source stack** is pre-flip only. Auto-rollback is **not** Must and **not** a silent `finally`.
 
-**M-undo (Discover 2026-09-13, job → v1.6):** fail-path only. After names have flipped, a later named job `service_migrate_undo` would preview → confirm: revert DNS/NPM to source, `restartdns`, revert control-plane rows, **compose stop dest**, **compose start source**. Dest dir + volumes stay. Never dest `down -v` / volume rm / project rm. Do **not** reverse a green Move (run a new Move B→A). Token API never POSTs migrate or undo. See [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 M-undo.
+**M-undo (Discover 2026-09-13, job → v1.6 Should Undo-1):** fail-path only. After names have flipped, named job `service_migrate_undo` would preview → confirm: revert DNS/NPM to source, `restartdns`, revert control-plane rows, **compose stop dest**, **compose start source**. Dest dir + volumes stay. Never dest `down -v` / volume rm / project rm. Do **not** reverse a green Move (run a new Move B→A). Token API never POSTs migrate or undo. See [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 M-undo.
 
 ---
 

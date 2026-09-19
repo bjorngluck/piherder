@@ -8,7 +8,7 @@ Optional **in-browser SSH terminal** to a managed host. The private key stays on
 
 **Train:** v1.2 Stream **W** · security bar is intentionally high.
 
-**Not GNU `screen` / `tmux` by default.** Each console is a direct SSH PTY. Soft resume parks on the **herder**, not on the host — so recreate **web** (or a herder crash) ends parked shells. You can still run `screen`/`tmux` yourself if installed. A later **opt-in per host** mux (prefer tmux, then screen, else plain PTY) is parked for **v1.6** — not this image. [PLAN_v1.5.0 W-mux](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.5.0.md).
+**Not GNU `screen` / `tmux` by default.** Each console is a direct SSH PTY. Soft resume parks on the **herder**, not on the host — so recreate **web** (or a herder crash) ends parked shells. You can still run `screen`/`tmux` yourself if installed. **v1.6 Must (Mux-1):** opt-in per host (prefer tmux, then screen, else plain PTY) — not in 1.5. [PLAN_v1.6.0 Mux-1](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/docs/PLAN_v1.6.0.md).
 
 ## Why it exists
 

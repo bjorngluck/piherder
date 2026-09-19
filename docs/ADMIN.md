@@ -570,7 +570,7 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **TLS / public URL** | `PIHERDER_PUBLIC_URL=https://…` so session cookies get **Secure** (or `COOKIE_SECURE=true`) |
 | **2FA** | Enable for admins (TOTP and/or passkeys); consider **Force 2FA** in Settings; revoke trusted devices if a device is lost |
 | **SSO** | Optional OIDC IdP; map groups carefully; keep break-glass local admin; see §3a |
-| **CSP (v1.2)** | Default on (`PIHERDER_CSP=true`). **Compiled Tailwind** (no Play / no `unsafe-eval`). `connect-src` is `'self'` + public origin / its `wss:` only. Console uses vendored xterm. Inline script/style still `'unsafe-inline'` (script nonces are **v1.6**, not 1.5). Report-only: `PIHERDER_CSP_REPORT_ONLY=true`. See [SECURITY.md](../SECURITY.md). |
+| **CSP (v1.2)** | Default on (`PIHERDER_CSP=true`). **Compiled Tailwind** (no Play / no `unsafe-eval`). `connect-src` is `'self'` + public origin / its `wss:` only. Console uses vendored xterm. Inline script/style still `'unsafe-inline'` (script nonces are **v1.6 Should**, not 1.5). Report-only: `PIHERDER_CSP_REPORT_ONLY=true`. See [SECURITY.md](../SECURITY.md). |
 | **Web SSH** | Default off (`PIHERDER_SSH_CONSOLE=false`); operator+ + passkey-preferred 2FA; floating popup + multi-host `/console`. Optional **privileged** identity is console + **Files** (**Connect as…**, extra confirm + fresh 2FA; jobs stay on fleet). Optional **command audit** (Settings → Console; default off; Fernet body; operator+ read). Timeouts, concurrency, ticket/park, bind, scrollback, privileged RBAC, and audit knobs are **Settings → Console** (env still wins if set). Kill switch stays compose-only. Wiki: [web-ssh-console](../wiki/day-to-day/web-ssh-console.md) · env sample: [console-and-backup.env.example](console-and-backup.env.example) |
 | **Host Files** | Default off (`PIHERDER_HOST_FILES=false`). **Files** button on every SSH host (including HAOS). Fleet jail = docker_base or home; privileged jail = `/` minus virtual FS. Operator+ on a real herder; public demo is a **canned** tree (no SFTP). API scope `files` (fleet list/get/put only). UI: edit, zip/unzip, chmod/chown, search (names + contents), preview, `.env` step-up, Docker volumes + `docker cp`. Transfer cap: Settings → Files (default 512 MiB, ceiling 32 GiB; env lock). Wiki: [host-files](../wiki/day-to-day/host-files.md) |
 | **Service migrate** | Default off (`PIHERDER_SERVICE_MIGRATE=false`) for **Move to another host…**. Project **Lock to this host…** is always available (operator+). HAOS is never a migrate source/dest. Flag on: stop → copy → dest up → DNS **or** NPM `forward_host` PUT (proxy-host binding is enough) → TLS/Kuma validate → rebind (maps, Kuma service, Grafana container chips, cert clone). Optional **Adopt into fabric**. Optional leftover `compose down`, or **remove** source project + named volumes (extra ack; dest never wiped). Copy/dest-up fail: JobHold **Start source stack**. **v1.5:** job runs on **Celery** (`app.tasks.service_migrate`, same worker as backups). Recycle **web** mid-Move is safe; recycle **celery-worker** fails a running Move (staging kept). Rebuild **web and celery-worker** after migrate code changes. **v1.4** ran on web `BackgroundTasks` — [RELEASE_v1.4.0](RELEASE_v1.4.0.md) is historical. Wiki: [Move a service](../wiki/docker/service-migration.md) |
@@ -584,7 +584,7 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
 | **Image pin** | Prefer a tagged image: Hub **`1.5.0`** / `1.5` / `latest` (`1.4.0` / `1.4` / `1.3.x` pins remain valid) |
 
-Current production: [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [QA_v1.5.0.md](QA_v1.5.0.md). Prior: [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current production: [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [QA_v1.5.0.md](QA_v1.5.0.md). Active train: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) on `v1.6.0-dev`. Prior: [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 
@@ -885,7 +885,7 @@ Set `METRICS_TOKEN` whenever `/metrics` is not on a fully private network. Serie
 
 ### Image publish (when ready)
 
-Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`1.5.0` / `1.5` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v1.5.0** — [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md). Next: [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
+Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`1.5.0` / `1.5` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v1.5.0** — [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md). Active train: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) on `v1.6.0-dev`.
 
 **Supported deploy path:** Docker Compose (this repo). Platform reliability (host dependency checks, Settings → **Status**, multi-worker Celery) is live — see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 0.5. Kubernetes and bare/local install are under consideration only, not supported install paths today.
 
