@@ -163,6 +163,8 @@ class Server(SQLModel, table=True):
     backup_enabled: bool = False
     os_patch_enabled: bool = False
     container_patch_enabled: bool = False
+    # v1.6 Mux-1: opt-in host tmux/screen for web SSH (default off; never HAOS/demo)
+    console_mux_enabled: bool = False
 
     # Backup & container config (stored as JSON strings for simplicity in v1)
     backup_paths: str = Field(default='["/home/pi/docker/", "/var/lib/docker/volumes/"]')

@@ -8,7 +8,7 @@ Optional **in-browser SSH terminal** to a managed host. The private key stays on
 
 **Train:** v1.2 Stream **W** · security bar is intentionally high.
 
-**Not GNU `screen` / `tmux` by default.** Each console is a direct SSH PTY. Soft resume parks on the **herder**, not on the host — so recreate **web** (or a herder crash) ends parked shells. You can still run `screen`/`tmux` yourself if installed. **v1.6 Must (Mux-1):** opt-in per host (prefer tmux, then screen, else plain PTY) — not in 1.5. [PLAN_v1.6.0 Mux-1](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/docs/PLAN_v1.6.0.md).
+**PTY vs host mux (Mux-1).** Default is still a direct SSH PTY. Soft resume parks on the **herder** — recreate **web** ends those parked shells. **Per-host opt-in** (Edit → Features → **Console mux**): when tmux is on the host, PiHerder opens a named session `ph-u{user}-s{server}-n{tab}-{f|p}`; if tmux is missing it tries **screen**; if neither is present you get a plain PTY and an honest banner. PiHerder **never** `apt install`s mux. **Hide & keep** detaches (session stays on the Pi). Shell **✕** / tab **×** **kills** that named session. Demo and HAOS never mux. Privileged vs fleet use different session names (no attach across identities). Command audit inside tmux/screen is best-effort. Leftover `ph-u*` sessions after [removing a host](remove-server.md) stay until you kill them as that Unix user. [PLAN_v1.6.0 Mux-1](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/docs/PLAN_v1.6.0.md).
 
 ## Why it exists
 

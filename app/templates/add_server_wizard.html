@@ -411,6 +411,16 @@
         </span>
       </span>
     </label>
+    {% if not is_haos %}
+    <label class="flex items-start gap-2 text-sm min-h-11 py-1">
+      <input type="checkbox" name="console_mux_enabled" value="on" class="mt-1"
+             {% if srv.console_mux_enabled %}checked{% endif %}>
+      <span>
+        <span class="font-medium">Console mux (tmux / screen)</span>
+        <span class="block text-xs text-muted mt-0.5">Opt-in web SSH session on the host when tmux or screen is already installed. Hide detaches; ✕ kills. PiHerder will not apt-install either binary.</span>
+      </span>
+    </label>
+    {% endif %}
     <div class="flex flex-wrap gap-2 pt-2">
       {% if wizard_prev %}
       <a href="/servers/new?step={{ wizard_prev }}&amp;server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-back">← Back</a>

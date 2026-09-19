@@ -320,4 +320,6 @@ def overlay_server_for_identity(server: Server, ident: Optional[ServerSshIdentit
         ssh_hostkey_type=getattr(server, "ssh_hostkey_type", None),
         ssh_hostkey_b64=getattr(server, "ssh_hostkey_b64", None),
         ssh_hostkey_fp=getattr(server, "ssh_hostkey_fp", None),
+        os_type=getattr(server, "os_type", None),
+        console_mux_enabled=bool(getattr(server, "console_mux_enabled", False)),
     )

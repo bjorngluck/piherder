@@ -40,6 +40,7 @@ Server detail → **Edit** → **Remove** tab → **Remove server…**
 | Compose drafts in PiHerder deleted | Host `piherder` user / sudoers / keys left as-is |
 | Herder-only children removed: cert deploy targets, map edges, visual stacks, template deployments, integration bindings, host pins, container annotations / port notes | LAN Discovery **device** stays; its “linked server” is cleared |
 | DNS fabric cleanup for the host | Backup archives on the backup volume kept |
+| | **Console mux leftover:** if the host had **Console mux** on, named `ph-u*` tmux/screen sessions may remain until reboot or you kill them as that Unix user (`tmux ls` / `screen -ls`). PiHerder does not `kill-server` every user on remove. |
 | Jobs / audit / notifications **`server_id` nulled** (history **kept**, unlinked) | Automatic wipe of old Jobs/Audit by age (that is opt-in [Stale data cleanup](../operations/settings.md#stale-data-cleanup)) |
 
 Confirm by typing the **exact server name**.
