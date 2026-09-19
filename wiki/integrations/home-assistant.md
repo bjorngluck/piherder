@@ -20,7 +20,7 @@ YAML `rest` sensors against an API token already work. Path 2 is that, first-cla
 1. In PiHerder: Settings → **API management** → create a token with **`read` only**. Set the **IP allowlist** to the HA host (HAOS ≈ appliance LAN IP; a container HA may egress as a Docker/bridge IP).  
 2. HACS → custom repository → **Integration**. Lean repo name: `bjorngluck/piherder-ha` (confirm on GitHub when published).  
 3. Add **PiHerder**: base URL (your herder origin, including scheme), token `ph_…`, TLS verify, poll interval.  
-4. Check HA devices: fleet sensors + one device per server. **Open in PiHerder** is the device configuration URL (`{origin}/servers/{id}`).
+4. Check HA devices: fleet sensors (including **Version**), one device per server. Host **model** is OS type plus enabled features (backup / OS patch / Docker). **Visit** opens `{origin}/servers/{id}`. **Jobs** and **Audit log** entities are PiHerder URLs (`/jobs?server_id=` and `/audit?server_id=`). Reload the integration after a HACS update so new entities appear.
 
 Token without `read`, a bad secret, or a mismatched allowlist **fails closed**.
 
