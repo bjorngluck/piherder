@@ -238,7 +238,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 |----------|------|-----|--------|
 | **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + Open in PiHerder; token `read`; not in this image | **Open** |
 | **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Open** |
-| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **Open** (1.5 was ~70.6% / 70) |
+| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs landed; suite **~71.6%** (term **72%**); CI fail-under still **70** until 75 |
 | **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Open** |
 | **Should** | **Docs-archive-0x** | `docs/archive/v0/` + stubs | **Open** |
 | **Should** | **CSP-n Slice 1** | Script nonces; Report-Only demo first | **Open** |
@@ -289,6 +289,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-18 | **J-runtime** Discover written on 1.5; parked on **[PLAN_v1.7.0.md](PLAN_v1.7.0.md)**. |
 | 2026-09-18 | **v1.5.0 tagged.** Kill switch false. Hub `1.5.0` / `1.5` / `latest`. |
 | 2026-09-19 | **Train opened** on `v1.6.0-dev`. Must **HA-p2 Slice 1** + **Mux-1** + **Q-80** (fail-under **75**). Should **Slice 1b** + **Docs-archive-0x** + **CSP-n Slice 1** + **Undo-1**. Discover Slice 2 / Undo-2 / Mux-2. **Brand** and **AC-fg** out → **v1.7**. Package stays `1.5.0` until freeze. `main` patchable as **v1.5.x**. |
+| 2026-09-19 | **Q-80 in progress.** Service packs `tests/test_coverage_v16.py` / `_q2.py` / `_q3.py` (compose editor, host_sync, herder backup, NPM/Pi-hole HTTP, console park/grant, stack health, job cancel/stack execute, nmap stream, DNS plan, vanished retry). Suite **~71.6%** line (`app`; term **72%**). CI fail-under **stays 70** until **75**. |
 
 ---
 
@@ -301,7 +302,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 3 | Confirm HACS repo name · create public MIT repo | Phase 1 — not this commit |
 | 4 | Slice 1: config flow + coordinator + fleet + host devices | Open |
 | 5 | **Mux-1** per-host opt-in | Open |
-| 6 | **Q-80** raise fail-under **70 → 75** | Open |
+| 6 | **Q-80** raise fail-under **70 → 75** | **In progress** 2026-09-19 — `test_coverage_v16.py` + `_q2` + `_q3`; ~71.6% / display 72%. Fail-under stays 70 until 75 |
 | 7 | Slice 1b / CSP-n / Undo-1 as capacity after Must | Open |
 | 8 | Wiki + QA · freeze · `1.6.0` · tag · Hub | When asked |
 
