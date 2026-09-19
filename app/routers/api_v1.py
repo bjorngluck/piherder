@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from ..database import get_session
-from ..models import ApiToken, Job, Server, User
+from ..models import ApiToken, Job, Notification, Server, User
 from ..security.auth import get_admin_user
 from ..services import api_summary as summary_svc
 from ..services import api_tokens as tok_svc
@@ -131,8 +131,41 @@ def get_api_auth(
     return ApiAuth(token, client_ip=client_ip)
 
 
-def _server_public(s: Server) -> dict[str, Any]:
+def _api_utc_iso(dt: Any) -> str | None:
+    if dt is None:
+        return None
+    try:
+        s = dt.isoformat()
+    except Exception:
+        return None
+    if s.endswith("Z") or (len(s) >= 6 and s[-6] in "+-" and s[-3] == ":"):
+        return s
+    return s + "Z"
+
+
+def _open_alerts_by_server(session: Session) -> dict[int, list[dict[str, Any]]]:
+    rows = session.exec(select(Notification).where(Notification.status == "open")).all()
+    out: dict[int, list[dict[str, Any]]] = {}
+    for n in rows:
+        if not n.server_id:
+            continue
+        out.setdefault(int(n.server_id), []).append(
+            {
+                "severity": n.severity,
+                "title": n.title,
+                "type": n.type,
+            }
+        )
+    return out
+
+
+def _server_public(
+    s: Server, *, alerts: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
     inv_status = getattr(s, "docker_inventory_status", None) or "never"
+    alert_rows = list(alerts or [])
+    last_backup = _api_utc_iso(s.last_backup_at)
+    last_seen = _api_utc_iso(s.last_seen)
     return {
         "id": s.id,
         "name": s.name,
@@ -141,13 +174,14 @@ def _server_public(s: Server) -> dict[str, Any]:
         "ssh_port": s.ssh_port,
         "ssh_username": s.ssh_username,
         "os_type": s.os_type,
-        "last_seen": s.last_seen.isoformat() if s.last_seen else None,
+        "os_display": summary_svc.os_display_label(s.os_type, s.os_updates_summary),
+        "last_seen": last_seen,
         "features": {
             "backup": bool(s.backup_enabled),
             "os_patch": bool(s.os_patch_enabled),
             "docker": bool(s.container_patch_enabled),
         },
-        "last_backup_at": s.last_backup_at.isoformat() if s.last_backup_at else None,
+        "last_backup_at": last_backup,
         "os_updates_count": s.os_updates_count,
         "container_updates_count": s.container_updates_count,
         "reboot_pending": bool(s.reboot_pending),
@@ -159,6 +193,10 @@ def _server_public(s: Server) -> dict[str, Any]:
         "docker_inventory_at": (
             s.docker_inventory_at.isoformat() if s.docker_inventory_at else None
         ),
+        "alerts_open": len(alert_rows),
+        "alert_title": alert_rows[0]["title"] if alert_rows else None,
+        "alert_severity": alert_rows[0]["severity"] if alert_rows else None,
+        "alerts": alert_rows[:8],
     }
 
 
@@ -206,7 +244,8 @@ def api_summary(
     auth.require(tok_svc.SCOPE_READ)
     servers = list(session.exec(select(Server)).all())
     jobs = job_service.list_jobs(session, active_only=True, limit=100)
-    return summary_svc.fleet_summary(servers, jobs)
+    alert_n = len(session.exec(select(Notification).where(Notification.status == "open")).all())
+    return summary_svc.fleet_summary(servers, jobs, alerts_open=alert_n)
 
 
 # ---------- Fleet read ----------
@@ -231,8 +270,11 @@ def list_servers(
     lim = lq.clamp_api_limit(limit)
     off = lq.parse_offset(offset)
     page_rows = rows[off : off + lim]
+    alert_map = _open_alerts_by_server(session)
     return {
-        "servers": [_server_public(s) for s in page_rows],
+        "servers": [
+            _server_public(s, alerts=alert_map.get(int(s.id or 0), [])) for s in page_rows
+        ],
         "total": total,
         "limit": lim,
         "offset": off,
@@ -250,7 +292,8 @@ def get_server(
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404, detail="Server not found")
-    return _server_public(server)
+    alert_map = _open_alerts_by_server(session)
+    return _server_public(server, alerts=alert_map.get(int(server.id or 0), []))
 
 
 class ServerFeaturesBody(BaseModel):

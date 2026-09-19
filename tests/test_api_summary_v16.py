@@ -69,3 +69,20 @@ def test_move_running_false_when_no_active_migrate():
 def test_api_meta_lists_summary():
     paths = [e["path"] for e in api_meta_dict()["endpoints"]]
     assert "/api/v1/summary" in paths
+
+
+def test_os_display_label_ubuntu_haos_not_raw_debian():
+    from app.services.api_summary import os_display_label
+
+    assert os_display_label("haos") == "HAOS"
+    assert os_display_label("ubuntu") == "Ubuntu"
+    assert os_display_label("debian") == "Debian"
+    ident = '{"identity":{"os_release_name":"Ubuntu 24.04.3 LTS"}}'
+    assert os_display_label("debian", ident) == "Ubuntu"
+    ha = '{"ha":{"host":{"operating_system":"Home Assistant OS 14.2"}}}'
+    assert os_display_label("debian", ha) == "HAOS"
+
+
+def test_fleet_summary_alerts_open():
+    out = fleet_summary([], [], alerts_open=3)
+    assert out["alerts_open"] == 3
