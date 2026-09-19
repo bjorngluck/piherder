@@ -113,7 +113,7 @@ Base path: **`/api/v1`**
 |--------|------|-------|-------------|
 | `GET` | `/api/v1` | `read` | Machine-readable scope/endpoint catalog + **this token’s** scopes |
 | `GET` | `/api/v1/health` | `read` | `{ ok, scopes, allowed_features, client_ip }` |
-| `GET` | `/api/v1/summary` | `read` | Fleet heartbeat for HA: `{ ok, version, hosts, os_updates, container_updates, reboot_pending, jobs_running, move_running, last_backup_oldest_at }`. DB only — never SSH. Host counts (not package totals). |
+| `GET` | `/api/v1/summary` | `read` | Fleet heartbeat for HA: `{ ok, version, hosts, os_updates, container_updates, reboot_pending, jobs_running, move_running, last_backup_oldest_at, alerts_open }`. DB only — never SSH. Host counts (not package totals). |
 
 ### Servers
 
@@ -141,10 +141,15 @@ Base path: **`/api/v1`**
     "os_patch": true,
     "docker": true
   },
+  "os_type": "ubuntu",
+  "os_display": "Ubuntu",
   "os_updates_count": 0,
   "container_updates_count": 2,
   "reboot_pending": false,
-  "last_backup_at": "2026-07-10T02:00:00"
+  "last_backup_at": "2026-07-10T02:00:00Z",
+  "alerts_open": 0,
+  "alert_title": null,
+  "alerts": []
 }
 ```
 

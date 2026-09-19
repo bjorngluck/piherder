@@ -22,11 +22,69 @@ def _iso(dt: Optional[datetime]) -> Optional[str]:
         return None
 
 
+OS_LABELS = {
+    "haos": "HAOS",
+    "ubuntu": "Ubuntu",
+    "debian": "Debian",
+    "raspbian": "Raspberry Pi OS",
+    "raspberrypi": "Raspberry Pi OS",
+    "alpine": "Alpine",
+    "fedora": "Fedora",
+    "rhel": "RHEL",
+    "centos": "CentOS",
+    "arch": "Arch",
+    "linux": "Linux",
+}
+
+
+def os_display_label(os_type: str | None, summary_json: str | None = None) -> str:
+    """Human OS for HA: HAOS / Ubuntu / Debian — not a raw default of debian."""
+    import json
+
+    ot = (os_type or "").strip().lower()
+    pretty = ""
+    if summary_json:
+        try:
+            data = json.loads(summary_json)
+            if isinstance(data, dict):
+                ident = data.get("identity") or {}
+                if isinstance(ident, dict):
+                    rel = ident.get("os_release") or {}
+                    pretty = str(
+                        ident.get("os_release_name")
+                        or (rel.get("pretty_name") if isinstance(rel, dict) else "")
+                        or ident.get("name")
+                        or ""
+                    )
+                ha = data.get("ha") or {}
+                if isinstance(ha, dict) and not pretty:
+                    host = ha.get("host") or {}
+                    if isinstance(host, dict):
+                        pretty = str(host.get("operating_system") or "")
+        except Exception:
+            pretty = ""
+    pl = pretty.lower()
+    if "haos" in ot or "hassos" in pl or "home assistant os" in pl or (
+        "home assistant" in pl and "os" in pl
+    ):
+        return "HAOS"
+    if "ubuntu" in ot or "ubuntu" in pl:
+        return "Ubuntu"
+    if "raspb" in ot or "raspberry" in pl:
+        return "Raspberry Pi OS"
+    if ot in OS_LABELS:
+        return OS_LABELS[ot]
+    if pretty:
+        return pretty
+    return "Linux"
+
+
 def fleet_summary(
     servers: Iterable[Any],
     jobs: Iterable[Any],
     *,
     version: str | None = None,
+    alerts_open: int = 0,
 ) -> dict[str, Any]:
     """Aggregate host rows + active jobs into the Slice 1 heartbeat payload."""
     rows = list(servers)
@@ -63,4 +121,5 @@ def fleet_summary(
         "jobs_running": len(active),
         "move_running": bool(move_running),
         "last_backup_oldest_at": _iso(oldest),
+        "alerts_open": int(alerts_open or 0),
     }
