@@ -113,6 +113,7 @@ Base path: **`/api/v1`**
 |--------|------|-------|-------------|
 | `GET` | `/api/v1` | `read` | Machine-readable scope/endpoint catalog + **this token’s** scopes |
 | `GET` | `/api/v1/health` | `read` | `{ ok, scopes, allowed_features, client_ip }` |
+| `GET` | `/api/v1/summary` | `read` | Fleet heartbeat for HA: `{ ok, version, hosts, os_updates, container_updates, reboot_pending, jobs_running, move_running, last_backup_oldest_at }`. DB only — never SSH. Host counts (not package totals). |
 
 ### Servers
 
@@ -254,9 +255,7 @@ HTTP Request node: Method GET/POST, Header `Authorization` = `Bearer ph_…`, JS
 
 ### Home Assistant
 
-**Today:** `rest` / `rest_command` against `/api/v1/servers` and job endpoints with the least scopes needed. Prefer an IP allowlist for the HA host (HAOS usually egresses as the appliance LAN IP).
-
-**v1.6 (Active):** first-class **HACS integration** (runs on HA) — Slice 1 Must: fleet dashboard, host devices, Open in PiHerder. Slice 1b Should: container/service entities from snapshots. Details stay in the PiHerder UI. [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [PLAN_v1.6.0.md](PLAN_v1.6.0.md). YAML REST remains possible. CORS is not required (HA Core is server-side).
+**v1.6:** first-class **HACS integration** (runs on HA) — Slice 1: fleet sensors, host devices, Open in PiHerder. Heartbeat `GET /api/v1/summary` (`read`). Slice 1b Should: container/service entities from snapshots. Details stay in the PiHerder UI. Operator: [wiki Home Assistant](../wiki/integrations/home-assistant.md). [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [PLAN_v1.6.0.md](PLAN_v1.6.0.md). YAML `rest` remains possible. CORS is not required (HA Core is server-side). Prefer an IP allowlist for the HA host.
 
 ---
 

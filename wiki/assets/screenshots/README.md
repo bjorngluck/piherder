@@ -21,7 +21,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.3.0** | Prior Hub — pack **landed** 2026-08-22. Maintainer QA: [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.3.0.md) (not the operator wiki). [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md) |
 | **v1.4.0** | **Tagged** — pack **landed 2026-09-06**. Maintainer QA: [QA_v1.4.0.md](../../../docs/QA_v1.4.0.md). Theme: [Move a service](../../docker/service-migration.md) · [RELEASE](../../../docs/RELEASE_v1.4.0.md) |
 | **v1.5.0** | **Tagged** 2026-09-18 — reuse Move JobHold pack; Reports pin/hide + Move jobs card recapture if chrome drifted. [RELEASE](../../../docs/RELEASE_v1.5.0.md) · [QA](../../../docs/QA_v1.5.0.md) |
-| **v1.6.0** | **Active** on `v1.6.0-dev` — HACS install shots when Slice 1 lands; console mux checkbox is Edit → Features. [PLAN](../../../docs/PLAN_v1.6.0.md) · [QA](../../../docs/QA_v1.6.0.md) |
+| **v1.6.0** | **Active** on `v1.6.0-dev` — freeze pack listed in [QA_v1.6.0.md](../../../docs/QA_v1.6.0.md) (mux Features + HA sensors). HACS shots when Slice 1 lands. [PLAN](../../../docs/PLAN_v1.6.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 

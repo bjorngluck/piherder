@@ -27,8 +27,9 @@ Core fleet ops (SSH, backups, patch, Docker) work **without** any Catalog entry.
 
 PiHerder stays the **fleet truth**; external tools enrich via adapters and deep links rather than embedding every vendor feature.
 
-!!! tip "Home Assistant OS as a fleet host"
-    Managing **HAOS** (SSH, System info, Core/OS/Supervisor updates) is **day-to-day fleet** work, not a Catalog adapter — [HAOS hosts](../day-to-day/haos-hosts.md). HA can still **call PiHerder** with [API tokens](../operations/api-tokens.md).
+!!! tip "Home Assistant"
+    **Path 1:** managing **HAOS** (SSH, System info, Core/OS/Supervisor) is day-to-day fleet work — [HAOS hosts](../day-to-day/haos-hosts.md).  
+    **Path 2 (v1.6):** HA **observes** the PiHerder fleet via HACS — [Home Assistant → PiHerder](home-assistant.md). Token `read`; poll snapshots only.
 
 ---
 

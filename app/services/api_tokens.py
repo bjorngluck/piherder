@@ -583,6 +583,7 @@ def api_meta_dict() -> dict:
         "endpoints": [
             {"method": "GET", "path": "/api/v1", "scope": "read", "summary": "API meta / catalog"},
             {"method": "GET", "path": "/api/v1/health", "scope": "read", "summary": "Token health + scopes"},
+            {"method": "GET", "path": "/api/v1/summary", "scope": "read", "summary": "Fleet heartbeat (hosts, updates, jobs)"},
             {"method": "GET", "path": "/api/v1/servers", "scope": "read", "summary": "List servers"},
             {"method": "GET", "path": "/api/v1/servers/{id}", "scope": "read", "summary": "Server detail"},
             {
