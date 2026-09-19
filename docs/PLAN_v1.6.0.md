@@ -237,7 +237,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
 | **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + Open in PiHerder; token `read`; not in this image | **Open** |
-| **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Open** |
+| **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **In progress** — opt-in flag + named session + kill vs park |
 | **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs through `_q11`; suite **~72.2%** (term **72%**; 34055/47192); CI fail-under still **70** until 75 |
 | **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Open** |
 | **Should** | **Docs-archive-0x** | `docs/archive/v0/` + stubs | **Open** |
@@ -290,6 +290,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-18 | **v1.5.0 tagged.** Kill switch false. Hub `1.5.0` / `1.5` / `latest`. |
 | 2026-09-19 | **Train opened** on `v1.6.0-dev`. Must **HA-p2 Slice 1** + **Mux-1** + **Q-80** (fail-under **75**). Should **Slice 1b** + **Docs-archive-0x** + **CSP-n Slice 1** + **Undo-1**. Discover Slice 2 / Undo-2 / Mux-2. **Brand** and **AC-fg** out → **v1.7**. Package stays `1.5.0` until freeze. `main` patchable as **v1.5.x**. |
 | 2026-09-19 | **Q-80 in progress.** Service packs `tests/test_coverage_v16.py` / `_q2.py` / `_q3.py` (compose editor, host_sync, herder backup, NPM/Pi-hole HTTP, console park/grant, stack health, job cancel/stack execute, nmap stream, DNS plan, vanished retry). Suite **~71.6%** line (`app`; term **72%**). CI fail-under **stays 70** until **75**. |
+| 2026-09-19 | **Mux-1 in progress.** Per-host `console_mux_enabled` (default off; HAOS/demo never). Probe tmux then screen else PTY. Session `ph-u{user}-s{server}-n{tab}-{f|p}`. Hide parks herder PTY (host session stays); ✕ / tab close kills named session. Wiki leftover `ph-u*` on host remove. Mux-2 leftover list still Discover. |
 | 2026-09-19 | **Q-80 packs `_q4`–`_q11`.** host_files docker listing, docker nest/classify, jobs enqueue/execute, DNS fabric helpers, herder sqlite restore, cert deploy mock, registry/schema/preflight/kuma, auth/console tickets. Full suite **~72.2%** (34055/47192, term **72%**). Gap to 75% ~**1340** lines. Fail-under stays **70**. Remaining fat miss: host_files, dns_fabric/core, jobs/service, docker_management, herder_backup, certificates. |
 
 ---
@@ -302,7 +303,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2 | **Docs-archive-0x** (Should, Phase 0b) | Open |
 | 3 | Confirm HACS repo name · create public MIT repo | Phase 1 — not this commit |
 | 4 | Slice 1: config flow + coordinator + fleet + host devices | Open |
-| 5 | **Mux-1** per-host opt-in | Open |
+| 5 | **Mux-1** per-host opt-in | **In progress** 2026-09-19 — `console_mux_enabled`, probe tmux→screen→PTY, Hide parks / ✕ kills |
 | 6 | **Q-80** raise fail-under **70 → 75** | **In progress** 2026-09-19 — packs through `_q11`; ~72.2% / display 72%. Fail-under stays 70 until 75 |
 | 7 | Slice 1b / CSP-n / Undo-1 as capacity after Must | Open |
 | 8 | Wiki + QA · freeze · `1.6.0` · tag · Hub | When asked |

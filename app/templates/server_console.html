@@ -1921,10 +1921,11 @@
     return out;
   }
 
-  async function mintTicket() {
+  async function mintTicket(tabN) {
     var ident = selectedIdentity();
     var body = new URLSearchParams();
     body.set('totp_code', (totpIn && totpIn.value) || '');
+    body.set('tab', String(tabN == null ? nextN : tabN));
     if (ident.id) body.set('identity_id', ident.id);
     if (ident.role === 'privileged') {
       body.set('confirm_privileged', '1');
@@ -2374,7 +2375,7 @@
     setStatus('Minting ticket…');
     var data;
     try {
-      data = await mintTicket();
+      data = await mintTicket(nextN);
     } catch (e) {
       setErr(String(e.message || e));
       setStatus('');

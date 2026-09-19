@@ -125,6 +125,7 @@
         {% if server.backup_enabled %}<input type="hidden" name="backup_enabled" value="on">{% endif %}
         {% if server.container_patch_enabled %}<input type="hidden" name="container_patch_enabled" value="on">{% endif %}
         {% if server.os_patch_enabled %}<input type="hidden" name="os_patch_enabled" value="on">{% endif %}
+        {% if server.console_mux_enabled %}<input type="hidden" name="console_mux_enabled" value="on">{% endif %}
 
         <div class="border-t border-border pt-3 text-xs">
           <button type="button"
@@ -186,6 +187,15 @@
               </span>
             </span>
           </label>
+          {% if not is_haos %}
+          <label class="flex items-start gap-3 border border-border rounded p-3 min-h-11">
+            <input type="checkbox" name="console_mux_enabled" class="mt-1" {% if server.console_mux_enabled %}checked{% endif %}>
+            <span>
+              <span class="text-sm font-medium">Console mux (tmux / screen)</span>
+              <span class="block text-xs text-muted">Web SSH uses a named session on the host when tmux or screen is already installed. Hide detaches; ✕ kills. Never installed by PiHerder. Default off.</span>
+            </span>
+          </label>
+          {% endif %}
         </div>
         <div class="flex gap-2 pt-2">
           <button type="submit" class="btn btn-accent text-sm min-h-11">Save Features</button>

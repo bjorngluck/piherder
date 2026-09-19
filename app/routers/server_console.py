@@ -419,6 +419,7 @@ async def mint_console_ticket(
     identity_id: str = Form(""),
     confirm_privileged: str = Form(""),
     reason: str = Form(""),
+    tab: str = Form("0"),
     session: Session = Depends(get_session),
     user: User = Depends(get_console_user),
 ):
@@ -593,6 +594,10 @@ async def mint_console_ticket(
     try:
         if cons.slots_remaining(int(user.id)) <= 0:
             return JSONResponse({"ok": False, "error": "limit"}, status_code=429)
+        try:
+            tab_n = int(str(tab or "0").strip() or "0")
+        except (TypeError, ValueError):
+            tab_n = 0
         ticket = cons.mint_ticket(
             user_id=int(user.id),
             server_id=int(server_id),
@@ -602,6 +607,7 @@ async def mint_console_ticket(
             identity_id=int(ident.id) if ident and ident.id else None,
             identity_role=ident.role if ident else None,
             reason=reason_s if privileged else None,
+            tab=tab_n,
         )
     except cons.ConsoleDisabled as e:
         return JSONResponse({"ok": False, "error": "disabled", "detail": str(e)}, status_code=403)
@@ -1209,8 +1215,20 @@ async def console_websocket(websocket: WebSocket, server_id: int):
 
         if not is_resume:
             # Production: Paramiko. Demo D5: in-process simulated shell (no TCP).
+            mux_on = cons.mux_allowed_for_server(server)
+            mux_name = ""
+            if mux_on:
+                mux_name = cons.mux_session_name(
+                    user_id=int(user_id),
+                    server_id=server_id_i,
+                    tab=int(ticket_payload.get("n") or 0),
+                    identity_role=str(ticket_payload.get("role") or "fleet"),
+                )
             client, channel = await asyncio.to_thread(
-                cons.open_session_channel, server_snap
+                cons.open_session_channel,
+                server_snap,
+                mux_enabled=mux_on,
+                session_name=mux_name,
             )
             started_mono = time.monotonic()
             last_activity = started_mono
@@ -1223,10 +1241,23 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                     f"— no live SSH · idle {cons.idle_sec()}s / max {cons.max_session_sec()}s ***\r\n"
                 )
             else:
+                mux_note = getattr(client, "_ph_mux_note", "") or "pty"
+                if mux_note in ("tmux", "screen"):
+                    mux_line = (
+                        f"mux {mux_note} {getattr(client, '_ph_mux_name', mux_name)} "
+                        f"— Hide detaches, ✕ kills"
+                    )
+                elif mux_on and mux_note == "no_binary":
+                    mux_line = "mux opted-in but tmux/screen not on host — plain PTY"
+                elif mux_on and mux_note == "mux_failed":
+                    mux_line = "mux attach failed — plain PTY"
+                else:
+                    mux_line = (
+                        f"idle {cons.idle_sec()}s / max {cons.max_session_sec()}s · "
+                        f"survives app switch"
+                    )
                 await websocket.send_text(
-                    f"\r\n*** PiHerder console → {server_hostname} "
-                    f"(idle {cons.idle_sec()}s / max {cons.max_session_sec()}s · "
-                    f"survives app switch) ***\r\n"
+                    f"\r\n*** PiHerder console → {server_hostname} ({mux_line}) ***\r\n"
                 )
 
         stop = asyncio.Event()
@@ -1407,6 +1438,14 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                             if t == "bye":
                                 intentional_close = True
                                 park_on_exit = False
+                                try:
+                                    cons.kill_mux_session(
+                                        client,
+                                        getattr(client, "_ph_mux_backend", None),
+                                        getattr(client, "_ph_mux_name", "") or "",
+                                    )
+                                except Exception:
+                                    pass
                                 stop.set()
                                 break
                             # Explicit stdin (hex) — used for Tab/Esc/arrows so C0
@@ -1494,6 +1533,8 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                 held_at_mono=time.monotonic(),
                 server_hostname=server_hostname,
                 recorder=recorder,
+                mux_backend=getattr(client, "_ph_mux_backend", None),
+                mux_name=getattr(client, "_ph_mux_name", "") or "",
             )
             cons.park_console(held)
             if recorder is not None:
