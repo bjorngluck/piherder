@@ -52,7 +52,7 @@ Plan: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · HA design: [FEATURE_PLAN_HOME_ASSISTAN
 ## Q-80 — unit ≥ 75% (Must)
 
 - [ ] Unit ≥ 75% (fail-under 75) — CI `--cov-fail-under=75`  
-- [x] Packs landed 2026-09-19 (`test_coverage_v16.py` / `_q2` / `_q3`); suite **~71.6%** (term **72%**). Fail-under still **70** until 75.  
+- [x] Packs landed 2026-09-19 (`test_coverage_v16.py` / `_q2`–`_q11`); suite **~72.2%** (term **72%**). Fail-under still **70** until 75.  
 - [ ] No live SSH / HA / two-host copy in CI  
 
 ## Slice 1b — snapshot entities (Should; may slip)
