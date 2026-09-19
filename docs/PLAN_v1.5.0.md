@@ -8,7 +8,7 @@
 **Baseline:** `v1.4.0` (tagged 2026-09-06)  
 **Mode:** **Must → Should → Discover.** Must **M-worker**. Should **N3a** + **N3b** + **M-hb** + **Q**. **AC-fg is out.**  
 **QA:** [QA_v1.5.0.md](QA_v1.5.0.md) (maintainer stub — **not** the operator wiki)  
-**Related:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (candidate inboxes) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · wiki [Move a service](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Reports](../wiki/day-to-day/reports.md)
+**Related:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) (**Active**) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (candidate inbox) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · wiki [Move a service](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Reports](../wiki/day-to-day/reports.md)
 
 > **Freeze 2026-09-18.** Package **1.5.0**. Kill switch `PIHERDER_SERVICE_MIGRATE` stays **false**. HAOS path-2 **plugin ships v1.6.0**. J-runtime **v1.7**.
 
@@ -249,7 +249,7 @@ Per-request nonce on `request.state` **before** `call_next`; stamp on the 71 inl
 | **Brand-3** | Own-docs MkDocs skin notes. |
 | **Out** | Theme engine; replacing primary red; header logo upload; white-label; per-user skins. |
 
-Park Brand-1/2 on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
+Park Brand-1/2 on [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (out of 1.6, 2026-09-19).
 
 ### **M-flag** — Default-on migrate
 
@@ -357,8 +357,8 @@ Park Mux-1 on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 | **Should** | **N3b** | Move jobs card: count / fail / last dest | **Done** — operator signed 2026-09-18 |
 | **Should** | **M-hb** | Heartbeats / stall visible | **Done** — reuse `_flush_job_progress` / JobHold DB poll |
 | **Should** | **Q** | Tests; wiki truth; coverage ≥ 70% | **Bar met** (~70.6%; fail-under **70**) |
-| **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only | **All Discover write-ups done** except freeze question **M-flag**. Most jobs → v1.6; **J-runtime → v1.7**. |
-| **Out** | **AC-fg** · M-live · ACME · NPM CRUD · Files token API · N3c · HA-p2 **code** | Park AC-fg + HA plugin on **v1.6.0** | Unchanged |
+| **Discover** | M-undo · CSP-n · Brand · M-flag · W-mux · HA-p2 · J-runtime | Notes only | **All Discover write-ups done.** HA-p2 / Mux-1 / Undo-1 / CSP-n → [v1.6 Active](PLAN_v1.6.0.md). **J-runtime · Brand · AC-fg → v1.7**. |
+| **Out** | **AC-fg** · M-live · ACME · NPM CRUD · Files token API · N3c · HA-p2 **code** | HA plugin ships **v1.6**; AC-fg parked **v1.7** | 1.6 opened 2026-09-19 |
 
 ---
 
@@ -376,7 +376,7 @@ Park Mux-1 on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 ## 7. Out of scope (stay honest)
 
-- **AC-fg** fine-grained / per-host / per-feature grants — **pushed out 2026-09-07**. Three global roles stay. ≥1.6  
+- **AC-fg** fine-grained / per-host / per-feature grants — **pushed out 2026-09-07**; **out of 1.6** (2026-09-19). Three global roles stay. Park **v1.7**  
 - **M-live** zero-downtime / rsync-while-running  
 - Silent auto-rollback `finally` (Discover **M-undo** is a named job if ever promoted)  
 - ACME-in-herder · full NPM proxy CRUD · Files token API  
@@ -422,6 +422,7 @@ Park Mux-1 on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 | 2026-09-18 | **Brand Discover written.** Wordmark + one accent; hide Catalog in nav; official mark + primary red stay. Brand-1/2 parked on [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Not 1.5 Should. |
 | 2026-09-18 | **J-runtime Discover written.** Remaining exclusive jobs still web. Later: all of them on Celery in one go; host-down queue/retry; running mutate fail-honest. Jr-1 parked on [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (**not** 1.6). Not 1.5 Should. |
 | 2026-09-18 | **Freeze.** Operator QA signed. **M-flag C** (kill switch stays false). Package **1.5.0**. [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md). |
+| 2026-09-19 | **v1.6.0 train opened** on `v1.6.0-dev` — [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Must HA-p2 Slice 1 + Mux-1 + Q-80. Brand + AC-fg slipped to [PLAN_v1.7.0.md](PLAN_v1.7.0.md). |
 | 2026-09-07 | **Docs pass:** wiki Move / Jobs / Reports / multi-worker / architecture / upgrades 1.4→1.5 / troubleshooting; ADMIN migrate+Celery; README / SPEC / ROADMAP / QA aligned. 1.4 RELEASE stays historical (web `BackgroundTasks`). |
 
 ---
@@ -447,4 +448,4 @@ Park Mux-1 on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 ---
 
-*Production remains [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) until this train freezes.*
+*Production is [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md). Next train: [PLAN_v1.6.0.md](PLAN_v1.6.0.md).*

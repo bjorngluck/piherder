@@ -1,6 +1,6 @@
 # Feature plan — Home Assistant integration (architecture + discovery)
 
-**Status:** **v0.9.0 path 1 shipped (S2 HAOS over SSH)** — REST / container HA later · **path 2: v1.5 Discover written / v1.6.0 Slice 1 ship** ([PLAN_v1.5.0.md](PLAN_v1.5.0.md) **HA-p2**)  
+**Status:** **v0.9.0 path 1 shipped (S2 HAOS over SSH)** — REST / container HA later · **path 2: v1.6.0 Active** Slice 1 Must / 1b Should / 2 Discover ([PLAN_v1.6.0.md](PLAN_v1.6.0.md) **HA-p2**)  
 **Ship framing:** [PLAN_v0.9.0.md](PLAN_v0.9.0.md) stream **HA**  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 3 · [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [API.md](API.md) · [SPEC.md](../SPEC.md)
 
@@ -26,7 +26,7 @@ Today PiHerder:
 | HAOS capability envelope (no Docker fleet; HA updates ≠ apt) | **Done** |
 | Host deps (SSH add-on, rsync, `ha` CLI) | **Done** (copy + probes; wiki install detail later) |
 | Core REST (LLAT) / Supervisor add-ons list | **No** (later) |
-| HA custom component → PiHerder | **No code yet** — v1.5 Discover **written** / **v1.6.0 Slice 1 ship** |
+| HA custom component → PiHerder | **v1.6.0 Active** — Slice 1 Must (no plugin files in this image yet) |
 
 **v0.9 outcome:** full **HAOS + SSH** is a first-class host: detect, auto-mark, System Info + CLI stats, OS check/apply via `ha`, honest capability bar. **Further HA integration (REST, S1 container, path 2, add-ons) is parked for a later release.**
 
@@ -93,7 +93,7 @@ Path 2 (later) — HA → PiHerder custom component (≥1.0)
 7. **Mutating updates are opt-in + audited** (same bar as `os_patch_enabled` on Debian).  
 8. **Secrets later:** LLAT when REST ships; not required for 0.9.  
 9. **No live HA in CI** — fixtures + mocked SSH CLI JSON only.  
-10. **Bidirectional is two products:** path 2 is a HACS integration **on HA** (v1.6 ship); API tokens already work today (manual REST).
+10. **Bidirectional is two products:** path 2 is a HACS integration **on HA** (v1.6 Slice 1 Must); API tokens already work today (manual REST).
 
 ---
 
@@ -265,15 +265,15 @@ Document only: Core `GET /api/`, `/api/config` with LLAT; Supervisor HTTP for ad
 
 ---
 
-## 7. Path 2 — HA → PiHerder (v1.5 Discover **written** / **v1.6.0 ship**)
+## 7. Path 2 — HA → PiHerder (**v1.6.0 Active**)
 
 A **Home Assistant custom integration** that **runs on HA** and talks to PiHerder `/api/v1`. It is a **fleet remote** (dashboard, entities, a few confirmed actions). Compose editor, Move, Files, and console stay in PiHerder (deep link).
 
 Operators can already glue YAML `rest` / `rest_command` to tokens ([API.md](API.md)). Path 2 is that, first-class. There is **no** component and **no** Supervisor add-on from us yet.
 
-**v1.5:** written discover only. **Do not** open a plugin repo or HA manifest on `v1.5.0-dev` except docs. [PLAN_v1.5.0.md](PLAN_v1.5.0.md) **HA-p2**.
+**v1.5:** written discover only. No plugin repo on `v1.5.0-dev`.
 
-**v1.6.0:** ship Slice 1 (read-only fleet + host devices). Slice **1b** (container/service entities) needs new **snapshot** read APIs — Should. Herder `GET /api/v1/summary` optional on that train, not before.
+**v1.6.0 (locked 2026-09-19):** Slice 1 **Must** (read-only fleet + host devices). Slice **1b** **Should** (snapshot read APIs + container/service entities). Slice **2** **Discover** (backup-from-HA). Herder `GET /api/v1/summary` optional if cheap. [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 ### 7.1 Two products
 
@@ -334,14 +334,14 @@ The HAOS box may *run* the integration (HA Core) while PiHerder still manages th
 
 Per-host detail stays `GET /servers`. Summary is the coordinator’s cheap heartbeat.
 
-### 7.5 1.6 slices (lock at v1.6 train open)
+### 7.5 1.6 slices (locked 2026-09-19)
 
 | Slice | Content | Priority |
 |-------|---------|----------|
 | **1** | Repo, manifest, config flow, coordinator, fleet sensors, per-host devices, Open in PiHerder, wiki, HACS readme. Optional herder `summary`. Token `read`. | **Must** |
 | **1b** | Snapshot APIs + HA entities: container (running/uptime/image), service (up/down), host disk. Still no start/stop. | **Should** |
-| **2** | Confirm + `piherder.backup`; poll-diff job events; optional OS **check** (not apply) | Should |
-| **3** | Start/stop from HA, webhooks, alerts API, add-on, custom Lovelace card, Move-from-HA, Files | Out |
+| **2** | Confirm + `piherder.backup`; poll-diff job events; optional OS **check** (not apply) | **Discover** |
+| **3** | Start/stop from HA, webhooks, alerts API, add-on, custom Lovelace card, Move-from-HA, Files | **Out** |
 
 ### 7.6 Non-goals
 
@@ -398,7 +398,7 @@ PiHerder image does **not** ship an HA add-on inside itself.
 | **P3b** | System Info: HA versions + `ha host` disk / usage | **Done** |
 | **P4** | Host-deps copy + wiki install detail | **Partial** — SSH modal guidance; operator wiki steps when ready |
 | **P5** | REST + S1 container | **Later** (post-0.9) |
-| **P6** | Path 2 HACS integration (fleet remote; details in PiHerder) | **v1.5 Discover written / v1.6 Slice 1 ship** |
+| **P6** | Path 2 HACS integration (fleet remote; details in PiHerder) | **v1.6 Active** Slice 1 Must |
 
 Unit tests: pure parsers for `ha * info` fixtures + branch in `check_os_updates` / apply. E2E: HAOS chrome only if UI landed — no live HAOS.
 
@@ -444,5 +444,6 @@ Unit tests: pure parsers for `ha * info` fixtures + branch in `check_os_updates`
 | 2026-07-23 | **v0.9 HA path 1 closed** — further HA integration deferred to later release |
 | 2026-09-07 | **Path 2** locked as **v1.5 Discover / v1.6.0 ship**: integration first, API token, draft entities/events. No plugin code on `v1.5.0-dev` |
 | 2026-09-10 | **HA-p2 Discover written.** HACS integration **on HA**; Slice 1 read-only fleet + host devices; details open PiHerder. Slice 1b: container/service entities from **DB snapshots** (new read APIs). Backup button Slice 2. No start/stop, no Move-from-HA, no plugin on this branch. |
+| 2026-09-19 | **v1.6 train opened.** Slice 1 **Must**, 1b **Should**, 2 **Discover**. Plugin still a **separate** repo (not this image). |
 
 **End of feature plan** — living; implement against §2.1 and §6.

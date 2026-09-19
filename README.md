@@ -66,7 +66,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - **Current production:** [docs/RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) — Move on Celery · Reports layout. Technical record: [PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md). Wiki: [Move a service](wiki/docker/service-migration.md)
-- **Next train:** [docs/PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md) — candidate (HACS on HA). **v1.7:** [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md) (remaining jobs on Celery)
+- **Next train:** [docs/PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md) — HACS on HA + console mux (**Active** on `v1.6.0-dev`). **v1.7:** [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md) (remaining jobs on Celery)
 - Prior: [docs/RELEASE_v1.3.0.md](docs/RELEASE_v1.3.0.md) · [docs/RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) · [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
 - API reference: [docs/API.md](docs/API.md)
 
