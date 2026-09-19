@@ -72,7 +72,7 @@ Empty filter: “No hosts match” + **Show all**.
 | **Trust** | How will PiHerder authenticate? | Generate keypair (recommended), upload key, or password-only | Secrets encrypted with `PIHERDER_MASTER_KEY`. Private key is never shown again after save. Optional one-time password only for key bootstrap. |
 | **Connect** | Prove SSH works; prefer keys-only | 1) Install public key · 2) Test connection · 3) Clear stored password | Copy key / install script / Deploy key. Test refreshes dependency chips (Docker, rsync, HAOS). |
 | **Privilege** | Optional least-privilege user | Open least-priv on server, or skip | Automated least-priv on Debian/Pi OS only; **skip on HAOS** (keep the add-on user). |
-| **Features** | What should PiHerder manage here? | Backups · OS updates · Docker | OS updates = apt/dnf **or** HA Core/OS/Supervisor via `ha` CLI. HAOS: enable HA updates + backups; leave Docker off — [HAOS hosts](haos-hosts.md). |
+| **Features** | What should PiHerder manage here? | Backups · OS updates · Docker · optional **Console mux** | OS updates = apt/dnf **or** HA Core/OS/Supervisor via `ha` CLI. HAOS: enable HA updates + backups; leave Docker off — [HAOS hosts](haos-hosts.md). Console mux is Debian/Pi OS only (needs `tmux` or `screen` already on the host). |
 | **Schedules** | When do checks/applies run? | Guidance only; deep edit on server | Prefer **check-only** first (counts without apply). Safe to skip. |
 | **Network** | Optional DNS / Pi-hole A records | Open host DNS fields, or skip | Needs Pi-hole (or fabric) when you want A records. Does not block SSH/backups. |
 | **Done** | Host is on the fleet | Summary + next CTAs | HAOS-aware tips when detected; open server, SSH access, add another. |
@@ -159,8 +159,9 @@ Below the dest cards, a **two-column row** (stacked on narrow screens) holds:
 | **Backups** | rsync backup/restore UI + schedules | Hosts without files to protect stay quiet; needs `rsync` on the host (incl. HAOS SSH add-on) |
 | **OS updates** (UI: OS patch / **HA updates** on HAOS) | Debian: apt check/apply. **HAOS:** Core / OS / Supervisor via `ha` CLI | Same feature flag; backend branches on host profile |
 | **Docker / containers** | Docker page, container patch, template deploy targets | Leave **off** on pure HAOS — add-ons are not fleet Compose stacks |
+| **Console mux** (v1.6) | Web SSH uses host `tmux` then `screen` when already installed | Default **off**. Hidden on HAOS. Public demo never muxes. PiHerder never `apt install`s the binary. [Web SSH](web-ssh-console.md#host-mux-v16) |
 
-Disabled features are **hard-hidden** from dest cards and ⋯ menus.
+Disabled features are **hard-hidden** from dest cards and ⋯ menus. Console mux only changes how an already-enabled web SSH attaches; it is not a dest card.
 
 On the **Servers** list, bulk actions (check/upgrade OS, check/patch containers, backup) only queue hosts with the matching flag enabled — see [Bulk actions](updates-and-patching.md#bulk-actions-servers-list).
 

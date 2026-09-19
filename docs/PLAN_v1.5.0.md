@@ -259,7 +259,7 @@ Park Brand-1/2 on [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (out of 1.6, 2026-09-19).
 
 ### **W-mux** — Host `tmux` / `screen`
 
-**Written 2026-09-13. Not 1.5 Should.** No host mux this freeze. Prior Cap sketch: [PLAN_v1.3.0.md](PLAN_v1.3.0.md) Stream W-mux.
+**Written 2026-09-13. Not 1.5 Should.** No host mux this freeze. Mux-1 later landed on [PLAN_v1.6.0.md](PLAN_v1.6.0.md) (`848116a`, pending operator QA). Prior Cap sketch: [PLAN_v1.3.0.md](PLAN_v1.3.0.md) Stream W-mux.
 
 **Leans:** Prefer **tmux**, then **screen**, else **plain PTY**. Default **off**, **opt-in per host**. Explicit **✕** kills the host session; Hide / app-switch **detaches**. Herder soft-park **stays**.
 

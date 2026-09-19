@@ -294,7 +294,7 @@ Fleet host SSH (key from Fernet decrypt in memory only)
 
 - **Multi-identity host SSH** (least-priv fleet + privileged / break-glass key; **Connect as…**) — **→ v1.3 Stream W-id** ([PLAN_v1.3.0.md](PLAN_v1.3.0.md)) · **slice 4 Deep landed** on `v1.3.0-dev`  
 - **Opt-in command/response shell audit** + redaction — **→ v1.3 Stream W-audit** · **slice 5 Deep landed** on `v1.3.0-dev` (not video replay)  
-- **Host-side `screen` / `tmux` for web console** — **v1.6 Must (Mux-1)**. Opt-in per host; tmux then screen else PTY; herder park stays. [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Today: plain `invoke_shell` + herder soft-park only until Mux-1 lands.  
+- **Host-side `screen` / `tmux` for web console** — **v1.6 Must (Mux-1), landed on `v1.6.0-dev`**. Opt-in per host (`console_mux_enabled`); tmux then screen else PTY; herder park stays when mux is off. Hide detaches; ✕ kills named `ph-u*` session. Demo/HAOS never. Mux-2 leftover list stays Discover. [PLAN_v1.6.0.md](PLAN_v1.6.0.md).  
 - **Host file transfer** (confined SFTP list / get / put) — **→ v1.3 Stream F** (discover + thin slice; not a full file manager)  
 - **Service migration** (compose project host→host + dataset + DNS + host lock) — **→ v1.4 Stream M** ([PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md))  
 - Video session recording / dual-control (two-person) console — still far horizon  
