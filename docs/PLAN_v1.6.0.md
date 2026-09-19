@@ -7,7 +7,7 @@
 **Theme:** **HACS fleet remote** (HA → PiHerder) + **host console mux** (Mux-1) + unit **≥ 75%**  
 **Baseline:** `v1.5.0` (tagged 2026-09-18; Hub digest `sha256:98cf929a6577b84ca03c5f8145f7cf24021ed56176a986a314f3b3cb59145949`)  
 **Mode:** **Must → Should → Discover.** Must **HA-p2 Slice 1** + **Mux-1** + **Q-80**. Should **Slice 1b** + **Docs-archive-0x** + **CSP-n Slice 1** + **Undo-1**. **Brand** and **AC-fg** are out (park **v1.7**).  
-**QA:** [QA_v1.6.0.md](QA_v1.6.0.md) (maintainer stub — **not** the operator wiki)  
+**QA:** [QA_v1.6.0.md](QA_v1.6.0.md) (full maintainer checklist — **not** the operator wiki)  
 **Related:** [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (candidate inbox) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [API.md](API.md) · [SPEC.md](../SPEC.md) · wiki [HAOS hosts](../wiki/day-to-day/haos-hosts.md) · [API tokens](../wiki/operations/api-tokens.md) · [web SSH](../wiki/day-to-day/web-ssh-console.md) · [Move a service](../wiki/docker/service-migration.md)
 
 > **Train open 2026-09-19.** Production stays **v1.5.0** on `main`. Kill switch `PIHERDER_SERVICE_MIGRATE` stays **false**. Plugin is a **separate** HACS repo — not in this image.
@@ -122,7 +122,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped in 0.9. This stream 
 | HA5 | Host devices | One HA device per PiHerder server; OS type, last seen, reboot pending, backup age |
 | HA6 | Open in PiHerder | `{origin}/servers/{id}` (and job / Docker tab as needed) |
 | HA7 | Auth | Slice 1 token **`read` only**. No OAuth, no session cookie, no CORS. IP allowlist = HA host |
-| HA8 | Optional `summary` | `GET /api/v1/summary` if cheap — `{ ok, version, hosts, os_updates, container_updates, reboot_pending, jobs_running, move_running, last_backup_oldest_at }` |
+| HA8 | Optional `summary` | **Landed** this train: `GET /api/v1/summary` (`read`) — `{ ok, version, hosts, os_updates, container_updates, reboot_pending, jobs_running, move_running, last_backup_oldest_at }`. Host counts, DB only |
 | HA9 | Wiki + HACS readme | Operator install: HACS custom repo, token with `read`, allowlist. YAML `rest:` remains possible |
 | HA10 | CI | Mock `/api/v1`. No live Home Assistant. `tests/test_haos.py` stays path 1 |
 
@@ -296,6 +296,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-19 | **Q-80 in progress.** Service packs `tests/test_coverage_v16.py` / `_q2.py` / `_q3.py` (compose editor, host_sync, herder backup, NPM/Pi-hole HTTP, console park/grant, stack health, job cancel/stack execute, nmap stream, DNS plan, vanished retry). Suite **~71.6%** line (`app`; term **72%**). CI fail-under **stays 70** until **75**. |
 | 2026-09-19 | **Mux-1 landed on branch** (`848116a`). Per-host `console_mux_enabled` (default off; HAOS/demo never). Probe tmux then screen else PTY. Session `ph-u{user}-s{server}-n{tab}-{f\|p}`. Hide parks herder PTY (host session stays); ✕ / tab close kills named session. Wiki leftover `ph-u*` on host remove. Mux-2 leftover list still Discover. Operator QA open. |
 | 2026-09-19 | **Q-80 packs `_q4`–`_q11`.** host_files docker listing, docker nest/classify, jobs enqueue/execute, DNS fabric helpers, herder sqlite restore, cert deploy mock, registry/schema/preflight/kuma, auth/console tickets. Full suite **~72.2%** (34055/47192, term **72%**). Gap to 75% ~**1340** lines. Fail-under stays **70**. Remaining fat miss: host_files, dns_fabric/core, jobs/service, docker_management, herder_backup, certificates. |
+| 2026-09-19 | **QA_v1.6.0 expanded** to full train checklist (Mux-1, HA-p2, Q-80, Should, 1.5 regression, screenshots, freeze). Mux-1 operator happy path in progress; boxes unticked until each row is walked. |
 
 ---
 
@@ -305,12 +306,12 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 |---|------|--------|
 | 1 | Open **`v1.6.0-dev`** + lock Must/Should | **This commit** 2026-09-19 |
 | 2 | **Docs-archive-0x** (Should, Phase 0b) | Open |
-| 3 | Confirm HACS repo name · create public MIT repo | Phase 1 — not this commit |
-| 4 | Slice 1: config flow + coordinator + fleet + host devices | Open |
+| 3 | Confirm HACS repo name · create public MIT repo | Local tree `/home/bjorn/piherder-ha` — **confirm `bjorngluck/piherder-ha` before GitHub create** |
+| 4 | Slice 1: config flow + coordinator + fleet + host devices | Scaffolded locally (not in this image). Herder `GET /api/v1/summary` landed |
 | 5 | **Mux-1** per-host opt-in | **Landed** 2026-09-19 `848116a` — operator QA open |
 | 6 | **Q-80** raise fail-under **70 → 75** | **In progress** 2026-09-19 — packs through `_q11`; ~72.2% / display 72%. Fail-under stays 70 until 75 |
 | 7 | Slice 1b / CSP-n / Undo-1 as capacity after Must | Open |
-| 8 | Wiki + QA · freeze · `1.6.0` · tag · Hub | When asked |
+| 8 | Wiki + QA · freeze · `1.6.0` · tag · Hub | QA checklist **expanded** 2026-09-19; freeze when asked |
 
 ---
 

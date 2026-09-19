@@ -15,6 +15,7 @@ from sqlmodel import Session, select
 from ..database import get_session
 from ..models import ApiToken, Job, Server, User
 from ..security.auth import get_admin_user
+from ..services import api_summary as summary_svc
 from ..services import api_tokens as tok_svc
 from ..services import jobs as job_service
 from ..services import os_patching
@@ -191,6 +192,21 @@ def api_health(auth: ApiAuth = Depends(get_api_auth)):
         "allowed_features": sorted(feat) if feat is not None else None,
         "client_ip": auth.client_ip,
     }
+
+
+@router.get(
+    "/summary",
+    summary="Fleet heartbeat",
+    description="Cheap DB snapshot for HA coordinators (scope `read`). Never SSH.",
+)
+def api_summary(
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    auth.require(tok_svc.SCOPE_READ)
+    servers = list(session.exec(select(Server)).all())
+    jobs = job_service.list_jobs(session, active_only=True, limit=100)
+    return summary_svc.fleet_summary(servers, jobs)
 
 
 # ---------- Fleet read ----------
