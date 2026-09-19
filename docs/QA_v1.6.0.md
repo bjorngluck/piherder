@@ -40,8 +40,10 @@ Plan: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · HA design: [FEATURE_PLAN_HOME_ASSISTAN
 
 ## Mux-1 — host tmux/screen (Must)
 
+Code on `v1.6.0-dev` (`848116a`, migration `043_console_mux`). Recreate **web** after migrate. Tick while testing.
+
 - [ ] Host mux **off** → same PTY as 1.5  
-- [ ] Host mux **on**, tmux present → session `ph-u{user}-s{server}-n{tab}`  
+- [ ] Host mux **on**, tmux present → session `ph-u{user}-s{server}-n{tab}-f` (privileged: `-p`)  
 - [ ] Hide / app-switch **detaches**; ✕ **kills** the host session  
 - [ ] Missing binary → plain PTY + note (console still opens)  
 - [ ] Recreate **web** while detached: host session still there  

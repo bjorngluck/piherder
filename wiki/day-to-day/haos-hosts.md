@@ -39,7 +39,7 @@ Exact package install steps for rsync may vary by HAOS version — enable the SS
 1. [Add a server](add-server.md) — hostname/IP, SSH user (often `root`), port.  
 2. Deploy the PiHerder key via the wizard or **SSH access**; **Test connection**.  
 3. **Edit → General → Host profile** → **Home Assistant OS (HAOS)** (or run an OS check and let auto-mark set `os_type=haos`).  
-4. **Edit → Features** → enable **HA updates** (same flag as OS patch) and **Backups** if you want rsync. Leave **Docker / containers** off.  
+4. **Edit → Features** → enable **HA updates** (same flag as OS patch) and **Backups** if you want rsync. Leave **Docker / containers** off. **Console mux** is hidden / forced off on HAOS.  
 5. **SSH access → Check dependencies** — expect **`ha` CLI** (not apt) when HA updates is on; **rsync** when backups is on.  
 6. **System info** — Core / OS / Supervisor versions, free disk (`ha host info` / disks usage).  
 7. **Actions → Check HA updates** — count of components with updates (0–3).  

@@ -8,7 +8,7 @@ Optional **in-browser SSH terminal** to a managed host. The private key stays on
 
 **Train:** v1.2 Stream **W** · security bar is intentionally high.
 
-**PTY vs host mux (Mux-1).** Default is still a direct SSH PTY. Soft resume parks on the **herder** — recreate **web** ends those parked shells. **Per-host opt-in** (Edit → Features → **Console mux**): when tmux is on the host, PiHerder opens a named session `ph-u{user}-s{server}-n{tab}-{f|p}`; if tmux is missing it tries **screen**; if neither is present you get a plain PTY and an honest banner. PiHerder **never** `apt install`s mux. **Hide & keep** detaches (session stays on the Pi). Shell **✕** / tab **×** **kills** that named session. Demo and HAOS never mux. Privileged vs fleet use different session names (no attach across identities). Command audit inside tmux/screen is best-effort. Leftover `ph-u*` sessions after [removing a host](remove-server.md) stay until you kill them as that Unix user. [PLAN_v1.6.0 Mux-1](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/docs/PLAN_v1.6.0.md).
+**PTY vs host mux (Mux-1, on `v1.6.0-dev`).** Default is still a direct SSH PTY. Soft resume parks on the **herder** — recreate **web** ends those parked shells **unless** the host has **Console mux** on. See [Host mux](#host-mux-mux-1) below.
 
 ## Why it exists
 
@@ -90,8 +90,8 @@ The [public demo](../operations/demo-site.md) enables Console for the shared **v
 |---------|------|
 | **Maximize** | Full screen + slim outer bar; on mobile expands from a short bottom sheet |
 | **Restore** | Back from maximize |
-| **Hide & keep** | Hides the console UI; shells stay available via **⌨** next to the alert bell. On the multi-host workspace this parks shells and returns to Servers. Phone **Back** does the same |
-| **✕** / host tab **×** / **Exit** | Ends shells and **frees concurrent shell slots** (important — abandoning tabs only soft-parked before and could hit “no more sessions”) |
+| **Hide & keep** | Hides the console UI; shells stay available via **⌨** next to the alert bell. Parks the herder PTY. With **Console mux** on, the named tmux/screen session **stays on the Pi**. Phone **Back** does the same |
+| **✕** / host tab **×** / **Exit** | Ends shells and **frees concurrent shell slots**. With **Console mux** on, this **kills** the named host session (`tmux kill-session` / `screen -X quit`) |
 | **+ Hosts** | Multi-host workspace at `/console` — **stays visible when maximized** |
 | **Passkey / TOTP** | Step-up first; **+ Shell / Lock / Aa** appear only after unlock |
 | **+ Shell** | New PTY (after step-up) |
@@ -107,7 +107,41 @@ The [public demo](../operations/demo-site.md) enables Console for the shared **v
 
 Chrome is a **single compact row** after unlock: `+ Shell`, shell tabs, `Aa`, optional Lock. Status is hidden by default (gate **···** to show). Soft-key strip stays one row and **scrolls sideways** on mobile.
 
-Typing **`exit`**, idle timeout, or session max **ends that shell** (no resume-retry spam). Explicit close (shell tab **×**, shell **✕**, or popup **✕**) still ends the session (`bye`). Switching apps or backgrounding the tab does **not** end the PTY.
+Typing **`exit`**, idle timeout, or session max **ends that shell** (no resume-retry spam). Explicit close (shell tab **×**, shell **✕**, or popup **✕**) still ends the session (`bye`) and, if mux is on, **kills** the host session. Switching apps or backgrounding the tab does **not** end the PTY (and does not kill mux).
+
+### Host mux (Mux-1) {#host-mux-mux-1}
+
+**On `v1.6.0-dev` (migration `043_console_mux`).** Recreate **web** after migrate.
+
+Default **off**. Turn it on per host: server **Edit → Features → Console mux (tmux / screen)** (also on the add-server wizard Features step). Not shown on HAOS. Public demo never muxes.
+
+PiHerder **does not install** tmux or screen. Put the binary on the host yourself if you want mux:
+
+```bash
+# Debian / Pi OS — on the host, not on the herder
+sudo apt-get install -y tmux    # preferred
+# or: sudo apt-get install -y screen
+```
+
+| Mux off | Mux on + tmux (or screen) | Mux on, neither binary |
+|---------|---------------------------|-------------------------|
+| Same PTY as 1.5 | Named session `ph-u{user}-s{server}-n{tab}-f` (privileged: `-p`) | Plain PTY + banner *mux opted-in but tmux/screen not on host* |
+| Hide parks on **web**; recycle **web** kills it | Hide parks herder PTY; host session **stays**; recycle **web** leaves `tmux ls` on the Pi | Same as mux off for that shell |
+| ✕ closes the PTY | ✕ **kills** that named session | ✕ closes the PTY |
+
+Privileged **Connect as…** uses a different suffix (`-p`) so it never attaches to a fleet session.
+
+After [removing a host](remove-server.md), leftover `ph-u*` sessions may remain until you:
+
+```bash
+tmux ls
+tmux kill-session -t ph-u1-s12-n0-f
+# or: screen -ls && screen -S ph-u1-s12-n0-f -X quit
+```
+
+**Not Mux-1:** leftover list/kill UI on SSH-access (that is Mux-2, Discover). Auto-on when the binary is present. Shared lab `piherder` session. Mux on HAOS.
+
+How to try it: enable `PIHERDER_SSH_CONSOLE=true`, migrate, recreate **web**, tick **Console mux** on a Debian host that has `tmux`, open Console → **+ Shell**, confirm the banner mentions `mux tmux`, Hide then `tmux ls` on the host, ✕ then confirm the session is gone.
 
 ### Multiple hosts (`/console`)
 
