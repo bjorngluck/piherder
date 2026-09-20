@@ -136,7 +136,7 @@ Slice **1b** (Should) and Slice **2** (Discover) have their own sections. First 
 
 - [ ] Unit line coverage on `app` ≥ **75%**  
 - [ ] CI `--cov-fail-under=75` (do **not** raise until the suite meets the bar)  
-- [x] Packs landed 2026-09-19 (`test_coverage_v16.py` / `_q2`–`_q11`); suite **~72.2%** (term **72%**; 34055/47192). Fail-under still **70** until 75  
+- [x] Packs landed through `_q13` (2026-09-20); suite **~72.2%** (34526/47833, term **72%**). Fail-under still **70** until 75  
 - [ ] No live SSH / HA / two-host copy / mux host in CI  
 - [ ] Mux tests: `tests/test_console_mux_v16.py` (service; no live SSH)  
 - [ ] HA plugin tests (other repo) mock `/api/v1` only  
@@ -242,3 +242,4 @@ Do not tick until the operator asks to freeze.
 | 2026-09-19 | HACS **0.1.5**: Visit only. Host-facts **044**. System Info = snapshot + icon. Do not tick HA/Mux boxes from this note. |
 | 2026-09-20 | HACS **0.2.2**: Lovelace fleet card loads via `/local/piherder-dashboard-card.js?v=0.2.2` (module). Device page still one Visit. Operator testing the card; HA boxes still empty. |
 | 2026-09-20 | System Info wiki + modal CPU/memory (same **045** columns HA reads). Do not tick from this note. |
+| 2026-09-20 | Q-80 `_q12`/`_q13`. Coverage still **~72.2%**. Do not raise fail-under. |
