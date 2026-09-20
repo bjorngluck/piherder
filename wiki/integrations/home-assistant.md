@@ -38,8 +38,15 @@ Host **hardware**, **OS**, CPU, memory, and disk come from the herder **host-fac
 
 The built-in HA **device page** only has one Visit link. For fleet totals and per-host shortcuts, add the **PiHerder fleet** Lovelace card:
 
-1. HACS plugin **0.2.0**, restart HA.  
-2. Dashboard → Add card → **Custom: PiHerder fleet** (YAML `type: custom:piherder-dashboard-card`).  
+1. HACS plugin **0.2.1**, restart HA, then **hard-refresh the browser** (Ctrl+Shift+R).  
+2. Dashboard → Add card → search **PiHerder fleet**, or YAML:
+
+```yaml
+type: custom:piherder-dashboard-card
+```
+
+If it still does not list: Dashboard **⋮ → Resources → Add**  
+`/api/piherder/piherder-dashboard-card.js?v=0.2.1` · type **JavaScript module**, then refresh.  
 3. The card shows **hosts, CPU cores, containers, memory %, disk %** for the whole fleet, then each host. Expand a host for CPU/memory/disk bars and links: Host, Docker, Backups, Alerts, Audit.
 
 Numbers come from the herder **host-facts** snapshot (about every 15 minutes). Recreate **web** so Alembic **045** is applied, then System Info refresh icon once per host (or wait for the scheduler).
