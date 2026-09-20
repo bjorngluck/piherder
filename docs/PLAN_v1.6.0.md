@@ -246,7 +246,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 |----------|------|-----|--------|
 | **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit** + fleet Lovelace card; token `read`; not in this image | **Landed** — plugin **0.2.2**; operator QA open |
 | **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Landed on branch** 848116a — operator QA open |
-| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs through `_q27`; suite **~72.2%**; CI fail-under still **70** until 75. |
+| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs through `_q27`. Compose suite **70.9%** (33925/47833; 31 failed HTTP cookie tests in this image). CI fail-under still **70** until 75. |
 | **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Open** |
 | **Should** | **Docs-archive-0x** | `docs/archive/v0/` + stubs | **Open** |
 | **Should** | **CSP-n Slice 1** | Script nonces; Report-Only demo first | **Open** |
@@ -313,6 +313,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-20 | **Q-80 `_q20`/`_q21`.** list_dir/search/read_text mock SFTP; login POST; console ticket; DNS base-domain/network/host A POSTs. |
 | 2026-09-20 | **Q-80 `_q22`/`_q23`.** put/mkdir/write_text/peek; 2FA form; DNS service CNAME create; console grant revoke/discard. |
 | 2026-09-20 | **Q-80 `_q24`/`_q25`.** unzip/iter_file + attach_from_plan/import; TOTP start/confirm/disable; attach-cname/host-identity; console passkey options. |
+| 2026-09-20 | **Q-80 `_q26`/`_q27`.** zip_on_host empty + write/sudo helpers; account profile/password/avatar; DNS visual stacks + stack-edges. |
 
 ---
 
@@ -325,7 +326,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 3 | Confirm HACS repo name · create public MIT repo | **Done** — [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) |
 | 4 | Slice 1: config flow + coordinator + fleet + host devices + fleet card | **Landed** plugin **0.2.2** (not in this image). Herder `GET /api/v1/summary` + **044**/**045**. Operator QA open |
 | 5 | **Mux-1** per-host opt-in | **Landed** 2026-09-19 `848116a` — operator QA open |
-| 6 | **Q-80** raise fail-under **70 → 75** | **In progress** — packs through `_q25`. **~72.2%**. Fail-under stays 70 until 75. |
+| 6 | **Q-80** raise fail-under **70 → 75** | **In progress** — packs through `_q27`. Compose **70.9%** (33925/47833). Gap ~**1950** lines. Fail-under stays 70 until 75. |
 | 7 | Slice 1b / CSP-n / Undo-1 as capacity after Must | Open |
 | 8 | Wiki + QA · freeze · `1.6.0` · tag · Hub | QA checklist **expanded** 2026-09-19; freeze when asked |
 
