@@ -246,7 +246,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 |----------|------|-----|--------|
 | **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit** + fleet Lovelace card; token `read`; not in this image | **Landed** — plugin **0.2.2**; operator QA open |
 | **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Landed on branch** 848116a — operator QA open |
-| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs through `_q23`; suite **~72.2%**; CI fail-under still **70** until 75. |
+| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs through `_q25`; suite **~72.2%**; CI fail-under still **70** until 75. |
 | **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Open** |
 | **Should** | **Docs-archive-0x** | `docs/archive/v0/` + stubs | **Open** |
 | **Should** | **CSP-n Slice 1** | Script nonces; Report-Only demo first | **Open** |
@@ -311,6 +311,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-20 | **Q-80 `_q16`/`_q17`.** host_files jail/denies; DNS plan + NPM cache; router diagnostics snapshot, server jobs JSON, console, dns maps, bulk, docker page, API features 403. |
 | 2026-09-20 | **Q-80 `_q18`/`_q19`.** host_files SFTP helpers/mode/zip; DNS save + IP/LAN helpers; auth/settings HTTP (login/account/timezone/status/files). |
 | 2026-09-20 | **Q-80 `_q20`/`_q21`.** list_dir/search/read_text mock SFTP; login POST; console ticket; DNS base-domain/network/host A POSTs. |
+| 2026-09-20 | **Q-80 `_q22`/`_q23`.** put/mkdir/write_text/peek; 2FA form; DNS service CNAME create; console grant revoke/discard. |
 
 ---
 
