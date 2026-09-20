@@ -131,6 +131,16 @@ def get_api_auth(
     return ApiAuth(token, client_ip=client_ip)
 
 
+def _container_count(s: Server) -> int | None:
+    try:
+        from ..services import docker_inventory as inventory_svc
+
+        n = inventory_svc.inventory_meta(s).get("container_count")
+        return int(n) if n is not None else None
+    except (TypeError, ValueError, Exception):
+        return None
+
+
 def _api_utc_iso(dt: Any) -> str | None:
     if dt is None:
         return None
@@ -186,6 +196,13 @@ def _server_public(
         "arch": getattr(s, "arch", None),
         "host_facts_at": _api_utc_iso(getattr(s, "host_facts_at", None)),
         "host_facts_status": getattr(s, "host_facts_status", None) or "never",
+        "cpu_cores": getattr(s, "cpu_cores", None),
+        "cpu_load": getattr(s, "cpu_load", None),
+        "memory_total_bytes": getattr(s, "memory_total_bytes", None),
+        "memory_used_bytes": getattr(s, "memory_used_bytes", None),
+        "disk_total_bytes": getattr(s, "disk_total_bytes", None),
+        "disk_used_bytes": getattr(s, "disk_used_bytes", None),
+        "container_count": _container_count(s),
         "last_seen": last_seen,
         "features": {
             "backup": bool(s.backup_enabled),
@@ -256,7 +273,9 @@ def api_summary(
     servers = list(session.exec(select(Server)).all())
     jobs = job_service.list_jobs(session, active_only=True, limit=100)
     alert_n = len(session.exec(select(Notification).where(Notification.status == "open")).all())
-    return summary_svc.fleet_summary(servers, jobs, alerts_open=alert_n)
+    out = summary_svc.fleet_summary(servers, jobs, alerts_open=alert_n)
+    out["containers"] = sum(_container_count(s) or 0 for s in servers)
+    return out
 
 
 # ---------- Fleet read ----------

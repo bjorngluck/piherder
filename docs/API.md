@@ -113,7 +113,7 @@ Base path: **`/api/v1`**
 |--------|------|-------|-------------|
 | `GET` | `/api/v1` | `read` | Machine-readable scope/endpoint catalog + **this token’s** scopes |
 | `GET` | `/api/v1/health` | `read` | `{ ok, scopes, allowed_features, client_ip }` |
-| `GET` | `/api/v1/summary` | `read` | Fleet heartbeat for HA: `{ ok, version, hosts, os_updates, container_updates, reboot_pending, jobs_running, move_running, last_backup_oldest_at, alerts_open }`. DB only — never SSH. Host counts (not package totals). |
+| `GET` | `/api/v1/summary` | `read` | Fleet heartbeat: hosts, updates, jobs, alerts, plus resource **sums** `cpu_cores`, `memory_*_bytes`, `disk_*_bytes`, `containers`. DB snapshots only. |
 
 ### Servers
 

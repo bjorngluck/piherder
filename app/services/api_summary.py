@@ -124,6 +124,16 @@ def fleet_summary(
         str(getattr(j, "job_type", "")).lower() == MOVE_JOB for j in active
     )
     oldest = min(backups) if backups else None
+
+    def _n(obj, name: str) -> int:
+        try:
+            v = getattr(obj, name, None)
+            if v is None and isinstance(obj, dict):
+                v = obj.get(name)
+            return int(v or 0)
+        except (TypeError, ValueError):
+            return 0
+
     return {
         "ok": True,
         "version": version or APP_VERSION,
@@ -135,4 +145,10 @@ def fleet_summary(
         "move_running": bool(move_running),
         "last_backup_oldest_at": _iso(oldest),
         "alerts_open": int(alerts_open or 0),
+        "cpu_cores": sum(_n(s, "cpu_cores") for s in rows),
+        "memory_total_bytes": sum(_n(s, "memory_total_bytes") for s in rows),
+        "memory_used_bytes": sum(_n(s, "memory_used_bytes") for s in rows),
+        "disk_total_bytes": sum(_n(s, "disk_total_bytes") for s in rows),
+        "disk_used_bytes": sum(_n(s, "disk_used_bytes") for s in rows),
+        "containers": sum(_n(s, "container_count") if hasattr(s, "container_count") else 0 for s in rows),
     }

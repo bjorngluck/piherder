@@ -101,7 +101,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped; do not regress [HAO
 - [ ] Bad URL / token **keeps the fields** (does not wipe the form)  
 - [ ] Bad URL / TLS fail is an error in the flow, not a silent empty dashboard  
 - [ ] Bad token / missing `read` fails closed  
-- [ ] Fleet **Plugin** sensor is **0.1.7** after Redownload + HA **restart**  
+- [ ] Fleet **Plugin** sensor is **0.2.0** after Redownload + HA **restart**  
 
 ### Entities
 
@@ -109,7 +109,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped; do not regress [HAO
 - [ ] One HA **device** per PiHerder server (hardware + OS pretty, last seen, reboot, backup)  
 - [ ] “Host down” is **`last_seen` age**, not a live SSH ping  
 - [ ] **Visit** on the host device reaches `{origin}/servers/{id}`  
-- [ ] Same host device: attributes **Docker / Backups / Alerts / Audit** are clickable http links (no extra devices)  
+- [ ] Lovelace **PiHerder fleet** card: fleet totals, expand host, chips open PiHerder (Host/Docker/Backups/Alerts/Audit)  
 - [ ] Jobs running on the fleet device is a **count**, not a link  
 - [ ] System Info on the herder shows the **stored** snapshot; refresh is the **icon** in that modal (no extra host-page button)  
 

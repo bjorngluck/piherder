@@ -299,6 +299,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-19 | **QA_v1.6.0 expanded** to full train checklist (Mux-1, HA-p2, Q-80, Should, 1.5 regression, screenshots, freeze). Mux-1 operator happy path in progress; boxes unticked until each row is walked. |
 | 2026-09-19 | **HACS repo** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) public. Plugin **0.1.5**: **Visit** is the PiHerder door; press-here buttons removed. Config flow keeps URL/token on error. |
 | 2026-09-19 | **Host facts** Alembic **044**: persist `os_pretty`, `os_id`, `hardware`, `arch`. Scheduler ~15 min. System Info shows the snapshot; header **icon** refreshes (no extra host-page button). `/servers` 500 from 040 boolean bind already fixed `81d7a12`. |
+| 2026-09-19 | **HA Lovelace card** `piherder-dashboard-card` (plugin **0.2.0**). Alembic **045** CPU/RAM/disk columns; summary sums hosts/cpu/memory/disk/containers. |
 
 ---
 
