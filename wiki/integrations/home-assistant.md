@@ -20,7 +20,7 @@ YAML `rest` sensors against an API token already work. Path 2 is that, first-cla
 1. In PiHerder: Settings → **API management** → create a token with **`read` only**. Set the **IP allowlist** to the HA host (HAOS ≈ appliance LAN IP; a container HA may egress as a Docker/bridge IP).  
 2. HACS → custom repository → **Integration** → `https://github.com/bjorngluck/piherder-ha`.  
 3. Add **PiHerder**: base URL (your herder origin, including scheme), token `ph_…`, TLS verify, poll interval. A bad URL or token keeps the fields filled (plugin ≥ 0.1.3).  
-4. Confirm fleet **Plugin** is **0.1.5**. On a host device, **Visit** opens `{origin}/servers/{id}`.
+4. Confirm fleet **Plugin** is **0.1.6**. On a host device, **Visit** opens `{origin}/servers/{id}`. Related devices **Docker / Backups / Alerts / Audit** each **Visit** the matching PiHerder page.
 
 HACS does **not** auto-refresh custom repos. New GitHub Release: HACS → PiHerder → **⋮ → Redownload** (pick the tag) → **restart Home Assistant**. Reload of the config entry is not enough for new files.
 
@@ -40,8 +40,8 @@ Host **hardware** and **OS** (`os_pretty`, Ubuntu vs HAOS vs Debian) come from t
 |---------|---------|
 | Fleet device | Counts, herder version, **Plugin** version, Visit = herder origin |
 | Host device | One per PiHerder server. **Visit** = that host. **Hardware** = Pi / DMI / HA chassis. **Model** = stored OS pretty name |
-| Sensors | OS, features, alert **status**, last seen, reboot, last backup (`never` if none) |
-| Jobs / alerts | Counts and titles. Open Jobs / Audit / Docker **in PiHerder** after Visit |
+| Shortcuts | Nested devices under the host: **Docker**, **Backups**, **Alerts**, **Audit**. Each has its own **Visit** (real browser link — not a press-here button). Docker / Backups only if that feature is on |
+| Sensors | OS, features, last seen, reboot on the host. Alert count lives on **Alerts**; last backup on **Backups** |
 
 ## What it will not do (Slice 1)
 
