@@ -273,7 +273,7 @@ Operators can already glue YAML `rest` / `rest_command` to tokens ([API.md](API.
 
 **v1.5:** written discover only. No plugin repo on `v1.5.0-dev`.
 
-**v1.6.0 (locked 2026-09-19):** Slice 1 **Must** (read-only fleet + host devices). Slice **1b** **Should** (snapshot read APIs + container/service entities). Slice **2** **Discover** (backup-from-HA). Herder `GET /api/v1/summary` optional if cheap. [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
+**v1.6.0 (locked 2026-09-19):** Slice 1 **Must** (read-only fleet + host devices + fleet Lovelace card). Slice **1b** **Should** (snapshot read APIs + container/service entities). Slice **2** **Discover** (backup-from-HA). Herder `GET /api/v1/summary` optional if cheap. [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Plugin: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.2**.
 
 ### 7.1 Two products
 
@@ -291,12 +291,13 @@ The HAOS box may *run* the integration (HA Core) while PiHerder still manages th
 | In HA | Open PiHerder |
 |-------|----------------|
 | Fleet: herder up, host count, OS/container updates, reboot pending, running jobs, Move in progress | Settings, users, API tokens |
-| **Host device:** OS type, last seen, reboot pending, backup age, disk when last facts are on the API | System info refresh, SSH, reboot confirm |
+| **Host device:** OS type, last seen, reboot pending, backup age, disk when last facts are on the API | System info refresh, SSH, reboot confirm. **Visit** = host page only |
+| **Fleet Lovelace card (Slice 1):** CPU/memory/disk/container sums; expand host; chips | Host / Docker / Backups / Alerts / Audit in PiHerder |
 | **Container entities (1b):** name, running/exited, image, uptime — last **inventory snapshot** | Logs, start/stop, compose edit |
 | **Service entities (1b):** fleet service / Kuma chip state | NPM, TLS, bind, Move |
 | Basic action (Slice 2): **Backup this host** (confirm) | OS apply, container patch, Move wizard |
 
-HA **Visit** on the host device → `{origin}/servers/{id}`. Jobs / Docker / Audit stay dest cards in PiHerder (not fake HA press-here buttons).
+HA **Visit** on the host device → `{origin}/servers/{id}`. Custom integrations get **one** Visit. Jobs / Docker / Audit are **card chips**, not extra Visit links and not fake HA press-here buttons.
 
 **Hard rule:** HA’s poll must **only read PiHerder DB snapshots**. Never SSH the fleet every 30s.
 
@@ -311,7 +312,7 @@ HA **Visit** on the host device → `{origin}/servers/{id}`. Jobs / Docker / Aud
 | 5 | **No** start/stop/restart from HA on the first plugin tag. Details → PiHerder. |
 | 6 | **Never** from HA: Move, compose write, Files, console, decrypt keys, OS **apply**. **`service_migrate` stays off** `POST /api/v1/…/jobs`. |
 | 7 | “Host down” is **`last_seen` age**, not a live SSH ping. “Is HA UI up?” stays Kuma. |
-| 8 | Events Slice 1: poll-diff → `piherder_job_completed` on the HA bus. **No** herder→HA webhook in Must (needs HA URL + LLAT the other way). `piherder_alert` waits until notifications exist on `/api/v1`. |
+| 8 | Events: poll-diff → `piherder_job_completed` on the HA bus is **not** in Slice 1 (parked with Slice 2). **No** herder→HA webhook in Must. `piherder_alert` waits until notifications exist on `/api/v1`. |
 | 9 | **Herder API Slice 1:** today’s `GET /health`, `/servers`, `/jobs?active_only=true` is enough. Optional **1.6** `GET /api/v1/summary` (`read`) — `{ ok, version, hosts, os_updates, container_updates, reboot_pending, jobs_running, move_running, last_backup_oldest_at }`. |
 | 10 | **Herder API 1b (Should):** last Docker **inventory**, **fleet services**, last **disk/OS facts**. Read-only. Same snapshots the UI already stores. |
 | 11 | **CI:** no live Home Assistant. Integration tests mock `/api/v1`. `tests/test_haos.py` stays path 1. Demo never. |
@@ -338,10 +339,10 @@ Per-host detail stays `GET /servers`. Summary is the coordinator’s cheap heart
 
 | Slice | Content | Priority |
 |-------|---------|----------|
-| **1** | Repo, manifest, config flow, coordinator, fleet sensors, per-host devices, **Visit**, wiki, HACS readme. Herder `summary` + host-facts. Token `read`. | **Must** |
+| **1** | Repo, manifest, config flow, coordinator, fleet sensors, per-host devices, **Visit**, fleet Lovelace card, wiki, HACS readme. Herder `summary` + host-facts + resource columns. Token `read`. Plugin **0.2.2**. | **Must** |
 | **1b** | Snapshot APIs + HA entities: container (running/uptime/image), service (up/down), host disk. Still no start/stop. | **Should** |
 | **2** | Confirm + `piherder.backup`; poll-diff job events; optional OS **check** (not apply) | **Discover** |
-| **3** | Start/stop from HA, webhooks, alerts API, add-on, custom Lovelace card, Move-from-HA, Files | **Out** |
+| **3** | Start/stop from HA, webhooks, alerts API, add-on, extra Lovelace cards, Move-from-HA, Files | **Out** |
 
 ### 7.6 Non-goals
 
@@ -446,5 +447,6 @@ Unit tests: pure parsers for `ha * info` fixtures + branch in `check_os_updates`
 | 2026-09-10 | **HA-p2 Discover written.** HACS integration **on HA**; Slice 1 read-only fleet + host devices; details open PiHerder. Slice 1b: container/service entities from **DB snapshots** (new read APIs). Backup button Slice 2. No start/stop, no Move-from-HA, no plugin on this branch. |
 | 2026-09-19 | **v1.6 train opened.** Slice 1 **Must**, 1b **Should**, 2 **Discover**. Plugin still a **separate** repo (not this image). |
 | 2026-09-19 | **HACS** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.1.5**. Door is HA **Visit**, not press-here buttons. Herder `summary` + host-facts **044**. |
+| 2026-09-20 | Plugin **0.2.2**. Fleet Lovelace card is Slice 1 (HA allows one Visit per custom device). Resource `/local/piherder-dashboard-card.js?v=0.2.2` as module. `piherder_job_completed` bus events stay Slice 2. |
 
 **End of feature plan** — living; implement against §2.1 and §6.

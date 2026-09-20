@@ -115,16 +115,17 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped in 0.9. This stream 
 
 | ID | Item | Notes |
 |----|------|--------|
-| HA1 | New git repo | **Landed:** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (`main`, plugin **0.1.5**). Not in this image |
+| HA1 | New git repo | **Landed:** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (`main`, plugin **0.2.2**). Not in this image |
 | HA2 | Config flow | Base URL + `ph_…` token + TLS verify + poll interval |
 | HA3 | Coordinator | `DataUpdateCoordinator` poll. Snapshot reads only — **never SSH** the fleet on the HA interval |
 | HA4 | Fleet sensors | Herder up, host count, OS/container updates, reboot pending, running jobs, Move in progress |
 | HA5 | Host devices | One HA device per PiHerder server; **hardware** + **os_pretty** from host-facts; last seen, reboot, backup |
-| HA6 | Visit | HA **Visit** on the host device = `{origin}/servers/{id}`. Not fake press-here buttons (removed 0.1.5) |
+| HA6 | Visit | HA **Visit** on the host device = `{origin}/servers/{id}`. Custom integrations get **one** Visit. Not fake press-here buttons (removed 0.1.5). Extra devices per shortcut rejected |
 | HA7 | Auth | Slice 1 token **`read` only**. No OAuth, no session cookie, no CORS. IP allowlist = HA host |
-| HA8 | Optional `summary` | **Landed:** `GET /api/v1/summary` (`read`) plus `os_pretty` / `hardware` / `alerts_*` on `/servers`. Host-facts snapshot Alembic **044**, scheduler ~15 min, System Info icon refresh |
-| HA9 | Wiki + HACS readme | Operator install: HACS custom repo, token with `read`, allowlist. YAML `rest:` remains possible |
+| HA8 | Optional `summary` | **Landed:** `GET /api/v1/summary` (`read`) plus `os_pretty` / `hardware` / `alerts_*` / cpu / memory / disk / `container_count` on `/servers`. Host-facts **044** + resources **045**. Scheduler ~15 min, System Info icon refresh |
+| HA9 | Wiki + HACS readme | Operator install: HACS custom repo, token with `read`, allowlist, fleet card `/local` module. YAML `rest:` remains possible |
 | HA10 | CI | Mock `/api/v1`. No live Home Assistant. `tests/test_haos.py` stays path 1 |
+| HA11 | Lovelace fleet card | **Landed 0.2.2:** `custom:piherder-dashboard-card`. Resource `/local/piherder-dashboard-card.js?v=0.2.2` as **JavaScript module**. Fleet sums + expand host + chips (Host/Docker/Backups/Alerts/Audit). Pulled into Slice 1 because HA cannot add extra Visit links |
 
 **Hard rules:** no start/stop from HA on the first plugin tag. Never Move, compose write, Files, console, decrypt keys, OS **apply** from HA. `service_migrate` stays off `POST /api/v1/…/jobs`. “Host down” is `last_seen` age, not a live SSH ping.
 
@@ -133,8 +134,9 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped in 0.9. This stream 
 1. Config flow accepts URL + token; coordinator polls without error.  
 2. HA shows fleet sensors and one device per host.  
 3. HA **Visit** on a host device reaches `{origin}/servers/{id}`.  
-4. Token without `read` fails closed. Viewer-class token is enough.  
-5. Demo never. No plugin files in the PiHerder image.
+4. Lovelace **PiHerder fleet** card loads (`custom:piherder-dashboard-card`); chips open PiHerder sections.  
+5. Token without `read` fails closed. Viewer-class token is enough.  
+6. Demo never. No plugin files in the PiHerder image.
 
 ### Slice 1b (Should)
 
@@ -240,7 +242,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
-| **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit**; token `read`; not in this image | **Landed on branch** — plugin `bjorngluck/piherder-ha` **0.1.5**; operator QA open |
+| **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit** + fleet Lovelace card; token `read`; not in this image | **Landed** — plugin **0.2.2**; operator QA open |
 | **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Landed on branch** 848116a — operator QA open |
 | **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs through `_q11`; suite **~72.2%** (term **72%**; 34055/47192); CI fail-under still **70** until 75 |
 | **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Open** |
@@ -269,7 +271,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 - **Brand-1/2** instance wordmark + accent + hide Catalog — **out 2026-09-19**. Park [PLAN_v1.7.0.md](PLAN_v1.7.0.md). No theme engine, no logo upload  
 - **AC-fg** per-host / per-feature grants — **out 2026-09-19**. Three global roles stay. Park **v1.7**  
 - **J-runtime** remaining exclusive jobs → Celery — already **v1.7**  
-- HA Slice 3: start/stop, webhooks, alerts API, add-on, Lovelace card, Move-from-HA, Files from HA  
+- HA Slice 3: start/stop, webhooks, alerts API, add-on, extra Lovelace cards beyond the fleet dashboard, Move-from-HA, Files from HA  
 - Brand-3 own-docs MkDocs skin  
 - Default-on Move (**M-flag C** stays false)  
 - Plugin / add-on **inside** the PiHerder image  
@@ -300,6 +302,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-19 | **HACS repo** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) public. Plugin **0.1.5**: **Visit** is the PiHerder door; press-here buttons removed. Config flow keeps URL/token on error. |
 | 2026-09-19 | **Host facts** Alembic **044**: persist `os_pretty`, `os_id`, `hardware`, `arch`. Scheduler ~15 min. System Info shows the snapshot; header **icon** refreshes (no extra host-page button). `/servers` 500 from 040 boolean bind already fixed `81d7a12`. |
 | 2026-09-19 | **HA Lovelace card** `piherder-dashboard-card` (plugin **0.2.0**). Alembic **045** CPU/RAM/disk columns; summary sums hosts/cpu/memory/disk/containers. |
+| 2026-09-20 | Plugin **0.2.2**: card JS copied to HA `config/www/`; Lovelace resource `/local/piherder-dashboard-card.js?v=0.2.2` as module. Custom element loads. Device page still one Visit. Operator testing the card. |
 
 ---
 
@@ -309,8 +312,8 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 |---|------|--------|
 | 1 | Open **`v1.6.0-dev`** + lock Must/Should | **This commit** 2026-09-19 |
 | 2 | **Docs-archive-0x** (Should, Phase 0b) | Open |
-| 3 | Confirm HACS repo name · create public MIT repo | Local tree `/home/bjorn/piherder-ha` — **confirm `bjorngluck/piherder-ha` before GitHub create** |
-| 4 | Slice 1: config flow + coordinator + fleet + host devices | Scaffolded locally (not in this image). Herder `GET /api/v1/summary` landed |
+| 3 | Confirm HACS repo name · create public MIT repo | **Done** — [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) |
+| 4 | Slice 1: config flow + coordinator + fleet + host devices + fleet card | **Landed** plugin **0.2.2** (not in this image). Herder `GET /api/v1/summary` + **044**/**045**. Operator QA open |
 | 5 | **Mux-1** per-host opt-in | **Landed** 2026-09-19 `848116a` — operator QA open |
 | 6 | **Q-80** raise fail-under **70 → 75** | **In progress** 2026-09-19 — packs through `_q11`; ~72.2% / display 72%. Fail-under stays 70 until 75 |
 | 7 | Slice 1b / CSP-n / Undo-1 as capacity after Must | Open |
