@@ -165,6 +165,12 @@ class Server(SQLModel, table=True):
     host_facts_at: Optional[datetime] = None
     host_facts_status: str = "never"
     host_facts_error: Optional[str] = None
+    cpu_cores: Optional[int] = None
+    cpu_load: Optional[float] = None
+    memory_total_bytes: Optional[int] = None
+    memory_used_bytes: Optional[int] = None
+    disk_total_bytes: Optional[int] = None
+    disk_used_bytes: Optional[int] = None
     last_seen: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

@@ -253,6 +253,32 @@ def run_diagnostics(server: Server, force: bool = False) -> dict:
         except Exception:
             pass
 
+        from .host_facts import parse_loadavg, parse_nproc
+
+        status, out, _ = run_command(
+            client, "nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null", timeout=6
+        )
+        if status == 0:
+            info["cpu_cores"] = parse_nproc(out)
+        status, out, _ = run_command(client, "cut -d' ' -f1 /proc/loadavg 2>/dev/null", timeout=4)
+        if status == 0:
+            info["cpu_load"] = parse_loadavg(out)
+        status, out, _ = run_command(
+            client,
+            "awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2} END{print t+0, a+0}' /proc/meminfo 2>/dev/null",
+            timeout=6,
+        )
+        if status == 0 and (out or "").strip():
+            parts = out.split()
+            try:
+                tkb = int(float(parts[0]))
+                info["memory_total_bytes"] = tkb * 1024
+                if len(parts) > 1:
+                    akb = int(float(parts[1]))
+                    info["memory_used_bytes"] = max(0, (tkb - akb) * 1024)
+            except (TypeError, ValueError, IndexError):
+                pass
+
         client.close()
     except Exception as e:
         info["error"] = str(e)[:200]
@@ -284,6 +310,15 @@ def run_diagnostics(server: Server, force: bool = False) -> dict:
             summary["total_avail"] = hd.get("avail")
             summary["source"] = "ha host info"
             info["summary"] = summary
+    except Exception:
+        pass
+
+    try:
+        from .host_facts import disk_bytes_from_summary
+
+        dt, du = disk_bytes_from_summary(info.get("summary"))
+        info["disk_total_bytes"] = dt
+        info["disk_used_bytes"] = du
     except Exception:
         pass
 

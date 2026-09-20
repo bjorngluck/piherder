@@ -9,7 +9,7 @@ A **HACS integration that runs on Home Assistant** and **observes** your PiHerde
 | Path 1 | This PiHerder image | SSH + `ha` CLI on an HAOS **server** |
 | Path 2 (this page) | Separate HACS repo | HA polls PiHerder snapshots; **Visit** opens the herder |
 
-The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). Current plugin **0.1.5**.
+The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). Current plugin **0.2.0**.
 
 ## Why it exists
 
@@ -20,7 +20,7 @@ YAML `rest` sensors against an API token already work. Path 2 is that, first-cla
 1. In PiHerder: Settings → **API management** → create a token with **`read` only**. Set the **IP allowlist** to the HA host (HAOS ≈ appliance LAN IP; a container HA may egress as a Docker/bridge IP).  
 2. HACS → custom repository → **Integration** → `https://github.com/bjorngluck/piherder-ha`.  
 3. Add **PiHerder**: base URL (your herder origin, including scheme), token `ph_…`, TLS verify, poll interval. A bad URL or token keeps the fields filled (plugin ≥ 0.1.3).  
-4. Confirm fleet **Plugin** is **0.1.7**. On a host device, **Visit** is the host page. HA only allows **one** Visit per device. Docker / Backups / Alerts / Audit are the same kind of http link on **that host** — open the host (any sensor) and click those attributes (new tab).
+4. Confirm fleet **Plugin** is **0.2.0**. Device page **Visit** is still the host. For totals and per-host links, add the **PiHerder fleet** card (below).
 
 HACS does **not** auto-refresh custom repos. New GitHub Release: HACS → PiHerder → **⋮ → Redownload** (pick the tag) → **restart Home Assistant**. Reload of the config entry is not enough for new files.
 
@@ -32,7 +32,17 @@ Token without `read`, a bad secret, or a mismatched allowlist **fails closed**.
 
 Poll is **database snapshots only**. It never SSH’s the fleet on the HA interval. “Host down” is **`last_seen` age**, not a live ping.
 
-Host **hardware** and **OS** (`os_pretty`, Ubuntu vs HAOS vs Debian) come from the herder **host-facts snapshot** (System Info on the server — not live SSH every poll). Recreate **web** so Alembic **044** is applied, then open System Info once (or wait ~15 minutes).
+Host **hardware**, **OS**, CPU, memory, and disk come from the herder **host-facts snapshot**. Recreate **web** so Alembic **044** and **045** apply, then System Info refresh (or wait ~15 minutes).
+
+## Fleet card (dashboard)
+
+The built-in HA **device page** only has one Visit link. For fleet totals and per-host shortcuts, add the **PiHerder fleet** Lovelace card:
+
+1. HACS plugin **0.2.0**, restart HA.  
+2. Dashboard → Add card → **Custom: PiHerder fleet** (YAML `type: custom:piherder-dashboard-card`).  
+3. The card shows **hosts, CPU cores, containers, memory %, disk %** for the whole fleet, then each host. Expand a host for CPU/memory/disk bars and links: Host, Docker, Backups, Alerts, Audit.
+
+Numbers come from the herder **host-facts** snapshot (about every 15 minutes). Recreate **web** so Alembic **045** is applied, then System Info refresh icon once per host (or wait for the scheduler).
 
 ## What you see in HA
 
