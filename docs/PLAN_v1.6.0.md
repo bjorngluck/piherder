@@ -246,7 +246,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 |----------|------|-----|--------|
 | **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit** + fleet Lovelace card; token `read`; not in this image | **Landed** — plugin **0.2.2**; operator QA open |
 | **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Landed on branch** 848116a — operator QA open |
-| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs through `_q13`; suite **~72.2%** (34526/47833); CI fail-under still **70** until 75 |
+| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs through `_q15`; suite **~72.2%**; CI fail-under still **70** until 75. Router HTTP started (`_q15`). |
 | **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Open** |
 | **Should** | **Docs-archive-0x** | `docs/archive/v0/` + stubs | **Open** |
 | **Should** | **CSP-n Slice 1** | Script nonces; Report-Only demo first | **Open** |
@@ -307,6 +307,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-20 | Plugin **0.2.2**: card JS copied to HA `config/www/`; Lovelace resource `/local/piherder-dashboard-card.js?v=0.2.2` as module. Custom element loads. Device page still one Visit. Operator testing the card. |
 | 2026-09-20 | System Info operator page: snapshot exists so HA never SSHs. Modal shows CPU/memory from **045**. Wiki [system-info.md](../wiki/day-to-day/system-info.md). |
 | 2026-09-20 | **Q-80 packs `_q12`/`_q13`.** Jobs enqueue/execute, docker compose SFTP/actions, herder helpers, cert sudo probe, DNS candidates. Full suite **~72.2%** (34526/47833). Fail-under stays **70**. Remaining fat: host_files, dns_fabric/core, herder_backup, docker_management, jobs leftover, stack_health, webauthn, scheduler. |
+| 2026-09-20 | **Q-80 `_q14`/`_q15`.** Service: stack_health, ssh identities, webauthn, scheduler, DNS Pi-hole match, herder prune/list, docker classify. Routers: `/api/v1` catalog/health/summary/servers/jobs + HTML `/servers` `/jobs` settings. TestClient must ``cookies.set`` (``cookies=`` is ignored here). Fail-under stays **70**. |
 
 ---
 
@@ -319,7 +320,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 3 | Confirm HACS repo name · create public MIT repo | **Done** — [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) |
 | 4 | Slice 1: config flow + coordinator + fleet + host devices + fleet card | **Landed** plugin **0.2.2** (not in this image). Herder `GET /api/v1/summary` + **044**/**045**. Operator QA open |
 | 5 | **Mux-1** per-host opt-in | **Landed** 2026-09-19 `848116a` — operator QA open |
-| 6 | **Q-80** raise fail-under **70 → 75** | **In progress** — packs `_q12`/`_q13` 2026-09-20; **~72.2%** (34526/47833). Gap ~**1323** lines. Fail-under stays 70 until 75. Do not chase router %. |
+| 6 | **Q-80** raise fail-under **70 → 75** | **In progress** — packs through `_q15`. **~72.2%**. Router HTTP started. Fail-under stays 70 until 75. |
 | 7 | Slice 1b / CSP-n / Undo-1 as capacity after Must | Open |
 | 8 | Wiki + QA · freeze · `1.6.0` · tag · Hub | QA checklist **expanded** 2026-09-19; freeze when asked |
 
