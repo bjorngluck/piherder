@@ -59,7 +59,7 @@ Exact package install steps for rsync may vary by HAOS version — enable the SS
 | Capability | Behaviour |
 |------------|-----------|
 | **Identity** | Manual profile or auto-mark when `ha` works / probes confident |
-| **System info** | Stored snapshot (Core / OS / Supervisor, disk). Refresh icon SSHs once; scheduler ~15 min |
+| **System info** | Stored snapshot (Core / OS / Supervisor, disk, CPU, memory). Refresh icon SSHs once; scheduler ~15 min. [Why](system-info.md) |
 | **OS check** | `ha core\|os\|supervisor info` — **not** apt |
 | **OS apply** | `ha supervisor\|core\|os update` when available; opt-in via same OS patch flag / schedules |
 | **Backups** | Plain **rsync** if package present (root / no sudo path) |

@@ -20,7 +20,7 @@ Plan: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · HA design: [FEATURE_PLAN_HOME_ASSISTAN
 | Stream | Wiki |
 |--------|------|
 | Mux-1 | [Web SSH console](../wiki/day-to-day/web-ssh-console.md) · [Add a server](../wiki/day-to-day/add-server.md) · [HAOS hosts](../wiki/day-to-day/haos-hosts.md) · [Remove a server](../wiki/day-to-day/remove-server.md) |
-| HA-p2 | [API tokens](../wiki/operations/api-tokens.md) · [Home Assistant → PiHerder](../wiki/integrations/home-assistant.md) · [HAOS hosts](../wiki/day-to-day/haos-hosts.md) (path 1 vs path 2) · HACS readme in `bjorngluck/piherder-ha` |
+| HA-p2 | [API tokens](../wiki/operations/api-tokens.md) · [Home Assistant → PiHerder](../wiki/integrations/home-assistant.md) · [System Info](../wiki/day-to-day/system-info.md) · [HAOS hosts](../wiki/day-to-day/haos-hosts.md) (path 1 vs path 2) · HACS readme in `bjorngluck/piherder-ha` |
 | Move / regression | [Move a service](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Reports](../wiki/day-to-day/reports.md) |
 | Screenshots | [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md) |
 
@@ -115,7 +115,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped; do not regress [HAO
 - [ ] Card fleet totals; expand host; chips open PiHerder (Host/Docker/Backups/Alerts/Audit) in the browser, not HA history  
 - [ ] Empty CPU/memory/disk on the card after **web** recreate + System Info refresh is a herder snapshot gap (Alembic **045**), not a card 404  
 - [ ] Jobs running on the fleet device is a **count**, not a link  
-- [ ] System Info on the herder shows the **stored** snapshot; refresh is the **icon** in that modal (no extra host-page button)  
+- [ ] System Info on the herder shows the **stored** snapshot (pretty OS, hardware, CPU cores/load, memory, disk); refresh is the **icon** in that modal (no extra host-page button)  
 
 ### Hard no (fail the train if any of these happen)
 
@@ -211,6 +211,7 @@ Owner: operator (not CI). Replace PNGs under `wiki/assets/screenshots/`; then `m
 | **P0** | `ha-hacs-config.png` | HA config flow | Base URL + token (secret masked) |
 | **P0** | `ha-fleet-sensors.png` | HA device/sensors | Fleet counts + one host device |
 | **P1** | `ha-visit-host.png` | HA device **Visit** | Lands on `/servers/{id}` |
+| **P2** | `system-info-snapshot.png` | System Info modal | Stored snapshot + CPU/memory; refresh is the header icon |
 | **P2** | Recapture only if chrome drifted | Reports / Move JobHold / HAOS | 1.5 pack still good unless broken |
 
 1.4/1.5 Move + Reports pack stays unless a row above says recapture.
@@ -240,3 +241,4 @@ Do not tick until the operator asks to freeze.
 | 2026-09-19 | Operator: tmux testing “looks great so far”. Mux-1 boxes still empty until each row is walked. |
 | 2026-09-19 | HACS **0.1.5**: Visit only. Host-facts **044**. System Info = snapshot + icon. Do not tick HA/Mux boxes from this note. |
 | 2026-09-20 | HACS **0.2.2**: Lovelace fleet card loads via `/local/piherder-dashboard-card.js?v=0.2.2` (module). Device page still one Visit. Operator testing the card; HA boxes still empty. |
+| 2026-09-20 | System Info wiki + modal CPU/memory (same **045** columns HA reads). Do not tick from this note. |

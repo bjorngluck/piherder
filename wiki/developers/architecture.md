@@ -54,7 +54,7 @@ flowchart TB
 | Scheduler | `app/services/scheduler.py` |
 | Backup | `app/services/backup.py` (+ progress, profiles) |
 | Docker inventory | `app/services/docker_inventory.py` |
-| Host OS / hardware snapshot | `app/services/host_facts.py` · Alembic **044** · System Info modal (DB first; icon refresh) · scheduler ~15 min |
+| Host OS / hardware / CPU / RAM / disk snapshot | `app/services/host_facts.py` · Alembic **044** + **045** · System Info modal (DB first; icon refresh) · scheduler ~15 min · same columns as `/api/v1` + HACS |
 | Templates (domain) | `app/services/service_templates/` — `deploy`, `host_sync` (adopt/migrate), `harden`, `schema`, `from_host`, … |
 | Compose project files (pure) | `app/services/compose_project_files.py` — file kinds, sidecar discovery, desired→live merge (no SSH) |
 | Compose editor workspace | `app/services/compose_editor.py` — inventory/fallback path, live files, template sidecars, drafts |

@@ -640,6 +640,24 @@ async function loadSystemInfoIntoModal(useCache = true) {
     html += `<div class="text-[10px] mt-1 text-muted">${haDisk ? 'From ha host info (Supervisor). ' : ''}Main volumes below (filtered).</div>`;
     html += `</div></div>`;
 
+    const cores = data.cpu_cores;
+    const load = data.cpu_load;
+    const memT = data.memory_total_bytes;
+    const memU = data.memory_used_bytes;
+    if (cores != null || load != null || memT != null) {
+      const memPct = (memT && memU != null) ? Math.round(100 * Number(memU) / Number(memT)) + '%' : '';
+      html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-sm">
+        <div class="bg-surface border border-border p-3 rounded">
+          <div class="text-xs text-muted mb-1">CPU</div>
+          <div>${cores != null ? esc(String(cores)) + ' cores' : '—'}${load != null ? ' · load ' + esc(String(load)) : ''}</div>
+        </div>
+        <div class="bg-surface border border-border p-3 rounded">
+          <div class="text-xs text-muted mb-1">Memory</div>
+          <div class="font-mono text-sm">${fmtBytes(memU)} / ${fmtBytes(memT)}${memPct ? ' <span class="text-accent ml-2">' + esc(memPct) + '</span>' : ''}</div>
+        </div>
+      </div>`;
+    }
+
     if (isHaos) {
       html += `<div class="bg-surface border border-border p-3 rounded mb-4 text-sm">
         <div class="text-xs text-muted mb-2">Home Assistant</div>
@@ -711,6 +729,18 @@ function esc(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function fmtBytes(n) {
+  if (n == null || n === '') return '—';
+  const x = Number(n);
+  if (!Number.isFinite(x) || x < 0) return '—';
+  const u = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+  let i = 0;
+  let v = x;
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+  const digits = i === 0 ? 0 : (v >= 10 ? 1 : 2);
+  return v.toFixed(digits) + ' ' + u[i];
 }
 
 function computeUsableSummary(drives) {
@@ -918,6 +948,7 @@ function computeUsableSummary(drives) {
 
     <div class="mt-4 text-[10px] text-muted">
       This is the last stored snapshot (about every 15 minutes). The refresh icon SSHs once and updates it.
+      CPU, memory, disk, OS, and hardware here are what Home Assistant reads — HA never SSHs the fleet.
       {% if is_haos %}On HAOS, Core/OS/Supervisor versions and disk free come from the <code class="text-[10px]">ha</code> CLI when available.{% endif %}
     </div>
   </div>

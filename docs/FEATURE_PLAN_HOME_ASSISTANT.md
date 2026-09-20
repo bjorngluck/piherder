@@ -448,5 +448,6 @@ Unit tests: pure parsers for `ha * info` fixtures + branch in `check_os_updates`
 | 2026-09-19 | **v1.6 train opened.** Slice 1 **Must**, 1b **Should**, 2 **Discover**. Plugin still a **separate** repo (not this image). |
 | 2026-09-19 | **HACS** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.1.5**. Door is HA **Visit**, not press-here buttons. Herder `summary` + host-facts **044**. |
 | 2026-09-20 | Plugin **0.2.2**. Fleet Lovelace card is Slice 1 (HA allows one Visit per custom device). Resource `/local/piherder-dashboard-card.js?v=0.2.2` as module. `piherder_job_completed` bus events stay Slice 2. |
+| 2026-09-20 | **Why System Info snapshot:** HA poll must not SSH. Herder persists pretty OS/hardware (**044**) + CPU/memory/disk (**045**); modal is DB-first with an icon refresh. Same row feeds `/api/v1` and the fleet card. |
 
 **End of feature plan** — living; implement against §2.1 and §6.
