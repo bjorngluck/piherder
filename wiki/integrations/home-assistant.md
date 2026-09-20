@@ -20,7 +20,7 @@ YAML `rest` sensors against an API token already work. Path 2 is that, first-cla
 1. In PiHerder: Settings → **API management** → create a token with **`read` only**. Set the **IP allowlist** to the HA host (HAOS ≈ appliance LAN IP; a container HA may egress as a Docker/bridge IP).  
 2. HACS → custom repository → **Integration** → `https://github.com/bjorngluck/piherder-ha`.  
 3. Add **PiHerder**: base URL (your herder origin, including scheme), token `ph_…`, TLS verify, poll interval. A bad URL or token keeps the fields filled (plugin ≥ 0.1.3).  
-4. Confirm fleet **Plugin** is **0.1.6**. On a host device, **Visit** opens `{origin}/servers/{id}`. Related devices **Docker / Backups / Alerts / Audit** each **Visit** the matching PiHerder page.
+4. Confirm fleet **Plugin** is **0.1.7**. On a host device, **Visit** is the host page. HA only allows **one** Visit per device. Docker / Backups / Alerts / Audit are the same kind of http link on **that host** — open the host (any sensor) and click those attributes (new tab).
 
 HACS does **not** auto-refresh custom repos. New GitHub Release: HACS → PiHerder → **⋮ → Redownload** (pick the tag) → **restart Home Assistant**. Reload of the config entry is not enough for new files.
 
@@ -39,9 +39,9 @@ Host **hardware** and **OS** (`os_pretty`, Ubuntu vs HAOS vs Debian) come from t
 | Surface | Meaning |
 |---------|---------|
 | Fleet device | Counts, herder version, **Plugin** version, Visit = herder origin |
-| Host device | One per PiHerder server. **Visit** = that host. **Hardware** = Pi / DMI / HA chassis. **Model** = stored OS pretty name |
-| Shortcuts | Nested devices under the host: **Docker**, **Backups**, **Alerts**, **Audit**. Each has its own **Visit** (real browser link — not a press-here button). Docker / Backups only if that feature is on |
-| Sensors | OS, features, last seen, reboot on the host. Alert count lives on **Alerts**; last backup on **Backups** |
+| Host device | One per PiHerder server. **Visit** = host page. Hardware / OS from the stored snapshot |
+| Shortcuts | On **that same host** (not extra devices): attributes **Docker**, **Backups**, **Alerts**, **Audit** — HA draws them as real links, same as Visit. Docker/Backups only if the feature is on |
+| Sensors | OS, features, alert status, last seen, reboot, last backup — all on the host |
 
 ## What it will not do (Slice 1)
 
