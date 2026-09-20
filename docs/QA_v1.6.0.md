@@ -136,7 +136,7 @@ Slice **1b** (Should) and Slice **2** (Discover) have their own sections. First 
 
 - [ ] Unit line coverage on `app` ≥ **75%**  
 - [ ] CI `--cov-fail-under=75` (do **not** raise until the suite meets the bar)  
-- [x] Packs landed through `_q25` (2026-09-20); suite **~72.2%**. Fail-under still **70** until 75. Router HTTP started.  
+- [x] Packs landed through `_q27` (2026-09-20); suite **~72.2%**. Fail-under still **70** until 75. Router HTTP started.  
 - [ ] No live SSH / HA / two-host copy / mux host in CI  
 - [ ] Mux tests: `tests/test_console_mux_v16.py` (service; no live SSH)  
 - [ ] HA plugin tests (other repo) mock `/api/v1` only  
@@ -248,3 +248,5 @@ Do not tick until the operator asks to freeze.
 | 2026-09-20 | Q-80 `_q18`/`_q19` SFTP helpers, DNS save, auth/settings HTTP. Fail-under stays 70. |
 | 2026-09-20 | Q-80 `_q20`/`_q21` list/search/read_text + login/ticket/DNS POSTs. Fail-under stays 70. |
 | 2026-09-20 | Q-80 `_q22`/`_q23` put/mkdir/peek + 2FA/DNS CNAME/console revoke. Fail-under stays 70. |
+| 2026-09-20 | Q-80 `_q24`/`_q25` unzip/attach-plan + TOTP/attach-cname/passkey options. Fail-under stays 70. |
+| 2026-09-20 | Q-80 `_q26`/`_q27` zip helpers + account/avatar + DNS stack-edges. Fail-under stays 70. |
