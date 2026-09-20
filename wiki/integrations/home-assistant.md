@@ -20,7 +20,7 @@ YAML `rest` sensors against an API token already work. Path 2 is that, first-cla
 1. In PiHerder: Settings → **API management** → create a token with **`read` only**. Set the **IP allowlist** to the HA host (HAOS ≈ appliance LAN IP; a container HA may egress as a Docker/bridge IP).  
 2. HACS → custom repository → **Integration**. Lean repo name: `bjorngluck/piherder-ha` (confirm on GitHub when published).  
 3. Add **PiHerder**: base URL (your herder origin, including scheme), token `ph_…`, TLS verify, poll interval.  
-4. Check HA devices: fleet **Plugin** must be **0.1.4**. **Visit** is the host page. **Open host / Docker / backups / services / jobs / audit / alerts** are **buttons** (not sensors — sensors opened HA history). Press a button → HA notification with a PiHerder markdown link. Hardware is the stored Pi/DMI/HA chassis string; model is `os_pretty` (Ubuntu 24.04, HAOS). Recreate **web** so Alembic **044** runs and host facts persist.
+4. Fleet **Plugin** must be **0.1.5**. **Visit** on a host device opens that host in PiHerder (the real door). Status sensors are status only — not fake “open” buttons. Hardware / OS come from the stored host snapshot (System Info on the herder). Recreate **web** so Alembic **044** is applied.
 
 Token without `read`, a bad secret, or a mismatched allowlist **fails closed**.
 

@@ -488,9 +488,6 @@
       </script>
       {% endif %}
       <button type="button" onclick="showSystemInfoModal()" class="btn btn-secondary min-h-11 text-sm">System info</button>
-      <form method="post" action="/servers/{{ server.id }}/host-facts/refresh" class="inline">
-        <button class="btn btn-secondary min-h-11 text-sm" type="submit">Refresh facts</button>
-      </form>
     </div>
     {% include "partials/host_switcher.html" %}
   </div>

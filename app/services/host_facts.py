@@ -96,21 +96,27 @@ def family_from_ids(os_id: str | None, pretty: str | None, profile: str | None) 
 
 def snapshot_from_server(server: Server) -> dict[str, Any]:
     raw = getattr(server, "host_facts_json", None)
+    data: dict[str, Any] = {}
     if raw:
         try:
-            data = json.loads(raw)
-            if isinstance(data, dict):
-                data.setdefault("status", getattr(server, "host_facts_status", None) or "ok")
-                data.setdefault("at", getattr(server, "host_facts_at", None))
-                return data
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                data = parsed
         except Exception:
             pass
-    return {
-        "status": getattr(server, "host_facts_status", None) or "never",
-        "error": getattr(server, "host_facts_error", None) or "No host facts yet",
-        "hostname": server.hostname,
-        "at": getattr(server, "host_facts_at", None),
-    }
+    at = getattr(server, "host_facts_at", None)
+    data["status"] = getattr(server, "host_facts_status", None) or data.get("status") or "never"
+    data["hostname"] = server.hostname
+    data["hardware"] = getattr(server, "hardware", None) or data.get("hardware")
+    data["arch"] = getattr(server, "arch", None) or data.get("arch")
+    data["os_pretty"] = getattr(server, "os_pretty", None) or data.get("os_pretty") or data.get("os_version")
+    data["os_id"] = getattr(server, "os_id", None) or data.get("os_id")
+    data["os_version"] = data.get("os_pretty") or data.get("os_version")
+    data["at"] = at.isoformat() + "Z" if at and not isinstance(at, str) else (at or data.get("at"))
+    data["error"] = getattr(server, "host_facts_error", None) or data.get("error")
+    if data["status"] == "never" and not data.get("os_pretty") and not data.get("hardware"):
+        data["error"] = data.get("error") or "No host facts yet"
+    return data
 
 
 def apply_snapshot(session: Session, server: Server, info: dict[str, Any]) -> None:
