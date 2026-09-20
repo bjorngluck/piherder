@@ -45,8 +45,8 @@ The built-in HA **device page** only has one Visit link. For fleet totals and pe
 type: custom:piherder-dashboard-card
 ```
 
-If it still does not list: Dashboard **⋮ → Resources → Add**  
-`/api/piherder/piherder-dashboard-card.js?v=0.2.1` · type **JavaScript module**, then refresh.  
+If it still does not list: Dashboard **⋮ → Resources** — delete any `/api/piherder/…` card URL, then **Add**  
+`/local/piherder-dashboard-card.js?v=0.2.2` · type **JavaScript module**, then hard-refresh.  
 3. The card shows **hosts, CPU cores, containers, memory %, disk %** for the whole fleet, then each host. Expand a host for CPU/memory/disk bars and links: Host, Docker, Backups, Alerts, Audit.
 
 Numbers come from the herder **host-facts** snapshot (about every 15 minutes). Recreate **web** so Alembic **045** is applied, then System Info refresh icon once per host (or wait for the scheduler).
