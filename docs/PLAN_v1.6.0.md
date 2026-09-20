@@ -246,7 +246,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 |----------|------|-----|--------|
 | **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit** + fleet Lovelace card; token `read`; not in this image | **Landed** — plugin **0.2.2**; operator QA open |
 | **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Landed on branch** 848116a — operator QA open |
-| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs through `_q19`; suite **~72.2%**; CI fail-under still **70** until 75. Router HTTP `_q15`–`_q19`. |
+| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs through `_q21`; suite **~72.2%**; CI fail-under still **70** until 75. |
 | **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Open** |
 | **Should** | **Docs-archive-0x** | `docs/archive/v0/` + stubs | **Open** |
 | **Should** | **CSP-n Slice 1** | Script nonces; Report-Only demo first | **Open** |
@@ -309,6 +309,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-20 | **Q-80 packs `_q12`/`_q13`.** Jobs enqueue/execute, docker compose SFTP/actions, herder helpers, cert sudo probe, DNS candidates. Full suite **~72.2%** (34526/47833). Fail-under stays **70**. Remaining fat: host_files, dns_fabric/core, herder_backup, docker_management, jobs leftover, stack_health, webauthn, scheduler. |
 | 2026-09-20 | **Q-80 `_q14`/`_q15`.** Service: stack_health, ssh identities, webauthn, scheduler, DNS Pi-hole match, herder prune/list, docker classify. Routers: `/api/v1` catalog/health/summary/servers/jobs + HTML `/servers` `/jobs` settings. TestClient must ``cookies.set`` (``cookies=`` is ignored here). Fail-under stays **70**. |
 | 2026-09-20 | **Q-80 `_q16`/`_q17`.** host_files jail/denies; DNS plan + NPM cache; router diagnostics snapshot, server jobs JSON, console, dns maps, bulk, docker page, API features 403. |
+| 2026-09-20 | **Q-80 `_q18`/`_q19`.** host_files SFTP helpers/mode/zip; DNS save + IP/LAN helpers; auth/settings HTTP (login/account/timezone/status/files). |
 
 ---
 
@@ -321,7 +322,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 3 | Confirm HACS repo name · create public MIT repo | **Done** — [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) |
 | 4 | Slice 1: config flow + coordinator + fleet + host devices + fleet card | **Landed** plugin **0.2.2** (not in this image). Herder `GET /api/v1/summary` + **044**/**045**. Operator QA open |
 | 5 | **Mux-1** per-host opt-in | **Landed** 2026-09-19 `848116a` — operator QA open |
-| 6 | **Q-80** raise fail-under **70 → 75** | **In progress** — packs through `_q17`. **~72.2%**. Fail-under stays 70 until 75. |
+| 6 | **Q-80** raise fail-under **70 → 75** | **In progress** — packs through `_q19`. **~72.2%**. Fail-under stays 70 until 75. |
 | 7 | Slice 1b / CSP-n / Undo-1 as capacity after Must | Open |
 | 8 | Wiki + QA · freeze · `1.6.0` · tag · Hub | QA checklist **expanded** 2026-09-19; freeze when asked |
 
