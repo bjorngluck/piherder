@@ -136,7 +136,7 @@ Slice **1b** (Should) and Slice **2** (Discover) have their own sections. First 
 
 - [ ] Unit line coverage on `app` ≥ **75%**  
 - [ ] CI `--cov-fail-under=75` (do **not** raise until the suite meets the bar)  
-- [x] Packs landed through `_q27` (2026-09-20). Compose suite **70.9%** (33925/47833). Fail-under still **70** until 75. Router HTTP started.  
+- [x] Packs landed through `_q29` (2026-09-20). HTTP ``cookies=`` fixed in conftest. Fail-under still **70** until 75.  
 - [ ] No live SSH / HA / two-host copy / mux host in CI  
 - [ ] Mux tests: `tests/test_console_mux_v16.py` (service; no live SSH)  
 - [ ] HA plugin tests (other repo) mock `/api/v1` only  
