@@ -136,7 +136,7 @@ Slice **1b** (Should) and Slice **2** (Discover) have their own sections. First 
 
 - [ ] Unit line coverage on `app` ≥ **75%**  
 - [ ] CI `--cov-fail-under=75` (do **not** raise until the suite meets the bar)  
-- [x] Packs landed through `_q29` (2026-09-20). HTTP ``cookies=`` fixed in conftest. Fail-under still **70** until 75.  
+- [x] Packs landed through `_q29` (2026-09-20). Compose **74.1%** (35423/47833). Fail-under still **70** until 75.  
 - [ ] No live SSH / HA / two-host copy / mux host in CI  
 - [ ] Mux tests: `tests/test_console_mux_v16.py` (service; no live SSH)  
 - [ ] HA plugin tests (other repo) mock `/api/v1` only  
@@ -251,3 +251,4 @@ Do not tick until the operator asks to freeze.
 | 2026-09-20 | Q-80 `_q24`/`_q25` unzip/attach-plan + TOTP/attach-cname/passkey options. Fail-under stays 70. |
 | 2026-09-20 | Q-80 `_q26`/`_q27` zip helpers + account/avatar + DNS stack-edges. Fail-under stays 70. |
 | 2026-09-20 | Full compose pytest `--cov=app`: **70.92%** (33925/47833). 31 failed (HTTP `cookies=` ignored by this TestClient). Do not raise fail-under. |
+| 2026-09-20 | TestClient cookies jar patch + force-2FA autouse. smoke/list/rbac/recover/migrate-off: 89 passed. q28/q29 landed. |
