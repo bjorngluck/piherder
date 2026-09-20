@@ -100,11 +100,14 @@ def pytest_configure():
 
 
 @pytest.fixture(autouse=True)
-def _unit_skip_force_2fa_wall(monkeypatch):
+def _unit_skip_force_2fa_wall(request, monkeypatch):
     """Compose/demo images may enable force-2FA; HTTP unit tests are not that path.
 
-    Tests that need the enroll wall can override this fixture.
+    ``test_account_stepup_v13`` is the enroll-wall suite — leave it alone.
     """
+    nodeid = getattr(request.node, "nodeid", "") or ""
+    if "test_account_stepup" in nodeid:
+        return
     monkeypatch.setattr(
         "app.services.account_stepup.force_2fa_applies",
         lambda *a, **k: False,
