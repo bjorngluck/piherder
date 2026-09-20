@@ -8,7 +8,7 @@
 **Baseline:** `v1.5.0` (tagged 2026-09-18; Hub digest `sha256:98cf929a6577b84ca03c5f8145f7cf24021ed56176a986a314f3b3cb59145949`)  
 **Mode:** **Must → Should → Discover.** Must **HA-p2 Slice 1** + **Mux-1** + **Q-80**. Should **Slice 1b** + **Docs-archive-0x** + **CSP-n Slice 1** + **Undo-1**. **Brand** and **AC-fg** are out (park **v1.7**).  
 **QA:** [QA_v1.6.0.md](QA_v1.6.0.md) (full maintainer checklist — **not** the operator wiki)  
-**Related:** [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (candidate inbox) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [API.md](API.md) · [SPEC.md](../SPEC.md) · wiki [HAOS hosts](../wiki/day-to-day/haos-hosts.md) · [API tokens](../wiki/operations/api-tokens.md) · [web SSH](../wiki/day-to-day/web-ssh-console.md) · [Move a service](../wiki/docker/service-migration.md)
+**Related:** [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (candidate inbox) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [API.md](API.md) · [SPEC.md](../SPEC.md) · wiki [System Info](../wiki/day-to-day/system-info.md) · [HAOS hosts](../wiki/day-to-day/haos-hosts.md) · [API tokens](../wiki/operations/api-tokens.md) · [web SSH](../wiki/day-to-day/web-ssh-console.md) · [Move a service](../wiki/docker/service-migration.md)
 
 > **Train open 2026-09-19.** Production stays **v1.5.0** on `main`. Kill switch `PIHERDER_SERVICE_MIGRATE` stays **false**. Plugin is a **separate** HACS repo — not in this image.
 
@@ -128,6 +128,8 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped in 0.9. This stream 
 | HA11 | Lovelace fleet card | **Landed 0.2.2:** `custom:piherder-dashboard-card`. Resource `/local/piherder-dashboard-card.js?v=0.2.2` as **JavaScript module**. Fleet sums + expand host + chips (Host/Docker/Backups/Alerts/Audit). Pulled into Slice 1 because HA cannot add extra Visit links |
 
 **Hard rules:** no start/stop from HA on the first plugin tag. Never Move, compose write, Files, console, decrypt keys, OS **apply** from HA. `service_migrate` stays off `POST /api/v1/…/jobs`. “Host down” is `last_seen` age, not a live SSH ping.
+
+**System Info snapshot (why):** HA’s 30s poll cannot SSH. v1.6 persists pretty OS / hardware (**044**) and CPU / memory / disk (**045**) so the herder modal, `/api/v1`, and the fleet card share one row. Opening System Info does not SSH; the header icon does. No extra host-page Refresh button. Operator: [wiki System Info](../wiki/day-to-day/system-info.md).
 
 **Success (Must):**
 
@@ -303,6 +305,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-19 | **Host facts** Alembic **044**: persist `os_pretty`, `os_id`, `hardware`, `arch`. Scheduler ~15 min. System Info shows the snapshot; header **icon** refreshes (no extra host-page button). `/servers` 500 from 040 boolean bind already fixed `81d7a12`. |
 | 2026-09-19 | **HA Lovelace card** `piherder-dashboard-card` (plugin **0.2.0**). Alembic **045** CPU/RAM/disk columns; summary sums hosts/cpu/memory/disk/containers. |
 | 2026-09-20 | Plugin **0.2.2**: card JS copied to HA `config/www/`; Lovelace resource `/local/piherder-dashboard-card.js?v=0.2.2` as module. Custom element loads. Device page still one Visit. Operator testing the card. |
+| 2026-09-20 | System Info operator page: snapshot exists so HA never SSHs. Modal shows CPU/memory from **045**. Wiki [system-info.md](../wiki/day-to-day/system-info.md). |
 
 ---
 

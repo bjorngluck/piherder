@@ -177,7 +177,7 @@ After key deploy / least-priv / test, PiHerder stores a dependency snapshot. Fai
 
 ## Host status / diagnostics
 
-**System info** on the server page shows the **stored** OS / hardware / disk snapshot (`os_pretty`, Pi/DMI/HA chassis, kernel). A scheduler refreshes it about every **15 minutes**. Opening the modal does **not** SSH by default. The **refresh icon** in the modal header SSHs once and writes the DB. This is read-only diagnostics, not continuous monitoring (use Kuma for uptime). The HACS integration reads the same columns — [Home Assistant → PiHerder](../integrations/home-assistant.md).
+**[System Info](system-info.md)** on the server page is a **stored** snapshot (pretty OS, hardware, CPU, memory, disk) — not a live SSH on every open. Scheduler ~**15 minutes**; the modal **refresh icon** SSHs once. v1.6 persists those columns so Home Assistant can poll the DB and never SSH the fleet. Full why + fields: [System Info](system-info.md). HACS: [Home Assistant → PiHerder](../integrations/home-assistant.md).
 
 If the host is **linked** to a LAN Discovery device, a **LAN** link-style pill appears in the hero with the discovery IP (and open-port count when known). Open it to edit map name / type / role; **Save or Cancel returns to this server** (not the Integrations shell). The fuller **LAN discovery** card sits **always open** beside **Network path** (IP · ports, scripts, **Edit device** / **Map view**). Details: [LAN Discovery — soft embed](../integrations/lan-discovery.md#soft-embed-fleet).
 
@@ -188,6 +188,7 @@ If the host is **linked** to a LAN Discovery device, a **LAN** link-style pill a
 
 ## Related
 
+- [System Info](system-info.md) — v1.6 host snapshot (OS / hardware / CPU / RAM / disk)  
 - [HAOS hosts](haos-hosts.md) — appliance profile, System info, HA updates  
 - [Remove a server](remove-server.md) — UI teardown + optional host cleanup  
 - [Backups](backups.md) · [Updates](updates-and-patching.md) · [Docker](../docker/overview.md)  
