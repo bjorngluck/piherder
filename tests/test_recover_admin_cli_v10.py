@@ -112,7 +112,7 @@ def test_reset_access_clears_2fa(engine, capsys):
                 "--email",
                 "admin@example.com",
                 "--password",
-                "TempPass9ok",
+                "TempPass9ok!!",
                 "--yes",
             ]
         )
@@ -120,7 +120,7 @@ def test_reset_access_clears_2fa(engine, capsys):
     )
     with Session(engine) as s:
         u = s.get(User, uid)
-        assert verify_password("TempPass9ok", u.hashed_password)
+        assert verify_password("TempPass9ok!!", u.hashed_password)
         assert u.must_change_password is True
         assert u.totp_enabled is False
         assert u.totp_secret_encrypted is None

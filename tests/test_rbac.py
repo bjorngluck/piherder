@@ -213,7 +213,9 @@ def _call_get_current_user(user, method: str, path: str):
     )
     session = MagicMock()
     session.get.return_value = user
-    with patch("app.security.auth.force_2fa_required", return_value=False):
+    with patch("app.security.auth.force_2fa_required", return_value=False), patch(
+        "app.services.account_stepup.force_2fa_applies", return_value=False
+    ):
         return get_current_user(request, token, session)
 
 

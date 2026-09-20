@@ -154,7 +154,8 @@ def test_annotate_projects(lock_db):
     assert projects[1]["host_lock"]["locked"] is False
 
 
-def test_migrate_enabled_default_off():
+def test_migrate_enabled_default_off(monkeypatch):
+    monkeypatch.setattr(hl.settings, "PIHERDER_SERVICE_MIGRATE", False, raising=False)
     assert hl.migrate_enabled() is False
 
 

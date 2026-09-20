@@ -246,7 +246,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 |----------|------|-----|--------|
 | **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit** + fleet Lovelace card; token `read`; not in this image | **Landed** — plugin **0.2.2**; operator QA open |
 | **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Landed on branch** 848116a — operator QA open |
-| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs through `_q27`. Compose suite **70.9%** (33925/47833; 31 failed HTTP cookie tests in this image). CI fail-under still **70** until 75. |
+| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs through `_q29`. TestClient ``cookies=`` patched in conftest. Fail-under still **70** until 75. |
 | **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Open** |
 | **Should** | **Docs-archive-0x** | `docs/archive/v0/` + stubs | **Open** |
 | **Should** | **CSP-n Slice 1** | Script nonces; Report-Only demo first | **Open** |

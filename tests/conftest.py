@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import os
 
+import pytest
+
 
 def _ensure_test_env() -> str:
     """Ensure PIHERDER_MASTER_KEY is a valid Fernet key; return it."""
@@ -51,10 +53,59 @@ def _ensure_test_env() -> str:
     return key
 
 
+def _patch_testclient_cookies() -> None:
+    """httpx TestClient ignores ``cookies=`` on get/post in this image.
+
+    Apply per-request ``cookies=`` onto the client jar so existing tests keep
+    working. New tests can still use ``client.cookies.set``.
+    """
+    try:
+        from starlette.testclient import TestClient as StarletteTC
+    except Exception:
+        return
+    if getattr(StarletteTC, "_piherder_cookie_patch", False):
+        return
+
+    orig = StarletteTC.request
+
+    def request(self, method, url, **kwargs):  # type: ignore[no-untyped-def]
+        extra = kwargs.pop("cookies", None)
+        if extra is not None:
+            jar = getattr(self, "cookies", None)
+            if jar is not None:
+                try:
+                    jar.clear()
+                except Exception:
+                    pass
+                for k, v in extra.items():
+                    try:
+                        jar.set(k, v)
+                    except TypeError:
+                        jar.set(k, v, domain="testserver")
+        return orig(self, method, url, **kwargs)
+
+    StarletteTC.request = request
+    StarletteTC._piherder_cookie_patch = True
+
+
 # Run at conftest import — earliest reliable hook for unit suite
 _ensure_test_env()
+_patch_testclient_cookies()
 
 
 def pytest_configure():
     """Re-assert env before collection (covers empty CI KEY= and late imports)."""
     _ensure_test_env()
+    _patch_testclient_cookies()
+
+
+@pytest.fixture(autouse=True)
+def _unit_skip_force_2fa_wall(monkeypatch):
+    """Compose/demo images may enable force-2FA; HTTP unit tests are not that path.
+
+    Tests that need the enroll wall can override this fixture.
+    """
+    monkeypatch.setattr(
+        "app.services.account_stepup.force_2fa_applies",
+        lambda *a, **k: False,
+    )
