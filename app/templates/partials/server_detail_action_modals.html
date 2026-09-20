@@ -881,7 +881,7 @@ function computeUsableSummary(drives) {
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-semibold">System Info — {{ server.name }}</h3>
       <div class="flex gap-2">
-        <button onclick="refreshSystemInfo()" class="text-xs px-2 py-1 btn btn-secondary rounded border border-border">Refresh</button>
+        <button onclick="refreshSystemInfo()" class="text-xs px-2 py-1 btn btn-secondary rounded border border-border">Refresh now</button>
         <button onclick="hideSystemInfoModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
       </div>
     </div>
@@ -894,7 +894,7 @@ function computeUsableSummary(drives) {
     </div>
 
     <div class="mt-4 text-[10px] text-muted">
-      Summary focuses on root (/) and main user volumes. Noise partitions (tmpfs, /run, /dev, boot etc.) are filtered.
+      Default view is the last stored snapshot (scheduler ~15 min). <strong>Refresh now</strong> SSHs once and writes the DB.
       {% if is_haos %}On HAOS, Core/OS/Supervisor versions and disk free come from the <code class="text-[10px]">ha</code> CLI when available.{% endif %}
     </div>
   </div>

@@ -69,6 +69,7 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "template_redeploy",
         "template_drift_check",
         "service_migrate",
+        "host_facts",
     }
 )
 
@@ -282,6 +283,7 @@ JOB_TYPE_LABELS = {
     "nmap_host_deep": "Nmap deep scan",
     "nmap_vuln_db_update": "Nmap vuln DB update",
     "service_migrate": "Service migrate",
+    "host_facts": "Host facts",
 }
 
 
@@ -906,6 +908,8 @@ def create_job_and_run(
         background_tasks.add_task(_run_os_patch_job, job.id, server.id, audit.id, os_steps)
     elif job_type == "os_update_check":
         background_tasks.add_task(_run_os_update_check_job, job.id, server.id, audit.id)
+    elif job_type == "host_facts":
+        background_tasks.add_task(_run_host_facts_job, job.id, server.id, audit.id)
     elif job_type == "container_update_check":
         background_tasks.add_task(_run_container_update_check_job, job.id, server.id, audit.id)
     elif job_type == "docker_stack_check":
@@ -2150,6 +2154,23 @@ def _apply_container_check_result(session: Session, server_id: int, res: dict) -
         )
     except Exception as e:
         logger.debug(f"notify_container_updates: {e}")
+
+
+async def _run_host_facts_job(job_id: int, server_id: int, audit_id: int):
+    server, hostname = _load_server_for_job(server_id)
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "host_facts")
+        return
+    try:
+        from .. import host_facts as facts_svc
+
+        res = await run_in_threadpool(
+            lambda: facts_svc.refresh_server_facts(server_id, force=True)
+        )
+        status = "failed" if res.get("error") and res.get("status") == "error" else "success"
+        _finish(audit_id, job_id, status, json.dumps(res, default=str)[:4000], hostname, "host_facts")
+    except Exception as e:
+        _finish(audit_id, job_id, "failed", str(e), hostname, "host_facts")
 
 
 async def _run_os_update_check_job(job_id: int, server_id: int, audit_id: int):

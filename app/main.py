@@ -161,6 +161,7 @@ async def lifespan(app: FastAPI):
             from .services.scheduler import (
                 sync_all_server_cron_jobs,
                 sync_docker_inventory_schedule,
+                sync_host_facts_schedule,
                 sync_herder_backup_schedule,
                 sync_stale_data_cleanup_schedule,
                 sync_stack_health_schedule,
@@ -173,6 +174,7 @@ async def lifespan(app: FastAPI):
             sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
             sync_stale_data_cleanup_schedule(scheduler, HAS_SCHEDULER)
             sync_docker_inventory_schedule(scheduler, HAS_SCHEDULER)
+            sync_host_facts_schedule(scheduler, HAS_SCHEDULER)
             sync_stack_health_schedule(scheduler, HAS_SCHEDULER)
             sync_integrations_poll_schedule(scheduler, HAS_SCHEDULER)
             sync_cert_renew_schedule(scheduler, HAS_SCHEDULER)

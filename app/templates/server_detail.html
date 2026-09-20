@@ -488,6 +488,9 @@
       </script>
       {% endif %}
       <button type="button" onclick="showSystemInfoModal()" class="btn btn-secondary min-h-11 text-sm">System info</button>
+      <form method="post" action="/servers/{{ server.id }}/host-facts/refresh" class="inline">
+        <button class="btn btn-secondary min-h-11 text-sm" type="submit">Refresh facts</button>
+      </form>
     </div>
     {% include "partials/host_switcher.html" %}
   </div>
@@ -506,7 +509,8 @@
       <div class="ops-pulse-stat"><span class="ops-pulse-n {% if _reb %}text-danger{% endif %}">{{ 'yes' if _reb else 'no' }}</span><span class="ops-pulse-l">reboot</span></div>
     </div>
     <div class="flex flex-wrap gap-1 justify-center mt-0.5">
-      {% if is_haos %}<span class="host-hero-chip is-ok" title="Home Assistant OS — updates via ha CLI">HAOS</span>{% endif %}
+      {% if server.hardware %}<span class="host-hero-chip" title="Hardware from last host-facts snapshot">{{ server.hardware }}</span>{% endif %}
+      {% if server.os_pretty %}<span class="host-hero-chip is-ok" title="OS from last host-facts snapshot">{{ server.os_pretty }}</span>{% elif is_haos %}<span class="host-hero-chip is-ok" title="Home Assistant OS — updates via ha CLI">HAOS</span>{% endif %}
       {% if server.backup_enabled %}<span class="host-hero-chip is-ok">backup</span>{% endif %}
       {% if server.container_patch_enabled and not is_haos %}<span class="host-hero-chip is-ok">docker</span>{% endif %}
       {% if server.os_patch_enabled %}<span class="host-hero-chip is-ok">{% if is_haos %}HA updates{% else %}os patch{% endif %}</span>{% endif %}
@@ -724,7 +728,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {# Destination + monitoring cards (equal size grid on desktop) #}
 {% set _svc_n = (kuma_host_services|length if kuma_host_services else 0) + (kuma_docker_service_count or 0) %}
-<div class="dest-cards mb-6">
+<div class="dest-cards mb-6" id="host-features">
   {% if server.backup_enabled %}
   <a href="/servers/{{ server.id }}/backups" class="card dest-card">
     <div class="dest-card-title">Backups</div>

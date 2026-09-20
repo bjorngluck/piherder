@@ -94,11 +94,54 @@ async def get_server_diagnostics(
     if not server:
         raise HTTPException(404)
     try:
-        data = await run_in_threadpool(diag_svc.run_diagnostics, server, bool(force))
+        from ..services import host_facts as facts_svc
+
+        if not force:
+            snap = facts_svc.snapshot_from_server(server)
+            if (getattr(server, "host_facts_status", None) or "never") != "never":
+                snap["from_snapshot"] = True
+                return snap
+        data = await run_in_threadpool(diag_svc.run_diagnostics, server, True)
+        data = facts_svc._enrich_from_diagnostics(data)
+        facts_svc.apply_snapshot(session, server, data)
+        data["from_snapshot"] = False
         return data
     except Exception as e:
-        return {"error": str(e)[:200], "hostname": server.hostname
-    }
+        return {"error": str(e)[:200], "hostname": server.hostname}
+
+
+@router.post("/{server_id}/host-facts/refresh")
+async def refresh_host_facts(
+    request: Request,
+    server_id: int,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Queue a host_facts job (OS/hardware snapshot). Not live on every page load."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        job = job_service.create_job_and_run(
+            background_tasks, session, server, "host_facts", user_id=user.id
+        )
+        reused = False
+    except job_service.JobAlreadyActive as e:
+        job = e.job
+        reused = True
+    if request.headers.get("X-PiHerder-Async") == "1" or (
+        request.headers.get("accept") or ""
+    ).find("application/json") >= 0:
+        return JSONResponse(
+            {
+                "job_id": job.id,
+                "status": job.status,
+                "job_type": "host_facts",
+                "already_active": reused,
+            }
+        )
+    return server_redirect(server_id, f"host_facts={'queued' if not reused else 'active'}")
 
 
 @router.post("/{server_id}/run/container_patch")
