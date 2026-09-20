@@ -20,7 +20,7 @@ Plan: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · HA design: [FEATURE_PLAN_HOME_ASSISTAN
 | Stream | Wiki |
 |--------|------|
 | Mux-1 | [Web SSH console](../wiki/day-to-day/web-ssh-console.md) · [Add a server](../wiki/day-to-day/add-server.md) · [HAOS hosts](../wiki/day-to-day/haos-hosts.md) · [Remove a server](../wiki/day-to-day/remove-server.md) |
-| HA-p2 | [API tokens](../wiki/operations/api-tokens.md) · [HAOS hosts](../wiki/day-to-day/haos-hosts.md) (path 1 vs path 2) · HACS readme in `bjorngluck/piherder-ha` when the repo exists |
+| HA-p2 | [API tokens](../wiki/operations/api-tokens.md) · [Home Assistant → PiHerder](../wiki/integrations/home-assistant.md) · [HAOS hosts](../wiki/day-to-day/haos-hosts.md) (path 1 vs path 2) · HACS readme in `bjorngluck/piherder-ha` |
 | Move / regression | [Move a service](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Reports](../wiki/day-to-day/reports.md) |
 | Screenshots | [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md) |
 
@@ -31,8 +31,8 @@ Plan: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · HA design: [FEATURE_PLAN_HOME_ASSISTAN
 | | |
 |--|--|
 | **Instance** | Rebuild **`v1.6.0-dev`** (`docker compose build web celery-worker && docker compose up -d`). App code is **not** bind-mounted. About / footer still **1.5.0** until freeze |
-| **Migrate** | Web startup runs Alembic to **head**. Need **`044_host_facts`** (and **043** mux). If `/servers` 500s, `alembic_version` may be stuck before **040** (Postgres boolean bind; fixed `81d7a12`). Check: `SELECT version_num FROM alembic_version;` |
-| **HACS** | [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.1.5** — **not** this image. Token **`read` only**; IP allowlist = HA egress. YAML `rest:` remains possible |
+| **Migrate** | Web startup runs Alembic to **head**. Need **`043`** mux, **`044_host_facts`**, **`045_host_resources`**. If `/servers` 500s, `alembic_version` may be stuck before **040** (Postgres boolean bind; fixed `81d7a12`). Check: `SELECT version_num FROM alembic_version;` |
+| **HACS** | [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.2** — **not** this image. Token **`read` only**; IP allowlist = HA egress. YAML `rest:` remains possible. Lovelace resource `/local/piherder-dashboard-card.js?v=0.2.2` as **JavaScript module** |
 | **Browsers** | Desktop Chrome or Firefox **and** one phone |
 | **Accounts** | One **admin**, one **operator** (2FA enrolled), one **viewer** |
 | **Hosts** | ≥ **two** real SSH Docker hosts + one HAOS (never a Move dest). One Debian/Pi with **tmux** or **screen** for Mux-1. One host **without** mux binaries if you can spare it |
@@ -79,7 +79,9 @@ Session name: `ph-u{user}-s{server}-n{tab}-f` (fleet) or `-p` (privileged). Tab 
 
 ## HA-p2 Slice 1 — HACS on HA (Must)
 
-Plugin is **`custom_components/piherder`** in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (**0.1.5**). **Not** in this Docker image. Token **`read`**. Poll **DB snapshots** only — never SSH the fleet on the HA interval.
+Plugin is **`custom_components/piherder`** in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (**0.2.2**). **Not** in this Docker image. Token **`read`**. Poll **DB snapshots** only — never SSH the fleet on the HA interval.
+
+HA **device page** = one **Visit** (host). Docker / Backups / Alerts / Audit are **PiHerder fleet** card chips, not extra Visit links.
 
 Path 1 (PiHerder **manages HAOS** over SSH) already shipped; do not regress [HAOS hosts](../wiki/day-to-day/haos-hosts.md). This stream is path 2: HA **observes** the fleet.
 
@@ -101,15 +103,17 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped; do not regress [HAO
 - [ ] Bad URL / token **keeps the fields** (does not wipe the form)  
 - [ ] Bad URL / TLS fail is an error in the flow, not a silent empty dashboard  
 - [ ] Bad token / missing `read` fails closed  
-- [ ] Fleet **Plugin** sensor is **0.2.0** after Redownload + HA **restart**  
+- [ ] Fleet **Plugin** sensor is **0.2.2** after Redownload + HA **restart**  
 
 ### Entities
 
 - [ ] Fleet sensors: herder up, host count, OS updates, container updates, reboot pending, running jobs, Move in progress  
 - [ ] One HA **device** per PiHerder server (hardware + OS pretty, last seen, reboot, backup)  
 - [ ] “Host down” is **`last_seen` age**, not a live SSH ping  
-- [ ] **Visit** on the host device reaches `{origin}/servers/{id}`  
-- [ ] Lovelace **PiHerder fleet** card: fleet totals, expand host, chips open PiHerder (Host/Docker/Backups/Alerts/Audit)  
+- [ ] **Visit** on the host device reaches `{origin}/servers/{id}` (only Visit on that page)  
+- [ ] Lovelace **PiHerder fleet** card: resource `/local/piherder-dashboard-card.js?v=0.2.2` as **JavaScript module**; YAML `type: custom:piherder-dashboard-card`; no “custom element doesn’t exist”  
+- [ ] Card fleet totals; expand host; chips open PiHerder (Host/Docker/Backups/Alerts/Audit) in the browser, not HA history  
+- [ ] Empty CPU/memory/disk on the card after **web** recreate + System Info refresh is a herder snapshot gap (Alembic **045**), not a card 404  
 - [ ] Jobs running on the fleet device is a **count**, not a link  
 - [ ] System Info on the herder shows the **stored** snapshot; refresh is the **icon** in that modal (no extra host-page button)  
 
@@ -235,3 +239,4 @@ Do not tick until the operator asks to freeze.
 | 2026-09-19 | Mux-1 code `848116a`; docs `7186298`. `/servers` 500: Alembic stuck at `039` (040 inserted integer `1` into boolean). Fixed `81d7a12`; this instance at `043_console_mux`. |
 | 2026-09-19 | Operator: tmux testing “looks great so far”. Mux-1 boxes still empty until each row is walked. |
 | 2026-09-19 | HACS **0.1.5**: Visit only. Host-facts **044**. System Info = snapshot + icon. Do not tick HA/Mux boxes from this note. |
+| 2026-09-20 | HACS **0.2.2**: Lovelace fleet card loads via `/local/piherder-dashboard-card.js?v=0.2.2` (module). Device page still one Visit. Operator testing the card; HA boxes still empty. |
