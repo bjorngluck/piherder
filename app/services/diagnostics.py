@@ -113,6 +113,13 @@ def run_diagnostics(server: Server, force: bool = False) -> dict:
         "ping_ok": ping(server.hostname),
         "kernel": None,
         "os_version": None,
+        "os_pretty": None,
+        "os_id": None,
+        "arch": None,
+        "hardware": None,
+        "device_tree": None,
+        "dmi_product": None,
+        "dmi_vendor": None,
         "reboot_pending": False,
         "drives": [],
         "profile": None,  # "haos" when HA path used
@@ -128,10 +135,44 @@ def run_diagnostics(server: Server, force: bool = False) -> dict:
         if status == 0:
             info["kernel"] = out.strip()
 
-        # OS version (pretty name)
-        status, out, _ = run_command(client, ". /etc/os-release 2>/dev/null && echo \"${PRETTY_NAME:-$NAME}\" | tr -d '\"' || uname -o", timeout=8)
+        # OS version (pretty name) + ID
+        status, out, _ = run_command(
+            client,
+            ". /etc/os-release 2>/dev/null && printf 'ID=%s\\nPRETTY=%s\\n' \"$ID\" \"${PRETTY_NAME:-$NAME}\" || uname -o",
+            timeout=8,
+        )
         if status == 0 and out.strip():
-            info["os_version"] = out.strip()
+            from .host_facts import parse_os_release_blob, pick_hardware
+
+            oid, pretty = parse_os_release_blob(out)
+            info["os_id"] = oid
+            info["os_pretty"] = pretty or out.strip().splitlines()[-1].strip() or None
+            info["os_version"] = info["os_pretty"]
+        status, out, _ = run_command(client, "uname -m", timeout=6)
+        if status == 0 and out.strip():
+            info["arch"] = out.strip().split()[0]
+        status, out, _ = run_command(
+            client, "tr -d '\\0' < /proc/device-tree/model 2>/dev/null", timeout=6
+        )
+        if status == 0 and out.strip():
+            info["device_tree"] = out.strip()[:120]
+        status, out, _ = run_command(
+            client, "cat /sys/class/dmi/id/product_name 2>/dev/null", timeout=6
+        )
+        if status == 0 and out.strip() and out.strip().lower() not in ("none", "to be filled by o.e.m."):
+            info["dmi_product"] = out.strip()[:80]
+        status, out, _ = run_command(
+            client, "cat /sys/class/dmi/id/sys_vendor 2>/dev/null", timeout=6
+        )
+        if status == 0 and out.strip() and out.strip().lower() not in ("none", "to be filled by o.e.m."):
+            info["dmi_vendor"] = out.strip()[:80]
+        from .host_facts import pick_hardware
+
+        info["hardware"] = pick_hardware(
+            device_tree=info.get("device_tree"),
+            dmi_product=info.get("dmi_product"),
+            dmi_vendor=info.get("dmi_vendor"),
+        )
 
         # Reboot pending?
         status, out, _ = run_command(client, 'test -f /var/run/reboot-required && echo "yes" || echo "no"', timeout=4)
@@ -195,6 +236,22 @@ def run_diagnostics(server: Server, force: bool = False) -> dict:
                     info["drives_source"] = "ha host info"
         except Exception as e:
             info["ha"] = {"error": str(e)[:200]}
+
+        try:
+            from .host_facts import pick_hardware
+
+            host = ((info.get("ha") or {}) if isinstance(info.get("ha"), dict) else {}).get("host") or {}
+            comps = ((info.get("ha") or {}) if isinstance(info.get("ha"), dict) else {}).get("components") or {}
+            core = comps.get("core") or {}
+            info["hardware"] = pick_hardware(
+                device_tree=info.get("device_tree"),
+                dmi_product=info.get("dmi_product"),
+                dmi_vendor=info.get("dmi_vendor"),
+                ha_chassis=host.get("chassis"),
+                ha_machine=core.get("machine") or host.get("machine"),
+            )
+        except Exception:
+            pass
 
         client.close()
     except Exception as e:

@@ -142,7 +142,11 @@ Base path: **`/api/v1`**
     "docker": true
   },
   "os_type": "ubuntu",
-  "os_display": "Ubuntu",
+  "os_id": "ubuntu",
+  "os_pretty": "Ubuntu 24.04.3 LTS",
+  "os_display": "Ubuntu 24.04.3 LTS",
+  "hardware": "Raspberry Pi 5 Model B Rev 1.0",
+  "arch": "aarch64",
   "os_updates_count": 0,
   "container_updates_count": 2,
   "reboot_pending": false,

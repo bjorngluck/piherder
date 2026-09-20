@@ -37,11 +37,24 @@ OS_LABELS = {
 }
 
 
-def os_display_label(os_type: str | None, summary_json: str | None = None) -> str:
+def os_display_label(
+    os_type: str | None,
+    summary_json: str | None = None,
+    *,
+    os_pretty: str | None = None,
+    os_id: str | None = None,
+) -> str:
     """Human OS for HA: HAOS / Ubuntu / Debian — not a raw default of debian."""
     import json
 
-    ot = (os_type or "").strip().lower()
+    if os_pretty and str(os_pretty).strip():
+        pretty = str(os_pretty).strip()
+        oid = (os_id or "").strip().lower()
+        pl = pretty.lower()
+        if oid in ("haos", "hassos") or "home assistant os" in pl or "hassos" in pl:
+            return pretty if "home assistant" in pl or "haos" in pl else "HAOS"
+        return pretty
+    ot = (os_id or os_type or "").strip().lower()
     pretty = ""
     if summary_json:
         try:

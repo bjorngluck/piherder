@@ -402,6 +402,52 @@ def sync_docker_inventory_schedule(scheduler, HAS_SCHEDULER):
         logger.warning(f"[SCHEDULER] Docker inventory schedule failed: {e}")
 
 
+HOST_FACTS_JOB_ID = "host_facts_fleet"
+HOST_FACTS_INTERVAL_MIN = 15
+
+
+def schedule_host_facts_fleet():
+    """Periodic OS/hardware snapshot for every fleet host."""
+    try:
+        from ..database import engine
+        from ..models import Server
+        from sqlmodel import select
+        from . import host_facts as facts_svc
+
+        with Session(engine) as db:
+            for server in db.exec(select(Server)).all():
+                if not server.id:
+                    continue
+                if facts_svc.is_stale(server, max_age_sec=facts_svc.SCHEDULER_STALE_SEC):
+                    try:
+                        facts_svc.request_refresh(server.id, force=False)
+                    except Exception as e:
+                        logger.warning(
+                            f"[SCHEDULER] host facts refresh failed for {server.id}: {e}"
+                        )
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] host facts fleet job failed: {e}")
+
+
+def sync_host_facts_schedule(scheduler, HAS_SCHEDULER):
+    if not HAS_SCHEDULER or scheduler is None:
+        return
+    _remove_job(scheduler, HOST_FACTS_JOB_ID)
+    try:
+        from apscheduler.triggers.interval import IntervalTrigger
+
+        scheduler.add_job(
+            func=schedule_host_facts_fleet,
+            trigger=IntervalTrigger(minutes=HOST_FACTS_INTERVAL_MIN),
+            id=HOST_FACTS_JOB_ID,
+            replace_existing=True,
+            name="Host facts fleet refresh",
+        )
+        logger.info(f"[SCHEDULER] Host facts fleet every {HOST_FACTS_INTERVAL_MIN}m")
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] Host facts schedule failed: {e}")
+
+
 STACK_HEALTH_JOB_ID = "stack_health_check"
 STACK_HEALTH_INTERVAL_MIN = 2
 

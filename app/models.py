@@ -156,6 +156,15 @@ class Server(SQLModel, table=True):
     ssh_hostkey_fp: Optional[str] = Field(default=None, max_length=128)
 
     os_type: str = "debian"
+    # Snapshot from host_facts job (os-release / device-tree / DMI / ha host info)
+    os_pretty: Optional[str] = Field(default=None, max_length=160)
+    os_id: Optional[str] = Field(default=None, max_length=32)
+    hardware: Optional[str] = Field(default=None, max_length=160)
+    arch: Optional[str] = Field(default=None, max_length=32)
+    host_facts_json: Optional[str] = None
+    host_facts_at: Optional[datetime] = None
+    host_facts_status: str = "never"
+    host_facts_error: Optional[str] = None
     last_seen: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
