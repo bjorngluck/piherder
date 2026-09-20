@@ -31,8 +31,8 @@ Plan: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · HA design: [FEATURE_PLAN_HOME_ASSISTAN
 | | |
 |--|--|
 | **Instance** | Rebuild **`v1.6.0-dev`** (`docker compose build web celery-worker && docker compose up -d`). App code is **not** bind-mounted. About / footer still **1.5.0** until freeze |
-| **Migrate** | Web startup runs Alembic to **head**. Need **`043_console_mux`** (`server.console_mux_enabled`). If `/servers` 500s, `alembic_version` may be stuck before **040** (Postgres boolean bind; fixed `81d7a12`). Check: `SELECT version_num FROM alembic_version;` |
-| **HACS** | **Separate** repo — **not** this image. HA with HACS; PiHerder token **`read` only**; IP allowlist = HA egress. YAML `rest:` remains possible |
+| **Migrate** | Web startup runs Alembic to **head**. Need **`044_host_facts`** (and **043** mux). If `/servers` 500s, `alembic_version` may be stuck before **040** (Postgres boolean bind; fixed `81d7a12`). Check: `SELECT version_num FROM alembic_version;` |
+| **HACS** | [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.1.5** — **not** this image. Token **`read` only**; IP allowlist = HA egress. YAML `rest:` remains possible |
 | **Browsers** | Desktop Chrome or Firefox **and** one phone |
 | **Accounts** | One **admin**, one **operator** (2FA enrolled), one **viewer** |
 | **Hosts** | ≥ **two** real SSH Docker hosts + one HAOS (never a Move dest). One Debian/Pi with **tmux** or **screen** for Mux-1. One host **without** mux binaries if you can spare it |
@@ -79,7 +79,7 @@ Session name: `ph-u{user}-s{server}-n{tab}-f` (fleet) or `-p` (privileged). Tab 
 
 ## HA-p2 Slice 1 — HACS on HA (Must)
 
-Plugin is **`custom_components/piherder`** in a **new** git repo (lean name `bjorngluck/piherder-ha` — confirm at create). **Not** in this Docker image. Token **`read`**. Poll **DB snapshots** only — never SSH the fleet on the HA interval.
+Plugin is **`custom_components/piherder`** in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (**0.1.5**). **Not** in this Docker image. Token **`read`**. Poll **DB snapshots** only — never SSH the fleet on the HA interval.
 
 Path 1 (PiHerder **manages HAOS** over SSH) already shipped; do not regress [HAOS hosts](../wiki/day-to-day/haos-hosts.md). This stream is path 2: HA **observes** the fleet.
 
@@ -89,7 +89,8 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped; do not regress [HAO
 - [ ] IP allowlist = HA host (HAOS ≈ appliance LAN IP; container HA may be a bridge IP — 403 until allowlist matches egress)  
 - [ ] `GET /api/v1/health` 200 with that token  
 - [ ] `GET /api/v1/servers` and `GET /api/v1/jobs?active_only=true` 200  
-- [ ] Optional `GET /api/v1/summary` 200 when landed (`read`)  
+- [ ] `GET /api/v1/summary` 200 (`read`)  
+- [ ] `GET /api/v1/servers` includes `os_pretty` / `hardware` after a host-facts snapshot (System Info icon or ~15 min)  
 - [ ] Token **without** `read` (or bad secret) fails closed (401)  
 - [ ] Plugin files **absent** from this image (`custom_components/` not in the tree)  
 
@@ -97,15 +98,20 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped; do not regress [HAO
 
 - [ ] HACS → custom repository → integration  
 - [ ] Config flow: base URL + `ph_…` token + TLS verify + poll interval  
+- [ ] Bad URL / token **keeps the fields** (does not wipe the form)  
 - [ ] Bad URL / TLS fail is an error in the flow, not a silent empty dashboard  
 - [ ] Bad token / missing `read` fails closed  
+- [ ] Fleet **Plugin** sensor is **0.1.5** after Redownload + HA **restart**  
 
 ### Entities
 
 - [ ] Fleet sensors: herder up, host count, OS updates, container updates, reboot pending, running jobs, Move in progress  
-- [ ] One HA **device** per PiHerder server (OS type, last seen, reboot pending, backup age)  
+- [ ] One HA **device** per PiHerder server (hardware + OS pretty, last seen, reboot, backup)  
 - [ ] “Host down” is **`last_seen` age**, not a live SSH ping  
-- [ ] **Open in PiHerder** reaches `{origin}/servers/{id}`  
+- [ ] **Visit** on the host device reaches `{origin}/servers/{id}`  
+- [ ] No “Open jobs / Open alerts / press here” buttons (those opened HA history)  
+- [ ] Jobs running / Alert are **status** (count / title), not links  
+- [ ] System Info on the herder shows the **stored** snapshot; refresh is the **icon** in that modal (no extra host-page button)  
 
 ### Hard no (fail the train if any of these happen)
 
@@ -200,7 +206,7 @@ Owner: operator (not CI). Replace PNGs under `wiki/assets/screenshots/`; then `m
 | **P0** | `console-mux-session.png` | Web SSH with mux on | Banner/note that host mux is attached (tmux or screen) |
 | **P0** | `ha-hacs-config.png` | HA config flow | Base URL + token (secret masked) |
 | **P0** | `ha-fleet-sensors.png` | HA device/sensors | Fleet counts + one host device |
-| **P1** | `ha-open-in-piherder.png` | HA → herder | Lands on `/servers/{id}` |
+| **P1** | `ha-visit-host.png` | HA device **Visit** | Lands on `/servers/{id}` |
 | **P2** | Recapture only if chrome drifted | Reports / Move JobHold / HAOS | 1.5 pack still good unless broken |
 
 1.4/1.5 Move + Reports pack stays unless a row above says recapture.
@@ -228,3 +234,4 @@ Do not tick until the operator asks to freeze.
 |------|------|
 | 2026-09-19 | Mux-1 code `848116a`; docs `7186298`. `/servers` 500: Alembic stuck at `039` (040 inserted integer `1` into boolean). Fixed `81d7a12`; this instance at `043_console_mux`. |
 | 2026-09-19 | Operator: tmux testing “looks great so far”. Mux-1 boxes still empty until each row is walked. |
+| 2026-09-19 | HACS **0.1.5**: Visit only. Host-facts **044**. System Info = snapshot + icon. Do not tick HA/Mux boxes from this note. |

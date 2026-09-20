@@ -20,7 +20,7 @@
 
 Wanted:
 
-1. A HACS integration **on HA**: config flow, coordinator, fleet sensors, per-host devices, Open in PiHerder  
+1. A HACS integration **on HA**: config flow, coordinator, fleet sensors, per-host devices, **Visit** = host page  
 2. Token **`read` only** for Slice 1; poll **DB snapshots**, never SSH the fleet every 30s  
 3. Per-host console mux (tmux then screen else PTY) so Hide detaches and ✕ kills  
 4. Unit coverage **≥ 75%** (CI fail-under **75**; 1.x ceiling remains 80%)
@@ -115,14 +115,14 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped in 0.9. This stream 
 
 | ID | Item | Notes |
 |----|------|--------|
-| HA1 | New git repo | `custom_components/piherder`. Not inside this tree. Not in the image. Lean name `bjorngluck/piherder-ha` (confirm at Phase 1) |
+| HA1 | New git repo | **Landed:** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (`main`, plugin **0.1.5**). Not in this image |
 | HA2 | Config flow | Base URL + `ph_…` token + TLS verify + poll interval |
 | HA3 | Coordinator | `DataUpdateCoordinator` poll. Snapshot reads only — **never SSH** the fleet on the HA interval |
 | HA4 | Fleet sensors | Herder up, host count, OS/container updates, reboot pending, running jobs, Move in progress |
-| HA5 | Host devices | One HA device per PiHerder server; OS type, last seen, reboot pending, backup age |
-| HA6 | Open in PiHerder | `{origin}/servers/{id}` (and job / Docker tab as needed) |
+| HA5 | Host devices | One HA device per PiHerder server; **hardware** + **os_pretty** from host-facts; last seen, reboot, backup |
+| HA6 | Visit | HA **Visit** on the host device = `{origin}/servers/{id}`. Not fake press-here buttons (removed 0.1.5) |
 | HA7 | Auth | Slice 1 token **`read` only**. No OAuth, no session cookie, no CORS. IP allowlist = HA host |
-| HA8 | Optional `summary` | **Landed** this train: `GET /api/v1/summary` (`read`) — `{ ok, version, hosts, os_updates, container_updates, reboot_pending, jobs_running, move_running, last_backup_oldest_at }`. Host counts, DB only |
+| HA8 | Optional `summary` | **Landed:** `GET /api/v1/summary` (`read`) plus `os_pretty` / `hardware` / `alerts_*` on `/servers`. Host-facts snapshot Alembic **044**, scheduler ~15 min, System Info icon refresh |
 | HA9 | Wiki + HACS readme | Operator install: HACS custom repo, token with `read`, allowlist. YAML `rest:` remains possible |
 | HA10 | CI | Mock `/api/v1`. No live Home Assistant. `tests/test_haos.py` stays path 1 |
 
@@ -132,7 +132,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped in 0.9. This stream 
 
 1. Config flow accepts URL + token; coordinator polls without error.  
 2. HA shows fleet sensors and one device per host.  
-3. “Open in PiHerder” reaches the herder UI.  
+3. HA **Visit** on a host device reaches `{origin}/servers/{id}`.  
 4. Token without `read` fails closed. Viewer-class token is enough.  
 5. Demo never. No plugin files in the PiHerder image.
 
@@ -240,7 +240,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
-| **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + Open in PiHerder; token `read`; not in this image | **Open** |
+| **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit**; token `read`; not in this image | **Landed on branch** — plugin `bjorngluck/piherder-ha` **0.1.5**; operator QA open |
 | **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Landed on branch** 848116a — operator QA open |
 | **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs through `_q11`; suite **~72.2%** (term **72%**; 34055/47192); CI fail-under still **70** until 75 |
 | **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Open** |
@@ -297,6 +297,8 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-19 | **Mux-1 landed on branch** (`848116a`). Per-host `console_mux_enabled` (default off; HAOS/demo never). Probe tmux then screen else PTY. Session `ph-u{user}-s{server}-n{tab}-{f\|p}`. Hide parks herder PTY (host session stays); ✕ / tab close kills named session. Wiki leftover `ph-u*` on host remove. Mux-2 leftover list still Discover. Operator QA open. |
 | 2026-09-19 | **Q-80 packs `_q4`–`_q11`.** host_files docker listing, docker nest/classify, jobs enqueue/execute, DNS fabric helpers, herder sqlite restore, cert deploy mock, registry/schema/preflight/kuma, auth/console tickets. Full suite **~72.2%** (34055/47192, term **72%**). Gap to 75% ~**1340** lines. Fail-under stays **70**. Remaining fat miss: host_files, dns_fabric/core, jobs/service, docker_management, herder_backup, certificates. |
 | 2026-09-19 | **QA_v1.6.0 expanded** to full train checklist (Mux-1, HA-p2, Q-80, Should, 1.5 regression, screenshots, freeze). Mux-1 operator happy path in progress; boxes unticked until each row is walked. |
+| 2026-09-19 | **HACS repo** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) public. Plugin **0.1.5**: **Visit** is the PiHerder door; press-here buttons removed. Config flow keeps URL/token on error. |
+| 2026-09-19 | **Host facts** Alembic **044**: persist `os_pretty`, `os_id`, `hardware`, `arch`. Scheduler ~15 min. System Info shows the snapshot; header **icon** refreshes (no extra host-page button). `/servers` 500 from 040 boolean bind already fixed `81d7a12`. |
 
 ---
 
