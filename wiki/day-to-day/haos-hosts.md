@@ -59,7 +59,7 @@ Exact package install steps for rsync may vary by HAOS version — enable the SS
 | Capability | Behaviour |
 |------------|-----------|
 | **Identity** | Manual profile or auto-mark when `ha` works / probes confident |
-| **System info** | Core, OS, Supervisor versions + update flags; disk free/used/total; usage breakdown |
+| **System info** | Stored snapshot (Core / OS / Supervisor, disk). Refresh icon SSHs once; scheduler ~15 min |
 | **OS check** | `ha core\|os\|supervisor info` — **not** apt |
 | **OS apply** | `ha supervisor\|core\|os update` when available; opt-in via same OS patch flag / schedules |
 | **Backups** | Plain **rsync** if package present (root / no sudo path) |
@@ -88,7 +88,7 @@ Schedules reuse the same check/apply machinery as Debian hosts; the backend bran
 - Treat HA as a **Docker Compose** project on the appliance  
 - Appear as a **Move** source or destination ([Move a service](../docker/service-migration.md)) — HAOS is always host-locked  
 - Run **apt** upgrade on HAOS  
-- Ship an HA custom component **in this image**. HA → PiHerder automations today use [API tokens](../operations/api-tokens.md) (`rest` sensors). A first-class **HACS integration** (dashboard, host/container entities, details open PiHerder) is **v1.6** — [FEATURE_PLAN path 2](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOME_ASSISTANT.md)
+- Ship an HA custom component **in this image**. Path 2 (HA **observes** the fleet) is a **separate** HACS repo — operator: [Home Assistant → PiHerder](../integrations/home-assistant.md). YAML `rest` remains possible.
 
 ---
 

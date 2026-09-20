@@ -177,7 +177,7 @@ After key deploy / least-priv / test, PiHerder stores a dependency snapshot. Fai
 
 ## Host status / diagnostics
 
-From server detail **Host status** (⋯) or related chips, PiHerder can show a short **system info** snapshot over SSH (OS/kernel, reboot-pending, disk free — cached briefly). This is read-only diagnostics, not continuous monitoring (use Kuma for uptime).
+**System info** on the server page shows the **stored** OS / hardware / disk snapshot (`os_pretty`, Pi/DMI/HA chassis, kernel). A scheduler refreshes it about every **15 minutes**. Opening the modal does **not** SSH by default. The **refresh icon** in the modal header SSHs once and writes the DB. This is read-only diagnostics, not continuous monitoring (use Kuma for uptime). The HACS integration reads the same columns — [Home Assistant → PiHerder](../integrations/home-assistant.md).
 
 If the host is **linked** to a LAN Discovery device, a **LAN** link-style pill appears in the hero with the discovery IP (and open-port count when known). Open it to edit map name / type / role; **Save or Cancel returns to this server** (not the Integrations shell). The fuller **LAN discovery** card sits **always open** beside **Network path** (IP · ports, scripts, **Edit device** / **Map view**). Details: [LAN Discovery — soft embed](../integrations/lan-discovery.md#soft-embed-fleet).
 

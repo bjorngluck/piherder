@@ -473,7 +473,7 @@ Reuse existing SSH access actions; the wizard is **orchestration + progress**, n
 
 | Area | Direction |
 |------|-----------|
-| Home Assistant | **0.9 path 1 done (HAOS/S2 over SSH)** — [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md): auto-mark, System Info, OS check/apply via `ha` CLI; deps SSH add-on + rsync. **v1.6 Active:** HACS integration **on HA** (Slice 1 Must: fleet + host devices; Slice 1b Should: container/service snapshot entities). API tokens already work ([API.md](API.md)). |
+| Home Assistant | **0.9 path 1 done (HAOS/S2 over SSH)** — [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md). **v1.6 Active:** HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.1.5** (Visit = host page; Slice 1b Should). API tokens already work ([API.md](API.md)). Operator: [wiki](../wiki/integrations/home-assistant.md). |
 | Plugin hooks | Prefer REST + n8n over arbitrary code on the herder host |
 | Ansible / cloud-init | Inventory export + first-boot snippets for new Pis — **overlaps H2.75 bootstrap D/E**; keep imaging depth here |
 | **Advanced secrets** | Explore beyond locked `.env`: Swarm/file permissions hardening, sealed host store for offline recreate, optional vault — never require PiHerder for normal container restart |

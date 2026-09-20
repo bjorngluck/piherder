@@ -296,7 +296,7 @@ The HAOS box may *run* the integration (HA Core) while PiHerder still manages th
 | **Service entities (1b):** fleet service / Kuma chip state | NPM, TLS, bind, Move |
 | Basic action (Slice 2): **Backup this host** (confirm) | OS apply, container patch, Move wizard |
 
-“Open in PiHerder” → `{origin}/servers/{id}` (Docker tab, job, service).
+HA **Visit** on the host device → `{origin}/servers/{id}`. Jobs / Docker / Audit stay dest cards in PiHerder (not fake HA press-here buttons).
 
 **Hard rule:** HA’s poll must **only read PiHerder DB snapshots**. Never SSH the fleet every 30s.
 
@@ -338,7 +338,7 @@ Per-host detail stays `GET /servers`. Summary is the coordinator’s cheap heart
 
 | Slice | Content | Priority |
 |-------|---------|----------|
-| **1** | Repo, manifest, config flow, coordinator, fleet sensors, per-host devices, Open in PiHerder, wiki, HACS readme. Optional herder `summary`. Token `read`. | **Must** |
+| **1** | Repo, manifest, config flow, coordinator, fleet sensors, per-host devices, **Visit**, wiki, HACS readme. Herder `summary` + host-facts. Token `read`. | **Must** |
 | **1b** | Snapshot APIs + HA entities: container (running/uptime/image), service (up/down), host disk. Still no start/stop. | **Should** |
 | **2** | Confirm + `piherder.backup`; poll-diff job events; optional OS **check** (not apply) | **Discover** |
 | **3** | Start/stop from HA, webhooks, alerts API, add-on, custom Lovelace card, Move-from-HA, Files | **Out** |
@@ -445,5 +445,6 @@ Unit tests: pure parsers for `ha * info` fixtures + branch in `check_os_updates`
 | 2026-09-07 | **Path 2** locked as **v1.5 Discover / v1.6.0 ship**: integration first, API token, draft entities/events. No plugin code on `v1.5.0-dev` |
 | 2026-09-10 | **HA-p2 Discover written.** HACS integration **on HA**; Slice 1 read-only fleet + host devices; details open PiHerder. Slice 1b: container/service entities from **DB snapshots** (new read APIs). Backup button Slice 2. No start/stop, no Move-from-HA, no plugin on this branch. |
 | 2026-09-19 | **v1.6 train opened.** Slice 1 **Must**, 1b **Should**, 2 **Discover**. Plugin still a **separate** repo (not this image). |
+| 2026-09-19 | **HACS** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.1.5**. Door is HA **Visit**, not press-here buttons. Herder `summary` + host-facts **044**. |
 
 **End of feature plan** — living; implement against §2.1 and §6.

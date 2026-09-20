@@ -264,7 +264,7 @@ HTTP Request node: Method GET/POST, Header `Authorization` = `Bearer ph_…`, JS
 
 ### Home Assistant
 
-**v1.6:** first-class **HACS integration** (runs on HA) — Slice 1: fleet sensors, host devices, Open in PiHerder. Heartbeat `GET /api/v1/summary` (`read`). Slice 1b Should: container/service entities from snapshots. Details stay in the PiHerder UI. Operator: [wiki Home Assistant](../wiki/integrations/home-assistant.md). [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [PLAN_v1.6.0.md](PLAN_v1.6.0.md). YAML `rest` remains possible. CORS is not required (HA Core is server-side). Prefer an IP allowlist for the HA host.
+**v1.6:** first-class **HACS integration** (runs on HA) — Slice 1: fleet sensors, host devices, **Visit** = `{origin}/servers/{id}`. Heartbeat `GET /api/v1/summary` (`read`). Host `os_pretty` / `hardware` from the host-facts snapshot. Slice 1b Should: container/service entities from snapshots. Operator: [wiki Home Assistant](../wiki/integrations/home-assistant.md). Plugin: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [PLAN_v1.6.0.md](PLAN_v1.6.0.md). YAML `rest` remains possible. CORS is not required (HA Core is server-side). Prefer an IP allowlist for the HA host.
 
 ---
 
