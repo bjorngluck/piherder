@@ -185,6 +185,8 @@ When mux is **on**: probe tmux → screen → PTY; named host session; Hide park
 
 1.5 freeze: suite **~70.6%** line on `app`; CI `--cov-fail-under=70`. 1.x ceiling **80%**. Typical step **~5pp**.
 
+**Status (2026-09-21):** bar **met**. Compose suite **75.04%** (35893/47833). Packs through `tests/test_coverage_v16_q37.py`. CI `--cov-fail-under=75`.
+
 | ID | Item | Notes |
 |----|------|--------|
 | Q1 | CI | `.github/workflows/test.yml` fail-under **75**. Wiki [testing](../wiki/developers/testing.md) |
@@ -246,7 +248,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 |----------|------|-----|--------|
 | **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit** + fleet Lovelace card; token `read`; not in this image | **Landed** — plugin **0.2.2**; operator QA open |
 | **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Landed on branch** 848116a — operator QA open |
-| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **In progress** — packs through `_q29`. Compose **74.1%** (35423/47833). Fail-under still **70** until 75. |
+| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **Met** — packs through `_q37`. Compose **75.04%** (35893/47833). CI fail-under **75**. |
 | **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Open** |
 | **Should** | **Docs-archive-0x** | `docs/archive/v0/` + stubs | **Open** |
 | **Should** | **CSP-n Slice 1** | Script nonces; Report-Only demo first | **Open** |
@@ -316,6 +318,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-20 | **Q-80 `_q26`/`_q27`.** zip_on_host empty + write/sudo helpers; account profile/password/avatar; DNS visual stacks + stack-edges. |
 | 2026-09-20 | TestClient ``cookies=`` applied to the cookie jar in ``tests/conftest.py`` (httpx ignored it). Autouse skip of force-2FA wall. recover-admin password meets 12-char policy. |
 | 2026-09-20 | **Q-80 `_q28`/`_q29`.** DNS coverage mute/infra; force-password; notifications list/dismiss. |
+| 2026-09-21 | **Q-80 met.** Packs `_q30`–`_q37` (settings writes, auth account/forgot, DNS pages, console policy, certificates HTML, API v1 token surfaces, integrations/status, about/favourites/metrics). Full compose **75.04%** (35893/47833), 1620 passed. CI `--cov-fail-under=75`. |
 
 ---
 
@@ -328,7 +331,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 3 | Confirm HACS repo name · create public MIT repo | **Done** — [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) |
 | 4 | Slice 1: config flow + coordinator + fleet + host devices + fleet card | **Landed** plugin **0.2.2** (not in this image). Herder `GET /api/v1/summary` + **044**/**045**. Operator QA open |
 | 5 | **Mux-1** per-host opt-in | **Landed** 2026-09-19 `848116a` — operator QA open |
-| 6 | **Q-80** raise fail-under **70 → 75** | **In progress** — packs through `_q29`. ``cookies=`` jar patch + force-2FA skip. Fail-under stays 70 until 75. |
+| 6 | **Q-80** raise fail-under **70 → 75** | **Met** — packs through `_q37`. Compose **75.04%** (35893/47833). CI `--cov-fail-under=75`. |
 | 7 | Slice 1b / CSP-n / Undo-1 as capacity after Must | Open |
 | 8 | Wiki + QA · freeze · `1.6.0` · tag · Hub | QA checklist **expanded** 2026-09-19; freeze when asked |
 
