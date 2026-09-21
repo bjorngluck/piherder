@@ -163,6 +163,8 @@ Slice **1b** (Should) and Slice **2** (Discover) have their own sections. First 
 
 ## CSP-n Slice 1 (Should; may slip)
 
+Walk this on the **local** install (it enforces). The public demo stays Report-Only and is not the test bed.
+
 - [ ] Per-request script nonce; inline `<script>` stamped  
 - [ ] `script-src-attr 'unsafe-inline'`; style still `'unsafe-inline'`  
 - [ ] `onclick` **not** rewritten  

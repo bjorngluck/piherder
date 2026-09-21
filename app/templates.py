@@ -34,6 +34,10 @@ def ph_brand(extra_class: str = "") -> Markup:
 
 templates.env.globals["ph_brand"] = ph_brand
 
+from .security.headers import current_csp_nonce  # noqa: E402
+
+templates.env.globals["csp_nonce"] = current_csp_nonce
+
 from .services import avatars as _avatar_svc
 
 templates.env.globals["user_has_avatar"] = _avatar_svc.user_has_avatar

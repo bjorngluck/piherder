@@ -43,6 +43,7 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Move job TLS / Kuma red | No auto-rollback. Dest may already be up with names flipped. Fix dest. Staging kept under `/backups/_migrate/{job_id}` |
 | Move succeeded but NPM still points at the old Pi | Job skipped PUT when there was no fabric DNS row. Current train PUTs from the **proxy-host binding**. Rebuild **web**, poll NPM, or Move again. Optional **Adopt into fabric** puts the name on the DNS list without rewriting Pi-hole |
 | Move copy / dest-up failed; source is stopped | JobHold **Start source stack** (same as Docker ⋯ Start all). Dest names were not flipped |
+| Move failed after DNS / NPM / rebind | JobHold or the job detail **Undo move** (preview, then confirm). Dest is stopped, not deleted. A green Move has no Undo |
 | Grafana chip missing on dest after Move | Only **Containers** (project/container) binds follow dest. Host metrics/logs stay. Rebuild web if dest Docker still shows the old host |
 | Map **stack** mode has no container after Move | Stack reads dest **Docker inventory**. Job **#1100** failed at rebind (duplicate Grafana bind) after dest was already up — dest snapshot stayed empty. Refresh Docker on dest (or rebuild web: dest inventory refreshes after `up`). Duplicate dest Grafana chips are dropped, not copied |
 | Move leftover wipe did too little / too much | Default leaves source stopped. **Remove source** only deletes the jailed project dir + copied named volumes — dest never, extra binds outside the project folder stay |

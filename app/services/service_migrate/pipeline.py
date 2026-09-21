@@ -413,16 +413,21 @@ def run_copy_and_start(
     rb_fn = rebind_fn or rebind_control_plane
     _log(log, "Rebinding control-plane rows…")
     try:
-        rebind_out = rb_fn(
-            session,
-            source=source,
-            dest=dest,
-            project=name,
-            dest_project=dest_name,
-            log=log,
-        )
-    except TypeError:
-        rebind_out = rb_fn(session, source=source, dest=dest, project=name, log=log)
+        try:
+            rebind_out = rb_fn(
+                session,
+                source=source,
+                dest=dest,
+                project=name,
+                dest_project=dest_name,
+                log=log,
+            )
+        except TypeError:
+            rebind_out = rb_fn(session, source=source, dest=dest, project=name, log=log)
+    except MigrateError:
+        raise
+    except Exception as e:
+        raise MigrateError(str(e), failed_step="rebind") from e
 
     val_fn = validate_fn or validate_migrate
     _step("validate")

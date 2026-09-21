@@ -980,6 +980,80 @@ async def docker_migrate_start(
     )
 
 
+@router.get("/{server_id}/docker/migrate/undo/preview")
+async def docker_migrate_undo_preview(
+    server_id: int,
+    parent_job_id: int = 0,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Preview a fail-path undo. No SSH. Operator only. Flag off and demo are 404."""
+    _require_migrate_surface()
+    from ..models import Job
+    from ..services.service_migrate.undo import UndoError, preview_undo
+
+    parent = session.get(Job, int(parent_job_id or 0))
+    if not parent or int(parent.server_id or 0) != int(server_id):
+        raise HTTPException(404, "Move job not found")
+    try:
+        return JSONResponse(preview_undo(session, parent))
+    except UndoError as e:
+        raise HTTPException(e.status_code, e.message) from e
+
+
+@router.post("/{server_id}/docker/migrate/undo")
+async def docker_migrate_undo_start(
+    request: Request,
+    server_id: int,
+    parent_job_id: int = Form(...),
+    confirm: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Confirm and queue service_migrate_undo. Never offered for a green Move."""
+    _require_migrate_surface()
+    from ..models import Job
+    from ..services import jobs as job_service
+    from ..services.service_migrate.undo import eligible_undo
+
+    if (confirm or "").strip().lower() not in ("1", "true", "on", "yes"):
+        raise HTTPException(400, "confirm required")
+    parent = session.get(Job, int(parent_job_id))
+    if not parent or int(parent.server_id or 0) != int(server_id):
+        raise HTTPException(404, "Move job not found")
+    if not eligible_undo(parent):
+        raise HTTPException(400, "Undo is only for a failed Move after names flipped")
+    try:
+        job = job_service.enqueue_service_migrate_undo(
+            parent.id,
+            user_id=user.id if user else None,
+        )
+    except job_service.JobAlreadyActive as e:
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse(
+                {
+                    "job_id": e.job.id,
+                    "status": e.job.status,
+                    "job_type": "service_migrate_undo",
+                    "already_active": True,
+                },
+                status_code=409,
+            )
+        raise HTTPException(409, "A stack or backup job is already running on source or dest") from e
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse(
+            {
+                "job_id": job.id,
+                "status": job.status,
+                "job_type": "service_migrate_undo",
+                "already_active": False,
+            }
+        )
+    return RedirectResponse(f"/jobs?highlight={job.id}", status_code=303)
+
+
 @router.post("/{server_id}/docker/check-updates")
 async def check_updates(
     request: Request,

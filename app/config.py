@@ -137,6 +137,8 @@ class Settings(BaseSettings):
     # Content-Security-Policy (v1.2) — default on; Report-Only for staged rollouts
     PIHERDER_CSP: bool = True
     PIHERDER_CSP_REPORT_ONLY: bool = False
+    # Public demo stays Report-Only for the v1.6 nonce policy until this is true.
+    PIHERDER_CSP_ENFORCE: bool = False
 
     # Public demo sandbox (v1.2 Stream D) — default OFF. When true: banner, hard
     # blocks on real onboard/API tokens/outbound, canned jobs (see demo.py).
