@@ -126,6 +126,10 @@ To develop against local source again, temporarily restore `build: .` or point `
 
 ---
 
+## Version pull request
+
+Open it with the Grok GitHub connector (`github__create_pull_request`), not `gh`. Steps and the “connector not attached” case: [CONTRIBUTING.md](../CONTRIBUTING.md#opening-a-version-pull-request-maintainer). Body file is `docs/PR_vN.md`. Leave it a draft until `docs/QA_vN.md` stage gates are closed. Merge, tag, and this Hub checklist come after that.
+
 ## 5. Checklist before a release push
 
 - [x] Multi-arch `docker buildx` push to Docker Hub (`1.0.0` / `1.0` / `latest`)  
