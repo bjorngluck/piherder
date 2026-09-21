@@ -69,6 +69,8 @@ def test_move_running_false_when_no_active_migrate():
 def test_api_meta_lists_summary():
     paths = [e["path"] for e in api_meta_dict()["endpoints"]]
     assert "/api/v1/summary" in paths
+    assert "/api/v1/inventory" in paths
+    assert "/api/v1/services" in paths
 
 
 def test_os_display_label_ubuntu_haos_not_raw_debian():

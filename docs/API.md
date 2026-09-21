@@ -121,6 +121,9 @@ Base path: **`/api/v1`**
 |--------|------|-------|-------------|
 | `GET` | `/api/v1/servers` | `read` | List servers (`features` object). Optional `q`, `limit` (default **100**, max 100), `offset`. Response includes `total`, `limit`, `offset`. Previously unbounded. |
 | `GET` | `/api/v1/servers/{id}` | `read` | One server |
+| `GET` | `/api/v1/inventory` | `read` | Last Docker inventory for every host (DB snapshot, never SSH). Slim containers: `name`, `running`, `state`, `image`, `status` (uptime text), `project` |
+| `GET` | `/api/v1/servers/{id}/inventory` | `read` | Same snapshot for one host, plus `os_pretty`, `hardware`, `disk_*_bytes` |
+| `GET` | `/api/v1/services` | `read` | Fleet service chips (`state` up/down) from stored monitor rows. Does not poll Kuma or NPM |
 | `PATCH` | `/api/v1/servers/{id}/features` | `edit` | Toggle feature flags |
 | `GET` | `/api/v1/servers/{id}/files?p=` | `files` | List jail-relative directory (fleet) |
 | `GET` | `/api/v1/servers/{id}/files/download?p=` | `files` | Download one file |
@@ -264,7 +267,7 @@ HTTP Request node: Method GET/POST, Header `Authorization` = `Bearer ph_…`, JS
 
 ### Home Assistant
 
-**v1.6:** first-class **HACS integration** (runs on HA) — Slice 1: fleet sensors, host devices, **Visit** = `{origin}/servers/{id}`, Lovelace **PiHerder fleet** card (`custom:piherder-dashboard-card`). Heartbeat `GET /api/v1/summary` (`read`) includes fleet resource sums. Host `os_pretty` / `hardware` / cpu / memory / disk / `container_count` from the host-facts snapshot. Plugin [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.2**. Slice 1b Should: container/service entities from snapshots. Operator: [wiki Home Assistant](../wiki/integrations/home-assistant.md). [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [PLAN_v1.6.0.md](PLAN_v1.6.0.md). YAML `rest` remains possible. CORS is not required (HA Core is server-side). Prefer an IP allowlist for the HA host.
+**v1.6:** first-class **HACS integration** (runs on HA) — Slice 1: fleet sensors, host devices, **Visit** = `{origin}/servers/{id}`, Lovelace **PiHerder fleet** card (`custom:piherder-dashboard-card`). Heartbeat `GET /api/v1/summary` (`read`) includes fleet resource sums. Host `os_pretty` / `hardware` / cpu / memory / disk / `container_count` from the host-facts snapshot. Slice **1b** read APIs: `GET /api/v1/inventory`, `GET /api/v1/servers/{id}/inventory`, `GET /api/v1/services` (stored snapshots only). Plugin [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.3** adds container, service, and host-disk sensors on the existing host device (no start/stop). Operator: [wiki Home Assistant](../wiki/integrations/home-assistant.md). [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [PLAN_v1.6.0.md](PLAN_v1.6.0.md). YAML `rest` remains possible. CORS is not required (HA Core is server-side). Prefer an IP allowlist for the HA host.
 
 ---
 

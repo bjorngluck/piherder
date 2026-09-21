@@ -249,8 +249,8 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit** + fleet Lovelace card; token `read`; not in this image | **Landed** — plugin **0.2.2**; operator QA open |
 | **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Landed on branch** 848116a — operator QA open |
 | **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **Met** — packs through `_q37`. Compose **75.04%** (35893/47833). CI fail-under **75**. |
-| **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Open** |
-| **Should** | **Docs-archive-0x** | `docs/archive/v0/` + stubs | **Open** |
+| **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Landed** — `GET /inventory` + `/services`; plugin **0.2.3** sensors on the host device. No start/stop. Operator QA open |
+| **Should** | **Docs-archive-0x** | `docs/archive/v0/` + stubs | **Landed** — v0 PLAN/RELEASE under `docs/archive/v0/`; stubs at old paths |
 | **Should** | **CSP-n Slice 1** | Script nonces; Report-Only demo first | **Open** |
 | **Should** | **Undo-1** | Fail-path `service_migrate_undo` | **Open** |
 | **Discover** | Slice 2 · Undo-2 · Mux-2 | Notes only unless promoted | Parked |
@@ -319,6 +319,8 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-20 | TestClient ``cookies=`` applied to the cookie jar in ``tests/conftest.py`` (httpx ignored it). Autouse skip of force-2FA wall. recover-admin password meets 12-char policy. |
 | 2026-09-20 | **Q-80 `_q28`/`_q29`.** DNS coverage mute/infra; force-password; notifications list/dismiss. |
 | 2026-09-21 | **Q-80 met.** Packs `_q30`–`_q37` (settings writes, auth account/forgot, DNS pages, console policy, certificates HTML, API v1 token surfaces, integrations/status, about/favourites/metrics). Full compose **75.04%** (35893/47833), 1620 passed. CI `--cov-fail-under=75`. |
+| 2026-09-21 | **Docs-archive-0x.** `PLAN_v0.*` / `RELEASE_v0.*` moved to `docs/archive/v0/`; stubs left at the old paths. FEATURE_PLAN / ROADMAP / SPEC / ADMIN / v1.0+ stay in `docs/`. |
+| 2026-09-21 | **Slice 1b.** Read APIs `GET /api/v1/inventory`, `/servers/{id}/inventory`, `/services` (DB snapshots, no SSH). Plugin **0.2.3**: container, service, and disk sensors on the existing host device. No start/stop. |
 
 ---
 
@@ -327,12 +329,12 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.6.0-dev`** + lock Must/Should | **This commit** 2026-09-19 |
-| 2 | **Docs-archive-0x** (Should, Phase 0b) | Open |
+| 2 | **Docs-archive-0x** (Should, Phase 0b) | **Landed** — `docs/archive/v0/` + stubs |
 | 3 | Confirm HACS repo name · create public MIT repo | **Done** — [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) |
 | 4 | Slice 1: config flow + coordinator + fleet + host devices + fleet card | **Landed** plugin **0.2.2** (not in this image). Herder `GET /api/v1/summary` + **044**/**045**. Operator QA open |
 | 5 | **Mux-1** per-host opt-in | **Landed** 2026-09-19 `848116a` — operator QA open |
 | 6 | **Q-80** raise fail-under **70 → 75** | **Met** — packs through `_q37`. Compose **75.04%** (35893/47833). CI `--cov-fail-under=75`. |
-| 7 | Slice 1b / CSP-n / Undo-1 as capacity after Must | Open |
+| 7 | Slice 1b / CSP-n / Undo-1 as capacity after Must | **1b landed** (plugin **0.2.3**). CSP-n and Undo-1 still open |
 | 8 | Wiki + QA · freeze · `1.6.0` · tag · Hub | QA checklist **expanded** 2026-09-19; freeze when asked |
 
 ---
