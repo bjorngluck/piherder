@@ -33,6 +33,8 @@ Container **count** on the HA card comes from Docker inventory meta, not this sn
 
 Opening the modal does **not** SSH. The header **refresh icon** SSHs once (`/servers/{id}/diagnostics?force=1`) and writes the row. Footer text says so.
 
+Screenshot (not in the tree yet): `system-info-snapshot.png` — stored CPU/memory/disk and that header icon. `system-info-haos.png` stays the path-1 shot. [Capture notes](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/wiki/assets/screenshots/README.md#v160--pack-status).
+
 ## After upgrade
 
 Recreate **web** so Alembic **044** and **045** apply (`SELECT version_num FROM alembic_version;` should include `045_host_resources`). Then click the refresh icon once per host (or wait ~15 minutes). Empty CPU/memory on the HA card means this snapshot has not been written yet.

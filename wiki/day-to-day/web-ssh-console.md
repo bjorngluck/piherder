@@ -143,6 +143,8 @@ tmux kill-session -t ph-u1-s12-n0-f
 
 How to try it: enable `PIHERDER_SSH_CONSOLE=true`, migrate, recreate **web**, tick **Console mux** on a Debian host that has `tmux`, open Console → **+ Shell**, confirm the banner mentions `mux tmux`, Hide then `tmux ls` on the host, ✕ then confirm the session is gone.
 
+Screenshot pack (not in the tree yet): `console-mux-features.png` (Edit → Features) and `console-mux-session.png` (mux banner). Leave `console-popup.png` as the plain 1.5 console. List: [screenshots README](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/wiki/assets/screenshots/README.md#v160--pack-status).
+
 ### Multiple hosts (`/console`)
 
 | Behaviour | Detail |

@@ -3,7 +3,7 @@
 **Branch:** `v1.6.0-dev` → `main` · tag **`v1.6.0`** (cut after merge)  
 **Code freeze:** *open*  
 **Package:** **`1.5.0`** until freeze (About / footer stay 1.5.0)  
-**Operator QA:** *in progress* — Mux-1 and HA-p2 boxes stay empty until each row is walked. Q-80 coverage bar is met (compose **75.04%**); Mux-1 and HA operator rows are not signed.
+**Operator QA:** *ready to walk* — every Must and Should stream is on `v1.6.0-dev` (`df39014` and earlier). Boxes stay empty until you tick the row you actually ran. Q-80 is already met (compose **75.04%**).
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki. Walk the **operator** pages while ticking boxes.
 
@@ -11,7 +11,9 @@ Plan: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · HA design: [FEATURE_PLAN_HOME_ASSISTAN
 
 1.5 production sign-off stays [QA_v1.5.0.md](QA_v1.5.0.md) (historical). Do **not** re-open 1.5 boxes here.
 
-**Tag honesty:** freeze only with **HA-p2 Slice 1** + **Mux-1** + CI fail-under **75**. Should streams may slip. Do not bump version, merge, tag, Hub, or redeploy demo until asked.
+**Tag honesty:** freeze only with **HA-p2 Slice 1** + **Mux-1** + CI fail-under **75**. Should streams may slip. Do not bump version, merge, tag, or Hub until asked. The public demo is already on this branch (report-only CSP, Move off). Do not wipe its volumes and do not set `PIHERDER_CSP_ENFORCE` there for this walk.
+
+**This pass is sign-off, not new features.** Fix only a feature or regression bug you hit while walking. Discover (HA Slice 2, Undo-2, Mux-2) and v1.7 (Brand, AC-fg, J-runtime) stay parked.
 
 ---
 
@@ -19,10 +21,12 @@ Plan: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · HA design: [FEATURE_PLAN_HOME_ASSISTAN
 
 | Stream | Wiki |
 |--------|------|
-| Mux-1 | [Web SSH console](../wiki/day-to-day/web-ssh-console.md) · [Add a server](../wiki/day-to-day/add-server.md) · [HAOS hosts](../wiki/day-to-day/haos-hosts.md) · [Remove a server](../wiki/day-to-day/remove-server.md) |
-| HA-p2 | [API tokens](../wiki/operations/api-tokens.md) · [Home Assistant → PiHerder](../wiki/integrations/home-assistant.md) · [System Info](../wiki/day-to-day/system-info.md) · [HAOS hosts](../wiki/day-to-day/haos-hosts.md) (path 1 vs path 2) · HACS readme in `bjorngluck/piherder-ha` |
+| Mux-1 | [Web SSH console](../wiki/day-to-day/web-ssh-console.md#host-mux-mux-1) · [Add a server](../wiki/day-to-day/add-server.md) · [HAOS hosts](../wiki/day-to-day/haos-hosts.md) · [Remove a server](../wiki/day-to-day/remove-server.md) |
+| HA-p2 + 1b | [API tokens](../wiki/operations/api-tokens.md) · [Home Assistant → PiHerder](../wiki/integrations/home-assistant.md) · [System Info](../wiki/day-to-day/system-info.md) · [HAOS hosts](../wiki/day-to-day/haos-hosts.md) (path 1 vs path 2) · HACS readme in `bjorngluck/piherder-ha` |
+| CSP | [Env reference](../wiki/operations/env-reference.md) (`PIHERDER_CSP`, `PIHERDER_CSP_REPORT_ONLY`, `PIHERDER_CSP_ENFORCE`) · [Public demo](../wiki/operations/demo-site.md) |
+| Undo-1 | [Move a service](../wiki/docker/service-migration.md) step 10 · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Troubleshooting](../wiki/troubleshooting/index.md) |
 | Move / regression | [Move a service](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Reports](../wiki/day-to-day/reports.md) |
-| Screenshots | [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md) |
+| Screenshots | [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v160--pack-status) |
 
 ---
 
@@ -32,13 +36,26 @@ Plan: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · HA design: [FEATURE_PLAN_HOME_ASSISTAN
 |--|--|
 | **Instance** | Rebuild **`v1.6.0-dev`** (`docker compose build web celery-worker && docker compose up -d`). App code is **not** bind-mounted. About / footer still **1.5.0** until freeze |
 | **Migrate** | Web startup runs Alembic to **head**. Need **`043`** mux, **`044_host_facts`**, **`045_host_resources`**. If `/servers` 500s, `alembic_version` may be stuck before **040** (Postgres boolean bind; fixed `81d7a12`). Check: `SELECT version_num FROM alembic_version;` |
-| **HACS** | [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.2** — **not** this image. Token **`read` only**; IP allowlist = HA egress. YAML `rest:` remains possible. Lovelace resource `/local/piherder-dashboard-card.js?v=0.2.2` as **JavaScript module** |
+| **HACS** | [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.3** (tag `v0.2.3`) — **not** this image. Token **`read` only**; IP allowlist = HA egress. YAML `rest:` remains possible. Lovelace resource `/local/piherder-dashboard-card.js?v=0.2.3` as **JavaScript module**. Redownload + full HA restart after a plugin tag |
 | **Browsers** | Desktop Chrome or Firefox **and** one phone |
 | **Accounts** | One **admin**, one **operator** (2FA enrolled), one **viewer** |
 | **Hosts** | ≥ **two** real SSH Docker hosts + one HAOS (never a Move dest). One Debian/Pi with **tmux** or **screen** for Mux-1. One host **without** mux binaries if you can spare it |
-| **Flags** | Console: `PIHERDER_SSH_CONSOLE=true` then recreate **web**. Move wizard (Undo-1 / regression only): `PIHERDER_SERVICE_MIGRATE=true` then recreate **web**. Kill switch stays **false** on production. Demo never copies / mux / backup-from-HA |
+| **Flags** | Console: `PIHERDER_SSH_CONSOLE=true` then recreate **web**. Move wizard (Undo-1 / regression only): `PIHERDER_SERVICE_MIGRATE=true` then recreate **web** and **celery-worker**. Kill switch stays **false** on production and on the public demo. Demo never copies / mux / backup-from-HA |
+| **Public demo** | Already on `v1.6.0-dev` (`df39014`). Footer still **1.5.0**. CSP is **Report-Only**. Use it only for the demo rows (login still renders, mux never, Move never). Do not stage Undo or a volume wipe there |
+| **Where to look** | Local herder: `http://127.0.0.1:8000` (Caddy `:8888` / `:8443`). Public demo: [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) |
 
-**Do not test (Out of 1.6):** Brand chrome, AC-fg grants, HA Slice 2/3 (backup / start-stop / Move-from-HA), Mux-2 leftover list in the UI, default-on Move.
+**Do not test (Out of 1.6):** Brand chrome, AC-fg grants, HA Slice 2/3 (backup / start-stop / Move-from-HA), Mux-2 leftover list in the UI, default-on Move, enforcing CSP on the public demo.
+
+### Suggested order
+
+1. Rebuild local **web** + **celery-worker**. Confirm Alembic **045**. About / footer still **1.5.0**.  
+2. **Mux-1** on a Debian/Pi that already has `tmux` (screen row only if you have a screen-only host).  
+3. **CSP** on the local install (it enforces), then one header check on the public demo (Report-Only).  
+4. **HA-p2 Slice 1**, then **Slice 1b** on plugin **0.2.3**. Refresh System Info on each host first so CPU/memory/disk are not empty.  
+5. **Docs-archive** (files in the repo; no UI).  
+6. **1.5 regression** while Move is still off, then turn `PIHERDER_SERVICE_MIGRATE` on only for **Undo-1** on a disposable pair. Turn it **off** again when that section is done.  
+7. **Screenshots** in the same sessions (table below). New filenames are not in the tree until you save the PNGs.  
+8. Leave **Freeze gates** empty.
 
 ---
 
@@ -79,7 +96,7 @@ Session name: `ph-u{user}-s{server}-n{tab}-f` (fleet) or `-p` (privileged). Tab 
 
 ## HA-p2 Slice 1 — HACS on HA (Must)
 
-Plugin is **`custom_components/piherder`** in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (**0.2.2**). **Not** in this Docker image. Token **`read`**. Poll **DB snapshots** only — never SSH the fleet on the HA interval.
+Plugin is **`custom_components/piherder`** in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (**0.2.3**, tag `v0.2.3`). **Not** in this Docker image. Token **`read`**. Poll **DB snapshots** only — never SSH the fleet on the HA interval.
 
 HA **device page** = one **Visit** (host). Docker / Backups / Alerts / Audit are **PiHerder fleet** card chips, not extra Visit links.
 
@@ -103,7 +120,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped; do not regress [HAO
 - [ ] Bad URL / token **keeps the fields** (does not wipe the form)  
 - [ ] Bad URL / TLS fail is an error in the flow, not a silent empty dashboard  
 - [ ] Bad token / missing `read` fails closed  
-- [ ] Fleet **Plugin** sensor is **0.2.2** after Redownload + HA **restart**  
+- [ ] Fleet **Plugin** sensor is **0.2.3** after Redownload + HA **restart**  
 
 ### Entities
 
@@ -111,7 +128,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped; do not regress [HAO
 - [ ] One HA **device** per PiHerder server (hardware + OS pretty, last seen, reboot, backup)  
 - [ ] “Host down” is **`last_seen` age**, not a live SSH ping  
 - [ ] **Visit** on the host device reaches `{origin}/servers/{id}` (only Visit on that page)  
-- [ ] Lovelace **PiHerder fleet** card: resource `/local/piherder-dashboard-card.js?v=0.2.2` as **JavaScript module**; YAML `type: custom:piherder-dashboard-card`; no “custom element doesn’t exist”  
+- [ ] Lovelace **PiHerder fleet** card: resource `/local/piherder-dashboard-card.js?v=0.2.3` as **JavaScript module** (delete any `?v=0.2.2` or `/api/piherder/…` resource); YAML `type: custom:piherder-dashboard-card`; no “custom element doesn’t exist”  
 - [ ] Card fleet totals; expand host; chips open PiHerder (Host/Docker/Backups/Alerts/Audit) in the browser, not HA history  
 - [ ] Empty CPU/memory/disk on the card after **web** recreate + System Info refresh is a herder snapshot gap (Alembic **045**), not a card 404  
 - [ ] Jobs running on the fleet device is a **count**, not a link  
@@ -137,6 +154,8 @@ Slice **1b** (Should) and Slice **2** (Discover) have their own sections. First 
 - [x] Unit line coverage on `app` ≥ **75%** — compose **75.04%** (35893/47833)  
 - [x] CI `--cov-fail-under=75`  
 - [x] Packs landed through `_q37` (2026-09-21).  
+Maintainer skim (not a browser walk):
+
 - [ ] No live SSH / HA / two-host copy / mux host in CI  
 - [ ] Mux tests: `tests/test_console_mux_v16.py` (service; no live SSH)  
 - [ ] HA plugin tests (other repo) mock `/api/v1` only  
@@ -145,45 +164,68 @@ Slice **1b** (Should) and Slice **2** (Discover) have their own sections. First 
 
 ## Slice 1b — snapshot entities (Should; may slip)
 
-- [ ] Herder read APIs: last docker inventory, fleet services, disk/OS facts (same snapshots the UI stores)  
-- [ ] HA container entities (running / uptime / image) from snapshots  
-- [ ] HA service up/down + host disk  
-- [ ] Still no start/stop from HA  
+Same plugin **0.2.3** and the same host device. Does not block Slice 1 sign-off. Refresh Docker on the herder first so inventory is not an empty snapshot. These routes never SSH.
+
+- [ ] `GET /api/v1/inventory` 200 with the **read** token (names, running, image, project — from the last Docker inventory)  
+- [ ] `GET /api/v1/servers/{id}/inventory` 200 for one host  
+- [ ] `GET /api/v1/services` 200 (stored fleet service chips; does not poll Kuma or NPM)  
+- [ ] HA host device: one sensor per container (running / image / uptime text) and one per monitored service (up/down), plus disk %  
+- [ ] Tapping a sensor opens **HA history**, not PiHerder (chips on the fleet card are the links)  
+- [ ] Still no start/stop / restart from those sensors  
 
 ---
 
 ## Docs-archive-0x (Should)
 
-- [ ] `docs/PLAN_v0.*` and `RELEASE_v0.*` live under `docs/archive/v0/`  
-- [ ] Stubs at old paths (no 404)  
-- [ ] `mkdocs build --strict`  
-- [ ] FEATURE_PLAN / ROADMAP / SPEC / ADMIN / 1.0+ PLAN/RELEASE still in `docs/`  
+Repo check. No UI.
+
+- [ ] `docs/PLAN_v0.*` and `RELEASE_v0.*` full text lives under `docs/archive/v0/`  
+- [ ] Stubs at the old `docs/` paths (title + link; opening the stub is not a 404)  
+- [ ] `FEATURE_PLAN_*`, `ROADMAP_ECOSYSTEM.md`, `SPEC.md`, `ADMIN.md`, and v1.0+ PLAN/RELEASE still in `docs/`  
+- [ ] `.venv-docs/bin/mkdocs build --strict` (mkdocs is not on PATH)  
 
 ---
 
 ## CSP-n Slice 1 (Should; may slip)
 
-Walk this on the **local** install (it enforces). The public demo stays Report-Only and is not the test bed.
+Walk **enforce** on the **local** install. The public demo is already on this branch and stays **Report-Only** — use it only for that one row. Do not set `PIHERDER_CSP_ENFORCE` on the public host.
 
-- [ ] Per-request script nonce; inline `<script>` stamped  
-- [ ] `script-src-attr 'unsafe-inline'`; style still `'unsafe-inline'`  
-- [ ] `onclick` **not** rewritten  
-- [ ] Report-Only on **demo** before enforce  
-- [ ] OpenAPI `/docs` `/redoc` still load  
-- [ ] Turnstile login (when keys set) still works  
+There is no new screen. DevTools → Network → the document response.
+
+### Local (enforcing)
+
+- [ ] `GET /auth/login` sends **`Content-Security-Policy`** (not Report-Only)  
+- [ ] `script-src` is `'self'` plus `'nonce-…'` and does **not** include `'unsafe-inline'`  
+- [ ] Header also has `script-src-attr 'unsafe-inline'`. `style-src` still has `'unsafe-inline'`  
+- [ ] View source: an inline `<script>` has `nonce=`. An `onclick=` handler is still in the HTML (not rewritten)  
+- [ ] A control that uses `onclick` still runs (theme or a menu). HTMX swaps still run (`inlineScriptNonce` is set)  
+- [ ] `/docs` and `/redoc` still load. Their `script-src` still allows `'unsafe-inline'` (Swagger). They are not nonced  
+- [ ] Turnstile on login still renders when keys are set  
+- [ ] No `'unsafe-eval'` (unchanged). An Alpine page that needed `new Function` can still be blocked — that is the existing policy, not a Slice 1 regression, unless a page that worked on 1.5 is now blank  
+
+### Public demo (report only)
+
+- [ ] `GET https://piherder-demo.hacknow.info/auth/login` sends **`Content-Security-Policy-Report-Only`** with a nonce and `script-src-attr`  
+- [ ] The login page still paints (onclick, conversion pixel). A missed script does not blank the page  
+- [ ] Demo OpenAPI stays **404** (tokens off). Do not use the demo for the `/docs` row  
 
 ---
 
 ## Undo-1 — fail-path Move undo (Should; may slip)
 
-Needs `PIHERDER_SERVICE_MIGRATE=true` on a disposable stack. Never reverse a **green** Move. Never dest `down -v`.
+Do this **last**, on a disposable pair, after the regression rows that need the flag off. Set `PIHERDER_SERVICE_MIGRATE=true` and recreate **web** and **celery-worker**. Turn the flag **off** again when finished. Never reverse a **green** Move. Never dest `down -v`. Never run this on the public demo.
 
-- [ ] Flag **off** → undo 404  
-- [ ] Failed post-flip Move (`cutover` / rebind / `validate`): JobHold **Undo** preview → confirm  
-- [ ] DNS/NPM back to source; dest **stopped**; source **started**; dest dir+volumes **stay**  
-- [ ] Green Move has no Undo  
-- [ ] Pre-flip fail still **Start source stack** (not Undo)  
-- [ ] Viewer 403; demo never; token API never POSTs undo  
+Where the button is: JobHold on a **failed** `service_migrate`, and the same control on that job’s detail (`/jobs`). First click loads a preview into the log and relabels **Confirm undo**. Second click starts `service_migrate_undo`.
+
+- [ ] Flag **off** → `GET /servers/{id}/docker/migrate/undo/preview` is **404** (signed-in operator)  
+- [ ] **Green** Move: JobHold has **Succeeded** and **no** Undo  
+- [ ] Fail **before** names flip (stop / copy / dest-up): JobHold is **Start source stack**, not Undo  
+- [ ] Fail **after** names flip (`failed_step` `cutover`, `rebind`, or `validate`): **Undo** is offered. Preview names the project, the DNS/NPM swap, dest stop, source start. Confirm runs it  
+- [ ] After a successful undo: DNS/NPM point at the **source** again; source stack is **started**; dest stack is **`compose stop`** (container stopped, directory and volumes still on disk). Dest cert clone is still there; source cert target is enabled again  
+- [ ] A second undo of the same parent is refused  
+- [ ] Viewer on the undo URL is **403**. Public demo is **404**  
+- [ ] A `read` (or any) API token has **no** undo POST under `/api/v1`  
+- [ ] Recreate **celery-worker** during an undo **fails** that undo and leaves the dest tree (do not retry it automatically)  
 
 ---
 
@@ -204,19 +246,23 @@ Do not re-run the full 1.5 freeze pack unless chrome drifted. Spot-check:
 
 ## Screenshots (freeze pack)
 
-Owner: operator (not CI). Replace PNGs under `wiki/assets/screenshots/`; then `mkdocs build --strict`. Capture from rebuilt **`v1.6.0-dev`** (footer still 1.5.0 until freeze).
+Owner: operator (not CI). Full capture notes, wire-into pages, and the “do not recapture” list: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v160--pack-status).
 
-| Pri | Suggested file | Surface | Must show |
-|-----|----------------|---------|-----------|
-| **P0** | `console-mux-features.png` | Edit → Features | **Console mux** checkbox; not HAOS |
-| **P0** | `console-mux-session.png` | Web SSH with mux on | Banner/note that host mux is attached (tmux or screen) |
-| **P0** | `ha-hacs-config.png` | HA config flow | Base URL + token (secret masked) |
-| **P0** | `ha-fleet-sensors.png` | HA device/sensors | Fleet counts + one host device |
-| **P1** | `ha-visit-host.png` | HA device **Visit** | Lands on `/servers/{id}` |
-| **P2** | `system-info-snapshot.png` | System Info modal | Stored snapshot + CPU/memory; refresh is the header icon |
-| **P2** | Recapture only if chrome drifted | Reports / Move JobHold / HAOS | 1.5 pack still good unless broken |
+Save new PNGs under `wiki/assets/screenshots/`. They are **not in git yet** — do not add a wiki `![…]` until the file exists (`mkdocs build --strict` fails on a missing image). Capture from rebuilt **`v1.6.0-dev`**. About / footer still **1.5.0**. Light theme, desktop width. No tokens, PEMs, or backup codes in frame.
 
-1.4/1.5 Move + Reports pack stays unless a row above says recapture.
+| Pri | File | Surface | Must show | Wiki page |
+|-----|------|---------|-----------|-----------|
+| **P0** | `console-mux-features.png` | Edit → Features (Debian/Pi) | **Console mux** checkbox. Not an HAOS host | [Web SSH](../wiki/day-to-day/web-ssh-console.md) |
+| **P0** | `console-mux-session.png` | Console, mux on | Banner that mux attached (`tmux` or `screen`) | [Web SSH](../wiki/day-to-day/web-ssh-console.md) |
+| **P0** | `ha-hacs-config.png` | HA config flow | Base URL + token **masked** | [Home Assistant](../wiki/integrations/home-assistant.md) |
+| **P0** | `ha-fleet-card.png` | Lovelace **PiHerder fleet** card | Fleet totals; one host expanded; chips Host/Docker/Backups/Alerts/Audit | [Home Assistant](../wiki/integrations/home-assistant.md) |
+| **P0** | `ha-fleet-sensors.png` | HA devices | Fleet device + one host device. Plugin **0.2.3** if the sensor is in frame | [Home Assistant](../wiki/integrations/home-assistant.md) |
+| **P1** | `ha-visit-host.png` | After device **Visit** | Browser on `{origin}/servers/{id}` | [Home Assistant](../wiki/integrations/home-assistant.md) |
+| **P1** | `ha-slice1b-sensors.png` | Host device sensors | Container and/or service + disk %. No start/stop control | [Home Assistant](../wiki/integrations/home-assistant.md) |
+| **P1** | `system-info-snapshot.png` | System Info modal | Stored CPU/memory/disk. Refresh is the **header icon** | [System Info](../wiki/day-to-day/system-info.md) |
+| **P1** | `docker-migrate-jobhold-undo.png` | Failed post-flip JobHold | **Undo** (preview or **Confirm undo**). Disposable stack only. Do not replace the green Move shot | [Move a service](../wiki/docker/service-migration.md) |
+
+Leave these files alone unless the chrome in the frame is actually wrong: `console-popup.png` (1.5 PTY), `docker-migrate-jobhold.png` (green Move), `docker-migrate-jobhold-start-source.png`, `system-info-haos.png` (path 1), `reports.png`, `demo-files.png`. CSP has no new screen — do not recapture login for the nonce.
 
 ---
 
@@ -257,3 +303,5 @@ Do not tick until the operator asks to freeze.
 | 2026-09-20 | Full compose `--cov=app`: **74.06%** (35423/47833). 1605 passed, 6 failed (force-2FA autouse + short recover password); those six re-run green after exclude/policy fix. Gap to 75% ~452 lines. |
 | 2026-09-21 | Q-80 packs `_q30`–`_q37`. Full compose **75.04%** (35893/47833), 1620 passed. CI fail-under raised **70 → 75**. Mux-1 and HA boxes still empty. |
 | 2026-09-21 | Docs-archive-0x and Slice 1b landed (plugin **0.2.3**). QA boxes for those rows stay empty until walked. |
+| 2026-09-21 | CSP-n + Undo-1 on `df39014`. Public demo pulled to that commit (no volume wipe): Report-Only CSP, Move off, footer **1.5.0**. |
+| 2026-09-21 | QA rewritten as the walk order above (plugin **0.2.3**, demo report-only row, Undo steps, screenshot filenames). Boxes still empty. |

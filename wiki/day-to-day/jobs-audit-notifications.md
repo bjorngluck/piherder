@@ -47,6 +47,7 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 | `docker_stack_check` / `docker_stack_deploy` | Stack ⋯ Check updates / Deploy | Web background |
 | `docker_stack_stop` / `_start` / `_restart` | Project ⋯ Stop/Start/Restart all | Web background |
 | `service_migrate` | Docker **Move to another host…** (flag `PIHERDER_SERVICE_MIGRATE`) | **Celery** (same worker as backups). Recycle **web** is safe. Recycle **worker** mid-copy **fails** the job (staging kept; **Start source stack** when copy/dest-up had begun). JobHold stays until Close. |
+| `service_migrate_undo` | **Undo move** on a Move that failed after names flipped (cutover / rebind / validate). Preview, then confirm | **Celery**, same dual-host lock. Stops dest (`compose stop`, not `down -v`) and starts source. A green Move has no Undo. Recycle **worker** mid-undo fails that undo and leaves the dest tree |
 | `template_deploy` / `template_redeploy` | Catalog template confirm / Save & redeploy | Web background |
 | `template_drift_check` | Deployment **Check drift** (live log) | Web background |
 | `retention` | Per-server backup file retention | As configured |
@@ -66,7 +67,7 @@ These types do not stack on the same server while already **pending** or **runni
 - `os_patch`, `container_patch`  
 - `os_update_check`, `container_update_check`  
 - Stack lifecycle + template deploy/redeploy (shared **stack mutation** lane on the host)  
-- `service_migrate` — exclusive with backup **and** stack mutation on **both** source and dest  
+- `service_migrate` and `service_migrate_undo` — exclusive with backup **and** stack mutation on **both** source and dest  
 - `template_drift_check` (one drift job at a time per host; not a stack write)  
 
 A second start reuses the existing job (UI follows it; REST **409** with `already_active` / existing `job`). Backups use a separate rule: per-host Redis mutex + Celery (see [Multi-worker](../operations/multi-worker.md)). [Move a service](../docker/service-migration.md) also refuses a migrate while either host is busy.
