@@ -112,6 +112,8 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-09-19):** **v1.6.0 train opened** on **`v1.6.0-dev`**. Must: **HA-p2 Slice 1** (HACS on HA) · **Mux-1** (per-host tmux/screen) · **Q-80** (fail-under **75**). Should: **Slice 1b** · **Docs-archive-0x** · **CSP-n Slice 1** · **Undo-1**. Discover: HA Slice 2, Undo-2, Mux-2. **Brand** and **AC-fg** out (park **v1.7**). J-runtime stays v1.7. Package version stays `1.5.0` until freeze. `main` stays patchable for **v1.5.x**. See [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
+**Progress (2026-09-21):** **Q-80 met** — compose suite **75.04%** (35893/47833); CI `--cov-fail-under=75`. Mux-1 and HA-p2 Slice 1 are on the branch; operator QA still open. Should streams still open.
+
 **Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg). **Slice 3 Deep landed** (L). **Slice 4 Deep landed** (W-id). **Slice 5 Deep landed** (W-audit). **Slice 6 Deep landed** (A). **Slice 7 N2:** `/reports` is history (backups, OS patches, LAN live, Docker, console) — not Grafana, not status portlets. **F Deep (2026-08-20):** Host Files explorer (flag off): edit, zip, perms, search, move, folder upload, preview, `.env` step-up, thin Docker volumes/`docker cp`. API Files expansions → v1.4+ under consideration.
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.5.0` / `1.5` / `latest` (`1.4.0` / `1.4` remain valid).

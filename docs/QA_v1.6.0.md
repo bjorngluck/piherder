@@ -3,7 +3,7 @@
 **Branch:** `v1.6.0-dev` → `main` · tag **`v1.6.0`** (cut after merge)  
 **Code freeze:** *open*  
 **Package:** **`1.5.0`** until freeze (About / footer stay 1.5.0)  
-**Operator QA:** *in progress* — Mux-1 happy path 2026-09-19 (boxes below still empty until each row is walked). HA-p2 and Q-80 not signed.
+**Operator QA:** *in progress* — Mux-1 and HA-p2 boxes stay empty until each row is walked. Q-80 coverage bar is met (compose **75.04%**); Mux-1 and HA operator rows are not signed.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki. Walk the **operator** pages while ticking boxes.
 
@@ -134,9 +134,9 @@ Slice **1b** (Should) and Slice **2** (Discover) have their own sections. First 
 
 ## Q-80 — unit ≥ 75% (Must)
 
-- [ ] Unit line coverage on `app` ≥ **75%**  
-- [ ] CI `--cov-fail-under=75` (do **not** raise until the suite meets the bar)  
-- [x] Packs landed through `_q29` (2026-09-20). Compose **74.1%** (35423/47833). Fail-under still **70** until 75.  
+- [x] Unit line coverage on `app` ≥ **75%** — compose **75.04%** (35893/47833)  
+- [x] CI `--cov-fail-under=75`  
+- [x] Packs landed through `_q37` (2026-09-21).  
 - [ ] No live SSH / HA / two-host copy / mux host in CI  
 - [ ] Mux tests: `tests/test_console_mux_v16.py` (service; no live SSH)  
 - [ ] HA plugin tests (other repo) mock `/api/v1` only  
@@ -224,7 +224,7 @@ Do not tick until the operator asks to freeze.
 
 - [ ] Mux-1 section signed  
 - [ ] HA-p2 Slice 1 section signed (plugin **not** in this image)  
-- [ ] Unit ≥ **75%**; CI `--cov-fail-under=75`  
+- [x] Unit ≥ **75%**; CI `--cov-fail-under=75` — compose **75.04%** (35893/47833)  
 - [ ] `mkdocs build --strict`  
 - [ ] **M-flag** still **false** (worker does not imply GA)  
 - [ ] Version bump **`1.6.0`** at freeze only  
@@ -252,3 +252,5 @@ Do not tick until the operator asks to freeze.
 | 2026-09-20 | Q-80 `_q26`/`_q27` zip helpers + account/avatar + DNS stack-edges. Fail-under stays 70. |
 | 2026-09-20 | Full compose pytest `--cov=app`: **70.92%** (33925/47833). 31 failed (HTTP `cookies=` ignored by this TestClient). Do not raise fail-under. |
 | 2026-09-20 | TestClient cookies jar patch + force-2FA autouse. smoke/list/rbac/recover/migrate-off: 89 passed. q28/q29 landed. |
+| 2026-09-20 | Full compose `--cov=app`: **74.06%** (35423/47833). 1605 passed, 6 failed (force-2FA autouse + short recover password); those six re-run green after exclude/policy fix. Gap to 75% ~452 lines. |
+| 2026-09-21 | Q-80 packs `_q30`–`_q37`. Full compose **75.04%** (35893/47833), 1620 passed. CI fail-under raised **70 → 75**. Mux-1 and HA boxes still empty. |
