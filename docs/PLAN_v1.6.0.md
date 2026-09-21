@@ -69,12 +69,12 @@ main @ v1.5.0 (+ v1.5.x patches)
 | # | Question | Decision |
 |---|----------|----------|
 | 1 | Theme / Must | **HA-p2 Slice 1**. HACS on HA: fleet + host devices. Separate repo. |
-| 2 | Slice 1b snapshot entities | **Should**. New herder read APIs + HA container/service/disk entities. Still no start/stop. May slip. |
+| 2 | Slice 1b snapshot entities | **Should**. **Landed 2026-09-21** (plugin **0.2.3**). New herder read APIs + HA container/service/disk sensors on the host device. Still no start/stop. |
 | 3 | Slice 2 backup-from-HA | **Discover**. First plugin tag is read-only. |
 | 4 | `GET /api/v1/summary` | Optional on Slice 1 if cheap. Token `read`. |
 | 5 | **W-mux Mux-1** | **Must**. Per-host opt-in; tmux then screen else PTY. Mux-2 Discover. |
 | 6 | **Q-80** | **Must**. Fail-under **75** (typical ~5pp toward 80). |
-| 7 | **Docs-archive-0x** | **Should**, Phase 0b. Stubs at old paths. |
+| 7 | **Docs-archive-0x** | **Should**, Phase 0b. **Landed 2026-09-21.** Stubs at old paths; full text in `docs/archive/v0/`. |
 | 8 | **CSP-n Slice 1** | **Should**. Nonce + `script-src-attr`; style stays unsafe-inline; Report-Only on demo first. Do not rewrite `onclick`. |
 | 9 | **M-undo Undo-1** | **Should**. Fail-path named job after cutover/rebind/validate. Undo-2 Discover. Never reverse a green Move. |
 | 10 | **Brand-1/2** | **Out of 1.6.** Park **v1.7**. No chrome code. No theme engine. |
@@ -92,11 +92,11 @@ main @ v1.5.0 (+ v1.5.x patches)
 
 ```text
 Phase 0   Open train + docs lock              ← this commit 2026-09-19
-Phase 0b  Docs-archive-0x (Should)            stubs; mkdocs --strict
-Phase 1   HA-p2 Slice 1                       new HACS repo + wiki/API copy
-Phase 2   Mux-1                               this repo; per-host opt-in
-Phase 3   Q-80                                fail-under 75; may overlap 1–2
-Phase 4   Slice 1b snapshot APIs + entities   Should; herder + plugin
+Phase 0b  Docs-archive-0x (Should)            landed 2026-09-21
+Phase 1   HA-p2 Slice 1                       landed; plugin 0.2.3; operator QA open
+Phase 2   Mux-1                               landed 848116a; operator QA open
+Phase 3   Q-80                                met 75.04%; CI fail-under 75
+Phase 4   Slice 1b snapshot APIs + entities   landed 2026-09-21; plugin 0.2.3
 Phase 5   CSP-n Slice 1                       Should; Report-Only demo first
 Phase 6   Undo-1                              Should; named job, fail-path only
 Phase 7   Wiki + QA_v1.6.0                    operator sign-off
@@ -115,7 +115,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped in 0.9. This stream 
 
 | ID | Item | Notes |
 |----|------|--------|
-| HA1 | New git repo | **Landed:** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (`main`, plugin **0.2.2**). Not in this image |
+| HA1 | New git repo | **Landed:** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (`main`, plugin **0.2.3**). Not in this image |
 | HA2 | Config flow | Base URL + `ph_…` token + TLS verify + poll interval |
 | HA3 | Coordinator | `DataUpdateCoordinator` poll. Snapshot reads only — **never SSH** the fleet on the HA interval |
 | HA4 | Fleet sensors | Herder up, host count, OS/container updates, reboot pending, running jobs, Move in progress |
@@ -125,7 +125,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped in 0.9. This stream 
 | HA8 | Optional `summary` | **Landed:** `GET /api/v1/summary` (`read`) plus `os_pretty` / `hardware` / `alerts_*` / cpu / memory / disk / `container_count` on `/servers`. Host-facts **044** + resources **045**. Scheduler ~15 min, System Info icon refresh |
 | HA9 | Wiki + HACS readme | Operator install: HACS custom repo, token with `read`, allowlist, fleet card `/local` module. YAML `rest:` remains possible |
 | HA10 | CI | Mock `/api/v1`. No live Home Assistant. `tests/test_haos.py` stays path 1 |
-| HA11 | Lovelace fleet card | **Landed 0.2.2:** `custom:piherder-dashboard-card`. Resource `/local/piherder-dashboard-card.js?v=0.2.2` as **JavaScript module**. Fleet sums + expand host + chips (Host/Docker/Backups/Alerts/Audit). Pulled into Slice 1 because HA cannot add extra Visit links |
+| HA11 | Lovelace fleet card | **Landed:** `custom:piherder-dashboard-card`. Resource `/local/piherder-dashboard-card.js?v=0.2.3` as **JavaScript module**. Fleet sums + expand host + chips (Host/Docker/Backups/Alerts/Audit). Pulled into Slice 1 because HA cannot add extra Visit links |
 
 **Hard rules:** no start/stop from HA on the first plugin tag. Never Move, compose write, Files, console, decrypt keys, OS **apply** from HA. `service_migrate` stays off `POST /api/v1/…/jobs`. “Host down” is `last_seen` age, not a live SSH ping.
 
@@ -140,9 +140,9 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped in 0.9. This stream 
 5. Token without `read` fails closed. Viewer-class token is enough.  
 6. Demo never. No plugin files in the PiHerder image.
 
-### Slice 1b (Should)
+### Slice 1b (Should) — landed 2026-09-21
 
-Herder: last Docker **inventory**, **fleet services**, last **disk/OS facts** — same snapshots the UI already stores. HA: container (running/uptime/image), service up/down, host disk. Still no start/stop.
+Herder read APIs (DB only, never SSH): `GET /api/v1/inventory`, `GET /api/v1/servers/{id}/inventory`, `GET /api/v1/services`. Disk and OS facts stay on the server object (`disk_*_bytes`, `os_pretty`, `hardware`). Plugin **0.2.3** adds disk %, one container sensor (running / image / uptime text), and one service sensor (up/down) on the **existing** host device. Still no start/stop. Operator QA open.
 
 ### Slice 2 (Discover)
 
@@ -199,9 +199,9 @@ Do not chase router %. No 100% target.
 
 ## 5. Should streams (may slip)
 
-### **Docs-archive-0x** (Phase 0b)
+### **Docs-archive-0x** (Phase 0b) — landed 2026-09-21
 
-Spent pre-1.0 train records only:
+Spent pre-1.0 train records only. Full text is `docs/archive/v0/`. Stubs remain at `docs/PLAN_v0.*` and `docs/RELEASE_v0.*`. Index: [README.md](README.md). `mkdocs build --strict` passed.
 
 - Move `docs/PLAN_v0.*.md` and `docs/RELEASE_v0.*.md` → `docs/archive/v0/`
 - Leave a **stub** at the old path (title + “moved to archive” + link)
@@ -246,7 +246,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
-| **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit** + fleet Lovelace card; token `read`; not in this image | **Landed** — plugin **0.2.2**; operator QA open |
+| **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit** + fleet Lovelace card; token `read`; not in this image | **Landed** — plugin **0.2.3**; operator QA open |
 | **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Landed on branch** 848116a — operator QA open |
 | **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **Met** — packs through `_q37`. Compose **75.04%** (35893/47833). CI fail-under **75**. |
 | **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Landed** — `GET /inventory` + `/services`; plugin **0.2.3** sensors on the host device. No start/stop. Operator QA open |
@@ -331,7 +331,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 1 | Open **`v1.6.0-dev`** + lock Must/Should | **This commit** 2026-09-19 |
 | 2 | **Docs-archive-0x** (Should, Phase 0b) | **Landed** — `docs/archive/v0/` + stubs |
 | 3 | Confirm HACS repo name · create public MIT repo | **Done** — [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) |
-| 4 | Slice 1: config flow + coordinator + fleet + host devices + fleet card | **Landed** plugin **0.2.2** (not in this image). Herder `GET /api/v1/summary` + **044**/**045**. Operator QA open |
+| 4 | Slice 1: config flow + coordinator + fleet + host devices + fleet card | **Landed** plugin **0.2.3** (not in this image). Herder `GET /api/v1/summary` + **044**/**045**. Operator QA open |
 | 5 | **Mux-1** per-host opt-in | **Landed** 2026-09-19 `848116a` — operator QA open |
 | 6 | **Q-80** raise fail-under **70 → 75** | **Met** — packs through `_q37`. Compose **75.04%** (35893/47833). CI `--cov-fail-under=75`. |
 | 7 | Slice 1b / CSP-n / Undo-1 as capacity after Must | **1b landed** (plugin **0.2.3**). CSP-n and Undo-1 still open |

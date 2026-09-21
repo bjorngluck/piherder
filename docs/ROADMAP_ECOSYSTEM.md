@@ -41,7 +41,7 @@ Design principles stay the same as SPEC:
 | **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights (N reports)** · **host files (F manager)** · **AC-fg** Cap · ACME (consideration) | Post-1.2 minor | **Tagged** 2026-08-22 — [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [QA_v1.3.0.md](QA_v1.3.0.md) · Hub `1.3.0` / `1.3` / `latest` |
 | **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME **or NPM backend** retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate, leftover) + **host lock** (HAOS refuse, Frigate/TPU-class) + demo simulated Files | Post-1.3 minor | **Tagged** 2026-09-06 — [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · wiki [Move a service](../wiki/docker/service-migration.md) · Hub `1.4.0` / `1.4` / `latest` |
 | **v1.5.0** | **Job runtime** — Move on **Celery worker** + Reports pin/hide/reorder + Move jobs card + unit **≥ 70%**. Kill switch stays **false**. | Post-1.4 minor | **Tagged** 2026-09-18 — [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [QA_v1.5.0.md](QA_v1.5.0.md) · Hub `1.5.0` / `1.5` / `latest` |
-| **v1.6.0** | **HACS on HA + console mux** — Slice 1 fleet+host devices + fleet Lovelace card (Must) · Mux-1 per-host tmux/screen (Must) · unit **≥ 75%**. Should: Slice 1b snapshot entities · 0.x archive · CSP-n Slice 1 · Undo-1. | Post-1.5 minor | **Active** on `v1.6.0-dev` — [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 |
+| **v1.6.0** | **HACS on HA + console mux** — Slice 1 + Slice 1b (plugin **0.2.3**) · Mux-1 · unit **75.04%** (fail-under **75**) · 0.x docs archived. Still open: CSP-n Slice 1 · Undo-1 · operator QA. | Post-1.5 minor | **Active** on `v1.6.0-dev` — [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 |
 | **v1.7.0** | **Candidate** — **J-runtime** (remaining exclusive jobs onto Celery) · **AC-fg** · **Brand-1/2**. | Post-1.6 minor | Under consideration — [PLAN_v1.7.0.md](PLAN_v1.7.0.md) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
@@ -112,7 +112,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-09-19):** **v1.6.0 train opened** on **`v1.6.0-dev`**. Must: **HA-p2 Slice 1** (HACS on HA) · **Mux-1** (per-host tmux/screen) · **Q-80** (fail-under **75**). Should: **Slice 1b** · **Docs-archive-0x** · **CSP-n Slice 1** · **Undo-1**. Discover: HA Slice 2, Undo-2, Mux-2. **Brand** and **AC-fg** out (park **v1.7**). J-runtime stays v1.7. Package version stays `1.5.0` until freeze. `main` stays patchable for **v1.5.x**. See [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
-**Progress (2026-09-21):** **Q-80 met** — compose suite **75.04%** (35893/47833); CI `--cov-fail-under=75`. Mux-1 and HA-p2 Slice 1 are on the branch; operator QA still open. Should streams still open.
+**Progress (2026-09-21):** **Q-80 met** — compose suite **75.04%** (35893/47833); CI `--cov-fail-under=75`. Mux-1 and HA-p2 Slice 1 are on the branch; operator QA still open. **Docs-archive-0x** and **Slice 1b** (plugin **0.2.3**) landed. CSP-n Slice 1 and Undo-1 still open.
 
 **Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg). **Slice 3 Deep landed** (L). **Slice 4 Deep landed** (W-id). **Slice 5 Deep landed** (W-audit). **Slice 6 Deep landed** (A). **Slice 7 N2:** `/reports` is history (backups, OS patches, LAN live, Docker, console) — not Grafana, not status portlets. **F Deep (2026-08-20):** Host Files explorer (flag off): edit, zip, perms, search, move, folder upload, preview, `.env` step-up, thin Docker volumes/`docker cp`. API Files expansions → v1.4+ under consideration.
 
@@ -475,7 +475,7 @@ Reuse existing SSH access actions; the wizard is **orchestration + progress**, n
 
 | Area | Direction |
 |------|-----------|
-| Home Assistant | **0.9 path 1 done (HAOS/S2 over SSH)** — [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md). **v1.6 Active:** HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.2** (Visit = host page; Lovelace fleet card; Slice 1b Should). API tokens already work ([API.md](API.md)). Operator: [wiki](../wiki/integrations/home-assistant.md). |
+| Home Assistant | **0.9 path 1 done (HAOS/S2 over SSH)** — [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md). **v1.6 Active:** HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.3** (Visit = host page; Lovelace fleet card; Slice 1b disk/container/service sensors). API tokens already work ([API.md](API.md)). Operator: [wiki](../wiki/integrations/home-assistant.md). |
 | Plugin hooks | Prefer REST + n8n over arbitrary code on the herder host |
 | Ansible / cloud-init | Inventory export + first-boot snippets for new Pis — **overlaps H2.75 bootstrap D/E**; keep imaging depth here |
 | **Advanced secrets** | Explore beyond locked `.env`: Swarm/file permissions hardening, sealed host store for offline recreate, optional vault — never require PiHerder for normal container restart |
