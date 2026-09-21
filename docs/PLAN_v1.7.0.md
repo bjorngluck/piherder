@@ -18,7 +18,7 @@ Theme and Must/Should lock at **train open**. This file is only the parked inbox
 | **AC-fg** | Fine-grained / per-host / per-feature grants | **Out of 1.5 and 1.6** (2026-09-19). Three global roles stay. Not multi-tenant SaaS. No discover spike yet. |
 | **Brand-1/2** | Instance wordmark + one accent; hide Catalog in nav | **1.5 Discover written.** **Out of 1.6** (2026-09-19). Official mark + primary red stay. No theme engine, no logo upload. Demo ignored. Brand-3 (own-docs MkDocs skin) later. [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. |
 
-**Not parked here:** 1.6 Active streams (HA-p2 Slice 1/1b, Mux-1, Q-80, CSP-n Slice 1, Undo-1, Docs-archive-0x) — see [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
+**Not parked here:** the v1.6 train (HA-p2, Mux-1, Q-80, Slice 1b, Docs-archive, CSP-n Slice 1, Undo-1) lives on [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Those streams are on `v1.6.0-dev`. Operator QA and the freeze are still that train.
 
 ---
 

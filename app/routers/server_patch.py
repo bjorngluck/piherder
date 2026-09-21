@@ -264,6 +264,7 @@ async def get_server_job_status(
         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
         "failed_step": details.get("failed_step"),
         "recover_source": details.get("recover_source"),
+        "undo_move": details.get("undo_move"),
     }
 
 

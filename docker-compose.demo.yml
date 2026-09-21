@@ -38,6 +38,8 @@ services:
       PIHERDER_SSH_CONSOLE: "false"
       PIHERDER_HOST_FILES: "false"
       PIHERDER_UPDATE_CHECK: "false"
+      # v1.6 script nonces: watch Report-Only on the demo before PIHERDER_CSP_ENFORCE.
+      PIHERDER_CSP_REPORT_ONLY: "true"
       # Cloudflare Turnstile (recommended on public demo) — leave empty to disable
       PIHERDER_TURNSTILE_SITE_KEY: ${PIHERDER_TURNSTILE_SITE_KEY:-}
       PIHERDER_TURNSTILE_SECRET_KEY: ${PIHERDER_TURNSTILE_SECRET_KEY:-}

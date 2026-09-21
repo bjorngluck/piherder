@@ -69,6 +69,7 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "template_redeploy",
         "template_drift_check",
         "service_migrate",
+        "service_migrate_undo",
         "host_facts",
     }
 )
@@ -85,6 +86,7 @@ _STACK_MUTATING_JOB_TYPES = frozenset(
         "template_deploy",
         "template_redeploy",
         "service_migrate",
+        "service_migrate_undo",
     }
 )
 
@@ -100,11 +102,13 @@ _STACK_LIFECYCLE_JOB_TYPES = frozenset(
 try:
     from ...tasks import backup_server
     from ...tasks import service_migrate as service_migrate_task
+    from ...tasks import service_migrate_undo as service_migrate_undo_task
     HAS_CELERY = True
 except Exception as e:
     HAS_CELERY = False
     backup_server = None
     service_migrate_task = None
+    service_migrate_undo_task = None
     logger.warning("Celery backup task unavailable (backups will not enqueue): %s", e)
 
 
@@ -283,6 +287,7 @@ JOB_TYPE_LABELS = {
     "nmap_host_deep": "Nmap deep scan",
     "nmap_vuln_db_update": "Nmap vuln DB update",
     "service_migrate": "Service migrate",
+    "service_migrate_undo": "Undo move",
     "host_facts": "Host facts",
 }
 
@@ -432,6 +437,7 @@ def job_public_dict(job: Job, *, detail: bool = False) -> dict:
         "deployment_id": details.get("deployment_id"),
         "failed_step": details.get("failed_step"),
         "recover_source": details.get("recover_source"),
+        "undo_move": details.get("undo_move"),
     }
     if detail:
         # Full log for JobHold / jobs modal (alias log_lines for poll UIs)
@@ -656,7 +662,7 @@ def cleanup_stale_backup_jobs(session: Session, max_age_minutes: int = 120) -> i
     cutoff = datetime.utcnow() - timedelta(minutes=max_age_minutes)
     stale = session.exec(
         select(Job).where(
-            Job.job_type.in_(["backup", "service_migrate"]),
+            Job.job_type.in_(["backup", "service_migrate", "service_migrate_undo"]),
             Job.status.in_(["pending", "running"]),
             Job.created_at < cutoff,
         )
@@ -671,7 +677,7 @@ def cleanup_stale_backup_jobs(session: Session, max_age_minutes: int = 120) -> i
 
 # Celery-owned types survive a web restart. Everything else runs in this
 # process (BackgroundTasks / thread pools) and is dead after uvicorn exits.
-_CELERY_JOB_TYPES = frozenset({"backup", "service_migrate"})
+_CELERY_JOB_TYPES = frozenset({"backup", "service_migrate", "service_migrate_undo"})
 
 
 def _is_celery_owned_job(job: Job) -> bool:
@@ -2756,7 +2762,11 @@ def enqueue_docker_stack_remove(
         return job
 
 
-from ..jobs_migrate import enqueue_service_migrate, fail_migrate_worker_restart  # noqa: E402
+from ..jobs_migrate import (  # noqa: E402
+    enqueue_service_migrate,
+    enqueue_service_migrate_undo,
+    fail_migrate_worker_restart,
+)
 
 def _execute_docker_stack_lifecycle(
     job_id: int,
@@ -2980,7 +2990,7 @@ def _active_migrate_as_dest(session: Session, server_id: int) -> Job | None:
     sid = int(server_id)
     rows = session.exec(
         select(Job)
-        .where(Job.job_type == "service_migrate")
+        .where(Job.job_type.in_(["service_migrate", "service_migrate_undo"]))
         .where(Job.status.in_(["pending", "running"]))
         .where(Job.server_id != sid)
     ).all()

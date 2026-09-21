@@ -279,7 +279,7 @@ Lowering concurrency does **not** kick open or parked shells — the next new sh
 | `PIHERDER_SSH_CONSOLE_HOLD_SEC` | `0` | Max park after WS drop (`0` = idle/max only; else 30–3600) — also Settings |
 | `PIHERDER_SSH_CONSOLE_GRANT_MIN` | `10` | Fleet-wide multi-host grant after 2FA (minutes) — also Settings → Security |
 
-Also: keep **CSP** on in production (`PIHERDER_CSP=true`). Tailwind is compiled CSS — no Play CDN / no `unsafe-eval`.
+Also: keep **CSP** on in production (`PIHERDER_CSP=true`). Tailwind is compiled CSS — no Play CDN / no `unsafe-eval`. Inline scripts carry a per-request nonce; `onclick` stays allowed.
 
 ```bash
 # Enable console (example)
