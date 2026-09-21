@@ -1,6 +1,6 @@
 # PiHerder v1.6.0 — HACS on HA + host console mux
 
-**Status:** **Active** — train opened 2026-09-19 on `v1.6.0-dev`. Must code and every Should stream are on the branch (operator QA still open). Package stays **`1.5.0`** until freeze. Public demo is not on this branch until that host pulls it.  
+**Status:** **Active** — train opened 2026-09-19 on `v1.6.0-dev`. Must code and every Should stream are on the branch (operator QA still open — walk [QA_v1.6.0.md](QA_v1.6.0.md)). Package stays **`1.5.0`** until freeze. Public demo is on this branch (`df39014`): report-only CSP, Move off, volumes not wiped.  
 **Date opened:** 2026-09-19  
 **Git branch:** `v1.6.0-dev` → `main` · tag `v1.6.0` (at freeze)  
 **Package / image version:** **`1.5.0`** until freeze. Hub tags after merge.  
@@ -75,7 +75,7 @@ main @ v1.5.0 (+ v1.5.x patches)
 | 5 | **W-mux Mux-1** | **Must**. Per-host opt-in; tmux then screen else PTY. Mux-2 Discover. |
 | 6 | **Q-80** | **Must**. Fail-under **75** (typical ~5pp toward 80). |
 | 7 | **Docs-archive-0x** | **Should**, Phase 0b. **Landed 2026-09-21.** Stubs at old paths; full text in `docs/archive/v0/`. |
-| 8 | **CSP-n Slice 1** | **Should. Landed 2026-09-21.** Nonce + `script-src-attr`; style stays unsafe-inline. Home/local **enforces**. Public demo stays Report-Only until that host pulls this branch. Do not rewrite `onclick`. |
+| 8 | **CSP-n Slice 1** | **Should. Landed 2026-09-21.** Nonce + `script-src-attr`; style stays unsafe-inline. Home/local **enforces**. Public demo is on this branch and stays Report-Only. Do not rewrite `onclick`. |
 | 9 | **M-undo Undo-1** | **Should. Landed 2026-09-21.** Fail-path named job after cutover/rebind/validate. Undo-2 Discover. Never reverse a green Move. |
 | 10 | **Brand-1/2** | **Out of 1.6.** Park **v1.7**. No chrome code. No theme engine. |
 | 11 | **AC-fg** | **Out of 1.6.** Park **v1.7**. Three global roles stay. No discover spike. |
@@ -218,7 +218,7 @@ Spent pre-1.0 train records only. Full text is `docs/archive/v0/`. Stubs remain 
 - JSON `<script type="application/json">` stays un-nonced. HTMX reads `csp_nonce()` into `inlineScriptNonce`
 - OpenAPI `/docs` `/redoc` keep `'unsafe-inline'`
 - Turnstile host allowlist unchanged
-- **Local / home installs enforce.** Public demo (`PIHERDER_DEMO_MODE`) sends Report-Only unless `PIHERDER_CSP_ENFORCE=true`. `docker-compose.demo.yml` also sets `PIHERDER_CSP_REPORT_ONLY=true`. The live demo is **not** updated until you pull `v1.6.0-dev` there
+- **Local / home installs enforce.** Public demo (`PIHERDER_DEMO_MODE`) sends Report-Only unless `PIHERDER_CSP_ENFORCE=true`. `docker-compose.demo.yml` also sets `PIHERDER_CSP_REPORT_ONLY=true`. The live demo is on `v1.6.0-dev` and stays Report-Only
 
 ### **Undo-1** — landed 2026-09-21
 
@@ -251,7 +251,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **Met** — packs through `_q37`. Compose **75.04%** (35893/47833). CI fail-under **75**. |
 | **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Landed** — `GET /inventory` + `/services`; plugin **0.2.3** sensors on the host device. No start/stop. Operator QA open |
 | **Should** | **Docs-archive-0x** | `docs/archive/v0/` + stubs | **Landed** — v0 PLAN/RELEASE under `docs/archive/v0/`; stubs at old paths |
-| **Should** | **CSP-n Slice 1** | Script nonces; local enforce; demo Report-Only | **Landed** — not on the public demo until that host pulls this branch |
+| **Should** | **CSP-n Slice 1** | Script nonces; local enforce; demo Report-Only | **Landed** — public demo on this branch, still Report-Only |
 | **Should** | **Undo-1** | Fail-path `service_migrate_undo` | **Landed** — preview → confirm. Operator QA open |
 | **Discover** | Slice 2 · Undo-2 · Mux-2 | Notes only unless promoted | Parked |
 | **Out** | Brand · AC-fg · J-runtime · HA Slice 3 · M-flag C · plugin-in-image | Park Brand + AC-fg on **v1.7** | Locked 2026-09-19 |
@@ -321,7 +321,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-21 | **Q-80 met.** Packs `_q30`–`_q37` (settings writes, auth account/forgot, DNS pages, console policy, certificates HTML, API v1 token surfaces, integrations/status, about/favourites/metrics). Full compose **75.04%** (35893/47833), 1620 passed. CI `--cov-fail-under=75`. |
 | 2026-09-21 | **Docs-archive-0x.** `PLAN_v0.*` / `RELEASE_v0.*` moved to `docs/archive/v0/`; stubs left at the old paths. FEATURE_PLAN / ROADMAP / SPEC / ADMIN / v1.0+ stay in `docs/`. |
 | 2026-09-21 | **Slice 1b.** Read APIs `GET /api/v1/inventory`, `/servers/{id}/inventory`, `/services` (DB snapshots, no SSH). Plugin **0.2.3**: container, service, and disk sensors on the existing host device. No start/stop. |
-| 2026-09-21 | **CSP-n Slice 1.** Per-request script nonce; `script-src-attr 'unsafe-inline'`; style stays unsafe-inline; `/docs` `/redoc` keep unsafe-inline. Local installs enforce. Demo mode is Report-Only. Public demo not redeployed. |
+| 2026-09-21 | **CSP-n Slice 1.** Per-request script nonce; `script-src-attr 'unsafe-inline'`; style stays unsafe-inline; `/docs` `/redoc` keep unsafe-inline. Local installs enforce. Demo mode is Report-Only. |
 | 2026-09-21 | **Undo-1.** Job `service_migrate_undo` on a failed Move at cutover / rebind / validate. Preview → confirm. Revert DNS/NPM, rebind rows, `compose stop` dest, `compose start` source. Dest dir and volumes stay. Green Move and pre-flip stay as before. Viewer 403. Demo and flag-off 404. Token API has no undo POST. |
 
 ---
@@ -336,7 +336,8 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 4 | Slice 1: config flow + coordinator + fleet + host devices + fleet card | **Landed** plugin **0.2.3** (not in this image). Herder `GET /api/v1/summary` + **044**/**045**. Operator QA open |
 | 5 | **Mux-1** per-host opt-in | **Landed** 2026-09-19 `848116a` — operator QA open |
 | 6 | **Q-80** raise fail-under **70 → 75** | **Met** — packs through `_q37`. Compose **75.04%** (35893/47833). CI `--cov-fail-under=75`. |
-| 7 | Slice 1b / CSP-n / Undo-1 as capacity after Must | **Landed** on this branch (1b plugin **0.2.3**, CSP nonces, fail-path undo). Public demo not updated |
+| 7 | Slice 1b / CSP-n / Undo-1 as capacity after Must | **Landed** (1b plugin **0.2.3**, CSP nonces, fail-path undo). Public demo on `df39014`, Report-Only, Move off |
+| 8 | Operator walk | [QA_v1.6.0.md](QA_v1.6.0.md) is the checklist. Screenshot filenames in [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v160--pack-status). Draft PR to `main`; do not merge until asked |
 | 8 | Wiki + QA · freeze · `1.6.0` · tag · Hub | QA checklist **expanded** 2026-09-19; freeze when asked |
 
 ---

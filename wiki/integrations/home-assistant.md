@@ -58,6 +58,8 @@ The card shows **hosts, CPU cores, containers, memory %, disk %** for the whole 
 
 Numbers come from the same **[System Info](../day-to-day/system-info.md)** snapshot the herder modal shows (CPU cores, memory, disk). Recreate **web** so Alembic **045** is applied, then the System Info refresh icon once per host (or wait for the scheduler). Empty CPU/memory/disk on the card means the herder has not stored a resource snapshot yet — not a card bug.
 
+Screenshots for this page are not in the tree yet: `ha-hacs-config.png`, `ha-fleet-card.png`, `ha-fleet-sensors.png`, `ha-visit-host.png`, `ha-slice1b-sensors.png`. Capture notes: [screenshots README](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/wiki/assets/screenshots/README.md#v160--pack-status).
+
 ## What you see in HA
 
 | Surface | Meaning |

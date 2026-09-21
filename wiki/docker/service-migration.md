@@ -82,6 +82,8 @@ Use lock for Frigate + Coral, USB gadgets, or anything you must not relocate by 
 
 Audit on open: `service_migrate_preview`.
 
+The green JobHold figure above stays the success shot. A post-flip failure (**Undo** / **Confirm undo**) is a separate capture, `docker-migrate-jobhold-undo.png`, and is not in the tree yet. [Capture notes](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/wiki/assets/screenshots/README.md#v160--pack-status).
+
 ### Pipeline (default)
 
 ```text
