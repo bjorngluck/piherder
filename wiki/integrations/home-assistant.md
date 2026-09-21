@@ -9,7 +9,7 @@ A **HACS integration that runs on Home Assistant** and **observes** your PiHerde
 | Path 1 | This PiHerder image | SSH + `ha` CLI on an HAOS **server** |
 | Path 2 (this page) | Separate HACS repo | HA polls PiHerder snapshots; **Visit** opens the herder |
 
-The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). Current plugin **0.2.2**.
+The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). Current plugin **0.2.3**.
 
 ## Why it exists
 
@@ -20,7 +20,7 @@ YAML `rest` sensors against an API token already work. Path 2 is that, first-cla
 1. In PiHerder: Settings → **API management** → create a token with **`read` only**. Set the **IP allowlist** to the HA host (HAOS ≈ appliance LAN IP; a container HA may egress as a Docker/bridge IP).  
 2. HACS → custom repository → **Integration** → `https://github.com/bjorngluck/piherder-ha`.  
 3. Add **PiHerder**: base URL (your herder origin, including scheme), token `ph_…`, TLS verify, poll interval. A bad URL or token keeps the fields filled (plugin ≥ 0.1.3).  
-4. Confirm fleet **Plugin** is **0.2.2**. Device page **Visit** is still the host. For totals and per-host links, add the **PiHerder fleet** card (below).
+4. Confirm fleet **Plugin** is **0.2.3**. Device page **Visit** is still the host. For totals and per-host links, add the **PiHerder fleet** card (below). Container, service, and disk sensors sit on that same host device (Slice 1b). They are status only — not start/stop.
 
 HACS does **not** auto-refresh custom repos. New GitHub Release: HACS → PiHerder → **⋮ → Redownload** (pick the tag) → **restart Home Assistant**. Reload of the config entry is not enough for new files.
 
@@ -28,7 +28,7 @@ Token without `read`, a bad secret, or a mismatched allowlist **fails closed**.
 
 ## What it reads
 
-`GET /api/v1/health`, `GET /api/v1/summary`, `GET /api/v1/servers`, `GET /api/v1/jobs?active_only=true`.
+`GET /api/v1/health`, `GET /api/v1/summary`, `GET /api/v1/servers`, `GET /api/v1/jobs?active_only=true`, plus Slice 1b snapshots `GET /api/v1/inventory` and `GET /api/v1/services`. A herder older than this train answers 404 on those two; the plugin keeps the Slice 1 sensors.
 
 Poll is **database snapshots only**. It never SSH’s the fleet on the HA interval. “Host down” is **`last_seen` age**, not a live ping.
 
@@ -38,10 +38,10 @@ Host **hardware**, **OS**, CPU, memory, and disk come from PiHerder **[System In
 
 The built-in HA **device page** only has one Visit link. For fleet totals and per-host shortcuts, add the **PiHerder fleet** Lovelace card:
 
-1. HACS plugin **0.2.2**, **restart Home Assistant**, then **hard-refresh the browser** (Ctrl+Shift+R). Reload of the config entry is not enough.  
-2. Dashboard **⋮ → Resources** — delete any `/api/piherder/…` card URL. You want **one** resource:
+1. HACS plugin **0.2.3**, **restart Home Assistant**, then **hard-refresh the browser** (Ctrl+Shift+R). Reload of the config entry is not enough.  
+2. Dashboard **⋮ → Resources** — delete any `/api/piherder/…` or older `/local/piherder-dashboard-card.js?v=0.2.2` card URL. You want **one** resource:
 
-   - URL: `/local/piherder-dashboard-card.js?v=0.2.2`  
+   - URL: `/local/piherder-dashboard-card.js?v=0.2.3`  
    - Type: **JavaScript module** (not JavaScript)
 
    After setup, the integration copies the card into HA `config/www/` so `/local/…` works.  
@@ -65,11 +65,11 @@ Numbers come from the same **[System Info](../day-to-day/system-info.md)** snaps
 | Fleet device | Counts, herder version, **Plugin** version, Visit = herder origin |
 | Host device | One per PiHerder server. **Visit** = host page only. Hardware / OS from the stored snapshot |
 | Fleet Lovelace card | Fleet sums + expand host + chips to Host / Docker / Backups / Alerts / Audit |
-| Sensors | OS, features, alert status, last seen, reboot, last backup — all on the host. Tapping a sensor opens HA history, not PiHerder |
+| Sensors | OS, features, alert, last seen, reboot, last backup, **disk %**, plus one sensor per container (running / image / uptime text) and one per monitored service (up/down). All on the host device. Tapping a sensor opens HA history, not PiHerder |
 
-## What it will not do (Slice 1)
+## What it will not do
 
-No start/stop, Move, compose write, Files, console, OS apply, or backup-from-HA. Those stay in PiHerder. YAML `rest:` remains possible.
+No start/stop, Move, compose write, Files, console, OS apply, or backup-from-HA. Slice 1b only **reads** the last Docker inventory and service-monitor rows. YAML `rest:` remains possible.
 
 ## Related
 

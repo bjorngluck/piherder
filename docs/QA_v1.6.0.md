@@ -254,3 +254,4 @@ Do not tick until the operator asks to freeze.
 | 2026-09-20 | TestClient cookies jar patch + force-2FA autouse. smoke/list/rbac/recover/migrate-off: 89 passed. q28/q29 landed. |
 | 2026-09-20 | Full compose `--cov=app`: **74.06%** (35423/47833). 1605 passed, 6 failed (force-2FA autouse + short recover password); those six re-run green after exclude/policy fix. Gap to 75% ~452 lines. |
 | 2026-09-21 | Q-80 packs `_q30`–`_q37`. Full compose **75.04%** (35893/47833), 1620 passed. CI fail-under raised **70 → 75**. Mux-1 and HA boxes still empty. |
+| 2026-09-21 | Docs-archive-0x and Slice 1b landed (plugin **0.2.3**). QA boxes for those rows stay empty until walked. |

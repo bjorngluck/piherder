@@ -312,6 +312,91 @@ def list_servers(
     }
 
 
+def _inventory_public(server: Server) -> dict[str, Any]:
+    from ..services import docker_inventory as inventory_svc
+
+    containers = inventory_svc.snapshot_containers(server)
+    return {
+        "server_id": server.id,
+        "name": server.name,
+        "status": getattr(server, "docker_inventory_status", None) or "never",
+        "at": _api_utc_iso(getattr(server, "docker_inventory_at", None)),
+        "os_display": summary_svc.os_display_label(
+            server.os_type,
+            server.os_updates_summary,
+            os_pretty=getattr(server, "os_pretty", None),
+            os_id=getattr(server, "os_id", None),
+        ),
+        "os_pretty": getattr(server, "os_pretty", None),
+        "hardware": getattr(server, "hardware", None),
+        "disk_total_bytes": getattr(server, "disk_total_bytes", None),
+        "disk_used_bytes": getattr(server, "disk_used_bytes", None),
+        "containers": containers,
+        "container_count": len(containers),
+    }
+
+
+def _service_public(chip: dict[str, Any]) -> dict[str, Any]:
+    checked = chip.get("checked_at")
+    if hasattr(checked, "isoformat"):
+        checked = _api_utc_iso(checked)
+    return {
+        "id": chip.get("id"),
+        "server_id": chip.get("server_id"),
+        "server_name": chip.get("server_name"),
+        "label": chip.get("label") or "",
+        "state": chip.get("state") or "unknown",
+        "message": chip.get("message") or "",
+        "scope": chip.get("scope") or "",
+        "docker_project": chip.get("docker_project") or "",
+        "docker_container": chip.get("docker_container") or "",
+        "checked_at": checked,
+    }
+
+
+@router.get("/inventory", summary="Fleet Docker inventory snapshots")
+def api_inventory(
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    """Last stored Docker inventory for every host. Never SSH."""
+    auth.require(tok_svc.SCOPE_READ)
+    servers = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
+    hosts = [_inventory_public(s) for s in servers]
+    return {
+        "hosts": hosts,
+        "container_count": sum(h["container_count"] for h in hosts),
+    }
+
+
+@router.get("/servers/{server_id}/inventory", summary="Host Docker inventory snapshot")
+def api_server_inventory(
+    server_id: int,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    """Last stored Docker inventory for one host. Never SSH."""
+    auth.require(tok_svc.SCOPE_READ)
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404, detail="Server not found")
+    return _inventory_public(server)
+
+
+@router.get("/services", summary="Fleet service monitor snapshots")
+def api_services(
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    """Service up/down from stored integration bindings. Never polls Kuma/NPM here."""
+    auth.require(tok_svc.SCOPE_READ)
+    from ..services.integrations import registry as integ_reg
+
+    chips = integ_reg.fleet_service_chips(session)
+    services = [_service_public(c) for c in chips]
+    return {"services": services, "count": len(services)}
+
+
 @router.get("/servers/{server_id}", summary="Get server")
 def get_server(
     server_id: int,
