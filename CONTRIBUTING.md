@@ -52,6 +52,18 @@ Security issues: see [SECURITY.md](SECURITY.md) — do not open public issues fo
 
 Feature requests are welcome and will be considered against the roadmap.
 
+## Opening a version pull request (maintainer)
+
+`gh` on this machine is not logged in. That is not a blocker and it is not the release path. Do not stop to run `gh auth login`.
+
+[v1.5.0 pull request #5](https://github.com/bjorngluck/piherder/pull/5) was opened with the Grok GitHub connector, tool `github__create_pull_request`. The tool schemas, when the connector has been used on this host, are under `~/.grok/projects/home-bjorn-docker-piherder/mcps/grok_com_github/tools/`. The catalog name is `github__create_pull_request`, not `grok_com_github__create_pull_request`.
+
+1. Write `docs/PR_vN.md` (title, base `main`, head `vN-dev`, test plan, merge checklist). Push the train branch first.
+2. Discover the tool (`search_tool` query `github__create_pull_request`) and call it. Fields: `owner` `bjorngluck`, `repo` `piherder`, `title`, `head`, `base` `main`, `draft` true until the QA gates in `docs/QA_vN.md` are closed, `body` the text of `docs/PR_vN.md`.
+3. Leave the pull request unmerged. Merge, the `v*` tag, the GitHub Release, and the Hub push are a separate ask. PiHerder does not file a GitHub Issue for a version.
+
+If `search_tool` returns no `github__` tool, the connector is not attached to the session. A fresh `grok -p` session can have the same gap (seen 2026-09-21 while opening v1.6). There is no local GitHub token to fall back on. Do not invent an Issue, and do not claim the pull request exists.
+
 ## Pull Requests
 
 1. Fork the repo and create a branch.
