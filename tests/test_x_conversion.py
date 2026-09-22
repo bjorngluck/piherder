@@ -80,17 +80,41 @@ def test_login_html_has_no_twitter_on_normal_install(monkeypatch):
 
 
 def test_login_html_has_twitter_on_public_demo(monkeypatch):
+    from sqlalchemy.pool import StaticPool
+    from sqlmodel import Session, SQLModel, create_engine
+
     from app.config import settings
+    from app.database import get_session
     from app.main import app
 
     monkeypatch.setattr(settings, "PIHERDER_DEMO_MODE", True)
     monkeypatch.setattr(settings, "PIHERDER_PUBLIC_URL", "https://piherder-demo.hacknow.info")
     monkeypatch.setattr(settings, "PIHERDER_HOSTNAME", "piherder-demo.hacknow.info")
-    client = TestClient(app)
-    r = client.get("/auth/login")
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    def _session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = _session
+    client = TestClient(app, raise_server_exceptions=False)
+    try:
+        r = client.get("/auth/login")
+    finally:
+        app.dependency_overrides.pop(get_session, None)
     assert r.status_code == 200
     assert "platform.twitter.com/oct.js" in r.text
     assert "trackPid('rfe8i'" in r.text
-    csp = r.headers.get("content-security-policy") or ""
+    # Public demo stays Report-Only unless PIHERDER_CSP_ENFORCE is set.
+    csp = (
+        r.headers.get("content-security-policy")
+        or r.headers.get("content-security-policy-report-only")
+        or ""
+    )
     assert "https://platform.twitter.com" in csp
     assert "https://t.co" in csp

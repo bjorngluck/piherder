@@ -15,8 +15,11 @@ from app.security.encryption import encrypt_str
 
 
 def test_account_and_dns_stack_http(tmp_path, monkeypatch):
+    from app.config import settings
     from app.services import runtime_edges as re_svc
     from app.services import container_annotations as ann_svc
+
+    monkeypatch.setattr(settings, "DATA_ROOT", str(tmp_path / "data"))
 
     monkeypatch.setattr(
         re_svc,
@@ -37,6 +40,10 @@ def test_account_and_dns_stack_http(tmp_path, monkeypatch):
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
+    import app.services.app_settings as app_cfg
+
+    monkeypatch.setattr(app_cfg, "engine", engine)
+    monkeypatch.setattr(app_cfg, "_cache", None)
 
     def _session():
         with Session(engine) as session:
