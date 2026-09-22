@@ -36,7 +36,7 @@ Plan: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · HA design: [FEATURE_PLAN_HOME_ASSISTAN
 |--|--|
 | **Instance** | Rebuild **`v1.6.0-dev`** (`docker compose build web celery-worker && docker compose up -d`). App code is **not** bind-mounted. About / footer still **1.5.0** until freeze |
 | **Migrate** | Web startup runs Alembic to **head**. Need **`043`** mux, **`044_host_facts`**, **`045_host_resources`**. If `/servers` 500s, `alembic_version` may be stuck before **040** (Postgres boolean bind; fixed `81d7a12`). Check: `SELECT version_num FROM alembic_version;` |
-| **HACS** | [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.3** (tag `v0.2.3`) — **not** this image. Token **`read` only**; IP allowlist = HA egress. YAML `rest:` remains possible. Lovelace resource `/local/piherder-dashboard-card.js?v=0.2.3` as **JavaScript module**. Redownload + full HA restart after a plugin tag |
+| **HACS** | [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.4** (tag `v0.2.4`) — **not** this image. Token **`read` only**; IP allowlist = HA egress. YAML `rest:` remains possible. Lovelace resource `/local/piherder-dashboard-card.js?v=0.2.4` as **JavaScript module**. Card header shows the PiHerder logo. Redownload + full HA restart after a plugin tag |
 | **Browsers** | Desktop Chrome or Firefox **and** one phone |
 | **Accounts** | One **admin**, one **operator** (2FA enrolled), one **viewer** |
 | **Hosts** | ≥ **two** real SSH Docker hosts + one HAOS (never a Move dest). One Debian/Pi with **tmux** or **screen** for Mux-1. One host **without** mux binaries if you can spare it |
@@ -128,7 +128,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped; do not regress [HAO
 - [ ] One HA **device** per PiHerder server (hardware + OS pretty, last seen, reboot, backup)  
 - [ ] “Host down” is **`last_seen` age**, not a live SSH ping  
 - [ ] **Visit** on the host device reaches `{origin}/servers/{id}` (only Visit on that page)  
-- [ ] Lovelace **PiHerder fleet** card: resource `/local/piherder-dashboard-card.js?v=0.2.3` as **JavaScript module** (delete any `?v=0.2.2` or `/api/piherder/…` resource); YAML `type: custom:piherder-dashboard-card`; no “custom element doesn’t exist”  
+- [ ] Lovelace **PiHerder fleet** card: resource `/local/piherder-dashboard-card.js?v=0.2.4` as **JavaScript module** (delete any `?v=0.2.2`, `?v=0.2.3`, or `/api/piherder/…` resource); header shows the PiHerder logo; YAML `type: custom:piherder-dashboard-card`; no “custom element doesn’t exist”  
 - [ ] Card fleet totals; expand host; chips open PiHerder (Host/Docker/Backups/Alerts/Audit) in the browser, not HA history  
 - [ ] Empty CPU/memory/disk on the card after **web** recreate + System Info refresh is a herder snapshot gap (Alembic **045**), not a card 404  
 - [ ] Jobs running on the fleet device is a **count**, not a link  

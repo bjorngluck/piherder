@@ -9,7 +9,7 @@ A **HACS integration that runs on Home Assistant** and **observes** your PiHerde
 | Path 1 | This PiHerder image | SSH + `ha` CLI on an HAOS **server** |
 | Path 2 (this page) | Separate HACS repo | HA polls PiHerder snapshots; **Visit** opens the herder |
 
-The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (plugin **0.2.3**, Release `v0.2.3`). The HACS repo README and the integration’s Documentation link point at this page. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from `main` and does not publish this page until v1.6 merges.
+The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (plugin **0.2.4**, Release `v0.2.4`). The HACS repo README and the integration’s Documentation link point at this page. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from `main` and does not publish this page until v1.6 merges.
 
 ## Why it exists
 
@@ -20,7 +20,7 @@ YAML `rest` sensors against an API token already work. Path 2 is that, first-cla
 1. In PiHerder: Settings → **API management** → create a token with **`read` only**. Set the **IP allowlist** to the HA host (HAOS ≈ appliance LAN IP; a container HA may egress as a Docker/bridge IP).  
 2. HACS → custom repository → **Integration** → `https://github.com/bjorngluck/piherder-ha`.  
 3. Add **PiHerder**: base URL (your herder origin, including scheme), token `ph_…`, TLS verify, poll interval. A bad URL or token keeps the fields filled (plugin ≥ 0.1.3).  
-4. Confirm fleet **Plugin** is **0.2.3**. Device page **Visit** is still the host. For totals and per-host links, add the **PiHerder fleet** card (below). Container, service, and disk sensors sit on that same host device (Slice 1b). They are status only — not start/stop.
+4. Confirm fleet **Plugin** is **0.2.4**. Device page **Visit** is still the host. For totals and per-host links, add the **PiHerder fleet** card (below). Container, service, and disk sensors sit on that same host device (Slice 1b). They are status only — not start/stop.
 
 HACS does **not** auto-refresh custom repos. New GitHub Release: HACS → PiHerder → **⋮ → Redownload** (pick the tag) → **restart Home Assistant**. Reload of the config entry is not enough for new files.
 
@@ -38,10 +38,10 @@ Host **hardware**, **OS**, CPU, memory, and disk come from PiHerder **[System In
 
 The built-in HA **device page** only has one Visit link. For fleet totals and per-host shortcuts, add the **PiHerder fleet** Lovelace card:
 
-1. HACS plugin **0.2.3**, **restart Home Assistant**, then **hard-refresh the browser** (Ctrl+Shift+R). Reload of the config entry is not enough.  
-2. Dashboard **⋮ → Resources** — delete any `/api/piherder/…` or older `/local/piherder-dashboard-card.js?v=0.2.2` card URL. You want **one** resource:
+1. HACS plugin **0.2.4**, **restart Home Assistant**, then **hard-refresh the browser** (Ctrl+Shift+R). Reload of the config entry is not enough.  
+2. Dashboard **⋮ → Resources** — delete any `/api/piherder/…` or older `/local/piherder-dashboard-card.js?v=0.2.2` or `?v=0.2.3` card URL. You want **one** resource:
 
-   - URL: `/local/piherder-dashboard-card.js?v=0.2.3`  
+   - URL: `/local/piherder-dashboard-card.js?v=0.2.4`  
    - Type: **JavaScript module** (not JavaScript)
 
    After setup, the integration copies the card into HA `config/www/` so `/local/…` works.  
@@ -54,7 +54,7 @@ type: custom:piherder-dashboard-card
 The custom-tag field (if you use it) wants `piherder-dashboard-card` **without** the `custom:` prefix.  
 4. Hard-refresh again. “Custom element doesn’t exist” means the resource is missing, still type “JavaScript” (not module), or the browser has a cached `/api/piherder/…` URL.
 
-The card shows **hosts, CPU cores, containers, memory %, disk %** for the whole fleet, then each host. Expand a host for CPU/memory/disk bars and chips: Host, Docker, Backups, Alerts, Audit. Those chips are real `<a href>` links into PiHerder.
+The card header is the PiHerder logo and the name **PiHerder**. Under that it shows **hosts, CPU cores, containers, memory %, disk %** for the whole fleet, then each host. Expand a host for CPU/memory/disk bars and chips: Host, Docker, Backups, Alerts, Audit. Those chips are real `<a href>` links into PiHerder.
 
 Numbers come from the same **[System Info](../day-to-day/system-info.md)** snapshot the herder modal shows (CPU cores, memory, disk). Recreate **web** so Alembic **045** is applied, then the System Info refresh icon once per host (or wait for the scheduler). Empty CPU/memory/disk on the card means the herder has not stored a resource snapshot yet — not a card bug.
 

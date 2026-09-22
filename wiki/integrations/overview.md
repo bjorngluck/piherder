@@ -29,7 +29,7 @@ PiHerder stays the **fleet truth**; external tools enrich via adapters and deep 
 
 !!! tip "Home Assistant"
     **Path 1:** managing **HAOS** (SSH, System info, Core/OS/Supervisor) is day-to-day fleet work — [HAOS hosts](../day-to-day/haos-hosts.md).  
-    **Path 2 (v1.6):** HA **observes** the PiHerder fleet via HACS — [Home Assistant → PiHerder](home-assistant.md). Token `read`; poll snapshots only. Plugin **0.2.3**: Visit on the host device; fleet Lovelace card for totals and section chips; container, service, and disk sensors on the host.
+    **Path 2 (v1.6):** HA **observes** the PiHerder fleet via HACS — [Home Assistant → PiHerder](home-assistant.md). Token `read`; poll snapshots only. Plugin **0.2.4**: Visit on the host device; fleet Lovelace card for totals and section chips; container, service, and disk sensors on the host.
 
 ---
 

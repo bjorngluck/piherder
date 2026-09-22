@@ -88,7 +88,7 @@ Schedules reuse the same check/apply machinery as Debian hosts; the backend bran
 - Treat HA as a **Docker Compose** project on the appliance  
 - Appear as a **Move** source or destination ([Move a service](../docker/service-migration.md)) — HAOS is always host-locked  
 - Run **apt** upgrade on HAOS  
-- Ship an HA custom component **in this image**. Path 2 (HA **observes** the fleet) is a **separate** HACS repo (plugin **0.2.3**) — operator: [Home Assistant → PiHerder](../integrations/home-assistant.md). Device page **Visit** is the host; fleet totals and section chips are the Lovelace card. YAML `rest` remains possible.
+- Ship an HA custom component **in this image**. Path 2 (HA **observes** the fleet) is a **separate** HACS repo (plugin **0.2.4**) — operator: [Home Assistant → PiHerder](../integrations/home-assistant.md). Device page **Visit** is the host; fleet totals and section chips are the Lovelace card. YAML `rest` remains possible.
 
 ---
 
