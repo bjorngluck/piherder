@@ -138,11 +138,31 @@ def test_login_page_stamps_nonce_and_enforces(monkeypatch):
 
     monkeypatch.setattr(demo, "demo_mode", lambda: False)
     from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from sqlmodel import SQLModel, create_engine
 
+    from app.database import get_session
     from app.main import app
 
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    def _session():
+        from sqlmodel import Session
+
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = _session
     client = TestClient(app, raise_server_exceptions=False)
-    res = client.get("/auth/login")
+    try:
+        res = client.get("/auth/login")
+    finally:
+        app.dependency_overrides.pop(get_session, None)
     assert res.status_code == 200
     csp = res.headers.get("content-security-policy") or ""
     assert "script-src-attr 'unsafe-inline'" in csp

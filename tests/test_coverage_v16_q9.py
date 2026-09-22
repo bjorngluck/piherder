@@ -200,6 +200,7 @@ def test_ssh_console_tickets_and_policy(monkeypatch):
         assert sc.grant_valid(grant, user_id=1, server_id=1, session_version=0) in (True, False)
     except Exception:
         pass
+    monkeypatch.setattr(sc.settings, "PIHERDER_SSH_CONSOLE", True)
     sc.try_acquire_slot(1)
     sc.release_slot(1)
     counts = sc.live_counts()

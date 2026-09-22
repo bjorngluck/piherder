@@ -36,6 +36,11 @@ def test_login_console_ticket_dns_posts(tmp_path, monkeypatch):
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
+    # DNS saves go through app_settings' own engine, not get_session.
+    import app.services.app_settings as app_cfg
+
+    monkeypatch.setattr(app_cfg, "engine", engine)
+    monkeypatch.setattr(app_cfg, "_cache", None)
 
     def _session():
         with Session(engine) as session:
