@@ -51,7 +51,7 @@ Plan: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · HA design: [FEATURE_PLAN_HOME_ASSISTAN
 1. Rebuild local **web** + **celery-worker**. Confirm Alembic **045**. About / footer still **1.5.0**.  
 2. **Mux-1** on a Debian/Pi that already has `tmux` (screen row only if you have a screen-only host).  
 3. **CSP** on the local install (it enforces), then one header check on the public demo (Report-Only).  
-4. **HA-p2 Slice 1**, then **Slice 1b** on plugin **0.2.3**. Refresh System Info on each host first so CPU/memory/disk are not empty.  
+4. **HA-p2 Slice 1**, then **Slice 1b** on plugin **0.2.4**. Refresh System Info on each host first so CPU/memory/disk are not empty.  
 5. **Docs-archive** (files in the repo; no UI).  
 6. **1.5 regression** while Move is still off, then turn `PIHERDER_SERVICE_MIGRATE` on only for **Undo-1** on a disposable pair. Turn it **off** again when that section is done.  
 7. **Screenshots** in the same sessions (table below). New filenames are not in the tree until you save the PNGs.  
@@ -96,7 +96,7 @@ Session name: `ph-u{user}-s{server}-n{tab}-f` (fleet) or `-p` (privileged). Tab 
 
 ## HA-p2 Slice 1 — HACS on HA (Must)
 
-Plugin is **`custom_components/piherder`** in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (**0.2.3**, tag `v0.2.3`). **Not** in this Docker image. Token **`read`**. Poll **DB snapshots** only — never SSH the fleet on the HA interval.
+Plugin is **`custom_components/piherder`** in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (**0.2.4**, tag `v0.2.4`). **Not** in this Docker image. Token **`read`**. Poll **DB snapshots** only — never SSH the fleet on the HA interval.
 
 HA **device page** = one **Visit** (host). Docker / Backups / Alerts / Audit are **PiHerder fleet** card chips, not extra Visit links.
 
@@ -120,7 +120,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped; do not regress [HAO
 - [ ] Bad URL / token **keeps the fields** (does not wipe the form)  
 - [ ] Bad URL / TLS fail is an error in the flow, not a silent empty dashboard  
 - [ ] Bad token / missing `read` fails closed  
-- [ ] Fleet **Plugin** sensor is **0.2.3** after Redownload + HA **restart**  
+- [ ] Fleet **Plugin** sensor is **0.2.4** after Redownload + HA **restart**  
 
 ### Entities
 
@@ -164,7 +164,7 @@ Maintainer skim (not a browser walk):
 
 ## Slice 1b — snapshot entities (Should; may slip)
 
-Same plugin **0.2.3** and the same host device. Does not block Slice 1 sign-off. Refresh Docker on the herder first so inventory is not an empty snapshot. These routes never SSH.
+Same plugin **0.2.4** and the same host device. Does not block Slice 1 sign-off. Refresh Docker on the herder first so inventory is not an empty snapshot. These routes never SSH.
 
 - [ ] `GET /api/v1/inventory` 200 with the **read** token (names, running, image, project — from the last Docker inventory)  
 - [ ] `GET /api/v1/servers/{id}/inventory` 200 for one host  
@@ -256,7 +256,7 @@ Save new PNGs under `wiki/assets/screenshots/`. They are **not in git yet** — 
 | **P0** | `console-mux-session.png` | Console, mux on | Banner that mux attached (`tmux` or `screen`) | [Web SSH](../wiki/day-to-day/web-ssh-console.md) |
 | **P0** | `ha-hacs-config.png` | HA config flow | Base URL + token **masked** | [Home Assistant](../wiki/integrations/home-assistant.md) |
 | **P0** | `ha-fleet-card.png` | Lovelace **PiHerder fleet** card | Fleet totals; one host expanded; chips Host/Docker/Backups/Alerts/Audit | [Home Assistant](../wiki/integrations/home-assistant.md) |
-| **P0** | `ha-fleet-sensors.png` | HA devices | Fleet device + one host device. Plugin **0.2.3** if the sensor is in frame | [Home Assistant](../wiki/integrations/home-assistant.md) |
+| **P0** | `ha-fleet-sensors.png` | HA devices | Fleet device + one host device. Plugin **0.2.4** if the sensor is in frame | [Home Assistant](../wiki/integrations/home-assistant.md) |
 | **P1** | `ha-visit-host.png` | After device **Visit** | Browser on `{origin}/servers/{id}` | [Home Assistant](../wiki/integrations/home-assistant.md) |
 | **P1** | `ha-slice1b-sensors.png` | Host device sensors | Container and/or service + disk %. No start/stop control | [Home Assistant](../wiki/integrations/home-assistant.md) |
 | **P1** | `system-info-snapshot.png` | System Info modal | Stored CPU/memory/disk. Refresh is the **header icon** | [System Info](../wiki/day-to-day/system-info.md) |

@@ -249,7 +249,10 @@ def run_undo_pipeline(
     start_fn=None,
     cert_fn=None,
 ) -> dict[str, Any]:
-    """Revert names, stop dest, start source. Dest tree and volumes stay."""
+    """Stop dest, then revert names, then start source. Dest tree and volumes stay.
+
+    Stop runs first so a stop failure leaves names on the dest that is still up.
+    """
     name = compose_project_name(project)
     dest_name = compose_project_name(dest_project or project)
     dest_path = jailed_source_project_path(dest, dest_name)
@@ -273,6 +276,18 @@ def run_undo_pipeline(
     stop = stop_fn or _compose_stop
     start = start_fn or _compose_start
     certs = cert_fn or reenable_source_certs
+
+    _log(log, f"Stopping dest project {dest_name} at {dest_path} (compose stop, not down -v)")
+    stopped = stop(dest, dest_path)
+    if isinstance(stopped, dict) and stopped.get("action") == "down":
+        raise UndoError("refusing undo: dest down is not allowed")
+    if isinstance(stopped, dict) and stopped.get("output"):
+        _log(log, str(stopped.get("output") or "")[-800:])
+    if not _ok(stopped):
+        err = ""
+        if isinstance(stopped, dict):
+            err = str(stopped.get("error") or stopped.get("output") or "")
+        raise UndoError(err or "dest compose stop failed")
 
     _log(log, f"Reverting DNS / NPM for {name} → {source.name}")
     try:
@@ -308,18 +323,6 @@ def run_undo_pipeline(
         cert_n = certs(session, source, name)
     if cert_n:
         _log(log, f"Re-enabled {cert_n} source certificate target(s); dest clone kept")
-
-    _log(log, f"Stopping dest project {dest_name} at {dest_path} (compose stop, not down -v)")
-    stopped = stop(dest, dest_path)
-    if isinstance(stopped, dict) and stopped.get("action") == "down":
-        raise UndoError("refusing undo: dest down is not allowed")
-    if isinstance(stopped, dict) and stopped.get("output"):
-        _log(log, str(stopped.get("output") or "")[-800:])
-    if not _ok(stopped):
-        err = ""
-        if isinstance(stopped, dict):
-            err = str(stopped.get("error") or stopped.get("output") or "")
-        raise UndoError(err or "dest compose stop failed")
 
     _log(log, f"Starting source project {name} at {source_path}")
     started = start(source, source_path)

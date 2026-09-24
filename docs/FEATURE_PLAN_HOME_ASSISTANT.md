@@ -273,7 +273,7 @@ Operators can already glue YAML `rest` / `rest_command` to tokens ([API.md](API.
 
 **v1.5:** written discover only. No plugin repo on `v1.5.0-dev`.
 
-**v1.6.0 (locked 2026-09-19):** Slice 1 **Must** (read-only fleet + host devices + fleet Lovelace card). Slice **1b** **Should** (snapshot read APIs + container/service entities). Slice **2** **Discover** (backup-from-HA). Herder `GET /api/v1/summary` optional if cheap. [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Plugin: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.3** (Slice 1b sensors on the host device).
+**v1.6.0 (locked 2026-09-19):** Slice 1 **Must** (read-only fleet + host devices + fleet Lovelace card). Slice **1b** **Should** (snapshot read APIs + container/service entities). Slice **2** **Discover** (backup-from-HA). Herder `GET /api/v1/summary` optional if cheap. [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Plugin: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.4** (Slice 1b sensors on the host device, fleet-card logo).
 
 ### 7.1 Two products
 
@@ -339,8 +339,8 @@ Per-host detail stays `GET /servers`. Summary is the coordinator’s cheap heart
 
 | Slice | Content | Priority |
 |-------|---------|----------|
-| **1** | Repo, manifest, config flow, coordinator, fleet sensors, per-host devices, **Visit**, fleet Lovelace card, wiki, HACS readme. Herder `summary` + host-facts + resource columns. Token `read`. Plugin **0.2.3** (card resource `?v=0.2.3`). | **Must** (landed; operator QA open) |
-| **1b** | Snapshot APIs + HA entities: container (running/uptime/image), service (up/down), host disk. Still no start/stop. Plugin **0.2.3**. | **Landed** (operator QA open) |
+| **1** | Repo, manifest, config flow, coordinator, fleet sensors, per-host devices, **Visit**, fleet Lovelace card, wiki, HACS readme. Herder `summary` + host-facts + resource columns. Token `read`. Plugin **0.2.4** (card resource `?v=0.2.4`). | **Must** (landed; operator QA open) |
+| **1b** | Snapshot APIs + HA entities: container (running/uptime/image), service (up/down), host disk. Still no start/stop. Plugin **0.2.4**. | **Landed** (operator QA open) |
 | **2** | Confirm + `piherder.backup`; poll-diff job events; optional OS **check** (not apply) | **Discover** |
 | **3** | Start/stop from HA, webhooks, alerts API, add-on, extra Lovelace cards, Move-from-HA, Files | **Out** |
 

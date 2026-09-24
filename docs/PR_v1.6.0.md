@@ -16,7 +16,7 @@ Design: [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Maintainer ticks: [QA_v1.6.0.md](QA_v1
 
 | Stream | Highlights |
 |--------|------------|
-| **HA-p2 Slice 1** (Must) | HACS [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.3**. Token `read`. Fleet sensors, one host device, one **Visit**. Lovelace fleet card. Not in this image |
+| **HA-p2 Slice 1** (Must) | HACS [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.4**. Token `read`. Fleet sensors, one host device, one **Visit**. Lovelace fleet card. Not in this image |
 | **Slice 1b** (Should) | `GET /api/v1/inventory` and `/services`. Container, service, and disk sensors on the host device. No start/stop |
 | **Mux-1** (Must) | Per-host **Console mux**. `tmux` then `screen`, else a plain PTY. Hide detaches; ✕ kills. Never apt-install. HAOS and demo never mux |
 | **Q-80** (Must) | Compose **75.04%** (35893/47833). CI `--cov-fail-under=75` |
@@ -43,7 +43,7 @@ Walk [QA_v1.6.0.md](QA_v1.6.0.md). Boxes there stay empty until each row is run.
 
 - [x] Unit suite ≥ **75%**; CI fail-under **75**
 - [ ] Mux-1 on a host that already has tmux or screen
-- [ ] HA-p2 Slice 1 + Slice 1b on plugin **0.2.3**
+- [ ] HA-p2 Slice 1 + Slice 1b on plugin **0.2.4**
 - [ ] CSP enforce locally; public demo stays Report-Only
 - [ ] Undo-1 on a disposable pair, then turn the Move flag off again
 - [ ] 1.5 regression (web recycle mid-Move, Reports, Sign in, reboot flag)

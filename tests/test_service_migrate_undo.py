@@ -163,11 +163,11 @@ def test_pipeline_reverts_names_and_stops_without_down(tmp_path):
         )
         assert out["dest_removed"] is False
         assert out["certs_reenabled"] == 1
-        assert calls[0][1] == dst.id and calls[0][2] == src.id
-        assert calls[0][3] == {"8081/tcp": "8080"}
-        assert calls[1] == ("rebind", dst.id, src.id)
-        assert calls[2][0] == "stop" and calls[2][1].endswith("/grafana")
-        assert "down" not in calls[2][1]
+        assert calls[0][0] == "stop" and calls[0][1].endswith("/grafana")
+        assert "down" not in calls[0][1]
+        assert calls[1][1] == dst.id and calls[1][2] == src.id
+        assert calls[1][3] == {"8081/tcp": "8080"}
+        assert calls[2] == ("rebind", dst.id, src.id)
         assert calls[3][0] == "start"
         s.refresh(src_target)
         assert src_target.enabled is True
@@ -212,6 +212,82 @@ def test_stop_down_is_refused(tmp_path):
                 start_fn=lambda server, path: {"success": True, "action": "start"},
             )
         assert "down" in str(ei.value).lower()
+
+
+def test_stop_failure_does_not_revert_names(tmp_path):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'undo-stop.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        src = _server("src", "src.local")
+        dst = _server("dst", "dst.local")
+        s.add(src)
+        s.add(dst)
+        s.commit()
+        s.refresh(src)
+        s.refresh(dst)
+        calls = []
+
+        def dns(*_a, **_k):
+            calls.append("dns")
+            return {"ok": True}
+
+        with pytest.raises(Exception) as ei:
+            run_undo_pipeline(
+                s,
+                source=src,
+                dest=dst,
+                project="grafana",
+                dest_project="grafana",
+                dns_fn=dns,
+                rebind_fn=lambda *a, **k: calls.append("rebind"),
+                cert_fn=lambda *a, **k: 0,
+                stop_fn=lambda server, path: {"success": False, "error": "ssh down"},
+                start_fn=lambda server, path: calls.append("start") or {"success": True},
+            )
+        assert "ssh down" in str(ei.value)
+        assert calls == []
+
+
+def test_pending_undo_blocks_another(tmp_path):
+    from app.services.jobs_migrate import _parent_already_undone
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'undo-inflight.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        src = _server("src", "src.local")
+        s.add(src)
+        s.commit()
+        s.refresh(src)
+        parent = Job(server_id=src.id, job_type="service_migrate", status="failed", details="{}")
+        s.add(parent)
+        s.commit()
+        s.refresh(parent)
+        pending = Job(
+            server_id=src.id,
+            job_type="service_migrate_undo",
+            status="pending",
+            details=json.dumps({"parent_job_id": parent.id}),
+        )
+        s.add(pending)
+        s.commit()
+        assert _parent_already_undone(s, parent.id) is True
+        failed = Job(
+            server_id=src.id,
+            job_type="service_migrate_undo",
+            status="failed",
+            details=json.dumps({"parent_job_id": 99999}),
+        )
+        s.add(failed)
+        s.commit()
+        assert _parent_already_undone(s, 99999) is False
 
 
 def test_token_api_never_posts_undo():

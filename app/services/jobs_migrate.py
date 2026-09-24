@@ -446,10 +446,11 @@ def _run_service_migrate_pipeline(
 
 
 def _parent_already_undone(session, parent_id: int) -> bool:
+    """True when this Move already has a successful or still-running undo."""
     rows = session.exec(
         select(Job).where(
             Job.job_type == "service_migrate_undo",
-            Job.status == "success",
+            Job.status.in_(("success", "pending", "running")),
         )
     ).all()
     for row in rows:
@@ -480,7 +481,7 @@ def enqueue_service_migrate_undo(
         if not payload or parent is None:
             raise ValueError("Undo is only for a failed Move after names flipped")
         if _parent_already_undone(session, parent.id):
-            raise ValueError("This Move was already undone")
+            raise ValueError("This Move was already undone or an undo is still running")
         source_id = int(payload["source_id"])
         dest_id = int(payload["dest_id"])
         project = str(payload["project"])
