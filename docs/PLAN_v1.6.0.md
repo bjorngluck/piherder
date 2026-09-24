@@ -93,7 +93,7 @@ main @ v1.5.0 (+ v1.5.x patches)
 ```text
 Phase 0   Open train + docs lock              ← this commit 2026-09-19
 Phase 0b  Docs-archive-0x (Should)            landed 2026-09-21
-Phase 1   HA-p2 Slice 1                       landed; plugin 0.2.3; operator QA open
+Phase 1   HA-p2 Slice 1                       landed; plugin 0.2.4; operator QA open
 Phase 2   Mux-1                               landed 848116a; operator QA open
 Phase 3   Q-80                                met 75.04%; CI fail-under 75
 Phase 4   Slice 1b snapshot APIs + entities   landed 2026-09-21; plugin 0.2.3
@@ -115,7 +115,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped in 0.9. This stream 
 
 | ID | Item | Notes |
 |----|------|--------|
-| HA1 | New git repo | **Landed:** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (`main`, plugin **0.2.3**). Not in this image |
+| HA1 | New git repo | **Landed:** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (`main`, plugin **0.2.4**). Not in this image |
 | HA2 | Config flow | Base URL + `ph_…` token + TLS verify + poll interval |
 | HA3 | Coordinator | `DataUpdateCoordinator` poll. Snapshot reads only — **never SSH** the fleet on the HA interval |
 | HA4 | Fleet sensors | Herder up, host count, OS/container updates, reboot pending, running jobs, Move in progress |
@@ -125,7 +125,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped in 0.9. This stream 
 | HA8 | Optional `summary` | **Landed:** `GET /api/v1/summary` (`read`) plus `os_pretty` / `hardware` / `alerts_*` / cpu / memory / disk / `container_count` on `/servers`. Host-facts **044** + resources **045**. Scheduler ~15 min, System Info icon refresh |
 | HA9 | Wiki + HACS readme | Operator install: HACS custom repo, token with `read`, allowlist, fleet card `/local` module. YAML `rest:` remains possible |
 | HA10 | CI | Mock `/api/v1`. No live Home Assistant. `tests/test_haos.py` stays path 1 |
-| HA11 | Lovelace fleet card | **Landed:** `custom:piherder-dashboard-card`. Resource `/local/piherder-dashboard-card.js?v=0.2.3` as **JavaScript module**. Fleet sums + expand host + chips (Host/Docker/Backups/Alerts/Audit). Pulled into Slice 1 because HA cannot add extra Visit links |
+| HA11 | Lovelace fleet card | **Landed:** `custom:piherder-dashboard-card`. Resource `/local/piherder-dashboard-card.js?v=0.2.4` as **JavaScript module**. Header is the PiHerder logo. Fleet sums + expand host + chips (Host/Docker/Backups/Alerts/Audit). Pulled into Slice 1 because HA cannot add extra Visit links |
 
 **Hard rules:** no start/stop from HA on the first plugin tag. Never Move, compose write, Files, console, decrypt keys, OS **apply** from HA. `service_migrate` stays off `POST /api/v1/…/jobs`. “Host down” is `last_seen` age, not a live SSH ping.
 
@@ -142,7 +142,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped in 0.9. This stream 
 
 ### Slice 1b (Should) — landed 2026-09-21
 
-Herder read APIs (DB only, never SSH): `GET /api/v1/inventory`, `GET /api/v1/servers/{id}/inventory`, `GET /api/v1/services`. Disk and OS facts stay on the server object (`disk_*_bytes`, `os_pretty`, `hardware`). Plugin **0.2.3** adds disk %, one container sensor (running / image / uptime text), and one service sensor (up/down) on the **existing** host device. Still no start/stop. Operator QA open.
+Herder read APIs (DB only, never SSH): `GET /api/v1/inventory`, `GET /api/v1/servers/{id}/inventory`, `GET /api/v1/services`. Disk and OS facts stay on the server object (`disk_*_bytes`, `os_pretty`, `hardware`). Plugin **0.2.4** (Slice 1b sensors from **0.2.3**, plus the fleet-card logo) adds disk %, one container sensor (running / image / uptime text), and one service sensor (up/down) on the **existing** host device. Still no start/stop. Operator QA open.
 
 ### Slice 2 (Discover)
 
@@ -246,10 +246,10 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
-| **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit** + fleet Lovelace card; token `read`; not in this image | **Landed** — plugin **0.2.3**; operator QA open |
+| **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit** + fleet Lovelace card; token `read`; not in this image | **Landed** — plugin **0.2.4**; operator QA open |
 | **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Landed on branch** 848116a — operator QA open |
 | **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **Met** — packs through `_q37`. Compose **75.04%** (35893/47833). CI fail-under **75**. |
-| **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Landed** — `GET /inventory` + `/services`; plugin **0.2.3** sensors on the host device. No start/stop. Operator QA open |
+| **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Landed** — `GET /inventory` + `/services`; plugin **0.2.4** sensors on the host device. No start/stop. Operator QA open |
 | **Should** | **Docs-archive-0x** | `docs/archive/v0/` + stubs | **Landed** — v0 PLAN/RELEASE under `docs/archive/v0/`; stubs at old paths |
 | **Should** | **CSP-n Slice 1** | Script nonces; local enforce; demo Report-Only | **Landed** — public demo on this branch, still Report-Only |
 | **Should** | **Undo-1** | Fail-path `service_migrate_undo` | **Landed** — preview → confirm. Operator QA open |
