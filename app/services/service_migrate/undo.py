@@ -28,10 +28,12 @@ UNDO_STEPS = frozenset({"cutover", "rebind", "validate"})
 
 
 class UndoError(Exception):
-    def __init__(self, message: str, status_code: int = 400):
+    def __init__(self, message: str, status_code: int = 400, steps: list[str] | None = None):
         super().__init__(message)
         self.message = message
         self.status_code = int(status_code)
+        # Steps that stayed committed. A rolled-back stop is not included.
+        self.steps = list(steps or [])
 
 
 def _log(log: Optional[LogFn], msg: str) -> None:
@@ -248,10 +250,13 @@ def run_undo_pipeline(
     stop_fn=None,
     start_fn=None,
     cert_fn=None,
+    done: list[str] | None = None,
 ) -> dict[str, Any]:
     """Stop dest, then revert names, then start source. Dest tree and volumes stay.
 
     Stop runs first so a stop failure leaves names on the dest that is still up.
+    ``done`` lists steps a previous attempt already committed. If names have not
+    moved yet and a later step fails, dest is started again.
     """
     name = compose_project_name(project)
     dest_name = compose_project_name(dest_project or project)
@@ -276,53 +281,110 @@ def run_undo_pipeline(
     stop = stop_fn or _compose_stop
     start = start_fn or _compose_start
     certs = cert_fn or reenable_source_certs
+    steps = [s for s in (done or []) if s in ("stop", "dns", "rebind", "certs")]
 
-    _log(log, f"Stopping dest project {dest_name} at {dest_path} (compose stop, not down -v)")
-    stopped = stop(dest, dest_path)
-    if isinstance(stopped, dict) and stopped.get("action") == "down":
-        raise UndoError("refusing undo: dest down is not allowed")
-    if isinstance(stopped, dict) and stopped.get("output"):
-        _log(log, str(stopped.get("output") or "")[-800:])
-    if not _ok(stopped):
-        err = ""
-        if isinstance(stopped, dict):
-            err = str(stopped.get("error") or stopped.get("output") or "")
-        raise UndoError(err or "dest compose stop failed")
+    def _fail(msg: str, *, restart_dest: bool = False) -> None:
+        if restart_dest:
+            _log(log, "Names were not moved; starting dest again")
+            back = start(dest, dest_path)
+            if isinstance(back, dict) and back.get("output"):
+                _log(log, str(back.get("output") or "")[-800:])
+            if not _ok(back):
+                _log(log, "Dest was stopped and could not be started again")
+            elif "stop" in steps:
+                steps.remove("stop")
+        raise UndoError(msg, steps=list(steps))
 
-    _log(log, f"Reverting DNS / NPM for {name} → {source.name}")
-    try:
-        dns_out = dns(
-            session,
-            source=dest,
-            dest=source,
-            project=dest_name,
-            dest_project=name,
-            port_map=back_ports,
-            adopt_fabric=False,
-            log=log,
-        )
-    except TypeError:
-        dns_out = dns(session, source=dest, dest=source, project=dest_name, log=log)
+    if "stop" in steps:
+        _log(log, "Dest stop already committed on a previous undo")
+    else:
+        _log(log, f"Stopping dest project {dest_name} at {dest_path} (compose stop, not down -v)")
+        stopped = stop(dest, dest_path)
+        if isinstance(stopped, dict) and stopped.get("action") == "down":
+            raise UndoError("refusing undo: dest down is not allowed", steps=list(steps))
+        if isinstance(stopped, dict) and stopped.get("output"):
+            _log(log, str(stopped.get("output") or "")[-800:])
+        if not _ok(stopped):
+            err = ""
+            if isinstance(stopped, dict):
+                err = str(stopped.get("error") or stopped.get("output") or "")
+            raise UndoError(err or "dest compose stop failed", steps=list(steps))
+        steps.append("stop")
 
-    _log(log, "Rebinding control-plane rows back to source")
-    try:
-        rebind_out = rebind(
-            session,
-            source=dest,
-            dest=source,
-            project=dest_name,
-            dest_project=name,
-            log=log,
-        )
-    except TypeError:
-        rebind_out = rebind(session, source=dest, dest=source, project=dest_name, log=log)
+    if "dns" in steps:
+        dns_out = {"ok": True, "skipped": True}
+        _log(log, "DNS / NPM revert already committed on a previous undo")
+    else:
+        _log(log, f"Reverting DNS / NPM for {name} → {source.name}")
+        try:
+            try:
+                dns_out = dns(
+                    session,
+                    source=dest,
+                    dest=source,
+                    project=dest_name,
+                    dest_project=name,
+                    port_map=back_ports,
+                    adopt_fabric=False,
+                    log=log,
+                )
+            except TypeError:
+                dns_out = dns(session, source=dest, dest=source, project=dest_name, log=log)
+        except UndoError:
+            raise
+        except Exception as exc:
+            _fail(str(exc) or "DNS revert failed", restart_dest=True)
+        if not _ok(dns_out):
+            err = ""
+            if isinstance(dns_out, dict):
+                err = str(dns_out.get("error") or dns_out.get("output") or "")
+            _fail(err or "DNS revert failed", restart_dest=True)
+        steps.append("dns")
 
-    try:
-        cert_n = certs(session, source, name, dest_name)
-    except TypeError:
-        cert_n = certs(session, source, name)
-    if cert_n:
-        _log(log, f"Re-enabled {cert_n} source certificate target(s); dest clone kept")
+    if "rebind" in steps:
+        rebind_out = {"ok": True, "skipped": True}
+        _log(log, "Control-plane rebind already committed on a previous undo")
+    else:
+        _log(log, "Rebinding control-plane rows back to source")
+        try:
+            try:
+                rebind_out = rebind(
+                    session,
+                    source=dest,
+                    dest=source,
+                    project=dest_name,
+                    dest_project=name,
+                    log=log,
+                )
+            except TypeError:
+                rebind_out = rebind(session, source=dest, dest=source, project=dest_name, log=log)
+        except UndoError:
+            raise
+        except Exception as exc:
+            _fail(str(exc) or "rebind failed")
+        if not _ok(rebind_out):
+            err = ""
+            if isinstance(rebind_out, dict):
+                err = str(rebind_out.get("error") or "")
+            _fail(err or "rebind failed")
+        steps.append("rebind")
+
+    if "certs" in steps:
+        cert_n = 0
+        _log(log, "Certificate re-enable already committed on a previous undo")
+    else:
+        try:
+            try:
+                cert_n = certs(session, source, name, dest_name)
+            except TypeError:
+                cert_n = certs(session, source, name)
+        except UndoError:
+            raise
+        except Exception as exc:
+            _fail(str(exc) or "certificate re-enable failed")
+        if cert_n:
+            _log(log, f"Re-enabled {cert_n} source certificate target(s); dest clone kept")
+        steps.append("certs")
 
     _log(log, f"Starting source project {name} at {source_path}")
     started = start(source, source_path)
@@ -332,7 +394,7 @@ def run_undo_pipeline(
         err = ""
         if isinstance(started, dict):
             err = str(started.get("error") or started.get("output") or "")
-        raise UndoError(err or "source compose start failed")
+        raise UndoError(err or "source compose start failed", steps=list(steps))
 
     _log(log, "Undo complete. Dest directory and volumes were left in place.")
     return {
