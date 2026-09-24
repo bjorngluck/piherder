@@ -1,9 +1,9 @@
 # PiHerder v1.6.0 — operator QA / sign-off
 
 **Branch:** `v1.6.0-dev` → `main` · tag **`v1.6.0`** (cut after merge)  
-**Code freeze:** *open*  
-**Package:** **`1.5.0`** until freeze (About / footer stay 1.5.0)  
-**Operator QA:** *ready to walk* — every Must and Should stream is on `v1.6.0-dev` (`df39014` and earlier). Boxes stay empty until you tick the row you actually ran. Q-80 is already met (compose **75.04%**).
+**Code freeze:** **yes** (2026-09-24). No new features. Next is the screenshot pack, then the version bump when asked.  
+**Package:** **`1.5.0`** until that bump (About / footer stay 1.5.0)  
+**Operator QA:** **signed** 2026-09-24 (Mux-1, HA-p2 Slice 1 and 1b, Q-80, Docs-archive, CSP-n, Undo-1, 1.5 regression). Screenshot boxes are not a walk. Last measured compose coverage **75.01%** (36304/48400) after pack `_q38`. CI fail-under **75**.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki. Walk the **operator** pages while ticking boxes.
 
@@ -65,32 +65,32 @@ Code on `v1.6.0-dev` (`848116a` + docs `7186298` + migrate fix `81d7a12`). Migra
 
 Session name: `ph-u{user}-s{server}-n{tab}-f` (fleet) or `-p` (privileged). Tab index is clamped.
 
-**Operator note 2026-09-19:** tmux happy path “looks great so far” — tick each row when that case is walked, not from this note.
+**Operator sign-off 2026-09-24:** every Mux-1 row below was walked and signed, including screen.
 
 ### Setup
 
-- [ ] `PIHERDER_SSH_CONSOLE=true`; recreate **web**; Alembic **043** applied  
-- [ ] Debian/Pi host has `tmux` **or** `screen` already (do not install from PiHerder)  
-- [ ] Console mux checkbox visible on that host’s **Features**; **not** on HAOS  
+- [x] `PIHERDER_SSH_CONSOLE=true`; recreate **web**; Alembic **043** applied  
+- [x] Debian/Pi host has `tmux` **or** `screen` already (do not install from PiHerder)  
+- [x] Console mux checkbox visible on that host’s **Features**; **not** on HAOS  
 
 ### Behaviour
 
-- [ ] Host mux **off** → same Paramiko PTY as 1.5 (no `ph-u*` on the host)  
-- [ ] Host mux **on**, tmux present → `tmux ls` shows `ph-u{user}-s{server}-n{tab}-f`  
-- [ ] Privileged identity → `-p` name; fleet cannot attach that session  
-- [ ] Hide / app-switch **detaches**; host session **stays**; re-open attaches  
-- [ ] Tab **✕** / bye **kills** the named host session (`tmux ls` empty for that name)  
-- [ ] Recreate **web** while hidden: host session **still there**; re-open attaches (Mux-1). Herder in-memory park is gone (expected)  
-- [ ] Missing binary → console still opens; honest note; plain PTY  
-- [ ] HAOS: checkbox hidden; save forces mux off; never mux  
-- [ ] Demo: never mux  
-- [ ] Viewer: console **403**  
-- [ ] Idle herder park expire does **not** `tmux kill-session`  
-- [ ] After **Remove server**: leftover `ph-u*` on the Pi is a **wiki** kill (`tmux ls` / `tmux kill-session -t NAME` or `screen -S NAME -X quit`). No in-app leftover list (Mux-2 Discover)  
+- [x] Host mux **off** → same Paramiko PTY as 1.5 (no `ph-u*` on the host)  
+- [x] Host mux **on**, tmux present → `tmux ls` shows `ph-u{user}-s{server}-n{tab}-f`  
+- [x] Privileged identity → `-p` name; fleet cannot attach that session  
+- [x] Hide / app-switch **detaches**; host session **stays**; re-open attaches  
+- [x] Tab **✕** / bye **kills** the named host session (`tmux ls` empty for that name)  
+- [x] Recreate **web** while hidden: host session **still there**; re-open attaches (Mux-1). Herder in-memory park is gone (expected)  
+- [x] Missing binary → console still opens; honest note; plain PTY  
+- [x] HAOS: checkbox hidden; save forces mux off; never mux  
+- [x] Demo: never mux  
+- [x] Viewer: console **403**  
+- [x] Idle herder park expire does **not** `tmux kill-session`  
+- [x] After **Remove server**: leftover `ph-u*` on the Pi is a **wiki** kill (`tmux ls` / `tmux kill-session -t NAME` or `screen -S NAME -X quit`). No in-app leftover list (Mux-2 Discover)  
 
 ### Screen backend (if a host has screen but not tmux)
 
-- [ ] Probe uses **screen**; Hide detaches; ✕ quits the screen session  
+- [x] Probe uses **screen**; Hide detaches; ✕ quits the screen session  
 
 ---
 
@@ -102,46 +102,48 @@ HA **device page** = one **Visit** (host). Docker / Backups / Alerts / Audit are
 
 Path 1 (PiHerder **manages HAOS** over SSH) already shipped; do not regress [HAOS hosts](../wiki/day-to-day/haos-hosts.md). This stream is path 2: HA **observes** the fleet.
 
+**Operator sign-off 2026-09-24:** every HA-p2 Slice 1 row below was walked and signed.
+
 ### Herder side
 
-- [ ] Admin creates token with **`read` only** (no `jobs` / `edit` / `files`)  
-- [ ] IP allowlist = HA host (HAOS ≈ appliance LAN IP; container HA may be a bridge IP — 403 until allowlist matches egress)  
-- [ ] `GET /api/v1/health` 200 with that token  
-- [ ] `GET /api/v1/servers` and `GET /api/v1/jobs?active_only=true` 200  
-- [ ] `GET /api/v1/summary` 200 (`read`)  
-- [ ] `GET /api/v1/servers` includes `os_pretty` / `hardware` after a host-facts snapshot (System Info icon or ~15 min)  
-- [ ] Token **without** `read` (or bad secret) fails closed (401)  
-- [ ] Plugin files **absent** from this image (`custom_components/` not in the tree)  
+- [x] Admin creates token with **`read` only** (no `jobs` / `edit` / `files`)  
+- [x] IP allowlist = HA host (HAOS ≈ appliance LAN IP; container HA may be a bridge IP — 403 until allowlist matches egress)  
+- [x] `GET /api/v1/health` 200 with that token  
+- [x] `GET /api/v1/servers` and `GET /api/v1/jobs?active_only=true` 200  
+- [x] `GET /api/v1/summary` 200 (`read`)  
+- [x] `GET /api/v1/servers` includes `os_pretty` / `hardware` after a host-facts snapshot (System Info icon or ~15 min)  
+- [x] Token **without** `read` (or bad secret) fails closed (401)  
+- [x] Plugin files **absent** from this image (`custom_components/` not in the tree)  
 
 ### HACS install
 
-- [ ] HACS → custom repository → integration  
-- [ ] Config flow: base URL + `ph_…` token + TLS verify + poll interval  
-- [ ] Bad URL / token **keeps the fields** (does not wipe the form)  
-- [ ] Bad URL / TLS fail is an error in the flow, not a silent empty dashboard  
-- [ ] Bad token / missing `read` fails closed  
-- [ ] Fleet **Plugin** sensor is **0.2.4** after Redownload + HA **restart**  
+- [x] HACS → custom repository → integration  
+- [x] Config flow: base URL + `ph_…` token + TLS verify + poll interval  
+- [x] Bad URL / token **keeps the fields** (does not wipe the form)  
+- [x] Bad URL / TLS fail is an error in the flow, not a silent empty dashboard  
+- [x] Bad token / missing `read` fails closed  
+- [x] Fleet **Plugin** sensor is **0.2.4** after Redownload + HA **restart**  
 
 ### Entities
 
-- [ ] Fleet sensors: herder up, host count, OS updates, container updates, reboot pending, running jobs, Move in progress  
-- [ ] One HA **device** per PiHerder server (hardware + OS pretty, last seen, reboot, backup)  
-- [ ] “Host down” is **`last_seen` age**, not a live SSH ping  
-- [ ] **Visit** on the host device reaches `{origin}/servers/{id}` (only Visit on that page)  
-- [ ] Lovelace **PiHerder fleet** card: resource `/local/piherder-dashboard-card.js?v=0.2.4` as **JavaScript module** (delete any `?v=0.2.2`, `?v=0.2.3`, or `/api/piherder/…` resource); header shows the PiHerder logo; YAML `type: custom:piherder-dashboard-card`; no “custom element doesn’t exist”  
-- [ ] Card fleet totals; expand host; chips open PiHerder (Host/Docker/Backups/Alerts/Audit) in the browser, not HA history  
-- [ ] Empty CPU/memory/disk on the card after **web** recreate + System Info refresh is a herder snapshot gap (Alembic **045**), not a card 404  
-- [ ] Jobs running on the fleet device is a **count**, not a link  
-- [ ] System Info on the herder shows the **stored** snapshot (pretty OS, hardware, CPU cores/load, memory, disk); refresh is the **icon** in that modal (no extra host-page button)  
+- [x] Fleet sensors: herder up, host count, OS updates, container updates, reboot pending, running jobs, Move in progress  
+- [x] One HA **device** per PiHerder server (hardware + OS pretty, last seen, reboot, backup)  
+- [x] “Host down” is **`last_seen` age**, not a live SSH ping  
+- [x] **Visit** on the host device reaches `{origin}/servers/{id}` (only Visit on that page)  
+- [x] Lovelace **PiHerder fleet** card: resource `/local/piherder-dashboard-card.js?v=0.2.4` as **JavaScript module** (delete any `?v=0.2.2`, `?v=0.2.3`, or `/api/piherder/…` resource); header shows the PiHerder logo; YAML `type: custom:piherder-dashboard-card`; no “custom element doesn’t exist”  
+- [x] Card fleet totals; expand host; chips open PiHerder (Host/Docker/Backups/Alerts/Audit) in the browser, not HA history  
+- [x] Empty CPU/memory/disk on the card after **web** recreate + System Info refresh is a herder snapshot gap (Alembic **045**), not a card 404  
+- [x] Jobs running on the fleet device is a **count**, not a link  
+- [x] System Info on the herder shows the **stored** snapshot (pretty OS, hardware, CPU cores/load, memory, disk); refresh is the **icon** in that modal (no extra host-page button)  
 
 ### Hard no (fail the train if any of these happen)
 
-- [ ] Poll does **not** SSH the fleet  
-- [ ] No start/stop / restart from HA  
-- [ ] No Move, compose write, Files, console, decrypt keys, OS **apply** from HA  
-- [ ] `service_migrate` stays off `POST /api/v1/…/jobs`  
-- [ ] Demo never; no plugin in the PiHerder image  
-- [ ] Wiki + HACS readme install path exist  
+- [x] Poll does **not** SSH the fleet  
+- [x] No start/stop / restart from HA  
+- [x] No Move, compose write, Files, console, decrypt keys, OS **apply** from HA  
+- [x] `service_migrate` stays off `POST /api/v1/…/jobs`  
+- [x] Demo never; no plugin in the PiHerder image  
+- [x] Wiki + HACS readme install path exist  
 
 ### Slice 1b / 2 (do not block Slice 1 sign-off)
 
@@ -151,96 +153,98 @@ Slice **1b** (Should) and Slice **2** (Discover) have their own sections. First 
 
 ## Q-80 — unit ≥ 75% (Must)
 
-- [x] Unit line coverage on `app` ≥ **75%** — compose **75.04%** (35893/47833)  
+**Operator sign-off 2026-09-24.**
+
+- [x] Unit line coverage on `app` ≥ **75%** — last compose **75.01%** (36304/48400) after `_q38`  
 - [x] CI `--cov-fail-under=75`  
 - [x] Packs landed through `_q37` (2026-09-21).  
 Maintainer skim (not a browser walk):
 
-- [ ] No live SSH / HA / two-host copy / mux host in CI  
-- [ ] Mux tests: `tests/test_console_mux_v16.py` (service; no live SSH)  
-- [ ] HA plugin tests (other repo) mock `/api/v1` only  
+- [x] No live SSH / HA / two-host copy / mux host in CI  
+- [x] Mux tests: `tests/test_console_mux_v16.py` (service; no live SSH)  
+- [x] HA plugin tests (other repo) mock `/api/v1` only  
 
 ---
 
 ## Slice 1b — snapshot entities (Should; may slip)
 
-Same plugin **0.2.4** and the same host device. Does not block Slice 1 sign-off. Refresh Docker on the herder first so inventory is not an empty snapshot. These routes never SSH.
+**Operator sign-off 2026-09-24.** Same plugin **0.2.4** and the same host device. Does not block Slice 1 sign-off. Refresh Docker on the herder first so inventory is not an empty snapshot. These routes never SSH.
 
-- [ ] `GET /api/v1/inventory` 200 with the **read** token (names, running, image, project — from the last Docker inventory)  
-- [ ] `GET /api/v1/servers/{id}/inventory` 200 for one host  
-- [ ] `GET /api/v1/services` 200 (stored fleet service chips; does not poll Kuma or NPM)  
-- [ ] HA host device: one sensor per container (running / image / uptime text) and one per monitored service (up/down), plus disk %  
-- [ ] Tapping a sensor opens **HA history**, not PiHerder (chips on the fleet card are the links)  
-- [ ] Still no start/stop / restart from those sensors  
+- [x] `GET /api/v1/inventory` 200 with the **read** token (names, running, image, project — from the last Docker inventory)  
+- [x] `GET /api/v1/servers/{id}/inventory` 200 for one host  
+- [x] `GET /api/v1/services` 200 (stored fleet service chips; does not poll Kuma or NPM)  
+- [x] HA host device: one sensor per container (running / image / uptime text) and one per monitored service (up/down), plus disk %  
+- [x] Tapping a sensor opens **HA history**, not PiHerder (chips on the fleet card are the links)  
+- [x] Still no start/stop / restart from those sensors  
 
 ---
 
 ## Docs-archive-0x (Should)
 
-Repo check. No UI.
+**Operator sign-off 2026-09-24.** Repo check. No UI.
 
-- [ ] `docs/PLAN_v0.*` and `RELEASE_v0.*` full text lives under `docs/archive/v0/`  
-- [ ] Stubs at the old `docs/` paths (title + link; opening the stub is not a 404)  
-- [ ] `FEATURE_PLAN_*`, `ROADMAP_ECOSYSTEM.md`, `SPEC.md`, `ADMIN.md`, and v1.0+ PLAN/RELEASE still in `docs/`  
-- [ ] `.venv-docs/bin/mkdocs build --strict` (mkdocs is not on PATH)  
+- [x] `docs/PLAN_v0.*` and `RELEASE_v0.*` full text lives under `docs/archive/v0/`  
+- [x] Stubs at the old `docs/` paths (title + link; opening the stub is not a 404)  
+- [x] `FEATURE_PLAN_*`, `ROADMAP_ECOSYSTEM.md`, `SPEC.md`, `ADMIN.md`, and v1.0+ PLAN/RELEASE still in `docs/`  
+- [x] `.venv-docs/bin/mkdocs build --strict` (mkdocs is not on PATH)  
 
 ---
 
 ## CSP-n Slice 1 (Should; may slip)
 
-Walk **enforce** on the **local** install. The public demo is already on this branch and stays **Report-Only** — use it only for that one row. Do not set `PIHERDER_CSP_ENFORCE` on the public host.
+**Operator sign-off 2026-09-24.** Walk **enforce** on the **local** install. The public demo is already on this branch and stays **Report-Only** — use it only for that one row. Do not set `PIHERDER_CSP_ENFORCE` on the public host.
 
 There is no new screen. DevTools → Network → the document response.
 
 ### Local (enforcing)
 
-- [ ] `GET /auth/login` sends **`Content-Security-Policy`** (not Report-Only)  
-- [ ] `script-src` is `'self'` plus `'nonce-…'` and does **not** include `'unsafe-inline'`  
-- [ ] Header also has `script-src-attr 'unsafe-inline'`. `style-src` still has `'unsafe-inline'`  
-- [ ] View source: an inline `<script>` has `nonce=`. An `onclick=` handler is still in the HTML (not rewritten)  
-- [ ] A control that uses `onclick` still runs (theme or a menu). HTMX swaps still run (`inlineScriptNonce` is set)  
-- [ ] `/docs` and `/redoc` still load. Their `script-src` still allows `'unsafe-inline'` (Swagger). They are not nonced  
-- [ ] Turnstile on login still renders when keys are set  
-- [ ] No `'unsafe-eval'` (unchanged). An Alpine page that needed `new Function` can still be blocked — that is the existing policy, not a Slice 1 regression, unless a page that worked on 1.5 is now blank  
+- [x] `GET /auth/login` sends **`Content-Security-Policy`** (not Report-Only)  
+- [x] `script-src` is `'self'` plus `'nonce-…'` and does **not** include `'unsafe-inline'`  
+- [x] Header also has `script-src-attr 'unsafe-inline'`. `style-src` still has `'unsafe-inline'`  
+- [x] View source: an inline `<script>` has `nonce=`. An `onclick=` handler is still in the HTML (not rewritten)  
+- [x] A control that uses `onclick` still runs (theme or a menu). HTMX swaps still run (`inlineScriptNonce` is set)  
+- [x] `/docs` and `/redoc` still load. Their `script-src` still allows `'unsafe-inline'` (Swagger). They are not nonced  
+- [x] Turnstile on login still renders when keys are set  
+- [x] No `'unsafe-eval'` (unchanged). An Alpine page that needed `new Function` can still be blocked — that is the existing policy, not a Slice 1 regression, unless a page that worked on 1.5 is now blank  
 
 ### Public demo (report only)
 
-- [ ] `GET https://piherder-demo.hacknow.info/auth/login` sends **`Content-Security-Policy-Report-Only`** with a nonce and `script-src-attr`  
-- [ ] The login page still paints (onclick, conversion pixel). A missed script does not blank the page  
-- [ ] Demo OpenAPI stays **404** (tokens off). Do not use the demo for the `/docs` row  
+- [x] `GET https://piherder-demo.hacknow.info/auth/login` sends **`Content-Security-Policy-Report-Only`** with a nonce and `script-src-attr`  
+- [x] The login page still paints (onclick, conversion pixel). A missed script does not blank the page  
+- [x] Demo OpenAPI stays **404** (tokens off). Do not use the demo for the `/docs` row  
 
 ---
 
 ## Undo-1 — fail-path Move undo (Should; may slip)
 
-Do this **last**, on a disposable pair, after the regression rows that need the flag off. Set `PIHERDER_SERVICE_MIGRATE=true` and recreate **web** and **celery-worker**. Turn the flag **off** again when finished. Never reverse a **green** Move. Never dest `down -v`. Never run this on the public demo.
+**Operator sign-off 2026-09-24.** Do this **last**, on a disposable pair, after the regression rows that need the flag off. Set `PIHERDER_SERVICE_MIGRATE=true` and recreate **web** and **celery-worker**. Turn the flag **off** again when finished. Never reverse a **green** Move. Never dest `down -v`. Never run this on the public demo.
 
 Where the button is: JobHold on a **failed** `service_migrate`, and the same control on that job’s detail (`/jobs`). First click loads a preview into the log and relabels **Confirm undo**. Second click starts `service_migrate_undo`.
 
-- [ ] Flag **off** → `GET /servers/{id}/docker/migrate/undo/preview` is **404** (signed-in operator)  
-- [ ] **Green** Move: JobHold has **Succeeded** and **no** Undo  
-- [ ] Fail **before** names flip (stop / copy / dest-up): JobHold is **Start source stack**, not Undo  
-- [ ] Fail **after** names flip (`failed_step` `cutover`, `rebind`, or `validate`): **Undo** is offered. Preview names the project, the DNS/NPM swap, dest stop, source start. Confirm runs it  
-- [ ] After a successful undo: DNS/NPM point at the **source** again; source stack is **started**; dest stack is **`compose stop`** (container stopped, directory and volumes still on disk). Dest cert clone is still there; source cert target is enabled again  
-- [ ] A second undo of the same parent is refused  
-- [ ] Viewer on the undo URL is **403**. Public demo is **404**  
-- [ ] A `read` (or any) API token has **no** undo POST under `/api/v1`  
-- [ ] Recreate **celery-worker** during an undo **fails** that undo and leaves the dest tree (do not retry it automatically)  
+- [x] Flag **off** → `GET /servers/{id}/docker/migrate/undo/preview` is **404** (signed-in operator)  
+- [x] **Green** Move: JobHold has **Succeeded** and **no** Undo  
+- [x] Fail **before** names flip (stop / copy / dest-up): JobHold is **Start source stack**, not Undo  
+- [x] Fail **after** names flip (`failed_step` `cutover`, `rebind`, or `validate`): **Undo** is offered. Preview names the project, the DNS/NPM swap, dest stop, source start. Confirm runs it  
+- [x] After a successful undo: DNS/NPM point at the **source** again; source stack is **started**; dest stack is **`compose stop`** (container stopped, directory and volumes still on disk). Dest cert clone is still there; source cert target is enabled again  
+- [x] A second undo of the same parent is refused  
+- [x] Viewer on the undo URL is **403**. Public demo is **404**  
+- [x] A `read` (or any) API token has **no** undo POST under `/api/v1`  
+- [x] Recreate **celery-worker** during an undo **fails** that undo and leaves the dest tree (do not retry it automatically)  
 
 ---
 
 ## 1.5 regression
 
-Do not re-run the full 1.5 freeze pack unless chrome drifted. Spot-check:
+**Operator sign-off 2026-09-24.** Do not re-run the full 1.5 freeze pack unless chrome drifted. Spot-check:
 
-- [ ] Recycle **web** mid-Move still safe; recycle **worker** still fails honestly  
-- [ ] Host lock + HAOS refuse Move dest  
-- [ ] Reports pin/hide/reorder + Move jobs card  
-- [ ] Expired session → **Sign in** (not JSON `{"detail":"Please log in to continue"}`)  
-- [ ] `/api/v1` missing/expired Bearer still JSON 401  
-- [ ] Host Reboot uses `systemctl reboot --ignore-inhibitors` (not `--force`)  
-- [ ] Mux **off** still matches 1.5 console park  
-- [ ] Path 1 HAOS: System info / `ha` CLI check still works  
+- [x] Recycle **web** mid-Move still safe; recycle **worker** still fails honestly  
+- [x] Host lock + HAOS refuse Move dest  
+- [x] Reports pin/hide/reorder + Move jobs card  
+- [x] Expired session → **Sign in** (not JSON `{"detail":"Please log in to continue"}`)  
+- [x] `/api/v1` missing/expired Bearer still JSON 401  
+- [x] Host Reboot uses `systemctl reboot --ignore-inhibitors` (not `--force`)  
+- [x] Mux **off** still matches 1.5 console park  
+- [x] Path 1 HAOS: System info / `ha` CLI check still works  
 
 ---
 
@@ -270,9 +274,9 @@ Leave these files alone unless the chrome in the frame is actually wrong: `conso
 
 Do not tick until the operator asks to freeze.
 
-- [ ] Mux-1 section signed  
-- [ ] HA-p2 Slice 1 section signed (plugin **not** in this image)  
-- [x] Unit ≥ **75%**; CI `--cov-fail-under=75` — compose **75.04%** (35893/47833)  
+- [x] Mux-1 section signed  
+- [x] HA-p2 Slice 1 section signed (plugin **not** in this image)  
+- [x] Unit ≥ **75%**; CI `--cov-fail-under=75` — last compose **75.01%** (36304/48400)  
 - [ ] `mkdocs build --strict`  
 - [ ] **M-flag** still **false** (worker does not imply GA)  
 - [ ] Version bump **`1.6.0`** at freeze only  
@@ -305,3 +309,9 @@ Do not tick until the operator asks to freeze.
 | 2026-09-21 | Docs-archive-0x and Slice 1b landed (plugin **0.2.3**). QA boxes for those rows stay empty until walked. |
 | 2026-09-21 | CSP-n + Undo-1 on `df39014`. Public demo pulled to that commit (no volume wipe): Report-Only CSP, Move off, footer **1.5.0**. |
 | 2026-09-21 | QA rewritten as the walk order above (plugin **0.2.3**, demo report-only row, Undo steps, screenshot filenames). Boxes still empty. |
+| 2026-09-24 | Operator signed every Mux-1 row (setup, behaviour, screen) and the 1.5 mux-off regression. HA, CSP, and Undo boxes stay empty. |
+| 2026-09-24 | Operator signed HA-p2 Slice 1 (herder token, HACS, entities, hard no) and Slice 1b. CSP and Undo stay empty. |
+| 2026-09-24 | Operator signed Q-80 (coverage bar, CI fail-under, maintainer skim) and Slice 1b. CSP and Undo stay empty. |
+| 2026-09-24 | Operator signed Docs-archive-0x and CSP-n Slice 1 (local enforce and demo Report-Only). Undo stays empty. |
+| 2026-09-24 | Operator signed Undo-1 and the 1.5 regression spot-check. Screenshots and the remaining freeze gates stay empty. |
+| 2026-09-24 | **Code freeze.** Streams signed. Next: screenshot pack. Package stays **1.5.0** until the version bump is asked. |
