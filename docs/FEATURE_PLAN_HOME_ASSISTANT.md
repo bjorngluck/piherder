@@ -339,8 +339,8 @@ Per-host detail stays `GET /servers`. Summary is the coordinator’s cheap heart
 
 | Slice | Content | Priority |
 |-------|---------|----------|
-| **1** | Repo, manifest, config flow, coordinator, fleet sensors, per-host devices, **Visit**, fleet Lovelace card, wiki, HACS readme. Herder `summary` + host-facts + resource columns. Token `read`. Plugin **0.2.4** (card resource `?v=0.2.4`). | **Must** (landed; operator QA open) |
-| **1b** | Snapshot APIs + HA entities: container (running/uptime/image), service (up/down), host disk. Still no start/stop. Plugin **0.2.4**. | **Landed** (operator QA open) |
+| **1** | Repo, manifest, config flow, coordinator, fleet sensors, per-host devices, **Visit**, fleet Lovelace card, wiki, HACS readme. Herder `summary` + host-facts + resource columns. Token `read`. Plugin **0.2.4** (card resource `?v=0.2.4`). | **Must** (landed; operator signed 2026-09-24) |
+| **1b** | Snapshot APIs + HA entities: container (running/uptime/image), service (up/down), host disk. Still no start/stop. Plugin **0.2.4**. | **Landed** (operator signed 2026-09-24) |
 | **2** | Confirm + `piherder.backup`; poll-diff job events; optional OS **check** (not apply) | **Discover** |
 | **3** | Start/stop from HA, webhooks, alerts API, add-on, extra Lovelace cards, Move-from-HA, Files | **Out** |
 

@@ -1,9 +1,9 @@
 # PiHerder v1.6.0 — HACS on HA + host console mux
 
-**Status:** **Active** — train opened 2026-09-19 on `v1.6.0-dev`. Must code and every Should stream are on the branch (operator QA still open — walk [QA_v1.6.0.md](QA_v1.6.0.md)). Package stays **`1.5.0`** until freeze. Public demo is on this branch (`df39014`): report-only CSP, Move off, volumes not wiped.  
+**Status:** **Code freeze** (2026-09-24) on `v1.6.0-dev`. Operator QA for every in-scope stream is signed. Next is the screenshot pack, then the version bump when asked. Package stays **`1.5.0`** until that bump. Public demo stays Report-Only, Move off, volumes not wiped.  
 **Date opened:** 2026-09-19  
 **Git branch:** `v1.6.0-dev` → `main` · tag `v1.6.0` (at freeze)  
-**Package / image version:** **`1.5.0`** until freeze. Hub tags after merge.  
+**Package / image version:** **`1.5.0`** during this freeze. Bump to **1.6.0** only when asked, after screenshots. Hub tags after merge.  
 **Theme:** **HACS fleet remote** (HA → PiHerder) + **host console mux** (Mux-1) + unit **≥ 75%**  
 **Baseline:** `v1.5.0` (tagged 2026-09-18; Hub digest `sha256:98cf929a6577b84ca03c5f8145f7cf24021ed56176a986a314f3b3cb59145949`)  
 **Mode:** **Must → Should → Discover.** Must **HA-p2 Slice 1** + **Mux-1** + **Q-80**. Should **Slice 1b** + **Docs-archive-0x** + **CSP-n Slice 1** + **Undo-1**. **Brand** and **AC-fg** are out (park **v1.7**).  
@@ -16,7 +16,7 @@
 
 ## 0. Intent
 
-1.5 Move runs on Celery. Operators who also run Home Assistant still glue YAML `rest` sensors to a token. Path 2 (HA **observes** the PiHerder fleet) was discovered in 1.5; this train **ships Slice 1**. **Mux-1 landed on this branch** (opt-in host `tmux`/`screen`; herder park still used when mux is off). Operator QA is open.
+1.5 Move runs on Celery. Operators who also run Home Assistant still glue YAML `rest` sensors to a token. Path 2 (HA **observes** the PiHerder fleet) was discovered in 1.5; this train **ships Slice 1**. **Mux-1 landed on this branch** (opt-in host `tmux`/`screen`; herder park still used when mux is off). Operator signed every in-scope stream on 2026-09-24. Code freeze is on. Screenshots are next.
 
 Wanted:
 
@@ -92,13 +92,13 @@ main @ v1.5.0 (+ v1.5.x patches)
 
 ```text
 Phase 0   Open train + docs lock              ← this commit 2026-09-19
-Phase 0b  Docs-archive-0x (Should)            landed 2026-09-21
-Phase 1   HA-p2 Slice 1                       landed; plugin 0.2.4; operator QA open
-Phase 2   Mux-1                               landed 848116a; operator QA open
-Phase 3   Q-80                                met 75.04%; CI fail-under 75
+Phase 0b  Docs-archive-0x (Should)            landed; operator signed 2026-09-24
+Phase 1   HA-p2 Slice 1                       landed; plugin 0.2.4; operator signed 2026-09-24
+Phase 2   Mux-1                               landed 848116a; operator signed 2026-09-24
+Phase 3   Q-80                                met; operator signed 2026-09-24
 Phase 4   Slice 1b snapshot APIs + entities   landed 2026-09-21; plugin 0.2.3
-Phase 5   CSP-n Slice 1                       landed; local enforce; demo Report-Only (not redeployed)
-Phase 6   Undo-1                              landed; fail-path job only
+Phase 5   CSP-n Slice 1                       landed; operator signed 2026-09-24; demo stays Report-Only
+Phase 6   Undo-1                              landed; operator signed 2026-09-24
 Phase 7   Wiki + QA_v1.6.0                    operator sign-off
 Phase 8   Freeze                              1.6.0 bump · RELEASE · PR · tag · Hub — only when asked
 ```
@@ -142,7 +142,7 @@ Path 1 (PiHerder **manages HAOS** over SSH) already shipped in 0.9. This stream 
 
 ### Slice 1b (Should) — landed 2026-09-21
 
-Herder read APIs (DB only, never SSH): `GET /api/v1/inventory`, `GET /api/v1/servers/{id}/inventory`, `GET /api/v1/services`. Disk and OS facts stay on the server object (`disk_*_bytes`, `os_pretty`, `hardware`). Plugin **0.2.4** (Slice 1b sensors from **0.2.3**, plus the fleet-card logo) adds disk %, one container sensor (running / image / uptime text), and one service sensor (up/down) on the **existing** host device. Still no start/stop. Operator QA open.
+Herder read APIs (DB only, never SSH): `GET /api/v1/inventory`, `GET /api/v1/servers/{id}/inventory`, `GET /api/v1/services`. Disk and OS facts stay on the server object (`disk_*_bytes`, `os_pretty`, `hardware`). Plugin **0.2.4** (Slice 1b sensors from **0.2.3**, plus the fleet-card logo) adds disk %, one container sensor (running / image / uptime text), and one service sensor (up/down) on the **existing** host device. Still no start/stop. Operator signed 2026-09-24.
 
 ### Slice 2 (Discover)
 
@@ -154,7 +154,7 @@ Confirm + `piherder.backup`; token `jobs` + `feature:backup`. Optional OS **chec
 
 Owning discover: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 W-mux · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md).
 
-**Landed on `v1.6.0-dev` (848116a), pending operator QA.** Migration `043_console_mux`. Flag `Server.console_mux_enabled` (default off).
+**Landed on `v1.6.0-dev` (848116a). Operator signed 2026-09-24.** Migration `043_console_mux`. Flag `Server.console_mux_enabled` (default off).
 
 When mux is **off**: Paramiko `invoke_shell` + in-memory herder park (`_held_sessions`) — same as 1.5. Park dies on recreate **web**.
 
@@ -185,7 +185,7 @@ When mux is **on**: probe tmux → screen → PTY; named host session; Hide park
 
 1.5 freeze: suite **~70.6%** line on `app`; CI `--cov-fail-under=70`. 1.x ceiling **80%**. Typical step **~5pp**.
 
-**Status (2026-09-21):** bar **met**. Compose suite **75.04%** (35893/47833). Packs through `tests/test_coverage_v16_q37.py`. CI `--cov-fail-under=75`.
+**Status (2026-09-24):** bar **met** and operator-signed. Last compose run **75.01%** (36304/48400) after `tests/test_coverage_v16_q38.py`. CI `--cov-fail-under=75`. The earlier **75.04%** (35893/47833) was before CSP, undo, and Slice 1b grew the tree.
 
 | ID | Item | Notes |
 |----|------|--------|
@@ -246,13 +246,13 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
-| **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit** + fleet Lovelace card; token `read`; not in this image | **Landed** — plugin **0.2.4**; operator QA open |
-| **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Landed on branch** 848116a — operator QA open |
-| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **Met** — packs through `_q37`. Compose **75.04%** (35893/47833). CI fail-under **75**. |
-| **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Landed** — `GET /inventory` + `/services`; plugin **0.2.4** sensors on the host device. No start/stop. Operator QA open |
-| **Should** | **Docs-archive-0x** | `docs/archive/v0/` + stubs | **Landed** — v0 PLAN/RELEASE under `docs/archive/v0/`; stubs at old paths |
-| **Should** | **CSP-n Slice 1** | Script nonces; local enforce; demo Report-Only | **Landed** — public demo on this branch, still Report-Only |
-| **Should** | **Undo-1** | Fail-path `service_migrate_undo` | **Landed** — preview → confirm. Operator QA open |
+| **Must** | **HA-p2 Slice 1** | HACS config flow + fleet sensors + host devices + **Visit** + fleet Lovelace card; token `read`; not in this image | **Landed** — plugin **0.2.4**; operator signed 2026-09-24 |
+| **Must** | **Mux-1** | Per-host opt-in tmux/screen; Hide detaches; ✕ kills; fallback PTY | **Landed on branch** 848116a — operator signed 2026-09-24 |
+| **Must** | **Q-80** | Unit ≥ **75%**; CI fail-under **75** | **Met** — packs through `_q37`. CI fail-under **75**. Operator signed 2026-09-24. |
+| **Should** | **Slice 1b** | Snapshot APIs + container/service/disk entities | **Landed** — `GET /inventory` + `/services`; plugin **0.2.4** sensors on the host device. No start/stop. Operator signed 2026-09-24 |
+| **Should** | **Docs-archive-0x** | `docs/archive/v0/` + stubs | **Landed** — operator signed 2026-09-24 |
+| **Should** | **CSP-n Slice 1** | Script nonces; local enforce; demo Report-Only | **Landed** — operator signed 2026-09-24. Public demo stays Report-Only |
+| **Should** | **Undo-1** | Fail-path `service_migrate_undo` | **Landed** — preview → confirm. Operator signed 2026-09-24 |
 | **Discover** | Slice 2 · Undo-2 · Mux-2 | Notes only unless promoted | Parked |
 | **Out** | Brand · AC-fg · J-runtime · HA Slice 3 · M-flag C · plugin-in-image | Park Brand + AC-fg on **v1.7** | Locked 2026-09-19 |
 
@@ -334,11 +334,11 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2 | **Docs-archive-0x** (Should, Phase 0b) | **Landed** — `docs/archive/v0/` + stubs |
 | 3 | Confirm HACS repo name · create public MIT repo | **Done** — [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) |
 | 4 | Slice 1: config flow + coordinator + fleet + host devices + fleet card | **Landed** plugin **0.2.3** (not in this image). Herder `GET /api/v1/summary` + **044**/**045**. Operator QA open |
-| 5 | **Mux-1** per-host opt-in | **Landed** 2026-09-19 `848116a` — operator QA open |
+| 5 | **Mux-1** per-host opt-in | **Landed** 2026-09-19 `848116a` — operator signed 2026-09-24 |
 | 6 | **Q-80** raise fail-under **70 → 75** | **Met** — packs through `_q37`. Compose **75.04%** (35893/47833). CI `--cov-fail-under=75`. |
 | 7 | Slice 1b / CSP-n / Undo-1 as capacity after Must | **Landed** (1b plugin **0.2.3**, CSP nonces, fail-path undo). Public demo on `df39014`, Report-Only, Move off |
 | 8 | Operator walk | [QA_v1.6.0.md](QA_v1.6.0.md) is the checklist. Screenshot filenames in [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v160--pack-status). Draft PR to `main`; do not merge until asked |
-| 8 | Wiki + QA · freeze · `1.6.0` · tag · Hub | QA checklist **expanded** 2026-09-19; freeze when asked |
+| 8 | Wiki + QA · freeze · `1.6.0` · tag · Hub | **Code freeze 2026-09-24.** QA signed. Screenshots next. Version bump, tag, and Hub when asked |
 
 ---
 
