@@ -1,6 +1,8 @@
 """v1.6 Q-80 thirty-sixth pack — integrations catalog + settings status/tokens."""
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
@@ -12,6 +14,7 @@ from app.security.auth import create_user_access_token, get_password_hash
 
 
 def test_integrations_and_settings_status(tmp_path, monkeypatch):
+    from app.services import app_settings as app_cfg
     from app.services import stack_health as stack_svc
 
     monkeypatch.setattr(
@@ -31,6 +34,16 @@ def test_integrations_and_settings_status(tmp_path, monkeypatch):
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
+    # cleanup_config reads settings on app_settings.engine, not the request session.
+    monkeypatch.setattr(app_cfg, "engine", engine)
+    monkeypatch.setattr(app_cfg, "_cache", None)
+    sent: list = []
+
+    def _send(*args, **kwargs):
+        sent.append((args, kwargs))
+        return SimpleNamespace(id="q36-task")
+
+    monkeypatch.setattr("app.celery_app.celery.send_task", _send)
 
     def _session():
         with Session(engine) as session:
@@ -87,5 +100,8 @@ def test_integrations_and_settings_status(tmp_path, monkeypatch):
             follow_redirects=False,
         )
         assert r.status_code in (303, 403, 200)
+        if r.status_code != 403:
+            assert sent, "cleanup must not publish through the real broker"
+            assert sent[0][0][0] == "app.tasks.stale_data_cleanup"
     finally:
         app.dependency_overrides.clear()

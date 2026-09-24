@@ -620,6 +620,17 @@ def _execute_service_migrate_undo(
             dst = session.get(Server, dest_id)
             if not src or not dst:
                 raise UndoError("source or destination host is gone")
+            parent_steps: list[str] = []
+            if parent_id:
+                parent = session.get(Job, parent_id)
+                if parent:
+                    try:
+                        parent_data = json.loads(parent.details or "{}") or {}
+                    except Exception:
+                        parent_data = {}
+                    raw_steps = parent_data.get("undo_steps")
+                    if isinstance(raw_steps, list):
+                        parent_steps = [str(s) for s in raw_steps]
             run_undo_pipeline(
                 session,
                 source=src,
@@ -628,6 +639,7 @@ def _execute_service_migrate_undo(
                 dest_project=dest_project,
                 port_map=port_map,
                 log=log_line,
+                done=parent_steps,
             )
             if parent_id:
                 parent = session.get(Job, parent_id)
@@ -646,6 +658,14 @@ def _execute_service_migrate_undo(
         log_line("Done.")
     except Exception as e:
         logger.exception("service_migrate_undo failed")
+        steps = getattr(e, "steps", None)
+        if parent_id and isinstance(steps, list):
+            with js._get_fresh_session() as session:
+                parent = session.get(Job, parent_id)
+                if parent:
+                    js._merge_job_details(parent, undo_steps=list(steps))
+                    session.add(parent)
+                    session.commit()
         js._finish(
             audit_id, job_id, "failed", str(e)[:800], hostname, "service_migrate_undo"
         )

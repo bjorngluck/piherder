@@ -31,9 +31,13 @@ def _engine(tmp_path):
 
 def test_router_diagnostics_jobs_console_dns_bulk(tmp_path, monkeypatch):
     from app.services import ssh_console as cons
+    import app.services.jobs as jobs
 
     monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE", True)
     engine = _engine(tmp_path)
+    # enqueue_os_update_check opens jobs.engine, not the request session.
+    monkeypatch.setattr(jobs, "engine", engine)
+    monkeypatch.setattr(jobs._update_check_pool, "submit", lambda *a, **k: None)
 
     def _session():
         with Session(engine) as session:

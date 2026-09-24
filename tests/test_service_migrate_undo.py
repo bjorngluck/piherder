@@ -27,6 +27,7 @@ from app.services.service_migrate.undo import (
     invert_port_map,
     preview_undo,
     reenable_source_certs,
+    UndoError,
     run_undo_pipeline,
     undo_move_details,
 )
@@ -250,6 +251,78 @@ def test_stop_failure_does_not_revert_names(tmp_path):
             )
         assert "ssh down" in str(ei.value)
         assert calls == []
+
+
+def test_dns_failure_starts_dest_again(tmp_path):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'undo-dns.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        src = _server("src", "src.local")
+        dst = _server("dst", "dst.local")
+        s.add(src)
+        s.add(dst)
+        s.commit()
+        s.refresh(src)
+        s.refresh(dst)
+        starts = []
+
+        def start(server, path):
+            starts.append(server.id)
+            return {"success": True, "action": "start"}
+
+        with pytest.raises(UndoError) as ei:
+            run_undo_pipeline(
+                s,
+                source=src,
+                dest=dst,
+                project="grafana",
+                dest_project="grafana",
+                dns_fn=lambda *a, **k: {"ok": False, "error": "npm down"},
+                rebind_fn=lambda *a, **k: {"ok": True},
+                cert_fn=lambda *a, **k: 0,
+                stop_fn=lambda server, path: {"success": True, "action": "stop"},
+                start_fn=start,
+            )
+        assert "npm down" in str(ei.value)
+        assert starts == [dst.id]
+        assert "dns" not in ei.value.steps
+        assert "stop" not in ei.value.steps
+
+
+def test_retry_skips_committed_steps(tmp_path):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'undo-retry.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        src = _server("src", "src.local")
+        dst = _server("dst", "dst.local")
+        s.add(src)
+        s.add(dst)
+        s.commit()
+        s.refresh(src)
+        s.refresh(dst)
+        calls = []
+        run_undo_pipeline(
+            s,
+            source=src,
+            dest=dst,
+            project="grafana",
+            dest_project="grafana",
+            done=["stop", "dns", "rebind", "certs"],
+            dns_fn=lambda *a, **k: calls.append("dns"),
+            rebind_fn=lambda *a, **k: calls.append("rebind"),
+            cert_fn=lambda *a, **k: calls.append("certs"),
+            stop_fn=lambda server, path: calls.append("stop"),
+            start_fn=lambda server, path: calls.append("start") or {"success": True},
+        )
+        assert calls == ["start"]
 
 
 def test_pending_undo_blocks_another(tmp_path):
