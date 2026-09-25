@@ -265,6 +265,7 @@ async def get_server_job_status(
         "failed_step": details.get("failed_step"),
         "recover_source": details.get("recover_source"),
         "undo_move": details.get("undo_move"),
+        "undo_completed": bool(details.get("undo_completed")),
     }
 
 
