@@ -4,7 +4,7 @@
 
 **Base:** `main` · **Head:** `v1.6.0-dev` · **Tag:** `v1.6.0` (only after this PR is no longer a draft)
 
-**State:** **Draft. Code freeze** (2026-09-24). Package stays **`1.5.0`**. Operator QA is signed ([QA_v1.6.0.md](QA_v1.6.0.md)). Next is the screenshot pack, then the version bump when asked. Do not merge, tag, or publish Hub from this draft.
+**State:** **Draft. Code freeze** (2026-09-24). Package stays **`1.5.0`**. Operator QA is signed ([QA_v1.6.0.md](QA_v1.6.0.md)). Next is the screenshot pack, then the version bump when asked. Do not merge, tag, or publish Hub from this draft. Post-freeze review: a successful Undo hides **Undo move** on that failed job.
 
 ---
 

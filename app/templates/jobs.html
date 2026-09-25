@@ -303,7 +303,7 @@ function renderJobDetailsModal(job, opts) {
     meta.innerHTML = parts.join(' ');
   }
   if (undoBtn) {
-    var canUndo = job.status === 'failed' && job.job_type === 'service_migrate' && job.undo_move && job.undo_move.project && job.server_id;
+    var canUndo = job.status === 'failed' && job.job_type === 'service_migrate' && !job.undo_completed && job.undo_move && job.undo_move.project && job.server_id;
     if (canUndo) {
       undoBtn.classList.remove('hidden');
       undoBtn.dataset.parentJob = String(job.id);

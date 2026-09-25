@@ -438,6 +438,7 @@ def job_public_dict(job: Job, *, detail: bool = False) -> dict:
         "failed_step": details.get("failed_step"),
         "recover_source": details.get("recover_source"),
         "undo_move": details.get("undo_move"),
+        "undo_completed": bool(details.get("undo_completed")),
     }
     if detail:
         # Full log for JobHold / jobs modal (alias log_lines for poll UIs)

@@ -1604,7 +1604,7 @@
                 e.hint.textContent = 'Copy / dest up failed. Source is stopped. Start it back, or Close.';
               }
             }
-            if (data.status === 'failed' && data.undo_move && data.undo_move.project && data.job_type === 'service_migrate') {
+            if (data.status === 'failed' && !data.undo_completed && data.undo_move && data.undo_move.project && data.job_type === 'service_migrate') {
               state.undoMove = data.undo_move;
               state.undoParentId = data.job_id || data.id;
               state.undoArmed = false;
