@@ -28,5 +28,6 @@ for _ in $(seq 1 30); do
   if redis-cli ping >/dev/null 2>&1; then break; fi
   sleep 1
 done
+redis-cli ping >/dev/null 2>&1 || { echo "Redis did not become ready" >&2; exit 1; }
 
 echo "==> start complete (PostgreSQL + Redis up)."
