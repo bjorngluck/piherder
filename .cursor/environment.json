@@ -1,0 +1,18 @@
+{
+  "name": "PiHerder",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "web",
+      "command": "set -a; . ./.env; set +a; exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1"
+    },
+    {
+      "name": "celery",
+      "command": "set -a; . ./.env; set +a; exec .venv/bin/celery -A app.celery_app.celery worker --loglevel=info --concurrency=2"
+    }
+  ],
+  "ports": [
+    { "name": "PiHerder web", "port": 8000 }
+  ]
+}
