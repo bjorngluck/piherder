@@ -1,8 +1,8 @@
 # PiHerder v1.6.0 — operator QA / sign-off
 
 **Branch:** `v1.6.0-dev` → `main` · tag **`v1.6.0`** (cut after merge)  
-**Code freeze:** **yes** (2026-09-24). No new features. Next is the screenshot pack, then the version bump when asked.  
-**Package:** **`1.5.0`** until that bump (About / footer stay 1.5.0)  
+**Code freeze:** **yes** (2026-09-24). Release notes and package **1.6.0** on 2026-09-25.  
+**Package:** **`1.6.0`**  
 **Operator QA:** **signed** 2026-09-24 (Mux-1, HA-p2 Slice 1 and 1b, Q-80, Docs-archive, CSP-n, Undo-1, 1.5 regression). Screenshot boxes are not a walk. Last measured compose coverage **75.01%** (36304/48400) after pack `_q38`. CI fail-under **75**.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki. Walk the **operator** pages while ticking boxes.
@@ -252,7 +252,7 @@ Where the button is: JobHold on a **failed** `service_migrate`, and the same con
 
 Owner: operator (not CI). Full capture notes, wire-into pages, and the “do not recapture” list: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v160--pack-status).
 
-Save new PNGs under `wiki/assets/screenshots/`. They are **not in git yet** — do not add a wiki `![…]` until the file exists (`mkdocs build --strict` fails on a missing image). Capture from rebuilt **`v1.6.0-dev`**. About / footer still **1.5.0**. Light theme, desktop width. No tokens, PEMs, or backup codes in frame.
+PNGs are in `wiki/assets/screenshots/` and linked from the wiki pages in the table. Light theme, desktop width. No tokens, PEMs, or backup codes in frame.
 
 | Pri | File | Surface | Must show | Wiki page |
 |-----|------|---------|-----------|-----------|
@@ -277,11 +277,11 @@ Do not tick until the operator asks to freeze.
 - [x] Mux-1 section signed  
 - [x] HA-p2 Slice 1 section signed (plugin **not** in this image)  
 - [x] Unit ≥ **75%**; CI `--cov-fail-under=75` — last compose **75.01%** (36304/48400)  
-- [ ] `mkdocs build --strict`  
-- [ ] **M-flag** still **false** (worker does not imply GA)  
-- [ ] Version bump **`1.6.0`** at freeze only  
-- [ ] Wiki banner / Home **Next** row / README stay 1.5.0 on **main** until merge  
-- [ ] GitHub **Release** (not Issue) after tag — body `docs/RELEASE_v1.6.0.md` when present  
+- [x] `mkdocs build --strict`  
+- [x] **M-flag** still **false** (`PIHERDER_SERVICE_MIGRATE` default false)  
+- [x] Version bump **`1.6.0`**  
+- [x] Wiki banner, Home current release, and README point at **1.6.0** (Pages updates when this lands on `main`)  
+- [ ] GitHub **Release** (not Issue) after tag `v1.6.0` — body `docs/RELEASE_v1.6.0.md`  
 
 ---
 
@@ -315,3 +315,4 @@ Do not tick until the operator asks to freeze.
 | 2026-09-24 | Operator signed Docs-archive-0x and CSP-n Slice 1 (local enforce and demo Report-Only). Undo stays empty. |
 | 2026-09-24 | Operator signed Undo-1 and the 1.5 regression spot-check. Screenshots and the remaining freeze gates stay empty. |
 | 2026-09-24 | **Code freeze.** Streams signed. Next: screenshot pack. Package stays **1.5.0** until the version bump is asked. |
+| 2026-09-25 | Screenshot pack committed. Package **1.6.0**. Release notes `docs/RELEASE_v1.6.0.md`. Wiki figures wired. |

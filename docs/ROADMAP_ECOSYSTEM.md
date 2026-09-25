@@ -1,7 +1,7 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-09-19 (**v1.5.0** current production — [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md); **v1.6.0** train **Active** on `v1.6.0-dev` — [PLAN_v1.6.0.md](PLAN_v1.6.0.md))  
+**Date:** 2026-07-12 · **Refreshed:** 2026-09-25 (**v1.6.0** current production — [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md); **v1.7** parked — [PLAN_v1.7.0.md](PLAN_v1.7.0.md))  
 **Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [RELEASE_v1.1.1.md](RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
@@ -58,7 +58,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-19):** **v0.7.0 feature-locked and tagged**. Wizard, E2E A+B, annotations, compose sets, drift Job shipped. Screenshot pack deferred; residual polish + E2E/coverage growth + full docs review + **nmap** → **v0.8.0 RC3**. See [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md).
 
-**Production path:** ~~RC line through v0.9.0~~ → **v1.0.0** → **v1.1.0** → **v1.2.0 tagged** ([RELEASE_v1.2.0.md](RELEASE_v1.2.0.md)) → **v1.3.0 tagged** ([RELEASE_v1.3.0.md](RELEASE_v1.3.0.md)) → **v1.4.0 tagged** ([RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md)) → **v1.5.0 tagged** ([RELEASE_v1.5.0.md](RELEASE_v1.5.0.md)) → **v1.6.0 Active** ([PLAN_v1.6.0.md](PLAN_v1.6.0.md)).
+**Production path:** ~~RC line through v0.9.0~~ → **v1.0.0** → **v1.1.0** → **v1.2.0 tagged** ([RELEASE_v1.2.0.md](RELEASE_v1.2.0.md)) → **v1.3.0 tagged** ([RELEASE_v1.3.0.md](RELEASE_v1.3.0.md)) → **v1.4.0 tagged** ([RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md)) → **v1.5.0 tagged** ([RELEASE_v1.5.0.md](RELEASE_v1.5.0.md)) → **v1.6.0** ([RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md)).
 
 **Decision (2026-07-22):** Post-0.8 operator UX triage — micro-pass **B1/E4/E8** on main for 0.8 screenshots; remaining discovery/Network/coverage polish → **v0.9.0** ([PLAN_v0.9.0.md](PLAN_v0.9.0.md)). Cross-cutting human-readable schedules, selectable hero stats, and full templates catalog redesign stay **post-1.0 discovery** (see Quality & platform § below).
 
@@ -116,7 +116,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg). **Slice 3 Deep landed** (L). **Slice 4 Deep landed** (W-id). **Slice 5 Deep landed** (W-audit). **Slice 6 Deep landed** (A). **Slice 7 N2:** `/reports` is history (backups, OS patches, LAN live, Docker, console) — not Grafana, not status portlets. **F Deep (2026-08-20):** Host Files explorer (flag off): edit, zip, perms, search, move, folder upload, preview, `.env` step-up, thin Docker volumes/`docker cp`. API Files expansions → v1.4+ under consideration.
 
-**Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.5.0` / `1.5` / `latest` (`1.4.0` / `1.4` remain valid).
+**Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.6.0` / `1.6` / `latest` (`1.5.0` / `1.5` remain valid).
 
 ---
 

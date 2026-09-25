@@ -582,9 +582,9 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Auth chrome** | Unauthenticated `/` redirects to login; version string only when signed in |
 | **Roles** | Viewer cannot mutate fleet; Docker **build** stream is operator+ — [wiki roles](../wiki/account-security/roles.md) |
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
-| **Image pin** | Prefer a tagged image: Hub **`1.5.0`** / `1.5` / `latest` (`1.4.0` / `1.4` / `1.3.x` pins remain valid) |
+| **Image pin** | Prefer a tagged image: Hub **`1.6.0`** / `1.6` / `latest` (`1.5.0` / `1.5` / `1.4.x` pins remain valid) |
 
-Current production: [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [QA_v1.5.0.md](QA_v1.5.0.md). Active train: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) on `v1.6.0-dev`. Prior: [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current production: [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [QA_v1.6.0.md](QA_v1.6.0.md). Next parked: [PLAN_v1.7.0.md](PLAN_v1.7.0.md). Prior: [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 
@@ -885,7 +885,7 @@ Set `METRICS_TOKEN` whenever `/metrics` is not on a fully private network. Serie
 
 ### Image publish (when ready)
 
-Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`1.5.0` / `1.5` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v1.5.0** — [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md). Active train: [PLAN_v1.6.0.md](PLAN_v1.6.0.md) on `v1.6.0-dev`.
+Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`1.6.0` / `1.6` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v1.6.0** — [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md). Next parked: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 **Supported deploy path:** Docker Compose (this repo). Platform reliability (host dependency checks, Settings → **Status**, multi-worker Celery) is live — see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 0.5. Kubernetes and bare/local install are under consideration only, not supported install paths today.
 

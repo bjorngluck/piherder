@@ -6,8 +6,8 @@ Maintainer plans and release notes. Operator wiki is `wiki/` (MkDocs).
 
 | Kind | Where |
 |------|--------|
-| Current production | [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) |
-| Open train | [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [QA_v1.6.0.md](QA_v1.6.0.md) |
+| Current production | [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) |
+| This release | [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [QA_v1.6.0.md](QA_v1.6.0.md) |
 | Next parked | [PLAN_v1.7.0.md](PLAN_v1.7.0.md) |
 | API | [API.md](API.md) |
 | Design | `FEATURE_PLAN_*.md`, [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md), [SPEC.md](../SPEC.md), [ADMIN.md](ADMIN.md) |

@@ -8,7 +8,7 @@ Optional **in-browser SSH terminal** to a managed host. The private key stays on
 
 **Train:** v1.2 Stream **W** · security bar is intentionally high.
 
-**PTY vs host mux (Mux-1, on `v1.6.0-dev`).** Default is still a direct SSH PTY. Soft resume parks on the **herder** — recreate **web** ends those parked shells **unless** the host has **Console mux** on. See [Host mux](#host-mux-mux-1) below.
+**PTY vs host mux (Mux-1).** Default is still a direct SSH PTY. Soft resume parks on the **herder** — recreate **web** ends those parked shells **unless** the host has **Console mux** on. See [Host mux](#host-mux-mux-1) below.
 
 ## Why it exists
 
@@ -86,6 +86,16 @@ The [public demo](../operations/demo-site.md) enables Console for the shared **v
   <figcaption>Server detail → Console — unlocked popup with + Shell and a live prompt.</figcaption>
 </figure>
 
+<figure class="ph-figure" markdown>
+  ![Console mux on Edit Features](../assets/screenshots/console-mux-features.png)
+  <figcaption>Edit → Features on a Debian host — **Console mux** is off until you tick it. HAOS hides this box.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Console mux session](../assets/screenshots/console-mux-session.png)
+  <figcaption>Mux on — the shell attached with tmux or screen. Hide leaves that session on the Pi. ✕ kills it.</figcaption>
+</figure>
+
 | Control | Does |
 |---------|------|
 | **Maximize** | Full screen + slim outer bar; on mobile expands from a short bottom sheet |
@@ -143,7 +153,7 @@ tmux kill-session -t ph-u1-s12-n0-f
 
 How to try it: enable `PIHERDER_SSH_CONSOLE=true`, migrate, recreate **web**, tick **Console mux** on a Debian host that has `tmux`, open Console → **+ Shell**, confirm the banner mentions `mux tmux`, Hide then `tmux ls` on the host, ✕ then confirm the session is gone.
 
-Screenshot pack (not in the tree yet): `console-mux-features.png` (Edit → Features) and `console-mux-session.png` (mux banner). Leave `console-popup.png` as the plain 1.5 console. List: [screenshots README](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/wiki/assets/screenshots/README.md#v160--pack-status).
+`console-popup.png` stays the plain PTY. The mux shots are above.
 
 ### Multiple hosts (`/console`)
 

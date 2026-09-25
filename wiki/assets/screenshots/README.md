@@ -21,7 +21,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.3.0** | Prior Hub — pack **landed** 2026-08-22. Maintainer QA: [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.3.0.md) (not the operator wiki). [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md) |
 | **v1.4.0** | **Tagged** — pack **landed 2026-09-06**. Maintainer QA: [QA_v1.4.0.md](../../../docs/QA_v1.4.0.md). Theme: [Move a service](../../docker/service-migration.md) · [RELEASE](../../../docs/RELEASE_v1.4.0.md) |
 | **v1.5.0** | **Tagged** 2026-09-18 — reuse Move JobHold pack; Reports pin/hide + Move jobs card recapture if chrome drifted. [RELEASE](../../../docs/RELEASE_v1.5.0.md) · [QA](../../../docs/QA_v1.5.0.md) |
-| **v1.6.0** | **Active** on `v1.6.0-dev` — pack **not captured yet**. Filenames and wire-into pages: [§ v1.6](#v160--pack-status). Maintainer ticks: [QA_v1.6.0.md](../../../docs/QA_v1.6.0.md). [PLAN](../../../docs/PLAN_v1.6.0.md) |
+| **v1.6.0** | **Captured** 2026-09-25 and wired into the wiki. [§ v1.6](#v160--pack-status). [RELEASE](../../../docs/RELEASE_v1.6.0.md) · [QA](../../../docs/QA_v1.6.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
@@ -30,15 +30,15 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
     App code is **not** bind-mounted — stale containers = stale chrome.  
     About / footer **1.5.0**.  
     Move wizard shots need `PIHERDER_SERVICE_MIGRATE=true` then recreate **web**.  
-    **v1.6 captures** use the same footer (package stays 1.5.0 until freeze) but the container must be rebuilt from **`v1.6.0-dev`**. See [§ v1.6](#v160--pack-status).
+    **v1.6 captures** are in the tree (footer **1.6.0** after the version bump). See [§ v1.6](#v160--pack-status).
 
 ---
 
 ## v1.6.0 — pack status {#v160--pack-status}
 
-**Not captured yet** (2026-09-21). These filenames are the ones to shoot while walking [QA_v1.6.0.md](../../../docs/QA_v1.6.0.md). Do **not** add a wiki `![…]` until the PNG is in this directory — `mkdocs build --strict` fails on a missing image. 1.4 and 1.5 PNGs stay as they are unless a row below says replace.
+**Captured** 2026-09-25. Figures are on [Web SSH](../../day-to-day/web-ssh-console.md), [Home Assistant](../../integrations/home-assistant.md), [System Info](../../day-to-day/system-info.md), and [Move a service](../../docker/service-migration.md). 1.4 and 1.5 PNGs stay unless a row below says replace.
 
-Rebuild **`v1.6.0-dev`**: `docker compose build web celery-worker && docker compose up -d`. About / footer still **1.5.0**. Light theme, desktop width. Mask tokens. No PEMs, backup codes, or SMTP passwords.
+About / footer on these shots may still read **1.5.0** if they were taken before the package bump. Light theme, desktop width. Mask tokens. No PEMs, backup codes, or SMTP passwords.
 
 ### New files (save these)
 
