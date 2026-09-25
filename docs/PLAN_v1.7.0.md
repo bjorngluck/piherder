@@ -3,7 +3,7 @@
 **Status:** **Under consideration** — train **not** opened. Do not start product code here.  
 **Date parked:** 2026-09-18 · **inbox grown:** 2026-09-19 (from v1.6 lock) · **2026-09-25** (MCP)  
 **Git branch:** none yet (`v1.7.0-dev` at train open)  
-**Production until then:** `main` is **v1.5.x** until **v1.6.0** freezes, then **v1.6.x**  
+**Production until then:** `main` is **v1.6.x**  
 **Related:** [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md)
 
 Theme and Must/Should lock at **train open**. This file is only the parked inbox so 1.6 does not grow leftovers.

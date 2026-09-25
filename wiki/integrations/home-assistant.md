@@ -58,7 +58,30 @@ The card header is the PiHerder logo and the name **PiHerder**. Under that it sh
 
 Numbers come from the same **[System Info](../day-to-day/system-info.md)** snapshot the herder modal shows (CPU cores, memory, disk). Recreate **web** so Alembic **045** is applied, then the System Info refresh icon once per host (or wait for the scheduler). Empty CPU/memory/disk on the card means the herder has not stored a resource snapshot yet — not a card bug.
 
-Screenshots for this page are not in the tree yet: `ha-hacs-config.png`, `ha-fleet-card.png`, `ha-fleet-sensors.png`, `ha-visit-host.png`, `ha-slice1b-sensors.png`. Capture notes: [screenshots README](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/wiki/assets/screenshots/README.md#v160--pack-status).
+<figure class="ph-figure" markdown>
+  ![HACS config](../assets/screenshots/ha-hacs-config.png)
+  <figcaption>Config flow — herder base URL and a read token (mask the token in any copy of this shot).</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![PiHerder fleet card](../assets/screenshots/ha-fleet-card.png)
+  <figcaption>Lovelace card — logo and name, fleet totals, one host expanded, chips into PiHerder.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![HA devices](../assets/screenshots/ha-fleet-sensors.png)
+  <figcaption>Fleet device and one host device.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Visit opens the host page](../assets/screenshots/ha-visit-host.png)
+  <figcaption>Device **Visit** opens that host in PiHerder. One link, no extra buttons.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Host snapshot sensors](../assets/screenshots/ha-slice1b-sensors.png)
+  <figcaption>Container, service, and disk sensors on the host device. Status only — no start/stop.</figcaption>
+</figure>
 
 ## What you see in HA
 

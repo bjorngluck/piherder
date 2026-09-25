@@ -1,9 +1,9 @@
 # PiHerder v1.6.0 — HACS on HA + host console mux
 
-**Status:** **Code freeze** (2026-09-24) on `v1.6.0-dev`. Operator QA for every in-scope stream is signed. Next is the screenshot pack, then the version bump when asked. Package stays **`1.5.0`** until that bump. Public demo stays Report-Only, Move off, volumes not wiped.  
+**Status:** **Release** (2026-09-25). Package **`1.6.0`**. Operator QA signed. Screenshot pack in the wiki. Tag `v1.6.0` and Hub follow the merge. Public demo stays Report-Only, Move off, volumes not wiped.  
 **Date opened:** 2026-09-19  
-**Git branch:** `v1.6.0-dev` → `main` · tag `v1.6.0` (at freeze)  
-**Package / image version:** **`1.5.0`** during this freeze. Bump to **1.6.0** only when asked, after screenshots. Hub tags after merge.  
+**Git branch:** `v1.6.0-dev` → `main` · tag `v1.6.0`  
+**Package / image version:** **`1.6.0`**  
 **Theme:** **HACS fleet remote** (HA → PiHerder) + **host console mux** (Mux-1) + unit **≥ 75%**  
 **Baseline:** `v1.5.0` (tagged 2026-09-18; Hub digest `sha256:98cf929a6577b84ca03c5f8145f7cf24021ed56176a986a314f3b3cb59145949`)  
 **Mode:** **Must → Should → Discover.** Must **HA-p2 Slice 1** + **Mux-1** + **Q-80**. Should **Slice 1b** + **Docs-archive-0x** + **CSP-n Slice 1** + **Undo-1**. **Brand** and **AC-fg** are out (park **v1.7**).  
