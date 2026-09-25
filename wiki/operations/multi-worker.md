@@ -41,7 +41,7 @@ own counter — prefer a reverse-proxy rate limit or a future Redis-backed limit
 
 ## What Celery does **not** run
 
-OS patch, container patch, and OS/container **update checks** run on the **web** container (FastAPI `BackgroundTasks` and small thread pools). They are **not** Celery tasks. A later “one job runtime” (all remaining exclusive types on Celery, plus wait-if-host-down) is parked for **v1.7** — not this image. [PLAN_v1.7.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.7.0.md).
+OS patch, container patch, and OS/container **update checks** run on the **web** container (FastAPI `BackgroundTasks` and small thread pools). They are **not** Celery tasks on this image. Moving those exclusive types onto Celery (and waiting when the host is down) is **v1.7 Jr-1**, opened on `v1.7.0-dev` — not this **1.6.0** image. [PLAN_v1.7.0](https://github.com/bjorngluck/piherder/blob/v1.7.0-dev/docs/PLAN_v1.7.0.md).
 
 | Job family | Execution | Parallelism rule |
 |------------|-----------|------------------|

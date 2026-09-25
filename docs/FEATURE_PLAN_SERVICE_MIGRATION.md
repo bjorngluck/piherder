@@ -455,3 +455,4 @@ An operator can:
 | 2026-09-07 | **M-worker landed:** Celery `service_migrate`; dual backup mutex; web recycle keeps running Move; worker redelivery of `running` fails the job. Live Job #1314 NPM-fronted Open WebUI. Operator wiki + ADMIN current truth (1.4 RELEASE stays historical). |
 | 2026-09-13 | **M-undo Discover:** fail-path only; stop dest then start source; never silent `finally` / dest wipe / leftover-remove reverse. Named job `service_migrate_undo` parked v1.6. Not 1.5 Should. |
 | 2026-09-21 | **Undo-1 landed** on `v1.6.0-dev`. JobHold / job detail preview → confirm. Green Move and pre-flip unchanged. |
+| 2026-09-25 | **v1.6.0 tagged.** Undo-2 stays Discover on [PLAN_v1.7.0.md](PLAN_v1.7.0.md). Move stays off by default. |

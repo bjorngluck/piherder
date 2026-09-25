@@ -8,7 +8,7 @@
 **Baseline:** `v1.4.0` (tagged 2026-09-06)  
 **Mode:** **Must → Should → Discover.** Must **M-worker**. Should **N3a** + **N3b** + **M-hb** + **Q**. **AC-fg is out.**  
 **QA:** [QA_v1.5.0.md](QA_v1.5.0.md) (maintainer stub — **not** the operator wiki)  
-**Related:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) (**Active**) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (candidate inbox) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · wiki [Move a service](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Reports](../wiki/day-to-day/reports.md)
+**Related:** [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) (**tagged**) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (**Active**) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · wiki [Move a service](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Reports](../wiki/day-to-day/reports.md)
 
 > **Freeze 2026-09-18.** Package **1.5.0**. Kill switch `PIHERDER_SERVICE_MIGRATE` stays **false**. HAOS path-2 **plugin ships v1.6.0**. J-runtime **v1.7**.
 
@@ -423,6 +423,7 @@ Park Mux-1 on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 | 2026-09-18 | **J-runtime Discover written.** Remaining exclusive jobs still web. Later: all of them on Celery in one go; host-down queue/retry; running mutate fail-honest. Jr-1 parked on [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (**not** 1.6). Not 1.5 Should. |
 | 2026-09-18 | **Freeze.** Operator QA signed. **M-flag C** (kill switch stays false). Package **1.5.0**. [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md). |
 | 2026-09-19 | **v1.6.0 train opened** on `v1.6.0-dev` — [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Must HA-p2 Slice 1 + Mux-1 + Q-80. Brand + AC-fg slipped to [PLAN_v1.7.0.md](PLAN_v1.7.0.md). |
+| 2026-09-25 | **v1.7.0 train opened** on `v1.7.0-dev`. **Jr-1** is Must (the J-runtime write-up below). Brand-1/2 are Should. [PLAN_v1.7.0.md](PLAN_v1.7.0.md). |
 | 2026-09-07 | **Docs pass:** wiki Move / Jobs / Reports / multi-worker / architecture / upgrades 1.4→1.5 / troubleshooting; ADMIN migrate+Celery; README / SPEC / ROADMAP / QA aligned. 1.4 RELEASE stays historical (web `BackgroundTasks`). |
 
 ---

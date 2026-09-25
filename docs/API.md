@@ -269,6 +269,8 @@ HTTP Request node: Method GET/POST, Header `Authorization` = `Bearer ph_…`, JS
 
 **v1.6:** first-class **HACS integration** (runs on HA) — Slice 1: fleet sensors, host devices, **Visit** = `{origin}/servers/{id}`, Lovelace **PiHerder fleet** card (`custom:piherder-dashboard-card`). Heartbeat `GET /api/v1/summary` (`read`) includes fleet resource sums. Host `os_pretty` / `hardware` / cpu / memory / disk / `container_count` from the host-facts snapshot. Slice **1b** read APIs: `GET /api/v1/inventory`, `GET /api/v1/servers/{id}/inventory`, `GET /api/v1/services` (stored snapshots only). Plugin [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.3** adds container, service, and host-disk sensors on the existing host device (no start/stop). Operator: [wiki Home Assistant](../wiki/integrations/home-assistant.md). [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [PLAN_v1.6.0.md](PLAN_v1.6.0.md). YAML `rest` remains possible. CORS is not required (HA Core is server-side). Prefer an IP allowlist for the HA host.
 
+**v1.7 (opened, not shipped):** **Jr-1** moves the remaining exclusive job types onto Celery. It does not add `/api/v1` routes. A read-only MCP adapter (**MCP-1**) is Discover and would live in its own repo over the existing `read` token, not in this image. [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
+
 ---
 
 ## Interactive OpenAPI
