@@ -174,8 +174,8 @@ Add when account + token exist and first manual push has worked once.
 
 - [x] `APP_VERSION` / `pyproject.toml` = `1.6.0`
 - [x] [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) finalized
-- [ ] Merge `v1.6.0-dev` → `main` · git tag `v1.6.0`
-- [ ] Multi-arch push: `1.6.0` / `1.6` / `latest` (amd64 + arm64) · digest recorded after the push
+- [x] Merge `v1.6.0-dev` → `main` · git tag `v1.6.0`
+- [x] Multi-arch push: `1.6.0` / `1.6` / `latest` (amd64 + arm64) · digest `sha256:cdf88c70099f78830943e6529f05eff1b83bb5565e7b12f71ebf0877c7b018a8`
 
 ### Prior: v1.5.0
 
