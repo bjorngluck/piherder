@@ -66,7 +66,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - **Current production:** [docs/RELEASE_v1.6.0.md](docs/RELEASE_v1.6.0.md) — HACS fleet · console mux · script nonce · fail-path undo. Technical record: [PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md). Wiki: [Home Assistant](wiki/integrations/home-assistant.md) · [Web SSH](wiki/day-to-day/web-ssh-console.md)
-- **Next train:** [docs/PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md) — remaining exclusive jobs on Celery (**Active** on `v1.7.0-dev`). Package stays `1.6.0` until freeze
+- **Next train:** [docs/PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md) — read-only MCP, then remaining exclusive jobs on Celery (**Active** on `v1.7.0-dev`). Package stays `1.6.0` until freeze
 - Prior: [docs/RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · [docs/RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [docs/RELEASE_v1.3.0.md](docs/RELEASE_v1.3.0.md) · [docs/RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
 - API reference: [docs/API.md](docs/API.md)
 

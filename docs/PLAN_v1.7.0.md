@@ -1,12 +1,12 @@
-# PiHerder v1.7.0 — one job runtime
+# PiHerder v1.7.0 — read-only MCP, then one job runtime
 
 **Status:** **Active** (train opened 2026-09-25). No product code yet.  
 **Date opened:** 2026-09-25 (inbox parked 2026-09-18)  
 **Git branch:** `v1.7.0-dev` → `main` · tag `v1.7.0` at freeze  
 **Package / image version:** **`1.6.0`** until freeze  
-**Theme:** **One job runtime** — remaining exclusive web jobs onto Celery (**Jr-1**)  
+**Theme:** **MCP-1** first (read-only agent adapter, separate repo), then **Jr-1** (remaining exclusive jobs onto Celery)  
 **Baseline:** `v1.6.0` (tagged 2026-09-25; Hub digest `sha256:cdf88c70099f78830943e6529f05eff1b83bb5565e7b12f71ebf0877c7b018a8`)  
-**Mode:** **Must → Should → Discover.** Must **Jr-1**. Should **Brand-1** + **Brand-2** + **Jr-2**. Discover **MCP-1** · **AC-fg** · HA Slice 2 · Undo-2 · Mux-2.  
+**Mode:** **Must → Should → Discover.** Must **MCP-1** + **Jr-1**. Should **Q** (fail-under **75 → 80**) + **Brand-1** + **Brand-2** + **Jr-2**. Discover **AC-fg** · HA Slice 2 · Undo-2 · Mux-2 · **Bak-alt**.  
 **QA:** [QA_v1.7.0.md](QA_v1.7.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 J-runtime · §4 Brand · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [API.md](API.md) · [SPEC.md](../SPEC.md) · wiki [multi-worker](../wiki/operations/multi-worker.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md)
 
@@ -16,18 +16,22 @@
 
 ## 0. Intent
 
-Move, undo, backup, and nmap already run on Celery. OS patch, container patch, update checks, compose stack jobs, and template jobs still run in the **web** process. Recycling **web** fails those rows (`cleanup_orphan_web_jobs`). This train moves the **remaining exclusive types in one go**.
+Agents that already hold a PiHerder `read` token still have to call HTTP themselves. The first slice is a small MCP adapter, in its **own repo**, that wraps the existing read API. It does not ship inside this image and it does not add herder routes.
 
-Instance chrome (wordmark, one accent, hide Catalog) was discovered in 1.5 and held out of 1.6. It is Should: it can slip without blocking the tag.
+Move, undo, backup, and nmap already run on Celery. OS patch, container patch, update checks, compose stack jobs, and template jobs still run in the **web** process. Recycling **web** fails those rows (`cleanup_orphan_web_jobs`). **Jr-1** moves those remaining exclusive types in one go. It is Must, and it starts after MCP-1.
+
+Instance chrome (wordmark, one accent, hide Catalog) was discovered in 1.5 and held out of 1.6. It is Should: it can slip without blocking the tag. So can the coverage step from 75% to 80%.
 
 Wanted:
 
-1. Exclusive patch, check, stack, and template jobs survive a **web** recycle because they run on the default Celery queue  
-2. A host that is down **waits** (pending + backoff) instead of failing the job immediately  
-3. A worker kill of a **running** apt or compose stays **fail honest**  
-4. Optional instance name + one accent, and a nav hide for Catalog, without a theme engine  
+1. A read-only MCP process an operator runs next to the herder, configured with `PIHERDER_URL` and a scope-`read` token  
+2. Exclusive patch, check, stack, and template jobs survive a **web** recycle because they run on the default Celery queue  
+3. A host that is down **waits** (pending + backoff) instead of failing the job immediately  
+4. A worker kill of a **running** apt or compose stays **fail honest**  
+5. Optional instance name + one accent, and a nav hide for Catalog, without a theme engine  
+6. CI fail-under raised **75 → 80** if the suite can get there without lowering the floor  
 
-**Out of 1.7 product code until promoted:** MCP adapter, fine-grained grants, HA backup-from-HA, Undo-2, Mux-2, HA Slice 3, Brand-3, turning Move on by default.
+**Out of 1.7 product code until promoted:** fine-grained grants, HA backup-from-HA, Undo-2, Mux-2, alternate backup destinations (**Bak-alt**), HA Slice 3, Brand-3, turning Move on by default.
 
 ---
 
@@ -39,13 +43,13 @@ Wanted:
 | Production line | **`main` @ `v1.6.0`** — hotfixes → **`v1.6.x`**, port here |
 | Git tag (freeze) | **`v1.7.0`** (RCs: `1.7.0-rc.N` if needed) |
 | Image tags (freeze) | `1.7.0` · `1.7` · `latest` (multi-arch); keep `1.6` / `1.6.x` pins valid |
-| In-scope streams | **Jr-1** Must · **Brand-1** Should · **Brand-2** Should · **Jr-2** Should |
-| Discover (no code until promoted) | **MCP-1** · **AC-fg** · HA Slice 2 · Undo-2 · Mux-2 |
-| Out-of-focus | HA Slice 3 · Brand-3 · theme engine · M-flag C (stay false) · plugin-in-image · CSP Slice 2 (`onclick` rewrite) · ACME · NPM CRUD · Files token API · N3c · M-live · multi-tenant · Swarm/k8s |
+| In-scope streams | **MCP-1** Must (first) · **Jr-1** Must · **Q** Should · **Brand-1** Should · **Brand-2** Should · **Jr-2** Should |
+| Discover (no code until promoted) | **AC-fg** · HA Slice 2 · Undo-2 · Mux-2 · **Bak-alt** |
+| Out-of-focus | HA Slice 3 · Brand-3 · theme engine · M-flag C (stay false) · plugin-in-image · MCP-in-image · CSP Slice 2 (`onclick` rewrite) · ACME · NPM CRUD · Files token API · N3c · M-live · multi-tenant · Swarm/k8s |
 | Mode | Must → freeze; Should may slip; Discover only if Must is green |
-| Coverage | CI fail-under **stays 75**. Do not lower it. **1.x end goal 80%** is a later train, not this one |
+| Coverage | Floor stays **75**. Should raises CI fail-under **75 → 80** (1.x ceiling). Do not lower 75. The step may slip |
 | E2E | Wizard chrome still loads. No live SSH / apt / two-host copy in CI |
-| Semver | Additive minor. Same job types; execution moves to Celery. No new public API routes in Jr-1 |
+| Semver | Additive minor. MCP-1 adds no herder routes. Jr-1 keeps the same job types and moves execution to Celery |
 | Version bump | `1.7.0` **at freeze only** |
 | Kill switch | **`PIHERDER_SERVICE_MIGRATE=false`**. Demo never copies, never mux, never live-runs patch/stack jobs |
 
@@ -56,11 +60,11 @@ main @ v1.6.0 (+ v1.6.x patches)
 
 | Rule | Practice |
 |------|----------|
-| Must → then freeze | Do not start Out items while Must is open |
-| Should may slip | Brand-1 / Brand-2 / Jr-2 do **not** block the tag if Jr-1 is green |
+| Must → then freeze | Do not start Out items while Must is open. Build **MCP-1** before **Jr-1** |
+| Should may slip | Brand-1 / Brand-2 / Jr-2 / **Q (80%)** do **not** block the tag if MCP-1 and Jr-1 are green |
 | Prod critical bugs | **main** as **1.6.x** first, then port here |
 | Demo never grows teeth | Real migrate off · real Files SFTP off · mux off · no live apt/compose from the demo |
-| Tag honesty | **v1.7.0 tags only with Jr-1** (exclusive types on Celery, host-down wait, running mutate fails honest) and CI fail-under still **75** |
+| Tag honesty | **v1.7.0 tags only with MCP-1 + Jr-1**. Fail-under must not drop below **75**. Reaching **80** may slip |
 
 ---
 
@@ -68,7 +72,7 @@ main @ v1.6.0 (+ v1.6.x patches)
 
 | # | Question | Decision |
 |---|----------|----------|
-| 1 | Theme / Must | **Jr-1**. All remaining **exclusive** types in one go, default Celery queue. |
+| 1 | Theme / Must | **MCP-1** first, then **Jr-1**. Both Must. Jr-1 is still all remaining **exclusive** types in one go, default Celery queue. |
 | 2 | Which types | `os_patch`, `container_patch`, `os_update_check`, `container_update_check`, `docker_stack_check`, `docker_stack_deploy` / `_stop` / `_start` / `_restart` / `_down` / `_remove`, `template_deploy`, `template_redeploy`, `template_drift_check`. |
 | 3 | Left on web | `retention`, `herder_backup` (not exclusive). nmap stays **`-Q nmap`**. `backup`, `service_migrate`, `service_migrate_undo` stay as they are. |
 | 4 | Host down | Job stays **pending**, backoff until SSH works or **max wait**. Exclusive slot held. SSH probe is source of truth. Not “replay a stored compose on wake.” |
@@ -77,12 +81,12 @@ main @ v1.6.0 (+ v1.6.x patches)
 | 7 | **Brand-1** | **Should.** Instance name + one accent. Official mark and primary red stay. No logo upload. Demo ignores it. |
 | 8 | **Brand-2** | **Should.** Hide Catalog in the nav. `/catalog` still works. Default **show**. |
 | 9 | **Brand-3** | **Out.** Own-docs MkDocs skin later. |
-| 10 | **MCP-1** | **Discover.** Separate repo (same shape as `piherder-ha`). Not in this image. No code until promoted. |
+| 10 | **MCP-1** | **Must. First slice.** Separate repo (same shape as `piherder-ha`). Not in this image. No new herder routes. |
 | 11 | **AC-fg** | **Discover.** Three global roles stay. No schema until a spike is promoted. Not multi-tenant. |
-| 12 | HA Slice 2 / Undo-2 / Mux-2 | **Discover.** Carried from 1.6. Not this freeze unless promoted. |
+| 12 | HA Slice 2 / Undo-2 / Mux-2 / **Bak-alt** | **Discover.** Carried from 1.6, plus alternate backup destinations (under consideration). Not this freeze unless promoted. |
 | 13 | HA Slice 3 / Move-from-HA / start-stop | **Out** |
 | 14 | M-flag / default-on Move | **Stay false** |
-| 15 | Coverage | Fail-under **75** held. Do not step to 80 on this train. |
+| 15 | Coverage | **Should.** Raise fail-under **75 → 80**. May slip. Do not lower **75**. |
 | 16 | Version bump | `1.7.0` at freeze only |
 | 17 | Public demo | Stays on the **1.6** image. Do not redeploy it onto `v1.7.0-dev`. |
 
@@ -91,20 +95,45 @@ main @ v1.6.0 (+ v1.6.x patches)
 ## 1b. Recommended delivery order
 
 ```text
-Phase 0   Open train + docs lock              ← this commit 2026-09-25
-Phase 1   Jr-1 exclusive types → Celery       Must
-Phase 2   Brand-1 + Brand-2                   Should (may slip)
-Phase 3   Jr-2 Settings max wait              Should (may slip)
-Phase 4   Discover spikes                     only if Must is green and you promote
-Phase 5   Wiki + QA_v1.7.0                    operator sign-off
-Phase 6   Freeze                              1.7.0 bump · RELEASE · PR · tag · Hub — only when asked
+Phase 0   Open train + docs lock              done 2026-09-25 (22d3a04)
+Phase 0b  Lock retune                         ← this commit (MCP-1 first, Q is Should, Bak-alt noted)
+Phase 1   MCP-1 read-only adapter             Must — first build, separate repo
+Phase 2   Jr-1 exclusive types → Celery       Must
+Phase 3   Q fail-under 75 → 80                Should (may slip)
+Phase 4   Brand-1 + Brand-2                   Should (may slip)
+Phase 5   Jr-2 Settings max wait              Should (may slip)
+Phase 6   Discover spikes                     only if Must is green and you promote
+Phase 7   Wiki + QA_v1.7.0                    operator sign-off
+Phase 8   Freeze                              1.7.0 bump · RELEASE · PR · tag · Hub — only when asked
 ```
 
-Must before Should product. Discover only if Must is green and you promote one row.
+Must before Should product. MCP-1 before Jr-1. Discover only if Must is green and you promote one row.
 
 ---
 
-## 2. Stream **J-runtime** — rest of the exclusive jobs
+## 2. Stream **MCP-1** — read-only agent adapter (Must, first slice)
+
+Not product code in the PiHerder image. Own repo, same shape as [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). This host cannot create that GitHub repo. Lean name when you create it: `bjorngluck/piherder-mcp`. This train’s herder tree does not gain a scaffold for it.
+
+**Locks:**
+
+1. stdio process. Config is `PIHERDER_URL` plus a scope-`read` API token.  
+2. Tools wrap existing `/api/v1` only: health, summary, servers, inventory, services, jobs (list and detail).  
+3. No SSH. No job triggers, file upload/delete, console, Move, or undo.  
+4. Do not generate every OpenAPI route as a tool.  
+5. No new herder routes. Remote HTTP MCP stays out of this cut (only if an agent off the host must reach the instance, later).  
+6. Demo is not a target. A `read` token is enough; a token without `read` fails closed.
+
+**Success (Must):**
+
+1. The adapter runs as its own process against a PiHerder base URL.  
+2. The six read areas above return the same facts as `curl` with that token.  
+3. A call that would mutate (jobs POST, files write, Move, undo) is not a tool.  
+4. Nothing from this slice is copied into the PiHerder image or `app/`.
+
+---
+
+## 3. Stream **J-runtime** — rest of the exclusive jobs
 
 Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 J-runtime. Operator page to update when it lands: [multi-worker](../wiki/operations/multi-worker.md).
 
@@ -143,7 +172,7 @@ Settings control for **max wait**. Kuma down or stale `last_seen` may mark the j
 
 ---
 
-## 3. Stream **Brand** — wordmark + accent (Should)
+## 4. Stream **Brand** — wordmark + accent (Should)
 
 Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 2026-09-18 still hold.
 
@@ -166,11 +195,11 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 
 ---
 
-## 4. Discover (no product code until a row is promoted)
+## 5. Discover (no product code until a row is promoted)
 
 | ID | Item | Notes |
 |----|------|--------|
-| **MCP-1** | Read-only MCP adapter | **Not in the PiHerder image.** Own repo, same shape as `piherder-ha`. stdio process. Config is `PIHERDER_URL` plus a scope-`read` API token. Tools wrap existing `/api/v1` only: health, summary, servers, inventory, services, jobs. No SSH. Job triggers, file upload/delete, console, Move, and undo stay out of the first cut. Do not generate every OpenAPI route as a tool. Remote HTTP MCP only if an agent off the host must reach the instance. |
+| **Bak-alt** | Alternate backup destinations | **Under consideration.** Today per-server backups rsync onto a directory on the herder host (`PIHERDER_BACKUP_HOST_PATH`, default `./backups`, mounted at `/backups`). Examples to write up, not to build: Google Drive, a LAN NAS, and similar. Not a vendor choice. Not OAuth, not a NAS client, not a replacement for that rsync directory. PiHerder’s own Settings backup stays a separate DR path. |
 | **AC-fg** | Per-host / per-feature grants | No discover spike yet. Three global roles stay. Not multi-tenant SaaS. Promote only by writing the grant model first; no schema in this train until that promotion. |
 | **HA Slice 2** | Backup-from-HA | Confirm + `piherder.backup`. Token `jobs` + `feature:backup`. Optional OS **check** (not apply). Bus event `piherder_job_completed` stays here. Plugin repo, not this image. |
 | **Undo-2** | Beyond fail-path undo | Undo-1 shipped in 1.6. Do not reverse a green Move. No dest `down -v`. |
@@ -178,46 +207,48 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 
 ---
 
-## 5. Ship bar
+## 6. Ship bar
 
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
-| **Must** | **Jr-1** | Exclusive types on the default Celery queue; host-down waits; running mutate fails honest; web recycle does not fail them | Not started |
+| **Must** | **MCP-1** | Read-only stdio adapter in its own repo; six `/api/v1` read areas; no mutate tools; not in this image | Not started — first build, after the repo exists |
+| **Must** | **Jr-1** | Exclusive types on the default Celery queue; host-down waits; running mutate fails honest; web recycle does not fail them | Not started — after MCP-1 |
+| **Should** | **Q** | CI fail-under **75 → 80**. Floor stays 75 if this slips | Not started |
 | **Should** | **Brand-1** | Instance name + one accent; demo ignored | Not started |
 | **Should** | **Brand-2** | Hide Catalog in nav; `/catalog` still works | Not started |
 | **Should** | **Jr-2** | Settings max wait; Kuma/`last_seen` is a signal | Not started |
-| **Hold** | Coverage | CI fail-under **75** stays. Do not lower it. Do not raise it to 80 in this train | Holding |
-| **Discover** | MCP-1 · AC-fg · HA Slice 2 · Undo-2 · Mux-2 | Notes only unless promoted | Parked |
-| **Out** | HA Slice 3 · Brand-3 · M-flag C · plugin-in-image · CSP Slice 2 | Stay out | Locked 2026-09-25 |
+| **Discover** | Bak-alt · AC-fg · HA Slice 2 · Undo-2 · Mux-2 | Notes only unless promoted | Parked |
+| **Out** | HA Slice 3 · Brand-3 · M-flag C · plugin-in-image · MCP-in-image · CSP Slice 2 | Stay out | Locked 2026-09-25 |
 
 ---
 
-## 6. Quality bar
+## 7. Quality bar
 
 | Gate | Target |
 |------|--------|
-| Unit | Fail-under **stays 75**. New tests cover enqueue-on-Celery, web-recycle does not fail, worker-recycle fails a running mutate, host-down stays pending, exclusive lane still blocks a second stack mutate. No live SSH |
+| Unit | Floor **75**. Should raises `--cov-fail-under` to **80** on `app`. If that slips, the tag still requires the floor. Jr-1 tests cover enqueue-on-Celery, web-recycle does not fail, worker-recycle fails a running mutate, host-down stays pending, exclusive lane still blocks a second stack mutate. No live SSH. MCP-1 tests live in the adapter repo and mock HTTP |
 | E2E | Wizard chrome. No live apt, compose, or two-host copy in CI |
 | Docs | Wiki multi-worker + Jobs when Jr-1 lands; `mkdocs build --strict` at freeze |
 | Security | Same exclusive lanes. No new token scope. Move and undo stay off the token API. Demo never live-runs the moved types. Brand env lock cannot be overridden from the UI when set |
 
 ---
 
-## 7. Out of scope (stay honest)
+## 8. Out of scope (stay honest)
 
 - **HA Slice 3** — start/stop from HA, webhooks, alerts API, Move-from-HA, Files from HA  
 - **Brand-3** — own-docs MkDocs skin; theme engine; header logo upload; recolouring primary red  
 - **M-flag C** — `PIHERDER_SERVICE_MIGRATE` stays **false**. Do not turn Move on by default  
-- Plugin or add-on **inside** the PiHerder image  
+- Plugin, add-on, or **MCP adapter inside** the PiHerder image  
 - **CSP Slice 2** — rewriting `onclick` to drop `script-src-attr 'unsafe-inline'`  
 - Reverse a **green** Move · dest `down -v`  
 - ACME-in-herder · full NPM CRUD · richer Files token API · **N3c** · **M-live**  
 - Multi-tenant SaaS · k8s/bare  
-- Raising the coverage fail-under from 75 to 80  
+- Building Google Drive, NAS, or any other backup destination (**Bak-alt** is notes only)  
+- Lowering CI fail-under below **75**  
 
 ---
 
-## 8. Capture log
+## 9. Capture log
 
 | Date | Note |
 |------|------|
@@ -226,18 +257,21 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | 2026-09-25 | Inbox grew: **MCP-1** (read-only agent adapter, separate repo, `/api/v1` read token). Not started. |
 | 2026-09-25 | **v1.6.0 tagged.** Package **1.6.0**. Hub `1.6.0` / `1.6` / `latest`. |
 | 2026-09-25 | **Train opened** on `v1.7.0-dev`. Must **Jr-1**. Should **Brand-1** + **Brand-2** + **Jr-2**. Discover **MCP-1** · **AC-fg** · HA Slice 2 · Undo-2 · Mux-2. Package stays `1.6.0` until freeze. `main` patchable as **v1.6.x**. Fail-under stays **75**. Public demo stays on the 1.6 image. |
+| 2026-09-25 | **Lock retune.** **MCP-1** is Must and the first slice (separate repo, read-only). **Jr-1** stays Must, second. **Q** is Should: fail-under **75 → 80**, may slip, floor stays 75. **Bak-alt** added as Discover (Google Drive, LAN NAS, and similar — notes only; rsync directory stays). |
 
 ---
 
-## 9. Immediate next steps
+## 10. Immediate next steps
 
 | # | Step | Status |
 |---|------|--------|
-| 1 | Open **`v1.7.0-dev`** + lock Must/Should | **This commit** 2026-09-25 |
-| 2 | **Jr-1** exclusive types → default Celery queue | Not started |
-| 3 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until walked |
-| 4 | Brand-1 / Brand-2 / Jr-2 as capacity after Must | Not started |
-| 5 | Freeze · `1.7.0` · tag · Hub | Only when asked |
+| 1 | Open **`v1.7.0-dev`** + lock Must/Should | **Done** 2026-09-25 (`22d3a04`) |
+| 2 | Retune: MCP-1 first, Q is Should, Bak-alt noted | **This commit** |
+| 3 | **MCP-1** after you create the adapter repo | Not started — first build |
+| 4 | **Jr-1** exclusive types → default Celery queue | Not started |
+| 5 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until walked |
+| 6 | Q / Brand-1 / Brand-2 / Jr-2 as capacity after Must | Not started |
+| 7 | Freeze · `1.7.0` · tag · Hub | Only when asked |
 
 ---
 

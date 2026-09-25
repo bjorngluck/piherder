@@ -42,7 +42,7 @@ Design principles stay the same as SPEC:
 | **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME **or NPM backend** retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate, leftover) + **host lock** (HAOS refuse, Frigate/TPU-class) + demo simulated Files | Post-1.3 minor | **Tagged** 2026-09-06 — [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · wiki [Move a service](../wiki/docker/service-migration.md) · Hub `1.4.0` / `1.4` / `latest` |
 | **v1.5.0** | **Job runtime** — Move on **Celery worker** + Reports pin/hide/reorder + Move jobs card + unit **≥ 70%**. Kill switch stays **false**. | Post-1.4 minor | **Tagged** 2026-09-18 — [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [QA_v1.5.0.md](QA_v1.5.0.md) · Hub `1.5.0` / `1.5` / `latest` |
 | **v1.6.0** | **HACS on HA + console mux** — Slice 1 + Slice 1b (plugin **0.2.4**) · Mux-1 · CSP script nonces · fail-path Move undo · unit fail-under **75**. Move stays off. | Post-1.5 minor | **Tagged** 2026-09-25 — [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · Hub `1.6.0` / `1.6` / `latest` |
-| **v1.7.0** | **One job runtime** — **Jr-1** remaining exclusive jobs onto Celery (Must). Should: **Brand-1/2** · **Jr-2**. Discover: **MCP-1** · **AC-fg** · HA Slice 2 · Undo-2 · Mux-2. Package stays `1.6.0` until freeze. | Post-1.6 minor | **Active** on `v1.7.0-dev` — [PLAN_v1.7.0.md](PLAN_v1.7.0.md) |
+| **v1.7.0** | **Read-only MCP, then one job runtime** — **MCP-1** Must (first) · **Jr-1** Must. Should: fail-under **75 → 80** · **Brand-1/2** · **Jr-2**. Discover: **Bak-alt** · **AC-fg** · HA Slice 2 · Undo-2 · Mux-2. Package stays `1.6.0` until freeze. | Post-1.6 minor | **Active** on `v1.7.0-dev` — [PLAN_v1.7.0.md](PLAN_v1.7.0.md) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -115,6 +115,8 @@ Design principles stay the same as SPEC:
 **Decision (2026-09-25):** **v1.6.0 tagged.** Package **1.6.0**. Hub `1.6.0` / `1.6` / `latest`. Move stays off.
 
 **Decision (2026-09-25):** **v1.7.0 train opened** on **`v1.7.0-dev`**. Must: **Jr-1** (remaining exclusive jobs onto Celery, host-down wait, running mutate fails honest). Should: **Brand-1** · **Brand-2** · **Jr-2**. Discover: **MCP-1** · **AC-fg** · HA Slice 2 · Undo-2 · Mux-2. CI fail-under stays **75**. Package stays `1.6.0` until freeze. `main` stays patchable for **v1.6.x**. Public demo stays on the 1.6 image. See [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
+
+**Decision (2026-09-25, lock retune):** **MCP-1** is Must and the first slice (separate repo, read-only `/api/v1`). **Jr-1** stays Must, second. **Q** is Should: CI fail-under **75 → 80** (may slip; do not lower 75). **Bak-alt** is Discover: alternate backup destinations (Google Drive, LAN NAS, and similar) under consideration; the rsync directory stays the only implementation. See [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 **Progress (2026-09-21):** **Q-80 met** — compose suite **75.04%** (35893/47833); CI `--cov-fail-under=75`. Mux-1 and HA-p2 Slice 1 are on the branch; operator QA still open. **Docs-archive-0x**, **Slice 1b** (plugin **0.2.3**), **CSP-n Slice 1**, and **Undo-1** landed on `v1.6.0-dev`. Home installs enforce the script nonce. The public demo is on this branch and stays Report-Only.
 
@@ -291,7 +293,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 
 | Track | Direction |
 |-------|-----------|
-| **Unit / service coverage** | Stepped freeze bars: **0.8 ~50%** · **0.9 ≥55%** · **1.4 ≥62%** · **1.5 ≥70%** · **1.6 ≥75%** (CI fail-under **75**). **v1.7 holds 75** — the step to **80%** is a later train. Critical paths first; **no** 100% target; prefer service tests over router %. See [PLAN_v1.7.0.md](PLAN_v1.7.0.md). |
+| **Unit / service coverage** | Stepped freeze bars: **0.8 ~50%** · **0.9 ≥55%** · **1.4 ≥62%** · **1.5 ≥70%** · **1.6 ≥75%** (CI fail-under **75**). **v1.7 Should** raises the fail-under **75 → 80** (the 1.x ceiling). The step may slip; do not lower 75. Critical paths first; **no** 100% target; prefer service tests over router %. See [PLAN_v1.7.0.md](PLAN_v1.7.0.md). |
 | **HTTP smoke (pytest TestClient)** | **Done (0.8)** — auth redirects + main shells + seeded surfaces; extend when routes land. |
 | **UI walkthrough — Playwright** | **Must since v0.7.0** — shell + wizard + B6 + nmap shells. **v0.9 rule:** any UX/code touched in the release gets **basic** E2E coverage (no live SSH/nmap/HA in CI). |
 | **Dependency hygiene** | **Done for RC path:** `uv.lock` + hashed `requirements*.lock.txt`; Dockerfile/CI install with `--require-hashes`. Ongoing: periodic `pip-audit` / Dependabot; intentional bumps via `scripts/refresh-lockfiles.sh`. |

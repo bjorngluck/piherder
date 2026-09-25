@@ -323,7 +323,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-21 | **Slice 1b.** Read APIs `GET /api/v1/inventory`, `/servers/{id}/inventory`, `/services` (DB snapshots, no SSH). Plugin **0.2.3**: container, service, and disk sensors on the existing host device. No start/stop. |
 | 2026-09-21 | **CSP-n Slice 1.** Per-request script nonce; `script-src-attr 'unsafe-inline'`; style stays unsafe-inline; `/docs` `/redoc` keep unsafe-inline. Local installs enforce. Demo mode is Report-Only. |
 | 2026-09-21 | **Undo-1.** Job `service_migrate_undo` on a failed Move at cutover / rebind / validate. Preview → confirm. Revert DNS/NPM, rebind rows, `compose stop` dest, `compose start` source. Dest dir and volumes stay. Green Move and pre-flip stay as before. Viewer 403. Demo and flag-off 404. Token API has no undo POST. |
-| 2026-09-25 | **v1.6.0 tagged** and Hub-published. Next train opened: [PLAN_v1.7.0.md](PLAN_v1.7.0.md) on `v1.7.0-dev`. Must **Jr-1**. |
+| 2026-09-25 | **v1.6.0 tagged** and Hub-published. Next train opened: [PLAN_v1.7.0.md](PLAN_v1.7.0.md) on `v1.7.0-dev`. Must **MCP-1** (first) and **Jr-1**. |
 
 ---
 

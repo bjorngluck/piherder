@@ -11,9 +11,9 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 1.6 production sign-off stays [QA_v1.6.0.md](QA_v1.6.0.md) (historical). Do **not** re-open 1.6 boxes here.
 
-**Tag honesty:** freeze only with **Jr-1** and CI fail-under still **75**. Should streams may slip. Do not bump version, merge, tag, or Hub until asked. Do not redeploy the public demo onto this branch.
+**Tag honesty:** freeze only with **MCP-1** and **Jr-1**. CI fail-under must not drop below **75**. The step to **80** is Should and may slip. Do not bump version, merge, tag, or Hub until asked. Do not redeploy the public demo onto this branch.
 
-**This pass is sign-off, not new features.** Fix only a feature or regression bug you hit while walking. Discover (MCP-1, AC-fg, HA Slice 2, Undo-2, Mux-2) stays parked until a row is promoted.
+**This pass is sign-off, not new features.** Fix only a feature or regression bug you hit while walking. Discover (Bak-alt, AC-fg, HA Slice 2, Undo-2, Mux-2) stays parked until a row is promoted.
 
 ---
 
@@ -21,6 +21,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 | Stream | Wiki |
 |--------|------|
+| MCP-1 | Adapter repo readme (not this image). Herder side is [API tokens](../wiki/operations/api-tokens.md) — scope `read` only |
 | Jr-1 / Jr-2 | [Multi-worker](../wiki/operations/multi-worker.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Troubleshooting](../wiki/troubleshooting/index.md) |
 | Brand-1 / Brand-2 | Settings → General (page lands with the slice) · [Catalog](../wiki/index.md) |
 | Regression | [Move a service](../wiki/docker/service-migration.md) · [Web SSH](../wiki/day-to-day/web-ssh-console.md) · [Home Assistant](../wiki/integrations/home-assistant.md) |
@@ -32,25 +33,39 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 | | |
 |--|--|
 | **Instance** | Rebuild **`v1.7.0-dev`** (`docker compose build web celery-worker && docker compose up -d`). App code is **not** bind-mounted. About / footer still **1.6.0** until freeze |
-| **Workers** | Jr-1 needs **celery-worker** up. nmap stays on `celery-worker-nmap` |
+| **Workers** | Jr-1 needs **celery-worker** up. nmap stays on `celery-worker-nmap`. MCP-1 is a separate process, not a compose service in this repo |
 | **Browsers** | Desktop Chrome or Firefox **and** one phone (Brand) |
 | **Accounts** | One **admin**, one **operator**, one **viewer** |
 | **Hosts** | One real SSH host you can patch or deploy a stack on, plus one host you can make unreachable (SSH down) for the wait row. Do not use the public demo |
 | **Flags** | `PIHERDER_SERVICE_MIGRATE` stays **false** except a regression spot-check you explicitly turn on, then off. Demo never live-runs patch or stack jobs |
 | **Where to look** | Local herder: `http://127.0.0.1:8000` (Caddy `:8888` / `:8443`) |
 
-**Do not test (Out or Discover):** MCP tools, per-host grants, backup-from-HA, Undo-2, Mux-2 leftover list, HA start/stop, theme engine, logo upload, default-on Move, rewriting `onclick` for CSP.
+**Do not test (Out or Discover):** Google Drive or NAS backup destinations (Bak-alt), per-host grants, backup-from-HA, Undo-2, Mux-2 leftover list, HA start/stop, theme engine, logo upload, default-on Move, rewriting `onclick` for CSP. Do not look for the MCP adapter inside the PiHerder image.
 
 ### Suggested order
 
-1. Rebuild local **web** + **celery-worker**. About / footer still **1.6.0**.  
-2. **Jr-1** on one real host (patch or stack), including a web recycle and a worker recycle.  
-3. Host-down wait on a host whose SSH you can refuse.  
-4. **Brand** if the slice has landed.  
-5. **1.6 regression** with Move still off.  
-6. Leave **Freeze gates** empty.
+1. **MCP-1** against a local herder with a scope-`read` token (adapter repo, once it exists). About / footer on the herder still **1.6.0**.  
+2. Rebuild local **web** + **celery-worker** when Jr-1 has landed.  
+3. **Jr-1** on one real host (patch or stack), including a web recycle and a worker recycle.  
+4. Host-down wait on a host whose SSH you can refuse.  
+5. **Coverage** if the 80% step has landed. The tag is still allowed at fail-under **75**.  
+6. **Brand** if the slice has landed.  
+7. **1.6 regression** with Move still off.  
+8. Leave **Freeze gates** empty.
 
 ---
+
+## MCP-1 — read-only adapter (Must, first)
+
+Walk this in the adapter repo, against this herder. The adapter is **not** in the PiHerder image.
+
+- [ ] Process starts with `PIHERDER_URL` and a scope-`read` token  
+- [ ] Tools cover health, summary, servers, inventory, services, and jobs (list and detail)  
+- [ ] Those tools match `curl` with the same token  
+- [ ] A token without `read` fails closed  
+- [ ] No tool triggers a job, uploads or deletes a file, opens a console, or starts Move or undo  
+- [ ] No SSH from the adapter  
+- [ ] Nothing from this slice is baked into the PiHerder image  
 
 ## Jr-1 — exclusive jobs on Celery (Must)
 
@@ -89,9 +104,10 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 - [ ] Settings shows max wait; SSH probe is still what resumes the job  
 - [ ] Kuma down or stale `last_seen` can show “waiting on host” and does **not** by itself resume or fail the job  
 
-## Coverage hold
+## Q — fail-under 75 → 80 (Should; may slip)
 
-- [ ] CI `--cov-fail-under=75` still green  
+- [ ] CI `--cov-fail-under` is **80** on `app`, or this Should is explicitly slipped and the floor is still **75**  
+- [ ] Fail-under is not lowered below **75**  
 - [ ] No live SSH / apt / two-host copy in CI  
 
 ## 1.6 regression
