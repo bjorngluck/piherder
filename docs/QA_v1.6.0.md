@@ -281,7 +281,7 @@ Do not tick until the operator asks to freeze.
 - [x] **M-flag** still **false** (`PIHERDER_SERVICE_MIGRATE` default false)  
 - [x] Version bump **`1.6.0`**  
 - [x] Wiki banner, Home current release, and README point at **1.6.0** (Pages updates when this lands on `main`)  
-- [ ] GitHub **Release** (not Issue) after tag `v1.6.0` — body `docs/RELEASE_v1.6.0.md`  
+- [x] GitHub **Release** (not Issue) after tag `v1.6.0` — body `docs/RELEASE_v1.6.0.md`  
 
 ---
 

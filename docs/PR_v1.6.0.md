@@ -64,9 +64,9 @@ Walk [QA_v1.6.0.md](QA_v1.6.0.md). Stream rows are signed.
 - [x] Operator QA signed (every in-scope stream, 2026-09-24)
 - [x] Version bump `app/version_info.py` + `pyproject.toml` → **1.6.0**
 - [x] `docs/RELEASE_v1.6.0.md` + wiki Home current-release row
-- [ ] Merge `v1.6.0-dev` → `main`
-- [ ] Tag **`v1.6.0`** · Hub `1.6.0` / `1.6` / `latest`
-- [ ] Keep `1.5` / `1.5.0` pins valid
+- [x] Merge `v1.6.0-dev` → `main`
+- [x] Tag **`v1.6.0`** · Hub `1.6.0` / `1.6` / `latest` (`sha256:cdf88c70099f78830943e6529f05eff1b83bb5565e7b12f71ebf0877c7b018a8`)
+- [x] Keep `1.5` / `1.5.0` pins valid
 - [x] Kill switch `PIHERDER_SERVICE_MIGRATE` stays **false**
 
 ## After merge

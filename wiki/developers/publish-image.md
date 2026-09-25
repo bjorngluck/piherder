@@ -29,6 +29,8 @@ Multi-arch images on **Docker Hub**: [bjorngluck/piherder](https://hub.docker.co
 
 Images: `bjorngluck/piherder` (optional later: `ghcr.io/bjorngluck/piherder`).
 
+**v1.6.0** manifest list: `sha256:cdf88c70099f78830943e6529f05eff1b83bb5565e7b12f71ebf0877c7b018a8` (`1.6.0` / `1.6` / `latest`).
+
 ## Multi-arch build example
 
 ```bash
