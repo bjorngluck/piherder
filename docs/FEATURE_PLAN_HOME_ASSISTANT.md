@@ -446,6 +446,7 @@ Unit tests: pure parsers for `ha * info` fixtures + branch in `check_os_updates`
 | 2026-09-07 | **Path 2** locked as **v1.5 Discover / v1.6.0 ship**: integration first, API token, draft entities/events. No plugin code on `v1.5.0-dev` |
 | 2026-09-10 | **HA-p2 Discover written.** HACS integration **on HA**; Slice 1 read-only fleet + host devices; details open PiHerder. Slice 1b: container/service entities from **DB snapshots** (new read APIs). Backup button Slice 2. No start/stop, no Move-from-HA, no plugin on this branch. |
 | 2026-09-19 | **v1.6 train opened.** Slice 1 **Must**, 1b **Should**, 2 **Discover**. Plugin still a **separate** repo (not this image). |
+| 2026-09-25 | **v1.6.0 tagged** (plugin **0.2.4**). Slice 2 stays **Discover** on [PLAN_v1.7.0.md](PLAN_v1.7.0.md). |
 | 2026-09-19 | **HACS** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.1.5**. Door is HA **Visit**, not press-here buttons. Herder `summary` + host-facts **044**. |
 | 2026-09-20 | Plugin **0.2.2**. Fleet Lovelace card is Slice 1 (HA allows one Visit per custom device). Resource `/local/piherder-dashboard-card.js?v=0.2.2` as module. `piherder_job_completed` bus events stay Slice 2. |
 | 2026-09-21 | Plugin **0.2.3**. Slice 1b: `GET /api/v1/inventory` and `/services`. Disk, container, and service sensors on the host device. Card resource `?v=0.2.3`. No start/stop. |
