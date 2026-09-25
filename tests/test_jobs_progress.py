@@ -131,6 +131,27 @@ def test_job_public_dict_cancellable_when_active():
     assert d["cancellable"] is True
 
 
+def test_job_public_dict_undo_completed_flag():
+    job = SimpleNamespace(
+        id=11,
+        server_id=1,
+        job_type="service_migrate",
+        status="failed",
+        created_at=None,
+        started_at=None,
+        finished_at=datetime(2026, 7, 10, 12, 5, 0),
+        details=json.dumps(
+            {
+                "undo_move": {"project": "app"},
+                "undo_completed": True,
+            }
+        ),
+    )
+    d = job_public_dict(job)
+    assert d["undo_move"]["project"] == "app"
+    assert d["undo_completed"] is True
+
+
 def test_job_public_dict_done_when_cancelled():
     job = SimpleNamespace(
         id=10,

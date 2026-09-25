@@ -575,6 +575,101 @@ def service_migrate(
             db.close()
 
 
+@celery.task(
+    name="app.tasks.service_migrate_undo",
+    bind=True,
+    max_retries=_LOCK_MAX_RETRIES,
+    default_retry_delay=30,
+)
+def service_migrate_undo(self, job_id: int, source_id: int, dest_id: int, audit_id: int):
+    """Fail-path undo of a Move. Same dual-host backup mutex. Never dest down -v."""
+    from celery.exceptions import Retry
+
+    from app.services.jobs_migrate import _execute_service_migrate_undo
+
+    db = Session(engine)
+    lock_tokens: tuple[str, str] | None = None
+    try:
+        job = db.get(Job, job_id)
+        if not job:
+            return {"status": "skipped", "job_id": job_id}
+        if job.status == "cancelled":
+            return {"status": "cancelled", "job_id": job_id}
+        if job.status not in ("pending", "running"):
+            return {"status": "skipped", "job_id": job_id, "reason": job.status}
+        if job.status == "running":
+            db.close()
+            db = None
+            from app.services.jobs.service import _finish, _load_server_for_job
+
+            _src, hostname = _load_server_for_job(source_id)
+            _finish(
+                audit_id,
+                job_id,
+                "failed",
+                "Worker restarted during Undo. Dest directory was left in place. Inspect both hosts before retrying.",
+                hostname,
+                "service_migrate_undo",
+            )
+            return {"status": "failed", "job_id": job_id, "reason": "worker_restart"}
+
+        job.celery_task_id = self.request.id
+        db.add(job)
+        db.commit()
+        holder = str(job_id or self.request.id or f"undo-{source_id}-{dest_id}")
+        lock_tokens = try_acquire_dual_server_lock(
+            "backup", source_id, dest_id, holder=holder
+        )
+        if not lock_tokens:
+            if self.request.retries >= _LOCK_MAX_RETRIES:
+                msg = "Timed out waiting for a backup or Move on the source or destination host"
+                _update_job_status(
+                    job_id,
+                    "failed",
+                    {"error": msg, "current": "failed", "log_lines": [msg]},
+                )
+                return {"status": "failed", "job_id": job_id, "error": msg}
+            _update_job_status(
+                job_id,
+                "pending",
+                {
+                    "current": "waiting_for_server",
+                    "log_lines": ["Waiting for a backup or Move on the source or destination host…"],
+                },
+            )
+            raise self.retry(countdown=_LOCK_WAIT_COUNTDOWN_SEC)
+        _execute_service_migrate_undo(job_id, source_id, dest_id, audit_id)
+        return {"status": "ok", "job_id": job_id}
+    except Exception as exc:
+        if isinstance(exc, Retry):
+            raise
+        logger.exception("service_migrate_undo celery task failed job=%s", job_id)
+        err = str(exc)[:800]
+        try:
+            from app.services.jobs.service import _finish, _load_server_for_job
+
+            _src, hostname = _load_server_for_job(source_id)
+            _finish(audit_id, job_id, "failed", err, hostname, "service_migrate_undo")
+        except Exception:
+            logger.exception("service_migrate_undo fail-close")
+            _update_job_status(
+                job_id,
+                "failed",
+                {"error": err, "current": "failed", "log_lines": [err[:240]]},
+            )
+        return {"status": "error", "job_id": job_id, "error": err[:500]}
+    finally:
+        if lock_tokens:
+            try:
+                release_dual_server_lock(
+                    "backup", source_id, lock_tokens[0], dest_id, lock_tokens[1]
+                )
+            except Exception as e:
+                logger.warning("[Celery] Failed to release undo dual lock job=%s: %s", job_id, e)
+        if db is not None:
+            db.close()
+
+
 def _update_job_status(job_id: int, status: str, extra: dict):
     """Update Job status + merge details JSON (worker feeds DB)."""
     try:

@@ -1285,6 +1285,7 @@ async def update_server(
     backup_enabled: bool = Form(False),
     container_patch_enabled: bool = Form(False),
     os_patch_enabled: bool = Form(False),
+    console_mux_enabled: bool = Form(False),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -1356,6 +1357,13 @@ async def update_server(
         changed.append("container_patch_enabled")
     if server.os_patch_enabled != os_patch_enabled:
         changed.append("os_patch_enabled")
+    mux_on = bool(console_mux_enabled)
+    if "haos" in (server.os_type or "").lower() or (
+        new_os_type == "haos"
+    ):
+        mux_on = False
+    if bool(getattr(server, "console_mux_enabled", False)) != mux_on:
+        changed.append("console_mux_enabled")
 
     server.name = new_name
     server.hostname = new_host
@@ -1392,6 +1400,7 @@ async def update_server(
     server.backup_enabled = backup_enabled
     server.container_patch_enabled = container_patch_enabled
     server.os_patch_enabled = os_patch_enabled
+    server.console_mux_enabled = mux_on
 
     if changed:
         record_server_audit(

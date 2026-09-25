@@ -20,7 +20,8 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.2.0** | Prior Hub — screenshot pack **landed** 2026-08-18. [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) |
 | **v1.3.0** | Prior Hub — pack **landed** 2026-08-22. Maintainer QA: [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.3.0.md) (not the operator wiki). [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md) |
 | **v1.4.0** | **Tagged** — pack **landed 2026-09-06**. Maintainer QA: [QA_v1.4.0.md](../../../docs/QA_v1.4.0.md). Theme: [Move a service](../../docker/service-migration.md) · [RELEASE](../../../docs/RELEASE_v1.4.0.md) |
-| **v1.5.0** | **Freeze** 2026-09-18 — reuse Move JobHold pack; Reports pin/hide + Move jobs card recapture if chrome drifted. [RELEASE](../../../docs/RELEASE_v1.5.0.md) · [QA](../../../docs/QA_v1.5.0.md) |
+| **v1.5.0** | **Tagged** 2026-09-18 — reuse Move JobHold pack; Reports pin/hide + Move jobs card recapture if chrome drifted. [RELEASE](../../../docs/RELEASE_v1.5.0.md) · [QA](../../../docs/QA_v1.5.0.md) |
+| **v1.6.0** | **Captured** 2026-09-25 and wired into the wiki. [§ v1.6](#v160--pack-status). [RELEASE](../../../docs/RELEASE_v1.6.0.md) · [QA](../../../docs/QA_v1.6.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
@@ -28,7 +29,52 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
     Production pack: rebuild **`v1.5.0`**: `docker compose build web celery-worker && docker compose up -d`.  
     App code is **not** bind-mounted — stale containers = stale chrome.  
     About / footer **1.5.0**.  
-    Move wizard shots need `PIHERDER_SERVICE_MIGRATE=true` then recreate **web**.
+    Move wizard shots need `PIHERDER_SERVICE_MIGRATE=true` then recreate **web**.  
+    **v1.6 captures** are in the tree (footer **1.6.0** after the version bump). See [§ v1.6](#v160--pack-status).
+
+---
+
+## v1.6.0 — pack status {#v160--pack-status}
+
+**Captured** 2026-09-25. Figures are on [Web SSH](../../day-to-day/web-ssh-console.md), [Home Assistant](../../integrations/home-assistant.md), [System Info](../../day-to-day/system-info.md), and [Move a service](../../docker/service-migration.md). 1.4 and 1.5 PNGs stay unless a row below says replace.
+
+About / footer on these shots may still read **1.5.0** if they were taken before the package bump. Light theme, desktop width. Mask tokens. No PEMs, backup codes, or SMTP passwords.
+
+### New files (save these)
+
+| Pri | File | Surface | Must show | Wire into (after the file exists) |
+|-----|------|---------|-----------|-------------------------------------|
+| **P0** | `console-mux-features.png` | Server **Edit → Features** on a Debian/Pi | **Console mux (tmux / screen)** checkbox, default off is fine. Do not shoot HAOS (the box is hidden there) | [Web SSH](../../day-to-day/web-ssh-console.md) · [Add a server](../../day-to-day/add-server.md) |
+| **P0** | `console-mux-session.png` | Web SSH, that host’s mux **on**, `tmux` or `screen` present | Banner/note that the shell attached with mux (`mux tmux` or screen). Shell can be just a prompt | [Web SSH](../../day-to-day/web-ssh-console.md) |
+| **P0** | `ha-hacs-config.png` | HA config flow for PiHerder | Base URL filled. Token **masked** | [Home Assistant → PiHerder](../../integrations/home-assistant.md) |
+| **P0** | `ha-fleet-card.png` | Lovelace card `custom:piherder-dashboard-card` | Header: PiHerder logo + name. Fleet totals (hosts, CPU, containers, memory, disk). One host **expanded**. Chips: Host, Docker, Backups, Alerts, Audit | [Home Assistant → PiHerder](../../integrations/home-assistant.md) |
+| **P0** | `ha-fleet-sensors.png` | HA **Devices** | Fleet device (counts, Plugin **0.2.3** if visible) and one host device | [Home Assistant → PiHerder](../../integrations/home-assistant.md) |
+| **P1** | `ha-visit-host.png` | Browser after the host device **Visit** | Address bar on `{origin}/servers/{id}` (the herder host page, not HA history) | [Home Assistant → PiHerder](../../integrations/home-assistant.md) |
+| **P1** | `ha-slice1b-sensors.png` | Same host device, sensors list | At least one container sensor and disk % (service up/down if a monitor exists). No start/stop button | [Home Assistant → PiHerder](../../integrations/home-assistant.md) |
+| **P1** | `system-info-snapshot.png` | Herder **System Info** modal | Stored pretty OS, CPU cores/load, memory, disk. The **refresh icon** is in the modal header (no second button on the host page) | [System Info](../../day-to-day/system-info.md) |
+| **P1** | `docker-migrate-jobhold-undo.png` | JobHold after a Move failed at cutover / rebind / validate | Button **Undo** or **Confirm undo**, plus a bit of the preview log. Disposable stack only | [Move a service](../../docker/service-migration.md) · [Jobs](../../day-to-day/jobs-audit-notifications.md) |
+
+### Do not recapture for 1.6
+
+| File | Why leave it |
+|------|----------------|
+| `console-popup.png` | 1.5 PTY chrome. Mux gets its **own** file so this shot stays the plain console |
+| `docker-migrate-jobhold.png` | Green Move. Undo is a **separate** file |
+| `docker-migrate-jobhold-start-source.png` | Pre-flip **Start source stack** is unchanged |
+| `docker-migrate-wizard.png`, `docker-migrate-preflight.png`, `docker-host-lock.png` | Move wizard chrome unchanged |
+| `system-info-haos.png` | Path 1 HAOS modal. The new shot is the snapshot modal on a normal host |
+| `reports.png`, `server-detail.png`, `server-list.png`, `jobs-page.png` | Unchanged unless a 1.6 control is actually in that frame and looks wrong |
+| `demo-files.png` | Demo Files story unchanged. CSP is a response header, not a screen |
+| Login / settings / certs / maps / LAN | Unchanged |
+
+### Capture sequence (while you walk QA)
+
+1. **Mux off or on, Features** — `console-mux-features.png` before you hide the checkbox story.  
+2. **Mux on + shell** — `console-mux-session.png`. Then finish the Hide / ✕ checks; you do not need a second shot of an empty `tmux ls`.  
+3. **System Info** — refresh icon once so CPU/memory are filled, then `system-info-snapshot.png`.  
+4. **HA** — config flow (`ha-hacs-config.png`, token masked) → devices (`ha-fleet-sensors.png`) → Visit (`ha-visit-host.png`) → card (`ha-fleet-card.png`) → host sensors (`ha-slice1b-sensors.png`).  
+5. **Undo** — only if you stage a post-flip failure: `docker-migrate-jobhold-undo.png`. Do not overwrite `docker-migrate-jobhold.png`.  
+6. Drop the PNGs here, add the `![…]` figures on the pages in the table, `.venv-docs/bin/mkdocs build --strict`, commit PNGs and captions together.
 
 ---
 
@@ -199,6 +245,19 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 | **PiHerder backup** | **Full DR** (`pg_dump`) vs Config only |
 | **Add server** | Default SSH user **`pi`** |
 | **SSH access** | **Pinned host key** + reset |
+
+### New / changed in 1.6 (files not in the tree until captured)
+
+| Surface | Must show in PNGs |
+|---------|-------------------|
+| **Edit → Features** | **Console mux** on a Debian/Pi (hidden on HAOS — do not use HAOS for this shot) |
+| **Web SSH** | Mux-attached banner (`tmux` or `screen`), separate from `console-popup.png` |
+| **HA config flow** | Base URL; token masked |
+| **HA fleet card** | Totals, expanded host, section chips |
+| **HA devices** | Fleet device + host device; Visit lands on `/servers/{id}` |
+| **HA host sensors** | Container / service / disk from snapshots; no start/stop |
+| **System Info** | Stored CPU, memory, disk; refresh is the modal header icon |
+| **Move JobHold** | Undo is its own file. Do not replace the green Move shot |
 
 ### New / changed in 1.3
 

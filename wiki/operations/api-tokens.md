@@ -45,7 +45,7 @@ Optional IPs/CIDRs per token. Enforced using Caddy-forwarded client IP — call 
 
 ## CORS
 
-Off by default. Server-side n8n/HA/curl do **not** need CORS. Set `CORS_ORIGINS` only for browser apps on other origins (exact origins; never `*`). A first-class **HACS integration** (HA dashboard of the fleet) is **v1.6**; until then use `rest` sensors as in [API.md](https://github.com/bjorngluck/piherder/blob/main/docs/API.md).
+Off by default. Server-side n8n/HA/curl do **not** need CORS. Set `CORS_ORIGINS` only for browser apps on other origins (exact origins; never `*`). A first-class **HACS integration** (HA dashboard of the fleet) is **v1.6 Must** — operator page: [Home Assistant → PiHerder](../integrations/home-assistant.md). Token **`read`**. YAML `rest` remains possible ([API.md](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/docs/API.md)).
 
 ## Examples
 

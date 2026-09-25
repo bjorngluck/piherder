@@ -17,12 +17,16 @@ Browser flow:
 from __future__ import annotations
 
 import hashlib
+import logging
 import secrets
+import shlex
 import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 from ..config import settings
 from ..security.auth import (
@@ -551,10 +555,106 @@ def require_enabled() -> None:
         )
 
 
-def open_session_channel(server_snap: Any) -> tuple[Any, Any]:
+def mux_session_name(
+    *,
+    user_id: int,
+    server_id: int,
+    tab: int = 0,
+    identity_role: str = "fleet",
+) -> str:
+    """Host-side session name. Never a shared ``piherder`` session.
+
+    Pattern ``ph-u{user}-s{server}-n{tab}-{f|p}`` — privileged vs fleet stay
+    isolated (no attach across identities).
+    """
+    try:
+        t = max(0, min(int(tab), 99))
+    except (TypeError, ValueError):
+        t = 0
+    role = "p" if (identity_role or "").strip().lower() == "privileged" else "f"
+    return f"ph-u{int(user_id)}-s{int(server_id)}-n{t}-{role}"
+
+
+def mux_allowed_for_server(server: Any) -> bool:
+    """True when Mux-1 may run on this host (opt-in, not demo, not HAOS)."""
+    if is_demo_console():
+        return False
+    os_type = (getattr(server, "os_type", None) or "").lower()
+    if "haos" in os_type:
+        return False
+    return bool(getattr(server, "console_mux_enabled", False))
+
+
+def probe_mux_backend(client: Any) -> Optional[str]:
+    """tmux, then screen, else None. Never apt-installs."""
+    if client is None:
+        return None
+    from .ssh import run_command
+
+    try:
+        st, out, _err = run_command(
+            client, "command -v tmux 2>/dev/null || true", timeout=8
+        )
+        if st == 0 and (out or "").strip():
+            return "tmux"
+    except Exception:
+        pass
+    try:
+        st, out, _err = run_command(
+            client, "command -v screen 2>/dev/null || true", timeout=8
+        )
+        if st == 0 and (out or "").strip():
+            return "screen"
+    except Exception:
+        pass
+    return None
+
+
+def mux_exec_argv(backend: str, session_name: str) -> str:
+    name = shlex.quote(session_name)
+    if backend == "tmux":
+        return f"tmux -u new-session -A -s {name}"
+    if backend == "screen":
+        return f"screen -S {name} -d -RR"
+    raise ValueError("unknown mux backend")
+
+
+def kill_mux_session(client: Any, backend: Optional[str], session_name: str) -> None:
+    """✕ / tab close — destroy the host session. Hide/park must not call this."""
+    if client is None or not backend or not session_name:
+        return
+    from .ssh import run_command
+
+    q = shlex.quote(session_name)
+    try:
+        if backend == "tmux":
+            run_command(client, f"tmux kill-session -t {q} 2>/dev/null || true", timeout=8)
+        elif backend == "screen":
+            run_command(client, f"screen -S {q} -X quit 2>/dev/null || true", timeout=8)
+    except Exception:
+        logger.debug("mux kill %s %s failed", backend, session_name, exc_info=True)
+
+
+def _attach_mux_meta(client: Any, *, backend: Optional[str], name: str, note: str) -> None:
+    try:
+        client._ph_mux_backend = backend
+        client._ph_mux_name = name
+        client._ph_mux_note = note
+    except Exception:
+        pass
+
+
+def open_session_channel(
+    server_snap: Any,
+    *,
+    mux_enabled: bool = False,
+    session_name: str = "",
+) -> tuple[Any, Any]:
     """Open PTY channel for a host.
 
     Demo mode: simulated shell (no network). Production: Paramiko SSH.
+    Mux-1: when *mux_enabled* and tmux/screen exist, exec a named session;
+    otherwise plain ``invoke_shell`` (never refuse the console).
     """
     if is_demo_console():
         from .demo_console import open_demo_shell
@@ -565,11 +665,44 @@ def open_session_channel(server_snap: Any) -> tuple[Any, Any]:
             or "demo-host"
         )
         user = getattr(server_snap, "ssh_username", None) or "demo"
-        return open_demo_shell(host_label=str(label), username=str(user))
+        client, channel = open_demo_shell(host_label=str(label), username=str(user))
+        _attach_mux_meta(client, backend=None, name="", note="demo")
+        return client, channel
 
     from . import ssh as ssh_service
 
     client = ssh_service.get_ssh_client(server_snap)
+    want_mux = bool(mux_enabled) and bool(session_name) and mux_allowed_for_server(server_snap)
+    if want_mux:
+        backend = probe_mux_backend(client)
+        if backend:
+            try:
+                transport = client.get_transport()
+                if transport is None:
+                    raise RuntimeError("no transport")
+                chan = transport.open_session()
+                chan.get_pty(term="xterm-256color", width=120, height=40)
+                chan.exec_command(mux_exec_argv(backend, session_name))
+                chan.settimeout(0.0)
+                _attach_mux_meta(
+                    client, backend=backend, name=session_name, note=backend
+                )
+                return client, chan
+            except Exception:
+                logger.info(
+                    "mux %s attach failed for %s — falling back to PTY",
+                    backend,
+                    session_name,
+                    exc_info=True,
+                )
+                _attach_mux_meta(
+                    client, backend=None, name=session_name, note="mux_failed"
+                )
+        else:
+            _attach_mux_meta(client, backend=None, name=session_name, note="no_binary")
+    else:
+        _attach_mux_meta(client, backend=None, name="", note="pty")
+
     channel = client.invoke_shell(term="xterm-256color", width=120, height=40)
     channel.settimeout(0.0)
     return client, channel
@@ -603,6 +736,7 @@ def mint_ticket(
     identity_id: Optional[int] = None,
     identity_role: Optional[str] = None,
     reason: Optional[str] = None,
+    tab: int = 0,
 ) -> str:
     """
     Short-lived single-use ticket.
@@ -628,6 +762,10 @@ def mint_ticket(
     why = (reason or "").strip()[:200]
     if why:
         payload["why"] = why
+    try:
+        payload["n"] = max(0, min(int(tab), 99))
+    except (TypeError, ValueError):
+        payload["n"] = 0
     if bind_ip_enabled() and client_ip:
         payload["iph"] = _hash_binding(normalize_ip(client_ip))
     if bind_device_enabled() and device_id:
@@ -1028,6 +1166,8 @@ class HeldConsole:
     out_buf: bytearray = field(default_factory=bytearray)
     dead: bool = False
     recorder: Any = None
+    mux_backend: Optional[str] = None
+    mux_name: str = ""
 
     def append_out(self, data: bytes) -> None:
         if not data:
@@ -1129,8 +1269,22 @@ def claim_resume(
     return held
 
 
-def _destroy_held_resources(held: HeldConsole, *, release_slot_user: Optional[int]) -> None:
+def _destroy_held_resources(
+    held: HeldConsole,
+    *,
+    release_slot_user: Optional[int],
+    kill_mux: bool = False,
+) -> None:
     held.dead = True
+    if kill_mux:
+        try:
+            kill_mux_session(
+                held.client,
+                getattr(held, "mux_backend", None),
+                getattr(held, "mux_name", "") or "",
+            )
+        except Exception:
+            pass
     rec = getattr(held, "recorder", None)
     if rec is not None and not getattr(rec, "finalized", True):
         try:
@@ -1173,13 +1327,19 @@ def _destroy_held_resources(held: HeldConsole, *, release_slot_user: Optional[in
 
 
 def destroy_held(resume_id: str, *, reason: str = "") -> bool:
-    """Fully tear down a parked console (idle/max/bye). Releases slot."""
-    del reason  # for logging callers
+    """Fully tear down a parked console (idle/max/bye). Releases slot.
+
+    Idle/hold/EOF leave the host mux session (detach). Explicit user discard
+    kills the named tmux/screen session.
+    """
+    kill_mux = (reason or "") in ("user_discard_all", "bye", "user_discard")
     with _lock:
         held = _held_sessions.pop(resume_id or "", None)
     if not held:
         return False
-    _destroy_held_resources(held, release_slot_user=held.user_id)
+    _destroy_held_resources(
+        held, release_slot_user=held.user_id, kill_mux=kill_mux
+    )
     return True
 
 
@@ -1209,7 +1369,7 @@ def discard_parked_for_user(
         held = _held_sessions.pop(rid, None)
     if not held:
         return False
-    _destroy_held_resources(held, release_slot_user=held.user_id)
+    _destroy_held_resources(held, release_slot_user=held.user_id, kill_mux=True)
     return True
 
 

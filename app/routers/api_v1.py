@@ -13,8 +13,9 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from ..database import get_session
-from ..models import ApiToken, Job, Server, User
+from ..models import ApiToken, Job, Notification, Server, User
 from ..security.auth import get_admin_user
+from ..services import api_summary as summary_svc
 from ..services import api_tokens as tok_svc
 from ..services import jobs as job_service
 from ..services import os_patching
@@ -130,8 +131,51 @@ def get_api_auth(
     return ApiAuth(token, client_ip=client_ip)
 
 
-def _server_public(s: Server) -> dict[str, Any]:
+def _container_count(s: Server) -> int | None:
+    try:
+        from ..services import docker_inventory as inventory_svc
+
+        n = inventory_svc.inventory_meta(s).get("container_count")
+        return int(n) if n is not None else None
+    except (TypeError, ValueError, Exception):
+        return None
+
+
+def _api_utc_iso(dt: Any) -> str | None:
+    if dt is None:
+        return None
+    try:
+        s = dt.isoformat()
+    except Exception:
+        return None
+    if s.endswith("Z") or (len(s) >= 6 and s[-6] in "+-" and s[-3] == ":"):
+        return s
+    return s + "Z"
+
+
+def _open_alerts_by_server(session: Session) -> dict[int, list[dict[str, Any]]]:
+    rows = session.exec(select(Notification).where(Notification.status == "open")).all()
+    out: dict[int, list[dict[str, Any]]] = {}
+    for n in rows:
+        if not n.server_id:
+            continue
+        out.setdefault(int(n.server_id), []).append(
+            {
+                "severity": n.severity,
+                "title": n.title,
+                "type": n.type,
+            }
+        )
+    return out
+
+
+def _server_public(
+    s: Server, *, alerts: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
     inv_status = getattr(s, "docker_inventory_status", None) or "never"
+    alert_rows = list(alerts or [])
+    last_backup = _api_utc_iso(s.last_backup_at)
+    last_seen = _api_utc_iso(s.last_seen)
     return {
         "id": s.id,
         "name": s.name,
@@ -140,13 +184,32 @@ def _server_public(s: Server) -> dict[str, Any]:
         "ssh_port": s.ssh_port,
         "ssh_username": s.ssh_username,
         "os_type": s.os_type,
-        "last_seen": s.last_seen.isoformat() if s.last_seen else None,
+        "os_id": getattr(s, "os_id", None),
+        "os_pretty": getattr(s, "os_pretty", None),
+        "os_display": summary_svc.os_display_label(
+            s.os_type,
+            s.os_updates_summary,
+            os_pretty=getattr(s, "os_pretty", None),
+            os_id=getattr(s, "os_id", None),
+        ),
+        "hardware": getattr(s, "hardware", None),
+        "arch": getattr(s, "arch", None),
+        "host_facts_at": _api_utc_iso(getattr(s, "host_facts_at", None)),
+        "host_facts_status": getattr(s, "host_facts_status", None) or "never",
+        "cpu_cores": getattr(s, "cpu_cores", None),
+        "cpu_load": getattr(s, "cpu_load", None),
+        "memory_total_bytes": getattr(s, "memory_total_bytes", None),
+        "memory_used_bytes": getattr(s, "memory_used_bytes", None),
+        "disk_total_bytes": getattr(s, "disk_total_bytes", None),
+        "disk_used_bytes": getattr(s, "disk_used_bytes", None),
+        "container_count": _container_count(s),
+        "last_seen": last_seen,
         "features": {
             "backup": bool(s.backup_enabled),
             "os_patch": bool(s.os_patch_enabled),
             "docker": bool(s.container_patch_enabled),
         },
-        "last_backup_at": s.last_backup_at.isoformat() if s.last_backup_at else None,
+        "last_backup_at": last_backup,
         "os_updates_count": s.os_updates_count,
         "container_updates_count": s.container_updates_count,
         "reboot_pending": bool(s.reboot_pending),
@@ -158,6 +221,10 @@ def _server_public(s: Server) -> dict[str, Any]:
         "docker_inventory_at": (
             s.docker_inventory_at.isoformat() if s.docker_inventory_at else None
         ),
+        "alerts_open": len(alert_rows),
+        "alert_title": alert_rows[0]["title"] if alert_rows else None,
+        "alert_severity": alert_rows[0]["severity"] if alert_rows else None,
+        "alerts": alert_rows[:8],
     }
 
 
@@ -193,6 +260,24 @@ def api_health(auth: ApiAuth = Depends(get_api_auth)):
     }
 
 
+@router.get(
+    "/summary",
+    summary="Fleet heartbeat",
+    description="Cheap DB snapshot for HA coordinators (scope `read`). Never SSH.",
+)
+def api_summary(
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    auth.require(tok_svc.SCOPE_READ)
+    servers = list(session.exec(select(Server)).all())
+    jobs = job_service.list_jobs(session, active_only=True, limit=100)
+    alert_n = len(session.exec(select(Notification).where(Notification.status == "open")).all())
+    out = summary_svc.fleet_summary(servers, jobs, alerts_open=alert_n)
+    out["containers"] = sum(_container_count(s) or 0 for s in servers)
+    return out
+
+
 # ---------- Fleet read ----------
 
 
@@ -215,13 +300,101 @@ def list_servers(
     lim = lq.clamp_api_limit(limit)
     off = lq.parse_offset(offset)
     page_rows = rows[off : off + lim]
+    alert_map = _open_alerts_by_server(session)
     return {
-        "servers": [_server_public(s) for s in page_rows],
+        "servers": [
+            _server_public(s, alerts=alert_map.get(int(s.id or 0), [])) for s in page_rows
+        ],
         "total": total,
         "limit": lim,
         "offset": off,
         "q": q,
     }
+
+
+def _inventory_public(server: Server) -> dict[str, Any]:
+    from ..services import docker_inventory as inventory_svc
+
+    containers = inventory_svc.snapshot_containers(server)
+    return {
+        "server_id": server.id,
+        "name": server.name,
+        "status": getattr(server, "docker_inventory_status", None) or "never",
+        "at": _api_utc_iso(getattr(server, "docker_inventory_at", None)),
+        "os_display": summary_svc.os_display_label(
+            server.os_type,
+            server.os_updates_summary,
+            os_pretty=getattr(server, "os_pretty", None),
+            os_id=getattr(server, "os_id", None),
+        ),
+        "os_pretty": getattr(server, "os_pretty", None),
+        "hardware": getattr(server, "hardware", None),
+        "disk_total_bytes": getattr(server, "disk_total_bytes", None),
+        "disk_used_bytes": getattr(server, "disk_used_bytes", None),
+        "containers": containers,
+        "container_count": len(containers),
+    }
+
+
+def _service_public(chip: dict[str, Any]) -> dict[str, Any]:
+    checked = chip.get("checked_at")
+    if hasattr(checked, "isoformat"):
+        checked = _api_utc_iso(checked)
+    return {
+        "id": chip.get("id"),
+        "server_id": chip.get("server_id"),
+        "server_name": chip.get("server_name"),
+        "label": chip.get("label") or "",
+        "state": chip.get("state") or "unknown",
+        "message": chip.get("message") or "",
+        "scope": chip.get("scope") or "",
+        "docker_project": chip.get("docker_project") or "",
+        "docker_container": chip.get("docker_container") or "",
+        "checked_at": checked,
+    }
+
+
+@router.get("/inventory", summary="Fleet Docker inventory snapshots")
+def api_inventory(
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    """Last stored Docker inventory for every host. Never SSH."""
+    auth.require(tok_svc.SCOPE_READ)
+    servers = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
+    hosts = [_inventory_public(s) for s in servers]
+    return {
+        "hosts": hosts,
+        "container_count": sum(h["container_count"] for h in hosts),
+    }
+
+
+@router.get("/servers/{server_id}/inventory", summary="Host Docker inventory snapshot")
+def api_server_inventory(
+    server_id: int,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    """Last stored Docker inventory for one host. Never SSH."""
+    auth.require(tok_svc.SCOPE_READ)
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404, detail="Server not found")
+    return _inventory_public(server)
+
+
+@router.get("/services", summary="Fleet service monitor snapshots")
+def api_services(
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    """Service up/down from stored integration bindings. Never polls Kuma/NPM here."""
+    auth.require(tok_svc.SCOPE_READ)
+    from ..services.integrations import registry as integ_reg
+
+    chips = integ_reg.fleet_service_chips(session)
+    services = [_service_public(c) for c in chips]
+    return {"services": services, "count": len(services)}
 
 
 @router.get("/servers/{server_id}", summary="Get server")
@@ -234,7 +407,8 @@ def get_server(
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404, detail="Server not found")
-    return _server_public(server)
+    alert_map = _open_alerts_by_server(session)
+    return _server_public(server, alerts=alert_map.get(int(server.id or 0), []))
 
 
 class ServerFeaturesBody(BaseModel):

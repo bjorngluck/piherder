@@ -94,11 +94,20 @@ async def get_server_diagnostics(
     if not server:
         raise HTTPException(404)
     try:
-        data = await run_in_threadpool(diag_svc.run_diagnostics, server, bool(force))
+        from ..services import host_facts as facts_svc
+
+        if not force:
+            snap = facts_svc.snapshot_from_server(server)
+            if (getattr(server, "host_facts_status", None) or "never") != "never":
+                snap["from_snapshot"] = True
+                return snap
+        data = await run_in_threadpool(diag_svc.run_diagnostics, server, True)
+        data = facts_svc._enrich_from_diagnostics(data)
+        facts_svc.apply_snapshot(session, server, data)
+        data["from_snapshot"] = False
         return data
     except Exception as e:
-        return {"error": str(e)[:200], "hostname": server.hostname
-    }
+        return {"error": str(e)[:200], "hostname": server.hostname}
 
 
 @router.post("/{server_id}/run/container_patch")
@@ -255,6 +264,8 @@ async def get_server_job_status(
         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
         "failed_step": details.get("failed_step"),
         "recover_source": details.get("recover_source"),
+        "undo_move": details.get("undo_move"),
+        "undo_completed": bool(details.get("undo_completed")),
     }
 
 

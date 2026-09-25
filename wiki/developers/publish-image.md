@@ -1,20 +1,22 @@
 # Publish multi-arch image
 
-Multi-arch images on **Docker Hub**: [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (**v1.5.0** production, `linux/amd64` + `linux/arm64`). Full maintainer checklist: [`docs/PUBLISH_IMAGE.md`](https://github.com/bjorngluck/piherder/blob/main/docs/PUBLISH_IMAGE.md).
+Multi-arch images on **Docker Hub**: [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (**v1.6.0** production, `linux/amd64` + `linux/arm64`). Full maintainer checklist: [`docs/PUBLISH_IMAGE.md`](https://github.com/bjorngluck/piherder/blob/main/docs/PUBLISH_IMAGE.md).
 
 ## Hub listing checklist
 
 1. Description + overview  
 2. Logo / screenshots  
-3. Link to [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.5.0.md)  
+3. Link to [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.6.0.md)  
 4. Link description to GitHub + [these docs](https://piherder-docs.hacknow.info/)
 
 ## Tags
 
 | Tag | Meaning |
 |-----|---------|
-| `1.5.0` | Immutable release |
-| `1.5` | Rolling minor |
+| `1.6.0` | Immutable release |
+| `1.6` | Rolling minor |
+| `1.5.0` | Prior 1.5 pin |
+| `1.5` | Prior rolling minor |
 | `1.4.0` | Prior 1.4 pin |
 | `1.4` | Prior rolling minor |
 | `1.3.0` | Prior 1.3 pin |
@@ -31,13 +33,13 @@ Images: `bjorngluck/piherder` (optional later: `ghcr.io/bjorngluck/piherder`).
 
 ```bash
 export IMAGE=bjorngluck/piherder
-export VERSION=1.5.0
+export VERSION=1.6.0
 
 docker buildx create --use --name piherder-builder --driver docker-container 2>/dev/null || true
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t "${IMAGE}:${VERSION}" \
-  -t "${IMAGE}:1.5" \
+  -t "${IMAGE}:1.6" \
   -t "${IMAGE}:latest" \
   --push .
 ```

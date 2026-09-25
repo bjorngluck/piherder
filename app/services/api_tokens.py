@@ -583,8 +583,12 @@ def api_meta_dict() -> dict:
         "endpoints": [
             {"method": "GET", "path": "/api/v1", "scope": "read", "summary": "API meta / catalog"},
             {"method": "GET", "path": "/api/v1/health", "scope": "read", "summary": "Token health + scopes"},
+            {"method": "GET", "path": "/api/v1/summary", "scope": "read", "summary": "Fleet heartbeat (hosts, updates, jobs)"},
             {"method": "GET", "path": "/api/v1/servers", "scope": "read", "summary": "List servers"},
             {"method": "GET", "path": "/api/v1/servers/{id}", "scope": "read", "summary": "Server detail"},
+            {"method": "GET", "path": "/api/v1/inventory", "scope": "read", "summary": "Fleet Docker inventory snapshots (no SSH)"},
+            {"method": "GET", "path": "/api/v1/servers/{id}/inventory", "scope": "read", "summary": "One host Docker inventory snapshot (no SSH)"},
+            {"method": "GET", "path": "/api/v1/services", "scope": "read", "summary": "Fleet service up/down from stored monitor chips"},
             {
                 "method": "PATCH",
                 "path": "/api/v1/servers/{id}/features",

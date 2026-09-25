@@ -244,6 +244,7 @@ const JOBS = {{ jobs | tojson | safe }};
       </div>
       <div class="flex flex-wrap gap-2 flex-shrink-0">
         <button type="button" id="job-detail-cancel" class="btn btn-danger min-h-11 text-sm px-3 hidden">Cancel job</button>
+        <button type="button" id="job-detail-undo" class="btn btn-secondary min-h-11 text-sm px-3 hidden">Undo move</button>
         <button type="button" onclick="hideJobDetailsModal()" class="btn btn-secondary min-h-11 text-sm px-3">Close</button>
       </div>
     </div>
@@ -273,6 +274,7 @@ function renderJobDetailsModal(job, opts) {
   const title = document.getElementById('job-detail-title');
   const meta = document.getElementById('job-detail-meta');
   const cancelBtn = document.getElementById('job-detail-cancel');
+  const undoBtn = document.getElementById('job-detail-undo');
   if (!modal || !pre || !job) return;
   _jobModalJob = job;
   if (title) title.textContent = (job.job_type_label || job.job_type || 'Job') + ' #' + job.id;
@@ -299,6 +301,19 @@ function renderJobDetailsModal(job, opts) {
       );
     }
     meta.innerHTML = parts.join(' ');
+  }
+  if (undoBtn) {
+    var canUndo = job.status === 'failed' && job.job_type === 'service_migrate' && !job.undo_completed && job.undo_move && job.undo_move.project && job.server_id;
+    if (canUndo) {
+      undoBtn.classList.remove('hidden');
+      undoBtn.dataset.parentJob = String(job.id);
+      undoBtn.dataset.serverId = String(job.server_id);
+      undoBtn.textContent = 'Undo move';
+      undoBtn.dataset.armed = '';
+    } else {
+      undoBtn.classList.add('hidden');
+      delete undoBtn.dataset.parentJob;
+    }
   }
   if (cancelBtn) {
     if (job.cancellable) {
@@ -429,6 +444,65 @@ async function cancelJobById(jobId, label) {
     alert('Network error cancelling job');
   }
 }
+
+document.getElementById('job-detail-undo')?.addEventListener('click', async function () {
+  var btn = document.getElementById('job-detail-undo');
+  if (!btn || btn.classList.contains('hidden')) return;
+  var parentId = btn.dataset.parentJob;
+  var sid = btn.dataset.serverId;
+  if (!parentId || !sid) return;
+  var pre = document.getElementById('job-details-content');
+  if (!btn.dataset.armed) {
+    btn.disabled = true;
+    try {
+      var res = await fetch('/servers/' + encodeURIComponent(sid) + '/docker/migrate/undo/preview?parent_job_id=' + encodeURIComponent(parentId), {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      });
+      var data = {};
+      try { data = await res.json(); } catch (_) {}
+      if (!res.ok) {
+        if (pre) pre.textContent += '\n' + (data.detail || ('HTTP ' + res.status));
+        btn.disabled = false;
+        return;
+      }
+      var lines = ['', '—— undo preview ——', 'Project: ' + (data.project || '')];
+      lines.push('Dest stop (files stay): ' + (data.dest_path || ''));
+      lines.push('Source start: ' + (data.source_path || ''));
+      if (data.fqdns && data.fqdns.length) lines.push('DNS: ' + data.fqdns.join(', '));
+      if (data.npm && data.npm.length) lines.push('NPM: ' + data.npm.join(', '));
+      if (pre) pre.textContent += lines.join('\n') + '\n';
+      btn.dataset.armed = '1';
+      btn.textContent = 'Confirm undo';
+    } catch (e) {
+      if (pre) pre.textContent += '\npreview failed';
+    }
+    btn.disabled = false;
+    return;
+  }
+  btn.disabled = true;
+  var body = new FormData();
+  body.set('parent_job_id', parentId);
+  body.set('confirm', '1');
+  try {
+    var post = await fetch('/servers/' + encodeURIComponent(sid) + '/docker/migrate/undo', {
+      method: 'POST',
+      body: body,
+      credentials: 'same-origin',
+      headers: { 'X-PiHerder-Async': '1', 'Accept': 'application/json' }
+    });
+    var queued = {};
+    try { queued = await post.json(); } catch (_) {}
+    if (!post.ok) {
+      if (pre) pre.textContent += '\n' + (queued.detail || ('HTTP ' + post.status));
+      btn.disabled = false;
+      return;
+    }
+    if (queued.job_id) window.location.href = '/jobs?highlight=' + encodeURIComponent(queued.job_id);
+  } catch (e2) {
+    btn.disabled = false;
+  }
+});
 
 // Capture phase so Cancel still works if a parent calls stopPropagation
 document.addEventListener('click', function (e) {

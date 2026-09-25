@@ -1,22 +1,25 @@
 # PiHerder v1.7.0 — candidate (not opened)
 
 **Status:** **Under consideration** — train **not** opened. Do not start product code here.  
-**Date parked:** 2026-09-18  
+**Date parked:** 2026-09-18 · **inbox grown:** 2026-09-19 (from v1.6 lock) · **2026-09-25** (MCP)  
 **Git branch:** none yet (`v1.7.0-dev` at train open)  
-**Production until then:** `main` stays **v1.4.x** until **v1.5.0** freezes, then **v1.5.x** / **v1.6.x**  
+**Production until then:** `main` is **v1.6.x**  
 **Related:** [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md)
 
-Theme and Must/Should lock at **train open**. This file is only the parked inbox so 1.5/1.6 do not grow leftovers.
+Theme and Must/Should lock at **train open**. This file is only the parked inbox so 1.6 does not grow leftovers.
 
 ---
 
-## Parked inbox (from 1.5)
+## Parked inbox
 
 | ID | Item | Notes |
 |----|------|--------|
 | **J-runtime** | Remaining web-process jobs → Celery | **1.5 Discover written.** **Jr-1:** all remaining exclusive types in **one go** (`os_patch`, `container_patch`, update-checks, `docker_stack_*`, templates) onto the **default** Celery queue. Host down (Kuma/SSH): **queue + retry** until SSH or max wait; exclusive slot held. Worker kill of a **running** apt/compose: **fail honest**. nmap stays `-Q nmap`. Not Must until this train locks. [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 J-runtime. |
+| **AC-fg** | Fine-grained / per-host / per-feature grants | **Out of 1.5 and 1.6** (2026-09-19). Three global roles stay. Not multi-tenant SaaS. No discover spike yet. |
+| **Brand-1/2** | Instance wordmark + one accent; hide Catalog in nav | **1.5 Discover written.** **Out of 1.6** (2026-09-19). Official mark + primary red stay. No theme engine, no logo upload. Demo ignored. Brand-3 (own-docs MkDocs skin) later. [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. |
+| **MCP-1** | Read-only MCP adapter for agents | **Not product code in the PiHerder image.** Own repo, same shape as `piherder-ha`. stdio process. Config is `PIHERDER_URL` plus a scope-`read` API token. Tools wrap existing `/api/v1` only: health, summary, servers, inventory, services, jobs. No SSH. Job triggers, file upload/delete, console, Move, and undo stay out of the first cut. Do not generate every OpenAPI route as a tool. Remote HTTP MCP only if an agent off the host must reach the instance. Not Must until this train locks. |
 
-**Not parked here:** 1.6 inbox (HA-p2 ship, AC-fg, Q-80, CSP-n Slice 1, M-undo, W-mux, Brand, 0.x archive) — see [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
+**Not parked here:** the v1.6 train (HA-p2, Mux-1, Q-80, Slice 1b, Docs-archive, CSP-n Slice 1, Undo-1) lives on [PLAN_v1.6.0.md](PLAN_v1.6.0.md). Those streams are on `v1.6.0-dev`. Operator QA and the freeze are still that train.
 
 ---
 
@@ -25,5 +28,7 @@ Theme and Must/Should lock at **train open**. This file is only the parked inbox
 | Date | Note |
 |------|------|
 | 2026-09-18 | Candidate file created. Inbox: **J-runtime** (one job runtime for remaining exclusive types + host-down wait). Train not opened. |
+| 2026-09-19 | **v1.6 opened.** Inbox grew: **AC-fg** and **Brand-1/2** (both out of 1.6). |
+| 2026-09-25 | Inbox grew: **MCP-1** (read-only agent adapter, separate repo, `/api/v1` read token). Not started. |
 
-*Open the train with a real Must/Should lock. Until then production is still [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) (then 1.5 / 1.6).*
+*Open the train with a real Must/Should lock. Until then production is [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) (then 1.6).*

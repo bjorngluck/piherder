@@ -2736,17 +2736,15 @@ def _is_private_ip(ip: str | None) -> bool | None:
 
 
 def _host_is_cloud(ip: str | None, lan_subnet: str) -> bool:
-    """Cloud/VPS when outside configured LAN, or public IP when no subnet set."""
-    on_lan = _ip_in_lan(ip, lan_subnet)
-    if on_lan is True:
+    """Public addresses sit on Internet. Other private ranges stay off that node.
+
+    An address inside the configured LAN is never cloud. A private address
+    outside that CIDR is still not cloud: a wrong subnet must not draw the
+    home fleet on Internet. Only a public address is cloud.
+    """
+    if _ip_in_lan(ip, lan_subnet) is True:
         return False
-    if on_lan is False:
-        return True
-    # No subnet (or no IP match): treat non-RFC1918 addresses as cloud/WAN hosts.
-    priv = _is_private_ip(ip)
-    if priv is False:
-        return True
-    return False
+    return _is_private_ip(ip) is False
 
 
 def _resolve_network_kuma_monitor(

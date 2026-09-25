@@ -157,6 +157,7 @@ nav:
       - Reports: day-to-day/reports.md
       - Pins & host jump: day-to-day/navigation-pins.md
       - Add a server: day-to-day/add-server.md
+      - System Info: day-to-day/system-info.md
       - HAOS hosts: day-to-day/haos-hosts.md
       - Host Files: day-to-day/host-files.md
       - Backups & restore: day-to-day/backups.md
@@ -182,6 +183,7 @@ nav:
       - LAN Discovery (nmap): integrations/lan-discovery.md
       - Nginx Proxy Manager: integrations/npm.md
       - Generic links (HA / Frigate / n8n): integrations/generic-links.md
+      - Home Assistant (HACS): integrations/home-assistant.md
       - Certificates: integrations/certificates.md
       - Obtain a cert (ACME): integrations/certificates-obtain-acme.md
   - Account & security:

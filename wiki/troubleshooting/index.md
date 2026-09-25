@@ -13,7 +13,7 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | SSH / key / deps / docker group | [SSH, rsync & dependencies](ssh-rsync.md) |
 | SSH “host key changed” / mismatch after rebuild | [SSH troubleshooting](ssh-rsync.md#cannot-connect) — reset the **pinned** key on SSH access, then Test connection |
 | Web container exits immediately / weak `SECRET_KEY` | Set a long random `SECRET_KEY`. 1.2 **refuses boot** on compose defaults unless `PIHERDER_ALLOW_INSECURE` ([env](../operations/env-reference.md)) |
-| HAOS: no `ha`, versions `?`, disk empty | [HAOS hosts](../day-to-day/haos-hosts.md) · System info **Refresh**; SSH add-on + `ha` on PATH; rsync for backups |
+| HAOS: no `ha`, versions `?`, disk empty | [HAOS hosts](../day-to-day/haos-hosts.md) · System info **refresh icon**; SSH add-on + `ha` on PATH; rsync for backups |
 | HAOS OS check says unsupported / apt | Set host profile **HAOS** or re-run check to auto-mark; rebuild web if image stale |
 | Backup failed / stuck pending | [Backups](backups.md) |
 | No push on phone / PWA | [Push / PWA](push.md) |
@@ -43,6 +43,7 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Move job TLS / Kuma red | No auto-rollback. Dest may already be up with names flipped. Fix dest. Staging kept under `/backups/_migrate/{job_id}` |
 | Move succeeded but NPM still points at the old Pi | Job skipped PUT when there was no fabric DNS row. Current train PUTs from the **proxy-host binding**. Rebuild **web**, poll NPM, or Move again. Optional **Adopt into fabric** puts the name on the DNS list without rewriting Pi-hole |
 | Move copy / dest-up failed; source is stopped | JobHold **Start source stack** (same as Docker ⋯ Start all). Dest names were not flipped |
+| Move failed after DNS / NPM / rebind | JobHold or the job detail **Undo move** (preview, then confirm). Dest is stopped, not deleted. A green Move has no Undo |
 | Grafana chip missing on dest after Move | Only **Containers** (project/container) binds follow dest. Host metrics/logs stay. Rebuild web if dest Docker still shows the old host |
 | Map **stack** mode has no container after Move | Stack reads dest **Docker inventory**. Job **#1100** failed at rebind (duplicate Grafana bind) after dest was already up — dest snapshot stayed empty. Refresh Docker on dest (or rebuild web: dest inventory refreshes after `up`). Duplicate dest Grafana chips are dropped, not copied |
 | Move leftover wipe did too little / too much | Default leaves source stopped. **Remove source** only deletes the jailed project dir + copied named volumes — dest never, extra binds outside the project folder stay |

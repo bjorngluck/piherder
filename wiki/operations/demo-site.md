@@ -33,14 +33,15 @@ Some deployments also use **Cloudflare Access** as an outer email gate before th
 - Data re-seeds on a schedule (and after operator maintenance) — treat everything as disposable  
 - **Audit client IPs are scrubbed** — login and other events still appear, but real visitor addresses are stored/shown as `redacted` (column **and** the details body, including console `ip=…`). Seeded lab IPs like `10.42.x` may remain. The shared account must not leak other people’s IPs.  
 - **OpenAPI is off** — `/openapi.json`, `/docs`, and `/redoc` return 404 on the public demo (API tokens are disabled anyway). Use your own install for the interactive schema.  
-- **Web SSH console is simulated** on the public demo — open **Console** from a host for a toy shell (help / ls / whoami). **No live SSH**, no network, no real keys. Settings → Console / Security writes **403** (not a multi-tenant shell farm). Your own install uses real Paramiko shells when `PIHERDER_SSH_CONSOLE=true`.  
+- **Web SSH console is simulated** on the public demo — open **Console** from a host for a toy shell (help / ls / whoami). **No live SSH**, no network, no real keys. **Host mux never runs on demo.** Settings → Console / Security writes **403** (not a multi-tenant shell farm). Your own install uses real Paramiko shells when `PIHERDER_SSH_CONSOLE=true`.  
 - **Host Files is simulated** on the public demo — same chrome as a real explorer, **canned** tree (no SFTP, no host disk). Shared **viewer** may browse and open small files / image preview. Upload / delete / zip / privileged are refused. Your own install uses jailed SFTP only when `PIHERDER_HOST_FILES=true` (leave that **off** on the public VPS).
 
 <figure class="ph-figure" markdown>
   ![Demo Files](../assets/screenshots/demo-files.png)
   <figcaption>Demo Files — simulated tree, browse-only, same chrome as a real herder.</figcaption>
 </figure>  
-- **Service migrate is off** — no dest picker, no dataset copy. Host **lock / unlock** exists on a real install without the migrate flag. [Move a service](../docker/service-migration.md).  
+- **Service migrate is off** — no dest picker, no dataset copy, no **Undo move**. Host **lock / unlock** exists on a real install without the migrate flag. [Move a service](../docker/service-migration.md).  
+- **This sandbox tracks `v1.6.0-dev`.** The About / footer still say **1.5.0** until that train is tagged. Script policy is **report-only** (a missed inline script is reported, not blocked). Your own install **enforces** the nonce policy. Do not treat the demo as the CSP or Move test bed.  
 
 !!! note "Demo screens are not always 100% aligned with a real fleet"
     Some screens and highlighted features on the demo **will not match a real self-hosted implementation pixel-for-pixel**. Hosts, inventory, jobs, maps, and integrations are **seeded or simulated** so the sandbox stays safe and disposable. You may see canned job results, static sample data, or simplified / empty panels where a live deploy would talk to real Pis, Docker, or external services. Treat the demo as a **UI tour** — your own install against real hosts is the accurate product experience.

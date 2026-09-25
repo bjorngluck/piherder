@@ -6,7 +6,7 @@
 **Package / image version:** `1.4.0`  
 **Theme:** **Service migration** — move a Docker Compose project host→host with dataset copy, DNS / NPM retarget, resolver flush, TLS / Kuma validate, **host lock**, and leftover policy  
 **Baseline:** `v1.3.0` (tagged 2026-08-22)  
-**Mode:** **Shipped.** Must **M1–M9** + **M-npm** + **D-F** + **M-rm**. User notes [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Next train: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) (**Active** — **M-worker**).  
+**Mode:** **Shipped.** Must **M1–M9** + **M-npm** + **D-F** + **M-rm**. User notes [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Next: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) (**tagged**) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) (**Active**).  
 **QA:** [QA_v1.4.0.md](QA_v1.4.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [RELEASE_v1.3.0.md](RELEASE_v1.3.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [SPEC.md](../SPEC.md) · wiki [Docker](../wiki/docker/overview.md) · [DNS fabric](../wiki/integrations/dns-fabric.md) · [Backups](../wiki/day-to-day/backups.md) · [HAOS](../wiki/day-to-day/haos-hosts.md)
 

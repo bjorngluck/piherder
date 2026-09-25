@@ -44,6 +44,44 @@ def parse_inventory(server: Server) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _public_container(c: Dict[str, Any], project: str) -> Dict[str, Any]:
+    """Slim container row for read-only snapshot APIs. No SSH."""
+    name = (c.get("name") or c.get("compose_service") or "").strip()
+    state = (c.get("state") or "").strip() or ("running" if c.get("running") else "exited")
+    return {
+        "name": name,
+        "state": state,
+        "running": bool(c.get("running")),
+        "image": c.get("image") or "",
+        "status": c.get("status") or "",
+        "project": project or c.get("compose_project") or "",
+        "service": c.get("compose_service") or "",
+    }
+
+
+def snapshot_containers(server: Server) -> list[Dict[str, Any]]:
+    """Last stored Docker inventory, flattened. Never SSHs."""
+    inv = parse_inventory(server) or {}
+    out: list[Dict[str, Any]] = []
+    for project in inv.get("projects") or []:
+        if not isinstance(project, dict):
+            continue
+        pname = (project.get("name") or "").strip()
+        for container in project.get("containers") or []:
+            if not isinstance(container, dict) or container.get("placeholder"):
+                continue
+            row = _public_container(container, pname)
+            if row["name"]:
+                out.append(row)
+    for container in inv.get("orphan_containers") or []:
+        if not isinstance(container, dict):
+            continue
+        row = _public_container(container, "")
+        if row["name"]:
+            out.append(row)
+    return out
+
+
 def inventory_meta(server: Server) -> Dict[str, Any]:
     """Lightweight meta for templates (dest cards, banners)."""
     inv = parse_inventory(server)

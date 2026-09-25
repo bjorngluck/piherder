@@ -44,9 +44,11 @@ x-piherder-app-env: &piherder-app-env
   PIHERDER_HOST_FILES: ${PIHERDER_HOST_FILES:-false}
   # Service migration Move… — default off (opt-in). Pipeline tagged v1.4.0; Celery worker path is v1.5.0-dev.
   PIHERDER_SERVICE_MIGRATE: ${PIHERDER_SERVICE_MIGRATE:-false}
-  # Content-Security-Policy (v1.2) — default on; Report-Only for staged tighten
+  # Content-Security-Policy — default on. v1.6: script nonce; onclick via script-src-attr.
+  # Report-Only stages a tighter policy. PIHERDER_CSP_ENFORCE=true makes demo mode enforce.
   PIHERDER_CSP: ${PIHERDER_CSP:-true}
   PIHERDER_CSP_REPORT_ONLY: ${PIHERDER_CSP_REPORT_ONLY:-false}
+  PIHERDER_CSP_ENFORCE: ${PIHERDER_CSP_ENFORCE:-false}
   # Public demo sandbox (v1.2 Stream D) — leave false on real fleets
   PIHERDER_DEMO_MODE: ${PIHERDER_DEMO_MODE:-false}
   PIHERDER_DEMO_EMAIL: ${PIHERDER_DEMO_EMAIL:-demo@hacknow.info}
