@@ -179,7 +179,7 @@ Matches the original verbal list (DNS before dest listen). Not built: longer hol
 
 **Start source stack** is pre-flip only. Auto-rollback is **not** Must and **not** a silent `finally`.
 
-**M-undo (Discover 2026-09-13, job → v1.6):** fail-path only. After names have flipped, a later named job `service_migrate_undo` would preview → confirm: revert DNS/NPM to source, `restartdns`, revert control-plane rows, **compose stop dest**, **compose start source**. Dest dir + volumes stay. Never dest `down -v` / volume rm / project rm. Do **not** reverse a green Move (run a new Move B→A). Token API never POSTs migrate or undo. See [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 M-undo.
+**M-undo (landed v1.6 Undo-1, 2026-09-21):** fail-path only. After names have flipped, named job `service_migrate_undo` previews then confirms: revert DNS/NPM to source, `restartdns`, revert control-plane rows, re-enable the source cert target (dest clone stays), **compose stop dest**, **compose start source**. Dest dir + volumes stay. Never dest `down -v` / volume rm / project rm. Do **not** reverse a green Move (run a new Move B→A). Pre-flip failure is still **Start source stack**. Token API never POSTs migrate or undo. Kill switch `PIHERDER_SERVICE_MIGRATE`. Demo never. See [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 ---
 
@@ -454,3 +454,4 @@ An operator can:
 | 2026-09-07 | **M-worker** promoted: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) Must on `v1.5.0-dev`. |
 | 2026-09-07 | **M-worker landed:** Celery `service_migrate`; dual backup mutex; web recycle keeps running Move; worker redelivery of `running` fails the job. Live Job #1314 NPM-fronted Open WebUI. Operator wiki + ADMIN current truth (1.4 RELEASE stays historical). |
 | 2026-09-13 | **M-undo Discover:** fail-path only; stop dest then start source; never silent `finally` / dest wipe / leftover-remove reverse. Named job `service_migrate_undo` parked v1.6. Not 1.5 Should. |
+| 2026-09-21 | **Undo-1 landed** on `v1.6.0-dev`. JobHold / job detail preview → confirm. Green Move and pre-flip unchanged. |

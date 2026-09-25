@@ -30,7 +30,7 @@ flowchart TB
 | Work | Runs on | Concurrency rule |
 |------|---------|------------------|
 | Backups | Celery | Parallel across hosts; one backup per host (Redis mutex) |
-| Move (`service_migrate`) | Celery | Dual-host backup mutex; recycle web is safe; recycle worker fails a running Move |
+| Move (`service_migrate`) and fail-path undo (`service_migrate_undo`) | Celery | Dual-host backup mutex; recycle web is safe; recycle worker fails a running Move or undo. Undo only after cutover / rebind / validate failed |
 | OS/container patch & update checks | Web (`BackgroundTasks` / thread pools) | One active job of that type per host |
 | Bulk fleet actions | Web → same enqueue paths | Feature-flag skip + exclusive rules |
 | LAN nmap scans / vuln pack update | **celery-worker-nmap** (`-Q nmap`, concurrency 1) | Opt-in profile; host network; `PIHERDER_NMAP_WORKER=1` only here |
@@ -45,15 +45,17 @@ flowchart TB
 | Roles / middleware | `app/security/auth.py` — expired session: HTML **303** `/auth/login`, HTMX `HX-Redirect`, `/api/v1` JSON 401 |
 | Password policy | `app/services/password_policy.py` · Settings Security |
 | Account / 2FA step-up policy | `app/services/account_stepup.py` · Settings Security |
-| Web SSH console | `app/services/ssh_console.py` · `app/routers/server_console.py` · Settings Console (timeouts) / Security (factors) |
+| Web SSH console | `app/services/ssh_console.py` · `app/routers/server_console.py` · Settings Console (timeouts) / Security (factors). Mux-1: `Server.console_mux_enabled` + probe tmux/screen |
 | Jobs / progress / exclusive types | `app/services/jobs/` (`service.py`; package preserves `patch.object` surface). Move enqueue/execute: `app/services/jobs_migrate.py`. Backups + **Move** on Celery (`app/tasks.py`) |
 | Reports layout (N3a) + Move card (N3b) | `app/services/report_layout.py` · cookie `ph_reports_layout` · `POST /reports/layout` · Move stats from `ops_reports.collect_move_history` (`service_migrate` Jobs) |
-| Service migrate pipeline | `app/services/service_migrate/` · Celery `app.tasks.service_migrate` |
+| Service migrate pipeline | `app/services/service_migrate/` · Celery `app.tasks.service_migrate` · undo `undo.py` + `app.tasks.service_migrate_undo` |
+| CSP | `app/security/headers.py` — per-request script nonce; `script-src-attr 'unsafe-inline'`; demo Report-Only unless `PIHERDER_CSP_ENFORCE` |
 | Docker unused cleanup HTML | `app/services/docker_unused_html.py` |
 | Per-server backup lock | `app/services/server_job_lock.py` |
 | Scheduler | `app/services/scheduler.py` |
 | Backup | `app/services/backup.py` (+ progress, profiles) |
 | Docker inventory | `app/services/docker_inventory.py` |
+| Host OS / hardware / CPU / RAM / disk snapshot | `app/services/host_facts.py` · Alembic **044** + **045** · System Info modal (DB first; icon refresh) · scheduler ~15 min · same columns as `/api/v1` + HACS |
 | Templates (domain) | `app/services/service_templates/` — `deploy`, `host_sync` (adopt/migrate), `harden`, `schema`, `from_host`, … |
 | Compose project files (pure) | `app/services/compose_project_files.py` — file kinds, sidecar discovery, desired→live merge (no SSH) |
 | Compose editor workspace | `app/services/compose_editor.py` — inventory/fallback path, live files, template sidecars, drafts |

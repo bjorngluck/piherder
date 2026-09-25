@@ -15,18 +15,18 @@ docker compose run --rm --no-deps \
 pip install --require-hashes -r requirements.lock.txt
 pip install --no-deps -e .
 pytest -q
-# Coverage (v1.5: ≥70%; CI fail-under 70 + XML artifact)
+# Coverage (v1.6 Must ≥75%)
 pip install pytest-cov
-pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=70
+pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=75
 ```
 
 Unit tests live under `tests/` — no live SSH required for the main suite. Default `pytest` only collects `tests/` (not `e2e/`).
 
 | Bar | Value |
 |-----|--------|
-| **Suite freeze target** | **≥ 70%** line on `app` (v1.5; was 65% mid-train, 62% in 1.4, 55% through 1.3) |
-| **CI fail-under** | **70** |
-| **1.x end goal** | **80%** — step fail-under in later 1.x minors (~5pp per quality-leaning train). Not a 1.5 leftover. |
+| **Suite freeze target** | **≥ 75%** line on `app` (v1.6 Must; 1.5 freeze ~70.6%) |
+| **CI fail-under** | **75** (compose suite **75.04%**, 35893/47833) |
+| **1.x end goal** | **80%** — step fail-under in later 1.x minors (~5pp per quality-leaning train). |
 | **v1.0 production** | Authz matrix + input validation + credential recovery tests; no 100% target; prefer service tests over router % |
 
 ### v1.0 production-hardening packs
@@ -40,7 +40,7 @@ Unit tests live under `tests/` — no live SSH required for the main suite. Defa
 | `tests/test_http_smoke.py` | Anonymous `/` → login; authenticated dashboard |
 | `tests/test_login_redirect.py` | Expired session: HTML 303 Sign in, HTMX `HX-Redirect`, `/api/v1` JSON 401 |
 
-Examples: `test_rbac.py`, `test_api_tokens.py`, **`test_service_migrate.py`** (lock, preflight, NPM PUT / adopt fabric, Grafana dashboard rebind, leftover, dest-up `failed_step` — **no live SSH**), **`test_service_migrate_worker.py`** (Celery enqueue, dual-host mutex, fail-on-worker-restart), **`test_report_layout.py`** (N3a/N3b cookie layout), **`test_coverage_v15_pure.py`** / **`test_coverage_v15_q2.py`** / **`test_coverage_v15_q2b.py`** (70% packs), `test_service_templates.py` (incl. adopt host + env drift), **`test_docker_multifile.py`** (file roles + compose editor workspace helpers), **`test_template_source_badge.py`** (OOTB/Yours badges), **`test_from_host_extra_files.py`** (promtail-style sidecars + `NODE_NAME` / remote URL vars), `test_backup_paths.py`, `test_herder_backup.py`, `test_job_exclusive.py` (no double OS/container jobs; stack job types), `test_request_ip_audit.py` (Caddy XFF + audit `client_ip`), `test_dns_fabric.py` / `test_dns_fabric_core_coverage.py` (paths, Hosts/Path SVG, spine), `test_certificates_deep.py` (edge Caddy, SSH deploy mocks, NPM renew), `test_scheduler_sync_coverage.py` (APScheduler MagicMock), `test_audit_format_branches.py`, `test_backup_status_helpers.py`, `test_jwt_tokens.py`, `test_server_job_lock.py`, `test_nmap_discovery.py` (**no live LAN scan in CI**), `test_nmap_device_classify.py`, `test_nmap_worker_guard.py`, `test_nmap_options_classify.py`, **`test_haos.py`** (HA CLI JSON envelope, disk facts, check/apply mocks — **no live HAOS in CI**), `test_server_wizard.py`, `test_http_smoke.py`, **`test_login_redirect.py`** (expired session HTML → Sign in, HTMX `HX-Redirect`, `/api/v1` JSON 401), …
+Examples: `test_rbac.py`, `test_api_tokens.py`, **`test_host_facts_v16.py`** (os-release / hardware parse, no SSH), **`test_api_summary_v16.py`**, **`test_console_mux_v16.py`** (Mux-1 names, allow, probe, kill, park vs ✕ — **no live SSH**), **`test_service_migrate.py`** (lock, preflight, NPM PUT / adopt fabric, Grafana dashboard rebind, leftover, dest-up `failed_step` — **no live SSH**), **`test_service_migrate_worker.py`** (Celery enqueue, dual-host mutex, fail-on-worker-restart), **`test_service_migrate_undo.py`** (fail-path undo only; no dest `down`), **`test_csp_v12.py`** (script nonce, `script-src-attr`, OpenAPI still `'unsafe-inline'`), **`test_report_layout.py`** (N3a/N3b cookie layout), **`test_coverage_v15_pure.py`** / **`test_coverage_v15_q2.py`** / **`test_coverage_v15_q2b.py`** (70% packs), **`test_coverage_v16.py`** / **`test_coverage_v16_q2.py`** … **`_q37.py`** (v1.6 Q-80, suite **75.04%**), `test_service_templates.py` (incl. adopt host + env drift), **`test_docker_multifile.py`** (file roles + compose editor workspace helpers), **`test_template_source_badge.py`** (OOTB/Yours badges), **`test_from_host_extra_files.py`** (promtail-style sidecars + `NODE_NAME` / remote URL vars), `test_backup_paths.py`, `test_herder_backup.py`, `test_job_exclusive.py` (no double OS/container jobs; stack job types), `test_request_ip_audit.py` (Caddy XFF + audit `client_ip`), `test_dns_fabric.py` / `test_dns_fabric_core_coverage.py` (paths, Hosts/Path SVG, spine), `test_certificates_deep.py` (edge Caddy, SSH deploy mocks, NPM renew), `test_scheduler_sync_coverage.py` (APScheduler MagicMock), `test_audit_format_branches.py`, `test_backup_status_helpers.py`, `test_jwt_tokens.py`, `test_server_job_lock.py`, `test_nmap_discovery.py` (**no live LAN scan in CI**), `test_nmap_device_classify.py`, `test_nmap_worker_guard.py`, `test_nmap_options_classify.py`, **`test_haos.py`** (HA CLI JSON envelope, disk facts, check/apply mocks — **no live HAOS in CI**), `test_server_wizard.py`, `test_http_smoke.py`, **`test_login_redirect.py`** (expired session HTML → Sign in, HTMX `HX-Redirect`, `/api/v1` JSON 401), …
 
 ```bash
 # Network maps only

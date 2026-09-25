@@ -71,10 +71,16 @@ def upgrade() -> None:
                 "INSERT INTO serversshidentity "
                 "(server_id, role, label, username, private_key_encrypted, public_key, "
                 "key_fingerprint, enabled, created_at, updated_at) "
-                "VALUES (:sid, 'fleet', 'Fleet', :user, :priv, :pub, NULL, 1, "
+                "VALUES (:sid, 'fleet', 'Fleet', :user, :priv, :pub, NULL, :enabled, "
                 "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
             ),
-            {"sid": sid, "user": user, "priv": priv, "pub": pub},
+            {
+                "sid": sid,
+                "user": user,
+                "priv": priv,
+                "pub": pub,
+                "enabled": True,
+            },
         )
 
 

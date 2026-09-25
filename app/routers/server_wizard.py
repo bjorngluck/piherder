@@ -544,6 +544,7 @@ async def wizard_features_post(
     backup_enabled: Optional[str] = Form(None),
     os_patch_enabled: Optional[str] = Form(None),
     container_patch_enabled: Optional[str] = Form(None),
+    console_mux_enabled: Optional[str] = Form(None),
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
@@ -556,6 +557,10 @@ async def wizard_features_post(
     server.backup_enabled = _on(backup_enabled)
     server.os_patch_enabled = _on(os_patch_enabled)
     server.container_patch_enabled = _on(container_patch_enabled)
+    mux_on = _on(console_mux_enabled)
+    if "haos" in (server.os_type or "").lower():
+        mux_on = False
+    server.console_mux_enabled = mux_on
     session.add(server)
     record_server_audit(
         session,
@@ -566,6 +571,7 @@ async def wizard_features_post(
             "backup": server.backup_enabled,
             "os_patch": server.os_patch_enabled,
             "container": server.container_patch_enabled,
+            "console_mux": server.console_mux_enabled,
             "message": f"Wizard features for {server.name}",
         },
     )

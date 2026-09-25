@@ -267,7 +267,7 @@ def test_admin_reset_access_clears_2fa_and_password(client):
         )
         admin_id, target_id = admin.id, target.id
 
-    pw = "RecoverMe9x"
+    pw = "RecoverMe9x!!"
     r = c.post(
         f"/auth/users/{target_id}/reset-access",
         data={"password": pw, "confirm": "1"},

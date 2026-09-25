@@ -13,7 +13,11 @@ def test_build_csp_core_directives(monkeypatch):
     assert "frame-ancestors 'self'" in csp
     assert "frame-src 'self'" in csp
     assert "script-src 'self'" in csp
-    assert "'unsafe-inline'" in csp  # legacy template scripts (1.3: nonces)
+    script = [p for p in csp.split("; ") if p.startswith("script-src ")][0]
+    assert "'unsafe-inline'" not in script
+    assert "script-src-attr 'unsafe-inline'" in csp
+    style = [p for p in csp.split("; ") if p.startswith("style-src ")][0]
+    assert "'unsafe-inline'" in style
     assert "'unsafe-eval'" not in csp  # Tailwind is compiled CSS, not Play
     assert "connect-src" in csp
     assert "wss://ph.example.com:8443" in csp
@@ -34,11 +38,16 @@ def test_openapi_ui_csp_allows_jsdelivr(monkeypatch):
     assert hdr.is_openapi_ui_path("/redoc")
     assert not hdr.is_openapi_ui_path("/openapi.json")
     assert not hdr.is_openapi_ui_path("/auth/login")
-    docs = hdr.build_csp(for_openapi_ui=True)
+    docs = hdr.build_csp(for_openapi_ui=True, nonce="abc")
     assert "https://cdn.jsdelivr.net" in docs
     assert "https://fonts.googleapis.com" in docs
-    app = hdr.build_csp(for_openapi_ui=False)
+    docs_script = [p for p in docs.split("; ") if p.startswith("script-src ")][0]
+    assert "'unsafe-inline'" in docs_script
+    assert "nonce-" not in docs_script
+    app = hdr.build_csp(for_openapi_ui=False, nonce="abc")
     assert "jsdelivr" not in app
+    assert "'nonce-abc'" in app
+    assert "script-src-attr 'unsafe-inline'" in app
 
 
 def test_build_csp_http_lab_no_upgrade(monkeypatch):
@@ -83,6 +92,85 @@ def test_compiled_tailwind_css_present():
     # Full Tailwind Preflight would reset body/buttons and fight themes.css
     assert "button,input" not in compact
     assert "img,video{max-width:100%" not in compact
+
+
+def test_stamp_inline_scripts_skips_src_json_and_handlers():
+    html = (
+        "<button onclick=\"go()\">x</button>"
+        "<script src=\"/static/htmx.min.js\"></script>"
+        "<script type=\"application/json\">{\"a\":1}</script>"
+        "<script>\nwindow.PI = 1;\n</script>"
+        "<script type=\"module\">export default 1;</script>"
+    )
+    out = hdr.stamp_inline_scripts(html, "n-1")
+    assert 'onclick="go()"' in out
+    assert '<script src="/static/htmx.min.js">' in out
+    assert '<script type="application/json">' in out
+    assert '<script nonce="n-1">\nwindow.PI = 1;\n</script>' in out
+    assert '<script nonce="n-1" type="module">' in out
+    assert out.count("nonce=") == 2
+
+
+def test_demo_csp_is_report_only_until_enforce(monkeypatch):
+    monkeypatch.setattr(hdr.settings, "PIHERDER_CSP", True)
+    monkeypatch.setattr(hdr.settings, "PIHERDER_CSP_REPORT_ONLY", False)
+    monkeypatch.setattr(hdr.settings, "PIHERDER_CSP_ENFORCE", False)
+    monkeypatch.setattr(hdr, "demo_mode", lambda: True, raising=False)
+    # csp_report_only imports demo_mode inside the function
+    import app.services.demo as demo
+
+    monkeypatch.setattr(demo, "demo_mode", lambda: True)
+    h = hdr.security_headers_dict(nonce="n")
+    assert "Content-Security-Policy-Report-Only" in h
+    assert "Content-Security-Policy" not in h
+    assert "'nonce-n'" in h["Content-Security-Policy-Report-Only"]
+    monkeypatch.setattr(hdr.settings, "PIHERDER_CSP_ENFORCE", True)
+    enforced = hdr.security_headers_dict(nonce="n")
+    assert "Content-Security-Policy" in enforced
+    assert "Content-Security-Policy-Report-Only" not in enforced
+
+
+def test_login_page_stamps_nonce_and_enforces(monkeypatch):
+    monkeypatch.setattr(hdr.settings, "PIHERDER_CSP", True)
+    monkeypatch.setattr(hdr.settings, "PIHERDER_CSP_REPORT_ONLY", False)
+    monkeypatch.setattr(hdr.settings, "PIHERDER_CSP_ENFORCE", True)
+    import app.services.demo as demo
+
+    monkeypatch.setattr(demo, "demo_mode", lambda: False)
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from sqlmodel import SQLModel, create_engine
+
+    from app.database import get_session
+    from app.main import app
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    def _session():
+        from sqlmodel import Session
+
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = _session
+    client = TestClient(app, raise_server_exceptions=False)
+    try:
+        res = client.get("/auth/login")
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+    assert res.status_code == 200
+    csp = res.headers.get("content-security-policy") or ""
+    assert "script-src-attr 'unsafe-inline'" in csp
+    assert "'nonce-" in csp
+    script = [p for p in csp.split("; ") if p.startswith("script-src ")][0]
+    assert "'unsafe-inline'" not in script
+    assert 'nonce="' in res.text
+    assert "onclick" in res.text
 
 
 def test_csp_can_disable(monkeypatch):

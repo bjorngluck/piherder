@@ -11,6 +11,7 @@ import os
 from datetime import datetime
 
 from fastapi import BackgroundTasks
+from sqlmodel import select
 
 from ..models import Job, Server
 from .server_job_lock import (
@@ -416,4 +417,255 @@ def _run_service_migrate_pipeline(
                         session.commit()
             except Exception:
                 logger.exception("migrate recover_source details")
+        else:
+            try:
+                from .service_migrate.undo import undo_move_details
+
+                payload = undo_move_details(
+                    source_id=source_id,
+                    dest_id=dest_id,
+                    project=project,
+                    dest_project=dest_project,
+                    port_map=port_map,
+                    failed_step=step,
+                )
+                if payload:
+                    with js._get_fresh_session() as session:
+                        job = session.get(Job, job_id)
+                        if job:
+                            js._merge_job_details(
+                                job,
+                                failed_step=step,
+                                undo_move=payload,
+                            )
+                            session.add(job)
+                            session.commit()
+            except Exception:
+                logger.exception("migrate undo_move details")
         js._finish(audit_id, job_id, "failed", str(e)[:800], hostname, "service_migrate")
+
+
+def _parent_already_undone(session, parent_id: int) -> bool:
+    """True when this Move already has a successful or still-running undo."""
+    rows = session.exec(
+        select(Job).where(
+            Job.job_type == "service_migrate_undo",
+            Job.status.in_(("success", "pending", "running")),
+        )
+    ).all()
+    for row in rows:
+        try:
+            data = json.loads(row.details or "{}") or {}
+        except Exception:
+            continue
+        if int(data.get("parent_job_id") or 0) == int(parent_id):
+            return True
+    return False
+
+
+def enqueue_service_migrate_undo(
+    parent_job_id: int,
+    *,
+    user_id: int | None = None,
+) -> Job:
+    """Queue fail-path undo. Raises ValueError when the parent Move is not eligible."""
+    from .service_migrate.host_lock import migrate_surface_allowed
+    from .service_migrate.undo import eligible_undo
+
+    if not migrate_surface_allowed():
+        raise ValueError("Service migration is off")
+    js = _jobs()
+    with js._get_fresh_session() as session:
+        parent = session.get(Job, int(parent_job_id))
+        payload = eligible_undo(parent)
+        if not payload or parent is None:
+            raise ValueError("Undo is only for a failed Move after names flipped")
+        if _parent_already_undone(session, parent.id):
+            raise ValueError("This Move was already undone or an undo is still running")
+        source_id = int(payload["source_id"])
+        dest_id = int(payload["dest_id"])
+        project = str(payload["project"])
+        for sid in (source_id, dest_id):
+            active = js._active_stack_mutating_job(session, sid)
+            if not active:
+                active = js._active_migrate_as_dest(session, sid)
+            if not active:
+                backups = js.get_active_backup_jobs(session, sid)
+                active = backups[0] if backups else None
+            if active:
+                session.expunge(active)
+                raise js.JobAlreadyActive(active)
+        source = session.get(Server, source_id)
+        dest = session.get(Server, dest_id)
+        if not source or not dest:
+            raise ValueError("source or destination host is gone")
+        job, audit = js._create_queued_job_with_audit(
+            session,
+            server_id=source.id,
+            job_type="service_migrate_undo",
+            queue_message=f"Undo {project} queued → back to {source.name}…",
+            user_id=user_id,
+            audit_details=f"Job #{{job_id}} · undo {project} back to {source.name}",
+            parent_job_id=int(parent.id),
+            dest_server_id=dest.id,
+            dest_name=dest.name,
+            project=project,
+            dest_project=payload.get("dest_project") or project,
+            port_map=payload.get("port_map") or {},
+            failed_step=payload.get("failed_step"),
+        )
+        jid, aid = job.id, audit.id
+    if _migrate_run_inline():
+        _run_undo_holding_locks(jid, source_id, dest_id, aid)
+    elif not js.HAS_CELERY or not js.service_migrate_undo_task:
+        msg = "Celery worker required for Undo — start celery-worker container"
+        with js._get_fresh_session() as session:
+            job = session.get(Job, jid)
+            if job:
+                js._mark_job_terminal(job, msg, session, status="failed", record_audit=True)
+                session.commit()
+        raise RuntimeError(msg)
+    else:
+        try:
+            async_result = js.service_migrate_undo_task.delay(
+                jid, source_id, dest_id, aid
+            )
+            with js._get_fresh_session() as session:
+                job = session.get(Job, jid)
+                if job:
+                    job.celery_task_id = async_result.id
+                    session.add(job)
+                    session.commit()
+        except Exception as e:
+            msg = f"Failed to enqueue Undo to Celery: {e}"
+            logger.exception("[Jobs] %s", msg)
+            with js._get_fresh_session() as session:
+                job = session.get(Job, jid)
+                if job:
+                    js._mark_job_terminal(
+                        job, msg, session, status="failed", record_audit=True
+                    )
+                    session.commit()
+            raise RuntimeError(msg) from e
+    with js._get_fresh_session() as session:
+        job = session.get(Job, jid)
+        if job:
+            session.expunge(job)
+        return job
+
+
+def _run_undo_holding_locks(job_id: int, source_id: int, dest_id: int, audit_id: int) -> None:
+    js = _jobs()
+    lock_tokens = try_acquire_dual_server_lock(
+        "backup", source_id, dest_id, holder=str(job_id)
+    )
+    if not lock_tokens:
+        source, hostname = js._load_server_for_job(source_id)
+        js._finish(
+            audit_id,
+            job_id,
+            "failed",
+            "A backup or Move is already using the source or destination host",
+            hostname,
+            "service_migrate_undo",
+        )
+        return
+    try:
+        _execute_service_migrate_undo(job_id, source_id, dest_id, audit_id)
+    finally:
+        release_dual_server_lock(
+            "backup",
+            source_id,
+            lock_tokens[0],
+            dest_id,
+            lock_tokens[1],
+        )
+
+
+def _execute_service_migrate_undo(
+    job_id: int,
+    source_id: int,
+    dest_id: int,
+    audit_id: int,
+) -> None:
+    js = _jobs()
+    from .service_migrate.undo import UndoError, run_undo_pipeline
+
+    source, hostname = js._load_server_for_job(source_id)
+    with js._get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            js._merge_job_details(job, current="undo", log_line="Undoing Move…", done=False)
+            session.add(job)
+            session.commit()
+            try:
+                data = json.loads(job.details or "{}") or {}
+            except Exception:
+                data = {}
+        else:
+            data = {}
+    project = str(data.get("project") or "")
+    dest_project = str(data.get("dest_project") or project)
+    port_map = data.get("port_map") if isinstance(data.get("port_map"), dict) else {}
+    parent_id = int(data.get("parent_job_id") or 0)
+
+    def log_line(msg: str) -> None:
+        js._flush_job_progress(job_id, "undo", msg, default_current="undo")
+
+    try:
+        with js._get_fresh_session() as session:
+            src = session.get(Server, source_id)
+            dst = session.get(Server, dest_id)
+            if not src or not dst:
+                raise UndoError("source or destination host is gone")
+            parent_steps: list[str] = []
+            if parent_id:
+                parent = session.get(Job, parent_id)
+                if parent:
+                    try:
+                        parent_data = json.loads(parent.details or "{}") or {}
+                    except Exception:
+                        parent_data = {}
+                    raw_steps = parent_data.get("undo_steps")
+                    if isinstance(raw_steps, list):
+                        parent_steps = [str(s) for s in raw_steps]
+            run_undo_pipeline(
+                session,
+                source=src,
+                dest=dst,
+                project=project,
+                dest_project=dest_project,
+                port_map=port_map,
+                log=log_line,
+                done=parent_steps,
+            )
+            if parent_id:
+                parent = session.get(Job, parent_id)
+                if parent:
+                    js._merge_job_details(parent, undo_completed=True, undo_job_id=job_id)
+                    session.add(parent)
+                    session.commit()
+        js._finish(
+            audit_id,
+            job_id,
+            "success",
+            json.dumps({"ok": True, "project": project, "parent_job_id": parent_id}),
+            hostname,
+            "service_migrate_undo",
+        )
+        log_line("Done.")
+    except Exception as e:
+        logger.exception("service_migrate_undo failed")
+        steps = getattr(e, "steps", None)
+        if parent_id and isinstance(steps, list):
+            with js._get_fresh_session() as session:
+                parent = session.get(Job, parent_id)
+                if parent:
+                    js._merge_job_details(parent, undo_steps=list(steps))
+                    session.add(parent)
+                    session.commit()
+        js._finish(
+            audit_id, job_id, "failed", str(e)[:800], hostname, "service_migrate_undo"
+        )

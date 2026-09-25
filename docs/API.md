@@ -113,6 +113,7 @@ Base path: **`/api/v1`**
 |--------|------|-------|-------------|
 | `GET` | `/api/v1` | `read` | Machine-readable scope/endpoint catalog + **this token’s** scopes |
 | `GET` | `/api/v1/health` | `read` | `{ ok, scopes, allowed_features, client_ip }` |
+| `GET` | `/api/v1/summary` | `read` | Fleet heartbeat: hosts, updates, jobs, alerts, plus resource **sums** `cpu_cores`, `memory_*_bytes`, `disk_*_bytes`, `containers`. DB snapshots only. |
 
 ### Servers
 
@@ -120,6 +121,9 @@ Base path: **`/api/v1`**
 |--------|------|-------|-------------|
 | `GET` | `/api/v1/servers` | `read` | List servers (`features` object). Optional `q`, `limit` (default **100**, max 100), `offset`. Response includes `total`, `limit`, `offset`. Previously unbounded. |
 | `GET` | `/api/v1/servers/{id}` | `read` | One server |
+| `GET` | `/api/v1/inventory` | `read` | Last Docker inventory for every host (DB snapshot, never SSH). Slim containers: `name`, `running`, `state`, `image`, `status` (uptime text), `project` |
+| `GET` | `/api/v1/servers/{id}/inventory` | `read` | Same snapshot for one host, plus `os_pretty`, `hardware`, `disk_*_bytes` |
+| `GET` | `/api/v1/services` | `read` | Fleet service chips (`state` up/down) from stored monitor rows. Does not poll Kuma or NPM |
 | `PATCH` | `/api/v1/servers/{id}/features` | `edit` | Toggle feature flags |
 | `GET` | `/api/v1/servers/{id}/files?p=` | `files` | List jail-relative directory (fleet) |
 | `GET` | `/api/v1/servers/{id}/files/download?p=` | `files` | Download one file |
@@ -140,10 +144,19 @@ Base path: **`/api/v1`**
     "os_patch": true,
     "docker": true
   },
+  "os_type": "ubuntu",
+  "os_id": "ubuntu",
+  "os_pretty": "Ubuntu 24.04.3 LTS",
+  "os_display": "Ubuntu 24.04.3 LTS",
+  "hardware": "Raspberry Pi 5 Model B Rev 1.0",
+  "arch": "aarch64",
   "os_updates_count": 0,
   "container_updates_count": 2,
   "reboot_pending": false,
-  "last_backup_at": "2026-07-10T02:00:00"
+  "last_backup_at": "2026-07-10T02:00:00Z",
+  "alerts_open": 0,
+  "alert_title": null,
+  "alerts": []
 }
 ```
 
@@ -254,9 +267,7 @@ HTTP Request node: Method GET/POST, Header `Authorization` = `Bearer ph_…`, JS
 
 ### Home Assistant
 
-**Today:** `rest` / `rest_command` against `/api/v1/servers` and job endpoints with the least scopes needed. Prefer an IP allowlist for the HA host (HAOS usually egresses as the appliance LAN IP).
-
-**v1.6:** first-class **HACS integration** (runs on HA) — fleet dashboard, host devices, optional container/service entities from snapshots. Details stay in the PiHerder UI. Discover: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7. YAML REST remains possible. CORS is not required (HA Core is server-side).
+**v1.6:** first-class **HACS integration** (runs on HA) — Slice 1: fleet sensors, host devices, **Visit** = `{origin}/servers/{id}`, Lovelace **PiHerder fleet** card (`custom:piherder-dashboard-card`). Heartbeat `GET /api/v1/summary` (`read`) includes fleet resource sums. Host `os_pretty` / `hardware` / cpu / memory / disk / `container_count` from the host-facts snapshot. Slice **1b** read APIs: `GET /api/v1/inventory`, `GET /api/v1/servers/{id}/inventory`, `GET /api/v1/services` (stored snapshots only). Plugin [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.3** adds container, service, and host-disk sensors on the existing host device (no start/stop). Operator: [wiki Home Assistant](../wiki/integrations/home-assistant.md). [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [PLAN_v1.6.0.md](PLAN_v1.6.0.md). YAML `rest` remains possible. CORS is not required (HA Core is server-side). Prefer an IP allowlist for the HA host.
 
 ---
 

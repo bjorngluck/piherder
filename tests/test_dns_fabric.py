@@ -1054,6 +1054,9 @@ def test_host_is_cloud_rfc1918_fallback():
     assert fabric._host_is_cloud(None, "") is False
     assert fabric._host_is_cloud("203.0.113.50", "192.168.86.0/24") is True
     assert fabric._host_is_cloud("192.168.86.20", "192.168.86.0/24") is False
+    # Private, but outside the saved CIDR: still LAN, not the Internet node.
+    assert fabric._host_is_cloud("192.168.86.49", "10.0.0.0/24") is False
+    assert fabric._host_is_cloud("10.0.0.5", "192.168.86.0/24") is False
 
 
 def test_physical_mesh_places_cloud_and_infra():

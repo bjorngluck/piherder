@@ -73,7 +73,7 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 | 2 | [Add a server](../day-to-day/add-server.md) as `root` (or add-on user) + deploy key | Fleet record |
 | 3 | Host profile **HAOS** (or auto-mark after check) | Backend uses `ha` CLI |
 | 4 | Enable **HA updates** (+ Backups if needed); leave Docker off | Capability envelope |
-| 5 | **System info** + **Check HA updates** | Versions + component counts |
+| 5 | **[System info](../day-to-day/system-info.md)** + **Check HA updates** | Stored snapshot (refresh icon); versions + CPU/memory/disk + component counts |
 | 6 | Optional: manual **HA update…** in a maintenance window | Same confirm/audit bar as OS patch |
 
 Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).

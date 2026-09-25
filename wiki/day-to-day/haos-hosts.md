@@ -39,7 +39,7 @@ Exact package install steps for rsync may vary by HAOS version — enable the SS
 1. [Add a server](add-server.md) — hostname/IP, SSH user (often `root`), port.  
 2. Deploy the PiHerder key via the wizard or **SSH access**; **Test connection**.  
 3. **Edit → General → Host profile** → **Home Assistant OS (HAOS)** (or run an OS check and let auto-mark set `os_type=haos`).  
-4. **Edit → Features** → enable **HA updates** (same flag as OS patch) and **Backups** if you want rsync. Leave **Docker / containers** off.  
+4. **Edit → Features** → enable **HA updates** (same flag as OS patch) and **Backups** if you want rsync. Leave **Docker / containers** off. **Console mux** is hidden / forced off on HAOS.  
 5. **SSH access → Check dependencies** — expect **`ha` CLI** (not apt) when HA updates is on; **rsync** when backups is on.  
 6. **System info** — Core / OS / Supervisor versions, free disk (`ha host info` / disks usage).  
 7. **Actions → Check HA updates** — count of components with updates (0–3).  
@@ -59,7 +59,7 @@ Exact package install steps for rsync may vary by HAOS version — enable the SS
 | Capability | Behaviour |
 |------------|-----------|
 | **Identity** | Manual profile or auto-mark when `ha` works / probes confident |
-| **System info** | Core, OS, Supervisor versions + update flags; disk free/used/total; usage breakdown |
+| **System info** | Stored snapshot (Core / OS / Supervisor, disk, CPU, memory). Refresh icon SSHs once; scheduler ~15 min. [Why](system-info.md) |
 | **OS check** | `ha core\|os\|supervisor info` — **not** apt |
 | **OS apply** | `ha supervisor\|core\|os update` when available; opt-in via same OS patch flag / schedules |
 | **Backups** | Plain **rsync** if package present (root / no sudo path) |
@@ -88,7 +88,7 @@ Schedules reuse the same check/apply machinery as Debian hosts; the backend bran
 - Treat HA as a **Docker Compose** project on the appliance  
 - Appear as a **Move** source or destination ([Move a service](../docker/service-migration.md)) — HAOS is always host-locked  
 - Run **apt** upgrade on HAOS  
-- Ship an HA custom component **in this image**. HA → PiHerder automations today use [API tokens](../operations/api-tokens.md) (`rest` sensors). A first-class **HACS integration** (dashboard, host/container entities, details open PiHerder) is **v1.6** — [FEATURE_PLAN path 2](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOME_ASSISTANT.md)
+- Ship an HA custom component **in this image**. Path 2 (HA **observes** the fleet) is a **separate** HACS repo (plugin **0.2.4**) — operator: [Home Assistant → PiHerder](../integrations/home-assistant.md). Device page **Visit** is the host; fleet totals and section chips are the Lovelace card. YAML `rest` remains possible.
 
 ---
 

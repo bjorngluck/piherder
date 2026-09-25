@@ -47,6 +47,7 @@ OS patch, container patch, and OS/container **update checks** run on the **web**
 |------------|-----------|------------------|
 | `backup` | Celery | Many hosts in parallel; **one backup per host** (Redis mutex) |
 | `service_migrate` | Celery | Dual-host backup mutex + DB exclusive with stack mutation on **both** ids. Recycle **web** is safe; recycle **worker** fails a running Move |
+| `service_migrate_undo` | Celery | Same mutex. Only a failed post-flip Move. `compose stop` on dest, never `down -v`. Recycle **worker** fails a running undo and leaves the dest tree |
 | `os_patch` / `container_patch` | Web process | **One active job of that type per host** (DB exclusive) |
 | `os_update_check` / `container_update_check` | Web process | **One active check of that type per host** |
 | `docker_stack_check` | Web process | **One active stack check per host** |

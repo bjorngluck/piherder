@@ -572,9 +572,13 @@ function hideSystemInfoModal() {
 async function loadSystemInfoIntoModal(useCache = true) {
   const container = document.getElementById('sysinfo-content');
   if (!container) return;
-  container.innerHTML = '<div class="flex flex-col items-center justify-center py-6 text-center">'
-    + '<div class="ph-spinner mb-3" aria-hidden="true"></div>'
-    + '<div class="text-sm text-muted">Loading system info…</div></div>';
+  const btn = document.getElementById('sysinfo-refresh');
+  if (btn) btn.disabled = true;
+  if (!_lastSystemInfo) {
+    container.innerHTML = '<div class="flex flex-col items-center justify-center py-6 text-center">'
+      + '<div class="ph-spinner mb-3" aria-hidden="true"></div>'
+      + '<div class="text-sm text-muted">Loading system info…</div></div>';
+  }
 
   try {
     const url = useCache ? '/servers/{{ server.id }}/diagnostics' : '/servers/{{ server.id }}/diagnostics?force=1';
@@ -588,6 +592,14 @@ async function loadSystemInfoIntoModal(useCache = true) {
     }
 
     let html = '';
+    if (data.from_snapshot || data.at || data.host_facts_at) {
+      const when = data.at || data.host_facts_at || '';
+      html += `<div class="text-[10px] text-muted mb-3">${data.from_snapshot ? 'Stored snapshot' : 'Just refreshed'}${when ? ' · ' + esc(String(when)) : ''}</div>`;
+    }
+    if (data.hardware || data.os_pretty) {
+      html += `<div class="text-sm mb-3"><span class="text-muted">Hardware</span> ${esc(data.hardware || '—')}
+        <span class="text-muted ml-3">OS</span> ${esc(data.os_pretty || data.os_version || '—')}</div>`;
+    }
     const isHaos = data.profile === 'haos' || (data.ha && data.ha.components);
     const ha = data.ha || {};
     const comps = ha.components || {};
@@ -627,6 +639,24 @@ async function loadSystemInfoIntoModal(useCache = true) {
     }
     html += `<div class="text-[10px] mt-1 text-muted">${haDisk ? 'From ha host info (Supervisor). ' : ''}Main volumes below (filtered).</div>`;
     html += `</div></div>`;
+
+    const cores = data.cpu_cores;
+    const load = data.cpu_load;
+    const memT = data.memory_total_bytes;
+    const memU = data.memory_used_bytes;
+    if (cores != null || load != null || memT != null) {
+      const memPct = (memT && memU != null) ? Math.round(100 * Number(memU) / Number(memT)) + '%' : '';
+      html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-sm">
+        <div class="bg-surface border border-border p-3 rounded">
+          <div class="text-xs text-muted mb-1">CPU</div>
+          <div>${cores != null ? esc(String(cores)) + ' cores' : '—'}${load != null ? ' · load ' + esc(String(load)) : ''}</div>
+        </div>
+        <div class="bg-surface border border-border p-3 rounded">
+          <div class="text-xs text-muted mb-1">Memory</div>
+          <div class="font-mono text-sm">${fmtBytes(memU)} / ${fmtBytes(memT)}${memPct ? ' <span class="text-accent ml-2">' + esc(memPct) + '</span>' : ''}</div>
+        </div>
+      </div>`;
+    }
 
     if (isHaos) {
       html += `<div class="bg-surface border border-border p-3 rounded mb-4 text-sm">
@@ -682,6 +712,9 @@ async function loadSystemInfoIntoModal(useCache = true) {
     container.innerHTML = html;
   } catch (e) {
     container.innerHTML = `<div class="text-danger">Failed to load diagnostics: ${e}</div>`;
+  } finally {
+    const b = document.getElementById('sysinfo-refresh');
+    if (b) b.disabled = false;
   }
 }
 
@@ -696,6 +729,18 @@ function esc(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function fmtBytes(n) {
+  if (n == null || n === '') return '—';
+  const x = Number(n);
+  if (!Number.isFinite(x) || x < 0) return '—';
+  const u = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+  let i = 0;
+  let v = x;
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+  const digits = i === 0 ? 0 : (v >= 10 ? 1 : 2);
+  return v.toFixed(digits) + ' ' + u[i];
 }
 
 function computeUsableSummary(drives) {
@@ -880,9 +925,17 @@ function computeUsableSummary(drives) {
   <div class="modal-content card p-6 w-full max-w-2xl mx-4 max-h-[85vh] overflow-auto">
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-semibold">System Info — {{ server.name }}</h3>
-      <div class="flex gap-2">
-        <button onclick="refreshSystemInfo()" class="text-xs px-2 py-1 btn btn-secondary rounded border border-border">Refresh</button>
-        <button onclick="hideSystemInfoModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
+      <div class="flex items-center gap-2">
+        <button type="button" id="sysinfo-refresh" onclick="refreshSystemInfo()"
+                class="btn btn-secondary p-2 min-h-11 min-w-11"
+                title="Refresh snapshot from the host" aria-label="Refresh snapshot">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+        </button>
+        <button type="button" onclick="hideSystemInfoModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
       </div>
     </div>
 
@@ -894,7 +947,8 @@ function computeUsableSummary(drives) {
     </div>
 
     <div class="mt-4 text-[10px] text-muted">
-      Summary focuses on root (/) and main user volumes. Noise partitions (tmpfs, /run, /dev, boot etc.) are filtered.
+      This is the last stored snapshot (about every 15 minutes). The refresh icon SSHs once and updates it.
+      CPU, memory, disk, OS, and hardware here are what Home Assistant reads — HA never SSHs the fleet.
       {% if is_haos %}On HAOS, Core/OS/Supervisor versions and disk free come from the <code class="text-[10px]">ha</code> CLI when available.{% endif %}
     </div>
   </div>

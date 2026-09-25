@@ -19,6 +19,9 @@
   <!-- Compiled Tailwind utilities (no Play / no eval). Custom chrome stays in themes.css. -->
   <link rel="stylesheet" href="/static/css/tailwind.css?v=20260812-box">
   <script src="/static/htmx.min.js"></script>
+  <script>
+    if (window.htmx) htmx.config.inlineScriptNonce = {{ csp_nonce() | tojson }};
+  </script>
   <script src="/static/js/session-login-redirect.js"></script>
   <script defer src="/static/alpine.min.js"></script>
   {% if x_conversion_enabled is defined and request is defined and x_conversion_enabled(request) %}
@@ -541,9 +544,12 @@
       <p id="job-hold-status" class="text-sm text-accent font-mono mb-2 min-h-[1.25rem] flex-shrink-0">Starting…</p>
       <pre id="job-hold-log" class="ph-detail-log flex-1 min-h-[8rem] max-h-[40vh]">…</pre>
       <p id="job-hold-hint" class="text-[10px] text-muted mt-2 mb-0 flex-shrink-0">Please wait — this page will refresh when finished.</p>
-      <div id="job-hold-recover" class="hidden mt-3 flex-shrink-0">
-        <button type="button" id="job-hold-start-source" class="btn btn-secondary min-h-11 text-sm">
+      <div id="job-hold-recover" class="hidden mt-3 flex-shrink-0 flex flex-wrap gap-2">
+        <button type="button" id="job-hold-start-source" class="btn btn-secondary min-h-11 text-sm hidden">
           Start source stack
+        </button>
+        <button type="button" id="job-hold-undo" class="btn btn-secondary min-h-11 text-sm hidden">
+          Undo move
         </button>
       </div>
     </div>
@@ -1470,14 +1476,25 @@
         hint: document.getElementById('job-hold-hint'),
         recover: document.getElementById('job-hold-recover'),
         startSource: document.getElementById('job-hold-start-source'),
+        undoMove: document.getElementById('job-hold-undo'),
       };
     }
 
     function hideRecover() {
       var e = els();
       state.recoverSource = null;
+      state.undoMove = null;
+      state.undoArmed = false;
       if (e.recover) e.recover.classList.add('hidden');
-      if (e.startSource) e.startSource.disabled = false;
+      if (e.startSource) {
+        e.startSource.disabled = false;
+        e.startSource.classList.add('hidden');
+      }
+      if (e.undoMove) {
+        e.undoMove.disabled = false;
+        e.undoMove.classList.add('hidden');
+        e.undoMove.textContent = 'Undo move';
+      }
     }
 
     function hide() {
@@ -1582,8 +1599,22 @@
             if (data.status === 'failed' && data.recover_source && data.recover_source.project_path) {
               state.recoverSource = data.recover_source;
               if (e.recover) e.recover.classList.remove('hidden');
+              if (e.startSource) e.startSource.classList.remove('hidden');
               if (e.hint && hold) {
                 e.hint.textContent = 'Copy / dest up failed. Source is stopped. Start it back, or Close.';
+              }
+            }
+            if (data.status === 'failed' && !data.undo_completed && data.undo_move && data.undo_move.project && data.job_type === 'service_migrate') {
+              state.undoMove = data.undo_move;
+              state.undoParentId = data.job_id || data.id;
+              state.undoArmed = false;
+              if (e.recover) e.recover.classList.remove('hidden');
+              if (e.undoMove) {
+                e.undoMove.classList.remove('hidden');
+                e.undoMove.textContent = 'Undo move';
+              }
+              if (e.hint && hold) {
+                e.hint.textContent = 'Names may have flipped. Undo reverts them, stops dest, and starts source. Dest files stay.';
               }
             }
             // On failure keep reload so banners/errors show; only redirect on success
@@ -1674,6 +1705,77 @@
     if (closeBtn) closeBtn.addEventListener('click', function () {
       // Manual close: still reload so badges update if job already finished
       finishClose();
+    });
+    var undoBtn = document.getElementById('job-hold-undo');
+    if (undoBtn) undoBtn.addEventListener('click', function () {
+      var sid = state.serverId;
+      var parentId = state.undoParentId;
+      if (!sid || !parentId) return;
+      var e = els();
+      if (!state.undoArmed) {
+        undoBtn.disabled = true;
+        fetch('/servers/' + encodeURIComponent(sid) + '/docker/migrate/undo/preview?parent_job_id=' + encodeURIComponent(parentId), {
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' },
+        }).then(function (res) {
+          return res.text().then(function (text) {
+            var data = {};
+            try { data = text ? JSON.parse(text) : {}; } catch (err) { data = {}; }
+            if (!res.ok) {
+              if (e.log) e.log.textContent += (data.detail || ('HTTP ' + res.status)) + '\n';
+              undoBtn.disabled = false;
+              return;
+            }
+            var lines = ['Undo preview', 'Project: ' + (data.project || '')];
+            if (data.dest_project && data.dest_project !== data.project) lines.push('Dest project: ' + data.dest_project);
+            lines.push('Source: ' + (data.source_name || '') + ' ' + (data.source_path || ''));
+            lines.push('Dest (stop only, files stay): ' + (data.dest_name || '') + ' ' + (data.dest_path || ''));
+            if (data.fqdns && data.fqdns.length) lines.push('DNS: ' + data.fqdns.join(', '));
+            if (data.npm && data.npm.length) lines.push('NPM: ' + data.npm.join(', '));
+            lines.push('Press Confirm undo to run. A green Move is not reversible this way.');
+            if (e.log) e.log.textContent += lines.join('\n') + '\n';
+            state.undoArmed = true;
+            undoBtn.textContent = 'Confirm undo';
+            undoBtn.disabled = false;
+          });
+        }).catch(function (err) {
+          undoBtn.disabled = false;
+          if (e.log) e.log.textContent += (err && err.message ? err.message : 'preview failed') + '\n';
+        });
+        return;
+      }
+      undoBtn.disabled = true;
+      var body = new FormData();
+      body.set('parent_job_id', String(parentId));
+      body.set('confirm', '1');
+      fetch('/servers/' + encodeURIComponent(sid) + '/docker/migrate/undo', {
+        method: 'POST',
+        body: body,
+        credentials: 'same-origin',
+        headers: { 'X-PiHerder-Async': '1', 'Accept': 'application/json' },
+      }).then(function (res) {
+        return res.text().then(function (text) {
+          var data = {};
+          try { data = text ? JSON.parse(text) : {}; } catch (err) { data = {}; }
+          if (!res.ok && res.status !== 409) {
+            if (e.log) e.log.textContent += (data.detail || ('HTTP ' + res.status)) + '\n';
+            undoBtn.disabled = false;
+            return;
+          }
+          if (data.job_id) {
+            if (e.title) e.title.textContent = 'Undo move';
+            if (e.status) e.status.textContent = 'Undoing…';
+            if (e.hint) e.hint.textContent = 'Reverting names, stopping dest, starting source.';
+            if (e.recover) e.recover.classList.add('hidden');
+            startPoll(sid, data.job_id, data.poll_url || null);
+          } else {
+            undoBtn.disabled = false;
+          }
+        });
+      }).catch(function (err) {
+        undoBtn.disabled = false;
+        if (e.log) e.log.textContent += (err && err.message ? err.message : 'undo failed') + '\n';
+      });
     });
     var startSrc = document.getElementById('job-hold-start-source');
     if (startSrc) startSrc.addEventListener('click', function () {

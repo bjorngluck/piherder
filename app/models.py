@@ -156,6 +156,21 @@ class Server(SQLModel, table=True):
     ssh_hostkey_fp: Optional[str] = Field(default=None, max_length=128)
 
     os_type: str = "debian"
+    # Snapshot from host_facts job (os-release / device-tree / DMI / ha host info)
+    os_pretty: Optional[str] = Field(default=None, max_length=160)
+    os_id: Optional[str] = Field(default=None, max_length=32)
+    hardware: Optional[str] = Field(default=None, max_length=160)
+    arch: Optional[str] = Field(default=None, max_length=32)
+    host_facts_json: Optional[str] = None
+    host_facts_at: Optional[datetime] = None
+    host_facts_status: str = "never"
+    host_facts_error: Optional[str] = None
+    cpu_cores: Optional[int] = None
+    cpu_load: Optional[float] = None
+    memory_total_bytes: Optional[int] = None
+    memory_used_bytes: Optional[int] = None
+    disk_total_bytes: Optional[int] = None
+    disk_used_bytes: Optional[int] = None
     last_seen: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -163,6 +178,8 @@ class Server(SQLModel, table=True):
     backup_enabled: bool = False
     os_patch_enabled: bool = False
     container_patch_enabled: bool = False
+    # v1.6 Mux-1: opt-in host tmux/screen for web SSH (default off; never HAOS/demo)
+    console_mux_enabled: bool = False
 
     # Backup & container config (stored as JSON strings for simplicity in v1)
     backup_paths: str = Field(default='["/home/pi/docker/", "/var/lib/docker/volumes/"]')
