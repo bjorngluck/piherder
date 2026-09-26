@@ -446,6 +446,12 @@ def job_public_dict(job: Job, *, detail: bool = False) -> dict:
         "undo_move": details.get("undo_move"),
         "undo_completed": bool(details.get("undo_completed")),
     }
+    from ..jobs_exclusive import host_wait_display
+
+    wait_label, wait_signal = host_wait_display(job, details)
+    if wait_label:
+        out["current"] = wait_label
+        out["host_signal"] = wait_signal
     if detail:
         # Full log for JobHold / jobs modal (alias log_lines for poll UIs)
         out["log_lines"] = list(log_lines) if log_lines else []

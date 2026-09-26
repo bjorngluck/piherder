@@ -215,6 +215,7 @@ async def settings_page(
         qp.get("security_saved")
         or qp.get("console_saved")
         or qp.get("files_saved")
+        or qp.get("jobs_wait_saved")
         or qp.get("data_cleanup_saved")
         or qp.get("data_cleanup_queued")
     ):
@@ -457,6 +458,11 @@ async def settings_page(
     console_pol = cons.effective_console_policy()
     files_max_bytes = hf.max_upload_bytes()
     files_max_locked = hf.files_max_env_locked()
+    from ..services.jobs_exclusive import host_wait_env_locked, host_wait_limit_sec
+
+    host_wait_sec = host_wait_limit_sec()
+    host_wait_minutes = max(1, int(round(host_wait_sec / 60)))
+    host_wait_locked = host_wait_env_locked()
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -503,6 +509,8 @@ async def settings_page(
             "files_max_h": hf.human_size(files_max_bytes),
             "files_max_locked": files_max_locked,
             "files_max_ceiling_h": hf.human_size(hf.MAX_UPLOAD_CEILING),
+            "host_wait_minutes": host_wait_minutes,
+            "host_wait_locked": host_wait_locked,
             "settings_hub": shub.hub_context(
                 cfg=cfg,
                 console_pol=console_pol,
@@ -511,6 +519,8 @@ async def settings_page(
                 files_enabled=hf.files_enabled(),
                 files_max_h=hf.human_size(files_max_bytes),
                 files_max_locked=files_max_locked,
+                jobs_wait_minutes=host_wait_minutes,
+                jobs_wait_locked=host_wait_locked,
             ),
         },
     )
@@ -1319,6 +1329,51 @@ async def save_files_policy(
         session.commit()
     return RedirectResponse(
         _settings_url("general", files_saved="1"), status_code=303
+    )
+
+
+@router.post("/herder-backups/jobs-wait")
+async def save_jobs_wait(
+    host_wait_minutes: str = Form("30"),
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    """Jr-2: how long a patch/stack/template job stays pending while SSH fails."""
+    from ..services.demo import http_403_if_demo
+    from ..services.jobs_exclusive import clamp_host_wait_sec, host_wait_env_locked, host_wait_limit_sec
+
+    http_403_if_demo("settings_jobs")
+    if host_wait_env_locked():
+        return RedirectResponse(
+            _settings_url("general", jobs_wait_saved="1"), status_code=303
+        )
+    try:
+        minutes = int(str(host_wait_minutes).strip() or "30")
+    except (TypeError, ValueError):
+        minutes = 30
+    minutes = max(1, min(minutes, 1440))
+    seconds = clamp_host_wait_sec(minutes * 60)
+    before = host_wait_limit_sec()
+    try:
+        app_cfg.save_settings({"exclusive_host_wait_sec": seconds})
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("general", error=str(e)[:120]), status_code=303
+        )
+    after = host_wait_limit_sec()
+    if after != before:
+        session.add(
+            make_audit_log(
+                user_id=user.id,
+                action="jobs_wait_changed",
+                status="success",
+                details=f"host wait {before}s → {after}s",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        session.commit()
+    return RedirectResponse(
+        _settings_url("general", jobs_wait_saved="1"), status_code=303
     )
 
 

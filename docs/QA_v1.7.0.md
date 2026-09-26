@@ -139,8 +139,10 @@ Use one real SSH host. You do not need every stack action if one mutate and one 
 
 ## Jr-2 — max wait in Settings (Should; may slip)
 
-- [ ] Settings shows max wait; SSH probe is still what resumes the job  
-- [ ] Kuma down or stale `last_seen` can show “waiting on host” and does **not** by itself resume or fail the job  
+Settings → **General** → **Jobs**. Default **30 minutes**. Env `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` locks the field when set. Boxes stay empty until you walk them.
+
+- [ ] Settings shows max wait; SSH probe is still what resumes the job. Open the Jobs card. The minutes field is there (1–1440). Save a short value such as **2** on a lab host, then refuse SSH and start an OS check. The pending log should mention the new limit (about 120s, not 1800). Restore SSH. The same job proceeds. Set the field back to **30** when you are done. If the env var is set, the field is disabled and the save does not change the wait  
+- [ ] Kuma down or stale `last_seen` can show “waiting on host” and does **not** by itself resume or fail the job. With a host whose Kuma SSH monitor is down, or whose `last_seen` is over 15 minutes old, start a check while SSH still works. The Jobs row or JobHold may say **waiting on host** before the probe, then the job **runs** anyway. It must not fail just because Kuma or `last_seen` looks down. With SSH actually refused, the job stays **pending** until the probe works or the wait you saved elapses  
 
 ## Q — fail-under 75 → 80 (Should; may slip)
 

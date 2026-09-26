@@ -48,6 +48,16 @@
                 data-open-settings-modal="console">Edit</button>
       </div>
     </div>
+    <div class="card p-4 settings-hub-card" id="settings-jobs" data-testid="settings-jobs">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="font-semibold text-text m-0">Jobs</h2>
+          <p class="text-xs text-muted mt-1 break-words">{{ hub.jobs or 'Host wait 30 min' }}</p>
+        </div>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
+                data-open-settings-modal="jobs">Edit</button>
+      </div>
+    </div>
     <div class="card p-4 settings-hub-card" id="settings-files" data-testid="settings-files">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
@@ -533,6 +543,42 @@
       </div>
       <div class="settings-sheet-foot">
         <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full sm:w-auto">Save console policy</button>
+      </div>
+    </form>
+    </div>
+  </div>
+
+  <div id="settings-jobs-modal" class="hidden fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+       data-settings-modal="jobs" role="dialog" aria-modal="true" aria-labelledby="settings-jobs-title">
+    <div class="modal-content settings-sheet card ph-modal-brand">
+      <div class="settings-sheet-head">
+        <div class="min-w-0 pr-2">
+          <h2 id="settings-jobs-title" class="font-semibold text-text m-0">Jobs</h2>
+          <p class="text-xs text-muted mt-1">
+            How long a patch, check, stack, or template job stays pending while SSH to that host fails.
+          </p>
+        </div>
+        <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+      </div>
+    <form method="post" action="/herder-backups/jobs-wait" class="settings-sheet-form" data-testid="settings-jobs-form">
+      <div class="settings-sheet-body space-y-4">
+        <label class="block text-sm">
+          <span class="block text-xs text-muted mb-1">Max wait for the host (minutes, 1–1440)</span>
+          <input type="number" name="host_wait_minutes" min="1" max="1440" step="1"
+                 value="{{ host_wait_minutes | default(30) }}"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                 data-testid="host-wait-minutes"
+                 {% if host_wait_locked %}disabled{% endif %}>
+          <span class="block text-xs text-muted mt-1">
+            The worker probes SSH every 30 seconds. The job resumes only when that probe works.
+            Uptime Kuma or a stale last-seen time can show “waiting on host”; neither starts nor fails the job.
+            {% if host_wait_locked %}Locked by <code class="font-mono">PIHERDER_EXCLUSIVE_HOST_WAIT_SEC</code>.{% endif %}
+          </span>
+        </label>
+      </div>
+      <div class="settings-sheet-foot">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full sm:w-auto"
+                {% if host_wait_locked %}disabled{% endif %}>Save host wait</button>
       </div>
     </form>
     </div>

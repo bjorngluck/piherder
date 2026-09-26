@@ -38,6 +38,9 @@ DEFAULTS: Dict[str, Any] = {
     "keep": 10,
     "schedule_mode": "full",
     "timezone": "UTC",
+    # Jr-2: how long an exclusive Celery job stays pending while SSH fails.
+    # Env PIHERDER_EXCLUSIVE_HOST_WAIT_SEC locks this when set.
+    "exclusive_host_wait_sec": 1800,
     "schedule_enabled": False,
     "schedule_cron": "0 3 * * *",
     "os_check_global_enabled": True,
