@@ -135,11 +135,11 @@ Each backup job writes append-only phases:
 | Phase | Action | Meaning |
 |-------|--------|---------|
 | request | `backup_request` | User / schedule / bulk asked for a backup |
-| queued | `backup_queued` | Waiting for a Celery worker |
-| running | `backup_running` | Worker started rsync |
+| queued | `backup_queued` | Waiting for a Celery worker (snapshot, `info`) |
+| running | `backup_running` | Worker started rsync (snapshot, `info`) |
 | complete | `backup` | Terminal success or failure |
 
-**Completed backups** show a summary line with source count and total size (e.g. `2 sources · 1.5 MB`), duration, and a detail modal with per-source sizes. Incomplete/running noise can be hidden with **Hide incomplete runs**.
+**Completed backups** show a summary line with source count and total size (e.g. `2 sources · 1.5 MB`), duration, and a detail modal with per-source sizes. Queued and running phase rows are noise: **Hide incomplete runs** hides them, and they are left out of the Audit **active** pulse. Older rows that still say `running` are treated the same way.
 
 ### Timezone display
 

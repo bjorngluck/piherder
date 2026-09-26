@@ -70,7 +70,7 @@ Scheduled work is audited as **system / scheduler**.
 
 ### Manual apply
 
-- **Debian/Ubuntu:** update / **upgrade XOR full-upgrade** / autoremove; live apt log; Ubuntu **phased** packages counted separately.  
+- **Debian/Ubuntu:** update / **upgrade XOR full-upgrade** / autoremove; live apt log; Ubuntu **phased** packages counted separately. Apt exit **100** still fails the job (held packages, broken state, or a failed index on that host). The job summary includes the apt `E:` line, not only `rc=100`.  
 - **HAOS:** refresh versions + apply available components (**supervisor → core → OS**); live CLI log; no apt / no full-upgrade.  
 - Container patch: `compose pull` + conditional `up -d` with live logs (not for HAOS fleet).
 

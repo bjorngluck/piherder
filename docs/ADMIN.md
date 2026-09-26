@@ -419,7 +419,7 @@ Aggregates **Job** history, **nmap scan runs**, and **console Audit**: backups, 
 
 ### Backup audit completion
 
-Backup jobs write lifecycle events (`backup_request` → `backup_queued` → `backup_running` → terminal `backup`). The **completed** row includes a compact snippet (per-source sizes, totals) so the Audit feed can show e.g. `2 sources · 1.5 MB` and duration. Use **Hide incomplete runs** to hide in-progress noise.
+Backup jobs write lifecycle events (`backup_request` → `backup_queued` → `backup_running` → terminal `backup`). Queued and running rows are phase snapshots (`status=info` on new rows). They are audit noise: **Hide incomplete runs** hides them, and they do not count in the Audit **active** pulse. The **completed** `backup` row includes a compact snippet (per-source sizes, totals) so the Audit feed can show e.g. `2 sources · 1.5 MB` and duration.
 
 ### App timezone (display)
 
@@ -962,7 +962,7 @@ Probes tools needed for **enabled** features only (`rsync` / sudo path, `docker`
 | Revoke | Soft-disables secret; **row is kept** (name, id, scopes) for audit trail — never hard-deleted in UI |
 | List filter | **Active** (default) · **Revoked** · **All** — counts on each pill |
 | Last used | Updated on each successful Bearer request; shown in Settings |
-| Audit trail | Link per token → `/audit?api_token_id=…` (actor shows token **name** + **id**; works after revoke) |
+| Audit trail | Link per token → `/audit?api_token_id=…` (actor shows token **name** + **id**; works after revoke). Mutations (jobs, feature flags, host-file writes, and host-file list/download) record that actor. Ordinary read GETs (health, summary, servers, inventory, jobs) do not |
 | Server flags | Jobs still require the server’s feature enabled (toggle via UI or `PATCH …/features`) |
 
 | Scope | Allows |
