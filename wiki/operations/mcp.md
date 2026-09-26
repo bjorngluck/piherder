@@ -21,11 +21,13 @@ Tools appear only for scopes on the token. Startup reads `GET /api/v1/health`. A
 | Scope | Tools |
 |-------|--------|
 | `read` | Health, fleet summary, servers, Docker inventory, service chips, jobs (list and detail). Snapshots already in the database. |
-| `jobs` | Start `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, `container_update_check`. `host_reboot` is a herder and Home Assistant job, not a tool here. |
+| `jobs` | Start `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, `container_update_check`. The herder jobs POST is broader (`host_reboot`, `docker_stack_check` / `deploy` / `stop` / `start` / `restart`, `template_deploy`, `template_redeploy`). Those are not tools here. |
 | `edit` | Toggle `backup`, `os_patch`, and `docker` on a host. |
 | `files` | Fleet-jail list, read, write, mkdir, rename, and delete a file or an empty directory. |
 
 `feature:*` scopes and the host’s feature flags still apply. A second start of an exclusive job returns **409** with the job that is already running. The agent should poll that job.
+
+The bearer jobs POST accepts more types than this tool list. With `jobs` and `feature:docker`, curl can enqueue `docker_stack_check`, `docker_stack_deploy`, `docker_stack_stop`, `docker_stack_start`, and `docker_stack_restart` (`source_filter` is the compose project path), plus `template_deploy` and `template_redeploy`. `host_reboot` needs `feature:os`. MCP does not register tools for any of those. The six `trigger_job` types above stay the agent contract.
 
 File bodies returned to the agent are capped around **256 KiB**.
 

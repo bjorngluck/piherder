@@ -33,7 +33,7 @@ Authorization: Bearer ph_<secret>
 | `files` | Host Files fleet list / download / upload / mkdir / rename / empty-delete — not in default scopes. Privileged, zip, edit, chmod, recursive delete stay UI + 2FA. Richer Files token API is still out of 1.4. |
 | `feature:backup` | Restrict `jobs` to backup-related types when any `feature:*` is set |
 | `feature:os` | OS patch / OS update-check jobs (apt **or** HAOS `ha` CLI when `os_type=haos`) |
-| `feature:docker` | Container patch / container update-check / stack check-deploy jobs |
+| `feature:docker` | Container patch, container update-check, compose stack check/deploy/stop/start/restart, and template deploy/redeploy jobs |
 
 If **no** `feature:*` scopes are set, any job type allowed by `jobs` may run (still subject to server feature flags). Prefer least privilege: e.g. n8n backups = `read` + `jobs` + `feature:backup`.
 

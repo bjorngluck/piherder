@@ -828,9 +828,17 @@ def list_jobs(
 class JobCreateBody(BaseModel):
     job_type: str = Field(
         ...,
-        description="backup | retention | os_patch | container_patch | os_update_check | container_update_check | host_reboot",
+        description=(
+            "backup | retention | os_patch | os_update_check | host_reboot | "
+            "container_patch | container_update_check | docker_stack_check | "
+            "docker_stack_deploy | docker_stack_stop | docker_stack_start | "
+            "docker_stack_restart | template_deploy | template_redeploy"
+        ),
     )
-    source_filter: Optional[str] = None
+    source_filter: Optional[str] = Field(
+        None,
+        description="Backup source name for backup. Compose project path for docker_stack_* jobs.",
+    )
     os_steps: Optional[list[str]] = None
 
 
