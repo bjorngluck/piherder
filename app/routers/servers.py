@@ -1153,114 +1153,41 @@ async def delete_server(
 @router.post("/{server_id}/reboot")
 async def reboot_server(
     server_id: int,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """Send reboot to the host via SSH (passwordless sudo full path).
+    """Queue a host reboot on the exclusive Celery lane.
 
-    Least-priv sudoers allow ``/usr/sbin/reboot`` and ``systemctl``. Plain
-    ``reboot`` is often inhibited by logind (our SSH session, a GUI seat, another
-    tty) — we use ``systemctl reboot --ignore-inhibitors``. Clear local
-    reboot_pending optimistically after the command is accepted so the UI does
-    not look stuck.
-
-    Important: schedule reboot slightly deferred so the SSH command can return
-    and PiHerder can finish the HTTP response + audit. Immediate ``reboot``
-    often kills the channel (and, if this is the PiHerder host, the whole stack)
-    mid-request, which looks like a hang.
+    The same ``host_reboot`` job the token API uses. A pending OS patch,
+    container patch, or backup on this host refuses the reboot. SSH runs on
+    the worker, not in this request.
     """
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
 
-    success = False
-    details = "Reboot initiated"
-    # Deferred + backgrounded so the SSH command returns quickly.
-    # Least-priv sudoers only allow the reboot binary (not sudo sh), so we
-    # background via the login shell + nohup, and sudo only the reboot path.
-    # sleep 1 gives PiHerder time to finish HTTP/audit when rebooting its own host.
-    from ..services.host_reboot import deferred_reboot_commands
-
-    reboot_cmds = deferred_reboot_commands()
     try:
-        client = ssh_service.get_ssh_client(server)
-        last_err = ""
-        try:
-            for cmd in reboot_cmds:
-                try:
-                    # Short channel timeout; backgrounded reboot should return fast
-                    _stdin, stdout, stderr = client.exec_command(cmd, timeout=8)
-                    import time as _time
-
-                    deadline = _time.monotonic() + 1.5
-                    while _time.monotonic() < deadline:
-                        if stdout.channel.exit_status_ready():
-                            break
-                        _time.sleep(0.1)
-                    if stdout.channel.exit_status_ready():
-                        code = stdout.channel.recv_exit_status()
-                        err = (stderr.read() or b"").decode(errors="replace")[:200]
-                        out = (stdout.read() or b"").decode(errors="replace")[:200]
-                        if code == 0:
-                            success = True
-                            details = "Reboot scheduled (host will restart shortly)"
-                            break
-                        last_err = (err or out or f"exit {code}").strip()
-                        continue
-                    # Background job started; shell still open — treat as success
-                    success = True
-                    details = "Reboot command sent"
-                    break
-                except Exception as e:
-                    # Connection dropped after reboot is normal
-                    msg = str(e).lower()
-                    if any(
-                        x in msg
-                        for x in ("eof", "reset", "closed", "timeout", "timed out")
-                    ):
-                        success = True
-                        details = "Reboot sent (connection closed)"
-                        break
-                    last_err = str(e)[:200]
-            if not success and last_err:
-                details = f"Reboot command failed: {last_err}"
-        finally:
-            _safe_close_ssh(client, timeout=1.5)
-    except Exception as e:
-        details = f"Reboot command failed to send: {e}"
-
-    if success:
-        # Optimistic clear — host will re-set on next OS check if still required
-        server.reboot_pending = False
-        session.add(server)
-        try:
-            from ..services import notifications as notif_svc
-
-            notif_svc.resolve_by_fingerprint(
-                session, f"reboot_pending:server:{server_id}"
-            )
-        except Exception:
-            pass
-
-    try:
-        record_server_audit(
+        job_service.create_job_and_run(
+            background_tasks,
             session,
-            server_id=server.id,
+            server,
+            "host_reboot",
             user_id=user.id,
-            action="reboot",
-            status="success" if success else "failed",
-            message=details,
         )
-        session.commit()
-    except Exception:
-        pass
-
-    if success:
-        return RedirectResponse(f"/servers/{server_id}?rebooted=1", status_code=303)
-    return RedirectResponse(
-        f"/servers/{server_id}?error=reboot_fail&detail={quote(details[:180])}",
-        status_code=303,
-    )
+    except job_service.JobAlreadyActive as exc:
+        blocking = getattr(exc.job, "job_type", None) or "job"
+        detail = f"{blocking} already active"
+        return RedirectResponse(
+            f"/servers/{server_id}?error=reboot_fail&detail={quote(detail)}",
+            status_code=303,
+        )
+    except RuntimeError as exc:
+        return RedirectResponse(
+            f"/servers/{server_id}?error=reboot_fail&detail={quote(str(exc)[:180])}",
+            status_code=303,
+        )
+    return RedirectResponse(f"/servers/{server_id}?rebooted=1", status_code=303)
 
 
 @router.post("/{server_id}/update")

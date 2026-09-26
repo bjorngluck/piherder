@@ -36,7 +36,7 @@ Inspired by projects like [Nginx Proxy Manager](https://github.com/NginxProxyMan
 - Optional in-browser **web SSH console** (off by default). Per host, **Console mux** can attach `tmux` or `screen` so Hide keeps the shell on the Pi
 - Optional **Host Files** jailed SFTP explorer (off by default; `PIHERDER_HOST_FILES`)
 - Optional **Move a service** — compose project host→host as one job (off by default; `PIHERDER_SERVICE_MIGRATE`). Runs on the Celery worker. A failure after names flip can be undone
-- Token REST API for automation (n8n, Home Assistant, etc.). Home Assistant observes the fleet with HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha) (not inside this image)
+- Token REST API for automation (n8n, Home Assistant, etc.). Home Assistant observes the fleet with HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.3.0** (not inside this image). A `read` token is sensors and the fleet card. `jobs` and `edit` add confirm actions, including host reboot
 
 ### Quick Start
 
@@ -66,7 +66,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - **Current production:** [docs/RELEASE_v1.6.0.md](docs/RELEASE_v1.6.0.md) — HACS fleet · console mux · script nonce · fail-path undo. Technical record: [PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md). Wiki: [Home Assistant](wiki/integrations/home-assistant.md) · [Web SSH](wiki/day-to-day/web-ssh-console.md)
-- **Next train:** [docs/PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md) — **Active** on `v1.7.0-dev`. MCP-1 **0.1.0** (own repo), Jr-1, Jr-2, Brand-1, and Brand-2 are on the branch. Operator walks are open. Coverage 75 → 80 and **HA-cards** (more Lovelace cards and token writes in piherder-ha) are not started. Package stays `1.6.0` until freeze
+- **Next train:** [docs/PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md) — **Active** on `v1.7.0-dev`. MCP-1 **0.1.0** (own repo), Jr-1, Jr-2, Brand-1, Brand-2, coverage fail-under **80**, and **HA-cards** (plugin **0.3.0**: host, updates, and resources cards, plus `host_reboot`) are on the branch. Operator walks are open. Package stays `1.6.0` until freeze
 - Prior: [docs/RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · [docs/RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [docs/RELEASE_v1.3.0.md](docs/RELEASE_v1.3.0.md) · [docs/RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
 - API reference: [docs/API.md](docs/API.md)
 

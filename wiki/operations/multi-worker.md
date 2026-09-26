@@ -50,7 +50,8 @@ Recycling **web** does not fail these exclusive jobs. Recycling **celery-worker*
 | `backup` | Celery | Many hosts in parallel; **one backup per host** (Redis mutex) |
 | `service_migrate` | Celery | Dual-host backup mutex + DB exclusive with stack mutation on **both** ids. Recycle **web** is safe; recycle **worker** fails a running Move |
 | `service_migrate_undo` | Celery | Same mutex. Only a failed post-flip Move. `compose stop` on dest, never `down -v`. Recycle **worker** fails a running undo and leaves the dest tree |
-| `os_patch` / `container_patch` | Celery default queue | **One active job of that type per host** (DB exclusive). No backup mutex |
+| `os_patch` / `container_patch` | Celery default queue | **One active job of that type per host** (DB exclusive). No backup mutex. Refused while `host_reboot` is active |
+| `host_reboot` | Celery default queue | **One reboot per host**. Also refused while `os_patch`, `container_patch`, or `backup` is pending or running on that host |
 | `os_update_check` / `container_update_check` / `docker_stack_check` | Celery default queue | **One active check of that type per host**. SSH down keeps the job pending |
 | `docker_stack_deploy` / `_stop` / `_start` / `_restart` / `_down` / `_remove` / template deploy and redeploy | Celery default queue | **One active stack mutation per host** (shared lane) |
 | `template_drift_check` | Celery default queue | One drift check per host. Not a stack write |

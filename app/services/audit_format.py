@@ -42,6 +42,7 @@ _ACTION_LABELS = {
     "herder_restore": "PiHerder restore",
     "container_patch": "Containers",
     "os_patch": "OS patch",
+    "host_reboot": "Host reboot",
     "os_update_check": "OS update check",
     "container_update_check": "Container update check",
     "docker_stack_check": "Stack update check",

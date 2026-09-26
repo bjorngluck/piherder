@@ -30,7 +30,7 @@ Wanted:
 4. A worker kill of a **running** apt or compose stays **fail honest**  
 5. Optional instance name + one accent, and a nav hide for Catalog, without a theme engine  
 6. CI fail-under raised **75 → 80** if the suite can get there without lowering the floor  
-7. **HA-cards** (Should, not started): more Lovelace cards in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha), plus confirm actions for the job types and feature toggles today’s bearer token already allows. No new herder routes. Plugin **0.2.4** stays read-only until this slice is built  
+7. **HA-cards** (Should): Lovelace cards in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.3.0**, plus confirm actions for the job types and feature toggles today’s bearer token already allows, and `host_reboot` on that same jobs POST. No new herder path. Operator walk still open  
 
 **Out of 1.7 product code until promoted:** fine-grained grants, the HA job-finished bus event, Undo-2, Mux-2, alternate backup destinations (**Bak-alt**), HA Slice 3 (container start/stop, webhooks, Move-from-HA, Files), Brand-3, turning Move on by default.
 
@@ -74,7 +74,7 @@ main @ v1.6.0 (+ v1.6.x patches)
 | # | Question | Decision |
 |---|----------|----------|
 | 1 | Theme / Must | **MCP-1** first, then **Jr-1**. Both Must. Jr-1 is still all remaining **exclusive** types in one go, default Celery queue. |
-| 2 | Which types | `os_patch`, `container_patch`, `os_update_check`, `container_update_check`, `docker_stack_check`, `docker_stack_deploy` / `_stop` / `_start` / `_restart` / `_down` / `_remove`, `template_deploy`, `template_redeploy`, `template_drift_check`. |
+| 2 | Which types | `os_patch`, `container_patch`, `os_update_check`, `container_update_check`, `docker_stack_check`, `docker_stack_deploy` / `_stop` / `_start` / `_restart` / `_down` / `_remove`, `template_deploy`, `template_redeploy`, `template_drift_check`. **HA-cards** added `host_reboot` to this Celery set (2026-09-26). |
 | 3 | Left on web | `retention`, `herder_backup` (not exclusive). nmap stays **`-Q nmap`**. `backup`, `service_migrate`, `service_migrate_undo` stay as they are. |
 | 4 | Host down | Job stays **pending**, backoff until SSH works or **max wait**. Exclusive slot held. SSH probe is source of truth. Not “replay a stored compose on wake.” |
 | 5 | Running mutate + worker kill | **Fail honest.** Pending wait-for-host **redelivers**. |
@@ -90,7 +90,7 @@ main @ v1.6.0 (+ v1.6.x patches)
 | 15 | Coverage | **Should.** Raise fail-under **75 → 80**. May slip. Do not lower **75**. |
 | 16 | Version bump | `1.7.0` at freeze only |
 | 17 | Public demo | Stays on the **1.6** image. Do not redeploy it onto `v1.7.0-dev`. |
-| 18 | **HA-cards** | **Should** (2026-09-26). Not started. More Lovelace cards plus confirm writes the bearer API already has. Separate repo. No new herder routes. Does not block the tag. |
+| 18 | **HA-cards** | **Should** (2026-09-26). Landed. Plugin **0.3.0**. Host, updates, and resources cards, plus `host_reboot` on the existing jobs POST. Does not block the tag. Walk still open. |
 
 ---
 
@@ -106,7 +106,7 @@ Phase 2   Jr-1 exclusive types → Celery       landed (operator walk still open
 Phase 3   Q fail-under 75 → 80                Should (may slip)
 Phase 4   Brand-1 + Brand-2                   landed (operator walk still open)
 Phase 5   Jr-2 Settings max wait              landed (operator walk still open)
-Phase 5b  HA-cards                            Should, not started (may slip)
+Phase 5b  HA-cards                            Should, landed (walk open; may slip the tag)
 Phase 6   Discover spikes                     only if Must is green and you promote
 Phase 7   Wiki + QA_v1.7.0                    operator sign-off
 Phase 8   Freeze                              1.7.0 bump · RELEASE · PR · tag · Hub — only when asked
@@ -242,26 +242,27 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 
 ## 4b. Stream **HA-cards** — Lovelace cards and token writes (Should)
 
-Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7. Operator page: [Home Assistant](../wiki/integrations/home-assistant.md). Plugin **0.2.4** is still the read-only fleet card. This slice is not started.
+Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7. Operator page: [Home Assistant](../wiki/integrations/home-assistant.md). Plugin **0.3.0** adds the cards and the write services. Operator walk still open.
 
-**Where:** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) only. Not in the PiHerder image. Not a Supervisor add-on. The public demo is not a target.
+**Where:** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) for the cards. The herder only grows the `host_reboot` job type on the existing jobs POST. Not in the PiHerder image. Not a Supervisor add-on. The public demo is not a target.
 
 **Cards:**
 
-1. The existing fleet card stays (sums, expand host, chips into PiHerder).  
-2. A **host** card for one server: the stored snapshot, the same chips, and that host’s confirm actions.  
-3. An **updates** card: OS and container update counts from the snapshot, plus check and patch confirms.
+1. The existing fleet card stays (sums, expand host, chips into PiHerder). No write buttons on it.  
+2. A **host** card for one server: gauges, 24h sparklines, chips, confirm actions, and the three feature toggles.  
+3. An **updates** card: OS and container update counts from the snapshot, plus check and patch confirms.  
+4. A **resources** card: SVG area charts for memory %, disk %, and CPU load over 24h. The series is Home Assistant history of the snapshot sensors (about 15 minutes). It is not a live SSH chart.
 
-**Writes** use routes that already exist. A missing scope hides that control. A `read` token keeps today’s sensors and the fleet card and shows no write controls.
+**Writes** go through Home Assistant services. The card never sees the token. A missing scope hides that control. A `read` token keeps today’s sensors and the fleet card and shows no write controls.
 
 | Action | Call | Scope |
 |--------|------|--------|
-| Backup, retention, OS check, container check, OS patch, container patch | `POST /api/v1/servers/{id}/jobs` | `jobs` plus the matching `feature:*`. **409** means poll `GET /api/v1/jobs/{id}` |
+| Backup, retention, OS check, container check, OS patch, container patch, host reboot | `POST /api/v1/servers/{id}/jobs` | `jobs` plus the matching `feature:*`. **409** means poll `GET /api/v1/jobs/{id}` |
 | Backup / OS patch / Docker flags | `PATCH /api/v1/servers/{id}/features` | `edit` plus the matching `feature:*` |
 
-Patch and retention ask for a confirm before the call. The poll that fills the cards stays `GET` of stored snapshots. It does not SSH the fleet.
+`host_reboot` uses feature key `os` (the OS-patch flag must be on). It is refused with **409** while `os_patch`, `container_patch`, or `backup` is pending or running on that host, and those three are refused while a reboot is active. The session Reboot button queues the same job. Patch, retention, and restart ask for a confirm. The poll that fills the cards stays `GET` of stored snapshots. It does not SSH the fleet.
 
-**Still out:** container start/stop, Move, undo, compose write, Files, console, stack and template deploys, nmap, DNS, certs, settings, token admin. No new herder route. The HA bus event `piherder_job_completed` stays Discover. Webhooks and a Supervisor add-on stay out.
+**Still out:** container start/stop, Move, undo, compose write, Files, console, stack and template deploys, nmap, DNS, certs, settings, token admin. No new herder path. MCP’s published tool list stays the six job types (no `host_reboot`). The HA bus event `piherder_job_completed` stays Discover. Webhooks and a Supervisor add-on stay out. An automation can call the same HA services without the card dialog.
 
 ---
 
@@ -287,7 +288,7 @@ Patch and retention ask for a confirm before the call. The poll that fills the c
 | **Should** | **Brand-1** | Instance name + one accent; demo ignored | Landed. Operator walk still open |
 | **Should** | **Brand-2** | Hide Catalog in nav; `/catalog` still works | Landed. Operator walk still open |
 | **Should** | **Jr-2** | Settings max wait; Kuma/`last_seen` is a signal | Landed. Operator walk still open |
-| **Should** | **HA-cards** | Host card, updates card, and confirm writes for today’s job types and feature toggles. Plugin repo. No new herder routes | Not started. Plugin **0.2.4** stays read-only |
+| **Should** | **HA-cards** | Host, updates, and resources cards. Confirm writes including `host_reboot`. Plugin repo. No new herder path | Landed. Plugin **0.3.0**. Operator walk still open |
 | **Discover** | Bak-alt · AC-fg · HA bus event · Undo-2 · Mux-2 | Notes only unless promoted | Parked |
 | **Out** | HA Slice 3 (start/stop, webhooks, Move, Files) · Brand-3 · M-flag C · plugin-in-image · MCP-in-image · remote HTTP MCP · CSP Slice 2 | Stay out | Locked 2026-09-26 |
 
@@ -297,10 +298,10 @@ Patch and retention ask for a confirm before the call. The poll that fills the c
 
 | Gate | Target |
 |------|--------|
-| Unit | Floor **75**. Should raises `--cov-fail-under` to **80** on `app`. If that slips, the tag still requires the floor. Jr-1 tests cover enqueue-on-Celery, web-recycle does not fail, worker-recycle fails a running mutate, host-down stays pending, exclusive lane still blocks a second stack mutate. No live SSH. MCP-1 tests live in the adapter repo and mock HTTP: scope-filtered tools, `trigger_job` 202 and 409, no call to SSH, Move, or console |
+| Unit | Floor **75**. `--cov-fail-under` is **80** on `app` (compose **81.01%**). Jr-1 tests cover enqueue-on-Celery, web-recycle does not fail, worker-recycle fails a running mutate, host-down stays pending, exclusive lane still blocks a second stack mutate. No live SSH. MCP-1 tests live in the adapter repo and mock HTTP: scope-filtered tools, `trigger_job` 202 and 409, no call to SSH, Move, or console |
 | E2E | Wizard chrome. No live apt, compose, or two-host copy in CI |
-| Docs | Wiki multi-worker + Jobs when Jr-1 lands; `mkdocs build --strict` at freeze |
-| Security | Same exclusive lanes. No new token scope. Move and undo stay off the token API. MCP write tools use `jobs`, `edit`, and `files` only. HA-cards, when built, uses `jobs` and `edit` only and is tested in the plugin repo with mocked HTTP. Demo never live-runs the moved types and is not an MCP or HA-cards target. Brand env lock cannot be overridden from the UI when set |
+| Docs | Wiki multi-worker and Jobs describe the Celery lane, including `host_reboot`. `mkdocs build --strict` at freeze |
+| Security | Same exclusive lanes. No new token scope. Move and undo stay off the token API. MCP write tools use `jobs`, `edit`, and `files` only. HA-cards uses `jobs` and `edit` only and is tested in the plugin repo with mocked HTTP. Demo never live-runs the moved types and is not an MCP or HA-cards target. Brand env lock cannot be overridden from the UI when set |
 
 ---
 
@@ -344,6 +345,7 @@ Patch and retention ask for a confirm before the call. The poll that fills the c
 | 2026-09-26 | **Q packs `_q5` and `_q6`.** Exclusive-job edges, TLS probe, host-file search, compose writes, binding races, herder-backup fallback. Full compose **78.21%** (38267/48927), 1689 passed. About **875** lines still short of **80%**. Fail-under stays **75**. |
 | 2026-09-26 | **Q landed.** Packs `_q7` and `_q8` (router bodies: docker, DNS, integrations, nmap, files, patch, settings). Full compose **80.05%** (39165/48927), 1692 passed, 6 skipped. CI `--cov-fail-under` raised **75 → 80**. |
 | 2026-09-26 | **Q packs `_q9` and `_q10`.** Settings, certificates, Pi-hole, SSH identities, OIDC callback. Full compose **81.01%** (39638/48927), 1694 passed. CI `--cov-fail-under` stays **80** so the extra point is headroom. |
+| 2026-09-26 | **HA-cards landed.** `host_reboot` on the existing jobs POST (exclusive lane, 409 against patch and backup). Plugin **0.3.0**: host, updates, and resources cards. Graphs are HA history of snapshot sensors. Operator walk still open. |
 
 ---
 
@@ -359,7 +361,7 @@ Patch and retention ask for a confirm before the call. The poll that fills the c
 | 5 | **Jr-1** exclusive types → default Celery queue | **Landed.** Walk still open ([QA_v1.7.0.md](QA_v1.7.0.md)) |
 | 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until walked |
 | 7 | Q / Brand-1 / Brand-2 / Jr-2 as capacity after Must | **Jr-2**, **Brand-1**, **Brand-2**, and **Q** landed (compose **81.01%**, fail-under **80**). **HA-cards** still open |
-| 9 | **HA-cards** in piherder-ha | **Not started.** Should. May slip |
+| 9 | **HA-cards** in piherder-ha | **Landed** as plugin **0.3.0**. Walk still open ([QA_v1.7.0.md](QA_v1.7.0.md)) |
 | 8 | Freeze · `1.7.0` · tag · Hub | Only when asked |
 
 ---

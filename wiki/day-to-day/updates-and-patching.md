@@ -124,15 +124,17 @@ Bulk does not bypass exclusive-job rules: if a host already has that job type ru
 
 ## Reboot
 
-Least-priv sudoers must allow the exact command PiHerder sends: `systemctl reboot --ignore-inhibitors` (and/or `systemctl reboot -i`). A drop-in that only allows `/usr/sbin/reboot` is **not** enough. PiHerder:
+**Reboot now** queues a `host_reboot` job on the Celery worker. The page returns immediately. The same job is what the Home Assistant host card calls. It is refused while an OS patch, a container patch, or a backup is already pending or running on that host.
+
+Least-priv sudoers must allow the exact command the worker sends: `systemctl reboot --ignore-inhibitors` (and/or `systemctl reboot -i`). A drop-in that only allows `/usr/sbin/reboot` is **not** enough. When SSH answers, the worker:
 
 1. Schedules reboot in the background (`sleep 1` then `systemctl reboot --ignore-inhibitors`) so the SSH command returns quickly.  
-2. Closes SSH with a short timeout (hosts dying mid-session no longer hang the request).  
+2. Treats a dropped connection after that command as success.  
 3. Clears local `reboot_pending` after a successful send so the UI does not stick.
 
-**Inhibitors:** a plain `sudo reboot` often fails on current systemd with *Operation inhibited* — the PiHerder SSH session itself, a desktop seat (`gnome-session` / tty), or another login. **Reboot now** is an explicit operator action, so we pass `--ignore-inhibitors` (`-i`). That still shuts units down cleanly. We do **not** use `--force` (skip shutdown / kill everything). From a shell, `systemctl reboot -i` is the same.
+If SSH is down, the job stays **pending** and is probed until the host answers or the wait limit (Settings → General → Jobs). Recycling **web** does not fail it. Recycling **celery-worker** while it is **running** fails it.
 
-**Why this design:** rebooting the **same host that runs PiHerder** takes the stack down moments later; the HTTP response and audit row should already be finished.
+**Inhibitors:** a plain `sudo reboot` often fails on current systemd with *Operation inhibited* — the PiHerder SSH session itself, a desktop seat (`gnome-session` / tty), or another login. **Reboot now** is an explicit operator action, so we pass `--ignore-inhibitors` (`-i`). That still shuts units down cleanly. We do **not** use `--force` (skip shutdown / kill everything). From a shell, `systemctl reboot -i` is the same.
 
 ## Related
 

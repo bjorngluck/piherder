@@ -828,7 +828,7 @@ def list_jobs(
 class JobCreateBody(BaseModel):
     job_type: str = Field(
         ...,
-        description="backup | retention | os_patch | container_patch | os_update_check | container_update_check",
+        description="backup | retention | os_patch | container_patch | os_update_check | container_update_check | host_reboot",
     )
     source_filter: Optional[str] = None
     os_steps: Optional[list[str]] = None
@@ -882,10 +882,16 @@ async def create_server_job(
             },
         )
     except job_service.JobAlreadyActive as e:
+        blocking = (getattr(e.job, "job_type", None) or job_type)
+        detail = (
+            f"{blocking} already active for this server"
+            if blocking != job_type
+            else f"{job_type} already active for this server"
+        )
         return JSONResponse(
             status_code=409,
             content={
-                "detail": f"{job_type} already active for this server",
+                "detail": detail,
                 "job": job_service.job_public_dict(e.job),
                 "already_active": True,
             },

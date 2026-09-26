@@ -283,6 +283,7 @@ def test_run_exclusive_job_branches(monkeypatch):
     for name in (
         "_execute_os_patch_sync",
         "_execute_container_patch_sync",
+        "_execute_host_reboot",
         "_execute_os_update_check",
         "_execute_container_update_check",
         "_execute_docker_stack_check",
@@ -307,6 +308,7 @@ def test_run_exclusive_job_branches(monkeypatch):
     for kind in (
         "os_patch",
         "container_patch",
+        "host_reboot",
         "os_update_check",
         "container_update_check",
         "docker_stack_check",
@@ -318,7 +320,7 @@ def test_run_exclusive_job_branches(monkeypatch):
         "template_drift_check",
     ):
         real_execute(kind, pending.id, pending.server_id, 1, payload)
-    assert len(calls) == 11
+    assert len(calls) == 12
     with pytest.raises(ValueError):
         real_execute("backup", pending.id, pending.server_id, 1, {})
 

@@ -24,7 +24,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 | MCP-1 | [Agents (MCP)](../wiki/operations/mcp.md) (operator). Herder side is [API tokens](../wiki/operations/api-tokens.md). The process is not in this image |
 | Jr-1 / Jr-2 | [Multi-worker](../wiki/operations/multi-worker.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Troubleshooting](../wiki/troubleshooting/index.md) |
 | Brand-1 / Brand-2 | [Appearance](../wiki/getting-started/appearance.md) · [Settings](../wiki/operations/settings.md) → General → Instance |
-| HA-cards | [Home Assistant](../wiki/integrations/home-assistant.md). Not in plugin **0.2.4**. Do not walk until that slice is built |
+| HA-cards | [Home Assistant](../wiki/integrations/home-assistant.md). Plugin **0.3.0**. Walk after HACS updates |
 | Regression | [Move a service](../wiki/docker/service-migration.md) · [Web SSH](../wiki/day-to-day/web-ssh-console.md) · [Home Assistant](../wiki/integrations/home-assistant.md) |
 
 ---
@@ -41,7 +41,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 | **Flags** | `PIHERDER_SERVICE_MIGRATE` stays **false** except a regression spot-check you explicitly turn on, then off. Demo never live-runs patch or stack jobs |
 | **Where to look** | Local herder: `http://127.0.0.1:8000` (Caddy `:8888` / `:8443`) |
 
-**Do not test (Out or Discover):** Google Drive or NAS backup destinations (Bak-alt), per-host grants, the HA job-finished bus event, Undo-2, Mux-2 leftover list, container start/stop from HA, theme engine, logo upload, default-on Move, rewriting `onclick` for CSP. Do not look for the MCP adapter or the Home Assistant plugin inside the PiHerder image. **HA-cards** is not in plugin **0.2.4** — skip that section until a newer plugin tag exists.
+**Do not test (Out or Discover):** Google Drive or NAS backup destinations (Bak-alt), per-host grants, the HA job-finished bus event, Undo-2, Mux-2 leftover list, container start/stop from HA, theme engine, logo upload, default-on Move, rewriting `onclick` for CSP. Do not look for the MCP adapter or the Home Assistant plugin inside the PiHerder image. Walk **HA-cards** on plugin **0.3.0**, not on **0.2.4**.
 
 ### Suggested order
 
@@ -121,7 +121,7 @@ Use one real SSH host. You do not need every stack action if one mutate and one 
 - [ ] `retention` and `herder_backup` behave as before. Run one. It is **not** `exclusive_job`. Recreate **web** while it is still running and that row **fails** with the web-restart message. Patch/stack rows from the recycle test above do not  
 - [ ] `backup`, Move, and Undo still run on Celery as in 1.6. One backup: web log enqueues backup, worker runs `backup_server`, recreate **web** does not fail it. Move wizard stays **404** while the flag is false. Undo is not offered on a green or absent Move  
 - [ ] Demo does not live-run these types. This walk stays on the local herder. Do not open the public demo and do not redeploy it onto `v1.7.0-dev`  
-- [ ] Token API does not gain `service_migrate` or undo. With a `jobs` token, `POST /api/v1/servers/{id}/jobs` body `{"job_type":"service_migrate"}` is **400** `Unsupported job_type`. The allowed list is still backup, retention, os_patch, container_patch, os_update_check, container_update_check. `service_migrate_undo` is the same **400**  
+- [ ] Token API does not gain `service_migrate` or undo. With a `jobs` token, `POST /api/v1/servers/{id}/jobs` body `{"job_type":"service_migrate"}` is **400** `Unsupported job_type`. The allowed list is backup, retention, os_patch, container_patch, os_update_check, container_update_check, and `host_reboot`. `service_migrate_undo` is the same **400**  
 
 ## Brand-1 — instance name + accent (Should; may slip)
 
@@ -151,14 +151,16 @@ Settings → **General** → **Jobs**. Default **30 minutes**. Env `PIHERDER_EXC
 
 ## HA-cards — Lovelace cards and token writes (Should; may slip)
 
-Not started. Plugin **0.2.4** is still the read-only fleet card. Boxes stay empty. Do not walk this section until a newer plugin tag says the host card and the updates card exist. The herder does not gain routes for this slice. Rebuild is a Home Assistant redownload, not a herder image.
+Plugin **0.3.0** in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). Boxes stay empty until you walk them. The herder image does not contain the plugin. Update HACS to **0.3.0** and set the card resource to `/local/piherder-dashboard-card.js?v=0.3.0`. The token needs `jobs` (and `edit` for the toggles). `host_reboot` also needs the host’s OS-patch flag on.
 
-- [ ] A `read` token still shows the fleet card and the host sensors, and shows no backup, check, patch, retention, or feature control  
-- [ ] Host card is one server. It shows the stored snapshot and the Host / Docker / Backups / Alerts / Audit links. It does not SSH  
-- [ ] Updates card shows OS and container update counts from that snapshot  
+- [ ] A `read` token still shows the fleet card and the host sensors, and shows no backup, check, patch, retention, reboot, or feature control  
+- [ ] Host card is one server (`server_id`). It shows gauges, 24h sparklines, and the Host / Docker / Backups / Alerts / Audit links. It does not SSH  
+- [ ] Updates card shows OS and container update counts from that snapshot, plus reboot pending  
+- [ ] Resources card draws memory %, disk %, and CPU load from Home Assistant history. After a System Info refresh and one poll, a new point appears. The line steps on the snapshot (about 15 minutes). It is not a live chart  
 - [ ] Confirm backup calls `POST /api/v1/servers/{id}/jobs` with `backup` and the job appears on the herder. A second confirm while it is active gets **409** and does not start another  
-- [ ] OS check and container check are confirms and do not apply packages. OS patch and container patch ask for a confirm, then enqueue those job types. Retention asks for a confirm  
-- [ ] Feature toggles call `PATCH /api/v1/servers/{id}/features` for backup, OS patch, and Docker only. A token without `edit` does not show them  
+- [ ] OS check and container check enqueue those job types. OS patch and container patch ask for a confirm, then enqueue. Retention asks for a confirm  
+- [ ] Restart host names the machine and says it reboots it. The herder job type is `host_reboot`. Start an OS patch first: the reboot confirm is refused (**409**) and does not SSH. The PiHerder Reboot button uses the same job  
+- [ ] Feature toggles call `PATCH /api/v1/servers/{id}/features` for backup, OS patch, and Docker only. Turning one off asks first. A token without `edit` does not show them  
 - [ ] No container start/stop, Move, Files, or console control appears on any card  
 - [ ] Public demo is not the target. Do not point the plugin at it  
 

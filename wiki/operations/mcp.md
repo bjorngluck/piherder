@@ -21,7 +21,7 @@ Tools appear only for scopes on the token. Startup reads `GET /api/v1/health`. A
 | Scope | Tools |
 |-------|--------|
 | `read` | Health, fleet summary, servers, Docker inventory, service chips, jobs (list and detail). Snapshots already in the database. |
-| `jobs` | Start `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, `container_update_check`. |
+| `jobs` | Start `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, `container_update_check`. `host_reboot` is a herder and Home Assistant job, not a tool here. |
 | `edit` | Toggle `backup`, `os_patch`, and `docker` on a host. |
 | `files` | Fleet-jail list, read, write, mkdir, rename, and delete a file or an empty directory. |
 
@@ -87,5 +87,5 @@ The note says: call the fleet summary before changing anything; start only the s
 ## Related
 
 - [API tokens](api-tokens.md) · [Host Files](../day-to-day/host-files.md) · [Jobs](../day-to-day/jobs-audit-notifications.md)
-- [Home Assistant](../integrations/home-assistant.md) is a different client (HACS, `read` only, runs on HA)
+- [Home Assistant](../integrations/home-assistant.md) is a different client (HACS, runs on HA). A `read` token is sensors and the fleet card. `jobs` and `edit` add the operator cards. `host_reboot` is not an MCP tool.
 - Public demo: [demo site](demo-site.md) — no API tokens, no MCP

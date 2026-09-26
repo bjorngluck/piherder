@@ -1,7 +1,7 @@
 """Jr-1: exclusive host jobs on the default Celery queue.
 
-OS patch, container patch, update checks, compose stack jobs, and template
-jobs leave the web process. nmap stays on ``-Q nmap``. ``retention`` and
+OS patch, container patch, host reboot, update checks, compose stack jobs, and
+template jobs leave the web process. nmap stays on ``-Q nmap``. ``retention`` and
 ``herder_backup`` stay on web. Backup, Move, and undo keep their own tasks
 and are not given this dispatcher.
 
@@ -26,6 +26,7 @@ EXCLUSIVE_CELERY_TYPES = frozenset(
     {
         "os_patch",
         "container_patch",
+        "host_reboot",
         "os_update_check",
         "container_update_check",
         "docker_stack_check",
@@ -439,6 +440,8 @@ def _execute(job_type: str, job_id: int, server_id: int, audit_id: int, payload:
         js._execute_os_patch_sync(job_id, server_id, audit_id, payload.get("os_steps"))
     elif job_type == "container_patch":
         js._execute_container_patch_sync(job_id, server_id, audit_id)
+    elif job_type == "host_reboot":
+        js._execute_host_reboot(job_id, server_id, audit_id)
     elif job_type == "os_update_check":
         js._execute_os_update_check(job_id, server_id, audit_id)
     elif job_type == "container_update_check":
