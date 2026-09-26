@@ -2,7 +2,7 @@
 
 ## What this is
 
-How PiHerder runs **backup** and **Move** jobs on Celery: pool slots, optional multiple worker containers, and a **per-server Redis mutex** so one host is never rsync’d twice at once.
+How PiHerder runs **backup**, **Move**, and the **exclusive** jobs (patch, checks, stack, templates, host reboot) on Celery: pool slots, optional multiple worker containers, and a **per-server Redis mutex** so one host is never rsync’d twice at once. Exclusive jobs do not take that mutex.
 
 ## Why it exists
 

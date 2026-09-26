@@ -193,7 +193,7 @@ Notifications must **not** spam: only on state transition (plus optional cooldow
 - **Default:** one `celery-worker` container with `CELERY_CONCURRENCY=2` (two **pool slots**, one **node**). Override in `.env`.  
 - **Nodes vs slots:** pool children run backups independently. Two nodes only help HA / multi-machine scale — not required for “two parallel backups.”  
 - **Mutex:** Redis key `piherder:server_lock:backup:{server_id}` (SET NX + token release). Busy tasks requeue (~20s) until free or ~1h timeout; job stays `pending` with `waiting_for_server`.  
-- **Parallelism:** different servers at once; same server serializes. Patch apply still uses DB active-job check + web thread pool.  
+- **Parallelism:** different servers at once; same server serializes. Patch, checks, stack jobs, templates, and `host_reboot` run as Celery `exclusive_job` on the default queue (DB exclusive; no backup mutex). `retention`, `herder_backup`, and host facts stay in the web process.  
 - **Cancel:** `Job.celery_task_id` + `revoke(terminate=True)`; lock released in task `finally` (or TTL on crash).  
 - **Scale:** raise `CELERY_CONCURRENCY` first; multi-container needs shared volumes and no fixed `container_name` (`docker compose up --scale celery-worker=N`).  
 - **Ops:** Settings → Status shows e.g. `1 node(s) · 2 pool slot(s)`; metrics expose `piherder_celery_workers` (nodes) and `piherder_celery_pool_slots`.  

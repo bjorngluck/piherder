@@ -13,15 +13,17 @@ flowchart TB
     end
 
     Scheduler -->|backup cron| Celery
+    Scheduler -->|patch / check enqueue| Celery
     Scheduler -->|nmap schedules / stale cleanup| Celery
-    Scheduler -->|patch/check cron| FastAPI
+    Scheduler -->|host facts| FastAPI
     Celery -->|reads/writes| DB
-    Celery -->|SSH + rsync| PiFleet["Remote fleet"]
+    Celery -->|SSH · apt · docker · rsync| PiFleet["Remote fleet"]
     CeleryNmap -->|nmap -oX / vuln pack| LAN["Configured LAN CIDR(s)"]
     CeleryNmap -->|reads/writes| DB
-    FastAPI -->|SSH · apt · docker| PiFleet
+    FastAPI -->|console · files · retention · herder backup · host facts| PiFleet
     FastAPI -->|DB reads for UI| DB
     FastAPI -.->|Job.details progress| Celery
+    FastAPI -.->|enqueue exclusive_job| Celery
     FastAPI -.->|enqueue -Q nmap| CeleryNmap
 ```
 
@@ -31,10 +33,11 @@ flowchart TB
 |------|---------|------------------|
 | Backups | Celery | Parallel across hosts; one backup per host (Redis mutex) |
 | Move (`service_migrate`) and fail-path undo (`service_migrate_undo`) | Celery | Dual-host backup mutex; recycle web is safe; recycle worker fails a running Move or undo. Undo only after cutover / rebind / validate failed |
-| OS/container patch, update checks, stack jobs, template jobs | Celery default queue (`exclusive_job`) | One active job of that type per host. Stack writes share one lane. No backup mutex. Host-down stays pending. Worker recycle fails a running job |
+| OS/container patch, update checks, stack jobs, template jobs, `host_reboot` | Celery default queue (`exclusive_job`) | One active job of that type per host. Stack writes share one lane. Reboot is also refused while OS patch, container patch, or backup is active. No backup mutex. Host-down stays pending. Worker recycle fails a running job |
 | Bulk fleet actions | Web → same enqueue paths | Feature-flag skip + exclusive rules |
 | LAN nmap scans / vuln pack update | **celery-worker-nmap** (`-Q nmap`, concurrency 1) | Opt-in profile; host network; `PIHERDER_NMAP_WORKER=1` only here |
 | Stale Jobs/Audit/nmap-run purge | Celery (default queue) | Opt-in Settings schedule |
+| `retention`, `herder_backup`, `host_facts` | Web process | A web recycle fails a pending or running row. Not `exclusive_job` |
 
 **Nmap privilege boundary:** web + main celery set `PIHERDER_NMAP_WORKER=0` in compose; tasks call `worker_guard` and refuse if marker is off or `nmap` is missing. Never put queue `nmap` on the main worker. See [env reference](../operations/env-reference.md#lan-discovery-nmap--opt-in) · [`.env.example`](https://github.com/bjorngluck/piherder/blob/main/.env.example).
 

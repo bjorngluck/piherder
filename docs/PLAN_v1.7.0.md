@@ -1,6 +1,6 @@
 # PiHerder v1.7.0 — token-API MCP, then one job runtime
 
-**Status:** **Active** (train opened 2026-09-25). MCP-1 **0.1.0**, Jr-1, Jr-2, Brand-1, and Brand-2 are on this branch. Operator walks are open. Q has landed: full compose **81.01%** (39638/48927). CI fail-under stays **80** so the extra point is headroom.  
+**Status:** **Active** (train opened 2026-09-25). MCP-1 **0.1.0**, Jr-1, Jr-2, Brand-1, Brand-2, Q, and HA-cards are on this branch. Operator walks are open. Q: full compose **81.01%** (39638/48927). CI fail-under stays **80** so the extra point is headroom.  
 **Date opened:** 2026-09-25 (inbox parked 2026-09-18)  
 **Git branch:** `v1.7.0-dev` → `main` · tag `v1.7.0` at freeze  
 **Package / image version:** **`1.6.0`** until freeze  
@@ -346,6 +346,7 @@ Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) �
 | 2026-09-26 | **Q landed.** Packs `_q7` and `_q8` (router bodies: docker, DNS, integrations, nmap, files, patch, settings). Full compose **80.05%** (39165/48927), 1692 passed, 6 skipped. CI `--cov-fail-under` raised **75 → 80**. |
 | 2026-09-26 | **Q packs `_q9` and `_q10`.** Settings, certificates, Pi-hole, SSH identities, OIDC callback. Full compose **81.01%** (39638/48927), 1694 passed. CI `--cov-fail-under` stays **80** so the extra point is headroom. |
 | 2026-09-26 | **HA-cards landed.** `host_reboot` on the existing jobs POST (exclusive lane, 409 against patch and backup). Plugin **0.3.0**: host, updates, and resources cards. Graphs are HA history of snapshot sensors. Operator walk still open. |
+| 2026-09-26 | **Docs alignment.** Architecture, SPEC, ADMIN, SECURITY, and the multi-worker wiki match the Celery exclusive lane. Discover rows stay parked. Operator walk boxes stay empty. |
 
 ---
 
@@ -360,7 +361,7 @@ Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) �
 | 4 | **MCP-1** adapter in [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) | **0.1.0** pushed (`fcd90cf`). Walk still open |
 | 5 | **Jr-1** exclusive types → default Celery queue | **Landed.** Walk still open ([QA_v1.7.0.md](QA_v1.7.0.md)) |
 | 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until walked |
-| 7 | Q / Brand-1 / Brand-2 / Jr-2 as capacity after Must | **Jr-2**, **Brand-1**, **Brand-2**, and **Q** landed (compose **81.01%**, fail-under **80**). **HA-cards** still open |
+| 7 | Q / Brand-1 / Brand-2 / Jr-2 / HA-cards as capacity after Must | **Landed.** Compose **81.01%**, fail-under **80**. Plugin **0.3.0**. Walks still open |
 | 9 | **HA-cards** in piherder-ha | **Landed** as plugin **0.3.0**. Walk still open ([QA_v1.7.0.md](QA_v1.7.0.md)) |
 | 8 | Freeze · `1.7.0` · tag · Hub | Only when asked |
 
