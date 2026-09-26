@@ -8,7 +8,7 @@ Maintainer plans and release notes. Operator wiki is `wiki/` (MkDocs).
 |------|--------|
 | Current production | [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) |
 | This release | [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [QA_v1.6.0.md](QA_v1.6.0.md) |
-| Active train | [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md) on `v1.7.0-dev` |
+| Active train | [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md) on `v1.7.0-dev` — MCP read/write of this API, then Jr-1. Operator: [wiki/operations/mcp.md](../wiki/operations/mcp.md) |
 | API | [API.md](API.md) |
 | Design | `FEATURE_PLAN_*.md`, [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md), [SPEC.md](../SPEC.md), [ADMIN.md](ADMIN.md) |
 

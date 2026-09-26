@@ -73,7 +73,7 @@ flowchart TB
 | Certificates / deploy targets | `app/services/certificates.py` · `app/routers/certificates.py` — vault, stage+sudo, verify, wizard |
 | Ops-hero pulse helpers | `app/services/ops_pulse.py` |
 | Push | `app/services/push.py` |
-| API tokens | `app/services/api_tokens.py`, `app/routers/api_v1.py` |
+| API tokens | `app/services/api_tokens.py`, `app/routers/api_v1.py`. The v1.7 MCP process is a separate repo that calls these routes. It is not a module in this image. Operator page: [Agents (MCP)](../operations/mcp.md) |
 | Herder backup | `app/services/herder_backup.py` |
 | Metrics | `app/services/metrics.py` |
 | Bulk server actions | `app/routers/servers.py` (`POST /servers/bulk`) |

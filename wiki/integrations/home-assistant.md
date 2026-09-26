@@ -9,7 +9,9 @@ A **HACS integration that runs on Home Assistant** and **observes** your PiHerde
 | Path 1 | This PiHerder image | SSH + `ha` CLI on an HAOS **server** |
 | Path 2 (this page) | Separate HACS repo | HA polls PiHerder snapshots; **Visit** opens the herder |
 
-The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (plugin **0.2.4**, Release `v0.2.4`). The HACS repo README and the integration’s Documentation link point at this page. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from `main` and does not publish this page until v1.6 merges.
+The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (plugin **0.2.4**, Release `v0.2.4`). The HACS repo README and the integration’s Documentation link point at this page. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from `main`.
+
+Agent tools (Cursor, Grok, Claude, Codex) are a different client of the same token API, built later in `bjorngluck/piherder-mcp`. That process is also outside this image. [Agents (MCP)](../operations/mcp.md).
 
 ## Why it exists
 
@@ -98,6 +100,6 @@ No start/stop, Move, compose write, Files, console, OS apply, or backup-from-HA.
 
 ## Related
 
-- [API tokens](../operations/api-tokens.md) · [API.md](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/docs/API.md)  
+- [API tokens](../operations/api-tokens.md) · [Agents (MCP)](../operations/mcp.md) · [API.md](https://github.com/bjorngluck/piherder/blob/main/docs/API.md)  
 - [System Info](../day-to-day/system-info.md) (why the snapshot exists) · [HAOS hosts](../day-to-day/haos-hosts.md) (path 1) · [Add a server](../day-to-day/add-server.md)  
 - Maintainer: [PLAN_v1.6.0.md](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/docs/PLAN_v1.6.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7  

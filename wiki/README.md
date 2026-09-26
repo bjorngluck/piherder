@@ -38,7 +38,7 @@ mkdocs build --strict
 | `integrations/` | Kuma, Grafana, Pi-hole, NPM, certificates, Network maps, LAN discovery |
 | `account-security/` | RBAC, users, 2FA, SSO/OIDC, PWA |
 | `day-to-day/web-ssh-console.md` | Web SSH console (flag-off; Settings → Console for limits; Connect as… privileged; v1.6 host mux) |
-| `operations/` | Settings, env, DR, API, metrics, multi-worker |
+| `operations/` | Settings, env, DR, API, agents (MCP), metrics, multi-worker |
 | `troubleshooting/` | Common failures |
 | `developers/` | Setup, architecture, schema, testing, publish |
 | `assets/` | Brand marks + screenshots |

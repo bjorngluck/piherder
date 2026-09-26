@@ -97,7 +97,8 @@ main @ v1.6.0 (+ v1.6.x patches)
 ```text
 Phase 0   Open train + docs lock              done 2026-09-25 (22d3a04)
 Phase 0b  Lock retune                         done 2026-09-25 (85d0ec4)
-Phase 0c  MCP-1 read/write contract           ← this commit
+Phase 0c  MCP-1 read/write contract           done 2026-09-26 (3f63d16)
+Phase 0d  Operator wiki + remaining pointers  ← this commit
 Phase 1   MCP-1 stdio adapter                 Must — first build, separate repo
 Phase 2   Jr-1 exclusive types → Celery       Must
 Phase 3   Q fail-under 75 → 80                Should (may slip)
@@ -299,6 +300,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | 2026-09-25 | **Train opened** on `v1.7.0-dev`. Must **Jr-1**. Should **Brand-1** + **Brand-2** + **Jr-2**. Discover **MCP-1** · **AC-fg** · HA Slice 2 · Undo-2 · Mux-2. Package stays `1.6.0` until freeze. `main` patchable as **v1.6.x**. Fail-under stays **75**. Public demo stays on the 1.6 image. |
 | 2026-09-25 | **Lock retune.** **MCP-1** is Must and the first slice (separate repo, read-only). **Jr-1** stays Must, second. **Q** is Should: fail-under **75 → 80**, may slip, floor stays 75. **Bak-alt** added as Discover (Google Drive, LAN NAS, and similar — notes only; rsync directory stays). |
 | 2026-09-26 | **MCP-1 contract.** Read and write of the existing bearer API (`read`, `jobs`, `edit`, `files`). stdio only, so Cursor, Grok, Claude, and Codex share one process. Separate repo. No new herder routes. Remote HTTP MCP stays out. Adapter code waits on the repo. |
+| 2026-09-26 | Operator page [wiki/operations/mcp.md](../wiki/operations/mcp.md). Nav, API tokens, Jobs, Host Files, demo, architecture, and the maintainer pointers name that page. |
 
 ---
 
@@ -308,7 +310,8 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 |---|------|--------|
 | 1 | Open **`v1.7.0-dev`** + lock Must/Should | **Done** 2026-09-25 (`22d3a04`) |
 | 2 | Retune: MCP-1 first, Q is Should, Bak-alt noted | **Done** 2026-09-25 (`85d0ec4`) |
-| 3 | MCP-1 read/write contract in this plan | **This commit** |
+| 3 | MCP-1 read/write contract in this plan | **Done** 2026-09-26 (`3f63d16`) |
+| 3b | Operator wiki [Agents (MCP)](../wiki/operations/mcp.md) and the remaining pointers | **This commit** |
 | 4 | **MCP-1** after you create the adapter repo | Not started — first build |
 | 5 | **Jr-1** exclusive types → default Celery queue | Not started |
 | 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until walked |

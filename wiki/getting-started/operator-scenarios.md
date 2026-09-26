@@ -325,6 +325,7 @@ Full page: [Move a service](../docker/service-migration.md). Do **not** pick **R
 | Prometheus / env webhook fallback | [Metrics](../operations/metrics-webhooks.md) |
 | Webhook + SMTP alerts / forgot password | [Alerts](../operations/alerts-email-webhooks.md) |
 | Token REST for n8n/HA | [API tokens](../operations/api-tokens.md) |
+| Agents (Cursor, Grok, Claude, Codex) | [Agents (MCP)](../operations/mcp.md) — v1.7, separate process, same token |
 | Generic HA / Frigate / n8n links | [Generic links](../integrations/generic-links.md) |
 
 ## When things go wrong
