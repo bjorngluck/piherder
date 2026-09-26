@@ -297,7 +297,9 @@
           {% else %}
             {% set is_active = current_path.startswith(item.href) %}
           {% endif %}
+          {% if item.match != 'catalog' or catalog_nav_visible() %}
           <a href="{{ item.href }}" class="nav-link {{ 'nav-link-active' if is_active else '' }}">{{ item.label }}</a>
+          {% endif %}
         {% endfor %}
       </div>
       {% endif %}
@@ -425,7 +427,9 @@
         {% else %}
           {% set is_active = current_path.startswith(item.href) %}
         {% endif %}
+        {% if item.match != 'catalog' or catalog_nav_visible() %}
         <a href="{{ item.href }}" class="mobile-menu-link {{ 'is-active' if is_active else '' }}">{{ item.label }}</a>
+        {% endif %}
       {% endfor %}
       {# Pins live only under header ★ — not in hamburger #}
       <div class="menu-divider"></div>

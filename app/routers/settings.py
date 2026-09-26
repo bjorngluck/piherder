@@ -531,6 +531,7 @@ async def settings_page(
                 instance_accent=brand.get("accent") or "",
                 instance_demo=bool(brand.get("demo")),
                 instance_locked=bool(brand.get("name_locked") or brand.get("accent_locked")),
+                catalog_hidden=bool(brand.get("catalog_hidden")),
             ),
         },
     )
@@ -1346,6 +1347,7 @@ async def save_files_policy(
 async def save_instance_brand(
     instance_name: str = Form(""),
     instance_accent: str = Form(""),
+    show_catalog: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
@@ -1369,6 +1371,12 @@ async def save_instance_brand(
             return RedirectResponse(
                 _settings_url("general", error=str(e)[:120]), status_code=303
             )
+    partial["catalog_nav_hidden"] = (show_catalog or "").strip().lower() not in (
+        "1",
+        "on",
+        "true",
+        "yes",
+    )
     if not partial:
         return RedirectResponse(
             _settings_url("general", instance_saved="1"), status_code=303

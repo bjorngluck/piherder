@@ -144,10 +144,20 @@
             {% if brand.accent_locked %}Locked by <code class="font-mono">PIHERDER_ACCENT</code>.{% endif %}
           </span>
         </label>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="show_catalog" value="1" class="mt-1"
+                 data-testid="show-catalog"
+                 {% if not brand.catalog_hidden %}checked{% endif %}
+                 {% if brand.demo %}disabled{% endif %}>
+          <span>
+            Show Catalog in the navigation
+            <span class="block text-xs text-muted mt-1">Hides the nav item only. <code class="font-mono">/catalog</code> still opens. Same for every account.</span>
+          </span>
+        </label>
       </div>
       <div class="settings-sheet-foot">
         <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full sm:w-auto"
-                {% if brand.demo or (brand.name_locked and brand.accent_locked) %}disabled{% endif %}>Save instance</button>
+                {% if brand.demo %}disabled{% endif %}>Save instance</button>
       </div>
     </form>
     </div>

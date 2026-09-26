@@ -69,6 +69,15 @@ templates.env.globals["instance_wordmark"] = instance_wordmark
 templates.env.globals["instance_plain_name"] = instance_plain_name
 templates.env.globals["instance_accent_css"] = instance_accent_css
 
+
+def _catalog_nav_visible() -> bool:
+    from .services.instance_brand import catalog_nav_visible
+
+    return catalog_nav_visible()
+
+
+templates.env.globals["catalog_nav_visible"] = _catalog_nav_visible
+
 from .security.headers import current_csp_nonce  # noqa: E402
 
 templates.env.globals["csp_nonce"] = current_csp_nonce
