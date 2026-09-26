@@ -21,7 +21,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 | Stream | Wiki |
 |--------|------|
-| MCP-1 | Adapter repo readme (not this image). Herder side is [API tokens](../wiki/operations/api-tokens.md) — scope `read` only |
+| MCP-1 | Adapter repo readme (not this image). Herder side is [API tokens](../wiki/operations/api-tokens.md) — scopes `read`, and `jobs` / `edit` / `files` only when that walk needs write |
 | Jr-1 / Jr-2 | [Multi-worker](../wiki/operations/multi-worker.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Troubleshooting](../wiki/troubleshooting/index.md) |
 | Brand-1 / Brand-2 | Settings → General (page lands with the slice) · [Catalog](../wiki/index.md) |
 | Regression | [Move a service](../wiki/docker/service-migration.md) · [Web SSH](../wiki/day-to-day/web-ssh-console.md) · [Home Assistant](../wiki/integrations/home-assistant.md) |
@@ -44,7 +44,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 ### Suggested order
 
-1. **MCP-1** against a local herder with a scope-`read` token (adapter repo, once it exists). About / footer on the herder still **1.6.0**.  
+1. **MCP-1** against a local herder (adapter repo, once it exists). Start with a scope-`read` token, then a token that also has `jobs`, `edit`, and `files`. About / footer on the herder still **1.6.0**.  
 2. Rebuild local **web** + **celery-worker** when Jr-1 has landed.  
 3. **Jr-1** on one real host (patch or stack), including a web recycle and a worker recycle.  
 4. Host-down wait on a host whose SSH you can refuse.  
@@ -55,16 +55,22 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 ---
 
-## MCP-1 — read-only adapter (Must, first)
+## MCP-1 — read/write token-API adapter (Must, first)
 
-Walk this in the adapter repo, against this herder. The adapter is **not** in the PiHerder image.
+Walk this in the adapter repo, against this herder. The adapter is **not** in the PiHerder image. Do not point it at the public demo.
 
-- [ ] Process starts with `PIHERDER_URL` and a scope-`read` token  
-- [ ] Tools cover health, summary, servers, inventory, services, and jobs (list and detail)  
-- [ ] Those tools match `curl` with the same token  
-- [ ] A token without `read` fails closed  
-- [ ] No tool triggers a job, uploads or deletes a file, opens a console, or starts Move or undo  
-- [ ] No SSH from the adapter  
+- [ ] Process starts with `PIHERDER_URL` and `PIHERDER_TOKEN` over stdio (`uvx piherder-mcp`)  
+- [ ] A scope-`read` token exposes health, summary, servers, inventory, services, and jobs (list and detail), and those match `curl`  
+- [ ] That `read` token has no `set_features`, `trigger_job`, or files tool  
+- [ ] A token without `read` fails closed (message on stderr)  
+- [ ] `trigger_job` with `jobs` accepts only `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, `container_update_check`  
+- [ ] `trigger_job` returns **202**, and **409** when one is already active, without starting a second job  
+- [ ] `set_features` with `edit` changes only `backup`, `os_patch`, and `docker`  
+- [ ] Files tools with `files` stay in the fleet jail: list, read, write, mkdir, rename, delete a file or empty directory  
+- [ ] Read tools are marked read-only. `set_features`, `trigger_job`, `write_file`, `rename_file`, and `delete_file` are marked destructive  
+- [ ] No tool opens SSH, a console, Move, undo, a compose stack action, or token admin  
+- [ ] Cursor, Grok, Claude, and Codex samples each launch that same stdio command  
+- [ ] One instruction template: Cursor rule and Grok skill share a body; Claude and Codex get the same short copy  
 - [ ] Nothing from this slice is baked into the PiHerder image  
 
 ## Jr-1 — exclusive jobs on Celery (Must)

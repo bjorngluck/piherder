@@ -1,10 +1,10 @@
-# PiHerder v1.7.0 — read-only MCP, then one job runtime
+# PiHerder v1.7.0 — token-API MCP, then one job runtime
 
 **Status:** **Active** (train opened 2026-09-25). No product code yet.  
 **Date opened:** 2026-09-25 (inbox parked 2026-09-18)  
 **Git branch:** `v1.7.0-dev` → `main` · tag `v1.7.0` at freeze  
 **Package / image version:** **`1.6.0`** until freeze  
-**Theme:** **MCP-1** first (read-only agent adapter, separate repo), then **Jr-1** (remaining exclusive jobs onto Celery)  
+**Theme:** **MCP-1** first (read/write client of the existing token API, separate repo), then **Jr-1** (remaining exclusive jobs onto Celery)  
 **Baseline:** `v1.6.0` (tagged 2026-09-25; Hub digest `sha256:cdf88c70099f78830943e6529f05eff1b83bb5565e7b12f71ebf0877c7b018a8`)  
 **Mode:** **Must → Should → Discover.** Must **MCP-1** + **Jr-1**. Should **Q** (fail-under **75 → 80**) + **Brand-1** + **Brand-2** + **Jr-2**. Discover **AC-fg** · HA Slice 2 · Undo-2 · Mux-2 · **Bak-alt**.  
 **QA:** [QA_v1.7.0.md](QA_v1.7.0.md) (maintainer stub — **not** the operator wiki)  
@@ -16,7 +16,7 @@
 
 ## 0. Intent
 
-Agents that already hold a PiHerder `read` token still have to call HTTP themselves. The first slice is a small MCP adapter, in its **own repo**, that wraps the existing read API. It does not ship inside this image and it does not add herder routes.
+Agents that already hold a PiHerder token still have to call HTTP themselves. The first slice is an MCP adapter, in its **own repo**, that wraps the existing bearer API: read, and the writes that token is allowed to make (`jobs`, `edit`, `files`). It does not ship inside this image and it does not add herder routes.
 
 Move, undo, backup, and nmap already run on Celery. OS patch, container patch, update checks, compose stack jobs, and template jobs still run in the **web** process. Recycling **web** fails those rows (`cleanup_orphan_web_jobs`). **Jr-1** moves those remaining exclusive types in one go. It is Must, and it starts after MCP-1.
 
@@ -24,7 +24,7 @@ Instance chrome (wordmark, one accent, hide Catalog) was discovered in 1.5 and h
 
 Wanted:
 
-1. A read-only MCP process an operator runs next to the herder, configured with `PIHERDER_URL` and a scope-`read` token  
+1. An MCP process an operator runs on the agent machine, configured with `PIHERDER_URL` and a bearer token. Read tools always. Write tools only for scopes the token already has  
 2. Exclusive patch, check, stack, and template jobs survive a **web** recycle because they run on the default Celery queue  
 3. A host that is down **waits** (pending + backoff) instead of failing the job immediately  
 4. A worker kill of a **running** apt or compose stays **fail honest**  
@@ -45,7 +45,7 @@ Wanted:
 | Image tags (freeze) | `1.7.0` · `1.7` · `latest` (multi-arch); keep `1.6` / `1.6.x` pins valid |
 | In-scope streams | **MCP-1** Must (first) · **Jr-1** Must · **Q** Should · **Brand-1** Should · **Brand-2** Should · **Jr-2** Should |
 | Discover (no code until promoted) | **AC-fg** · HA Slice 2 · Undo-2 · Mux-2 · **Bak-alt** |
-| Out-of-focus | HA Slice 3 · Brand-3 · theme engine · M-flag C (stay false) · plugin-in-image · MCP-in-image · CSP Slice 2 (`onclick` rewrite) · ACME · NPM CRUD · Files token API · N3c · M-live · multi-tenant · Swarm/k8s |
+| Out-of-focus | HA Slice 3 · Brand-3 · theme engine · M-flag C (stay false) · plugin-in-image · MCP-in-image · remote HTTP MCP · CSP Slice 2 (`onclick` rewrite) · ACME · NPM CRUD · richer Files API · N3c · M-live · multi-tenant · Swarm/k8s |
 | Mode | Must → freeze; Should may slip; Discover only if Must is green |
 | Coverage | Floor stays **75**. Should raises CI fail-under **75 → 80** (1.x ceiling). Do not lower 75. The step may slip |
 | E2E | Wizard chrome still loads. No live SSH / apt / two-host copy in CI |
@@ -81,7 +81,7 @@ main @ v1.6.0 (+ v1.6.x patches)
 | 7 | **Brand-1** | **Should.** Instance name + one accent. Official mark and primary red stay. No logo upload. Demo ignores it. |
 | 8 | **Brand-2** | **Should.** Hide Catalog in the nav. `/catalog` still works. Default **show**. |
 | 9 | **Brand-3** | **Out.** Own-docs MkDocs skin later. |
-| 10 | **MCP-1** | **Must. First slice.** Separate repo (same shape as `piherder-ha`). Not in this image. No new herder routes. |
+| 10 | **MCP-1** | **Must. First slice.** Separate repo (same shape as `piherder-ha`). stdio. Read and write of today’s bearer API only. Not in this image. No new herder routes. |
 | 11 | **AC-fg** | **Discover.** Three global roles stay. No schema until a spike is promoted. Not multi-tenant. |
 | 12 | HA Slice 2 / Undo-2 / Mux-2 / **Bak-alt** | **Discover.** Carried from 1.6, plus alternate backup destinations (under consideration). Not this freeze unless promoted. |
 | 13 | HA Slice 3 / Move-from-HA / start-stop | **Out** |
@@ -96,8 +96,9 @@ main @ v1.6.0 (+ v1.6.x patches)
 
 ```text
 Phase 0   Open train + docs lock              done 2026-09-25 (22d3a04)
-Phase 0b  Lock retune                         ← this commit (MCP-1 first, Q is Should, Bak-alt noted)
-Phase 1   MCP-1 read-only adapter             Must — first build, separate repo
+Phase 0b  Lock retune                         done 2026-09-25 (85d0ec4)
+Phase 0c  MCP-1 read/write contract           ← this commit
+Phase 1   MCP-1 stdio adapter                 Must — first build, separate repo
 Phase 2   Jr-1 exclusive types → Celery       Must
 Phase 3   Q fail-under 75 → 80                Should (may slip)
 Phase 4   Brand-1 + Brand-2                   Should (may slip)
@@ -111,25 +112,63 @@ Must before Should product. MCP-1 before Jr-1. Discover only if Must is green an
 
 ---
 
-## 2. Stream **MCP-1** — read-only agent adapter (Must, first slice)
+## 2. Stream **MCP-1** — read/write token-API adapter (Must, first slice)
 
-Not product code in the PiHerder image. Own repo, same shape as [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). This host cannot create that GitHub repo. Lean name when you create it: `bjorngluck/piherder-mcp`. This train’s herder tree does not gain a scaffold for it.
+Not product code in the PiHerder image. Own repo, same shape as [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). This host cannot create that GitHub repo. Lean name when you create it: `bjorngluck/piherder-mcp`. This train’s herder tree does not gain a scaffold for it. The process runs on the **agent machine** (the laptop running Cursor, Grok, Codex, or Claude), not in the herder container.
 
 **Locks:**
 
-1. stdio process. Config is `PIHERDER_URL` plus a scope-`read` API token.  
-2. Tools wrap existing `/api/v1` only: health, summary, servers, inventory, services, jobs (list and detail).  
-3. No SSH. No job triggers, file upload/delete, console, Move, or undo.  
-4. Do not generate every OpenAPI route as a tool.  
-5. No new herder routes. Remote HTTP MCP stays out of this cut (only if an agent off the host must reach the instance, later).  
-6. Demo is not a target. A `read` token is enough; a token without `read` fails closed.
+1. **stdio only.** One command everywhere: `uvx piherder-mcp`. Config is `PIHERDER_URL` plus `PIHERDER_TOKEN`. The token is never committed. Remote Streamable HTTP stays out.
+2. Hand-written tools over existing `/api/v1` only. Do not generate a tool per OpenAPI path. No new herder routes.
+3. Startup calls `GET /api/v1`. Tools register only for scopes on that token. Missing `jobs`, `edit`, or `files` means those tools are absent. A token without `read` fails closed (stderr, never stdout).
+4. Write is the bearer writes that already exist: trigger the six job types, patch `backup` / `os_patch` / `docker`, and fleet-jail files (list, read, write, mkdir, rename, delete a file or empty directory). Feature flags and `feature:*` scopes stay the API’s job.
+5. Not tools, and not new routes: SSH, console, Move, undo, compose stack actions, template deploy, nmap, DNS, certificates, settings, token admin. Richer Files (chmod, zip, recursive delete, privileged paths) stay UI-only.
+6. `trigger_job` returns the API body on **202** and on **409**. On 409 the agent polls `get_job` and does not fire again.
+7. Read tools set `readOnlyHint`. `set_features`, `trigger_job`, `write_file`, `rename_file`, and `delete_file` set `destructiveHint`.
+8. Server name `piherder`. Tool names are the short names below (no second `__`). File bodies capped around **256 KiB** in the MCP result, with a note when cut. Logs go to stderr.
+9. Official MCP Python SDK. Do not hand-roll JSON-RPC.
+10. Demo is not a target. Nothing from this slice is copied into `app/` or the image.
+
+| Tool | HTTP | Scope |
+|------|------|-------|
+| `health` | `GET /api/v1/health` | `read` |
+| `summary` | `GET /api/v1/summary` | `read` |
+| `list_servers` | `GET /api/v1/servers` | `read` |
+| `get_server` | `GET /api/v1/servers/{id}` | `read` |
+| `inventory` | `GET /api/v1/inventory` or `.../servers/{id}/inventory` | `read` |
+| `services` | `GET /api/v1/services` | `read` |
+| `list_jobs` | `GET /api/v1/jobs` or `.../servers/{id}/jobs` | `read` |
+| `get_job` | `GET /api/v1/jobs/{id}` | `read` |
+| `set_features` | `PATCH /api/v1/servers/{id}/features` | `edit` |
+| `trigger_job` | `POST /api/v1/servers/{id}/jobs` | `jobs` |
+| `list_files` | `GET /api/v1/servers/{id}/files` | `files` |
+| `read_file` | `GET .../files/download` | `files` |
+| `write_file` | `POST .../files` | `files` |
+| `mkdir` | `POST .../files/mkdir` | `files` |
+| `rename_file` | `POST .../files/rename` | `files` |
+| `delete_file` | `DELETE .../files` | `files` |
+
+`trigger_job` accepts only `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, `container_update_check`.
+
+**Clients.** Same stdio process. Samples live in the adapter repo and use `${PIHERDER_TOKEN}`, not a real secret. Grok’s defaults already import Cursor and Claude MCP configs; Codex does not, so Codex gets its own snippet.
+
+| Client | Where the sample goes |
+|--------|------------------------|
+| Cursor | `.cursor/mcp.json` → `mcpServers.piherder` |
+| Grok Build | `.grok/config.toml` → `[mcp_servers.piherder]`. Also loads Cursor’s `mcp.json` when `[compat.cursor] mcps` is on (the default) |
+| Claude Desktop / Claude Code | `mcpServers.piherder`, or a project `.mcp.json` |
+| Codex | `~/.codex/config.toml` → `[mcp_servers.piherder]` |
+
+**Instruction template.** One body, two wrappers Grok already reads from a Cursor checkout: a Cursor rule `.cursor/rules/piherder.mdc`, and the same text as a Grok skill `skills/piherder/SKILL.md`. Short copies for Claude (`CLAUDE.md`) and Codex (`AGENTS.md`). The body says: call `summary` before mutating; `trigger_job` only for the six types; on 409 poll the existing job; files stay in the fleet jail; do not invent SSH, Move, or console; a token without `jobs` / `edit` / `files` has no such tool.
 
 **Success (Must):**
 
-1. The adapter runs as its own process against a PiHerder base URL.  
-2. The six read areas above return the same facts as `curl` with that token.  
-3. A call that would mutate (jobs POST, files write, Move, undo) is not a tool.  
-4. Nothing from this slice is copied into the PiHerder image or `app/`.
+1. The adapter runs as its own process against a PiHerder base URL.
+2. Read tools return the same facts as `curl` with that token.
+3. A `read`-only token exposes no write tool. A token with `jobs`, `edit`, or `files` can perform those bearer writes and no others.
+4. `trigger_job` surfaces 202 and 409. It does not start a second job when one is already active.
+5. Cursor, Grok, Claude, and Codex can each launch the same stdio command from the sample for that client.
+6. Nothing from this slice is copied into the PiHerder image or `app/`.
 
 ---
 
@@ -211,14 +250,14 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
-| **Must** | **MCP-1** | Read-only stdio adapter in its own repo; six `/api/v1` read areas; no mutate tools; not in this image | Not started — first build, after the repo exists |
+| **Must** | **MCP-1** | stdio adapter in its own repo; read plus bearer writes (`jobs`, `edit`, `files`); four client samples; not in this image | Not started — first build, after the repo exists |
 | **Must** | **Jr-1** | Exclusive types on the default Celery queue; host-down waits; running mutate fails honest; web recycle does not fail them | Not started — after MCP-1 |
 | **Should** | **Q** | CI fail-under **75 → 80**. Floor stays 75 if this slips | Not started |
 | **Should** | **Brand-1** | Instance name + one accent; demo ignored | Not started |
 | **Should** | **Brand-2** | Hide Catalog in nav; `/catalog` still works | Not started |
 | **Should** | **Jr-2** | Settings max wait; Kuma/`last_seen` is a signal | Not started |
 | **Discover** | Bak-alt · AC-fg · HA Slice 2 · Undo-2 · Mux-2 | Notes only unless promoted | Parked |
-| **Out** | HA Slice 3 · Brand-3 · M-flag C · plugin-in-image · MCP-in-image · CSP Slice 2 | Stay out | Locked 2026-09-25 |
+| **Out** | HA Slice 3 · Brand-3 · M-flag C · plugin-in-image · MCP-in-image · remote HTTP MCP · CSP Slice 2 | Stay out | Locked 2026-09-26 |
 
 ---
 
@@ -226,10 +265,10 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 
 | Gate | Target |
 |------|--------|
-| Unit | Floor **75**. Should raises `--cov-fail-under` to **80** on `app`. If that slips, the tag still requires the floor. Jr-1 tests cover enqueue-on-Celery, web-recycle does not fail, worker-recycle fails a running mutate, host-down stays pending, exclusive lane still blocks a second stack mutate. No live SSH. MCP-1 tests live in the adapter repo and mock HTTP |
+| Unit | Floor **75**. Should raises `--cov-fail-under` to **80** on `app`. If that slips, the tag still requires the floor. Jr-1 tests cover enqueue-on-Celery, web-recycle does not fail, worker-recycle fails a running mutate, host-down stays pending, exclusive lane still blocks a second stack mutate. No live SSH. MCP-1 tests live in the adapter repo and mock HTTP: scope-filtered tools, `trigger_job` 202 and 409, no call to SSH, Move, or console |
 | E2E | Wizard chrome. No live apt, compose, or two-host copy in CI |
 | Docs | Wiki multi-worker + Jobs when Jr-1 lands; `mkdocs build --strict` at freeze |
-| Security | Same exclusive lanes. No new token scope. Move and undo stay off the token API. Demo never live-runs the moved types. Brand env lock cannot be overridden from the UI when set |
+| Security | Same exclusive lanes. No new token scope. Move and undo stay off the token API. MCP write tools use `jobs`, `edit`, and `files` only. Demo never live-runs the moved types and is not an MCP target. Brand env lock cannot be overridden from the UI when set |
 
 ---
 
@@ -239,6 +278,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 - **Brand-3** — own-docs MkDocs skin; theme engine; header logo upload; recolouring primary red  
 - **M-flag C** — `PIHERDER_SERVICE_MIGRATE` stays **false**. Do not turn Move on by default  
 - Plugin, add-on, or **MCP adapter inside** the PiHerder image  
+- **Remote HTTP / Streamable HTTP MCP** on the herder. Clients launch a local stdio process  
 - **CSP Slice 2** — rewriting `onclick` to drop `script-src-attr 'unsafe-inline'`  
 - Reverse a **green** Move · dest `down -v`  
 - ACME-in-herder · full NPM CRUD · richer Files token API · **N3c** · **M-live**  
@@ -258,6 +298,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | 2026-09-25 | **v1.6.0 tagged.** Package **1.6.0**. Hub `1.6.0` / `1.6` / `latest`. |
 | 2026-09-25 | **Train opened** on `v1.7.0-dev`. Must **Jr-1**. Should **Brand-1** + **Brand-2** + **Jr-2**. Discover **MCP-1** · **AC-fg** · HA Slice 2 · Undo-2 · Mux-2. Package stays `1.6.0` until freeze. `main` patchable as **v1.6.x**. Fail-under stays **75**. Public demo stays on the 1.6 image. |
 | 2026-09-25 | **Lock retune.** **MCP-1** is Must and the first slice (separate repo, read-only). **Jr-1** stays Must, second. **Q** is Should: fail-under **75 → 80**, may slip, floor stays 75. **Bak-alt** added as Discover (Google Drive, LAN NAS, and similar — notes only; rsync directory stays). |
+| 2026-09-26 | **MCP-1 contract.** Read and write of the existing bearer API (`read`, `jobs`, `edit`, `files`). stdio only, so Cursor, Grok, Claude, and Codex share one process. Separate repo. No new herder routes. Remote HTTP MCP stays out. Adapter code waits on the repo. |
 
 ---
 
@@ -266,12 +307,13 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.7.0-dev`** + lock Must/Should | **Done** 2026-09-25 (`22d3a04`) |
-| 2 | Retune: MCP-1 first, Q is Should, Bak-alt noted | **This commit** |
-| 3 | **MCP-1** after you create the adapter repo | Not started — first build |
-| 4 | **Jr-1** exclusive types → default Celery queue | Not started |
-| 5 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until walked |
-| 6 | Q / Brand-1 / Brand-2 / Jr-2 as capacity after Must | Not started |
-| 7 | Freeze · `1.7.0` · tag · Hub | Only when asked |
+| 2 | Retune: MCP-1 first, Q is Should, Bak-alt noted | **Done** 2026-09-25 (`85d0ec4`) |
+| 3 | MCP-1 read/write contract in this plan | **This commit** |
+| 4 | **MCP-1** after you create the adapter repo | Not started — first build |
+| 5 | **Jr-1** exclusive types → default Celery queue | Not started |
+| 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until walked |
+| 7 | Q / Brand-1 / Brand-2 / Jr-2 as capacity after Must | Not started |
+| 8 | Freeze · `1.7.0` · tag · Hub | Only when asked |
 
 ---
 
