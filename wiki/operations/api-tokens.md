@@ -63,3 +63,7 @@ curl -sS -X POST -H "Authorization: Bearer $PH_TOKEN" \
 ```
 
 Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backup` + n8n host IP.
+
+## Agents (MCP)
+
+Cursor, Grok Build, Claude, and Codex can call this same API through a **stdio** process on the agent machine. It is a v1.7 piece in its own repo, not a service in this image, and not a port on the herder. Scopes above are the tool list: `read` always, and `jobs` / `edit` / `files` only when the token has them. Operator page: [Agents (MCP)](mcp.md).

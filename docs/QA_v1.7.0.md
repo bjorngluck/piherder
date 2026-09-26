@@ -21,7 +21,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 | Stream | Wiki |
 |--------|------|
-| MCP-1 | Adapter repo readme (not this image). Herder side is [API tokens](../wiki/operations/api-tokens.md) — scopes `read`, and `jobs` / `edit` / `files` only when that walk needs write |
+| MCP-1 | [Agents (MCP)](../wiki/operations/mcp.md) (operator). Herder side is [API tokens](../wiki/operations/api-tokens.md). The process is not in this image |
 | Jr-1 / Jr-2 | [Multi-worker](../wiki/operations/multi-worker.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Troubleshooting](../wiki/troubleshooting/index.md) |
 | Brand-1 / Brand-2 | Settings → General (page lands with the slice) · [Catalog](../wiki/index.md) |
 | Regression | [Move a service](../wiki/docker/service-migration.md) · [Web SSH](../wiki/day-to-day/web-ssh-console.md) · [Home Assistant](../wiki/integrations/home-assistant.md) |
