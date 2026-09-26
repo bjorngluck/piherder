@@ -1,12 +1,12 @@
 # PiHerder v1.7.0 — token-API MCP, then one job runtime
 
-**Status:** **Active** (train opened 2026-09-25). No product code yet.  
+**Status:** **Active** (train opened 2026-09-25). MCP-1 **0.1.0**, Jr-1, Jr-2, Brand-1, and Brand-2 are on this branch. Operator walks are open. Q (fail-under 80) is not started.  
 **Date opened:** 2026-09-25 (inbox parked 2026-09-18)  
 **Git branch:** `v1.7.0-dev` → `main` · tag `v1.7.0` at freeze  
 **Package / image version:** **`1.6.0`** until freeze  
 **Theme:** **MCP-1** first (read/write client of the existing token API, separate repo), then **Jr-1** (remaining exclusive jobs onto Celery)  
 **Baseline:** `v1.6.0` (tagged 2026-09-25; Hub digest `sha256:cdf88c70099f78830943e6529f05eff1b83bb5565e7b12f71ebf0877c7b018a8`)  
-**Mode:** **Must → Should → Discover.** Must **MCP-1** + **Jr-1**. Should **Q** (fail-under **75 → 80**) + **Brand-1** + **Brand-2** + **Jr-2**. Discover **AC-fg** · HA Slice 2 · Undo-2 · Mux-2 · **Bak-alt**.  
+**Mode:** **Must → Should → Discover.** Must **MCP-1** + **Jr-1**. Should **Q** (fail-under **75 → 80**) + **Brand-1** + **Brand-2** + **Jr-2** + **HA-cards**. Discover **AC-fg** · HA bus event · Undo-2 · Mux-2 · **Bak-alt**.  
 **QA:** [QA_v1.7.0.md](QA_v1.7.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 J-runtime · §4 Brand · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [API.md](API.md) · [SPEC.md](../SPEC.md) · wiki [multi-worker](../wiki/operations/multi-worker.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md)
 
@@ -20,7 +20,7 @@ Agents that already hold a PiHerder token still have to call HTTP themselves. Th
 
 Move, undo, backup, and nmap already run on Celery. **Jr-1** moved OS patch, container patch, update checks, compose stack jobs, and template jobs onto the default Celery queue (`exclusive_job`). Recycling **web** does not fail them. `retention`, `herder_backup`, and `host_facts` still run in the web process.
 
-Instance chrome (wordmark, one accent, hide Catalog) was discovered in 1.5 and held out of 1.6. It is Should: it can slip without blocking the tag. So can the coverage step from 75% to 80%.
+Instance chrome (wordmark, one accent, hide Catalog) was discovered in 1.5 and held out of 1.6. Brand-1 and Brand-2 have landed on this branch. They stay Should: they do not block the tag. The coverage step from 75% to 80% has not started and can still slip.
 
 Wanted:
 
@@ -30,8 +30,9 @@ Wanted:
 4. A worker kill of a **running** apt or compose stays **fail honest**  
 5. Optional instance name + one accent, and a nav hide for Catalog, without a theme engine  
 6. CI fail-under raised **75 → 80** if the suite can get there without lowering the floor  
+7. **HA-cards** (Should, not started): more Lovelace cards in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha), plus confirm actions for the job types and feature toggles today’s bearer token already allows. No new herder routes. Plugin **0.2.4** stays read-only until this slice is built  
 
-**Out of 1.7 product code until promoted:** fine-grained grants, HA backup-from-HA, Undo-2, Mux-2, alternate backup destinations (**Bak-alt**), HA Slice 3, Brand-3, turning Move on by default.
+**Out of 1.7 product code until promoted:** fine-grained grants, the HA job-finished bus event, Undo-2, Mux-2, alternate backup destinations (**Bak-alt**), HA Slice 3 (container start/stop, webhooks, Move-from-HA, Files), Brand-3, turning Move on by default.
 
 ---
 
@@ -43,9 +44,9 @@ Wanted:
 | Production line | **`main` @ `v1.6.0`** — hotfixes → **`v1.6.x`**, port here |
 | Git tag (freeze) | **`v1.7.0`** (RCs: `1.7.0-rc.N` if needed) |
 | Image tags (freeze) | `1.7.0` · `1.7` · `latest` (multi-arch); keep `1.6` / `1.6.x` pins valid |
-| In-scope streams | **MCP-1** Must (first) · **Jr-1** Must · **Q** Should · **Brand-1** Should · **Brand-2** Should · **Jr-2** Should |
-| Discover (no code until promoted) | **AC-fg** · HA Slice 2 · Undo-2 · Mux-2 · **Bak-alt** |
-| Out-of-focus | HA Slice 3 · Brand-3 · theme engine · M-flag C (stay false) · plugin-in-image · MCP-in-image · remote HTTP MCP · CSP Slice 2 (`onclick` rewrite) · ACME · NPM CRUD · richer Files API · N3c · M-live · multi-tenant · Swarm/k8s |
+| In-scope streams | **MCP-1** Must (first) · **Jr-1** Must · **Q** Should · **Brand-1** Should · **Brand-2** Should · **Jr-2** Should · **HA-cards** Should |
+| Discover (no code until promoted) | **AC-fg** · HA `piherder_job_completed` bus event · Undo-2 · Mux-2 · **Bak-alt** |
+| Out-of-focus | HA Slice 3 (container start/stop, webhooks, add-on, Move-from-HA, Files) · Brand-3 · theme engine · M-flag C (stay false) · plugin-in-image · MCP-in-image · remote HTTP MCP · CSP Slice 2 (`onclick` rewrite) · ACME · NPM CRUD · richer Files API · N3c · M-live · multi-tenant · Swarm/k8s |
 | Mode | Must → freeze; Should may slip; Discover only if Must is green |
 | Coverage | Floor stays **75**. Should raises CI fail-under **75 → 80** (1.x ceiling). Do not lower 75. The step may slip |
 | E2E | Wizard chrome still loads. No live SSH / apt / two-host copy in CI |
@@ -61,7 +62,7 @@ main @ v1.6.0 (+ v1.6.x patches)
 | Rule | Practice |
 |------|----------|
 | Must → then freeze | Do not start Out items while Must is open. Build **MCP-1** before **Jr-1** |
-| Should may slip | Brand-1 / Brand-2 / Jr-2 / **Q (80%)** do **not** block the tag if MCP-1 and Jr-1 are green |
+| Should may slip | Brand-1 / Brand-2 / Jr-2 / **HA-cards** / **Q (80%)** do **not** block the tag if MCP-1 and Jr-1 are green |
 | Prod critical bugs | **main** as **1.6.x** first, then port here |
 | Demo never grows teeth | Real migrate off · real Files SFTP off · mux off · no live apt/compose from the demo |
 | Tag honesty | **v1.7.0 tags only with MCP-1 + Jr-1**. Fail-under must not drop below **75**. Reaching **80** may slip |
@@ -83,12 +84,13 @@ main @ v1.6.0 (+ v1.6.x patches)
 | 9 | **Brand-3** | **Out.** Own-docs MkDocs skin later. |
 | 10 | **MCP-1** | **Must. First slice.** Separate repo (same shape as `piherder-ha`). stdio. Read and write of today’s bearer API only. Not in this image. No new herder routes. |
 | 11 | **AC-fg** | **Discover.** Three global roles stay. No schema until a spike is promoted. Not multi-tenant. |
-| 12 | HA Slice 2 / Undo-2 / Mux-2 / **Bak-alt** | **Discover.** Carried from 1.6, plus alternate backup destinations (under consideration). Not this freeze unless promoted. |
-| 13 | HA Slice 3 / Move-from-HA / start-stop | **Out** |
+| 12 | Undo-2 / Mux-2 / **Bak-alt** / HA bus event | **Discover.** Alternate backup destinations stay under consideration. `piherder_job_completed` stays here. The backup button itself moved into **HA-cards**. |
+| 13 | HA Slice 3 / Move-from-HA / container start-stop | **Out.** Extra Lovelace cards and today’s token writes are **HA-cards**, not this row. |
 | 14 | M-flag / default-on Move | **Stay false** |
 | 15 | Coverage | **Should.** Raise fail-under **75 → 80**. May slip. Do not lower **75**. |
 | 16 | Version bump | `1.7.0` at freeze only |
 | 17 | Public demo | Stays on the **1.6** image. Do not redeploy it onto `v1.7.0-dev`. |
+| 18 | **HA-cards** | **Should** (2026-09-26). Not started. More Lovelace cards plus confirm writes the bearer API already has. Separate repo. No new herder routes. Does not block the tag. |
 
 ---
 
@@ -104,6 +106,7 @@ Phase 2   Jr-1 exclusive types → Celery       landed (operator walk still open
 Phase 3   Q fail-under 75 → 80                Should (may slip)
 Phase 4   Brand-1 + Brand-2                   landed (operator walk still open)
 Phase 5   Jr-2 Settings max wait              landed (operator walk still open)
+Phase 5b  HA-cards                            Should, not started (may slip)
 Phase 6   Discover spikes                     only if Must is green and you promote
 Phase 7   Wiki + QA_v1.7.0                    operator sign-off
 Phase 8   Freeze                              1.7.0 bump · RELEASE · PR · tag · Hub — only when asked
@@ -216,7 +219,9 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 J-runtime. Operator page to u
 
 Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 2026-09-18 still hold.
 
-**Today:** `--color-primary: #e60012` · `--color-accent: #00a651` · header PNG pair · `ph_brand()` Pi+Herder · Catalog always in the nav · PWA title “PiHerder”. Demo is official chrome.
+**Starting point (1.6):** `--color-primary: #e60012` · `--color-accent: #00a651` · header PNG pair · `ph_brand()` Pi+Herder · Catalog in the nav · PWA title “PiHerder”. Demo is official chrome.
+
+**On this branch:** Settings → General → Instance is the name, the one accent, and **Show Catalog in the navigation** (default on). Operator pages: [Appearance](../wiki/getting-started/appearance.md) · [Settings](../wiki/operations/settings.md). Walk still open.
 
 **Locks:**
 
@@ -235,13 +240,38 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 
 ---
 
+## 4b. Stream **HA-cards** — Lovelace cards and token writes (Should)
+
+Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7. Operator page: [Home Assistant](../wiki/integrations/home-assistant.md). Plugin **0.2.4** is still the read-only fleet card. This slice is not started.
+
+**Where:** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) only. Not in the PiHerder image. Not a Supervisor add-on. The public demo is not a target.
+
+**Cards:**
+
+1. The existing fleet card stays (sums, expand host, chips into PiHerder).  
+2. A **host** card for one server: the stored snapshot, the same chips, and that host’s confirm actions.  
+3. An **updates** card: OS and container update counts from the snapshot, plus check and patch confirms.
+
+**Writes** use routes that already exist. A missing scope hides that control. A `read` token keeps today’s sensors and the fleet card and shows no write controls.
+
+| Action | Call | Scope |
+|--------|------|--------|
+| Backup, retention, OS check, container check, OS patch, container patch | `POST /api/v1/servers/{id}/jobs` | `jobs` plus the matching `feature:*`. **409** means poll `GET /api/v1/jobs/{id}` |
+| Backup / OS patch / Docker flags | `PATCH /api/v1/servers/{id}/features` | `edit` plus the matching `feature:*` |
+
+Patch and retention ask for a confirm before the call. The poll that fills the cards stays `GET` of stored snapshots. It does not SSH the fleet.
+
+**Still out:** container start/stop, Move, undo, compose write, Files, console, stack and template deploys, nmap, DNS, certs, settings, token admin. No new herder route. The HA bus event `piherder_job_completed` stays Discover. Webhooks and a Supervisor add-on stay out.
+
+---
+
 ## 5. Discover (no product code until a row is promoted)
 
 | ID | Item | Notes |
 |----|------|--------|
 | **Bak-alt** | Alternate backup destinations | **Under consideration.** Today per-server backups rsync onto a directory on the herder host (`PIHERDER_BACKUP_HOST_PATH`, default `./backups`, mounted at `/backups`). Examples to write up, not to build: Google Drive, a LAN NAS, and similar. Not a vendor choice. Not OAuth, not a NAS client, not a replacement for that rsync directory. PiHerder’s own Settings backup stays a separate DR path. |
 | **AC-fg** | Per-host / per-feature grants | No discover spike yet. Three global roles stay. Not multi-tenant SaaS. Promote only by writing the grant model first; no schema in this train until that promotion. |
-| **HA Slice 2** | Backup-from-HA | Confirm + `piherder.backup`. Token `jobs` + `feature:backup`. Optional OS **check** (not apply). Bus event `piherder_job_completed` stays here. Plugin repo, not this image. |
+| **HA bus event** | `piherder_job_completed` | Poll-diff onto the HA bus. The backup button and the OS check moved into **HA-cards**. This event did not. Plugin repo, not this image. |
 | **Undo-2** | Beyond fail-path undo | Undo-1 shipped in 1.6. Do not reverse a green Move. No dest `down -v`. |
 | **Mux-2** | Leftover mux sessions | List/kill `ph-u*` after web recycle, from the SSH-access UI. Leftover sessions after Remove server stay wiki-only until this is promoted. |
 
@@ -257,8 +287,9 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | **Should** | **Brand-1** | Instance name + one accent; demo ignored | Landed. Operator walk still open |
 | **Should** | **Brand-2** | Hide Catalog in nav; `/catalog` still works | Landed. Operator walk still open |
 | **Should** | **Jr-2** | Settings max wait; Kuma/`last_seen` is a signal | Landed. Operator walk still open |
-| **Discover** | Bak-alt · AC-fg · HA Slice 2 · Undo-2 · Mux-2 | Notes only unless promoted | Parked |
-| **Out** | HA Slice 3 · Brand-3 · M-flag C · plugin-in-image · MCP-in-image · remote HTTP MCP · CSP Slice 2 | Stay out | Locked 2026-09-26 |
+| **Should** | **HA-cards** | Host card, updates card, and confirm writes for today’s job types and feature toggles. Plugin repo. No new herder routes | Not started. Plugin **0.2.4** stays read-only |
+| **Discover** | Bak-alt · AC-fg · HA bus event · Undo-2 · Mux-2 | Notes only unless promoted | Parked |
+| **Out** | HA Slice 3 (start/stop, webhooks, Move, Files) · Brand-3 · M-flag C · plugin-in-image · MCP-in-image · remote HTTP MCP · CSP Slice 2 | Stay out | Locked 2026-09-26 |
 
 ---
 
@@ -269,13 +300,13 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | Unit | Floor **75**. Should raises `--cov-fail-under` to **80** on `app`. If that slips, the tag still requires the floor. Jr-1 tests cover enqueue-on-Celery, web-recycle does not fail, worker-recycle fails a running mutate, host-down stays pending, exclusive lane still blocks a second stack mutate. No live SSH. MCP-1 tests live in the adapter repo and mock HTTP: scope-filtered tools, `trigger_job` 202 and 409, no call to SSH, Move, or console |
 | E2E | Wizard chrome. No live apt, compose, or two-host copy in CI |
 | Docs | Wiki multi-worker + Jobs when Jr-1 lands; `mkdocs build --strict` at freeze |
-| Security | Same exclusive lanes. No new token scope. Move and undo stay off the token API. MCP write tools use `jobs`, `edit`, and `files` only. Demo never live-runs the moved types and is not an MCP target. Brand env lock cannot be overridden from the UI when set |
+| Security | Same exclusive lanes. No new token scope. Move and undo stay off the token API. MCP write tools use `jobs`, `edit`, and `files` only. HA-cards, when built, uses `jobs` and `edit` only and is tested in the plugin repo with mocked HTTP. Demo never live-runs the moved types and is not an MCP or HA-cards target. Brand env lock cannot be overridden from the UI when set |
 
 ---
 
 ## 8. Out of scope (stay honest)
 
-- **HA Slice 3** — start/stop from HA, webhooks, alerts API, Move-from-HA, Files from HA  
+- **HA Slice 3** — container start/stop from HA, webhooks, alerts API, Move-from-HA, Files from HA. **HA-cards** is the separate Should (extra cards and today’s token writes) and is not this row  
 - **Brand-3** — own-docs MkDocs skin; theme engine; header logo upload; recolouring primary red  
 - **M-flag C** — `PIHERDER_SERVICE_MIGRATE` stays **false**. Do not turn Move on by default  
 - Plugin, add-on, or **MCP adapter inside** the PiHerder image  
@@ -307,6 +338,8 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | 2026-09-26 | **Jr-2 landed.** Settings → General → Jobs is the max SSH wait. Kuma / stale `last_seen` is a Jobs label only. |
 | 2026-09-26 | **Brand-1 landed.** Settings → General → Instance: name plus one accent. Mark and primary red stay. Demo ignores it. |
 | 2026-09-26 | **Brand-2 landed.** Instance card can hide Catalog in the nav. `/catalog` stays. Default show. Demo keeps the link. |
+| 2026-09-26 | Operator wiki matches the landed slices. [Appearance](../wiki/getting-started/appearance.md) and [Settings](../wiki/operations/settings.md) describe Instance and Jobs. Plan header no longer says “no product code”. |
+| 2026-09-26 | **HA-cards pulled in** as Should. Extra Lovelace cards plus confirm writes the bearer API already allows (six job types and backup / OS-patch / Docker flags). Not started. Plugin **0.2.4** stays read-only. Container start/stop, Move, Files, and the console stay out. The job-finished bus event stays Discover. |
 
 ---
 
@@ -322,6 +355,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | 5 | **Jr-1** exclusive types → default Celery queue | **Landed.** Walk still open ([QA_v1.7.0.md](QA_v1.7.0.md)) |
 | 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until walked |
 | 7 | Q / Brand-1 / Brand-2 / Jr-2 as capacity after Must | **Jr-2**, **Brand-1**, and **Brand-2** landed. Q not started |
+| 9 | **HA-cards** in piherder-ha | **Not started.** Should. May slip |
 | 8 | Freeze · `1.7.0` · tag · Hub | Only when asked |
 
 ---

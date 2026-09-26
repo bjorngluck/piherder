@@ -2,7 +2,7 @@
 
 ## What this is
 
-**Settings** is the admin control plane for the **instance**: timezone, security policy, **console limits**, **SSO / OIDC**, fleet update-check defaults, **stale data cleanup**, **Alerts** (policy + webhook + SMTP), PiHerder self-backup, stack Status, and API tokens.
+**Settings** is the admin control plane for the **instance**: timezone, **instance name and accent**, **Catalog in the nav**, security policy, **console limits**, **SSO / OIDC**, the max wait for a host that is down, fleet update-check defaults, **stale data cleanup**, **Alerts** (policy + webhook + SMTP), PiHerder self-backup, stack Status, and API tokens.
 
 **Where:** top nav **Settings** → `/herder-backups` (tabs on one page; legacy path kept for bookmarks).
 
@@ -18,7 +18,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 ## End-to-end: harden a new instance
 
-1. **General** → set app **timezone** (Audit/Jobs clocks).  
+1. **General** → set app **timezone** (Audit/Jobs clocks). Optional **Instance**: a name in the header, one accent, and whether Catalog stays in the nav. See [Appearance](../getting-started/appearance.md).  
 2. **General** → **Security policy**: password rules, who must enrol 2FA (optional grace 0–60 days), step-up windows.  
 3. **General** → **Console**: idle / max session, concurrency, ticket, park hold, bind, scrollback (kill switch stays `PIHERDER_SSH_CONSOLE`). **General** → **Files**: transfer cap (default 512 MiB, ceiling 32 GiB). Kill switch stays env `PIHERDER_HOST_FILES` ([Host Files](../day-to-day/host-files.md)). Privileged Files uses the same “who may elevate” knob as the console.  
 4. Optional **General → SSO / OpenID Connect** when you have a BYO IdP — [SSO guide](../account-security/sso-oidc.md).  
@@ -33,7 +33,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 | Tab | Purpose |
 |-----|---------|
-| **General** | Timezone (inline) plus a **hub** of summary cards — Security, Console, **Files** (transfer cap), SSO, Cleanup. **Edit** opens the full form in a modal |
+| **General** | Timezone (inline) plus a **hub** of summary cards — **Instance** (name, accent, Catalog in the nav), **Jobs** (max wait for the host), Security, Console, **Files** (transfer cap), SSO, Cleanup. **Edit** opens the full form in a modal |
 | **Alerts** | **Alert policy** (per-category severity / mute / debounce) + outbound **webhook** + **SMTP** — [details](alerts-email-webhooks.md) |
 | **Fleet defaults** | Global OS / container update-check defaults (optional apply to all hosts) |
 | **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)) |
@@ -65,7 +65,7 @@ Timezone stays on the page (hero clock). **Security policy**, **Console**, **Fil
 
 <figure class="ph-figure" markdown>
   ![Settings General hub](../assets/screenshots/settings-hub.png)
-  <figcaption>Settings → General — summary cards (Security, Console, Files, SSO, Cleanup) plus timezone.</figcaption>
+  <figcaption>Settings → General — timezone plus summary cards. Instance and Jobs are on this hub; the screenshot is the earlier card set.</figcaption>
 </figure>
 
 **Alerts → Alert policy** uses the same pattern (summary + Edit modal). Webhook and SMTP stay on the Alerts tab.
@@ -144,6 +144,14 @@ Audit: `console_policy_changed`.
   <figcaption>Settings → General → Stale data cleanup — opt-in Jobs / Audit / nmap retention.</figcaption>
 </figure>
 
+### General tab — Instance
+
+Admin-only. A name in the header and the home-screen title, one accent, and **Show Catalog in the navigation**. Empty name keeps **Pi** / **Herder**. The mark image and the primary red stay. Unchecking Catalog removes it from the desktop nav and the phone menu only; `/catalog` still opens. The public demo keeps official chrome and disables Save. `PIHERDER_INSTANCE_NAME` and `PIHERDER_ACCENT` lock those fields when set. Full table: [Appearance](../getting-started/appearance.md#instance-name-accent-and-catalog-in-the-nav).
+
+### General tab — Jobs
+
+Admin-only. **Max wait for the host** is in minutes (1–1440, default 30). That is how long a patch, check, stack, or template job stays **pending** while SSH to that host fails. The worker probes every 30 seconds and resumes only when the probe works. Uptime Kuma or a `last_seen` older than 15 minutes can label the row **waiting on host**. Those labels do not start the job and do not fail it. `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` locks the field when set (seconds, 30–86400). The worker reads the saved value on the next probe, so you do not recreate **celery-worker** after a Settings save. See [Multi-worker](multi-worker.md) · [Jobs](../day-to-day/jobs-audit-notifications.md).
+
 ## Common tasks
 
 | Goal | Path |
@@ -155,6 +163,8 @@ Audit: `console_policy_changed`.
 | Connect Authentik / Keycloak / Entra | Settings → **General** → SSO · [SSO / OIDC](../account-security/sso-oidc.md) |
 | Trim old Jobs / Audit | Settings → **General** → Stale data cleanup |
 | Times show SAST / local | Settings → **General** → timezone |
+| Name in the header, one accent, hide Catalog | Settings → **General** → Instance · [Appearance](../getting-started/appearance.md) |
+| How long a job waits for SSH | Settings → **General** → Jobs · [Multi-worker](multi-worker.md) |
 | n8n / HA automation | Settings → **API** · [API](api-tokens.md) |
 | Alert policy / webhook / SMTP | Settings → **Alerts** · [Alerts](alerts-email-webhooks.md) |
 | Forgot password on login | Settings → **Alerts** (SMTP + toggle) · [Alerts](alerts-email-webhooks.md) |
@@ -182,6 +192,7 @@ Full operator guide: [SSO / OpenID Connect](../account-security/sso-oidc.md). La
 
 ## Related
 
+- [Appearance](../getting-started/appearance.md) — instance name, accent, Catalog in the nav  
 - [Environment reference](env-reference.md) — secrets that stay in `.env` (includes LAN nmap fence / volume keys)  
 - [SSO / OpenID Connect](../account-security/sso-oidc.md)  
 - [Volumes](volumes.md)  

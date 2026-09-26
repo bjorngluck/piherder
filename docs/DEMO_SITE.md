@@ -49,6 +49,7 @@ Access (if enabled) remains an optional outer gate for spam reduction — do not
 | Fleet config | Blocked by normal viewer RBAC + demo write guard; **canned job runs** still allowed for the click-through |
 | Ops re-seed | CLI only (no in-app admin seed UI) |
 | Audit client IP | Column **and details body** scrubbed to `redacted` on write + display (shared-account privacy). Console used to embed `ip=…` in the body — that is redacted too. Seed/private lab IPs (`10.x`, `192.168.x`) may still show on canned rows. |
+| Instance chrome | Demo mode ignores a saved instance name, accent, and Catalog hide, and ignores `PIHERDER_INSTANCE_NAME` / `PIHERDER_ACCENT`. Official mark, green accent, primary red, and Catalog in the nav stay. The public VPS is still the **1.6** image, which has no Instance card. Do not redeploy it onto `v1.7.0-dev`. |
 
 Never point demo at the home-lab network or reuse production `PIHERDER_MASTER_KEY`.
 

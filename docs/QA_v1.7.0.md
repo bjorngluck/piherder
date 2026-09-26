@@ -23,7 +23,8 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 |--------|------|
 | MCP-1 | [Agents (MCP)](../wiki/operations/mcp.md) (operator). Herder side is [API tokens](../wiki/operations/api-tokens.md). The process is not in this image |
 | Jr-1 / Jr-2 | [Multi-worker](../wiki/operations/multi-worker.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Troubleshooting](../wiki/troubleshooting/index.md) |
-| Brand-1 / Brand-2 | Settings → General (page lands with the slice) · [Catalog](../wiki/index.md) |
+| Brand-1 / Brand-2 | [Appearance](../wiki/getting-started/appearance.md) · [Settings](../wiki/operations/settings.md) → General → Instance |
+| HA-cards | [Home Assistant](../wiki/integrations/home-assistant.md). Not in plugin **0.2.4**. Do not walk until that slice is built |
 | Regression | [Move a service](../wiki/docker/service-migration.md) · [Web SSH](../wiki/day-to-day/web-ssh-console.md) · [Home Assistant](../wiki/integrations/home-assistant.md) |
 
 ---
@@ -40,7 +41,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 | **Flags** | `PIHERDER_SERVICE_MIGRATE` stays **false** except a regression spot-check you explicitly turn on, then off. Demo never live-runs patch or stack jobs |
 | **Where to look** | Local herder: `http://127.0.0.1:8000` (Caddy `:8888` / `:8443`) |
 
-**Do not test (Out or Discover):** Google Drive or NAS backup destinations (Bak-alt), per-host grants, backup-from-HA, Undo-2, Mux-2 leftover list, HA start/stop, theme engine, logo upload, default-on Move, rewriting `onclick` for CSP. Do not look for the MCP adapter inside the PiHerder image.
+**Do not test (Out or Discover):** Google Drive or NAS backup destinations (Bak-alt), per-host grants, the HA job-finished bus event, Undo-2, Mux-2 leftover list, container start/stop from HA, theme engine, logo upload, default-on Move, rewriting `onclick` for CSP. Do not look for the MCP adapter or the Home Assistant plugin inside the PiHerder image. **HA-cards** is not in plugin **0.2.4** — skip that section until a newer plugin tag exists.
 
 ### Suggested order
 
@@ -147,6 +148,19 @@ Settings → **General** → **Jobs**. Default **30 minutes**. Env `PIHERDER_EXC
 
 - [ ] Settings shows max wait; SSH probe is still what resumes the job. Open the Jobs card. The minutes field is there (1–1440). Save a short value such as **2** on a lab host, then refuse SSH and start an OS check. The pending log should mention the new limit (about 120s, not 1800). Restore SSH. The same job proceeds. Set the field back to **30** when you are done. If the env var is set, the field is disabled and the save does not change the wait  
 - [ ] Kuma down or stale `last_seen` can show “waiting on host” and does **not** by itself resume or fail the job. With a host whose Kuma SSH monitor is down, or whose `last_seen` is over 15 minutes old, start a check while SSH still works. The Jobs row or JobHold may say **waiting on host** before the probe, then the job **runs** anyway. It must not fail just because Kuma or `last_seen` looks down. With SSH actually refused, the job stays **pending** until the probe works or the wait you saved elapses  
+
+## HA-cards — Lovelace cards and token writes (Should; may slip)
+
+Not started. Plugin **0.2.4** is still the read-only fleet card. Boxes stay empty. Do not walk this section until a newer plugin tag says the host card and the updates card exist. The herder does not gain routes for this slice. Rebuild is a Home Assistant redownload, not a herder image.
+
+- [ ] A `read` token still shows the fleet card and the host sensors, and shows no backup, check, patch, retention, or feature control  
+- [ ] Host card is one server. It shows the stored snapshot and the Host / Docker / Backups / Alerts / Audit links. It does not SSH  
+- [ ] Updates card shows OS and container update counts from that snapshot  
+- [ ] Confirm backup calls `POST /api/v1/servers/{id}/jobs` with `backup` and the job appears on the herder. A second confirm while it is active gets **409** and does not start another  
+- [ ] OS check and container check are confirms and do not apply packages. OS patch and container patch ask for a confirm, then enqueue those job types. Retention asks for a confirm  
+- [ ] Feature toggles call `PATCH /api/v1/servers/{id}/features` for backup, OS patch, and Docker only. A token without `edit` does not show them  
+- [ ] No container start/stop, Move, Files, or console control appears on any card  
+- [ ] Public demo is not the target. Do not point the plugin at it  
 
 ## Q — fail-under 75 → 80 (Should; may slip)
 
