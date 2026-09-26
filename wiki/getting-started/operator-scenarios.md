@@ -232,7 +232,7 @@ Full page: [Move a service](../docker/service-migration.md). Do **not** pick **R
 | Compose install + secrets | [Install](install.md) |
 | Register **first** admin (no default user), then invite others | [First login](first-login.md) · [Users](../account-security/users.md) |
 | Trusted HTTPS for PWA/push | [HTTPS & TLS](https-tls.md) |
-| Light / dark theme | [Appearance](appearance.md) |
+| Light / dark, instance name, one accent, Catalog in the nav | [Appearance](appearance.md) |
 | About PiHerder / GitHub / new version notice | Avatar menu → **About** (`/about`) |
 | Add a Pi, deploy SSH key, features (wizard) | [Add a server](../day-to-day/add-server.md) · Journey A |
 | HAOS appliance (SSH + HA updates) | [HAOS hosts](../day-to-day/haos-hosts.md) · Journey C2 |
@@ -295,7 +295,7 @@ Full page: [Move a service](../docker/service-migration.md). Do **not** pick **R
 | Grafana deep links + preferred names | [Grafana](../integrations/grafana.md) |
 | Multi Pi-hole, DNS fan-out, gravity | [Pi-hole](../integrations/pihole.md) |
 | Host A records, service paths, Hosts/Path maps, runtime stack expand + container order | [Network maps](../integrations/dns-fabric.md) |
-| Switch light/dark; ops-hero layout | [Appearance](appearance.md) |
+| Switch light/dark; instance name and accent; hide Catalog in the nav | [Appearance](appearance.md) |
 | NPM proxy hosts (read-only) + pull cert | [NPM](../integrations/npm.md) |
 | Cert vault, maps, deploy, renew | [Certificates](../integrations/certificates.md) |
 
@@ -316,7 +316,7 @@ Full page: [Move a service](../docker/service-migration.md). Do **not** pick **R
 |----------|-----|
 | `.env` keys | [Env reference](../operations/env-reference.md) |
 | Volume mounts | [Volumes](../operations/volumes.md) |
-| Settings tabs (backup, security, Alerts, status, timezone, API) | [Settings](../operations/settings.md) |
+| Settings tabs (Instance, Jobs wait, backup, security, Alerts, status, timezone, API) | [Settings](../operations/settings.md) |
 | Stack Status healthy? | [Status](../operations/status.md) |
 | Herder self-backup / restore (**admin only**) | [Self-backup](../operations/self-backup.md) · [Roles](../account-security/roles.md) |
 | Upgrade compose / image | [Upgrades](../operations/upgrades.md) |

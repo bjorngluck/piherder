@@ -2,7 +2,7 @@
 
 ## What this is
 
-Built-in **light and dark** themes (Raspberry Pi red / green accents), shared **ops-hero** layout chrome, and theme-aware brand marks. There is **no** operator custom logo or colour branding in current releases — that is a far-horizon idea only.
+Built-in **light and dark** themes (Raspberry Pi red / green accents), shared **ops-hero** layout chrome, and theme-aware brand marks. Light and dark stay a **browser** choice. On this train an admin can set an instance name and one accent, and can hide Catalog in the nav. The official mark and the primary red stay. There is no logo upload and no per-user skin. Production **v1.6.0** does not have those Settings cards yet.
 
 ## Why it exists
 
@@ -44,7 +44,7 @@ If light mode ever looks like “one flat white screen”, borders or canvas gre
 
 ### Brand logos (light & dark)
 
-The product mark and About wordmark use **theme-aware PNGs** (no operator custom branding):
+The product mark and About art use **theme-aware PNGs**. Those files stay the official mark. An instance name does not replace the image:
 
 | Asset | Light UI | Dark UI |
 |-------|----------|---------|
@@ -53,6 +53,18 @@ The product mark and About wordmark use **theme-aware PNGs** (no operator custom
 | Favicon / PWA | `favicon.png` + `icons/icon-*.png` from the same master | — |
 
 Toggle theme swaps the image `src` in the browser. Asset inventory: [`app/static/images/README.md`](https://github.com/bjorngluck/piherder/blob/main/app/static/images/README.md) (mirrored under `wiki/assets/` for this site).
+
+### Instance name, accent, and Catalog in the nav
+
+**Settings → General → Instance** (admin). The public demo ignores this card and keeps official PiHerder chrome, including Catalog in the nav. `PIHERDER_INSTANCE_NAME` and `PIHERDER_ACCENT` do not apply there either.
+
+| Knob | What it does |
+|------|----------------|
+| **Instance name** | Max 40 characters. Empty keeps the **Pi** / **Herder** wordmark. A name is the header, the footer, the sign-in wordmark, `apple-mobile-web-app-title`, and `/manifest.webmanifest` `name` (short name is the first 12 characters). Sentences in the app still say PiHerder. |
+| **Accent** | Recolours `--color-accent` and the subtle accent background only. Official green is `#00a651`. Saving that green stores “use the built-in accent”. Primary red stays `#e60012`. The mark and the browser theme-color stay red. |
+| **Show Catalog in the navigation** | On by default. Uncheck to drop Catalog from the desktop nav and the phone menu. `/catalog` still opens, including its tabs. Every account on the instance sees the same nav. There is no env lock for this checkbox. |
+
+When `PIHERDER_INSTANCE_NAME` or `PIHERDER_ACCENT` is set and non-blank, that field is locked. Recreate **web** after changing either variable. The Catalog checkbox can still be saved while a name or accent is locked. Demo mode disables the whole card.
 
 Live docs URL (custom domain only): **[piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)**. Example hostnames in guides use **`*.example.com`**.
 
@@ -118,6 +130,7 @@ If a tab still looks unchanged after a theme fix:
 
 ## Related
 
-- [PWA & Web Push](../account-security/pwa-push.md) — install to home screen (theme still toggles in-app)  
+- [Settings](../operations/settings.md) — Instance card and the other General hub cards  
+- [PWA & Web Push](../account-security/pwa-push.md) — install to home screen (theme still toggles in-app; the home-screen title follows the instance name when one is set)  
 - [Network maps](../integrations/dns-fabric.md) — map chrome and mobile list-first  
 - Theme sandbox (developers): `/static/theme-test.html` on a running instance  

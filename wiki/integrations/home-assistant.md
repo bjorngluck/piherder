@@ -98,6 +98,12 @@ Numbers come from the same **[System Info](../day-to-day/system-info.md)** snaps
 
 No start/stop, Move, compose write, Files, console, OS apply, or backup-from-HA. Slice 1b only **reads** the last Docker inventory and service-monitor rows. YAML `rest:` remains possible.
 
+## Next on the v1.7 train
+
+**HA-cards** is a Should item and is **not** in plugin **0.2.4**. Do not look for a host card, an updates card, or write buttons on the current install.
+
+When that slice is built, the plugin gains those two cards and confirm actions for backup, retention, OS check, container check, OS patch, and container patch, plus the backup / OS-patch / Docker feature toggles. A token with only `read` keeps this page’s fleet card and sensors and does not show the actions. The herder does not grow new routes for it. Container start/stop, Move, Files, and the console stay here in PiHerder. The poll still reads stored snapshots and does not SSH.
+
 ## Related
 
 - [API tokens](../operations/api-tokens.md) · [Agents (MCP)](../operations/mcp.md) · [API.md](https://github.com/bjorngluck/piherder/blob/main/docs/API.md)  

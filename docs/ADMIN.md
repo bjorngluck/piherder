@@ -436,6 +436,23 @@ Backup jobs write lifecycle events (`backup_request` → `backup_queued` → `ba
 
 Storage remains **UTC** (DB `datetime.utcnow()`). Changing the timezone only changes display (and schedule wall-clock), not historical raw values.
 
+### Instance chrome (v1.7 train)
+
+**Settings → General → Instance** (admin). On `v1.7.0-dev` only; the **1.6.0** image has no card.
+
+| Knob | Behaviour |
+|------|-----------|
+| Instance name | Max 40. Empty keeps the Pi / Herder wordmark. A name is the header, footer, sign-in wordmark, `apple-mobile-web-app-title`, and `/manifest.webmanifest` `name` (short name = first 12 characters). |
+| Accent | `--color-accent` and the subtle accent background only. `#00a651` stores as the built-in green. `#e60012` is rejected. Mark PNGs and `theme_color` stay `#e60012`. |
+| Show Catalog in the navigation | Default on. Off hides Catalog in the desktop nav and the phone menu. `/catalog` still opens. Same for every account. No env lock. |
+| Env locks | Non-blank `PIHERDER_INSTANCE_NAME` / `PIHERDER_ACCENT` lock that field. Demo mode ignores the saved values and both env vars and keeps official chrome. |
+
+Wiki: [Appearance](../wiki/getting-started/appearance.md).
+
+### Exclusive host wait (v1.7 train)
+
+**Settings → General → Jobs.** Minutes 1–1440, stored as seconds, default 1800. `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` locks the field (30–86400). The worker reads the database on each SSH probe. A Kuma SSH-down binding, an open `host_down` notification, or `last_seen` older than 15 minutes can label a pending exclusive job **waiting on host**. That label does not resume or fail the job. Wiki: [Multi-worker](../wiki/operations/multi-worker.md).
+
 ---
 
 ## 6. Public hostname, trusted TLS, and PWA / Web Push

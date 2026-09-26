@@ -23,7 +23,7 @@ You do **not** need Catalog integrations, templates, or Web Push on day one. Tho
 | 2 | [Install (Docker Compose)](install.md) | Supported way to run the stack and secrets |
 | 3 | [First login](first-login.md) | Create the only self-serve admin; lock registration |
 | 4 | [Trusted HTTPS & TLS](https-tls.md) | Needed for reliable mobile PWA / Web Push |
-| 5 | [Appearance](appearance.md) | Light/dark (optional comfort) |
+| 5 | [Appearance](appearance.md) | Light/dark, and (on this train) an instance name, one accent, and Catalog in the nav |
 | 6 | [Operator scenarios](operator-scenarios.md) | Map goals → docs for everything after install |
 
 Then: [Add a server](../day-to-day/add-server.md) (guided wizard) → [Dashboard](../day-to-day/dashboard-and-services.md) → [Reports](../day-to-day/reports.md) once Jobs exist.  

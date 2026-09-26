@@ -41,7 +41,7 @@ Some deployments also use **Cloudflare Access** as an outer email gate before th
   <figcaption>Demo Files — simulated tree, browse-only, same chrome as a real herder.</figcaption>
 </figure>  
 - **Service migrate is off** — no dest picker, no dataset copy, no **Undo move**. Host **lock / unlock** exists on a real install without the migrate flag. [Move a service](../docker/service-migration.md).  
-- **This sandbox tracks production `v1.6.0`** (`main`). About / footer say **1.6.0**. Script policy is **report-only** (a missed inline script is reported, not blocked). Your own install **enforces** the nonce policy. Do not treat the demo as the CSP or Move test bed.  
+- **This sandbox tracks production `v1.6.0`** (`main`). About / footer say **1.6.0**. Script policy is **report-only** (a missed inline script is reported, not blocked). Your own install **enforces** the nonce policy. Do not treat the demo as the CSP or Move test bed. The header stays official PiHerder, Catalog stays in the nav, and demo mode ignores an instance name, accent, or Catalog hide (including `PIHERDER_INSTANCE_NAME` and `PIHERDER_ACCENT` on a newer build).  
 
 !!! note "Demo screens are not always 100% aligned with a real fleet"
     Some screens and highlighted features on the demo **will not match a real self-hosted implementation pixel-for-pixel**. Hosts, inventory, jobs, maps, and integrations are **seeded or simulated** so the sandbox stays safe and disposable. You may see canned job results, static sample data, or simplified / empty panels where a live deploy would talk to real Pis, Docker, or external services. Treat the demo as a **UI tour** — your own install against real hosts is the accurate product experience.
