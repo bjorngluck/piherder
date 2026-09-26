@@ -41,7 +41,8 @@ EXCLUSIVE_CELERY_TYPES = frozenset(
     }
 )
 
-# Jr-2 will put this in Settings. Until then: env override, default 30 minutes.
+# Default max SSH wait. Settings → General → Jobs stores exclusive_host_wait_sec.
+# PIHERDER_EXCLUSIVE_HOST_WAIT_SEC locks that field when set.
 DEFAULT_HOST_WAIT_SEC = 1800
 HOST_WAIT_COUNTDOWN_SEC = 30
 _HOST_WAIT_FLOOR_SEC = 30
@@ -59,13 +60,102 @@ def exclusive_runs_inline() -> bool:
     return flag in ("1", "true", "yes")
 
 
-def host_wait_limit_sec() -> int:
-    raw = (os.environ.get("PIHERDER_EXCLUSIVE_HOST_WAIT_SEC") or "").strip()
+# UI signal only. A Kuma SSH monitor down, or Server.last_seen older than this,
+# may label a pending job "waiting on host". It does not resume or fail the job.
+LAST_SEEN_SIGNAL_SEC = 15 * 60
+
+
+def host_wait_env_locked() -> bool:
+    return bool((os.environ.get("PIHERDER_EXCLUSIVE_HOST_WAIT_SEC") or "").strip())
+
+
+def clamp_host_wait_sec(raw) -> int:
     try:
-        n = int(raw) if raw else DEFAULT_HOST_WAIT_SEC
-    except ValueError:
+        n = int(raw)
+    except (TypeError, ValueError):
         n = DEFAULT_HOST_WAIT_SEC
     return max(_HOST_WAIT_FLOOR_SEC, min(n, _HOST_WAIT_CEILING_SEC))
+
+
+def host_wait_limit_sec() -> int:
+    """Seconds to wait for SSH. Env locks the value. Otherwise read Settings fresh.
+
+    The worker must not use the web process cache: an admin save has to apply
+    on the next probe without recycling celery-worker.
+    """
+    if host_wait_env_locked():
+        return clamp_host_wait_sec(os.environ.get("PIHERDER_EXCLUSIVE_HOST_WAIT_SEC"))
+    try:
+        from .app_settings import DEFAULTS, _load_raw_from_db
+
+        raw = _load_raw_from_db() or {}
+        stored = raw.get("exclusive_host_wait_sec", DEFAULTS["exclusive_host_wait_sec"])
+        return clamp_host_wait_sec(stored)
+    except Exception:
+        logger.debug("host wait setting unreadable; using default", exc_info=True)
+        return DEFAULT_HOST_WAIT_SEC
+
+
+def host_down_signal(session, server) -> str | None:
+    """``kuma`` or ``last_seen`` when the host looks down. Never a resume signal."""
+    if server is None or not getattr(server, "id", None):
+        return None
+    from sqlmodel import select
+
+    from ..models import IntegrationBinding, Notification
+    from .integrations.registry import ROLE_SSH
+
+    binding = session.exec(
+        select(IntegrationBinding)
+        .where(IntegrationBinding.server_id == int(server.id))
+        .where(IntegrationBinding.role == ROLE_SSH)
+        .where(IntegrationBinding.last_state == "down")
+    ).first()
+    if binding is not None:
+        return "kuma"
+    note = session.exec(
+        select(Notification)
+        .where(Notification.server_id == int(server.id))
+        .where(Notification.type == "host_down")
+        .where(Notification.status == "open")
+    ).first()
+    if note is not None:
+        return "kuma"
+    seen = getattr(server, "last_seen", None)
+    if seen is not None:
+        age = (datetime.utcnow() - seen).total_seconds()
+        if age >= LAST_SEEN_SIGNAL_SEC:
+            return "last_seen"
+    return None
+
+
+def host_wait_display(job, details: dict | None) -> tuple[str | None, str | None]:
+    """Label for JobHold / Jobs. Does not write the job row.
+
+    SSH already waiting wins. Otherwise Kuma or a stale ``last_seen`` may say
+    "waiting on host" while the row stays pending. The worker still resumes
+    only when the SSH probe succeeds.
+    """
+    if (getattr(job, "status", None) or "") != "pending":
+        return None, None
+    if (getattr(job, "job_type", None) or "") not in EXCLUSIVE_CELERY_TYPES:
+        return None, None
+    if (details or {}).get("current") == "waiting_for_host":
+        return "waiting on host", "ssh"
+    sid = getattr(job, "server_id", None)
+    if not sid:
+        return None, None
+    js = _jobs()
+    try:
+        with js._get_fresh_session() as session:
+            server = session.get(js.Server, int(sid))
+            kind = host_down_signal(session, server)
+    except Exception:
+        logger.debug("host-down signal skipped", exc_info=True)
+        return None, None
+    if not kind:
+        return None, None
+    return "waiting on host", kind
 
 
 def _jobs():

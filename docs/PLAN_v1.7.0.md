@@ -103,7 +103,7 @@ Phase 1   MCP-1 stdio adapter                 0.1.0 in piherder-mcp (fcd90cf). W
 Phase 2   Jr-1 exclusive types → Celery       landed (operator walk still open)
 Phase 3   Q fail-under 75 → 80                Should (may slip)
 Phase 4   Brand-1 + Brand-2                   Should (may slip)
-Phase 5   Jr-2 Settings max wait              Should (may slip)
+Phase 5   Jr-2 Settings max wait              landed (operator walk still open)
 Phase 6   Discover spikes                     only if Must is green and you promote
 Phase 7   Wiki + QA_v1.7.0                    operator sign-off
 Phase 8   Freeze                              1.7.0 bump · RELEASE · PR · tag · Hub — only when asked
@@ -208,7 +208,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 J-runtime. Operator page to u
 
 ### Jr-2 (Should)
 
-Settings control for **max wait**. Kuma down or stale `last_seen` may mark the job “waiting on host” in the UI. SSH probe remains the only resume condition. Missing this slice: Jr-1 ships with a documented default max wait and no Settings field.
+**Landed.** Settings → General → Jobs stores `exclusive_host_wait_sec` (default 1800). `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` locks it. The worker reads the setting on each probe. Kuma SSH down, an open `host_down` notification, or `last_seen` older than 15 minutes labels a pending exclusive job **waiting on host**. SSH probe remains the only resume condition. The signal does not fail the job.
 
 ---
 
@@ -256,7 +256,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | **Should** | **Q** | CI fail-under **75 → 80**. Floor stays 75 if this slips | Not started |
 | **Should** | **Brand-1** | Instance name + one accent; demo ignored | Not started |
 | **Should** | **Brand-2** | Hide Catalog in nav; `/catalog` still works | Not started |
-| **Should** | **Jr-2** | Settings max wait; Kuma/`last_seen` is a signal | Not started |
+| **Should** | **Jr-2** | Settings max wait; Kuma/`last_seen` is a signal | Landed. Operator walk still open |
 | **Discover** | Bak-alt · AC-fg · HA Slice 2 · Undo-2 · Mux-2 | Notes only unless promoted | Parked |
 | **Out** | HA Slice 3 · Brand-3 · M-flag C · plugin-in-image · MCP-in-image · remote HTTP MCP · CSP Slice 2 | Stay out | Locked 2026-09-26 |
 
@@ -304,6 +304,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | 2026-09-26 | Adapter repo [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) created. **0.1.0** (`fcd90cf`) is the stdio client. Not in this image. |
 | 2026-09-26 | **Jr-1 landed.** Exclusive types enqueue `app.tasks.exclusive_job` on the default queue. Host-down stays pending (probe 30s, default wait 1800s via `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC`). Running redelivery fails honest. No backup mutex. `retention`, `herder_backup`, `host_facts` stay on web. nmap stays `-Q nmap`. Operator walk still open. |
 | 2026-09-26 | Jr-1 walk steps written in [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until the operator ticks them. |
+| 2026-09-26 | **Jr-2 landed.** Settings → General → Jobs is the max SSH wait. Kuma / stale `last_seen` is a Jobs label only. |
 
 ---
 
@@ -318,7 +319,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | 4 | **MCP-1** adapter in [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) | **0.1.0** pushed (`fcd90cf`). Walk still open |
 | 5 | **Jr-1** exclusive types → default Celery queue | **Landed.** Walk still open ([QA_v1.7.0.md](QA_v1.7.0.md)) |
 | 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until walked |
-| 7 | Q / Brand-1 / Brand-2 / Jr-2 as capacity after Must | Not started |
+| 7 | Q / Brand-1 / Brand-2 / Jr-2 as capacity after Must | **Jr-2 landed.** Q, Brand-1, Brand-2 not started |
 | 8 | Freeze · `1.7.0` · tag · Hub | Only when asked |
 
 ---
