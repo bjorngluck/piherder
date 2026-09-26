@@ -225,13 +225,33 @@ def summarize_os_patch_result(res: dict) -> str:
         if r.get("error"):
             parts.append(f"{step} ✗")
         elif int(r.get("rc", 1)) != 0:
-            parts.append(f"{step} rc={r.get('rc')}")
+            bit = f"{step} rc={r.get('rc')}"
+            reason = (r.get("reason") or "").strip()
+            if reason:
+                bit = f"{bit} · {reason}"
+            parts.append(bit)
         else:
             parts.append(f"{step} ✓")
     summary = " · ".join(parts) if parts else "no steps"
     if res.get("needs_reboot"):
         summary += " · reboot needed"
     return summary
+
+
+def apt_failure_reason(lines: list[str], *, limit: int = 2) -> str:
+    """Last apt ``E:`` lines from a step log. Empty when apt printed none."""
+    found: list[str] = []
+    for raw in lines or []:
+        text = str(raw).strip()
+        idx = text.find("E:")
+        if idx < 0:
+            continue
+        msg = text[idx:].strip()
+        if msg and msg not in found:
+            found.append(msg)
+    if not found:
+        return ""
+    return " · ".join(found[-max(1, int(limit)):])
 
 
 def os_patch_succeeded(res: dict) -> bool:
@@ -417,8 +437,15 @@ def run_os_patch(server: Server, selected_steps: list[str] = None) -> dict:
         p["current"] = name
         _append_os_log(hostname, f"[{name}] $ {cmd.strip()}")
         try:
+            before = len((_os_patch_progress.get(hostname) or {}).get("log_lines") or [])
             status = _stream_ssh_command(client, hostname, name, cmd, timeout=900)
-            results.append({"step": name, "rc": status})
+            fresh = list((_os_patch_progress.get(hostname) or {}).get("log_lines") or [])[before:]
+            step_row: dict = {"step": name, "rc": status}
+            if status != 0:
+                reason = apt_failure_reason(fresh)
+                if reason:
+                    step_row["reason"] = reason
+            results.append(step_row)
             _append_os_log(hostname, f"[{name}] exit={status}")
         except Exception as e:
             results.append({"step": name, "error": str(e)})

@@ -14,7 +14,7 @@ from typing import Any, Optional
 
 from sqlmodel import Session, col, select
 
-from ..models import AuditLog, Job, NmapScanRun, NmapScriptResult
+from ..models import AuditLog, Job, NmapDevice, NmapScanRun, NmapScriptResult
 from . import app_settings as app_cfg
 from .nmap.job_progress import merge_job_details, stamp_line
 
@@ -104,6 +104,20 @@ def preview_cleanup(session: Session, cfg: dict | None = None) -> dict[str, Any]
     return out
 
 
+def _detach_scan_runs_from_jobs(session: Session, job_ids: list[int]) -> None:
+    """Null nmapscanrun.job_id so deleting old jobs does not hit that foreign key."""
+    if not job_ids:
+        return
+    runs = list(
+        session.exec(select(NmapScanRun).where(col(NmapScanRun.job_id).in_(job_ids))).all()
+    )
+    for run in runs:
+        run.job_id = None
+        session.add(run)
+    if runs:
+        session.flush()
+
+
 def _delete_old_jobs(session: Session, days: int, *, keep_job_id: int | None) -> int:
     cut = _cutoff(days)
     rows = list(
@@ -111,17 +125,20 @@ def _delete_old_jobs(session: Session, days: int, *, keep_job_id: int | None) ->
             select(Job).where(col(Job.status).in_(list(TERMINAL_JOB_STATUSES)))
         ).all()
     )
-    deleted = 0
+    stale: list[Job] = []
     for j in rows:
         if keep_job_id and j.id == keep_job_id:
             continue
         if not _job_is_stale(j, cut):
             continue
+        stale.append(j)
+    if not stale:
+        return 0
+    _detach_scan_runs_from_jobs(session, [int(j.id) for j in stale if j.id is not None])
+    for j in stale:
         session.delete(j)
-        deleted += 1
-    if deleted:
-        session.commit()
-    return deleted
+    session.commit()
+    return len(stale)
 
 
 def _delete_old_audit(session: Session, days: int) -> int:
@@ -134,20 +151,39 @@ def _delete_old_audit(session: Session, days: int) -> int:
     return len(rows)
 
 
+def _clear_device_last_run(session: Session, run_ids: list[int]) -> None:
+    """Null nmapdevice.last_run_id before those scan runs are deleted."""
+    if not run_ids:
+        return
+    devices = list(
+        session.exec(
+            select(NmapDevice).where(col(NmapDevice.last_run_id).in_(run_ids))
+        ).all()
+    )
+    for device in devices:
+        device.last_run_id = None
+        session.add(device)
+    if devices:
+        session.flush()
+
+
 def _delete_old_nmap_runs(session: Session, days: int) -> dict[str, int]:
     cut = _cutoff(days)
     data_root = Path(os.environ.get("DATA_ROOT") or "/data")
-    rows = list(session.exec(select(NmapScanRun)).all())
+    stale = [run for run in session.exec(select(NmapScanRun)).all() if _nmap_run_is_stale(run, cut)]
+    if not stale:
+        return {"runs": 0, "files": 0}
+    run_ids = [int(run.id) for run in stale if run.id is not None]
+    _clear_device_last_run(session, run_ids)
     deleted = 0
     files = 0
-    for run in rows:
-        if not _nmap_run_is_stale(run, cut):
-            continue
-        # script results for this run
+    for run in stale:
         for sc in session.exec(
             select(NmapScriptResult).where(NmapScriptResult.run_id == run.id)
         ).all():
             session.delete(sc)
+    session.flush()
+    for run in stale:
         if run.artifact_path:
             try:
                 p = Path(run.artifact_path)
