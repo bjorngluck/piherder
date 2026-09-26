@@ -14,7 +14,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 1.6 production sign-off stays [QA_v1.6.0.md](QA_v1.6.0.md) (historical). Do **not** re-open 1.6 boxes here.
 
-**Tag honesty:** freeze only with **MCP-1** and **Jr-1**. CI fail-under is **80** (compose **81.01%**, kept as headroom). Do not lower it below **75**. Do not bump version, merge, tag, or Hub until asked. Do not redeploy the public demo onto this branch. No new Alembic revision on this train.
+**Tag honesty:** freeze only with **MCP-1** and **Jr-1**. CI fail-under is **80** (compose **81.01%**, kept as headroom). Do not lower it below **80**. Do not bump version, merge, tag, or Hub until asked. Do not redeploy the public demo onto this branch. No new Alembic revision on this train.
 
 **This pass is sign-off, not new features.** Fix only a feature or regression bug you hit while walking. Discover (Bak-alt, AC-fg, the HA job-finished bus event, Undo-2, Mux-2) stays parked until a row is promoted.
 
@@ -172,10 +172,10 @@ Plugin **0.3.0** in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piher
 - [ ] No container start/stop, Move, Files, or console control appears on any card  
 - [ ] Public demo is not the target. Do not point the plugin at it  
 
-## Q — fail-under 75 → 80 (Should)
+## Q — coverage gate 80%
 
-- [x] CI `--cov-fail-under` is **80** on `app` — compose **81.01%** (39638/48927), 1694 passed. The extra point stays as headroom. Floor was **75**  
-- [x] Fail-under is not lowered below **75** (workflow is **80**)  
+- [x] CI `--cov-fail-under` is **80** on `app` — compose **81.01%** (39638/48927), 1694 passed. The extra point stays as headroom. The gate is **80%**  
+- [x] Fail-under stays **80**. It is not lowered  
 - [x] No live SSH / apt / two-host copy in CI. The test job is unit pytest against Postgres on the runner  
 
 ## Docs alignment (signed 2026-09-26)
