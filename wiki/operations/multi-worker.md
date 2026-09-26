@@ -39,18 +39,21 @@ Login / 2FA attempt limits are **in-process memory** (per web process). With the
 single Uvicorn worker this is fine. If you run multiple web replicas, each process has its
 own counter — prefer a reverse-proxy rate limit or a future Redis-backed limiter for HA.
 
-## What Celery does **not** run
+## Exclusive jobs on the default queue
 
-OS patch, container patch, and OS/container **update checks** run on the **web** container (FastAPI `BackgroundTasks` and small thread pools). They are **not** Celery tasks on this image. Moving those exclusive types onto Celery (and waiting when the host is down) is **v1.7 Jr-1** (second Must, after [Agents (MCP)](mcp.md)) on `v1.7.0-dev` — not this **1.6.0** image. [PLAN_v1.7.0](https://github.com/bjorngluck/piherder/blob/v1.7.0-dev/docs/PLAN_v1.7.0.md).
+OS patch, container patch, OS/container/stack **update checks**, compose stack mutations, and template deploy / redeploy / drift check run as `app.tasks.exclusive_job` on the **default** Celery queue (the same `celery-worker` as backups). They do **not** take Move’s dual-host backup mutex. nmap stays on `celery-worker-nmap` (`-Q nmap`). `retention` and the herder’s own backup still run in the **web** process.
+
+Recycling **web** does not fail these exclusive jobs. Recycling **celery-worker** while one is **running** fails it (a patch or compose action is not resumed mid-flight). If the host’s SSH is down when the worker picks the job up, the row stays **pending**, the worker probes again every 30 seconds, and the exclusive slot stays held. The wait ends when SSH works or after **30 minutes** (`PIHERDER_EXCLUSIVE_HOST_WAIT_SEC`, minimum 30, maximum 86400). That limit is not a Settings field yet.
 
 | Job family | Execution | Parallelism rule |
 |------------|-----------|------------------|
 | `backup` | Celery | Many hosts in parallel; **one backup per host** (Redis mutex) |
 | `service_migrate` | Celery | Dual-host backup mutex + DB exclusive with stack mutation on **both** ids. Recycle **web** is safe; recycle **worker** fails a running Move |
 | `service_migrate_undo` | Celery | Same mutex. Only a failed post-flip Move. `compose stop` on dest, never `down -v`. Recycle **worker** fails a running undo and leaves the dest tree |
-| `os_patch` / `container_patch` | Web process | **One active job of that type per host** (DB exclusive) |
-| `os_update_check` / `container_update_check` | Web process | **One active check of that type per host** |
-| `docker_stack_check` | Web process | **One active stack check per host** |
-| `docker_stack_deploy` / `docker_stack_stop` / `_start` / `_restart` / template deploy | Web process | **One active stack mutation per host** (shared lane) |
+| `os_patch` / `container_patch` | Celery default queue | **One active job of that type per host** (DB exclusive). No backup mutex |
+| `os_update_check` / `container_update_check` / `docker_stack_check` | Celery default queue | **One active check of that type per host**. SSH down keeps the job pending |
+| `docker_stack_deploy` / `_stop` / `_start` / `_restart` / `_down` / `_remove` / template deploy and redeploy | Celery default queue | **One active stack mutation per host** (shared lane) |
+| `template_drift_check` | Celery default queue | One drift check per host. Not a stack write |
+| `retention` / `herder_backup` / `host_facts` | Web process | A web recycle fails a pending or running row |
 
-Raising `CELERY_CONCURRENCY` or adding Celery nodes does **not** cause a single container patch to run twice. Double-triggers from the UI or bulk queue attach to the existing job instead (HTTP **409** on the API).
+Raising `CELERY_CONCURRENCY` or adding Celery nodes does **not** cause a single container patch to run twice. Double-triggers from the UI or bulk queue attach to the existing job instead (HTTP **409** on the API). A single-host patch does not block a backup or Move on a different host.

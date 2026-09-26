@@ -670,6 +670,37 @@ def service_migrate_undo(self, job_id: int, source_id: int, dest_id: int, audit_
             db.close()
 
 
+@celery.task(
+    name="app.tasks.exclusive_job",
+    bind=True,
+    max_retries=3000,
+    default_retry_delay=30,
+)
+def exclusive_job(
+    self,
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    job_type: str,
+    payload: dict | None = None,
+):
+    """Patch, checks, stack, and template jobs on the default queue.
+
+    Does not take the backup / Move mutex. Host-down stays pending and
+    redelivers. A redelivery that finds the job already running fails it.
+    """
+    from celery.exceptions import Retry
+
+    from app.services.jobs_exclusive import run_exclusive_job
+
+    try:
+        return run_exclusive_job(
+            self, job_id, server_id, audit_id, job_type, payload or {}
+        )
+    except Retry:
+        raise
+
+
 def _update_job_status(job_id: int, status: str, extra: dict):
     """Update Job status + merge details JSON (worker feeds DB)."""
     try:

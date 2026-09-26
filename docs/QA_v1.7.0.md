@@ -32,7 +32,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 | | |
 |--|--|
-| **Instance** | Rebuild **`v1.7.0-dev`** (`docker compose build web celery-worker && docker compose up -d`). App code is **not** bind-mounted. About / footer still **1.6.0** until freeze |
+| **Instance** | On `v1.7.0-dev`: `docker compose build web celery-worker && docker compose up -d web celery-worker`. App code is **not** bind-mounted. About / footer still **1.6.0** until freeze |
 | **Workers** | Jr-1 needs **celery-worker** up. nmap stays on `celery-worker-nmap`. MCP-1 is a separate process, not a compose service in this repo |
 | **Browsers** | Desktop Chrome or Firefox **and** one phone (Brand) |
 | **Accounts** | One **admin**, one **operator**, one **viewer** |
@@ -44,14 +44,14 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 ### Suggested order
 
-1. **MCP-1** against a local herder (adapter repo, once it exists). Start with a scope-`read` token, then a token that also has `jobs`, `edit`, and `files`. About / footer on the herder still **1.6.0**.  
-2. Rebuild local **web** + **celery-worker** when Jr-1 has landed.  
+1. **MCP-1** against a local herder. Start with a scope-`read` token, then a token that also has `jobs`, `edit`, and `files`. About / footer on the herder still **1.6.0**.  
+2. Rebuild local **web** + **celery-worker** (Jr-1 is in this branch; the running containers do not see it until that rebuild).  
 3. **Jr-1** on one real host (patch or stack), including a web recycle and a worker recycle.  
 4. Host-down wait on a host whose SSH you can refuse.  
 5. **Coverage** if the 80% step has landed. The tag is still allowed at fail-under **75**.  
 6. **Brand** if the slice has landed.  
 7. **1.6 regression** with Move still off.  
-8. Leave **Freeze gates** empty.
+8. Leave **Freeze gates** empty. Tick a box only after you have walked it.
 
 ---
 
@@ -75,20 +75,52 @@ Walk this in the adapter repo, against this herder. The adapter is **not** in th
 
 ## Jr-1 — exclusive jobs on Celery (Must)
 
-- [ ] `os_patch` and `container_patch` enqueue on **celery-worker** (not the web process)  
-- [ ] Update checks (`os_update_check`, `container_update_check`, `docker_stack_check`) enqueue on **celery-worker**  
-- [ ] Stack mutate (`deploy` / `stop` / `start` / `restart` / `down` / `remove`) enqueues on **celery-worker**  
-- [ ] Template deploy / redeploy / drift check enqueue on **celery-worker**  
-- [ ] Recycle **web** during a running patch or stack job: the Job does **not** fail because web died  
-- [ ] Recycle **celery-worker** during a **running** patch or stack mutate: the Job **fails honest**  
-- [ ] SSH down at start: Job stays **pending** until SSH works or max wait; it does not fail on the first refused connect  
-- [ ] A second stack mutate on the same host is refused while the first holds the lane  
-- [ ] A single-host patch does **not** take Move’s dual-host backup mutex  
-- [ ] nmap still runs on the nmap queue  
-- [ ] `retention` and `herder_backup` behave as before  
-- [ ] `backup`, Move, and Undo still run on Celery as in 1.6  
-- [ ] Demo does not live-run these types  
-- [ ] Token API does not gain `service_migrate` or undo  
+Code is on `v1.7.0-dev`. Task name `app.tasks.exclusive_job`, default queue, container **`piherder-celery`**. Not Move’s backup mutex. Default host wait **30 minutes** (`PIHERDER_EXCLUSIVE_HOST_WAIT_SEC`, probe every 30s). Wiki: [Multi-worker](../wiki/operations/multi-worker.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md).
+
+Boxes stay empty until you walk them. Do this on the **local** herder. Do not redeploy or exercise this on the public demo.
+
+### Setup
+
+```bash
+docker compose build web celery-worker && docker compose up -d web celery-worker
+docker logs --tail 30 piherder-celery
+```
+
+The worker log should show it ready, consuming the default queue (no `-Q nmap` on this container). About / footer still **1.6.0**.
+
+While a job is in flight:
+
+```bash
+docker logs --since 5m piherder-web 2>&1 | grep 'Enqueued'
+docker logs --since 5m piherder-celery 2>&1 | grep exclusive_job
+```
+
+Web should log `Enqueued <type> job #<id> … on the default Celery queue`. The worker should log `Received task: app.tasks.exclusive_job`. A hit only in the web log, with no `exclusive_job` on `piherder-celery`, fails the row.
+
+### Enqueue
+
+Use one real SSH host. You do not need every stack action if one mutate and one check are honest; tick only the rows you actually ran.
+
+- [ ] `os_patch` and `container_patch` enqueue on **celery-worker** (not the web process). Server → check for updates, then apply. JobHold leaves **pending** and reaches **running** / **success** or a real apt/compose failure. Worker log shows `exclusive_job`  
+- [ ] Update checks (`os_update_check`, `container_update_check`, `docker_stack_check`) enqueue on **celery-worker**. Dashboard or server **Check**, and one stack **Check updates**. Same log pair as above  
+- [ ] Stack mutate (`deploy` / `stop` / `start` / `restart` / `down` / `remove`) enqueues on **celery-worker**. One disposable project is enough: **Deploy** or **Restart**, and note the job id  
+- [ ] Template deploy / redeploy / drift check enqueue on **celery-worker**. Catalog → deploy a small template, or an existing deployment → **Check drift** / **Save & redeploy**  
+
+### Recycle and host-down
+
+- [ ] Recycle **web** during a running patch or stack job: the Job does **not** fail because web died. Start a slow apply or deploy, then `docker compose up -d --force-recreate --no-deps web`. Job stays **pending** or **running** and still finishes or fails for a real reason. It must not say `Web process restarted — this job was no longer running`  
+- [ ] Recycle **celery-worker** during a **running** patch or stack mutate: the Job **fails honest**. Wait until status is **running** (not still waiting on SSH), then `docker compose up -d --force-recreate --no-deps celery-worker`. Job becomes **failed**. Details include `Worker restarted while this job was running. It was not resumed.` Do not expect apt or compose to continue  
+- [ ] SSH down at start: Job stays **pending** until SSH works or max wait; it does not fail on the first refused connect. On a lab host only, point SSH at a closed port (or stop `sshd`) and start an OS check or patch. JobHold stays **pending** and the log says `Host SSH unreachable — waiting`. Restore SSH. The same job should proceed without a second click. Leaving it down for 30 minutes fails it with `Host stayed unreachable` — that is the limit, not the first probe  
+
+### Lanes that must stay put
+
+- [ ] A second stack mutate on the same host is refused while the first holds the lane. During the deploy/restart above, start Stop or Deploy again on that host. The UI follows the existing job. It does not start a second compose. `POST /api/v1/servers/{id}/jobs` for that type returns **409** with `already_active`  
+- [ ] A single-host patch does **not** take Move’s dual-host backup mutex. With a patch **running** on host A, a backup on host B still starts. Worker log for the patch has no backup-lock wait. Move stays off (`PIHERDER_SERVICE_MIGRATE=false`)  
+- [ ] nmap still runs on the nmap queue. If `celery-worker-nmap` is up, a LAN discover shows on `piherder-celery-nmap`, not as `exclusive_job` on `piherder-celery`. If the profile is not running, confirm the main worker command has no `-Q nmap` and skip the live scan  
+- [ ] `retention` and `herder_backup` behave as before. Run one. It is **not** `exclusive_job`. Recreate **web** while it is still running and that row **fails** with the web-restart message. Patch/stack rows from the recycle test above do not  
+- [ ] `backup`, Move, and Undo still run on Celery as in 1.6. One backup: web log enqueues backup, worker runs `backup_server`, recreate **web** does not fail it. Move wizard stays **404** while the flag is false. Undo is not offered on a green or absent Move  
+- [ ] Demo does not live-run these types. This walk stays on the local herder. Do not open the public demo and do not redeploy it onto `v1.7.0-dev`  
+- [ ] Token API does not gain `service_migrate` or undo. With a `jobs` token, `POST /api/v1/servers/{id}/jobs` body `{"job_type":"service_migrate"}` is **400** `Unsupported job_type`. The allowed list is still backup, retention, os_patch, container_patch, os_update_check, container_update_check. `service_migrate_undo` is the same **400**  
 
 ## Brand-1 — instance name + accent (Should; may slip)
 
