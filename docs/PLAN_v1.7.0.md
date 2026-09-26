@@ -98,8 +98,8 @@ main @ v1.6.0 (+ v1.6.x patches)
 Phase 0   Open train + docs lock              done 2026-09-25 (22d3a04)
 Phase 0b  Lock retune                         done 2026-09-25 (85d0ec4)
 Phase 0c  MCP-1 read/write contract           done 2026-09-26 (3f63d16)
-Phase 0d  Operator wiki + remaining pointers  ← this commit
-Phase 1   MCP-1 stdio adapter                 Must — first build, separate repo
+Phase 0d  Operator wiki + remaining pointers  done 2026-09-26 (a8eb012)
+Phase 1   MCP-1 stdio adapter                 0.1.0 in piherder-mcp (fcd90cf). Walk still open
 Phase 2   Jr-1 exclusive types → Celery       Must
 Phase 3   Q fail-under 75 → 80                Should (may slip)
 Phase 4   Brand-1 + Brand-2                   Should (may slip)
@@ -115,13 +115,13 @@ Must before Should product. MCP-1 before Jr-1. Discover only if Must is green an
 
 ## 2. Stream **MCP-1** — read/write token-API adapter (Must, first slice)
 
-Not product code in the PiHerder image. Own repo, same shape as [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). This host cannot create that GitHub repo. Lean name when you create it: `bjorngluck/piherder-mcp`. This train’s herder tree does not gain a scaffold for it. The process runs on the **agent machine** (the laptop running Cursor, Grok, Codex, or Claude), not in the herder container.
+Not product code in the PiHerder image. Own repo, same shape as [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha): [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.1.0**. This train’s herder tree does not contain the adapter. The process runs on the **agent machine** (the laptop running Cursor, Grok, Codex, or Claude), not in the herder container.
 
 **Locks:**
 
-1. **stdio only.** One command everywhere: `uvx piherder-mcp`. Config is `PIHERDER_URL` plus `PIHERDER_TOKEN`. The token is never committed. Remote Streamable HTTP stays out.
+1. **stdio only.** Until PyPI, the command is `uvx --from git+https://github.com/bjorngluck/piherder-mcp.git piherder-mcp`. After a PyPI release it is `uvx piherder-mcp`. Config is `PIHERDER_URL` plus `PIHERDER_TOKEN`. The token is never committed. Remote Streamable HTTP stays out.
 2. Hand-written tools over existing `/api/v1` only. Do not generate a tool per OpenAPI path. No new herder routes.
-3. Startup calls `GET /api/v1`. Tools register only for scopes on that token. Missing `jobs`, `edit`, or `files` means those tools are absent. A token without `read` fails closed (stderr, never stdout).
+3. Startup calls `GET /api/v1/health`. Tools register only for scopes on that token. Missing `jobs`, `edit`, or `files` means those tools are absent. A token without `read` fails closed (stderr, never stdout).
 4. Write is the bearer writes that already exist: trigger the six job types, patch `backup` / `os_patch` / `docker`, and fleet-jail files (list, read, write, mkdir, rename, delete a file or empty directory). Feature flags and `feature:*` scopes stay the API’s job.
 5. Not tools, and not new routes: SSH, console, Move, undo, compose stack actions, template deploy, nmap, DNS, certificates, settings, token admin. Richer Files (chmod, zip, recursive delete, privileged paths) stay UI-only.
 6. `trigger_job` returns the API body on **202** and on **409**. On 409 the agent polls `get_job` and does not fire again.
@@ -251,7 +251,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
-| **Must** | **MCP-1** | stdio adapter in its own repo; read plus bearer writes (`jobs`, `edit`, `files`); four client samples; not in this image | Not started — first build, after the repo exists |
+| **Must** | **MCP-1** | stdio adapter in its own repo; read plus bearer writes (`jobs`, `edit`, `files`); four client samples; not in this image | Repo **0.1.0** (`fcd90cf`). Mocked tests green. Operator walk still open |
 | **Must** | **Jr-1** | Exclusive types on the default Celery queue; host-down waits; running mutate fails honest; web recycle does not fail them | Not started — after MCP-1 |
 | **Should** | **Q** | CI fail-under **75 → 80**. Floor stays 75 if this slips | Not started |
 | **Should** | **Brand-1** | Instance name + one accent; demo ignored | Not started |
@@ -301,6 +301,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | 2026-09-25 | **Lock retune.** **MCP-1** is Must and the first slice (separate repo, read-only). **Jr-1** stays Must, second. **Q** is Should: fail-under **75 → 80**, may slip, floor stays 75. **Bak-alt** added as Discover (Google Drive, LAN NAS, and similar — notes only; rsync directory stays). |
 | 2026-09-26 | **MCP-1 contract.** Read and write of the existing bearer API (`read`, `jobs`, `edit`, `files`). stdio only, so Cursor, Grok, Claude, and Codex share one process. Separate repo. No new herder routes. Remote HTTP MCP stays out. Adapter code waits on the repo. |
 | 2026-09-26 | Operator page [wiki/operations/mcp.md](../wiki/operations/mcp.md). Nav, API tokens, Jobs, Host Files, demo, architecture, and the maintainer pointers name that page. |
+| 2026-09-26 | Adapter repo [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) created. **0.1.0** (`fcd90cf`) is the stdio client. Not in this image. |
 
 ---
 
@@ -311,8 +312,8 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | 1 | Open **`v1.7.0-dev`** + lock Must/Should | **Done** 2026-09-25 (`22d3a04`) |
 | 2 | Retune: MCP-1 first, Q is Should, Bak-alt noted | **Done** 2026-09-25 (`85d0ec4`) |
 | 3 | MCP-1 read/write contract in this plan | **Done** 2026-09-26 (`3f63d16`) |
-| 3b | Operator wiki [Agents (MCP)](../wiki/operations/mcp.md) and the remaining pointers | **This commit** |
-| 4 | **MCP-1** after you create the adapter repo | Not started — first build |
+| 3b | Operator wiki [Agents (MCP)](../wiki/operations/mcp.md) and the remaining pointers | **Done** 2026-09-26 (`a8eb012`) |
+| 4 | **MCP-1** adapter in [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) | **0.1.0** pushed (`fcd90cf`). Walk still open |
 | 5 | **Jr-1** exclusive types → default Celery queue | Not started |
 | 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until walked |
 | 7 | Q / Brand-1 / Brand-2 / Jr-2 as capacity after Must | Not started |

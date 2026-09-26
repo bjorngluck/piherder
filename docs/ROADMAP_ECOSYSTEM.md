@@ -120,6 +120,8 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-09-26):** **MCP-1** is a read/write client of the bearer API that already exists (`read`, `jobs`, `edit`, `files`). stdio only, so Cursor, Grok, Claude, and Codex launch one process. Separate repo `bjorngluck/piherder-mcp`. No new herder routes. Remote HTTP MCP stays out. Adapter code waits until that repo exists. See [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
+**Progress (2026-09-26):** [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.1.0** (`fcd90cf`) is the stdio client. It is not in the PiHerder image. Operator walk is still open.
+
 **Progress (2026-09-21):** **Q-80 met** — compose suite **75.04%** (35893/47833); CI `--cov-fail-under=75`. Mux-1 and HA-p2 Slice 1 are on the branch; operator QA still open. **Docs-archive-0x**, **Slice 1b** (plugin **0.2.3**), **CSP-n Slice 1**, and **Undo-1** landed on `v1.6.0-dev`. Home installs enforce the script nonce. The public demo is on this branch and stays Report-Only.
 
 **Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg). **Slice 3 Deep landed** (L). **Slice 4 Deep landed** (W-id). **Slice 5 Deep landed** (W-audit). **Slice 6 Deep landed** (A). **Slice 7 N2:** `/reports` is history (backups, OS patches, LAN live, Docker, console) — not Grafana, not status portlets. **F Deep (2026-08-20):** Host Files explorer (flag off): edit, zip, perms, search, move, folder upload, preview, `.env` step-up, thin Docker volumes/`docker cp`. API Files expansions → v1.4+ under consideration.
