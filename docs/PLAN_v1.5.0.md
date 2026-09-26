@@ -327,7 +327,7 @@ Park Mux-1 on [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 **Today — Celery:** `backup`, `service_migrate`, `nmap_*`, stale-data cleanup. Web recycle does not fail them.
 
-**Today — web** (`BackgroundTasks` / thread pools; recycle web → startup `cleanup_orphan_web_jobs` fails the row):
+**As of 2026-09-18 — web** (`BackgroundTasks` / thread pools; recycle web → startup `cleanup_orphan_web_jobs` fails the row). **Jr-1 on v1.7** moved the exclusive families below onto Celery. `retention` and `herder_backup` stayed on web. See [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 | Family | Types |
 |--------|-------|
