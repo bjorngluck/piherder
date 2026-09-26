@@ -58,6 +58,7 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
     {
         "os_patch",
         "container_patch",
+        "host_reboot",
         "os_update_check",
         "container_update_check",
         "docker_stack_check",
@@ -270,6 +271,7 @@ JOB_TYPE_LABELS = {
     "backup": "Backup",
     "os_patch": "OS patch",
     "container_patch": "Container patch",
+    "host_reboot": "Host reboot",
     "os_update_check": "OS check",
     "container_update_check": "Image check",
     "docker_stack_check": "Stack check",
@@ -795,6 +797,17 @@ def create_job_and_run(
         actor_extra["api_token_id"] = api_token_id
     if api_token_name:
         actor_extra["api_token_name"] = str(api_token_name)[:120]
+    if server_id and job_type in ("host_reboot", "os_patch", "container_patch", "backup"):
+        blocker = _reboot_lane_blocker(session, server_id, job_type)
+        if blocker:
+            logger.info(
+                "[Jobs] %s skip — %s job #%s already active for server %s",
+                job_type,
+                blocker.job_type,
+                blocker.id,
+                server_id,
+            )
+            raise JobAlreadyActive(blocker)
     if job_type == "backup":
         cleanup_stale_backup_jobs(session)
         if server_id:
@@ -821,6 +834,7 @@ def create_job_and_run(
         labels = {
             "os_patch": "OS patch queued…",
             "container_patch": "Container patch queued…",
+            "host_reboot": "Host reboot queued…",
             "retention": "Retention cleanup queued…",
             "os_update_check": "OS update check queued…",
             "container_update_check": "Container update check queued…",
@@ -934,6 +948,19 @@ def create_job_and_run(
             bg_args=(job.id, server.id, audit.id),
             pool=_patch_apply_pool,
             sync_fn=_execute_container_patch_sync,
+            sync_args=(job.id, server.id, audit.id),
+        )
+    elif job_type == "host_reboot":
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            background_tasks=background_tasks,
+            bg_fn=_run_host_reboot_job,
+            bg_args=(job.id, server.id, audit.id),
+            pool=_patch_apply_pool,
+            sync_fn=_execute_host_reboot,
             sync_args=(job.id, server.id, audit.id),
         )
     elif job_type == "os_patch":
@@ -1055,6 +1082,14 @@ def enqueue_backup_for_server(
 ) -> Job:
     """Create Job + AuditLog in DB and hand off to Celery — web never runs rsync."""
     cleanup_stale_backup_jobs(session)
+    reboot = _active_job_of_type(session, server.id, "host_reboot")
+    if reboot:
+        logger.info(
+            "[Jobs] Backup skip — host reboot job #%s active for server %s",
+            reboot.id,
+            server.id,
+        )
+        raise JobAlreadyActive(reboot)
     active = get_active_job_for_source(session, server.id, source_filter)
     if active:
         logger.info(f"[Jobs] Skipping enqueue — backup job #{active.id} already active for server {server.id}")
@@ -1841,6 +1876,24 @@ def _active_job_of_type(session: Session, server_id: int, job_type: str) -> Job 
     ).first()
 
 
+def _reboot_lane_blocker(session: Session, server_id: int, job_type: str) -> Job | None:
+    """Cross-type hold for host reboot.
+
+    A reboot waits for an OS patch, a container patch, or a backup. Those three
+    also wait while a reboot is pending or running. Same-type exclusivity stays
+    on the existing checks.
+    """
+    if job_type == "host_reboot":
+        for jt in ("os_patch", "container_patch", "backup"):
+            active = _active_job_of_type(session, server_id, jt)
+            if active:
+                return active
+        return None
+    if job_type in ("os_patch", "container_patch", "backup"):
+        return _active_job_of_type(session, server_id, "host_reboot")
+    return None
+
+
 def enqueue_os_patch_apply(
     server_id: int,
     user_id: int | None = None,
@@ -1855,6 +1908,9 @@ def enqueue_os_patch_apply(
             return None
         if _active_job_of_type(session, server_id, "os_patch"):
             logger.info(f"[Jobs] OS apply skip — already active for server {server_id}")
+            return None
+        if _active_job_of_type(session, server_id, "host_reboot"):
+            logger.info(f"[Jobs] OS apply skip — host reboot active for server {server_id}")
             return None
         steps = os_steps
         if steps is None:
@@ -1904,6 +1960,11 @@ def enqueue_container_patch_apply(
             return None
         if _active_job_of_type(session, server_id, "container_patch"):
             logger.info(f"[Jobs] Container apply skip — already active for server {server_id}")
+            return None
+        if _active_job_of_type(session, server_id, "host_reboot"):
+            logger.info(
+                f"[Jobs] Container apply skip — host reboot active for server {server_id}"
+            )
             return None
         label = "Scheduled container patch" if scheduled else "Container patch"
         audit_details = (
@@ -2185,6 +2246,64 @@ def _execute_os_update_check(job_id: int, server_id: int, audit_id: int) -> None
             _finish(audit_id, job_id, status, json.dumps(res), hostname, "os_update_check")
         except Exception as e:
             _finish(audit_id, job_id, "failed", str(e), hostname, "os_update_check")
+
+
+def _execute_host_reboot(job_id: int, server_id: int, audit_id: int) -> None:
+    """SSH a deferred reboot. Connection drop after accept is success."""
+    from .. import ssh as ssh_service
+    from ..host_reboot import send_deferred_reboot
+
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        server = session.get(Server, server_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="rebooting",
+                log_lines=["Host reboot started…"],
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+        if not server:
+            _finish(audit_id, job_id, "failed", "Server not found", "", "host_reboot")
+            return
+        hostname = server.hostname or ""
+        success = False
+        details = "Reboot command failed to send"
+        client = None
+        try:
+            client = ssh_service.get_ssh_client(server)
+            success, details = send_deferred_reboot(client)
+        except Exception as exc:
+            details = f"Reboot command failed to send: {exc}"
+        finally:
+            if client is not None:
+                try:
+                    client.close()
+                except Exception:
+                    pass
+        if success:
+            server.reboot_pending = False
+            session.add(server)
+            try:
+                from .. import notifications as notif_svc
+
+                notif_svc.resolve_by_fingerprint(
+                    session, f"reboot_pending:server:{server_id}"
+                )
+            except Exception:
+                pass
+            session.commit()
+            _finish(audit_id, job_id, "success", details, hostname, "host_reboot")
+            return
+        _finish(audit_id, job_id, "failed", details, hostname, "host_reboot")
+
+
+async def _run_host_reboot_job(job_id: int, server_id: int, audit_id: int):
+    await run_in_threadpool(_execute_host_reboot, job_id, server_id, audit_id)
 
 
 def _execute_container_update_check(job_id: int, server_id: int, audit_id: int) -> None:

@@ -43,6 +43,7 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 |------|-----------------|--------|
 | `backup` | Manual or backup cron | **Celery** |
 | `os_patch` / `container_patch` | Manual or apply schedule | **Celery** (default queue). SSH down: stays pending and retries. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job |
+| `host_reboot` | Server **Reboot** or the Home Assistant host card | **Celery** (default queue). Refused while an OS patch, container patch, or backup is active on that host. SSH down: stays pending. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job |
 | `os_update_check` / `container_update_check` | Manual or check schedule | **Celery** (default queue) |
 | `docker_stack_check` / `docker_stack_deploy` | Stack ⋯ Check updates / Deploy | **Celery** (default queue) |
 | `docker_stack_stop` / `_start` / `_restart` | Project ⋯ Stop/Start/Restart all | **Celery** (default queue) |
@@ -58,13 +59,13 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 
 Statuses: `pending` → `running` → `success` / `failed`.
 
-**Web restart:** `retention`, the herder’s own backup, and host-facts snapshots that are still pending or running are **failed on startup**. They cannot still be executing after uvicorn exits. **OS/container patch, update checks, stack jobs, template jobs, backups, nmap, and Move** are Celery — a web recycle does **not** fail them. Recycle **celery-worker** while a patch, stack mutate, or Move is **running** **fails** that job (it is not resumed mid-flight). If SSH is down at the start of a patch or stack job, the row stays **pending** and is probed again until the host answers or the wait limit (Settings → General → Jobs, default 30 minutes). A Kuma “host down” alert or a `last_seen` older than 15 minutes can show **waiting on host** on that pending job. Those are labels. The job resumes only when SSH works, and they do not fail it. See [Multi-worker](../operations/multi-worker.md).
+**Web restart:** `retention`, the herder’s own backup, and host-facts snapshots that are still pending or running are **failed on startup**. They cannot still be executing after uvicorn exits. **OS/container patch, host reboot, update checks, stack jobs, template jobs, backups, nmap, and Move** are Celery — a web recycle does **not** fail them. Recycle **celery-worker** while a patch, stack mutate, or Move is **running** **fails** that job (it is not resumed mid-flight). If SSH is down at the start of a patch or stack job, the row stays **pending** and is probed again until the host answers or the wait limit (Settings → General → Jobs, default 30 minutes). A Kuma “host down” alert or a `last_seen` older than 15 minutes can show **waiting on host** on that pending job. Those are labels. The job resumes only when SSH works, and they do not fail it. See [Multi-worker](../operations/multi-worker.md).
 
 ### Exclusive jobs (one per type per host)
 
 These types do not stack on the same server while already **pending** or **running**:
 
-- `os_patch`, `container_patch`  
+- `os_patch`, `container_patch`, `host_reboot` (also waits for a patch or backup, and those wait for a reboot)  
 - `os_update_check`, `container_update_check`  
 - Stack lifecycle + template deploy/redeploy (shared **stack mutation** lane on the host)  
 - `service_migrate` and `service_migrate_undo` — exclusive with backup **and** stack mutation on **both** source and dest  

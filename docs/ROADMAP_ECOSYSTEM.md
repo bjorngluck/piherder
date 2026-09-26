@@ -42,7 +42,7 @@ Design principles stay the same as SPEC:
 | **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME **or NPM backend** retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate, leftover) + **host lock** (HAOS refuse, Frigate/TPU-class) + demo simulated Files | Post-1.3 minor | **Tagged** 2026-09-06 — [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · wiki [Move a service](../wiki/docker/service-migration.md) · Hub `1.4.0` / `1.4` / `latest` |
 | **v1.5.0** | **Job runtime** — Move on **Celery worker** + Reports pin/hide/reorder + Move jobs card + unit **≥ 70%**. Kill switch stays **false**. | Post-1.4 minor | **Tagged** 2026-09-18 — [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [QA_v1.5.0.md](QA_v1.5.0.md) · Hub `1.5.0` / `1.5` / `latest` |
 | **v1.6.0** | **HACS on HA + console mux** — Slice 1 + Slice 1b (plugin **0.2.4**) · Mux-1 · CSP script nonces · fail-path Move undo · unit fail-under **75**. Move stays off. | Post-1.5 minor | **Tagged** 2026-09-25 — [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · Hub `1.6.0` / `1.6` / `latest` |
-| **v1.7.0** | **Token-API MCP, then one job runtime** — **MCP-1** Must (first; read/write of today’s bearer API, stdio, own repo) · **Jr-1** Must. Should: fail-under **75 → 80** · **Brand-1/2** · **Jr-2** · **HA-cards**. Discover: **Bak-alt** · **AC-fg** · HA bus event · Undo-2 · Mux-2. Package stays `1.6.0` until freeze. | Post-1.6 minor | **Active** on `v1.7.0-dev`. MCP-1 **0.1.0**, Jr-1, Jr-2, Brand-1, and Brand-2 landed; walks open. Q and HA-cards not started. [PLAN_v1.7.0.md](PLAN_v1.7.0.md) |
+| **v1.7.0** | **Token-API MCP, then one job runtime** — **MCP-1** Must (first; read/write of today’s bearer API, stdio, own repo) · **Jr-1** Must. Should: fail-under **75 → 80** · **Brand-1/2** · **Jr-2** · **HA-cards** (plugin **0.3.0**, including `host_reboot`). Discover: **Bak-alt** · **AC-fg** · HA bus event · Undo-2 · Mux-2. Package stays `1.6.0` until freeze. | Post-1.6 minor | **Active** on `v1.7.0-dev`. MCP-1 **0.1.0**, Jr-1, Jr-2, Brand-1, Brand-2, Q, and HA-cards landed; walks open. [PLAN_v1.7.0.md](PLAN_v1.7.0.md) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -122,7 +122,7 @@ Design principles stay the same as SPEC:
 
 **Progress (2026-09-26):** [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.1.0** (`fcd90cf`) is the stdio client. It is not in the PiHerder image. Operator walk is still open.
 
-**Progress (2026-09-26):** **Jr-1**, **Jr-2**, **Brand-1**, and **Brand-2** landed on `v1.7.0-dev`. Operator walks in [QA_v1.7.0.md](QA_v1.7.0.md) stay empty. **Q** (fail-under 80) is not started. Wiki [Appearance](../wiki/getting-started/appearance.md) and [Settings](../wiki/operations/settings.md) describe the Instance and Jobs cards. Package stays `1.6.0`.
+**Progress (2026-09-26):** **Jr-1**, **Jr-2**, **Brand-1**, **Brand-2**, **Q** (fail-under **80**, compose **81.01%**), and **HA-cards** landed on `v1.7.0-dev`. HA-cards is plugin **0.3.0** (host, updates, and resources cards) plus `host_reboot` on the existing jobs POST. Operator walks in [QA_v1.7.0.md](QA_v1.7.0.md) stay empty. Package stays `1.6.0`.
 
 **Progress (2026-09-21):** **Q-80 met** — compose suite **75.04%** (35893/47833); CI `--cov-fail-under=75`. Mux-1 and HA-p2 Slice 1 are on the branch; operator QA still open. **Docs-archive-0x**, **Slice 1b** (plugin **0.2.3**), **CSP-n Slice 1**, and **Undo-1** landed on `v1.6.0-dev`. Home installs enforce the script nonce. The public demo is on this branch and stays Report-Only.
 
@@ -299,7 +299,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 
 | Track | Direction |
 |-------|-----------|
-| **Unit / service coverage** | Stepped freeze bars: **0.8 ~50%** · **0.9 ≥55%** · **1.4 ≥62%** · **1.5 ≥70%** · **1.6 ≥75%** (CI fail-under **75**). **v1.7 Should** raises the fail-under **75 → 80** (the 1.x ceiling). The step may slip; do not lower 75. Critical paths first; **no** 100% target; prefer service tests over router %. See [PLAN_v1.7.0.md](PLAN_v1.7.0.md). |
+| **Unit / service coverage** | Stepped freeze bars: **0.8 ~50%** · **0.9 ≥55%** · **1.4 ≥62%** · **1.5 ≥70%** · **1.6 ≥75%** (CI fail-under **75**). **v1.7** raised the fail-under to **80** (compose **81.01%**, 39638/48927). The 1.x ceiling. Critical paths first; **no** 100% target; prefer service tests over router %. See [PLAN_v1.7.0.md](PLAN_v1.7.0.md). |
 | **HTTP smoke (pytest TestClient)** | **Done (0.8)** — auth redirects + main shells + seeded surfaces; extend when routes land. |
 | **UI walkthrough — Playwright** | **Must since v0.7.0** — shell + wizard + B6 + nmap shells. **v0.9 rule:** any UX/code touched in the release gets **basic** E2E coverage (no live SSH/nmap/HA in CI). |
 | **Dependency hygiene** | **Done for RC path:** `uv.lock` + hashed `requirements*.lock.txt`; Dockerfile/CI install with `--require-hashes`. Ongoing: periodic `pip-audit` / Dependabot; intentional bumps via `scripts/refresh-lockfiles.sh`. |
@@ -487,7 +487,7 @@ Reuse existing SSH access actions; the wizard is **orchestration + progress**, n
 
 | Area | Direction |
 |------|-----------|
-| Home Assistant | **0.9 path 1 done (HAOS/S2 over SSH)** — [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md). **v1.6 shipped:** HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.4** (Visit = host page; Lovelace fleet card; Slice 1b disk/container/service sensors). **v1.7 Should HA-cards** (not started): host card, updates card, and confirm writes for today’s token jobs and feature flags. Container start/stop, Move, and Files stay out. The job-finished bus event stays Discover. API tokens already work ([API.md](API.md)). Operator: [wiki](../wiki/integrations/home-assistant.md). |
+| Home Assistant | **0.9 path 1 done (HAOS/S2 over SSH)** — [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md). **v1.6 shipped:** HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.4** (Visit = host page; Lovelace fleet card; Slice 1b disk/container/service sensors). **v1.7 HA-cards landed** as plugin **0.3.0**: host, updates, and resources cards; confirm writes including `host_reboot`; graphs from HA history of snapshot sensors. Container start/stop, Move, and Files stay out. The job-finished bus event stays Discover. Walk still open. API tokens already work ([API.md](API.md)). Operator: [wiki](../wiki/integrations/home-assistant.md). |
 | Plugin hooks | Prefer REST + n8n over arbitrary code on the herder host |
 | Ansible / cloud-init | Inventory export + first-boot snippets for new Pis — **overlaps H2.75 bootstrap D/E**; keep imaging depth here |
 | **Advanced secrets** | Explore beyond locked `.env`: Swarm/file permissions hardening, sealed host store for offline recreate, optional vault — never require PiHerder for normal container restart |

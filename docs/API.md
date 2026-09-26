@@ -89,7 +89,7 @@ If **any** `feature:*` scope is set, only those features are allowed for jobs an
 | Scope | Feature key | Jobs | Edit flags |
 |-------|-------------|------|------------|
 | `feature:backup` | `backup` | `backup`, `retention` | `backup` |
-| `feature:os` | `os` | `os_patch`, `os_update_check` | `os_patch` |
+| `feature:os` | `os` | `os_patch`, `os_update_check`, `host_reboot` | `os_patch` |
 | `feature:docker` | `docker` | `container_patch`, `container_update_check` | `docker` |
 
 **Example least-privilege tokens**
@@ -197,6 +197,7 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 | `retention` | backup | `feature:backup` |
 | `os_patch` | os_patch | `feature:os` |
 | `os_update_check` | os_patch | `feature:os` |
+| `host_reboot` | os_patch | `feature:os` |
 | `container_patch` | docker | `feature:docker` |
 | `container_update_check` | docker | `feature:docker` |
 
@@ -209,10 +210,12 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 | 401 | Missing/invalid token |
 | 403 | Missing scope, feature not allowed, or IP not allowed |
 | 404 | Server or job not found |
-| 409 | Job already active for this server — body includes existing `job` / `already_active`. Applies to `backup` and exclusive types (`os_patch`, `container_patch`, `os_update_check`, `container_update_check`). Clients should poll the returned job rather than retry-create. |
+| 409 | Job already active for this server — body includes existing `job` / `already_active`. Applies to `backup` and exclusive types (`os_patch`, `container_patch`, `host_reboot`, `os_update_check`, `container_update_check`). `host_reboot` is also **409** while `os_patch`, `container_patch`, or `backup` is pending or running, and those three are **409** while a reboot is active. Clients should poll the returned job rather than retry-create. |
 | 503 | e.g. Celery unavailable for backups |
 
-**Exclusivity:** At most one **pending/running** job of each exclusive type per server. A second trigger does not start a parallel SSH session.
+**Exclusivity:** At most one **pending/running** job of each exclusive type per server. A second trigger does not start a parallel SSH session. `host_reboot` also waits for an OS patch, a container patch, or a backup on that host.
+
+The MCP adapter’s published `jobs` tools stay `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, and `container_update_check`. `host_reboot` is for the herder UI and the Home Assistant plugin, not that tool list.
 
 ### Token management (admin **session**, not Bearer token)
 
@@ -267,9 +270,9 @@ HTTP Request node: Method GET/POST, Header `Authorization` = `Bearer ph_…`, JS
 
 ### Home Assistant
 
-**v1.6:** first-class **HACS integration** (runs on HA) — Slice 1: fleet sensors, host devices, **Visit** = `{origin}/servers/{id}`, Lovelace **PiHerder fleet** card (`custom:piherder-dashboard-card`). Heartbeat `GET /api/v1/summary` (`read`) includes fleet resource sums. Host `os_pretty` / `hardware` / cpu / memory / disk / `container_count` from the host-facts snapshot. Slice **1b** read APIs: `GET /api/v1/inventory`, `GET /api/v1/servers/{id}/inventory`, `GET /api/v1/services` (stored snapshots only). Plugin [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.3** adds container, service, and host-disk sensors on the existing host device (no start/stop). Operator: [wiki Home Assistant](../wiki/integrations/home-assistant.md). [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [PLAN_v1.6.0.md](PLAN_v1.6.0.md). YAML `rest` remains possible. CORS is not required (HA Core is server-side). Prefer an IP allowlist for the HA host.
+**v1.6:** first-class **HACS integration** (runs on HA) — Slice 1: fleet sensors, host devices, **Visit** = `{origin}/servers/{id}`, Lovelace **PiHerder fleet** card (`custom:piherder-dashboard-card`). Heartbeat `GET /api/v1/summary` (`read`) includes fleet resource sums. Host `os_pretty` / `hardware` / cpu / memory / disk / `container_count` from the host-facts snapshot. Slice **1b** read APIs: `GET /api/v1/inventory`, `GET /api/v1/servers/{id}/inventory`, `GET /api/v1/services` (stored snapshots only). Plugin [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.4** is that read path. No start/stop. Operator: [wiki Home Assistant](../wiki/integrations/home-assistant.md). [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [PLAN_v1.6.0.md](PLAN_v1.6.0.md). YAML `rest` remains possible. CORS is not required (HA Core is server-side). Prefer an IP allowlist for the HA host.
 
-**v1.7 (opened, not shipped):** **MCP-1** (Must, first) is a separate stdio process, [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.1.0**. It is a client of the routes above (`read`, and `jobs` / `edit` / `files` when the token has them). It is not in this image and it does not add `/api/v1` routes. Operator page: [wiki/operations/mcp.md](../wiki/operations/mcp.md). **Jr-1** (Must, second) moves the remaining exclusive job types onto Celery and also adds no routes. [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
+**v1.7 (on `v1.7.0-dev`, package still `1.6.0`):** Plugin **0.3.0** adds memory % and CPU load sensors, plus host, updates, and resources Lovelace cards. Writes go through HA services to the jobs and features routes above (including `host_reboot`). **MCP-1** is a separate stdio process, [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.1.0**. It is a client of the routes above (`read`, and `jobs` / `edit` / `files` when the token has them). It is not in this image and it does not add `/api/v1` routes. Its published job tools stay the six types; `host_reboot` is not one of them. Operator page: [wiki/operations/mcp.md](../wiki/operations/mcp.md). **Jr-1** moved the remaining exclusive job types onto Celery and added `host_reboot` to that set. No new routes. [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 ---
 

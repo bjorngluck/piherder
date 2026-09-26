@@ -53,6 +53,7 @@ JOB_FEATURE_KEY = {
     "retention": "backup",
     "os_patch": "os",
     "os_update_check": "os",
+    "host_reboot": "os",
     "container_patch": "docker",
     "container_update_check": "docker",
     "docker_stack_check": "docker",
