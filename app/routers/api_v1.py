@@ -828,9 +828,17 @@ def list_jobs(
 class JobCreateBody(BaseModel):
     job_type: str = Field(
         ...,
-        description="backup | retention | os_patch | container_patch | os_update_check | container_update_check",
+        description=(
+            "backup | retention | os_patch | os_update_check | host_reboot | "
+            "container_patch | container_update_check | docker_stack_check | "
+            "docker_stack_deploy | docker_stack_stop | docker_stack_start | "
+            "docker_stack_restart | template_deploy | template_redeploy"
+        ),
     )
-    source_filter: Optional[str] = None
+    source_filter: Optional[str] = Field(
+        None,
+        description="Backup source name for backup. Compose project path for docker_stack_* jobs.",
+    )
     os_steps: Optional[list[str]] = None
 
 
@@ -882,10 +890,16 @@ async def create_server_job(
             },
         )
     except job_service.JobAlreadyActive as e:
+        blocking = (getattr(e.job, "job_type", None) or job_type)
+        detail = (
+            f"{blocking} already active for this server"
+            if blocking != job_type
+            else f"{job_type} already active for this server"
+        )
         return JSONResponse(
             status_code=409,
             content={
-                "detail": f"{job_type} already active for this server",
+                "detail": detail,
                 "job": job_service.job_public_dict(e.job),
                 "already_active": True,
             },
@@ -902,6 +916,58 @@ async def create_server_job(
             "job": job_service.job_public_dict(job),
         },
     )
+
+
+# ---------- Fleet maintenance ----------
+
+
+class StaleCleanupBody(BaseModel):
+    dry_run: bool = False
+
+
+@router.post(
+    "/maintenance/stale-data-cleanup",
+    status_code=202,
+    summary="Queue stale data cleanup",
+    description=(
+        "Fleet purge of old jobs, audit rows, and optional nmap runs. "
+        "Requires scope jobs on a token that is not feature-restricted. "
+        "Not an MCP tool. The audit row records this token and the client IP."
+    ),
+)
+def api_queue_stale_data_cleanup(
+    body: StaleCleanupBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import stale_data_cleanup as sdc
+
+    auth.require(tok_svc.SCOPE_JOBS)
+    if tok_svc.feature_keys_allowed(auth.scopes) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Stale data cleanup needs a jobs token with no feature:* limit. "
+                "Feature-restricted tokens cannot purge fleet history."
+            ),
+        )
+    try:
+        job = sdc.enqueue_stale_data_cleanup(
+            session,
+            user_id=auth.user_id,
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
+            client_ip=auth.client_ip,
+            dry_run=bool(body.dry_run),
+        )
+    except Exception as e:
+        raise HTTPException(503, detail=str(e)[:200]) from e
+    return {
+        "job_id": job.id,
+        "status": job.status,
+        "job_type": job.job_type,
+        "dry_run": bool(body.dry_run),
+    }
 
 
 # ---------- Token admin (session cookie / JWT, admin only) ----------

@@ -149,26 +149,30 @@ async def audit_page(
             distinct_statuses = sorted({l.status for l in recent if l.status})
             # Pulse stats from recent window (not the current page alone)
             from ..services.audit_format import action_label as audit_action_label
+            from ..services.audit_format import pulse_bucket
 
             pulse = {
                 "success": 0,
                 "failed": 0,
                 "running": 0,
                 "other": 0,
-                "sample": len(recent),
+                "sample": 0,
                 "by_action": [],
             }
             action_counts: dict[str, int] = {}
             for l in recent:
-                st = (l.status or "").lower()
-                if st == "success":
-                    pulse["success"] += 1
-                elif st == "failed":
-                    pulse["failed"] += 1
-                elif st in ("running", "pending"):
-                    pulse["running"] += 1
-                else:
-                    pulse["other"] += 1
+                bucket = pulse_bucket(
+                    {
+                        "action": l.action,
+                        "status": l.status,
+                        "details": l.details or "",
+                        "output_snippet": l.output_snippet or "",
+                    }
+                )
+                if bucket is None:
+                    continue
+                pulse["sample"] += 1
+                pulse[bucket] += 1
                 act = (l.action or "other").strip() or "other"
                 action_counts[act] = action_counts.get(act, 0) + 1
             # Top action types for breakdown chart
@@ -179,7 +183,7 @@ async def audit_page(
                     "id": act,
                     "label": audit_action_label(act),
                     "count": n,
-                    "pct": round(100.0 * n / max(1, len(recent)), 1),
+                    "pct": round(100.0 * n / max(1, pulse["sample"]), 1),
                     "bar": round(100.0 * n / max(1, max_c), 1),
                 }
                 for act, n in ranked[:10]

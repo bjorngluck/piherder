@@ -42,6 +42,7 @@ _ACTION_LABELS = {
     "herder_restore": "PiHerder restore",
     "container_patch": "Containers",
     "os_patch": "OS patch",
+    "host_reboot": "Host reboot",
     "os_update_check": "OS update check",
     "container_update_check": "Container update check",
     "docker_stack_check": "Stack update check",
@@ -225,6 +226,20 @@ def _details_meta(details: str) -> dict:
     return parsed if isinstance(parsed, dict) else {}
 
 
+def pulse_bucket(log: dict) -> str | None:
+    """Audit pulse bucket, or None when the row is hidden noise."""
+    if is_noise_entry(log):
+        return None
+    status = (log.get("status") or "").lower()
+    if status == "success":
+        return "success"
+    if status == "failed":
+        return "failed"
+    if status in ("running", "pending"):
+        return "running"
+    return "other"
+
+
 def is_noise_entry(log: dict) -> bool:
     """Incomplete / superseded runs that clutter the audit view."""
     action = log.get("action") or ""
@@ -233,6 +248,11 @@ def is_noise_entry(log: dict) -> bool:
     snippet = (log.get("output_snippet") or "").strip()
 
     if action == "backup" and status == "running":
+        return True
+
+    # Append-only backup phase rows. finished_at is set at insert; status
+    # stayed queued/running forever and dominated the active pulse.
+    if action in ("backup_queued", "backup_running"):
         return True
 
     # Stuck OS patch rows left "running" with no output (e.g. worker crash)

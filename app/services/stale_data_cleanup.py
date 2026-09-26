@@ -14,8 +14,9 @@ from typing import Any, Optional
 
 from sqlmodel import Session, col, select
 
-from ..models import AuditLog, Job, NmapScanRun, NmapScriptResult
+from ..models import AuditLog, Job, NmapDevice, NmapScanRun, NmapScriptResult
 from . import app_settings as app_cfg
+from .audit_write import make_audit_log, resolve_client_ip
 from .nmap.job_progress import merge_job_details, stamp_line
 
 logger = logging.getLogger(__name__)
@@ -68,6 +69,75 @@ def _nmap_run_is_stale(run: NmapScanRun, cut: datetime) -> bool:
     return bool(ts and ts < cut)
 
 
+def _opt_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _actor_from_job(session: Session, job_id: int | None) -> dict[str, Any]:
+    """Actor snapshotted onto the job at enqueue (request is gone in the worker)."""
+    actor: dict[str, Any] = {
+        "user_id": None,
+        "api_token_id": None,
+        "api_token_name": None,
+        "client_ip": None,
+    }
+    if not job_id:
+        return actor
+    job = session.get(Job, job_id)
+    if not job or not job.details:
+        return actor
+    try:
+        data = json.loads(job.details) or {}
+    except Exception:
+        return actor
+    if not isinstance(data, dict):
+        return actor
+    actor["user_id"] = _opt_int(data.get("user_id"))
+    actor["api_token_id"] = _opt_int(data.get("api_token_id"))
+    name = data.get("api_token_name")
+    if name:
+        actor["api_token_name"] = str(name)[:120]
+    ip = data.get("client_ip")
+    if ip:
+        actor["client_ip"] = str(ip)[:64]
+    return actor
+
+
+def _record_cleanup_audit(
+    session: Session,
+    job_id: int | None,
+    *,
+    status: str,
+    summary: str,
+    result: dict | None = None,
+) -> None:
+    """Fleet audit for a finished cleanup. Copies token + IP from the job row."""
+    actor = _actor_from_job(session, job_id)
+    session.add(
+        make_audit_log(
+            user_id=actor["user_id"],
+            server_id=None,
+            api_token_id=actor["api_token_id"],
+            api_token_name=actor["api_token_name"],
+            action=JOB_TYPE,
+            status=status,
+            details=summary,
+            output_snippet=(
+                json.dumps(result, default=str)[:2000] if result is not None else None
+            ),
+            started_at=datetime.utcnow(),
+            finished_at=datetime.utcnow(),
+            client_ip=actor["client_ip"],
+        )
+    )
+    session.commit()
+
+
 def preview_cleanup(session: Session, cfg: dict | None = None) -> dict[str, Any]:
     """Count rows that would be deleted (no writes)."""
     conf = cleanup_config(cfg)
@@ -104,6 +174,20 @@ def preview_cleanup(session: Session, cfg: dict | None = None) -> dict[str, Any]
     return out
 
 
+def _detach_scan_runs_from_jobs(session: Session, job_ids: list[int]) -> None:
+    """Null nmapscanrun.job_id so deleting old jobs does not hit that foreign key."""
+    if not job_ids:
+        return
+    runs = list(
+        session.exec(select(NmapScanRun).where(col(NmapScanRun.job_id).in_(job_ids))).all()
+    )
+    for run in runs:
+        run.job_id = None
+        session.add(run)
+    if runs:
+        session.flush()
+
+
 def _delete_old_jobs(session: Session, days: int, *, keep_job_id: int | None) -> int:
     cut = _cutoff(days)
     rows = list(
@@ -111,17 +195,20 @@ def _delete_old_jobs(session: Session, days: int, *, keep_job_id: int | None) ->
             select(Job).where(col(Job.status).in_(list(TERMINAL_JOB_STATUSES)))
         ).all()
     )
-    deleted = 0
+    stale: list[Job] = []
     for j in rows:
         if keep_job_id and j.id == keep_job_id:
             continue
         if not _job_is_stale(j, cut):
             continue
+        stale.append(j)
+    if not stale:
+        return 0
+    _detach_scan_runs_from_jobs(session, [int(j.id) for j in stale if j.id is not None])
+    for j in stale:
         session.delete(j)
-        deleted += 1
-    if deleted:
-        session.commit()
-    return deleted
+    session.commit()
+    return len(stale)
 
 
 def _delete_old_audit(session: Session, days: int) -> int:
@@ -134,20 +221,39 @@ def _delete_old_audit(session: Session, days: int) -> int:
     return len(rows)
 
 
+def _clear_device_last_run(session: Session, run_ids: list[int]) -> None:
+    """Null nmapdevice.last_run_id before those scan runs are deleted."""
+    if not run_ids:
+        return
+    devices = list(
+        session.exec(
+            select(NmapDevice).where(col(NmapDevice.last_run_id).in_(run_ids))
+        ).all()
+    )
+    for device in devices:
+        device.last_run_id = None
+        session.add(device)
+    if devices:
+        session.flush()
+
+
 def _delete_old_nmap_runs(session: Session, days: int) -> dict[str, int]:
     cut = _cutoff(days)
     data_root = Path(os.environ.get("DATA_ROOT") or "/data")
-    rows = list(session.exec(select(NmapScanRun)).all())
+    stale = [run for run in session.exec(select(NmapScanRun)).all() if _nmap_run_is_stale(run, cut)]
+    if not stale:
+        return {"runs": 0, "files": 0}
+    run_ids = [int(run.id) for run in stale if run.id is not None]
+    _clear_device_last_run(session, run_ids)
     deleted = 0
     files = 0
-    for run in rows:
-        if not _nmap_run_is_stale(run, cut):
-            continue
-        # script results for this run
+    for run in stale:
         for sc in session.exec(
             select(NmapScriptResult).where(NmapScriptResult.run_id == run.id)
         ).all():
             session.delete(sc)
+    session.flush()
+    for run in stale:
         if run.artifact_path:
             try:
                 p = Path(run.artifact_path)
@@ -230,6 +336,13 @@ def run_stale_data_cleanup(
             log_line=stamp_line(summary),
             extra={"result": result, "result_snippet": summary},
         )
+        if job_id:
+            try:
+                _record_cleanup_audit(
+                    session, job_id, status="success", summary=summary, result=result
+                )
+            except Exception as e:
+                logger.debug("audit for cleanup dry-run skipped: %s", e)
         return result
 
     try:
@@ -300,23 +413,10 @@ def run_stale_data_cleanup(
             log_line=stamp_line(summary),
             extra={"result": result, "result_snippet": summary},
         )
-        # Fleet audit
         try:
-            from .audit_write import make_audit_log
-
-            session.add(
-                make_audit_log(
-                    user_id=None,
-                    server_id=None,
-                    action="stale_data_cleanup",
-                    status="success",
-                    details=summary,
-                    output_snippet=json.dumps(result, default=str)[:2000],
-                    started_at=datetime.utcnow(),
-                    finished_at=datetime.utcnow(),
-                )
+            _record_cleanup_audit(
+                session, job_id, status="success", summary=summary, result=result
             )
-            session.commit()
         except Exception as e:
             logger.debug("audit for cleanup skipped: %s", e)
         return result
@@ -334,6 +434,12 @@ def run_stale_data_cleanup(
         )
         result["status"] = "failed"
         result["error"] = err
+        try:
+            _record_cleanup_audit(
+                session, job_id, status="failed", summary=err, result=result
+            )
+        except Exception as audit_err:
+            logger.debug("audit for cleanup failure skipped: %s", audit_err)
         return result
 
 
@@ -341,30 +447,42 @@ def enqueue_stale_data_cleanup(
     session: Session,
     *,
     user_id: int | None = None,
+    api_token_id: int | None = None,
+    api_token_name: str | None = None,
+    client_ip: str | None = None,
     dry_run: bool = False,
 ) -> Job:
-    """Create Job and dispatch to default Celery queue."""
+    """Create Job and dispatch to default Celery queue.
+
+    Snapshots the HTTP actor (user, API token, client IP) onto the job so the
+    worker can write the audit after the request context is gone.
+    """
     from ..celery_app import celery
 
     conf = cleanup_config()
+    ip = resolve_client_ip(client_ip)
+    payload: dict[str, Any] = {
+        "current": "queued",
+        "summary": (
+            f"Queued stale data cleanup"
+            f"{' (dry-run)' if dry_run else ''}"
+        ),
+        "user_id": user_id,
+        "dry_run": dry_run,
+        "config": conf,
+        "log_lines": [stamp_line("Queued stale data cleanup")],
+    }
+    if api_token_id is not None:
+        payload["api_token_id"] = int(api_token_id)
+    if api_token_name:
+        payload["api_token_name"] = str(api_token_name)[:120]
+    if ip:
+        payload["client_ip"] = ip
     job = Job(
         server_id=None,
         job_type=JOB_TYPE,
         status="pending",
-        details=json.dumps(
-            {
-                "current": "queued",
-                "summary": (
-                    f"Queued stale data cleanup"
-                    f"{' (dry-run)' if dry_run else ''}"
-                ),
-                "user_id": user_id,
-                "dry_run": dry_run,
-                "config": conf,
-                "log_lines": [stamp_line("Queued stale data cleanup")],
-            },
-            separators=(",", ":"),
-        ),
+        details=json.dumps(payload, separators=(",", ":")),
     )
     session.add(job)
     session.commit()
@@ -378,4 +496,20 @@ def enqueue_stale_data_cleanup(
     session.add(job)
     session.commit()
     session.refresh(job)
+    if user_id is not None or api_token_id is not None:
+        session.add(
+            make_audit_log(
+                user_id=user_id,
+                server_id=None,
+                api_token_id=api_token_id,
+                api_token_name=api_token_name,
+                action="stale_data_cleanup_queued",
+                status="success",
+                details=f"job={job.id} dry_run={dry_run}",
+                started_at=datetime.utcnow(),
+                finished_at=datetime.utcnow(),
+                client_ip=ip,
+            )
+        )
+        session.commit()
     return job

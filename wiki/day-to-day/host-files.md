@@ -89,7 +89,7 @@ Upload onto an existing name: browser **confirm**, then tmp+rename (same as comp
 
 ## API
 
-Token scope **`files`** (not on by default). Fleet identity only. List / download / upload / mkdir / rename / delete-empty. Edit, zip, unzip, chmod, recursive delete, preview, Docker helpers, and privileged stay in the browser (tokens have no 2FA). A richer Files API is **under consideration for a later minor**. See [API tokens](../operations/api-tokens.md).
+Token scope **`files`** (not on by default). Fleet identity only. List / download / upload / mkdir / rename / delete-empty. Edit, zip, unzip, chmod, recursive delete, preview, Docker helpers, and privileged stay in the browser (tokens have no 2FA). A richer Files API is **under consideration for a later minor**. The v1.7 agent process uses this same jail and these same calls — [Agents (MCP)](../operations/mcp.md). See [API tokens](../operations/api-tokens.md).
 
 ## Env
 

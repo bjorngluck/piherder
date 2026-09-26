@@ -12,8 +12,10 @@ from .audit_write import make_audit_log, resolve_client_ip
 
 PHASE_ACTIONS: dict[str, tuple[str, str]] = {
     "request": ("backup_request", "success"),
-    "queued": ("backup_queued", "queued"),
-    "running": ("backup_running", "running"),
+    # Phase snapshots are finished the moment they are written. Status info
+    # keeps them out of the Audit "active" pulse (historical rows are noise).
+    "queued": ("backup_queued", "info"),
+    "running": ("backup_running", "info"),
     "success": ("backup", "success"),
     "failed": ("backup", "failed"),
     "cancelled": ("backup", "cancelled"),

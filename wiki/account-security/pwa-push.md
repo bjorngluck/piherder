@@ -2,7 +2,7 @@
 
 ## What this is
 
-PiHerder can be installed as a **Progressive Web App** and send **Web Push** notifications to enrolled devices when new in-app notifications open (and related resolve events).
+PiHerder can be installed as a **Progressive Web App** and send **Web Push** notifications to enrolled devices when new in-app notifications open (and related resolve events). The home-screen name follows **Settings → General → Instance** when a name is set. Empty keeps **PiHerder**. The icon and the install theme color stay the official mark and red. See [Appearance](../getting-started/appearance.md).
 
 ## Why it exists
 

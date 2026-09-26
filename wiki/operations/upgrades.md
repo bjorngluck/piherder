@@ -114,7 +114,7 @@ Alembic **043**, **044**, and **045** run on web start. Recreate **web** and **c
 2. After tag: `git fetch --tags && git checkout v1.6.0` (or pull `bjorngluck/piherder:1.6.0`).
 3. `docker compose pull && docker compose up -d` — recreate **web** and **celery-worker**.
 4. Confirm `alembic_version` includes `045_host_resources`. Open System Info and use the refresh icon once per host you want on the HA card.
-5. Optional: HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.4** with a **read** token. [Home Assistant](../integrations/home-assistant.md).
+5. Optional: HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.4** with a **read** token. [Home Assistant](../integrations/home-assistant.md). On the **v1.7** train, use plugin **0.3.0**. Add `jobs` and `edit` to that token if you want the host, updates, and resources cards.
 6. Optional: `PIHERDER_SSH_CONSOLE=true`, recreate **web**, tick **Console mux** only on a Debian host that already has `tmux` or `screen`.
 7. Move stays **off** until `PIHERDER_SERVICE_MIGRATE=true` and you recreate **web**. Public demo stays Report-Only CSP. Do not set `PIHERDER_CSP_ENFORCE` there.
 8. Immediately run **Full DR** again. Hard-refresh the browser.

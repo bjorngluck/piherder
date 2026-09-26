@@ -22,15 +22,63 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.4.0** | **Tagged** — pack **landed 2026-09-06**. Maintainer QA: [QA_v1.4.0.md](../../../docs/QA_v1.4.0.md). Theme: [Move a service](../../docker/service-migration.md) · [RELEASE](../../../docs/RELEASE_v1.4.0.md) |
 | **v1.5.0** | **Tagged** 2026-09-18 — reuse Move JobHold pack; Reports pin/hide + Move jobs card recapture if chrome drifted. [RELEASE](../../../docs/RELEASE_v1.5.0.md) · [QA](../../../docs/QA_v1.5.0.md) |
 | **v1.6.0** | **Captured** 2026-09-25 and wired into the wiki. [§ v1.6](#v160--pack-status). [RELEASE](../../../docs/RELEASE_v1.6.0.md) · [QA](../../../docs/QA_v1.6.0.md) |
+| **v1.7.0** | **Not captured.** Capture during the operator walk on `v1.7.0-dev`. About / footer still **1.6.0**. [§ v1.7](#v170--pack-status). [QA](../../../docs/QA_v1.7.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
-!!! tip "Capture from the freeze branch"
-    Production pack: rebuild **`v1.5.0`**: `docker compose build web celery-worker && docker compose up -d`.  
+!!! tip "Capture from this train"
+    Rebuild **`v1.7.0-dev`**: `docker compose build web celery-worker && docker compose up -d web celery-worker`.  
     App code is **not** bind-mounted — stale containers = stale chrome.  
-    About / footer **1.5.0**.  
-    Move wizard shots need `PIHERDER_SERVICE_MIGRATE=true` then recreate **web**.  
-    **v1.6 captures** are in the tree (footer **1.6.0** after the version bump). See [§ v1.6](#v160--pack-status).
+    About / footer still **1.6.0** until freeze.  
+    Do not photograph the public demo. Move stays off unless a regression shot needs the flag, then turn it off again.  
+    **v1.6 captures** stay. New frames are [§ v1.7](#v170--pack-status).
+
+---
+
+## v1.7.0 — pack status {#v170--pack-status}
+
+**Not captured.** Take these while walking [QA_v1.7.0.md](../../../docs/QA_v1.7.0.md). Light theme, desktop width, plus one phone frame for the nav hide. Mask tokens. No PEMs, backup codes, or SMTP passwords. Do not point the Home Assistant plugin at the public demo.
+
+1.6 PNGs stay unless a row says replace. Wire a `![…]` only after the file is in this directory.
+
+### New files (save these)
+
+| Pri | File | Surface | Must show | Wire into (after the file exists) |
+|-----|------|---------|-----------|-------------------------------------|
+| **P0** | `settings-instance.png` | Settings → **General** → **Instance** | Name field, one accent, **Show Catalog in the navigation**. No file upload. Official mark is not in this modal | [Appearance](../../getting-started/appearance.md) · [Settings](../../operations/settings.md) |
+| **P0** | `settings-jobs-wait.png` | Settings → **General** → **Jobs** | Max wait in minutes (default **30**). No host passwords | [Settings](../../operations/settings.md) · [Multi-worker](../../operations/multi-worker.md) |
+| **P1** | `header-instance-name.png` | Signed-in header after a short instance name | Custom wordmark, **official mark**, primary buttons still red. Catalog still in the nav in this shot | [Appearance](../../getting-started/appearance.md) |
+| **P1** | `nav-catalog-hidden.png` | Same header after Catalog is hidden, **phone width** | Catalog absent from the phone menu. Do not 404 the page; a second frame of `/catalog` loading is optional | [Appearance](../../getting-started/appearance.md) |
+| **P1** | `ha-host-card.png` | Lovelace `custom:piherder-host-card` on plugin **0.3.0** | One host: gauges, confirm actions. Token not visible | [Home Assistant](../../integrations/home-assistant.md) |
+| **P1** | `ha-updates-card.png` | `custom:piherder-updates-card` | OS and container counts, reboot pending | [Home Assistant](../../integrations/home-assistant.md) |
+| **P1** | `ha-resources-card.png` | `custom:piherder-resources-card` | Memory, disk, and CPU lines. Empty history is honest if the sensors are new | [Home Assistant](../../integrations/home-assistant.md) |
+
+### Recapture only if the old frame is wrong
+
+| File | When |
+|------|------|
+| `settings-hub.png` | The 1.3 hub shot has no **Instance** or **Jobs** card. Replace it so the General hub shows both |
+| `ha-fleet-sensors.png` | Only if the frame still says plugin **0.2.4**. The 0.3.0 devices list may show memory % and CPU load |
+
+### Do not recapture for 1.7
+
+| File | Why leave it |
+|------|----------------|
+| `console-mux-features.png`, `console-mux-session.png`, `console-popup.png` | Mux chrome unchanged |
+| `docker-migrate-*.png`, `docker-host-lock.png` | Move stays off. Undo-2 is not this train |
+| `system-info-snapshot.png`, `system-info-haos.png` | Snapshot modal unchanged. Resources graphs are an HA card, not this modal |
+| `ha-hacs-config.png`, `ha-fleet-card.png`, `ha-visit-host.png`, `ha-slice1b-sensors.png` | Fleet card stays read-only. New cards get their own files |
+| `jobs-page.png`, `reports.png`, `server-detail.png` | Exclusive jobs and the audit pulse do not need a new frame unless a caption is false |
+| Login / certs / maps / LAN / demo Files | Unchanged. Demo ignores the instance name |
+
+### Capture sequence (while you walk QA)
+
+1. **Instance** — `settings-instance.png`, then save a short name and shoot `header-instance-name.png`.  
+2. **Hide Catalog** — phone menu `nav-catalog-hidden.png`. Turn the checkbox back on when you are done.  
+3. **Jobs wait** — `settings-jobs-wait.png` at **30** minutes. If you save **2** for the host-down row, set it back before this shot, or take the shot first.  
+4. **Settings hub** — replace `settings-hub.png` so Instance and Jobs are on the card grid.  
+5. **HA 0.3.0** — host, updates, and resources cards. Recapture `ha-fleet-sensors.png` only if it still says **0.2.4**.  
+6. Drop the PNGs here, add the `![…]` figures, `.venv-docs/bin/mkdocs build --strict`, commit PNGs and captions together.
 
 ---
 
@@ -48,7 +96,7 @@ About / footer on these shots may still read **1.5.0** if they were taken before
 | **P0** | `console-mux-session.png` | Web SSH, that host’s mux **on**, `tmux` or `screen` present | Banner/note that the shell attached with mux (`mux tmux` or screen). Shell can be just a prompt | [Web SSH](../../day-to-day/web-ssh-console.md) |
 | **P0** | `ha-hacs-config.png` | HA config flow for PiHerder | Base URL filled. Token **masked** | [Home Assistant → PiHerder](../../integrations/home-assistant.md) |
 | **P0** | `ha-fleet-card.png` | Lovelace card `custom:piherder-dashboard-card` | Header: PiHerder logo + name. Fleet totals (hosts, CPU, containers, memory, disk). One host **expanded**. Chips: Host, Docker, Backups, Alerts, Audit | [Home Assistant → PiHerder](../../integrations/home-assistant.md) |
-| **P0** | `ha-fleet-sensors.png` | HA **Devices** | Fleet device (counts, Plugin **0.2.3** if visible) and one host device | [Home Assistant → PiHerder](../../integrations/home-assistant.md) |
+| **P0** | `ha-fleet-sensors.png` | HA **Devices** | Fleet device (counts, Plugin **0.3.0** if visible) and one host device | [Home Assistant → PiHerder](../../integrations/home-assistant.md) |
 | **P1** | `ha-visit-host.png` | Browser after the host device **Visit** | Address bar on `{origin}/servers/{id}` (the herder host page, not HA history) | [Home Assistant → PiHerder](../../integrations/home-assistant.md) |
 | **P1** | `ha-slice1b-sensors.png` | Same host device, sensors list | At least one container sensor and disk % (service up/down if a monitor exists). No start/stop button | [Home Assistant → PiHerder](../../integrations/home-assistant.md) |
 | **P1** | `system-info-snapshot.png` | Herder **System Info** modal | Stored pretty OS, CPU cores/load, memory, disk. The **refresh icon** is in the modal header (no second button on the host page) | [System Info](../../day-to-day/system-info.md) |
@@ -208,12 +256,12 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 
 ## Pre-capture checklist (operator)
 
-1. Rebuild/restart **web** so templates match **`v1.4.0`**. About / footer **1.4.0**.  
-2. Light theme · desktop width · redact hostnames/IPs if needed.  
-3. **Move** shots: `PIHERDER_SERVICE_MIGRATE=true`, then recreate **web**. Do not photograph `.env` bodies, PEMs, or NPM passwords.  
-4. **1.3 Files** recapture only: `PIHERDER_HOST_FILES=true` for those shots, then restore **off**.  
-5. **Console / privileged:** flag on only for Connect-as shots.  
-6. After saving PNGs: add `![…]` on the wiki pages in the **v1.4** table · `mkdocs build --strict` · commit binaries + captions together.
+1. Rebuild/restart **web** on **`v1.7.0-dev`**. About / footer still **1.6.0**.  
+2. Light theme · desktop width · one phone frame for the Catalog hide · redact hostnames/IPs if needed.  
+3. **Move** shots are not part of the 1.7 pack. Leave `PIHERDER_SERVICE_MIGRATE=false`. Do not photograph `.env` bodies, PEMs, or NPM passwords.  
+4. **HA cards:** plugin **0.3.0**, token masked, not the public demo.  
+5. **Instance name:** clear it or restore Pi / Herder after `header-instance-name.png` if you do not want the lab left renamed. Turn **Show Catalog** back on after the phone shot.  
+6. After saving PNGs: add `![…]` on the wiki pages in the **v1.7** table · `mkdocs build --strict` · commit binaries + captions together.
 
 **Do not include in frames:** client secrets, SMTP passwords, API tokens, PEM material, backup codes, live `database.dump` paths you would not publish.
 
@@ -246,7 +294,7 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 | **Add server** | Default SSH user **`pi`** |
 | **SSH access** | **Pinned host key** + reset |
 
-### New / changed in 1.6 (files not in the tree until captured)
+### New / changed in 1.6 (captured 2026-09-25)
 
 | Surface | Must show in PNGs |
 |---------|-------------------|
@@ -258,6 +306,16 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 | **HA host sensors** | Container / service / disk from snapshots; no start/stop |
 | **System Info** | Stored CPU, memory, disk; refresh is the modal header icon |
 | **Move JobHold** | Undo is its own file. Do not replace the green Move shot |
+
+### New / changed in 1.7 (files not in the tree until captured)
+
+| Surface | Must show in PNGs |
+|---------|-------------------|
+| **Settings → Instance** | Name, one accent, Show Catalog. No logo upload |
+| **Header** | Custom wordmark, official mark, primary red unchanged |
+| **Phone nav** | Catalog hidden. `/catalog` still loads |
+| **Settings → Jobs** | Max wait, default 30 minutes |
+| **HA cards** | Host, updates, and resources on plugin **0.3.0**. Fleet card stays a separate file |
 
 ### New / changed in 1.3
 
@@ -274,6 +332,18 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 ---
 
 ## Inventory — all PNGs
+
+### 1.7 new (add file + wiki `![…]` when captured)
+
+| File | Page / topic | Capture notes |
+|------|----------------|---------------|
+| `settings-instance.png` | Settings → Instance | Name, accent, Catalog checkbox. No upload |
+| `settings-jobs-wait.png` | Settings → Jobs | Max wait, default 30 minutes |
+| `header-instance-name.png` | Header | Custom name, official mark, red buttons |
+| `nav-catalog-hidden.png` | Phone nav | Catalog gone from the menu |
+| `ha-host-card.png` | HA host card | Plugin 0.3.0. Token not in frame |
+| `ha-updates-card.png` | HA updates card | OS and container counts |
+| `ha-resources-card.png` | HA resources card | Memory, disk, CPU history |
 
 ### 1.3 new (add file + wiki `![…]` when captured)
 
@@ -403,7 +473,7 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 6. **Alerts** — policy card if chrome drifted  
 7. **1.2 pack** — only if a caption/PNG disagree  
 
-Maintainer freeze clicks (not wiki): [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/QA_v1.3.0.md) (historical). Current train: [QA_v1.4.0.md](../../../docs/QA_v1.4.0.md). Cap (not this pack): ACME · M-live · full NPM CRUD.
+Maintainer freeze clicks (not wiki): [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/QA_v1.3.0.md) (historical). Current train: [QA_v1.7.0.md](../../../docs/QA_v1.7.0.md). Cap (not this pack): ACME · M-live · full NPM CRUD · Bak-alt · AC-fg · Undo-2 · Mux-2.
 
 ---
 
@@ -412,8 +482,8 @@ Maintainer freeze clicks (not wiki): [QA_v1.3.0.md](https://github.com/bjorngluc
 **Best practice: local git → commit → push** (binaries + markdown).
 
 ```bash
-git checkout v1.5.0-dev && git pull
-# optional: git checkout -b docs/screenshots-1.4
+git checkout v1.7.0-dev && git pull
+# optional: git checkout -b docs/screenshots-1.7
 
 python3 -m venv .venv-docs && source .venv-docs/bin/activate
 pip install -r requirements-docs.txt
@@ -425,7 +495,7 @@ mkdocs serve   # http://127.0.0.1:8000
 
 mkdocs build --strict
 git add wiki/assets/screenshots/*.png wiki/**/*.md
-git commit -m "docs(wiki): screenshot pack for v1.4.0"
+git commit -m "docs(wiki): screenshot pack for v1.7.0"
 git push
 ```
 
@@ -434,7 +504,7 @@ After merge to the docs deploy branch / tag, hard-refresh the live site.
 ### Checklist before commit
 
 - [ ] PNG names match Markdown references  
-- [ ] New 1.4 files have a wiki `![…]` (or stay unlinked only if still WIP)  
+- [ ] New 1.7 files have a wiki `![…]` (or stay unlinked only if still WIP)  
 - [ ] Light desktop for defaults; dark/mobile only where planned  
 - [ ] Sensitive hostnames/IPs redacted if needed  
 - [ ] No real SMTP passwords, API tokens, client secrets, backup codes, or PEM material in frames  

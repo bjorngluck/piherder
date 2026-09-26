@@ -298,3 +298,78 @@ def test_diagnose_rejects_empty_and_unknown():
     unknown = tok.diagnose_plaintext_token(session, "ph_notarealtokenvalue000000000000", client_ip="1.1.1.1")
     assert unknown["ok"] is False
     assert unknown["error"] == "invalid_or_revoked"
+
+
+def test_bearer_feature_patch_audits_token_actor(tmp_path, monkeypatch):
+    """Mutations record api_token_id. Ordinary reads do not."""
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from sqlmodel import Session, SQLModel, create_engine, select
+
+    from app.database import get_session
+    from app.main import app
+    from app.models import AuditLog, Server, User
+    from app.security.auth import get_password_hash
+
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'tok-audit.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    def _session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = _session
+    client = TestClient(app, raise_server_exceptions=False)
+    try:
+        with Session(engine) as s:
+            user = User(
+                email="tok-audit@test.local",
+                hashed_password=get_password_hash("SmokeTest1ok"),
+                role="admin",
+                is_active=True,
+                must_change_password=False,
+                totp_enabled=False,
+            )
+            s.add(user)
+            srv = Server(
+                name="Lab",
+                hostname="lab.local",
+                ssh_username="pi",
+                backup_enabled=True,
+            )
+            s.add(srv)
+            s.commit()
+            s.refresh(user)
+            s.refresh(srv)
+            _row, plain = tok.create_api_token(
+                s, name="mcp", created_by=user, scopes=["read", "edit"]
+            )
+            token_id = _row.id
+            sid = srv.id
+
+        auth = {"Authorization": f"Bearer {plain}"}
+        health = client.get("/api/v1/health", headers=auth)
+        assert health.status_code == 200
+        with Session(engine) as s:
+            assert list(s.exec(select(AuditLog)).all()) == []
+
+        patched = client.patch(
+            f"/api/v1/servers/{sid}/features",
+            headers=auth,
+            json={"backup": False},
+        )
+        assert patched.status_code == 200
+        with Session(engine) as s:
+            rows = list(s.exec(select(AuditLog)).all())
+        assert len(rows) == 1
+        assert rows[0].action == "server_features_updated"
+        assert rows[0].api_token_id == token_id
+        assert rows[0].api_token_name == "mcp"
+        assert rows[0].status == "success"
+    finally:
+        app.dependency_overrides.clear()

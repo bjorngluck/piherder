@@ -33,7 +33,7 @@ Authorization: Bearer ph_<secret>
 | `files` | Host Files fleet list / download / upload / mkdir / rename / empty-delete — not in default scopes. Privileged, zip, edit, chmod, recursive delete stay UI + 2FA. Richer Files token API is still out of 1.4. |
 | `feature:backup` | Restrict `jobs` to backup-related types when any `feature:*` is set |
 | `feature:os` | OS patch / OS update-check jobs (apt **or** HAOS `ha` CLI when `os_type=haos`) |
-| `feature:docker` | Container patch / container update-check / stack check-deploy jobs |
+| `feature:docker` | Container patch, container update-check, compose stack check/deploy/stop/start/restart, and template deploy/redeploy jobs |
 
 If **no** `feature:*` scopes are set, any job type allowed by `jobs` may run (still subject to server feature flags). Prefer least privilege: e.g. n8n backups = `read` + `jobs` + `feature:backup`.
 
@@ -63,3 +63,7 @@ curl -sS -X POST -H "Authorization: Bearer $PH_TOKEN" \
 ```
 
 Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backup` + n8n host IP.
+
+## Agents (MCP)
+
+Cursor, Grok Build, Claude, and Codex can call this same API through a **stdio** process on the agent machine. It is a v1.7 piece in its own repo, not a service in this image, and not a port on the herder. Scopes above are the tool list: `read` always, and `jobs` / `edit` / `files` only when the token has them. Operator page: [Agents (MCP)](mcp.md).

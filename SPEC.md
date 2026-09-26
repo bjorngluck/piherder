@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** Historical phase checklist (v1.0 era). **Hub production:** [v1.6.0](docs/RELEASE_v1.6.0.md) · [PLAN](docs/PLAN_v1.6.0.md). Next parked: [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md). Prior: [v1.5.0](docs/RELEASE_v1.5.0.md).  
-> **Last updated:** 2026-09-19 — do not treat this file as the operator guide (use the wiki + RELEASE).
+> **Status:** Historical phase checklist (v1.0 era). **Hub production:** [v1.6.0](docs/RELEASE_v1.6.0.md) · [PLAN](docs/PLAN_v1.6.0.md). Active train: [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md) on `v1.7.0-dev` (MCP-1 0.1.0, Jr-1, Jr-2, Brand-1, Brand-2, Q, and HA-cards landed; walks open). Prior: [v1.5.0](docs/RELEASE_v1.5.0.md).  
+> **Last updated:** 2026-09-26 — do not treat this file as the operator guide (use the wiki + RELEASE).
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -126,9 +126,9 @@ Related backup hardening (same phase):
 - [x] **Per-server backup path allow/deny rules** — default deny OS roots; optional allow/deny prefixes on Backups page; enforced on add-source + `run_backup`.
 
 - [x] **Built-in scheduler UI for container/OS patch apply** — Edit server → Schedules tab; opt-in, default off
-- [x] **Token REST API (v1)** — admin-managed Bearer tokens (`ph_…`); scopes `read`/`jobs`/`edit` + optional `feature:*`; IP/CIDR allowlist; `PATCH …/features`; docs in [docs/API.md](docs/API.md) + `/docs`
+- [x] **Token REST API (v1)** — admin-managed Bearer tokens (`ph_…`); scopes `read`/`jobs`/`edit`/`files` + optional `feature:*`; IP/CIDR allowlist; `PATCH …/features`; docs in [docs/API.md](docs/API.md) + `/docs`. The v1.7 MCP process is a separate stdio client of these routes. It is not a listener in this image. `host_reboot` is on the jobs POST; the MCP tool list does not include it.
 - [x] **Webhook / notification integration** — env `WEBHOOK_*` on new alerts + job finish; optional **Web Push** (VAPID) on new open notifications — see [PWA/push plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md)
-- [x] **Per-server OS-patch and container-patch apply cron** — APScheduler → thread pool; only-if-updates; skip if job active; audit as system/scheduler
+- [x] **Per-server OS-patch and container-patch apply cron** — APScheduler enqueues Celery `exclusive_job` (default queue); only-if-updates; skip if job active; audit as system/scheduler. A web recycle does not fail the row. A worker recycle fails a **running** apply. SSH down stays pending until the host answers or the Settings wait elapses.
 - [x] **OS update check schedule (check-only)** — apt upgradable count + reboot flag; no auto-upgrade — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [x] **Container update check schedule (check-only)** — pull + image ID compare; no `up -d` — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [x] **In-app notification center** — bell, dismiss, deep links (OS/container updates, reboot pending, failed backups); separate from AuditLog — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
@@ -352,7 +352,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [ ] Expanded curated pack (Frigate, HA, n8n, media, …)
 - [ ] Plugin hooks / event webhooks (`job.completed`, `server.added`, …) — prefer REST + n8n over code exec
 - [ ] Ansible inventory / cloud-init bootstrap for new Pis (overlaps H2.75 P4 imaging depth)
-- [ ] Home Assistant: HACS integration on HA (fleet + host devices + fleet Lovelace card; container/service/disk sensors from snapshots; details in PiHerder) — **v1.6 Active**, Slice 1 and 1b landed on `v1.6.0-dev` (plugin **0.2.3**); not frozen ([PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7)
+- [x] Home Assistant: HACS integration on HA (fleet + host devices + fleet Lovelace card; container/service/disk sensors from snapshots; details in PiHerder) — **v1.6.0 tagged**, plugin **0.2.4** ([PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7). **v1.7 HA-cards** (plugin **0.3.0**: host, updates, and resources cards, plus `host_reboot`) landed on `v1.7.0-dev`; operator walk still open ([PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md))
 - [ ] Optional AI (OpenAI-compatible BYO; off by default; no private keys in prompts)
 - [ ] Community: Discord + Discussions; project website / clickthrough
 
@@ -369,18 +369,20 @@ flowchart TB
     subgraph Core["Core Services (Docker Compose — supported)"]
         FastAPI --> DB[(PostgreSQL)]
         FastAPI --> Scheduler["APScheduler (cron)"]
-        FastAPI --> Celery["Celery worker(s) — backups + Move; CELERY_CONCURRENCY; per-server mutex"]
+        FastAPI --> Celery["Celery worker(s) — backups, Move, exclusive jobs"]
     end
 
-    Scheduler -->|enqueue scheduled jobs| Celery
+    Scheduler -->|backup, patch/check, stale cleanup| Celery
+    Scheduler -->|host facts| FastAPI
     Celery -->|reads/writes| DB
     Celery -->|Paramiko SSH + rsync/docker/apt| PiFleet["Remote Pi fleet"]
+    FastAPI -->|console, files, retention, herder backup, host facts| PiFleet
 
     FastAPI -->|DB reads for UI| DB
     FastAPI -.->|progress polling via Job.details| Celery
 ```
 
-Deployment: **Docker Compose** is the committed topology. Kubernetes and local/bare install are under consideration only (see [ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)). Celery concurrency defaults to 2 with a Redis per-server backup mutex (see multi-worker in the roadmap).
+Deployment: **Docker Compose** is the committed topology. Kubernetes and local/bare install are under consideration only (see [ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)). Celery concurrency defaults to 2 with a Redis per-server backup mutex (see multi-worker in the roadmap). Exclusive jobs (`os_patch`, container patch, update checks, stack and template jobs, `host_reboot`) use the same default queue and do not take that mutex. `retention`, `herder_backup`, and host-facts snapshots stay in the web process. nmap stays on `celery-worker-nmap`.
 
 **Key flows (technical view):**
 

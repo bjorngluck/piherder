@@ -205,6 +205,7 @@ nav:
       - Metrics & webhooks: operations/metrics-webhooks.md
       - Alerts (email & webhooks): operations/alerts-email-webhooks.md
       - API tokens: operations/api-tokens.md
+      - Agents (MCP): operations/mcp.md
       - Public demo: operations/demo-site.md
   - Troubleshooting:
       - Overview: troubleshooting/index.md

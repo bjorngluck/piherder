@@ -42,14 +42,15 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 | Type | Typical trigger | Runner |
 |------|-----------------|--------|
 | `backup` | Manual or backup cron | **Celery** |
-| `os_patch` / `container_patch` | Manual or apply schedule | Web background |
-| `os_update_check` / `container_update_check` | Manual or check schedule | Web background |
-| `docker_stack_check` / `docker_stack_deploy` | Stack ⋯ Check updates / Deploy | Web background |
-| `docker_stack_stop` / `_start` / `_restart` | Project ⋯ Stop/Start/Restart all | Web background |
+| `os_patch` / `container_patch` | Manual or apply schedule | **Celery** (default queue). SSH down: stays pending and retries. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job |
+| `host_reboot` | Server **Reboot** or the Home Assistant host card | **Celery** (default queue). Refused while an OS patch, container patch, or backup is active on that host. SSH down: stays pending. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job |
+| `os_update_check` / `container_update_check` | Manual or check schedule | **Celery** (default queue) |
+| `docker_stack_check` / `docker_stack_deploy` | Stack ⋯ Check updates / Deploy | **Celery** (default queue) |
+| `docker_stack_stop` / `_start` / `_restart` | Project ⋯ Stop/Start/Restart all | **Celery** (default queue) |
 | `service_migrate` | Docker **Move to another host…** (flag `PIHERDER_SERVICE_MIGRATE`) | **Celery** (same worker as backups). Recycle **web** is safe. Recycle **worker** mid-copy **fails** the job (staging kept; **Start source stack** when copy/dest-up had begun). JobHold stays until Close. |
 | `service_migrate_undo` | **Undo move** on a Move that failed after names flipped (cutover / rebind / validate). Preview, then confirm | **Celery**, same dual-host lock. Stops dest (`compose stop`, not `down -v`) and starts source. A green Move has no Undo. Recycle **worker** mid-undo fails that undo and leaves the dest tree |
-| `template_deploy` / `template_redeploy` | Catalog template confirm / Save & redeploy | Web background |
-| `template_drift_check` | Deployment **Check drift** (live log) | Web background |
+| `template_deploy` / `template_redeploy` | Catalog template confirm / Save & redeploy | **Celery** (default queue, stack-mutation lane) |
+| `template_drift_check` | Deployment **Check drift** (live log) | **Celery** (default queue) |
 | `retention` | Per-server backup file retention | As configured |
 | `stale_data_cleanup` | Opt-in Jobs / Audit / nmap-run purge | Scheduler or Settings → Run now |
 | `nmap_discover` / `nmap_inventory` / `nmap_detailed` / `nmap_host_deep` | LAN Discovery scans | **celery-worker-nmap** (`-Q nmap`) |
@@ -58,13 +59,13 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 
 Statuses: `pending` → `running` → `success` / `failed`.
 
-**Web restart:** OS/container patch and other **web-process** jobs (not Celery backups / nmap / **Move**) that are still pending or running are **failed on startup**. They cannot still be executing after uvicorn exits; leaving them blocked new exclusive work on that host. **Move** (`service_migrate`) is Celery — a web recycle does **not** fail it. Recycle **celery-worker** mid-Move **does** fail the job (honest; staging kept). Bulk **Upgrade OS** runs on a shared patch thread pool (several hosts at once), not one sequential BackgroundTasks chain.
+**Web restart:** `retention`, the herder’s own backup, and host-facts snapshots that are still pending or running are **failed on startup**. They cannot still be executing after uvicorn exits. **OS/container patch, host reboot, update checks, stack jobs, template jobs, backups, nmap, and Move** are Celery — a web recycle does **not** fail them. Recycle **celery-worker** while a patch, stack mutate, or Move is **running** **fails** that job (it is not resumed mid-flight). If SSH is down at the start of a patch or stack job, the row stays **pending** and is probed again until the host answers or the wait limit (Settings → General → Jobs, default 30 minutes). A Kuma “host down” alert or a `last_seen` older than 15 minutes can show **waiting on host** on that pending job. Those are labels. The job resumes only when SSH works, and they do not fail it. See [Multi-worker](../operations/multi-worker.md).
 
 ### Exclusive jobs (one per type per host)
 
 These types do not stack on the same server while already **pending** or **running**:
 
-- `os_patch`, `container_patch`  
+- `os_patch`, `container_patch`, `host_reboot` (also waits for a patch or backup, and those wait for a reboot)  
 - `os_update_check`, `container_update_check`  
 - Stack lifecycle + template deploy/redeploy (shared **stack mutation** lane on the host)  
 - `service_migrate` and `service_migrate_undo` — exclusive with backup **and** stack mutation on **both** source and dest  
@@ -134,11 +135,11 @@ Each backup job writes append-only phases:
 | Phase | Action | Meaning |
 |-------|--------|---------|
 | request | `backup_request` | User / schedule / bulk asked for a backup |
-| queued | `backup_queued` | Waiting for a Celery worker |
-| running | `backup_running` | Worker started rsync |
+| queued | `backup_queued` | Waiting for a Celery worker (snapshot, `info`) |
+| running | `backup_running` | Worker started rsync (snapshot, `info`) |
 | complete | `backup` | Terminal success or failure |
 
-**Completed backups** show a summary line with source count and total size (e.g. `2 sources · 1.5 MB`), duration, and a detail modal with per-source sizes. Incomplete/running noise can be hidden with **Hide incomplete runs**.
+**Completed backups** show a summary line with source count and total size (e.g. `2 sources · 1.5 MB`), duration, and a detail modal with per-source sizes. Queued and running phase rows are noise: **Hide incomplete runs** hides them, and they are left out of the Audit **active** pulse. Older rows that still say `running` are treated the same way.
 
 ### Timezone display
 
@@ -158,4 +159,4 @@ Job, nmap-run, and console-open **history** is aggregated on [Reports](reports.m
 
 ## API
 
-Automation can list/trigger jobs with Bearer tokens — [API tokens](../operations/api-tokens.md).
+Automation can list and trigger jobs with Bearer tokens — [API tokens](../operations/api-tokens.md). The v1.7 agent process uses that same list and the same **409** when a job is already active — [Agents (MCP)](../operations/mcp.md). Compose stack actions and Move stay in the browser.

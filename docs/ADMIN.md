@@ -225,7 +225,7 @@ Also skipped when:
 - Feature or apply toggle is off
 - A job of the same type is already **pending/running** on that server
 
-Manual UI/API triggers share the same exclusivity: a second `os_patch` / `container_patch` / update-check on a host that already has that type **pending/running** reuses the existing job (HTTP **409** + `already_active` on async/API paths). Celery multi-slot concurrency does **not** re-run these jobs — they execute on the web process. See [wiki multi-worker](../wiki/operations/multi-worker.md).
+Manual UI/API triggers share the same exclusivity: a second `os_patch` / `container_patch` / update-check on a host that already has that type **pending/running** reuses the existing job (HTTP **409** + `already_active` on async/API paths). Those jobs run as `exclusive_job` on the default Celery queue. Raising `CELERY_CONCURRENCY` does not start a second one. See [wiki multi-worker](../wiki/operations/multi-worker.md).
 
 Scheduled apply/audit attribution shows as **system / scheduler** (no user id).
 
@@ -376,13 +376,16 @@ A row in the job queue for long-running work:
 | Type | Typical trigger |
 |------|-----------------|
 | `backup` | Manual or backup cron → Celery |
-| `os_patch` / `container_patch` | Manual or apply schedule → thread pool / UI background task |
-| `os_update_check` / `container_update_check` | Manual or check schedule |
-| `retention` | Per-server backup file retention |
-| `stale_data_cleanup` | Opt-in Jobs / Audit / nmap-run purge (Settings → General) |
+| `os_patch` / `container_patch` | Manual or apply schedule → Celery `exclusive_job` |
+| `os_update_check` / `container_update_check` / `docker_stack_check` | Manual or check schedule → Celery `exclusive_job` |
+| `docker_stack_*` / `template_deploy` / `template_redeploy` / `template_drift_check` | Compose and Catalog actions → Celery `exclusive_job` |
+| `host_reboot` | Server **Reboot** or the Home Assistant host card → Celery `exclusive_job`. Refused while OS patch, container patch, or backup is active |
+| `retention` | Per-server backup file retention — **web** process |
+| `stale_data_cleanup` | Opt-in Jobs / Audit / nmap-run purge (Settings → General) → Celery default queue |
 | `nmap_discover` / `nmap_inventory` / `nmap_detailed` / `nmap_host_deep` | LAN Discovery scans → **celery-worker-nmap** (`-Q nmap`) |
 | `nmap_vuln_db_update` | Vuln pack download on nmap worker |
-| `herder_backup` | PiHerder self-backup |
+| `herder_backup` | PiHerder self-backup — **web** process |
+| `host_facts` | Fleet snapshot on the scheduler — **web** process |
 
 Statuses: `pending` → `running` → `success` / `failed`.
 
@@ -401,7 +404,9 @@ While a job runs, server UI modals (JobHold / progress) poll job status and log 
 
 | Types | Rule |
 |-------|------|
-| `os_patch`, `container_patch`, `os_update_check`, `container_update_check` | At most one **pending/running** of that type per server |
+| `os_patch`, `container_patch`, `os_update_check`, `container_update_check`, `docker_stack_check`, `template_drift_check` | At most one **pending/running** of that type per server. Celery `exclusive_job`. No backup mutex |
+| `docker_stack_deploy` / `_stop` / `_start` / `_restart` / `_down` / `_remove`, `template_deploy`, `template_redeploy` | One active stack mutation per host (shared lane) |
+| `host_reboot` | One reboot per host. Also refused while `os_patch`, `container_patch`, or `backup` is pending or running |
 | `backup` | Per-host Redis mutex + Celery (separate path) |
 
 ### Reports (PiHerder history)
@@ -419,7 +424,7 @@ Aggregates **Job** history, **nmap scan runs**, and **console Audit**: backups, 
 
 ### Backup audit completion
 
-Backup jobs write lifecycle events (`backup_request` → `backup_queued` → `backup_running` → terminal `backup`). The **completed** row includes a compact snippet (per-source sizes, totals) so the Audit feed can show e.g. `2 sources · 1.5 MB` and duration. Use **Hide incomplete runs** to hide in-progress noise.
+Backup jobs write lifecycle events (`backup_request` → `backup_queued` → `backup_running` → terminal `backup`). Queued and running rows are phase snapshots (`status=info` on new rows). They are audit noise: **Hide incomplete runs** hides them, and they do not count in the Audit **active** pulse. The **completed** `backup` row includes a compact snippet (per-source sizes, totals) so the Audit feed can show e.g. `2 sources · 1.5 MB` and duration.
 
 ### App timezone (display)
 
@@ -435,6 +440,23 @@ Backup jobs write lifecycle events (`backup_request` → `backup_queued` → `ba
 | Schedules / self-backup cron | Fire times interpreted in app zone |
 
 Storage remains **UTC** (DB `datetime.utcnow()`). Changing the timezone only changes display (and schedule wall-clock), not historical raw values.
+
+### Instance chrome (v1.7 train)
+
+**Settings → General → Instance** (admin). On `v1.7.0-dev` only; the **1.6.0** image has no card.
+
+| Knob | Behaviour |
+|------|-----------|
+| Instance name | Max 40. Empty keeps the Pi / Herder wordmark. A name is the header, footer, sign-in wordmark, `apple-mobile-web-app-title`, and `/manifest.webmanifest` `name` (short name = first 12 characters). |
+| Accent | `--color-accent` and the subtle accent background only. `#00a651` stores as the built-in green. `#e60012` is rejected. Mark PNGs and `theme_color` stay `#e60012`. |
+| Show Catalog in the navigation | Default on. Off hides Catalog in the desktop nav and the phone menu. `/catalog` still opens. Same for every account. No env lock. |
+| Env locks | Non-blank `PIHERDER_INSTANCE_NAME` / `PIHERDER_ACCENT` lock that field. Demo mode ignores the saved values and both env vars and keeps official chrome. |
+
+Wiki: [Appearance](../wiki/getting-started/appearance.md).
+
+### Exclusive host wait (v1.7 train)
+
+**Settings → General → Jobs.** Minutes 1–1440, stored as seconds, default 1800. `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` locks the field (30–86400). The worker reads the database on each SSH probe. A Kuma SSH-down binding, an open `host_down` notification, or `last_seen` older than 15 minutes can label a pending exclusive job **waiting on host**. That label does not resume or fail the job. Wiki: [Multi-worker](../wiki/operations/multi-worker.md).
 
 ---
 
@@ -584,7 +606,7 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
 | **Image pin** | Prefer a tagged image: Hub **`1.6.0`** / `1.6` / `latest` (`1.5.0` / `1.5` / `1.4.x` pins remain valid) |
 
-Current production: [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [QA_v1.6.0.md](QA_v1.6.0.md). Next parked: [PLAN_v1.7.0.md](PLAN_v1.7.0.md). Prior: [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current production: [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [QA_v1.6.0.md](QA_v1.6.0.md). Active train: [PLAN_v1.7.0.md](PLAN_v1.7.0.md) on `v1.7.0-dev` (MCP client of `/api/v1`, then remaining exclusive jobs on Celery). Operator: [Agents (MCP)](../wiki/operations/mcp.md). Prior: [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 
@@ -885,11 +907,11 @@ Set `METRICS_TOKEN` whenever `/metrics` is not on a fully private network. Serie
 
 ### Image publish (when ready)
 
-Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`1.6.0` / `1.6` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v1.6.0** — [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md). Next parked: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
+Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`1.6.0` / `1.6` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v1.6.0** — [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md). Active train: [PLAN_v1.7.0.md](PLAN_v1.7.0.md) on `v1.7.0-dev` (package stays `1.6.0` until freeze). MCP stays a separate stdio process, not a listener in this image.
 
 **Supported deploy path:** Docker Compose (this repo). Platform reliability (host dependency checks, Settings → **Status**, multi-worker Celery) is live — see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 0.5. Kubernetes and bare/local install are under consideration only, not supported install paths today.
 
-### Multi-worker Celery (backups + Move)
+### Multi-worker Celery (backups, Move, exclusive jobs)
 
 Backups can run **in parallel across different hosts**. The same host never has two active backups at once (Redis mutex `piherder:server_lock:backup:{server_id}`). **Move** (`service_migrate`) takes that same mutex on **both** source and dest (lower id first) so a backup cannot overlap a copy. Recycle **web** does not fail a running Move; recycle **celery-worker** does.
 
@@ -910,7 +932,7 @@ Backups can run **in parallel across different hosts**. The same host never has 
 
 Optional multi-container scale: remove `container_name` from `celery-worker` and run `docker compose up -d --scale celery-worker=N` (same image, volumes, Redis). Status will show **N nodes** and sum of pool slots.
 
-**Celery:** `backup` and `service_migrate` (plus nmap on the nmap worker, stale cleanup). **Not Celery:** OS/container patch, update checks, stack lifecycle, templates — those still run on **web** (BackgroundTasks / thread pools). Exclusive DB rules prevent two concurrent jobs of the same type on one host. Raising `CELERY_CONCURRENCY` does not double-run a container patch. Wiki: [Multi-worker](../wiki/operations/multi-worker.md).
+**Celery default queue:** `backup`, `service_migrate`, `service_migrate_undo`, stale cleanup, and `exclusive_job` (OS/container patch, update checks, stack lifecycle, templates, `host_reboot`). **nmap queue:** LAN scans and the vuln pack, on `celery-worker-nmap` only. **Web process:** `retention`, `herder_backup`, and `host_facts` — a web recycle fails those rows. Exclusive DB rules still prevent two concurrent jobs of the same type on one host. Raising `CELERY_CONCURRENCY` does not double-run a container patch. Recycling **web** does not fail an exclusive job. Recycling **celery-worker** fails one that is **running**. Wiki: [Multi-worker](../wiki/operations/multi-worker.md).
 
 Full env list: [`.env.example`](../.env.example).
 
@@ -945,7 +967,7 @@ Probes tools needed for **enabled** features only (`rsync` / sudo path, `docker`
 | Revoke | Soft-disables secret; **row is kept** (name, id, scopes) for audit trail — never hard-deleted in UI |
 | List filter | **Active** (default) · **Revoked** · **All** — counts on each pill |
 | Last used | Updated on each successful Bearer request; shown in Settings |
-| Audit trail | Link per token → `/audit?api_token_id=…` (actor shows token **name** + **id**; works after revoke) |
+| Audit trail | Link per token → `/audit?api_token_id=…` (actor shows token **name** + **id**; works after revoke). Mutations (jobs, feature flags, host-file writes, and host-file list/download) record that actor. Ordinary read GETs (health, summary, servers, inventory, jobs) do not |
 | Server flags | Jobs still require the server’s feature enabled (toggle via UI or `PATCH …/features`) |
 
 | Scope | Allows |
