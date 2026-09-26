@@ -16,6 +16,7 @@ from sqlmodel import Session, col, select
 
 from ..models import AuditLog, Job, NmapDevice, NmapScanRun, NmapScriptResult
 from . import app_settings as app_cfg
+from .audit_write import make_audit_log, resolve_client_ip
 from .nmap.job_progress import merge_job_details, stamp_line
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,75 @@ def _nmap_run_is_stale(run: NmapScanRun, cut: datetime) -> bool:
         return False
     ts = run.finished_at or run.created_at
     return bool(ts and ts < cut)
+
+
+def _opt_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _actor_from_job(session: Session, job_id: int | None) -> dict[str, Any]:
+    """Actor snapshotted onto the job at enqueue (request is gone in the worker)."""
+    actor: dict[str, Any] = {
+        "user_id": None,
+        "api_token_id": None,
+        "api_token_name": None,
+        "client_ip": None,
+    }
+    if not job_id:
+        return actor
+    job = session.get(Job, job_id)
+    if not job or not job.details:
+        return actor
+    try:
+        data = json.loads(job.details) or {}
+    except Exception:
+        return actor
+    if not isinstance(data, dict):
+        return actor
+    actor["user_id"] = _opt_int(data.get("user_id"))
+    actor["api_token_id"] = _opt_int(data.get("api_token_id"))
+    name = data.get("api_token_name")
+    if name:
+        actor["api_token_name"] = str(name)[:120]
+    ip = data.get("client_ip")
+    if ip:
+        actor["client_ip"] = str(ip)[:64]
+    return actor
+
+
+def _record_cleanup_audit(
+    session: Session,
+    job_id: int | None,
+    *,
+    status: str,
+    summary: str,
+    result: dict | None = None,
+) -> None:
+    """Fleet audit for a finished cleanup. Copies token + IP from the job row."""
+    actor = _actor_from_job(session, job_id)
+    session.add(
+        make_audit_log(
+            user_id=actor["user_id"],
+            server_id=None,
+            api_token_id=actor["api_token_id"],
+            api_token_name=actor["api_token_name"],
+            action=JOB_TYPE,
+            status=status,
+            details=summary,
+            output_snippet=(
+                json.dumps(result, default=str)[:2000] if result is not None else None
+            ),
+            started_at=datetime.utcnow(),
+            finished_at=datetime.utcnow(),
+            client_ip=actor["client_ip"],
+        )
+    )
+    session.commit()
 
 
 def preview_cleanup(session: Session, cfg: dict | None = None) -> dict[str, Any]:
@@ -266,6 +336,13 @@ def run_stale_data_cleanup(
             log_line=stamp_line(summary),
             extra={"result": result, "result_snippet": summary},
         )
+        if job_id:
+            try:
+                _record_cleanup_audit(
+                    session, job_id, status="success", summary=summary, result=result
+                )
+            except Exception as e:
+                logger.debug("audit for cleanup dry-run skipped: %s", e)
         return result
 
     try:
@@ -336,23 +413,10 @@ def run_stale_data_cleanup(
             log_line=stamp_line(summary),
             extra={"result": result, "result_snippet": summary},
         )
-        # Fleet audit
         try:
-            from .audit_write import make_audit_log
-
-            session.add(
-                make_audit_log(
-                    user_id=None,
-                    server_id=None,
-                    action="stale_data_cleanup",
-                    status="success",
-                    details=summary,
-                    output_snippet=json.dumps(result, default=str)[:2000],
-                    started_at=datetime.utcnow(),
-                    finished_at=datetime.utcnow(),
-                )
+            _record_cleanup_audit(
+                session, job_id, status="success", summary=summary, result=result
             )
-            session.commit()
         except Exception as e:
             logger.debug("audit for cleanup skipped: %s", e)
         return result
@@ -370,6 +434,12 @@ def run_stale_data_cleanup(
         )
         result["status"] = "failed"
         result["error"] = err
+        try:
+            _record_cleanup_audit(
+                session, job_id, status="failed", summary=err, result=result
+            )
+        except Exception as audit_err:
+            logger.debug("audit for cleanup failure skipped: %s", audit_err)
         return result
 
 
@@ -377,30 +447,42 @@ def enqueue_stale_data_cleanup(
     session: Session,
     *,
     user_id: int | None = None,
+    api_token_id: int | None = None,
+    api_token_name: str | None = None,
+    client_ip: str | None = None,
     dry_run: bool = False,
 ) -> Job:
-    """Create Job and dispatch to default Celery queue."""
+    """Create Job and dispatch to default Celery queue.
+
+    Snapshots the HTTP actor (user, API token, client IP) onto the job so the
+    worker can write the audit after the request context is gone.
+    """
     from ..celery_app import celery
 
     conf = cleanup_config()
+    ip = resolve_client_ip(client_ip)
+    payload: dict[str, Any] = {
+        "current": "queued",
+        "summary": (
+            f"Queued stale data cleanup"
+            f"{' (dry-run)' if dry_run else ''}"
+        ),
+        "user_id": user_id,
+        "dry_run": dry_run,
+        "config": conf,
+        "log_lines": [stamp_line("Queued stale data cleanup")],
+    }
+    if api_token_id is not None:
+        payload["api_token_id"] = int(api_token_id)
+    if api_token_name:
+        payload["api_token_name"] = str(api_token_name)[:120]
+    if ip:
+        payload["client_ip"] = ip
     job = Job(
         server_id=None,
         job_type=JOB_TYPE,
         status="pending",
-        details=json.dumps(
-            {
-                "current": "queued",
-                "summary": (
-                    f"Queued stale data cleanup"
-                    f"{' (dry-run)' if dry_run else ''}"
-                ),
-                "user_id": user_id,
-                "dry_run": dry_run,
-                "config": conf,
-                "log_lines": [stamp_line("Queued stale data cleanup")],
-            },
-            separators=(",", ":"),
-        ),
+        details=json.dumps(payload, separators=(",", ":")),
     )
     session.add(job)
     session.commit()
@@ -414,4 +496,20 @@ def enqueue_stale_data_cleanup(
     session.add(job)
     session.commit()
     session.refresh(job)
+    if user_id is not None or api_token_id is not None:
+        session.add(
+            make_audit_log(
+                user_id=user_id,
+                server_id=None,
+                api_token_id=api_token_id,
+                api_token_name=api_token_name,
+                action="stale_data_cleanup_queued",
+                status="success",
+                details=f"job={job.id} dry_run={dry_run}",
+                started_at=datetime.utcnow(),
+                finished_at=datetime.utcnow(),
+                client_ip=ip,
+            )
+        )
+        session.commit()
     return job

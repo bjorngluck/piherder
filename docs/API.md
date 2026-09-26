@@ -228,6 +228,18 @@ That table is the allowlist (`JOB_FEATURE_KEY`). Anything else, including `docke
 
 This POST is broader than the MCP adapter. MCP `trigger_job` stays `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, and `container_update_check`. It does not expose `host_reboot`, the `docker_stack_*` types, or `template_deploy` / `template_redeploy`. `host_reboot` is for the herder UI and the Home Assistant plugin. A `jobs` token with `feature:docker` can still call the stack types on this route.
 
+### Stale data cleanup
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| `POST` | `/api/v1/maintenance/stale-data-cleanup` | `jobs` | Queue fleet `stale_data_cleanup` (HTTP **202**) |
+
+```json
+{ "dry_run": false }
+```
+
+The token must have `jobs` and **no** `feature:*` scope. A feature-restricted token is **403**. This route is not an MCP tool. The queued audit and the finished audit both store that token (`api_token_id`, `api_token_name`) and the client IP. The worker copies them off the job, because the Celery task has no request.
+
 ### Token management (admin **session**, not Bearer token)
 
 | Method | Path | Auth |

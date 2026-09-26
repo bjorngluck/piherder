@@ -918,6 +918,58 @@ async def create_server_job(
     )
 
 
+# ---------- Fleet maintenance ----------
+
+
+class StaleCleanupBody(BaseModel):
+    dry_run: bool = False
+
+
+@router.post(
+    "/maintenance/stale-data-cleanup",
+    status_code=202,
+    summary="Queue stale data cleanup",
+    description=(
+        "Fleet purge of old jobs, audit rows, and optional nmap runs. "
+        "Requires scope jobs on a token that is not feature-restricted. "
+        "Not an MCP tool. The audit row records this token and the client IP."
+    ),
+)
+def api_queue_stale_data_cleanup(
+    body: StaleCleanupBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import stale_data_cleanup as sdc
+
+    auth.require(tok_svc.SCOPE_JOBS)
+    if tok_svc.feature_keys_allowed(auth.scopes) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Stale data cleanup needs a jobs token with no feature:* limit. "
+                "Feature-restricted tokens cannot purge fleet history."
+            ),
+        )
+    try:
+        job = sdc.enqueue_stale_data_cleanup(
+            session,
+            user_id=auth.user_id,
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
+            client_ip=auth.client_ip,
+            dry_run=bool(body.dry_run),
+        )
+    except Exception as e:
+        raise HTTPException(503, detail=str(e)[:200]) from e
+    return {
+        "job_id": job.id,
+        "status": job.status,
+        "job_type": job.job_type,
+        "dry_run": bool(body.dry_run),
+    }
+
+
 # ---------- Token admin (session cookie / JWT, admin only) ----------
 
 

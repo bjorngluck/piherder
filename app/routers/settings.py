@@ -1849,21 +1849,9 @@ async def run_data_cleanup_now(
     http_403_if_demo("settings_write")
     is_dry = dry_run in ("1", "on", "true", "yes")
     try:
-        job = sdc.enqueue_stale_data_cleanup(
+        sdc.enqueue_stale_data_cleanup(
             session, user_id=user.id, dry_run=is_dry
         )
-        session.add(
-            make_audit_log(
-                user_id=user.id,
-                server_id=None,
-                action="stale_data_cleanup_queued",
-                status="success",
-                details=f"job={job.id} dry_run={is_dry}",
-                started_at=datetime.utcnow(),
-                finished_at=datetime.utcnow(),
-            )
-        )
-        session.commit()
     except Exception as e:
         return RedirectResponse(
             _settings_url("general", error=str(e)[:160]), status_code=303
