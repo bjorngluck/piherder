@@ -1,6 +1,6 @@
 # PiHerder v1.7.0 — token-API MCP, then one job runtime
 
-**Status:** **Active** (train opened 2026-09-25). MCP-1 **0.1.0**, Jr-1, Jr-2, Brand-1, and Brand-2 are on this branch. Operator walks are open. Q (fail-under 80) is not started.  
+**Status:** **Active** (train opened 2026-09-25). MCP-1 **0.1.0**, Jr-1, Jr-2, Brand-1, and Brand-2 are on this branch. Operator walks are open. Q is in progress: last full compose run **77.78%** (38056/48927). CI fail-under stays **75** until the suite clears **80**.  
 **Date opened:** 2026-09-25 (inbox parked 2026-09-18)  
 **Git branch:** `v1.7.0-dev` → `main` · tag `v1.7.0` at freeze  
 **Package / image version:** **`1.6.0`** until freeze  
@@ -20,7 +20,7 @@ Agents that already hold a PiHerder token still have to call HTTP themselves. Th
 
 Move, undo, backup, and nmap already run on Celery. **Jr-1** moved OS patch, container patch, update checks, compose stack jobs, and template jobs onto the default Celery queue (`exclusive_job`). Recycling **web** does not fail them. `retention`, `herder_backup`, and `host_facts` still run in the web process.
 
-Instance chrome (wordmark, one accent, hide Catalog) was discovered in 1.5 and held out of 1.6. Brand-1 and Brand-2 have landed on this branch. They stay Should: they do not block the tag. The coverage step from 75% to 80% has not started and can still slip.
+Instance chrome (wordmark, one accent, hide Catalog) was discovered in 1.5 and held out of 1.6. Brand-1 and Brand-2 have landed on this branch. They stay Should: they do not block the tag. The coverage step from 75% to 80% is in progress (last compose **77.78%**) and can still slip.
 
 Wanted:
 
@@ -283,7 +283,7 @@ Patch and retention ask for a confirm before the call. The poll that fills the c
 |----------|------|-----|--------|
 | **Must** | **MCP-1** | stdio adapter in its own repo; read plus bearer writes (`jobs`, `edit`, `files`); four client samples; not in this image | Repo **0.1.0** (`fcd90cf`). Mocked tests green. Operator walk still open |
 | **Must** | **Jr-1** | Exclusive types on the default Celery queue; host-down waits; running mutate fails honest; web recycle does not fail them | Landed. Default host wait **1800s**. Operator walk still open |
-| **Should** | **Q** | CI fail-under **75 → 80**. Floor stays 75 if this slips | Not started |
+| **Should** | **Q** | CI fail-under **75 → 80**. Floor stays 75 if this slips | In progress. Compose **77.78%** (38056/48927) after `tests/test_coverage_v17_q4.py`. Pack `_q5` is not in that number. Fail-under stays **75** |
 | **Should** | **Brand-1** | Instance name + one accent; demo ignored | Landed. Operator walk still open |
 | **Should** | **Brand-2** | Hide Catalog in nav; `/catalog` still works | Landed. Operator walk still open |
 | **Should** | **Jr-2** | Settings max wait; Kuma/`last_seen` is a signal | Landed. Operator walk still open |
@@ -340,6 +340,7 @@ Patch and retention ask for a confirm before the call. The poll that fills the c
 | 2026-09-26 | **Brand-2 landed.** Instance card can hide Catalog in the nav. `/catalog` stays. Default show. Demo keeps the link. |
 | 2026-09-26 | Operator wiki matches the landed slices. [Appearance](../wiki/getting-started/appearance.md) and [Settings](../wiki/operations/settings.md) describe Instance and Jobs. Plan header no longer says “no product code”. |
 | 2026-09-26 | **HA-cards pulled in** as Should. Extra Lovelace cards plus confirm writes the bearer API already allows (six job types and backup / OS-patch / Docker flags). Not started. Plugin **0.2.4** stays read-only. Container start/stop, Move, Files, and the console stay out. The job-finished bus event stays Discover. |
+| 2026-09-26 | **Q started.** Full compose **77.78%** (38056/48927), 1677 passed, after `tests/test_coverage_v17_q4.py`. About **1,086** more covered lines to clear **80%**. CI `--cov-fail-under` stays **75**. Do not lower the floor. |
 
 ---
 
@@ -354,7 +355,7 @@ Patch and retention ask for a confirm before the call. The poll that fills the c
 | 4 | **MCP-1** adapter in [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) | **0.1.0** pushed (`fcd90cf`). Walk still open |
 | 5 | **Jr-1** exclusive types → default Celery queue | **Landed.** Walk still open ([QA_v1.7.0.md](QA_v1.7.0.md)) |
 | 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until walked |
-| 7 | Q / Brand-1 / Brand-2 / Jr-2 as capacity after Must | **Jr-2**, **Brand-1**, and **Brand-2** landed. Q not started |
+| 7 | Q / Brand-1 / Brand-2 / Jr-2 as capacity after Must | **Jr-2**, **Brand-1**, and **Brand-2** landed. Q in progress (**77.78%**, fail-under still **75**) |
 | 9 | **HA-cards** in piherder-ha | **Not started.** Should. May slip |
 | 8 | Freeze · `1.7.0` · tag · Hub | Only when asked |
 
