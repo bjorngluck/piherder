@@ -600,6 +600,12 @@ def api_meta_dict() -> dict:
             {"method": "POST", "path": "/api/v1/servers/{id}/jobs", "scope": "jobs", "summary": "Trigger job"},
             {"method": "GET", "path": "/api/v1/jobs", "scope": "read", "summary": "List jobs"},
             {"method": "GET", "path": "/api/v1/jobs/{id}", "scope": "read", "summary": "Job detail"},
+            {
+                "method": "POST",
+                "path": "/api/v1/maintenance/stale-data-cleanup",
+                "scope": "jobs",
+                "summary": "Queue stale data cleanup (not feature-restricted; not an MCP tool)",
+            },
             {"method": "GET", "path": "/api/v1/servers/{id}/files", "scope": "files", "summary": "List a jail-relative directory (fleet)"},
             {"method": "GET", "path": "/api/v1/servers/{id}/files/download", "scope": "files", "summary": "Download one file (fleet)"},
             {"method": "POST", "path": "/api/v1/servers/{id}/files", "scope": "files", "summary": "Upload one file (fleet)"},

@@ -33,7 +33,7 @@ File bodies returned to the agent are capped around **256 KiB**.
 
 ## What stays out
 
-SSH, the web console, Move, undo, compose stack actions, template deploy, nmap, DNS, certificates, Settings, and token create/revoke. Privileged Files, zip, chmod, and recursive delete stay in the browser. There is no remote HTTP MCP listener on the herder. The public demo is not a target.
+SSH, the web console, Move, undo, compose stack actions, template deploy, nmap, DNS, certificates, Settings, token create/revoke, and stale data cleanup. A `jobs` token with no `feature:*` limit can still `POST /api/v1/maintenance/stale-data-cleanup`; that call is not a tool here. Privileged Files, zip, chmod, and recursive delete stay in the browser. There is no remote HTTP MCP listener on the herder. The public demo is not a target.
 
 ## Client samples
 
