@@ -135,9 +135,11 @@ Settings → **General** → **Instance**. Boxes stay empty until you walk them.
 
 ## Brand-2 — hide Catalog (Should; may slip)
 
-- [ ] Default: Catalog still in the nav  
-- [ ] Hide removes the nav item and does **not** 404 `/catalog`  
-- [ ] Viewer and operator both follow the instance setting  
+Settings → **General** → **Instance** → **Show Catalog in the navigation**. Default is on. Boxes stay empty until you walk them. Rebuild **web** first.
+
+- [ ] Default: Catalog still in the nav. Desktop links and the phone menu both include Catalog  
+- [ ] Hide removes the nav item and does **not** 404 `/catalog`. Uncheck the box, save, reload. Catalog is gone from the header and the phone menu. Open `/catalog` directly. The page still loads, including its own tabs  
+- [ ] Viewer and operator both follow the instance setting. Sign in as a non-admin after the hide. Catalog is gone for that account too. Check the box again and save. Catalog returns for both  
 
 ## Jr-2 — max wait in Settings (Should; may slip)
 

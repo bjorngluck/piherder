@@ -8,6 +8,7 @@ from app.main import app
 
 from app.services.instance_brand import (
     accent_override_css,
+    catalog_nav_visible,
     effective_brand,
     normalize_accent,
 )
@@ -99,6 +100,32 @@ def test_manifest_name_follows_instance_and_keeps_red(monkeypatch):
     assert body["short_name"] == "Homelab"
     assert body["theme_color"] == "#e60012"
     assert "icon-192.png" in body["icons"][0]["src"]
+
+
+def test_catalog_nav_defaults_on_and_hides_for_every_role(monkeypatch):
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+    monkeypatch.setattr(
+        "app.services.app_settings.load_settings",
+        lambda: {"catalog_nav_hidden": False},
+    )
+    assert catalog_nav_visible() is True
+    monkeypatch.setattr(
+        "app.services.app_settings.load_settings",
+        lambda: {"catalog_nav_hidden": True},
+    )
+    assert catalog_nav_visible() is False
+    brand = effective_brand()
+    assert brand["catalog_hidden"] is True
+
+
+def test_demo_keeps_catalog_in_the_nav(monkeypatch):
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: True)
+    monkeypatch.setattr(
+        "app.services.app_settings.load_settings",
+        lambda: {"catalog_nav_hidden": True, "instance_name": "Other"},
+    )
+    assert catalog_nav_visible() is True
+    assert effective_brand()["catalog_hidden"] is False
 
 
 def test_demo_ignores_saved_brand(monkeypatch):

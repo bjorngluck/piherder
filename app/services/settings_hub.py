@@ -86,11 +86,19 @@ def alert_policy_line(alert_policy_ui: Mapping[str, Any] | None = None) -> str:
     return f"{len(on)} on · {len(muted)} muted"
 
 
-def instance_line(*, name: str = "", accent: str = "", demo: bool = False, locked: bool = False) -> str:
+def instance_line(
+    *,
+    name: str = "",
+    accent: str = "",
+    demo: bool = False,
+    locked: bool = False,
+    catalog_hidden: bool = False,
+) -> str:
     if demo:
         return "Official PiHerder"
     bits = [name or "PiHerder"]
     bits.append(accent or "official green")
+    bits.append("Catalog hidden" if catalog_hidden else "Catalog in nav")
     if locked:
         bits.append("env lock")
     return " · ".join(bits)
@@ -127,6 +135,7 @@ def hub_context(
     instance_accent: str = "",
     instance_demo: bool = False,
     instance_locked: bool = False,
+    catalog_hidden: bool = False,
 ) -> dict[str, str]:
     return {
         "instance": instance_line(
@@ -134,6 +143,7 @@ def hub_context(
             accent=instance_accent,
             demo=instance_demo,
             locked=instance_locked,
+            catalog_hidden=catalog_hidden,
         ),
         "security": security_line(cfg),
         "console": console_line(console_pol),

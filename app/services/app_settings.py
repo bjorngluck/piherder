@@ -42,6 +42,8 @@ DEFAULTS: Dict[str, Any] = {
     # Env PIHERDER_INSTANCE_NAME / PIHERDER_ACCENT lock the matching field.
     "instance_name": "",
     "instance_accent": "",
+    # Brand-2. False keeps Catalog in the nav. True hides the nav item only.
+    "catalog_nav_hidden": False,
     # Jr-2: how long an exclusive Celery job stays pending while SSH fails.
     # Env PIHERDER_EXCLUSIVE_HOST_WAIT_SEC locks this when set.
     "exclusive_host_wait_sec": 1800,

@@ -51,6 +51,18 @@ def normalize_accent(raw) -> str:
     return text
 
 
+def catalog_nav_visible() -> bool:
+    """Instance-wide. Demo always shows Catalog. Does not block /catalog."""
+    if _demo():
+        return True
+    try:
+        from .app_settings import load_settings
+
+        return not bool((load_settings() or {}).get("catalog_nav_hidden"))
+    except Exception:
+        return True
+
+
 def _stored() -> tuple[str, str]:
     try:
         from .app_settings import load_settings
@@ -77,6 +89,7 @@ def effective_brand() -> dict:
             "custom_accent": False,
             "name_locked": False,
             "accent_locked": False,
+            "catalog_hidden": False,
             "demo": True,
         }
     stored_name, stored_accent = _stored()
@@ -99,6 +112,7 @@ def effective_brand() -> dict:
         "custom_accent": bool(accent),
         "name_locked": name_env_locked(),
         "accent_locked": accent_env_locked(),
+        "catalog_hidden": not catalog_nav_visible(),
         "demo": False,
     }
 
