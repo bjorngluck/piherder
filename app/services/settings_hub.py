@@ -86,6 +86,16 @@ def alert_policy_line(alert_policy_ui: Mapping[str, Any] | None = None) -> str:
     return f"{len(on)} on · {len(muted)} muted"
 
 
+def instance_line(*, name: str = "", accent: str = "", demo: bool = False, locked: bool = False) -> str:
+    if demo:
+        return "Official PiHerder"
+    bits = [name or "PiHerder"]
+    bits.append(accent or "official green")
+    if locked:
+        bits.append("env lock")
+    return " · ".join(bits)
+
+
 def jobs_wait_line(*, minutes: int = 30, env_locked: bool = False) -> str:
     bits = [f"Host wait {int(minutes)} min"]
     if env_locked:
@@ -113,8 +123,18 @@ def hub_context(
     files_max_locked: bool = False,
     jobs_wait_minutes: int = 30,
     jobs_wait_locked: bool = False,
+    instance_name: str = "",
+    instance_accent: str = "",
+    instance_demo: bool = False,
+    instance_locked: bool = False,
 ) -> dict[str, str]:
     return {
+        "instance": instance_line(
+            name=instance_name,
+            accent=instance_accent,
+            demo=instance_demo,
+            locked=instance_locked,
+        ),
         "security": security_line(cfg),
         "console": console_line(console_pol),
         "sso": sso_line(cfg),

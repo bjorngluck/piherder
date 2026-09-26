@@ -451,10 +451,25 @@ async def service_worker():
 
 @app.get("/manifest.webmanifest", include_in_schema=False)
 async def web_manifest():
-    from fastapi.responses import FileResponse
+    import json
 
-    return FileResponse(
-        _static_file("manifest.webmanifest"),
+    from fastapi.responses import Response
+
+    from .services.instance_brand import OFFICIAL_NAME, effective_brand
+
+    try:
+        raw = json.loads(_static_file("manifest.webmanifest").read_text(encoding="utf-8"))
+    except Exception:
+        raw = {}
+    if not isinstance(raw, dict):
+        raw = {}
+    brand = effective_brand()
+    plain = str(brand.get("plain") or OFFICIAL_NAME)
+    raw["name"] = plain
+    raw["short_name"] = plain[:12]
+    raw["theme_color"] = "#e60012"
+    return Response(
+        content=json.dumps(raw),
         media_type="application/manifest+json",
         headers={"Cache-Control": "no-cache"},
     )

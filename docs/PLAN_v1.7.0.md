@@ -102,7 +102,7 @@ Phase 0d  Operator wiki + remaining pointers  done 2026-09-26 (a8eb012)
 Phase 1   MCP-1 stdio adapter                 0.1.0 in piherder-mcp (fcd90cf). Walk still open
 Phase 2   Jr-1 exclusive types → Celery       landed (operator walk still open)
 Phase 3   Q fail-under 75 → 80                Should (may slip)
-Phase 4   Brand-1 + Brand-2                   Should (may slip)
+Phase 4   Brand-1 + Brand-2                   Brand-1 landed. Brand-2 not started
 Phase 5   Jr-2 Settings max wait              landed (operator walk still open)
 Phase 6   Discover spikes                     only if Must is green and you promote
 Phase 7   Wiki + QA_v1.7.0                    operator sign-off
@@ -228,7 +228,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 
 | Slice | What | Bar |
 |-------|------|-----|
-| **Brand-1** | Instance name + one accent; PWA title; demo ignored | Should |
+| **Brand-1** | Instance name + one accent; PWA title; demo ignored | Landed. Settings → General → Instance. Operator walk still open |
 | **Brand-2** | Hide Catalog in the nav; URL still works | Should |
 | **Brand-3** | Own-docs MkDocs skin | **Out** |
 | **Out** | Theme engine; replacing primary red; header logo upload; white-label; per-user skins | |
@@ -254,7 +254,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | **Must** | **MCP-1** | stdio adapter in its own repo; read plus bearer writes (`jobs`, `edit`, `files`); four client samples; not in this image | Repo **0.1.0** (`fcd90cf`). Mocked tests green. Operator walk still open |
 | **Must** | **Jr-1** | Exclusive types on the default Celery queue; host-down waits; running mutate fails honest; web recycle does not fail them | Landed. Default host wait **1800s**. Operator walk still open |
 | **Should** | **Q** | CI fail-under **75 → 80**. Floor stays 75 if this slips | Not started |
-| **Should** | **Brand-1** | Instance name + one accent; demo ignored | Not started |
+| **Should** | **Brand-1** | Instance name + one accent; demo ignored | Landed. Operator walk still open |
 | **Should** | **Brand-2** | Hide Catalog in nav; `/catalog` still works | Not started |
 | **Should** | **Jr-2** | Settings max wait; Kuma/`last_seen` is a signal | Landed. Operator walk still open |
 | **Discover** | Bak-alt · AC-fg · HA Slice 2 · Undo-2 · Mux-2 | Notes only unless promoted | Parked |
@@ -305,6 +305,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | 2026-09-26 | **Jr-1 landed.** Exclusive types enqueue `app.tasks.exclusive_job` on the default queue. Host-down stays pending (probe 30s, default wait 1800s via `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC`). Running redelivery fails honest. No backup mutex. `retention`, `herder_backup`, `host_facts` stay on web. nmap stays `-Q nmap`. Operator walk still open. |
 | 2026-09-26 | Jr-1 walk steps written in [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until the operator ticks them. |
 | 2026-09-26 | **Jr-2 landed.** Settings → General → Jobs is the max SSH wait. Kuma / stale `last_seen` is a Jobs label only. |
+| 2026-09-26 | **Brand-1 landed.** Settings → General → Instance: name plus one accent. Mark and primary red stay. Demo ignores it. |
 
 ---
 
@@ -319,7 +320,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | 4 | **MCP-1** adapter in [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) | **0.1.0** pushed (`fcd90cf`). Walk still open |
 | 5 | **Jr-1** exclusive types → default Celery queue | **Landed.** Walk still open ([QA_v1.7.0.md](QA_v1.7.0.md)) |
 | 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until walked |
-| 7 | Q / Brand-1 / Brand-2 / Jr-2 as capacity after Must | **Jr-2 landed.** Q, Brand-1, Brand-2 not started |
+| 7 | Q / Brand-1 / Brand-2 / Jr-2 as capacity after Must | **Jr-2** and **Brand-1** landed. Q and Brand-2 not started |
 | 8 | Freeze · `1.7.0` · tag · Hub | Only when asked |
 
 ---

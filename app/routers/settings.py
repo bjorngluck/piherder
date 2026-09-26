@@ -216,6 +216,7 @@ async def settings_page(
         or qp.get("console_saved")
         or qp.get("files_saved")
         or qp.get("jobs_wait_saved")
+        or qp.get("instance_saved")
         or qp.get("data_cleanup_saved")
         or qp.get("data_cleanup_queued")
     ):
@@ -463,6 +464,9 @@ async def settings_page(
     host_wait_sec = host_wait_limit_sec()
     host_wait_minutes = max(1, int(round(host_wait_sec / 60)))
     host_wait_locked = host_wait_env_locked()
+    from ..services.instance_brand import DEFAULT_ACCENT, effective_brand
+
+    brand = effective_brand()
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -511,6 +515,8 @@ async def settings_page(
             "files_max_ceiling_h": hf.human_size(hf.MAX_UPLOAD_CEILING),
             "host_wait_minutes": host_wait_minutes,
             "host_wait_locked": host_wait_locked,
+            "instance_brand": brand,
+            "instance_accent_value": brand.get("accent") or DEFAULT_ACCENT,
             "settings_hub": shub.hub_context(
                 cfg=cfg,
                 console_pol=console_pol,
@@ -521,6 +527,10 @@ async def settings_page(
                 files_max_locked=files_max_locked,
                 jobs_wait_minutes=host_wait_minutes,
                 jobs_wait_locked=host_wait_locked,
+                instance_name=brand.get("name") or "",
+                instance_accent=brand.get("accent") or "",
+                instance_demo=bool(brand.get("demo")),
+                instance_locked=bool(brand.get("name_locked") or brand.get("accent_locked")),
             ),
         },
     )
@@ -1329,6 +1339,61 @@ async def save_files_policy(
         session.commit()
     return RedirectResponse(
         _settings_url("general", files_saved="1"), status_code=303
+    )
+
+
+@router.post("/herder-backups/instance")
+async def save_instance_brand(
+    instance_name: str = Form(""),
+    instance_accent: str = Form(""),
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    """Brand-1: instance wordmark and one accent. Demo and env locks do not save."""
+    from ..services.demo import http_403_if_demo
+    from ..services.instance_brand import (
+        accent_env_locked,
+        clean_instance_name,
+        name_env_locked,
+        normalize_accent,
+    )
+
+    http_403_if_demo("settings_instance")
+    partial: dict = {}
+    if not name_env_locked():
+        partial["instance_name"] = clean_instance_name(instance_name)
+    if not accent_env_locked():
+        try:
+            partial["instance_accent"] = normalize_accent(instance_accent)
+        except ValueError as e:
+            return RedirectResponse(
+                _settings_url("general", error=str(e)[:120]), status_code=303
+            )
+    if not partial:
+        return RedirectResponse(
+            _settings_url("general", instance_saved="1"), status_code=303
+        )
+    try:
+        app_cfg.save_settings(partial)
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("general", error=str(e)[:120]), status_code=303
+        )
+    session.add(
+        make_audit_log(
+            user_id=user.id,
+            action="instance_brand_changed",
+            status="success",
+            details=(
+                f"name={partial.get('instance_name', '(locked)')} "
+                f"accent={partial.get('instance_accent', '(locked)') or 'official'}"
+            )[:240],
+            finished_at=datetime.utcnow(),
+        )
+    )
+    session.commit()
+    return RedirectResponse(
+        _settings_url("general", instance_saved="1"), status_code=303
     )
 
 
