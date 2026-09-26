@@ -11,7 +11,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 1.6 production sign-off stays [QA_v1.6.0.md](QA_v1.6.0.md) (historical). Do **not** re-open 1.6 boxes here.
 
-**Tag honesty:** freeze only with **MCP-1** and **Jr-1**. CI fail-under must not drop below **75**. The step to **80** is Should and may slip. Do not bump version, merge, tag, or Hub until asked. Do not redeploy the public demo onto this branch.
+**Tag honesty:** freeze only with **MCP-1** and **Jr-1**. CI fail-under is **80** (compose **81.01%**, kept as headroom). Do not lower it below **75**. Do not bump version, merge, tag, or Hub until asked. Do not redeploy the public demo onto this branch.
 
 **This pass is sign-off, not new features.** Fix only a feature or regression bug you hit while walking. Discover (Bak-alt, AC-fg, HA Slice 2, Undo-2, Mux-2) stays parked until a row is promoted.
 
@@ -49,7 +49,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 2. Rebuild local **web** + **celery-worker** (Jr-1 is in this branch; the running containers do not see it until that rebuild).  
 3. **Jr-1** on one real host (patch or stack), including a web recycle and a worker recycle.  
 4. Host-down wait on a host whose SSH you can refuse.  
-5. **Coverage** if the 80% step has landed. The tag is still allowed at fail-under **75**.  
+5. **Coverage** has landed at fail-under **80** (compose **81.01%**, 39638/48927). The extra point is headroom.  
 6. **Brand** if the slice has landed.  
 7. **1.6 regression** with Move still off.  
 8. Leave **Freeze gates** empty. Tick a box only after you have walked it.
@@ -164,7 +164,7 @@ Not started. Plugin **0.2.4** is still the read-only fleet card. Boxes stay empt
 
 ## Q — fail-under 75 → 80 (Should; may slip)
 
-- [ ] CI `--cov-fail-under` is **80** on `app`, or this Should is explicitly slipped and the floor is still **75**  
+- [x] CI `--cov-fail-under` is **80** on `app` — compose **81.01%** (39638/48927), 1694 passed. The extra point stays as headroom. Floor was **75**  
 - [ ] Fail-under is not lowered below **75**  
 - [ ] No live SSH / apt / two-host copy in CI  
 
