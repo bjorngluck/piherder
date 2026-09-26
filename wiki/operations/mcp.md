@@ -4,19 +4,19 @@
 
 A small program an operator runs **on the computer that runs the agent** (Cursor, Grok Build, Claude, or Codex). It speaks [MCP](https://modelcontextprotocol.io) over **stdio** and calls your herder’s existing Bearer API.
 
-It is **not in the PiHerder image**, and **v1.6.0 does not ship it**. The v1.7 train builds it in its own repo, `bjorngluck/piherder-mcp` (same shape as the Home Assistant plugin). Until that repo exists there is nothing to install. Maintainer contract: [PLAN_v1.7.0.md](https://github.com/bjorngluck/piherder/blob/v1.7.0-dev/docs/PLAN_v1.7.0.md).
+It is **not in the PiHerder image**, and **v1.6.0 does not ship it**. The program is [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.1.0** (same shape as the Home Assistant plugin). Maintainer contract: [PLAN_v1.7.0.md](https://github.com/bjorngluck/piherder/blob/v1.7.0-dev/docs/PLAN_v1.7.0.md).
 
 The herder does not grow an MCP port. Create the token in Settings → **API management**, then point the agent process at that herder.
 
 ## Why it exists
 
-Cursor, Grok, Claude, and Codex can already call HTTP. A shared tool list keeps those four on one process: `uvx piherder-mcp`, with `PIHERDER_URL` and `PIHERDER_TOKEN` in that client’s env. The token is never committed. Samples below use `${PIHERDER_TOKEN}`.
+Cursor, Grok, Claude, and Codex can already call HTTP. A shared tool list keeps those four on one process. The package is not on PyPI yet, so the command is `uvx --from git+https://github.com/bjorngluck/piherder-mcp.git piherder-mcp`, with `PIHERDER_URL` and `PIHERDER_TOKEN` in that client’s env. The token is never committed. Samples below use `${PIHERDER_TOKEN}`.
 
 Grok Build also loads a project `.cursor/mcp.json` when Cursor MCP import is on (the default), so one Cursor file covers Grok on that checkout. Codex does not read that file. Claude uses its own `mcpServers` block or a project `.mcp.json`.
 
 ## What a token can do
 
-Tools appear only for scopes on the token. Startup reads `GET /api/v1`. A token without `read` fails closed. Details and curl equivalents: [API tokens](api-tokens.md).
+Tools appear only for scopes on the token. Startup reads `GET /api/v1/health`. A token without `read` fails closed. Details and curl equivalents: [API tokens](api-tokens.md).
 
 | Scope | Tools |
 |-------|--------|
@@ -44,7 +44,7 @@ Same command in each client. Replace the URL. Keep the token in the client’s s
   "mcpServers": {
     "piherder": {
       "command": "uvx",
-      "args": ["piherder-mcp"],
+      "args": ["--from", "git+https://github.com/bjorngluck/piherder-mcp.git", "piherder-mcp"],
       "env": {
         "PIHERDER_URL": "https://piherder.example.com",
         "PIHERDER_TOKEN": "${PIHERDER_TOKEN}"
@@ -59,7 +59,7 @@ Same command in each client. Replace the URL. Keep the token in the client’s s
 ```toml
 [mcp_servers.piherder]
 command = "uvx"
-args = ["piherder-mcp"]
+args = ["--from", "git+https://github.com/bjorngluck/piherder-mcp.git", "piherder-mcp"]
 env = { PIHERDER_URL = "https://piherder.example.com", PIHERDER_TOKEN = "${PIHERDER_TOKEN}" }
 ```
 
@@ -70,7 +70,7 @@ env = { PIHERDER_URL = "https://piherder.example.com", PIHERDER_TOKEN = "${PIHER
 ```toml
 [mcp_servers.piherder]
 command = "uvx"
-args = ["piherder-mcp"]
+args = ["--from", "git+https://github.com/bjorngluck/piherder-mcp.git", "piherder-mcp"]
 env = { PIHERDER_URL = "https://piherder.example.com", PIHERDER_TOKEN = "${PIHERDER_TOKEN}" }
 ```
 

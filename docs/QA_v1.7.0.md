@@ -59,7 +59,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 Walk this in the adapter repo, against this herder. The adapter is **not** in the PiHerder image. Do not point it at the public demo.
 
-- [ ] Process starts with `PIHERDER_URL` and `PIHERDER_TOKEN` over stdio (`uvx piherder-mcp`)  
+- [ ] Process starts with `PIHERDER_URL` and `PIHERDER_TOKEN` over stdio (`uvx --from git+https://github.com/bjorngluck/piherder-mcp.git piherder-mcp`)  
 - [ ] A scope-`read` token exposes health, summary, servers, inventory, services, and jobs (list and detail), and those match `curl`  
 - [ ] That `read` token has no `set_features`, `trigger_job`, or files tool  
 - [ ] A token without `read` fails closed (message on stderr)  
