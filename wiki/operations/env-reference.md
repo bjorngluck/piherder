@@ -93,6 +93,7 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 | `CELERY_RESULT_BACKEND` | same Redis |
 | `CELERY_CONCURRENCY` | `2` pool slots (compose → celery-worker) |
 | `PIHERDER_SERVER_LOCK_TTL` | `7200` backup mutex TTL |
+| `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` | `1800` — how long a patch, check, stack, or template job stays **pending** while SSH to that host fails. Probe every 30s. Floor 30, ceiling 86400. Not a Settings field |
 | `REDIS_URL` | Optional alias used in some deploy notes — broker/result URLs are authoritative |
 
 ## LAN Discovery (nmap) — opt-in {#lan-discovery-nmap--opt-in}

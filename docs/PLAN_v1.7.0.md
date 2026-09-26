@@ -18,7 +18,7 @@
 
 Agents that already hold a PiHerder token still have to call HTTP themselves. The first slice is an MCP adapter, in its **own repo**, that wraps the existing bearer API: read, and the writes that token is allowed to make (`jobs`, `edit`, `files`). It does not ship inside this image and it does not add herder routes.
 
-Move, undo, backup, and nmap already run on Celery. OS patch, container patch, update checks, compose stack jobs, and template jobs still run in the **web** process. Recycling **web** fails those rows (`cleanup_orphan_web_jobs`). **Jr-1** moves those remaining exclusive types in one go. It is Must, and it starts after MCP-1.
+Move, undo, backup, and nmap already run on Celery. **Jr-1** moved OS patch, container patch, update checks, compose stack jobs, and template jobs onto the default Celery queue (`exclusive_job`). Recycling **web** does not fail them. `retention`, `herder_backup`, and `host_facts` still run in the web process.
 
 Instance chrome (wordmark, one accent, hide Catalog) was discovered in 1.5 and held out of 1.6. It is Should: it can slip without blocking the tag. So can the coverage step from 75% to 80%.
 
@@ -100,7 +100,7 @@ Phase 0b  Lock retune                         done 2026-09-25 (85d0ec4)
 Phase 0c  MCP-1 read/write contract           done 2026-09-26 (3f63d16)
 Phase 0d  Operator wiki + remaining pointers  done 2026-09-26 (a8eb012)
 Phase 1   MCP-1 stdio adapter                 0.1.0 in piherder-mcp (fcd90cf). Walk still open
-Phase 2   Jr-1 exclusive types → Celery       Must
+Phase 2   Jr-1 exclusive types → Celery       landed (operator walk still open)
 Phase 3   Q fail-under 75 → 80                Should (may slip)
 Phase 4   Brand-1 + Brand-2                   Should (may slip)
 Phase 5   Jr-2 Settings max wait              Should (may slip)
@@ -179,7 +179,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 J-runtime. Operator page to u
 
 **Today — Celery:** `backup`, `service_migrate`, `service_migrate_undo`, `nmap_*`, stale-data cleanup. Web recycle does not fail them.
 
-**Today — web** (`BackgroundTasks` / thread pools; recycle web → startup `cleanup_orphan_web_jobs` fails the row):
+**Landed — default Celery queue** (`app.tasks.exclusive_job`). Recycle **web** does not fail them. `cleanup_orphan_web_jobs` skips them. `retention`, `herder_backup`, and `host_facts` stay on web.
 
 | Family | Types | Lane |
 |--------|-------|------|
@@ -252,7 +252,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
 | **Must** | **MCP-1** | stdio adapter in its own repo; read plus bearer writes (`jobs`, `edit`, `files`); four client samples; not in this image | Repo **0.1.0** (`fcd90cf`). Mocked tests green. Operator walk still open |
-| **Must** | **Jr-1** | Exclusive types on the default Celery queue; host-down waits; running mutate fails honest; web recycle does not fail them | Not started — after MCP-1 |
+| **Must** | **Jr-1** | Exclusive types on the default Celery queue; host-down waits; running mutate fails honest; web recycle does not fail them | Landed. Default host wait **1800s**. Operator walk still open |
 | **Should** | **Q** | CI fail-under **75 → 80**. Floor stays 75 if this slips | Not started |
 | **Should** | **Brand-1** | Instance name + one accent; demo ignored | Not started |
 | **Should** | **Brand-2** | Hide Catalog in nav; `/catalog` still works | Not started |
@@ -302,6 +302,8 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | 2026-09-26 | **MCP-1 contract.** Read and write of the existing bearer API (`read`, `jobs`, `edit`, `files`). stdio only, so Cursor, Grok, Claude, and Codex share one process. Separate repo. No new herder routes. Remote HTTP MCP stays out. Adapter code waits on the repo. |
 | 2026-09-26 | Operator page [wiki/operations/mcp.md](../wiki/operations/mcp.md). Nav, API tokens, Jobs, Host Files, demo, architecture, and the maintainer pointers name that page. |
 | 2026-09-26 | Adapter repo [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) created. **0.1.0** (`fcd90cf`) is the stdio client. Not in this image. |
+| 2026-09-26 | **Jr-1 landed.** Exclusive types enqueue `app.tasks.exclusive_job` on the default queue. Host-down stays pending (probe 30s, default wait 1800s via `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC`). Running redelivery fails honest. No backup mutex. `retention`, `herder_backup`, `host_facts` stay on web. nmap stays `-Q nmap`. Operator walk still open. |
+| 2026-09-26 | Jr-1 walk steps written in [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until the operator ticks them. |
 
 ---
 
@@ -314,7 +316,7 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 | 3 | MCP-1 read/write contract in this plan | **Done** 2026-09-26 (`3f63d16`) |
 | 3b | Operator wiki [Agents (MCP)](../wiki/operations/mcp.md) and the remaining pointers | **Done** 2026-09-26 (`a8eb012`) |
 | 4 | **MCP-1** adapter in [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) | **0.1.0** pushed (`fcd90cf`). Walk still open |
-| 5 | **Jr-1** exclusive types → default Celery queue | Not started |
+| 5 | **Jr-1** exclusive types → default Celery queue | **Landed.** Walk still open ([QA_v1.7.0.md](QA_v1.7.0.md)) |
 | 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). Boxes stay empty until walked |
 | 7 | Q / Brand-1 / Brand-2 / Jr-2 as capacity after Must | Not started |
 | 8 | Freeze · `1.7.0` · tag · Hub | Only when asked |

@@ -86,7 +86,7 @@ For a given server, PiHerder allows **at most one** active job of each exclusive
 A second trigger (double-click, concurrent bulk, scheduler overlap) **does not** start a second run. The UI attaches to the existing job; the API returns **HTTP 409** with the existing `job_id`.
 
 !!! note "Celery workers vs container jobs"
-    **Celery multi-slot concurrency** (`CELERY_CONCURRENCY`, default 2) applies to **backups** and **Move**. OS/container patch and update checks run on the **web** process (BackgroundTasks / thread pools). Scaling Celery workers does not re-execute a container job twice. See [Multi-worker](../operations/multi-worker.md).
+    OS/container patch and update checks run on **celery-worker** (default queue), same as backups and Move. They do not take Move’s dual-host lock. Scaling workers does not re-execute a container job twice: the host still allows one active job of that type. If the Pi is down, the job stays pending and retries SSH instead of failing on the first refused connect. See [Multi-worker](../operations/multi-worker.md).
 
 ### Docker: Check updates vs Deploy
 

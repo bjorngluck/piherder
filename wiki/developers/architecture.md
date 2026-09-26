@@ -31,7 +31,7 @@ flowchart TB
 |------|---------|------------------|
 | Backups | Celery | Parallel across hosts; one backup per host (Redis mutex) |
 | Move (`service_migrate`) and fail-path undo (`service_migrate_undo`) | Celery | Dual-host backup mutex; recycle web is safe; recycle worker fails a running Move or undo. Undo only after cutover / rebind / validate failed |
-| OS/container patch & update checks | Web (`BackgroundTasks` / thread pools) | One active job of that type per host |
+| OS/container patch, update checks, stack jobs, template jobs | Celery default queue (`exclusive_job`) | One active job of that type per host. Stack writes share one lane. No backup mutex. Host-down stays pending. Worker recycle fails a running job |
 | Bulk fleet actions | Web → same enqueue paths | Feature-flag skip + exclusive rules |
 | LAN nmap scans / vuln pack update | **celery-worker-nmap** (`-Q nmap`, concurrency 1) | Opt-in profile; host network; `PIHERDER_NMAP_WORKER=1` only here |
 | Stale Jobs/Audit/nmap-run purge | Celery (default queue) | Opt-in Settings schedule |
@@ -46,7 +46,7 @@ flowchart TB
 | Password policy | `app/services/password_policy.py` · Settings Security |
 | Account / 2FA step-up policy | `app/services/account_stepup.py` · Settings Security |
 | Web SSH console | `app/services/ssh_console.py` · `app/routers/server_console.py` · Settings Console (timeouts) / Security (factors). Mux-1: `Server.console_mux_enabled` + probe tmux/screen |
-| Jobs / progress / exclusive types | `app/services/jobs/` (`service.py`; package preserves `patch.object` surface). Move enqueue/execute: `app/services/jobs_migrate.py`. Backups + **Move** on Celery (`app/tasks.py`) |
+| Jobs / progress / exclusive types | `app/services/jobs/` (`service.py`; package preserves `patch.object` surface). Move: `app/services/jobs_migrate.py`. Jr-1 handoff: `app/services/jobs_exclusive.py`. Backups, **Move**, and **exclusive_job** on Celery (`app/tasks.py`) |
 | Reports layout (N3a) + Move card (N3b) | `app/services/report_layout.py` · cookie `ph_reports_layout` · `POST /reports/layout` · Move stats from `ops_reports.collect_move_history` (`service_migrate` Jobs) |
 | Service migrate pipeline | `app/services/service_migrate/` · Celery `app.tasks.service_migrate` · undo `undo.py` + `app.tasks.service_migrate_undo` |
 | CSP | `app/security/headers.py` — per-request script nonce; `script-src-attr 'unsafe-inline'`; demo Report-Only unless `PIHERDER_CSP_ENFORCE` |

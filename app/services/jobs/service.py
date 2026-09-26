@@ -3,9 +3,11 @@
 Fleet job queue: create Job rows, run work, stream progress for UI polling.
 
 Execution paths (do not merge without care):
-- UI / BackgroundTasks: create_job_and_run → async _run_*_job
-- Scheduler / thread pool: enqueue_*_apply / enqueue_*_update_check → _execute_*_sync
-- Backups + service_migrate: Celery only (web recycle does not fail them)
+- Exclusive host jobs (patch, checks, stack, templates): Celery ``exclusive_job``
+  on the default queue. Under pytest they still run in-process.
+- retention + herder_backup + host_facts: web BackgroundTasks
+- Backups + service_migrate + undo: their own Celery tasks (web recycle does not fail them)
+- nmap: celery-worker-nmap (-Q nmap)
 
 Shared helpers: _initial_job_details, _merge_job_details, _flush_job_progress,
 _create_queued_job_with_audit, _finish, job_public_dict.
@@ -42,9 +44,9 @@ class BackupAlreadyRunning(Exception):
 class JobAlreadyActive(Exception):
     """Raised when an exclusive job type is already pending/running for the server.
 
-    Container/OS patch and update-check jobs must not stack on the same host.
-    Celery multi-worker concurrency applies to backups and Move; other exclusive
-    types still run on the web process (BackgroundTasks / in-process thread pools).
+    Container/OS patch, update checks, stack jobs, and template jobs must not
+    stack on the same host. They run on the default Celery queue (Jr-1). That
+    queue is not Move's dual-host backup mutex. nmap stays on its own queue.
     """
 
     def __init__(self, job: Job):
@@ -101,15 +103,19 @@ _STACK_LIFECYCLE_JOB_TYPES = frozenset(
 # This file lives in app.services.jobs — use three dots to reach app.tasks.
 try:
     from ...tasks import backup_server
+    from ...tasks import exclusive_job as exclusive_job_task
     from ...tasks import service_migrate as service_migrate_task
     from ...tasks import service_migrate_undo as service_migrate_undo_task
     HAS_CELERY = True
 except Exception as e:
     HAS_CELERY = False
     backup_server = None
+    exclusive_job_task = None
     service_migrate_task = None
     service_migrate_undo_task = None
     logger.warning("Celery backup task unavailable (backups will not enqueue): %s", e)
+
+from ..jobs_exclusive import EXCLUSIVE_CELERY_TYPES, handoff_exclusive
 
 
 def _get_fresh_session() -> Session:
@@ -678,7 +684,9 @@ def cleanup_stale_backup_jobs(session: Session, max_age_minutes: int = 120) -> i
 
 # Celery-owned types survive a web restart. Everything else runs in this
 # process (BackgroundTasks / thread pools) and is dead after uvicorn exits.
-_CELERY_JOB_TYPES = frozenset({"backup", "service_migrate", "service_migrate_undo"})
+_CELERY_JOB_TYPES = frozenset(
+    {"backup", "service_migrate", "service_migrate_undo"}
+) | EXCLUSIVE_CELERY_TYPES
 
 
 def _is_celery_owned_job(job: Job) -> bool:
@@ -720,9 +728,9 @@ def cleanup_orphan_web_jobs(
 ) -> int:
     """Fail pending/running web-process jobs left behind after a restart.
 
-    Exclusive types (os_patch, container_patch, …) otherwise block new work
-    forever: bulk OS patch uses one request's BackgroundTasks (sequential),
-    then a web recreate kills the in-flight task while the row stays running.
+    Celery-owned rows (backup, Move, undo, nmap, and the Jr-1 exclusive types)
+    keep their status. retention, herder_backup, and host_facts still run in
+    this process, so a web recycle fails those rows.
     """
     stale = session.exec(
         select(Job).where(Job.status.in_(["pending", "running"]))
@@ -910,44 +918,120 @@ def create_job_and_run(
         session.refresh(audit)
 
     if job_type == "container_patch":
-        background_tasks.add_task(_run_container_job, job.id, server.id, audit.id)
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            background_tasks=background_tasks,
+            bg_fn=_run_container_job,
+            bg_args=(job.id, server.id, audit.id),
+            pool=_patch_apply_pool,
+            sync_fn=_execute_container_patch_sync,
+            sync_args=(job.id, server.id, audit.id),
+        )
     elif job_type == "os_patch":
-        background_tasks.add_task(_run_os_patch_job, job.id, server.id, audit.id, os_steps)
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            payload={"os_steps": os_steps},
+            background_tasks=background_tasks,
+            bg_fn=_run_os_patch_job,
+            bg_args=(job.id, server.id, audit.id, os_steps),
+            pool=_patch_apply_pool,
+            sync_fn=_execute_os_patch_sync,
+            sync_args=(job.id, server.id, audit.id, os_steps),
+        )
     elif job_type == "os_update_check":
-        background_tasks.add_task(_run_os_update_check_job, job.id, server.id, audit.id)
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            background_tasks=background_tasks,
+            bg_fn=_run_os_update_check_job,
+            bg_args=(job.id, server.id, audit.id),
+            pool=_update_check_pool,
+            sync_fn=_execute_os_update_check,
+            sync_args=(job.id, server.id, audit.id),
+        )
     elif job_type == "host_facts":
         background_tasks.add_task(_run_host_facts_job, job.id, server.id, audit.id)
     elif job_type == "container_update_check":
-        background_tasks.add_task(_run_container_update_check_job, job.id, server.id, audit.id)
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            background_tasks=background_tasks,
+            bg_fn=_run_container_update_check_job,
+            bg_args=(job.id, server.id, audit.id),
+            pool=_update_check_pool,
+            sync_fn=_execute_container_update_check,
+            sync_args=(job.id, server.id, audit.id),
+        )
     elif job_type == "docker_stack_check":
         project_path = (source_filter or "").strip()  # reuse source_filter slot for path
-        background_tasks.add_task(
-            _run_docker_stack_check_job, job.id, server.id, audit.id, project_path
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            payload={"project_path": project_path},
+            background_tasks=background_tasks,
+            bg_fn=_run_docker_stack_check_job,
+            bg_args=(job.id, server.id, audit.id, project_path),
+            pool=_update_check_pool,
+            sync_fn=_execute_docker_stack_check,
+            sync_args=(job.id, server.id, audit.id, project_path),
         )
     elif job_type == "docker_stack_deploy":
         project_path = (source_filter or "").strip()
-        background_tasks.add_task(
-            _run_docker_stack_deploy_job, job.id, server.id, audit.id, project_path, True
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            payload={"project_path": project_path, "pull": True, "compose_files": []},
+            background_tasks=background_tasks,
+            bg_fn=_run_docker_stack_deploy_job,
+            bg_args=(job.id, server.id, audit.id, project_path, True),
+            pool=_update_check_pool,
+            sync_fn=_execute_docker_stack_deploy,
+            sync_args=(job.id, server.id, audit.id, project_path, True, []),
         )
     elif job_type in _STACK_LIFECYCLE_JOB_TYPES:
         project_path = (source_filter or "").strip()
         action = job_type.replace("docker_stack_", "", 1)
-        background_tasks.add_task(
-            _run_docker_stack_lifecycle_job,
-            job.id,
-            server.id,
-            audit.id,
-            project_path,
-            action,
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            payload={"project_path": project_path, "action": action},
+            background_tasks=background_tasks,
+            bg_fn=_run_docker_stack_lifecycle_job,
+            bg_args=(job.id, server.id, audit.id, project_path, action),
+            pool=_update_check_pool,
+            sync_fn=_execute_docker_stack_lifecycle,
+            sync_args=(job.id, server.id, audit.id, project_path, action),
         )
     elif job_type == "docker_stack_remove":
         project_path = (source_filter or "").strip()
-        background_tasks.add_task(
-            _run_docker_stack_remove_job,
-            job.id,
-            server.id,
-            audit.id,
-            project_path,
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            payload={"project_path": project_path},
+            background_tasks=background_tasks,
+            bg_fn=_run_docker_stack_remove_job,
+            bg_args=(job.id, server.id, audit.id, project_path),
+            pool=_update_check_pool,
+            sync_fn=_execute_docker_stack_remove,
+            sync_args=(job.id, server.id, audit.id, project_path),
         )
     elif job_type == "retention":
         background_tasks.add_task(_run_retention_job, job.id, server.id, audit.id)
@@ -1788,7 +1872,16 @@ def enqueue_os_patch_apply(
             os_steps=steps,
         )
         jid, aid, sid, step_list = job.id, audit.id, server.id, list(steps)
-    _patch_apply_pool.submit(_execute_os_patch_sync, jid, sid, aid, step_list)
+    handoff_exclusive(
+        job_id=jid,
+        server_id=sid,
+        audit_id=aid,
+        job_type="os_patch",
+        payload={"os_steps": step_list},
+        pool=_patch_apply_pool,
+        sync_fn=_execute_os_patch_sync,
+        sync_args=(jid, sid, aid, step_list),
+    )
     return job
 
 
@@ -1820,7 +1913,15 @@ def enqueue_container_patch_apply(
             scheduled=scheduled,
         )
         jid, aid, sid = job.id, audit.id, server.id
-    _patch_apply_pool.submit(_execute_container_patch_sync, jid, sid, aid)
+    handoff_exclusive(
+        job_id=jid,
+        server_id=sid,
+        audit_id=aid,
+        job_type="container_patch",
+        pool=_patch_apply_pool,
+        sync_fn=_execute_container_patch_sync,
+        sync_args=(jid, sid, aid),
+    )
     return job
 
 
@@ -1985,7 +2086,15 @@ def enqueue_os_update_check(server_id: int, user_id: int | None = None) -> Job |
             audit_details="Job #{job_id} queued",
         )
         jid, aid, sid = job.id, audit.id, server.id
-    _update_check_pool.submit(_execute_os_update_check, jid, sid, aid)
+    handoff_exclusive(
+        job_id=jid,
+        server_id=sid,
+        audit_id=aid,
+        job_type="os_update_check",
+        pool=_update_check_pool,
+        sync_fn=_execute_os_update_check,
+        sync_args=(jid, sid, aid),
+    )
     return job
 
 
@@ -2015,7 +2124,15 @@ def enqueue_container_update_check(server_id: int, user_id: int | None = None) -
             audit_details="Job #{job_id} queued",
         )
         jid, aid, sid = job.id, audit.id, server.id
-    _update_check_pool.submit(_execute_container_update_check, jid, sid, aid)
+    handoff_exclusive(
+        job_id=jid,
+        server_id=sid,
+        audit_id=aid,
+        job_type="container_update_check",
+        pool=_update_check_pool,
+        sync_fn=_execute_container_update_check,
+        sync_args=(jid, sid, aid),
+    )
     return job
 
 
@@ -2284,10 +2401,19 @@ def enqueue_docker_stack_check(
             project=proj,
         )
         jid, aid, sid = job.id, audit.id, server.id
-    if background_tasks is not None:
-        background_tasks.add_task(_run_docker_stack_check_job, jid, sid, aid, path)
-    else:
-        _update_check_pool.submit(_execute_docker_stack_check, jid, sid, aid, path)
+    handoff_exclusive(
+        job_id=jid,
+        server_id=sid,
+        audit_id=aid,
+        job_type="docker_stack_check",
+        payload={"project_path": path},
+        background_tasks=background_tasks,
+        bg_fn=_run_docker_stack_check_job,
+        bg_args=(jid, sid, aid, path),
+        pool=_update_check_pool,
+        sync_fn=_execute_docker_stack_check,
+        sync_args=(jid, sid, aid, path),
+    )
     with _get_fresh_session() as session:
         job = session.get(Job, jid)
         if job:
@@ -2344,14 +2470,19 @@ def enqueue_docker_stack_deploy(
         jid, aid, sid = job.id, audit.id, server.id
         do_pull = bool(pull)
         file_list = list(files)
-    if background_tasks is not None:
-        background_tasks.add_task(
-            _run_docker_stack_deploy_job, jid, sid, aid, path, do_pull, file_list
-        )
-    else:
-        _update_check_pool.submit(
-            _execute_docker_stack_deploy, jid, sid, aid, path, do_pull, file_list
-        )
+    handoff_exclusive(
+        job_id=jid,
+        server_id=sid,
+        audit_id=aid,
+        job_type="docker_stack_deploy",
+        payload={"project_path": path, "pull": do_pull, "compose_files": file_list},
+        background_tasks=background_tasks,
+        bg_fn=_run_docker_stack_deploy_job,
+        bg_args=(jid, sid, aid, path, do_pull, file_list),
+        pool=_update_check_pool,
+        sync_fn=_execute_docker_stack_deploy,
+        sync_args=(jid, sid, aid, path, do_pull, file_list),
+    )
     with _get_fresh_session() as session:
         job = session.get(Job, jid)
         if job:
@@ -2685,14 +2816,19 @@ def enqueue_docker_stack_lifecycle(
             remove_volumes=drop_vols,
         )
         jid, aid, sid = job.id, audit.id, server.id
-    if background_tasks is not None:
-        background_tasks.add_task(
-            _run_docker_stack_lifecycle_job, jid, sid, aid, path, act
-        )
-    else:
-        _update_check_pool.submit(
-            _execute_docker_stack_lifecycle, jid, sid, aid, path, act
-        )
+    handoff_exclusive(
+        job_id=jid,
+        server_id=sid,
+        audit_id=aid,
+        job_type=job_type,
+        payload={"project_path": path, "action": act},
+        background_tasks=background_tasks,
+        bg_fn=_run_docker_stack_lifecycle_job,
+        bg_args=(jid, sid, aid, path, act),
+        pool=_update_check_pool,
+        sync_fn=_execute_docker_stack_lifecycle,
+        sync_args=(jid, sid, aid, path, act),
+    )
     with _get_fresh_session() as session:
         job = session.get(Job, jid)
         if job:
@@ -2748,14 +2884,19 @@ def enqueue_docker_stack_remove(
             action="remove",
         )
         jid, aid, sid = job.id, audit.id, server.id
-    if background_tasks is not None:
-        background_tasks.add_task(
-            _run_docker_stack_remove_job, jid, sid, aid, path
-        )
-    else:
-        _update_check_pool.submit(
-            _execute_docker_stack_remove, jid, sid, aid, path
-        )
+    handoff_exclusive(
+        job_id=jid,
+        server_id=sid,
+        audit_id=aid,
+        job_type=job_type,
+        payload={"project_path": path},
+        background_tasks=background_tasks,
+        bg_fn=_run_docker_stack_remove_job,
+        bg_args=(jid, sid, aid, path),
+        pool=_update_check_pool,
+        sync_fn=_execute_docker_stack_remove,
+        sync_args=(jid, sid, aid, path),
+    )
     with _get_fresh_session() as session:
         job = session.get(Job, jid)
         if job:
@@ -3054,14 +3195,19 @@ def enqueue_template_deploy(
         )
         jid, aid, sid = job.id, audit.id, server.id
         do_deploy = bool(deploy_now)
-    if background_tasks is not None:
-        background_tasks.add_task(
-            _run_template_deploy_job, jid, sid, aid, slug, do_deploy
-        )
-    else:
-        _update_check_pool.submit(
-            _execute_template_deploy, jid, sid, aid, slug, do_deploy
-        )
+    handoff_exclusive(
+        job_id=jid,
+        server_id=sid,
+        audit_id=aid,
+        job_type="template_deploy",
+        payload={"template_slug": slug, "deploy_now": do_deploy},
+        background_tasks=background_tasks,
+        bg_fn=_run_template_deploy_job,
+        bg_args=(jid, sid, aid, slug, do_deploy),
+        pool=_update_check_pool,
+        sync_fn=_execute_template_deploy,
+        sync_args=(jid, sid, aid, slug, do_deploy),
+    )
     with _get_fresh_session() as session:
         job = session.get(Job, jid)
         if job:
@@ -3116,14 +3262,19 @@ def enqueue_template_redeploy(
         )
         jid, aid, sid = job.id, audit.id, server.id
         do_deploy = bool(deploy_now)
-    if background_tasks is not None:
-        background_tasks.add_task(
-            _run_template_redeploy_job, jid, sid, aid, dep_id, do_deploy
-        )
-    else:
-        _update_check_pool.submit(
-            _execute_template_redeploy, jid, sid, aid, dep_id, do_deploy
-        )
+    handoff_exclusive(
+        job_id=jid,
+        server_id=sid,
+        audit_id=aid,
+        job_type="template_redeploy",
+        payload={"deployment_id": dep_id, "deploy_now": do_deploy},
+        background_tasks=background_tasks,
+        bg_fn=_run_template_redeploy_job,
+        bg_args=(jid, sid, aid, dep_id, do_deploy),
+        pool=_update_check_pool,
+        sync_fn=_execute_template_redeploy,
+        sync_args=(jid, sid, aid, dep_id, do_deploy),
+    )
     with _get_fresh_session() as session:
         job = session.get(Job, jid)
         if job:
@@ -3166,10 +3317,19 @@ def enqueue_template_drift_check(
             deployment_id=dep_id,
         )
         jid, aid, sid = job.id, audit.id, server.id
-    if background_tasks is not None:
-        background_tasks.add_task(_run_template_drift_check_job, jid, sid, aid, dep_id)
-    else:
-        _update_check_pool.submit(_execute_template_drift_check, jid, sid, aid, dep_id)
+    handoff_exclusive(
+        job_id=jid,
+        server_id=sid,
+        audit_id=aid,
+        job_type="template_drift_check",
+        payload={"deployment_id": dep_id},
+        background_tasks=background_tasks,
+        bg_fn=_run_template_drift_check_job,
+        bg_args=(jid, sid, aid, dep_id),
+        pool=_update_check_pool,
+        sync_fn=_execute_template_drift_check,
+        sync_args=(jid, sid, aid, dep_id),
+    )
     with _get_fresh_session() as session:
         job = session.get(Job, jid)
         if job:
