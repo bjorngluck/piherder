@@ -3,12 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>{{ title or "PiHerder" }}</title>
+  <title>{{ title or instance_plain_name() }}</title>
   <meta name="theme-color" content="#e60012">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="PiHerder">
+  <meta name="apple-mobile-web-app-title" content="{{ instance_plain_name() }}">
+  {% set _accent_css = instance_accent_css() %}
+  {% if _accent_css %}
+  <style>{{ _accent_css }}</style>
+  {% endif %}
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=20260722c">
 
@@ -226,7 +230,7 @@
                data-logo-dark="/static/images/piherder-mark-dark-128.png?v=20260722b"
                alt="PiHerder" class="header-logo ph-theme-logo" width="32" height="32">
           <div class="header-brand-text-wrap">
-            <span class="header-brand-text">{{ ph_brand() }}</span>
+            <span class="header-brand-text">{{ instance_wordmark() }}</span>
             {% if user %}<div class="header-brand-sub">FLEET</div>{% endif %}
           </div>
         </a>
@@ -408,7 +412,7 @@
              data-logo-light="/static/images/piherder-mark-128.png?v=20260722b"
              data-logo-dark="/static/images/piherder-mark-dark-128.png?v=20260722b"
              alt="" class="mobile-menu-header-logo header-logo ph-theme-logo" width="28" height="28">
-        <span class="mobile-menu-header-title">{{ ph_brand() }}</span>
+        <span class="mobile-menu-header-title">{{ instance_wordmark() }}</span>
       </div>
       <button type="button" id="mobile-menu-close" class="mobile-menu-close" aria-label="Close menu">×</button>
     </div>
@@ -475,7 +479,7 @@
   <!-- Dismissible PWA install hint (Android beforeinstallprompt + iOS A2HS steps) -->
   <div id="pwa-install-banner" class="hidden border-b border-border bg-surface">
     <div class="max-w-5xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-      <span id="pwa-install-msg" class="text-muted">Install {{ ph_brand() }} on your home screen for a fuller app experience and push alerts.</span>
+      <span id="pwa-install-msg" class="text-muted">Install {{ instance_wordmark() }} on your home screen for a fuller app experience and push alerts.</span>
       <div class="flex gap-2">
         <button type="button" id="pwa-install-btn" class="btn btn-accent text-xs min-h-9">Install</button>
         <button type="button" id="pwa-install-dismiss" class="btn btn-secondary text-xs min-h-9">Not now</button>
@@ -489,7 +493,7 @@
   </main>
 
   <footer class="text-center text-xs text-muted py-8 border-t border-border mt-12">
-    {{ ph_brand() }}{% if user and app_version %} <span class="font-mono">{{ app_version }}</span>{% endif %}
+    {{ instance_wordmark() }}{% if user and app_version %} <span class="font-mono">{{ app_version }}</span>{% endif %}
     · Secure fleet management for Raspberry Pi clusters
     {% if user %} · <a href="/about" class="text-accent hover:underline">About</a>{% endif %}
     <br>

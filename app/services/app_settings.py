@@ -38,6 +38,10 @@ DEFAULTS: Dict[str, Any] = {
     "keep": 10,
     "schedule_mode": "full",
     "timezone": "UTC",
+    # Brand-1. Empty name keeps the Pi+Herder wordmark. Empty accent keeps #00a651.
+    # Env PIHERDER_INSTANCE_NAME / PIHERDER_ACCENT lock the matching field.
+    "instance_name": "",
+    "instance_accent": "",
     # Jr-2: how long an exclusive Celery job stays pending while SSH fails.
     # Env PIHERDER_EXCLUSIVE_HOST_WAIT_SEC locks this when set.
     "exclusive_host_wait_sec": 1800,

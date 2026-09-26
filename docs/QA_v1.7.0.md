@@ -124,12 +124,14 @@ Use one real SSH host. You do not need every stack action if one mutate and one 
 
 ## Brand-1 — instance name + accent (Should; may slip)
 
-- [ ] Empty instance name keeps PiHerder wording and the official mark  
-- [ ] A set name shows in the header and the PWA title  
-- [ ] One accent recolours `--color-accent` only; primary red stays `#e60012`  
-- [ ] No header logo upload  
-- [ ] Env `PIHERDER_INSTANCE_NAME` / `PIHERDER_ACCENT` when set cannot be overridden in the UI  
-- [ ] Public demo still shows official PiHerder chrome  
+Settings → **General** → **Instance**. Boxes stay empty until you walk them. Rebuild **web** first. The header image stays the official mark.
+
+- [ ] Empty instance name keeps PiHerder wording and the official mark. Clear the name, save, and reload. The header still reads **Pi** / **Herder**. The mark image is unchanged  
+- [ ] A set name shows in the header and the PWA title. Save a short name such as **Homelab**. The header text, the footer, and the sign-in wordmark use it. View source: `apple-mobile-web-app-title` is that name. `GET /manifest.webmanifest` has `"name": "Homelab"` and `"theme_color": "#e60012"`  
+- [ ] One accent recolours `--color-accent` only; primary red stays `#e60012`. Pick a blue, save, and reload. Links and accent chips follow it. The mark and the red buttons stay red. Putting the accent back on `#00a651` restores the official green  
+- [ ] No header logo upload. The Instance card has a name and a color. It has no file field  
+- [ ] Env `PIHERDER_INSTANCE_NAME` / `PIHERDER_ACCENT` when set cannot be overridden in the UI. With either variable set in `.env` and **web** recreated, that field is disabled and a save does not change it  
+- [ ] Public demo still shows official PiHerder chrome. Do not redeploy the demo. This walk is the local herder  
 
 ## Brand-2 — hide Catalog (Should; may slip)
 

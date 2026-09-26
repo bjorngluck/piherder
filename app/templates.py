@@ -34,6 +34,41 @@ def ph_brand(extra_class: str = "") -> Markup:
 
 templates.env.globals["ph_brand"] = ph_brand
 
+
+def instance_wordmark() -> Markup:
+    """Header wordmark. Empty instance name keeps the official Pi+Herder mark text."""
+    from markupsafe import escape
+
+    from .services.instance_brand import effective_brand
+
+    brand = effective_brand()
+    if not brand.get("custom_name"):
+        return ph_brand()
+    safe = escape(brand.get("name") or "")
+    return Markup(
+        f'<span class="ph-brand" aria-label="{safe}">{safe}</span>'
+    )
+
+
+def instance_plain_name() -> str:
+    from .services.instance_brand import effective_brand
+
+    return str(effective_brand().get("plain") or "PiHerder")
+
+
+def instance_accent_css() -> Markup:
+    from .services.instance_brand import accent_override_css
+
+    css = accent_override_css()
+    if not css:
+        return Markup("")
+    return Markup(css)
+
+
+templates.env.globals["instance_wordmark"] = instance_wordmark
+templates.env.globals["instance_plain_name"] = instance_plain_name
+templates.env.globals["instance_accent_css"] = instance_accent_css
+
 from .security.headers import current_csp_nonce  # noqa: E402
 
 templates.env.globals["csp_nonce"] = current_csp_nonce

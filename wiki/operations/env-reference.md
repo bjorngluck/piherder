@@ -94,6 +94,8 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 | `CELERY_CONCURRENCY` | `2` pool slots (compose → celery-worker) |
 | `PIHERDER_SERVER_LOCK_TTL` | `7200` backup mutex TTL |
 | `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` | Unset — **Settings → General → Jobs** (default 30 minutes). When this env var is set it **locks** that field. Probe every 30s. Floor 30, ceiling 86400 |
+| `PIHERDER_INSTANCE_NAME` | Unset — **Settings → General → Instance**. When set, locks the header wordmark. Empty Settings name keeps Pi / Herder. The mark image stays |
+| `PIHERDER_ACCENT` | Unset — same card. `#RRGGBB` locks the accent (`--color-accent` and the subtle accent background). Primary red `#e60012` stays. Demo ignores name and accent |
 | `REDIS_URL` | Optional alias used in some deploy notes — broker/result URLs are authoritative |
 
 ## LAN Discovery (nmap) — opt-in {#lan-discovery-nmap--opt-in}

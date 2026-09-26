@@ -56,6 +56,8 @@ def test_settings_hub_post_writes(tmp_path, monkeypatch):
         assert r.status_code == 200
         assert "Host wait" in r.text
         assert 'data-testid="host-wait-minutes"' in r.text
+        assert 'data-testid="instance-name"' in r.text
+        assert 'data-testid="instance-accent"' in r.text
         r = client.get("/herder-backups?tab=alerts")
         assert r.status_code == 200
         r = client.get("/herder-backups?tab=fleet")
@@ -124,6 +126,15 @@ def test_settings_hub_post_writes(tmp_path, monkeypatch):
         )
         assert r.status_code in (303, 403, 200)
         assert store.get("exclusive_host_wait_sec") == 45 * 60
+
+        r = client.post(
+            "/herder-backups/instance",
+            data={"instance_name": "Homelab", "instance_accent": "#112233"},
+            follow_redirects=False,
+        )
+        assert r.status_code in (303, 403, 200)
+        assert store.get("instance_name") == "Homelab"
+        assert store.get("instance_accent") == "#112233"
 
         r = client.post(
             "/herder-backups/oidc",
