@@ -347,6 +347,7 @@ Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) Â
 | 2026-09-26 | **Q packs `_q9` and `_q10`.** Settings, certificates, Pi-hole, SSH identities, OIDC callback. Full compose **81.01%** (39638/48927), 1694 passed. CI `--cov-fail-under` stays **80** so the extra point is headroom. |
 | 2026-09-26 | **HA-cards landed.** `host_reboot` on the existing jobs POST (exclusive lane, 409 against patch and backup). Plugin **0.3.0**: host, updates, and resources cards. Graphs are HA history of snapshot sensors. Operator walk still open. |
 | 2026-09-26 | **Docs alignment.** Architecture, SPEC, ADMIN, SECURITY, and the multi-worker wiki match the Celery exclusive lane. Discover rows stay parked. Operator walk boxes stay empty. |
+| 2026-09-26 | **QA and screenshot list.** [QA_v1.7.0.md](QA_v1.7.0.md) covers every landed stream. Docs alignment is signed. Live boxes stay empty. v1.7 screenshot files are listed and not captured. Draft PR is the review vehicle. |
 
 ---
 

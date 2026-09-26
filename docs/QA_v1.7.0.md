@@ -3,7 +3,10 @@
 **Branch:** `v1.7.0-dev` → `main` · tag **`v1.7.0`** (cut after merge)  
 **Code freeze:** *open*  
 **Package:** **`1.6.0`** until freeze  
-**Operator QA:** *not started*
+**Operator QA:** *not started* (live boxes below stay empty)  
+**Docs alignment:** **done** 2026-09-26 (architecture, SPEC, ADMIN, SECURITY, wiki). Not a substitute for the live walk  
+**Screenshots:** listed in [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v170--pack-status). **Not captured**  
+**Pull request:** draft. Do not undraft, merge, tag, or publish until asked
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki. Walk the operator pages while ticking boxes.
 
@@ -11,9 +14,9 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 1.6 production sign-off stays [QA_v1.6.0.md](QA_v1.6.0.md) (historical). Do **not** re-open 1.6 boxes here.
 
-**Tag honesty:** freeze only with **MCP-1** and **Jr-1**. CI fail-under is **80** (compose **81.01%**, kept as headroom). Do not lower it below **75**. Do not bump version, merge, tag, or Hub until asked. Do not redeploy the public demo onto this branch.
+**Tag honesty:** freeze only with **MCP-1** and **Jr-1**. CI fail-under is **80** (compose **81.01%**, kept as headroom). Do not lower it below **75**. Do not bump version, merge, tag, or Hub until asked. Do not redeploy the public demo onto this branch. No new Alembic revision on this train.
 
-**This pass is sign-off, not new features.** Fix only a feature or regression bug you hit while walking. Discover (Bak-alt, AC-fg, HA Slice 2, Undo-2, Mux-2) stays parked until a row is promoted.
+**This pass is sign-off, not new features.** Fix only a feature or regression bug you hit while walking. Discover (Bak-alt, AC-fg, the HA job-finished bus event, Undo-2, Mux-2) stays parked until a row is promoted.
 
 ---
 
@@ -25,6 +28,8 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 | Jr-1 / Jr-2 | [Multi-worker](../wiki/operations/multi-worker.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Troubleshooting](../wiki/troubleshooting/index.md) |
 | Brand-1 / Brand-2 | [Appearance](../wiki/getting-started/appearance.md) · [Settings](../wiki/operations/settings.md) → General → Instance |
 | HA-cards | [Home Assistant](../wiki/integrations/home-assistant.md). Plugin **0.3.0**. Walk after HACS updates |
+| Audit pulse | [Jobs, Audit, notifications](../wiki/day-to-day/jobs-audit-notifications.md). Incomplete backup phases stay out of the active pulse |
+| Screenshots | [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v170--pack-status) |
 | Regression | [Move a service](../wiki/docker/service-migration.md) · [Web SSH](../wiki/day-to-day/web-ssh-console.md) · [Home Assistant](../wiki/integrations/home-assistant.md) |
 
 ---
@@ -45,14 +50,16 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 ### Suggested order
 
-1. **MCP-1** against a local herder. Start with a scope-`read` token, then a token that also has `jobs`, `edit`, and `files`. About / footer on the herder still **1.6.0**.  
-2. Rebuild local **web** + **celery-worker** (Jr-1 is in this branch; the running containers do not see it until that rebuild).  
-3. **Jr-1** on one real host (patch or stack), including a web recycle and a worker recycle.  
-4. Host-down wait on a host whose SSH you can refuse.  
-5. **Coverage** has landed at fail-under **80** (compose **81.01%**, 39638/48927). The extra point is headroom.  
-6. **Brand** if the slice has landed.  
-7. **1.6 regression** with Move still off.  
-8. Leave **Freeze gates** empty. Tick a box only after you have walked it.
+1. **Docs alignment** is already signed below. It does not tick a live box.  
+2. **MCP-1** against a local herder. Start with a scope-`read` token, then a token that also has `jobs`, `edit`, and `files`. About / footer on the herder still **1.6.0**.  
+3. Rebuild local **web** + **celery-worker** (`docker compose build web celery-worker && docker compose up -d web celery-worker`).  
+4. **Jr-1** on one real host (one patch or stack, plus `host_reboot` if the OS-patch flag is on), including a web recycle and a worker recycle.  
+5. Host-down wait on a host whose SSH you can refuse. Then **Jr-2**: put the wait back to **30** minutes.  
+6. **Brand-1** and **Brand-2** on desktop and one phone. Restore the official name, green accent, and Catalog in the nav when finished. Capture the [v1.7 screenshot pack](../wiki/assets/screenshots/README.md#v170--pack-status) during this pass.  
+7. **HA-cards** on plugin **0.3.0**.  
+8. **Audit pulse:** a completed backup counts; queued and running phase rows do not.  
+9. **1.6 regression** with Move still off.  
+10. Leave **Freeze gates** empty. Tick a live box only after you have walked it.
 
 ---
 
@@ -106,6 +113,7 @@ Use one real SSH host. You do not need every stack action if one mutate and one 
 - [ ] Update checks (`os_update_check`, `container_update_check`, `docker_stack_check`) enqueue on **celery-worker**. Dashboard or server **Check**, and one stack **Check updates**. Same log pair as above  
 - [ ] Stack mutate (`deploy` / `stop` / `start` / `restart` / `down` / `remove`) enqueues on **celery-worker**. One disposable project is enough: **Deploy** or **Restart**, and note the job id  
 - [ ] Template deploy / redeploy / drift check enqueue on **celery-worker**. Catalog → deploy a small template, or an existing deployment → **Check drift** / **Save & redeploy**  
+- [ ] `host_reboot` enqueues on **celery-worker**. Server **Reboot** (or the HA host card). OS-patch flag must be on. Refused (**409**) while `os_patch`, `container_patch`, or `backup` is pending or running. Those three are refused while a reboot is active. SSH down stays pending. Worker log shows `exclusive_job`  
 
 ### Recycle and host-down
 
@@ -164,11 +172,46 @@ Plugin **0.3.0** in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piher
 - [ ] No container start/stop, Move, Files, or console control appears on any card  
 - [ ] Public demo is not the target. Do not point the plugin at it  
 
-## Q — fail-under 75 → 80 (Should; may slip)
+## Q — fail-under 75 → 80 (Should)
 
 - [x] CI `--cov-fail-under` is **80** on `app` — compose **81.01%** (39638/48927), 1694 passed. The extra point stays as headroom. Floor was **75**  
-- [ ] Fail-under is not lowered below **75**  
-- [ ] No live SSH / apt / two-host copy in CI  
+- [x] Fail-under is not lowered below **75** (workflow is **80**)  
+- [x] No live SSH / apt / two-host copy in CI. The test job is unit pytest against Postgres on the runner  
+
+## Docs alignment (signed 2026-09-26)
+
+Checked against [architecture](../wiki/developers/architecture.md), [SECURITY.md](../SECURITY.md), [SPEC.md](../SPEC.md), and [ADMIN.md](ADMIN.md). This is a reading pass, not the live walk.
+
+- [x] Exclusive jobs (patch, checks, stack, templates, `host_reboot`) are documented on the default Celery queue. Recycling **web** does not fail them. Recycling the worker fails a **running** one  
+- [x] `retention`, `herder_backup`, and `host_facts` stay documented on the web process. nmap stays on `celery-worker-nmap`  
+- [x] `host_reboot` is `jobs` plus `feature:os`, **409** against OS patch, container patch, and backup. MCP’s tool list does not include it  
+- [x] Files API stays fleet list, read, write, mkdir, rename, and empty-directory delete. Richer Files stay UI-only  
+- [x] Instance name, one accent, and Catalog hide match Settings. Demo ignores them. Primary red and the mark stay  
+- [x] Discover rows (Bak-alt, AC-fg, HA bus event, Undo-2, Mux-2) are not written up as shipped  
+- [x] Operator wiki pages for MCP, Jobs, multi-worker, Appearance, Settings, Home Assistant, and the env reference match those locks  
+
+## Audit pulse (on this branch)
+
+The Audit hero no longer counts queued and running backup phase rows as active work. **Hide incomplete runs** still hides them. A failed apt step can include the last `E:` lines in the job summary.
+
+- [ ] A completed backup still appears in the Audit feed with the size summary  
+- [ ] Queued and running `backup` phase rows are hidden by **Hide incomplete runs** and are not in the active pulse  
+- [ ] An OS patch that fails on apt shows the `E:` reason on the job summary when apt printed one  
+
+## Screenshots — v1.7 pack
+
+Not captured. List and sequence: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v170--pack-status). Tick a row only after the PNG is in `wiki/assets/screenshots/` and the wiki page has a `![…]`. Then `mkdocs build --strict`.
+
+- [ ] `settings-instance.png`  
+- [ ] `settings-jobs-wait.png`  
+- [ ] `header-instance-name.png`  
+- [ ] `nav-catalog-hidden.png` (phone)  
+- [ ] `settings-hub.png` replaced so Instance and Jobs are on the hub  
+- [ ] `ha-host-card.png`  
+- [ ] `ha-updates-card.png`  
+- [ ] `ha-resources-card.png`  
+- [ ] `ha-fleet-sensors.png` recaptured only if it still says plugin **0.2.4**  
+- [ ] 1.6 mux, Move, System Info, and fleet-card PNGs left in place  
 
 ## 1.6 regression
 
@@ -179,6 +222,8 @@ Plugin **0.3.0** in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piher
 - [ ] Expired session → Sign in (not JSON)  
 
 ## Freeze gates
+
+Leave these empty. The draft pull request is the review vehicle, not a merge.
 
 - [ ] `mkdocs build --strict`  
 - [ ] [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) drafted  

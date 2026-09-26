@@ -53,7 +53,7 @@ jobs:
           pip install --require-hashes -r requirements.lock.txt
           # Project only — do not re-resolve third-party deps
           pip install --no-deps -e .
-          # Coverage reporter (not hashed in lock; CI fail-under 70)
+          # Coverage reporter (not hashed in lock; CI fail-under 80)
           pip install "pytest-cov>=5.0"
 
       - name: Run unit tests
