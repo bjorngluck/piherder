@@ -20,7 +20,7 @@ PiHerder does not advertise an OAuth discovery document. A `401` is `WWW-Authent
 
 Admin → Settings → **API management** → Create new token → **MCP agent**.
 
-That suggests a `mcp-…` name and starts at scope `read`. Add `jobs`, `edit`, and `files` when the agent should change something. Leave the IP allowlist empty for a roaming laptop.
+The name fills in as `mcp-…` and only **read** stays checked. Add **jobs**, **edit**, or **files** if this agent should do more than look. Leave the IP allowlist empty for a roaming laptop.
 
 After create or rotate, the banner shows the secret **once** and a **hosted** client config (URL + Bearer). Copy that. The collapsed **Local / air-gapped** block is `uvx piherder-mcp` if you need it. The plaintext is not shown again.
 

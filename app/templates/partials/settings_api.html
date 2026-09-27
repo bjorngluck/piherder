@@ -98,11 +98,8 @@ curl -sS "{{ public_url|default('') }}/openapi.json" | head -c 200</pre>
               <span>
                 <span class="font-medium text-text">MCP agent</span>
                 <span class="block text-xs text-muted mt-0.5">
-                  Suggests a <code class="font-mono">mcp-…</code> name and starts with <code class="font-mono">read</code> only.
-                  Tick <code class="font-mono">jobs</code> / <code class="font-mono">edit</code> / <code class="font-mono">files</code>
-                  (and optional <code class="font-mono">feature:*</code>) for write tools.
-                  After create, copy the hosted <code class="font-mono">/mcp</code> URL and Bearer header.
-                  <code class="font-mono">uvx</code> is only the air-gapped fallback.
+                  Fills the name with <code class="font-mono">mcp-…</code> and leaves only <code class="font-mono">read</code> checked.
+                  Add <code class="font-mono">jobs</code>, <code class="font-mono">edit</code>, or <code class="font-mono">files</code> below if this agent should do more than look.
                 </span>
               </span>
             </label>
