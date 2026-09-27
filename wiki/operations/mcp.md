@@ -10,7 +10,11 @@ The herder does not grow an MCP port. Create the token in Settings → **API man
 
 ## Why it exists
 
-Cursor, Grok, Claude, and Codex can already call HTTP. A shared tool list keeps those four on one process. The package is not on PyPI yet, so the command is `uvx --from git+https://github.com/bjorngluck/piherder-mcp.git piherder-mcp`, with `PIHERDER_URL` and `PIHERDER_TOKEN` in that client’s env. The token is never committed. Samples below use `${PIHERDER_TOKEN}`.
+Cursor, Grok, Claude, and Codex can already call HTTP. A shared tool list keeps those four on one process. Prefer `uvx piherder-mcp`. If the package is not on PyPI yet, use `uvx --from git+https://github.com/bjorngluck/piherder-mcp.git piherder-mcp`. Set `PIHERDER_URL` and `PIHERDER_TOKEN` in that client’s env. The token is never committed.
+
+**Mint from Settings:** admin → API management → Create new token → **MCP agent** preset (suggests `mcp-…`, default `read`, optional expiry). After create/rotate, copy the one-time secret and the **MCP / agent client config** snippet. See [API tokens](api-tokens.md).
+
+`${PIHERDER_TOKEN}` in the samples below is a **human placeholder**. Many MCP hosts do **not** expand shell-style `${…}` in JSON — paste the real secret into the client’s secret UI, or set the host env and omit the inline value.
 
 Grok Build also loads a project `.cursor/mcp.json` when Cursor MCP import is on (the default), so one Cursor file covers Grok on that checkout. Codex does not read that file. Claude uses its own `mcpServers` block or a project `.mcp.json`.
 
@@ -37,7 +41,7 @@ SSH, the web console, Move, undo, compose stack actions, template deploy, nmap, 
 
 ## Client samples
 
-Same command in each client. Replace the URL. Keep the token in the client’s secret store or an env var you do not commit.
+Same command in each client. Replace the URL. Keep the token in the client’s secret store or an env var you do not commit. Prefer short `args` (`piherder-mcp`); use the git `--from` form only when the package is not on PyPI.
 
 **Cursor** — `.cursor/mcp.json`:
 
@@ -46,7 +50,7 @@ Same command in each client. Replace the URL. Keep the token in the client’s s
   "mcpServers": {
     "piherder": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/bjorngluck/piherder-mcp.git", "piherder-mcp"],
+      "args": ["piherder-mcp"],
       "env": {
         "PIHERDER_URL": "https://piherder.example.com",
         "PIHERDER_TOKEN": "${PIHERDER_TOKEN}"
@@ -56,12 +60,14 @@ Same command in each client. Replace the URL. Keep the token in the client’s s
 }
 ```
 
+Git fallback for `args` when needed: `["--from", "git+https://github.com/bjorngluck/piherder-mcp.git", "piherder-mcp"]`.
+
 **Grok Build** — `.grok/config.toml` (or rely on the Cursor file above):
 
 ```toml
 [mcp_servers.piherder]
 command = "uvx"
-args = ["--from", "git+https://github.com/bjorngluck/piherder-mcp.git", "piherder-mcp"]
+args = ["piherder-mcp"]
 env = { PIHERDER_URL = "https://piherder.example.com", PIHERDER_TOKEN = "${PIHERDER_TOKEN}" }
 ```
 
@@ -72,7 +78,7 @@ env = { PIHERDER_URL = "https://piherder.example.com", PIHERDER_TOKEN = "${PIHER
 ```toml
 [mcp_servers.piherder]
 command = "uvx"
-args = ["--from", "git+https://github.com/bjorngluck/piherder-mcp.git", "piherder-mcp"]
+args = ["piherder-mcp"]
 env = { PIHERDER_URL = "https://piherder.example.com", PIHERDER_TOKEN = "${PIHERDER_TOKEN}" }
 ```
 

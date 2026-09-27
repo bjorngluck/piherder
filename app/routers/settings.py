@@ -170,6 +170,11 @@ async def settings_page(
                     if t.revoked_at
                     else None
                 )
+                d["expires_display"] = (
+                    app_cfg.format_datetime_in_app_tz(t.expires_at)
+                    if t.expires_at
+                    else None
+                )
                 api_token_rows.append(d)
         except Exception:
             api_token_rows = []
@@ -465,8 +470,10 @@ async def settings_page(
     host_wait_minutes = max(1, int(round(host_wait_sec / 60)))
     host_wait_locked = host_wait_env_locked()
     from ..services.instance_brand import DEFAULT_ACCENT, effective_brand
+    from ..services.password_reset import configured_public_origin
 
     brand = effective_brand()
+    public_url = configured_public_origin()
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -493,6 +500,17 @@ async def settings_page(
             "api_meta": api_meta,
             "new_api_token_secret": qp.get("token_secret"),
             "new_api_token_name": qp.get("token_name"),
+            "new_api_token_mcp_snippet": (
+                tok_svc.mcp_client_snippet(
+                    public_url=public_url,
+                    token_secret=qp.get("token_secret") or "",
+                )
+                if qp.get("token_secret")
+                and (qp.get("token_created") or qp.get("token_rotated"))
+                else None
+            ),
+            "mcp_token_name_suggest": tok_svc.suggest_mcp_token_name(),
+            "public_url": public_url,
             "stack_report": stack_report,
             "stack_health_interval_min": STACK_HEALTH_INTERVAL_MIN,
             "settings_pulse": settings_pulse,
@@ -697,6 +715,8 @@ async def create_api_token_form(
     scope_feature_os: Optional[str] = Form(None),
     scope_feature_docker: Optional[str] = Form(None),
     allowed_cidrs: Optional[str] = Form(None),
+    expires_preset: Optional[str] = Form("none"),
+    expires_at: Optional[str] = Form(None),
     session: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
@@ -721,12 +741,23 @@ async def create_api_token_form(
         scope_feature_docker,
     )
     try:
+        expires = tok_svc.resolve_expires_at(
+            expires_preset=expires_preset,
+            expires_at=expires_at,
+        )
+    except ValueError as e:
+        return RedirectResponse(
+            _settings_url("api", error=str(e)[:120], api_panel="tokens"),
+            status_code=303,
+        )
+    try:
         row, plain = tok_svc.create_api_token(
             session,
             name=name,
             created_by=user,
             scopes=scopes,
             allowed_cidrs=allowed_cidrs or None,
+            expires_at=expires,
         )
     except DemoBlocked as e:
         return RedirectResponse(
