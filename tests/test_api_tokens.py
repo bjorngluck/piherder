@@ -93,18 +93,36 @@ def test_mcp_client_snippet_and_name():
     name = tok.suggest_mcp_token_name(now=datetime(2026, 9, 27))
     assert name.startswith("mcp-")
     assert "20260927" in name
+    secret = "ph_testsecretvalue000000000000000"
     snip = tok.mcp_client_snippet(
         public_url="https://piherder.example.com/",
-        token_secret="ph_testsecretvalue000000000000000",
+        token_secret=secret,
     )
+    hosted_at = snip.index("/mcp")
+    local_at = snip.index("uvx piherder-mcp")
+    assert hosted_at < local_at
+    assert '"type": "http"' in snip
+    assert "https://piherder.example.com/mcp" in snip
+    assert f"Bearer {secret}" in snip
+    assert "token=" not in snip.split("/mcp", 1)[0]
     assert "export PIHERDER_URL='https://piherder.example.com'" in snip
-    assert "export PIHERDER_TOKEN='ph_testsecretvalue000000000000000'" in snip
+    assert f"export PIHERDER_TOKEN='{secret}'" in snip
     assert '"args": ["piherder-mcp"]' in snip
     assert "git+https://github.com/bjorngluck/piherder-mcp.git" in snip
-    assert "ph_testsecretvalue000000000000000" in snip
+    hosted_only = tok.mcp_hosted_client_snippet(
+        public_url="https://piherder.example.com/",
+        token_secret=secret,
+    )
+    assert "uvx" not in hosted_only
+    assert hosted_only.index("/mcp") < hosted_only.index(secret)
     # Placeholder URL when unset
     snip2 = tok.mcp_client_snippet(public_url="", token_secret="ph_x")
     assert tok.MCP_SNIPPET_PLACEHOLDER_URL in snip2
+    assert f"{tok.MCP_SNIPPET_PLACEHOLDER_URL}{tok.MCP_HTTP_PATH}" in snip2
+    assert "PIHERDER_PUBLIC_URL is unset" in snip2
+    hosted_blank = tok.mcp_hosted_client_snippet(public_url="", token_secret="ph_x")
+    assert hosted_blank.startswith("# WARNING: PIHERDER_PUBLIC_URL is unset")
+    assert "WARNING" not in hosted_only
 
 
 def test_token_has_scope():
@@ -587,8 +605,15 @@ def test_settings_form_create_token_with_expiry(tmp_path, monkeypatch):
         html = page.text
         assert 'data-testid="api-token-mcp-preset"' in html
         assert 'data-testid="api-token-mcp-snippet"' in html
+        assert 'data-testid="api-token-mcp-local"' in html
+        assert "/mcp" in html
+        assert "Bearer" in html
+        assert "Copy hosted config" in html
         assert "uvx piherder-mcp" in html
         assert "PIHERDER_TOKEN" in html
+        hosted_at = html.index('data-testid="api-token-mcp-snippet"')
+        local_at = html.index('data-testid="api-token-mcp-local"')
+        assert hosted_at < local_at
         assert "roaming laptop" in html
         with Session(engine) as s:
             row = s.exec(select(ApiToken).where(ApiToken.name == "mcp-laptop")).first()

@@ -51,7 +51,14 @@ def apply_cors_middleware(app: FastAPI, origins: Iterable[str]) -> None:
         allow_origins=allow,
         allow_credentials=False,
         allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "Accept"],
-        expose_headers=[],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "Accept",
+            "MCP-Protocol-Version",
+            "Mcp-Session-Id",
+            "Last-Event-ID",
+        ],
+        expose_headers=["MCP-Protocol-Version", "Mcp-Session-Id"],
         max_age=600,
     )

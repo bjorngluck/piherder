@@ -606,7 +606,7 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
 | **Image pin** | Prefer a tagged image: Hub **`1.6.0`** / `1.6` / `latest` (`1.5.0` / `1.5` / `1.4.x` pins remain valid) |
 
-Current production: [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [QA_v1.6.0.md](QA_v1.6.0.md). Active train: [PLAN_v1.7.0.md](PLAN_v1.7.0.md) on `v1.7.0-dev` (MCP client of `/api/v1`, then remaining exclusive jobs on Celery). Operator: [Agents (MCP)](../wiki/operations/mcp.md). Prior: [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current production: [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [QA_v1.6.0.md](QA_v1.6.0.md). Active train: [PLAN_v1.7.0.md](PLAN_v1.7.0.md) on `v1.7.0-dev` (hosted MCP at `/mcp`, then remaining exclusive jobs on Celery). Operator: [Agents (MCP)](../wiki/operations/mcp.md). Prior: [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 
@@ -959,7 +959,7 @@ Probes tools needed for **enabled** features only (`rsync` / sudo path, `docker`
 |-------|--------|
 | Ownership | **Instance-wide**, admin-managed (not per-user PATs) |
 | Secret | `ph_…` shown **once** at create or **rotate**; **Copy token** + **Test now** + one-time **MCP client config** snippet in UI; stored hashed |
-| MCP agent preset | Create form checkbox: suggests `mcp-…` name, default scope `read`; add `jobs` / `edit` / `files` as needed. External stdio adapter only |
+| MCP agent preset | Create form checkbox: suggests `mcp-…` name, default scope `read`; add `jobs` / `edit` / `files` as needed. One-time snippet is hosted `POST /mcp` plus Bearer. `uvx` is the collapsed air-gapped fallback |
 | Expiry | Optional never / 30d / 90d / custom (`expires_at`); expired tokens fail lookup |
 | Test now | After create/rotate: verifies secret, scopes, and whether *your browser IP* passes the allowlist (admin session; no `read` scope required) |
 | Capability scopes | `read` · `jobs` · `edit` · `files` — editable later without rotating |

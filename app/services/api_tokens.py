@@ -52,6 +52,8 @@ MCP_DEFAULT_SCOPES = (SCOPE_READ,)
 MCP_NAME_PREFIX = "mcp-"
 EXPIRES_PRESETS = frozenset({"none", "30d", "90d", "custom"})
 MCP_SNIPPET_PLACEHOLDER_URL = "https://piherder.example.com"
+# Hosted Streamable HTTP MCP on this herder (same origin as the web UI).
+MCP_HTTP_PATH = "/mcp"
 
 # Map job types → feature key used in feature:* scopes and server flags
 JOB_FEATURE_KEY = {
@@ -248,20 +250,69 @@ def resolve_expires_at(
     return parsed
 
 
-def mcp_client_snippet(
+def mcp_endpoint_url(public_url: str | None) -> str:
+    """Absolute hosted MCP URL. Token is never placed in the query string."""
+    base = (public_url or "").strip().rstrip("/") or MCP_SNIPPET_PLACEHOLDER_URL
+    return f"{base}{MCP_HTTP_PATH}"
+
+
+def _public_url_warning(public_url: str | None) -> str:
+    """One line when the snippet host is the placeholder, not the real origin."""
+    if (public_url or "").strip():
+        return ""
+    return (
+        "# WARNING: PIHERDER_PUBLIC_URL is unset. "
+        f"Replace {MCP_SNIPPET_PLACEHOLDER_URL} before pasting.\n"
+    )
+
+
+def mcp_hosted_client_snippet(
+    *,
+    public_url: str | None,
+    token_secret: str,
+) -> str:
+    """One-time copyable remote MCP config (URL + Bearer). Primary install path.
+
+    The secret is embedded once in the flash banner. It is an HTTP header, not
+    a query parameter. ``${…}`` placeholders are not used — many hosts do not
+    expand them.
+    """
+    url = mcp_endpoint_url(public_url)
+    secret = (token_secret or "").strip() or "ph_…"
+    warning = _public_url_warning(public_url)
+    payload = {
+        "mcpServers": {
+            "piherder": {
+                "type": "http",
+                "url": url,
+                "headers": {"Authorization": f"Bearer {secret}"},
+            }
+        }
+    }
+    body = json.dumps(payload, indent=2)
+    return (
+        f"{warning}"
+        "# Hosted MCP (default) — same host and port as this herder. Nothing else to run.\n"
+        "# Cursor / Grok: .cursor/mcp.json. Claude Code: keep \"type\": \"http\".\n"
+        "# The token is the Authorization header only. Do not put it in the URL.\n"
+        f"{body}\n"
+    )
+
+
+def mcp_stdio_client_snippet(
     *,
     public_url: str | None,
     token_secret: str,
     prefer_pypi: bool = True,
 ) -> str:
-    """One-time copyable env + mcp.json for Cursor/Claude after mint/rotate.
+    """Optional local stdio config (``uvx piherder-mcp``) for air-gapped agents.
 
     ``${PIHERDER_TOKEN}`` is *not* used here — many MCP hosts do not expand
     shell-style placeholders. The flash banner embeds the real secret once.
-    Prefer short ``uvx piherder-mcp``; note the git fallback when not on PyPI.
     """
     url = (public_url or "").strip().rstrip("/") or MCP_SNIPPET_PLACEHOLDER_URL
     secret = (token_secret or "").strip() or "ph_…"
+    warning = _public_url_warning(public_url)
     if prefer_pypi:
         args_line = '      "args": ["piherder-mcp"],'
         cmd_note = (
@@ -277,13 +328,12 @@ def mcp_client_snippet(
         )
         cmd_note = ""
     return (
+        f"{warning}"
         f"export PIHERDER_URL='{url}'\n"
         f"export PIHERDER_TOKEN='{secret}'\n"
         "\n"
         f"{cmd_note}"
-        "# Cursor / Claude — .cursor/mcp.json (or project .mcp.json)\n"
-        "# Paste the secret into the client secret UI or host env if the host\n"
-        "# does not expand ${…} placeholders.\n"
+        "# Local / air-gapped — .cursor/mcp.json (stdio). Not required when /mcp is reachable.\n"
         "{\n"
         '  "mcpServers": {\n'
         '    "piherder": {\n'
@@ -297,6 +347,28 @@ def mcp_client_snippet(
         "  }\n"
         "}\n"
     )
+
+
+def mcp_client_snippet(
+    *,
+    public_url: str | None,
+    token_secret: str,
+    prefer_pypi: bool = True,
+) -> str:
+    """Hosted config first, then the optional stdio fallback.
+
+    Used by the token-create API. The Settings banner shows the two blocks
+    separately so the copy button copies the hosted URL only.
+    """
+    hosted = mcp_hosted_client_snippet(
+        public_url=public_url, token_secret=token_secret
+    )
+    local = mcp_stdio_client_snippet(
+        public_url=public_url,
+        token_secret=token_secret,
+        prefer_pypi=prefer_pypi,
+    )
+    return hosted + "\n# Local / air-gapped fallback (optional)\n" + local
 
 
 def normalize_allowed_cidrs(value: Iterable[str] | str | None) -> list[str]:
@@ -750,5 +822,14 @@ def api_meta_dict() -> dict:
             "markdown": "/static is app assets; human API guide: docs/API.md in the repo",
             "openapi": "/openapi.json",
             "swagger_ui": "/docs",
+        },
+        "mcp": {
+            "path": MCP_HTTP_PATH,
+            "transport": "streamable-http",
+            "auth": "Authorization: Bearer ph_… (header only; not a query parameter)",
+            "summary": (
+                "Hosted MCP on this herder. Same scopes as /api/v1. "
+                "stdio uvx piherder-mcp remains an optional air-gapped client."
+            ),
         },
     }

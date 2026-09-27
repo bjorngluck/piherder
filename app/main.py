@@ -233,7 +233,8 @@ app = FastAPI(
     description=(
         "Self-hosted fleet manager. Interactive UI uses session cookies. "
         "Automation uses **Bearer API tokens** under `/api/v1` "
-        "(admin-managed; see **docs/API.md** and Settings → API tokens)."
+        "(admin-managed; see **docs/API.md** and Settings → API tokens). "
+        "Hosted MCP for agents is **POST /mcp** with the same Bearer token."
     ),
     version=_APP_VERSION,
     lifespan=lifespan,
@@ -476,6 +477,7 @@ async def web_manifest():
 
 
 from .routers import jobs_page as jobs_page_router
+from .routers import mcp as mcp_router
 from .routers import settings as settings_router
 from .services import scheduler as sched
 
@@ -490,6 +492,7 @@ app.include_router(push_router.router, prefix="", tags=["push"])
 app.include_router(jobs_page_router.router, prefix="", tags=["jobs"])
 app.include_router(metrics_router.router, prefix="", tags=["metrics"])
 app.include_router(api_v1_router.router, prefix="/api/v1", tags=["api-v1"])
+app.include_router(mcp_router.router, tags=["mcp"])
 app.include_router(settings_router.router, prefix="", tags=["settings"])
 app.include_router(integrations_router.router, prefix="", tags=["integrations"])
 app.include_router(certificates_router.router, prefix="", tags=["certificates"])
