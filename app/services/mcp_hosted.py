@@ -250,7 +250,7 @@ def tool_catalog() -> list[dict[str, Any]]:
                     "name": _str_prop("File basename"),
                     "text": _str_prop("UTF-8 file body"),
                 },
-                ["server_id", "name", "text"],
+                ["server_id", "p", "name", "text"],
             ),
             "annotations": _WRITE_ANN,
         },
@@ -264,7 +264,7 @@ def tool_catalog() -> list[dict[str, Any]]:
                     "p": _str_prop("Jail-relative parent"),
                     "name": _str_prop("New directory name"),
                 },
-                ["server_id", "name"],
+                ["server_id", "p", "name"],
             ),
             "annotations": _WRITE_ANN,
         },
@@ -326,11 +326,14 @@ def _host_of(raw: str) -> str:
 def origin_allowed(request: Request) -> bool:
     """Block browser DNS-rebinding origins. IDE clients usually omit Origin.
 
-    ``Origin: null`` is rejected. An http(s) Origin must match the request Host
-    or ``PIHERDER_PUBLIC_URL``. A Bearer request from another http(s) origin is
-    still allowed: browsers cannot attach ``Authorization`` cross-origin unless
-    ``CORS_ORIGINS`` already permits that origin (same rule as ``/api/v1``).
-    Non-http schemes (editor app origins) are allowed.
+    Missing ``Origin`` is allowed (Cursor, Codex, curl). ``Origin: null`` is
+    rejected. Non-http schemes (editor app origins) are allowed.
+
+    An ``http`` or ``https`` Origin is allowed only when its host matches the
+    request ``Host`` or ``PIHERDER_PUBLIC_URL``. A Bearer token does not bypass
+    that. If ``PIHERDER_PUBLIC_URL`` is unset, a browser Origin that is not the
+    request host is rejected — set the public URL so the published origin is
+    obvious and a misconfigured proxy cannot be missed.
     """
     origin = (request.headers.get("origin") or "").strip()
     if not origin:
@@ -351,9 +354,6 @@ def origin_allowed(request: Request) -> bool:
     except Exception:
         public_host = ""
     if origin_host and public_host and origin_host == public_host:
-        return True
-    auth = (request.headers.get("authorization") or "").strip().lower()
-    if auth.startswith("bearer "):
         return True
     return False
 
@@ -484,6 +484,48 @@ def present_file(data: bytes, *, truncated: bool) -> dict[str, Any]:
     }
 
 
+def _starlette_sync_iterator(iterator: Any) -> Any:
+    """Sync generator wrapped by Starlette ``iterate_in_threadpool``, if any.
+
+    That wrapper does not close the inner generator. Breaking out of the
+    stream leaves the download ``finally`` (audit row and SFTP session)
+    until the wrapper is closed and the generator is finalized.
+    """
+    frame = getattr(iterator, "ag_frame", None)
+    if frame is None:
+        return None
+    code = getattr(frame, "f_code", None)
+    if code is None or code.co_name != "iterate_in_threadpool":
+        return None
+    local = frame.f_locals
+    return local.get("as_iterator", local.get("iterator"))
+
+
+async def _close_stream(iterator: Any) -> None:
+    """Close a streamed body so in-process ``finally`` blocks run now."""
+    inner = _starlette_sync_iterator(iterator)
+    if inner is not None and inner is not iterator:
+        close_inner = getattr(inner, "close", None)
+        if callable(close_inner):
+            try:
+                close_inner()
+            except Exception:
+                logger.warning("hosted MCP file stream close failed", exc_info=True)
+    aclose = getattr(iterator, "aclose", None)
+    if callable(aclose):
+        try:
+            await aclose()
+        except Exception:
+            logger.warning("hosted MCP file stream aclose failed", exc_info=True)
+        return
+    close = getattr(iterator, "close", None)
+    if callable(close):
+        try:
+            close()
+        except Exception:
+            logger.warning("hosted MCP file stream close failed", exc_info=True)
+
+
 async def _collect_capped(resp: StreamingResponse, limit: int) -> tuple[bytes, bool]:
     chunks: list[bytes] = []
     total = 0
@@ -509,15 +551,18 @@ async def _collect_capped(resp: StreamingResponse, limit: int) -> tuple[bytes, b
         total += len(raw)
         return True
 
-    if hasattr(iterator, "__aiter__"):
-        async for chunk in iterator:
-            if not _take(chunk):
-                break
-    else:
-        for chunk in iterator:
-            if not _take(chunk):
-                break
-    return b"".join(chunks), truncated
+    try:
+        if hasattr(iterator, "__aiter__"):
+            async for chunk in iterator:
+                if not _take(chunk):
+                    break
+        else:
+            for chunk in iterator:
+                if not _take(chunk):
+                    break
+        return b"".join(chunks), truncated
+    finally:
+        await _close_stream(iterator)
 
 
 def _unwrap_json(value: Any) -> tuple[int, Any]:
@@ -648,6 +693,8 @@ async def call_tool(
             if isinstance(payload, dict) and status_code in (202, 409):
                 payload = dict(payload)
                 payload["http_status"] = status_code
+                if status_code == 409:
+                    payload["already_active"] = True
             await _drain_background(background)
         elif name == "list_files":
             payload = api_v1.api_files_list(
@@ -673,6 +720,8 @@ async def call_tool(
 
             from starlette.datastructures import UploadFile
 
+            if "p" not in args:
+                raise ToolArgError("Missing p")
             if "text" not in args:
                 raise ToolArgError("Missing text")
             if "name" not in args or not _opt_str(args, "name"):
@@ -696,6 +745,8 @@ async def call_tool(
                 auth,
             )
         elif name == "mkdir":
+            if "p" not in args:
+                raise ToolArgError("Missing p")
             payload = api_v1.api_files_mkdir(
                 _require_int(args, "server_id"),
                 api_v1.FilesMkdirBody(

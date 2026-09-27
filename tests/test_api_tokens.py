@@ -119,6 +119,10 @@ def test_mcp_client_snippet_and_name():
     snip2 = tok.mcp_client_snippet(public_url="", token_secret="ph_x")
     assert tok.MCP_SNIPPET_PLACEHOLDER_URL in snip2
     assert f"{tok.MCP_SNIPPET_PLACEHOLDER_URL}{tok.MCP_HTTP_PATH}" in snip2
+    assert "PIHERDER_PUBLIC_URL is unset" in snip2
+    hosted_blank = tok.mcp_hosted_client_snippet(public_url="", token_secret="ph_x")
+    assert hosted_blank.startswith("# WARNING: PIHERDER_PUBLIC_URL is unset")
+    assert "WARNING" not in hosted_only
 
 
 def test_token_has_scope():
