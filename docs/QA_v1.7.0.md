@@ -3,7 +3,7 @@
 **Branch:** `v1.7.0-dev` → `main` · tag **`v1.7.0`** (cut after merge)  
 **Code freeze:** *open*  
 **Package:** **`1.6.0`** until freeze  
-**Operator QA:** **Brand-1**, **Brand-2**, **Audit pulse**, and **1.6 regression** signed 2026-09-27. Other live walks stay empty  
+**Operator QA:** **MCP-1**, **Jr-2**, **Brand-1**, **Brand-2**, **Audit pulse**, and **1.6 regression** signed 2026-09-27. Other live walks stay empty  
 **Docs alignment:** **done** 2026-09-26 (architecture, SPEC, ADMIN, SECURITY, wiki). Not a substitute for the live walk  
 **Screenshots:** listed in [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v170--pack-status). **Not captured**  
 **Pull request:** draft. Do not undraft, merge, tag, or publish until asked
@@ -63,26 +63,28 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 ---
 
-## MCP-1 — hosted MCP on this herder (Must, first)
+## MCP-1 — hosted MCP on this herder (signed 2026-09-27)
 
 Primary path is **`POST /mcp`** on the web process (Streamable HTTP, stateless JSON). Same Bearer token as `/api/v1`. Do not point it at the public demo. stdio `uvx piherder-mcp` is optional and only for an agent that cannot reach the herder.
 
-- [ ] With no `Authorization` header, `POST /mcp` is **401** and does not echo a secret. A `?token=` query is **400**  
-- [ ] Settings → API management → **MCP agent** preset suggests a `mcp-…` name and default `read`; optional expiry (30d / 90d / custom) sticks on create  
-- [ ] After create (and rotate), the one-time banner’s **copy** block is the hosted URL (`…/mcp`) plus `Authorization: Bearer`. The secret is not in the URL. **Local / air-gapped** (`uvx`) is collapsed. The secret is not shown again after leaving the page  
-- [ ] Cursor (or Claude Code) connects with that URL and header. `initialize` succeeds. A scope-`read` token lists health, summary, servers, inventory, services, and jobs (list and detail), and `health` matches `curl` `/api/v1/health`  
-- [ ] That `read` token has no `set_features`, `trigger_job`, or files tool  
-- [ ] A token without `read` fails closed (initialize error, no tools)  
-- [ ] `trigger_job` with `jobs` accepts only `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, `container_update_check`  
-- [ ] `trigger_job` returns **202**, and **409** when one is already active, without starting a second job  
-- [ ] `set_features` with `edit` changes only `backup`, `os_patch`, and `docker`  
-- [ ] Files tools with `files` stay in the fleet jail: list, read, write, mkdir, rename, delete a file or empty directory  
-- [ ] Read tools are marked read-only. `set_features`, `trigger_job`, `write_file`, `mkdir`, `rename_file`, and `delete_file` are marked destructive  
-- [ ] No tool opens SSH, a console, Move, undo, a compose stack action, or token admin  
-- [ ] Optional: one air-gapped client still starts with `uvx piherder-mcp` (or the git `--from` form) and the same token  
-- [ ] Optional: `PIHERDER_PUBLIC_URL` is the origin you browse (scheme, host, port). The minted snippet uses that host, not `https://piherder.example.com`. An `http`/`https` `Origin` that matches neither that host nor the request `Host` is **403** even with a Bearer token. Clients that omit `Origin` still connect  
-- [ ] Optional: Codex `~/.codex/config.toml` uses `url` and `bearer_token_env_var = "PIHERDER_TOKEN"` (the raw `ph_…` secret). `initialize` succeeds  
-- [ ] No second MCP service in Compose. `GET /mcp` is **405** (stateless; no SSE listen channel)  
+Operator signed every box below on 2026-09-27, including the optional `uvx`, public URL, and Codex rows.
+
+- [x] With no `Authorization` header, `POST /mcp` is **401** and does not echo a secret. A `?token=` query is **400**  
+- [x] Settings → API management → **MCP agent** preset suggests a `mcp-…` name and default `read`; optional expiry (30d / 90d / custom) sticks on create  
+- [x] After create (and rotate), the one-time banner’s **copy** block is the hosted URL (`…/mcp`) plus `Authorization: Bearer`. The secret is not in the URL. **Local / air-gapped** (`uvx`) is collapsed. The secret is not shown again after leaving the page  
+- [x] Cursor (or Claude Code) connects with that URL and header. `initialize` succeeds. A scope-`read` token lists health, summary, servers, inventory, services, and jobs (list and detail), and `health` matches `curl` `/api/v1/health`  
+- [x] That `read` token has no `set_features`, `trigger_job`, or files tool  
+- [x] A token without `read` fails closed (initialize error, no tools)  
+- [x] `trigger_job` with `jobs` accepts only `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, `container_update_check`  
+- [x] `trigger_job` returns **202**, and **409** when one is already active, without starting a second job  
+- [x] `set_features` with `edit` changes only `backup`, `os_patch`, and `docker`  
+- [x] Files tools with `files` stay in the fleet jail: list, read, write, mkdir, rename, delete a file or empty directory  
+- [x] Read tools are marked read-only. `set_features`, `trigger_job`, `write_file`, `mkdir`, `rename_file`, and `delete_file` are marked destructive  
+- [x] No tool opens SSH, a console, Move, undo, a compose stack action, or token admin  
+- [x] Optional: one air-gapped client still starts with `uvx piherder-mcp` (or the git `--from` form) and the same token  
+- [x] Optional: `PIHERDER_PUBLIC_URL` is the origin you browse (scheme, host, port). The minted snippet uses that host, not `https://piherder.example.com`. An `http`/`https` `Origin` that matches neither that host nor the request `Host` is **403** even with a Bearer token. Clients that omit `Origin` still connect  
+- [x] Optional: Codex `~/.codex/config.toml` uses `url` and `bearer_token_env_var = "PIHERDER_TOKEN"` (the raw `ph_…` secret). `initialize` succeeds  
+- [x] No second MCP service in Compose. `GET /mcp` is **405** (stateless; no SSE listen channel)  
 
 ## Jr-1 — exclusive jobs on Celery (Must)
 
@@ -153,12 +155,14 @@ Use one real SSH host. You do not need every stack action if one mutate and one 
 - [x] Hide removes the nav item and does **not** 404 `/catalog`. Uncheck the box, save, reload. Catalog is gone from the header and the phone menu. Open `/catalog` directly. The page still loads, including its own tabs  
 - [x] Viewer and operator both follow the instance setting. Sign in as a non-admin after the hide. Catalog is gone for that account too. Check the box again and save. Catalog returns for both  
 
-## Jr-2 — max wait in Settings (Should; may slip)
+## Jr-2 — max wait in Settings (signed 2026-09-27)
 
-Settings → **General** → **Jobs**. Default **30 minutes**. Env `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` locks the field when set. Boxes stay empty until you walk them.
+Settings → **General** → **Jobs**. Default **30 minutes**. Env `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` locks the field when set.
 
-- [ ] Settings shows max wait; SSH probe is still what resumes the job. Open the Jobs card. The minutes field is there (1–1440). Save a short value such as **2** on a lab host, then refuse SSH and start an OS check. The pending log should mention the new limit (about 120s, not 1800). Restore SSH. The same job proceeds. Set the field back to **30** when you are done. If the env var is set, the field is disabled and the save does not change the wait  
-- [ ] Kuma down or stale `last_seen` can show “waiting on host” and does **not** by itself resume or fail the job. With a host whose Kuma SSH monitor is down, or whose `last_seen` is over 15 minutes old, start a check while SSH still works. The Jobs row or JobHold may say **waiting on host** before the probe, then the job **runs** anyway. It must not fail just because Kuma or `last_seen` looks down. With SSH actually refused, the job stays **pending** until the probe works or the wait you saved elapses  
+Operator signed both boxes on 2026-09-27.
+
+- [x] Settings shows max wait; SSH probe is still what resumes the job. Open the Jobs card. The minutes field is there (1–1440). Save a short value such as **2** on a lab host, then refuse SSH and start an OS check. The pending log should mention the new limit (about 120s, not 1800). Restore SSH. The same job proceeds. Set the field back to **30** when you are done. If the env var is set, the field is disabled and the save does not change the wait  
+- [x] Kuma down or stale `last_seen` can show “waiting on host” and does **not** by itself resume or fail the job. With a host whose Kuma SSH monitor is down, or whose `last_seen` is over 15 minutes old, start a check while SSH still works. The Jobs row or JobHold may say **waiting on host** before the probe, then the job **runs** anyway. It must not fail just because Kuma or `last_seen` looks down. With SSH actually refused, the job stays **pending** until the probe works or the wait you saved elapses  
 
 ## HA-cards — Lovelace cards and token writes (Should; may slip)
 
