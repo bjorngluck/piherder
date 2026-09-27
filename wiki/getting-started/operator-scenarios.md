@@ -166,7 +166,7 @@ Full page: [Move a service](../docker/service-migration.md). Do **not** pick **R
 
 **Done when:** Master key + at least one **Full** archive live **off** the herder host; you can explain “v1.2 Full = whole DB / host rsync no”; restore dry-run understood.
 
-**Not done when:** You only backed up the herder and expect Frigate recordings or every nmap XML to reappear — those are out of self-backup scope (see [Self-backup — not included](../operations/self-backup.md#not-included-by-design)).
+**Not done when:** You only backed up the herder and expect Frigate recordings or every nmap XML to reappear — those are out of self-backup scope (see [Self-backup — not included](../operations/self-backup.md#still-outside-self-backup)).
 
 ---
 

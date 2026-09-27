@@ -46,7 +46,7 @@ Wanted:
 | Image tags (freeze) | `1.7.0` · `1.7` · `latest` (multi-arch); keep `1.6` / `1.6.x` pins valid |
 | In-scope streams | **MCP-1** Must (first) · **Jr-1** Must · **Q** Should · **Brand-1** Should · **Brand-2** Should · **Jr-2** Should · **HA-cards** Should |
 | Discover (no code until promoted) | **AC-fg** · HA `piherder_job_completed` bus event · Undo-2 · Mux-2 · **Bak-alt** |
-| Out-of-focus | HA Slice 3 (container start/stop, webhooks, add-on, Move-from-HA, Files) · Brand-3 · theme engine · M-flag C (stay false) · plugin-in-image · MCP-in-image · remote HTTP MCP · CSP Slice 2 (`onclick` rewrite) · ACME · NPM CRUD · richer Files API · N3c · M-live · multi-tenant · Swarm/k8s |
+| Out-of-focus | HA Slice 3 (container start/stop, webhooks, add-on, Move-from-HA, Files) · Brand-3 · theme engine · M-flag C (stay false) · plugin-in-image · a second MCP container · MCP OAuth · CSP Slice 2 (`onclick` rewrite) · ACME · NPM CRUD · richer Files API · N3c · M-live · multi-tenant · Swarm/k8s |
 | Mode | Must → freeze; Should may slip; Discover only if Must is green |
 | Coverage | Floor stays **75**. Should raises CI fail-under **75 → 80** (1.x ceiling). Do not lower 75. The step may slip |
 | E2E | Wizard chrome still loads. No live SSH / apt / two-host copy in CI |
@@ -313,7 +313,7 @@ Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) �
 - **Brand-3** — own-docs MkDocs skin; theme engine; header logo upload; recolouring primary red  
 - **M-flag C** — `PIHERDER_SERVICE_MIGRATE` stays **false**. Do not turn Move on by default  
 - Plugin, add-on, or **MCP adapter inside** the PiHerder image  
-- **Remote HTTP / Streamable HTTP MCP** on the herder. Clients launch a local stdio process  
+- A second MCP process in Compose, and MCP OAuth. Hosted `POST /mcp` on **web** is in. stdio `uvx` stays the air-gapped fallback  
 - **CSP Slice 2** — rewriting `onclick` to drop `script-src-attr 'unsafe-inline'`  
 - Reverse a **green** Move · dest `down -v`  
 - ACME-in-herder · full NPM CRUD · richer Files token API · **N3c** · **M-live**  
