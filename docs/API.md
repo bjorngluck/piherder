@@ -26,10 +26,12 @@ Home Assistant can consume these endpoints with a bearer token today. Managing a
 Authorization: Bearer ph_<secret>
 ```
 
-- Secret is shown **once** at **create** or **rotate** (Settings UI has **Copy token**); only a hash is stored.
+- Secret is shown **once** at **create** or **rotate** (Settings UI has **Copy token** + a one-time **MCP / agent client config** snippet); only a hash is stored.
 - Admins can **edit** name, scopes, and IP allowlist without rotating the secret.
-- **Rotate** issues a new secret; the previous value stops working immediately.
+- Optional **`expires_at`** (never / 30d / 90d / custom). Expired tokens fail Bearer lookup like revoked ones.
+- **Rotate** issues a new secret; the previous value stops working immediately. Expiry is preserved.
 - **Revoke** immediately if leaked (Settings or `DELETE /api/v1/tokens/{id}` with admin session).
+- **MCP agent** mint preset in Settings suggests a `mcp-…` name and default scope `read` (add `jobs` / `edit` / `files` as needed). Stdio adapter only — see [wiki/operations/mcp.md](../wiki/operations/mcp.md). `${PIHERDER_TOKEN}` in sample JSON is a human placeholder; many MCP hosts do not expand it.
 
 ### CORS (optional — browser clients only)
 
@@ -97,6 +99,7 @@ If **any** `feature:*` scope is set, only those features are allowed for jobs an
 | Use case | Scopes | IP allowlist |
 |----------|--------|--------------|
 | Grafana / status poller | `read` | monitoring subnet |
+| MCP agent (read-only) | `read` | empty (roaming) or laptop LAN CIDR |
 | n8n nightly backup only | `read`, `jobs`, `feature:backup` | n8n host |
 | HA enable/disable docker ops | `read`, `edit`, `jobs`, `feature:docker` | HA host |
 | Full automation (lab) | `read`, `jobs`, `edit` | private LAN CIDR |
@@ -255,11 +258,24 @@ The token must have `jobs` and **no** `feature:*` scope. A feature-restricted to
 {
   "name": "n8n",
   "scopes": ["read", "jobs", "feature:backup"],
-  "allowed_cidrs": ["10.0.0.0/8"]
+  "allowed_cidrs": ["10.0.0.0/8"],
+  "expires_preset": "90d"
 }
 ```
 
-Response includes `secret` **once**.
+Optional expiry fields: `expires_preset` (`none` | `30d` | `90d` | `custom`) and/or absolute `expires_at` (ISO-8601 UTC). Omit both for never.
+
+MCP-oriented example:
+
+```json
+{
+  "name": "mcp-laptop",
+  "scopes": ["read"],
+  "expires_preset": "30d"
+}
+```
+
+Response includes `secret` **once**, plus `mcp_snippet` (env + sample `mcp.json` for `uvx piherder-mcp`). Do not log or re-fetch the plaintext.
 
 ---
 
