@@ -159,4 +159,4 @@ Job, nmap-run, and console-open **history** is aggregated on [Reports](reports.m
 
 ## API
 
-Automation can list and trigger jobs with Bearer tokens — [API tokens](../operations/api-tokens.md). The v1.7 agent process uses that same list and the same **409** when a job is already active — [Agents (MCP)](../operations/mcp.md). Compose stack actions and Move stay in the browser.
+Automation can list and trigger jobs with Bearer tokens — [API tokens](../operations/api-tokens.md). Hosted MCP uses that same list and the same **409** when a job is already active — [Agents (MCP)](../operations/mcp.md). Compose stack actions and Move stay in the browser.

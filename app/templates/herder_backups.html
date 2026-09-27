@@ -212,14 +212,27 @@
   <div class="mt-3 pt-3 border-t border-border" data-testid="api-token-mcp-snippet">
     <p class="text-xs font-medium text-text mb-1">MCP / agent client config</p>
     <p class="text-[10px] text-muted mb-2">
-      Env vars + sample <code class="font-mono">mcp.json</code> for Cursor/Claude (<code class="font-mono">uvx piherder-mcp</code>).
-      Many MCP hosts do <strong>not</strong> expand <code class="font-mono">${PIHERDER_TOKEN}</code> — paste the secret into the client secret UI or host env.
-      Stdio adapter only; not a herder MCP port.
+      Hosted on this herder at <code class="font-mono">/mcp</code> (same host and port).
+      Paste the URL and <code class="font-mono">Authorization: Bearer</code> header into Cursor or Claude.
+      The token is not a query parameter. It is shown once in this banner.
     </p>
     <pre id="api-token-mcp-snippet-value"
          class="text-[11px] font-mono p-2 bg-surface border border-border rounded overflow-x-auto whitespace-pre-wrap break-all mb-2">{{ new_api_token_mcp_snippet }}</pre>
     <button type="button" class="btn btn-secondary min-h-11 text-sm" id="api-token-mcp-copy-btn"
-            data-testid="api-token-mcp-copy-btn">Copy client config</button>
+            data-testid="api-token-mcp-copy-btn">Copy hosted config</button>
+    {% if new_api_token_mcp_local_snippet %}
+    <details class="mt-3" data-testid="api-token-mcp-local">
+      <summary class="cursor-pointer text-xs text-muted min-h-10">Local / air-gapped (uvx)</summary>
+      <p class="text-[10px] text-muted mt-2 mb-2">
+        Optional stdio process on the agent machine (<code class="font-mono">uvx piherder-mcp</code>).
+        Use this when the agent cannot reach <code class="font-mono">/mcp</code>.
+      </p>
+      <pre id="api-token-mcp-local-snippet-value"
+           class="text-[11px] font-mono p-2 bg-surface border border-border rounded overflow-x-auto whitespace-pre-wrap break-all mb-2">{{ new_api_token_mcp_local_snippet }}</pre>
+      <button type="button" class="btn btn-secondary min-h-11 text-sm" id="api-token-mcp-local-copy-btn"
+              data-testid="api-token-mcp-local-copy-btn">Copy local config</button>
+    </details>
+    {% endif %}
   </div>
   {% endif %}
   <div id="api-token-test-result" class="hidden mt-3 p-3 rounded border border-border bg-surface text-xs" role="status" aria-live="polite"></div>
@@ -547,6 +560,8 @@
   var testResult = document.getElementById('api-token-test-result');
   var mcpCopyBtn = document.getElementById('api-token-mcp-copy-btn');
   var mcpSnippetEl = document.getElementById('api-token-mcp-snippet-value');
+  var mcpLocalCopyBtn = document.getElementById('api-token-mcp-local-copy-btn');
+  var mcpLocalSnippetEl = document.getElementById('api-token-mcp-local-snippet-value');
 
   function stripSecretFromUrl() {
     try {
@@ -663,7 +678,14 @@
 
   if (mcpCopyBtn && mcpSnippetEl) {
     mcpCopyBtn.addEventListener('click', function () {
-      copyText(mcpSnippetEl.textContent || '', copyStatus, 'Client config copied to clipboard.');
+      copyText(mcpSnippetEl.textContent || '', copyStatus, 'Hosted MCP config copied to clipboard.');
+      stripSecretFromUrl();
+    });
+  }
+
+  if (mcpLocalCopyBtn && mcpLocalSnippetEl) {
+    mcpLocalCopyBtn.addEventListener('click', function () {
+      copyText(mcpLocalSnippetEl.textContent || '', copyStatus, 'Local MCP config copied to clipboard.');
       stripSecretFromUrl();
     });
   }

@@ -76,8 +76,9 @@ curl -sS "{{ public_url|default('') }}/openapi.json" | head -c 200</pre>
     <div class="card p-5 mb-4">
       <h2 class="font-semibold text-text mb-1">Automation API tokens</h2>
       <p class="text-xs text-muted mb-3">
-        <strong>Admin-managed</strong>, instance-wide tokens for n8n, Home Assistant, and scripts
-        (<code class="font-mono">/api/v1/*</code>) — not personal logins.
+        <strong>Admin-managed</strong>, instance-wide tokens for n8n, Home Assistant, scripts,
+        and agents (<code class="font-mono">/api/v1/*</code> and hosted MCP at
+        <code class="font-mono">/mcp</code>) — not personal logins.
         Secrets are hashed; copy once at create or rotate.
         Revoke keeps the token record for traceability (audit by id/name).
         Review the full spec under <button type="button" class="text-primary underline" data-api-panel="docs">API reference</button>.
@@ -100,7 +101,8 @@ curl -sS "{{ public_url|default('') }}/openapi.json" | head -c 200</pre>
                   Suggests a <code class="font-mono">mcp-…</code> name and starts with <code class="font-mono">read</code> only.
                   Tick <code class="font-mono">jobs</code> / <code class="font-mono">edit</code> / <code class="font-mono">files</code>
                   (and optional <code class="font-mono">feature:*</code>) for write tools.
-                  External stdio adapter only — not a herder MCP port.
+                  After create, copy the hosted <code class="font-mono">/mcp</code> URL and Bearer header.
+                  <code class="font-mono">uvx</code> is only the air-gapped fallback.
                 </span>
               </span>
             </label>
