@@ -256,6 +256,16 @@ def mcp_endpoint_url(public_url: str | None) -> str:
     return f"{base}{MCP_HTTP_PATH}"
 
 
+def _public_url_warning(public_url: str | None) -> str:
+    """One line when the snippet host is the placeholder, not the real origin."""
+    if (public_url or "").strip():
+        return ""
+    return (
+        "# WARNING: PIHERDER_PUBLIC_URL is unset. "
+        f"Replace {MCP_SNIPPET_PLACEHOLDER_URL} before pasting.\n"
+    )
+
+
 def mcp_hosted_client_snippet(
     *,
     public_url: str | None,
@@ -269,6 +279,7 @@ def mcp_hosted_client_snippet(
     """
     url = mcp_endpoint_url(public_url)
     secret = (token_secret or "").strip() or "ph_…"
+    warning = _public_url_warning(public_url)
     payload = {
         "mcpServers": {
             "piherder": {
@@ -280,6 +291,7 @@ def mcp_hosted_client_snippet(
     }
     body = json.dumps(payload, indent=2)
     return (
+        f"{warning}"
         "# Hosted MCP (default) — same host and port as this herder. Nothing else to run.\n"
         "# Cursor / Grok: .cursor/mcp.json. Claude Code: keep \"type\": \"http\".\n"
         "# The token is the Authorization header only. Do not put it in the URL.\n"
@@ -300,6 +312,7 @@ def mcp_stdio_client_snippet(
     """
     url = (public_url or "").strip().rstrip("/") or MCP_SNIPPET_PLACEHOLDER_URL
     secret = (token_secret or "").strip() or "ph_…"
+    warning = _public_url_warning(public_url)
     if prefer_pypi:
         args_line = '      "args": ["piherder-mcp"],'
         cmd_note = (
@@ -315,6 +328,7 @@ def mcp_stdio_client_snippet(
         )
         cmd_note = ""
     return (
+        f"{warning}"
         f"export PIHERDER_URL='{url}'\n"
         f"export PIHERDER_TOKEN='{secret}'\n"
         "\n"

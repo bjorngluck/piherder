@@ -215,6 +215,9 @@
       Hosted on this herder at <code class="font-mono">/mcp</code> (same host and port).
       Paste the URL and <code class="font-mono">Authorization: Bearer</code> header into Cursor or Claude.
       The token is not a query parameter. It is shown once in this banner.
+      {% if not public_url %}
+      <strong>PIHERDER_PUBLIC_URL is unset.</strong> The host below is a placeholder — replace it before pasting.
+      {% endif %}
     </p>
     <pre id="api-token-mcp-snippet-value"
          class="text-[11px] font-mono p-2 bg-surface border border-border rounded overflow-x-auto whitespace-pre-wrap break-all mb-2">{{ new_api_token_mcp_snippet }}</pre>

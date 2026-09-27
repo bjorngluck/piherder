@@ -77,9 +77,11 @@ Primary path is **`POST /mcp`** on the web process (Streamable HTTP, stateless J
 - [ ] `trigger_job` returns **202**, and **409** when one is already active, without starting a second job  
 - [ ] `set_features` with `edit` changes only `backup`, `os_patch`, and `docker`  
 - [ ] Files tools with `files` stay in the fleet jail: list, read, write, mkdir, rename, delete a file or empty directory  
-- [ ] Read tools are marked read-only. `set_features`, `trigger_job`, `write_file`, `rename_file`, and `delete_file` are marked destructive  
+- [ ] Read tools are marked read-only. `set_features`, `trigger_job`, `write_file`, `mkdir`, `rename_file`, and `delete_file` are marked destructive  
 - [ ] No tool opens SSH, a console, Move, undo, a compose stack action, or token admin  
 - [ ] Optional: one air-gapped client still starts with `uvx piherder-mcp` (or the git `--from` form) and the same token  
+- [ ] Optional: `PIHERDER_PUBLIC_URL` is the origin you browse (scheme, host, port). The minted snippet uses that host, not `https://piherder.example.com`. An `http`/`https` `Origin` that matches neither that host nor the request `Host` is **403** even with a Bearer token. Clients that omit `Origin` still connect  
+- [ ] Optional: Codex `~/.codex/config.toml` uses `url` and `bearer_token_env_var = "PIHERDER_TOKEN"` (the raw `ph_…` secret). `initialize` succeeds  
 - [ ] No second MCP service in Compose. `GET /mcp` is **405** (stateless; no SSE listen channel)  
 
 ## Jr-1 — exclusive jobs on Celery (Must)

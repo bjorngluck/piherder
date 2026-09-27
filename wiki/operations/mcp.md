@@ -24,7 +24,9 @@ That suggests a `mcp-…` name and starts at scope `read`. Add `jobs`, `edit`, a
 
 After create or rotate, the banner shows the secret **once** and a **hosted** client config (URL + Bearer). Copy that. The collapsed **Local / air-gapped** block is `uvx piherder-mcp` if you need it. The plaintext is not shown again.
 
-Set `PIHERDER_PUBLIC_URL` so the snippet uses your real origin (include `:8443` when that is how you publish). If it is empty, the snippet uses `https://piherder.example.com` and you replace the host.
+Set `PIHERDER_PUBLIC_URL` so the snippet uses your real origin (include `:8443` when that is how you publish). If it is empty, the snippet uses `https://piherder.example.com`, the copy block starts with a warning, and the Settings banner says the host is a placeholder. Replace it before pasting. An empty public URL is easy to miss: a browser `Origin` is then allowed only when it matches the request `Host`.
+
+**Browser Origin.** Clients that omit `Origin` (Cursor, Codex, Claude Code, curl) are unchanged. `Origin: null` is rejected. An `http` or `https` `Origin` must match the request `Host` or the host in `PIHERDER_PUBLIC_URL`. A Bearer token does not bypass that. Non-http origins (an editor’s app scheme) are allowed. Production should set `PIHERDER_PUBLIC_URL` to the origin operators actually open.
 
 ## Client config
 
@@ -75,7 +77,9 @@ Tools match the public stdio adapter. Nothing from that list is deferred. Tools 
 | `edit` | `set_features` for `backup`, `os_patch`, and `docker`. |
 | `files` | `list_files`, `read_file`, `write_file`, `mkdir`, `rename_file`, `delete_file` in the fleet jail. |
 
-`feature:*` scopes and the host’s feature flags still apply. A second start of an exclusive job returns **409** with the job that is already running (`http_status` is on the tool result). Poll `get_job`. Do not start another.
+`feature:*` scopes and the host’s feature flags still apply. A second start of an exclusive job returns **409** with the job that is already running. The tool result includes `http_status` and `already_active` (including a backup that is already running). Poll `get_job`. Do not start another.
+
+`write_file` and `mkdir` require `p`, the same as the stdio adapter. `p` is the jail-relative directory. `""` is the jail root.
 
 The bearer jobs POST accepts more types than this tool list (`host_reboot`, compose stack actions, `template_deploy`, `template_redeploy`). Those are not MCP tools. File bodies returned to the agent are capped around **256 KiB**.
 
@@ -127,6 +131,10 @@ The tool list is the same. A token without `read` makes the stdio process exit o
 Copy into the client that needs a short rule (Cursor rule, Grok skill, `CLAUDE.md`, Codex `AGENTS.md`):
 
 Call `summary` before changing anything. `trigger_job` only for the six types. On **409**, poll `get_job`. Files stay in the fleet jail. Do not invent SSH, Move, or a console. A token without `jobs`, `edit`, or `files` has no such tool.
+
+## Known follow-up
+
+The Settings create and rotate redirect still puts the new secret in `token_secret` on the query string so the one-time banner can render. That predates hosted MCP. The page removes it from the address bar on copy. It can still show up in the access log for that redirect. The MCP URL does not carry the token. Moving that flash off the query string is a separate change.
 
 ## Related
 

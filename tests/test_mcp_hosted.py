@@ -126,9 +126,20 @@ def test_ip_allowlist_and_origin_and_methods(tmp_path, monkeypatch):
                 "Accept": "application/json",
             },
         )
-        # Bearer from a non-browser client is allowed; browsers cannot set this
-        # header cross-origin unless CORS_ORIGINS already lists that origin.
-        assert origin.status_code == 200
+        # A Bearer token does not allow a foreign http(s) Origin.
+        assert origin.status_code == 403
+
+        same_host = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            headers={
+                "Authorization": f"Bearer {secrets['read']}",
+                "Origin": "http://testserver",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+        )
+        assert same_host.status_code == 200
 
         null_origin = client.post(
             "/mcp",
@@ -251,6 +262,8 @@ def test_scope_filter_jobs_and_sse_and_noread(tmp_path, monkeypatch):
         assert by_name["trigger_job"]["annotations"]["destructiveHint"] is True
         assert by_name["read_file"]["annotations"]["readOnlyHint"] is True
         assert by_name["write_file"]["annotations"]["destructiveHint"] is True
+        assert "p" in by_name["write_file"]["inputSchema"]["required"]
+        assert "p" in by_name["mkdir"]["inputSchema"]["required"]
         enum = by_name["trigger_job"]["inputSchema"]["properties"]["job_type"]["enum"]
         assert "host_reboot" not in enum
         assert "backup" in enum
@@ -439,7 +452,7 @@ def test_trigger_job_returns_api_202_and_409(monkeypatch):
             )
         return JSONResponse(
             status_code=409,
-            content={"detail": "backup already active", "already_active": True, "job": {"id": 5}},
+            content={"detail": "Backup already running", "job": {"id": 5}},
         )
 
     monkeypatch.setattr("app.routers.api_v1.create_server_job", fake_create)
@@ -466,6 +479,7 @@ def test_trigger_job_returns_api_202_and_409(monkeypatch):
     assert second["isError"] is False
     assert second["structuredContent"]["http_status"] == 409
     assert second["structuredContent"]["already_active"] is True
+    assert "already_active" not in first["structuredContent"]
 
 
 def test_file_tools_and_argument_errors(monkeypatch):
@@ -531,9 +545,17 @@ def test_file_tools_and_argument_errors(monkeypatch):
         missing = await mcp_hosted.call_tool("get_server", {}, None, auth)
         huge = await mcp_hosted.call_tool(
             "write_file",
-            {"server_id": 1, "name": "big.txt", "text": "x" * (mcp_hosted.MAX_FILE_BYTES + 1)},
+            {
+                "server_id": 1,
+                "p": "",
+                "name": "big.txt",
+                "text": "x" * (mcp_hosted.MAX_FILE_BYTES + 1),
+            },
             None,
             auth,
+        )
+        missing_p = await mcp_hosted.call_tool(
+            "mkdir", {"server_id": 1, "name": "notes"}, None, auth
         )
         bad_steps = await mcp_hosted.call_tool(
             "trigger_job",
@@ -541,9 +563,11 @@ def test_file_tools_and_argument_errors(monkeypatch):
             None,
             auth,
         )
-        return listed, read, written, made, renamed, deleted, missing, huge, bad_steps
+        return listed, read, written, made, renamed, deleted, missing, huge, missing_p, bad_steps
 
-    listed, read, written, made, renamed, deleted, missing, huge, bad_steps = asyncio.run(_run())
+    listed, read, written, made, renamed, deleted, missing, huge, missing_p, bad_steps = asyncio.run(
+        _run()
+    )
     assert listed["structuredContent"]["entries"][0]["name"] == "a.txt"
     assert read["structuredContent"]["text"] == "hello world"
     assert read["structuredContent"]["truncated"] is False
@@ -556,6 +580,8 @@ def test_file_tools_and_argument_errors(monkeypatch):
     assert "Missing server_id" in missing["content"][0]["text"]
     assert huge["isError"] is True
     assert "cap is" in huge["content"][0]["text"]
+    assert missing_p["isError"] is True
+    assert "Missing p" in missing_p["content"][0]["text"]
     assert bad_steps["isError"] is True
     assert "os_steps" in bad_steps["content"][0]["text"]
 
@@ -589,8 +615,68 @@ def test_present_file_and_origin_helpers():
                 }
             )
         )
+        is False
+    )
+
+
+def test_origin_matches_public_url_without_bearer_bypass(monkeypatch):
+    from app.services.mcp_hosted import origin_allowed
+
+    monkeypatch.setattr(
+        "app.services.password_reset.configured_public_origin",
+        lambda: "https://pi.example:8443",
+    )
+
+    class Req:
+        def __init__(self, headers):
+            self.headers = headers
+
+    assert (
+        origin_allowed(
+            Req({"origin": "https://pi.example:8443", "host": "web:8000"})
+        )
         is True
     )
+    assert (
+        origin_allowed(
+            Req(
+                {
+                    "origin": "https://evil.example",
+                    "host": "web:8000",
+                    "authorization": "Bearer ph_x",
+                }
+            )
+        )
+        is False
+    )
+
+
+def test_read_file_closes_stream_when_truncated():
+    import asyncio
+
+    from fastapi.responses import StreamingResponse
+
+    from app.services import mcp_hosted
+
+    closed = {"n": 0}
+
+    def gen():
+        try:
+            yield b"a" * 100
+            yield b"b" * 100
+        finally:
+            closed["n"] += 1
+
+    async def _run():
+        resp = StreamingResponse(gen(), media_type="application/octet-stream")
+        data, truncated = await mcp_hosted._collect_capped(resp, 50)
+        assert closed["n"] == 1
+        return data, truncated
+
+    data, truncated = asyncio.run(_run())
+    assert truncated is True
+    assert data == b"a" * 50
+    assert closed["n"] == 1
 
 
 def test_catalog_advertises_hosted_path():
