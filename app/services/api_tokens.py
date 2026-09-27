@@ -21,7 +21,7 @@ import hashlib
 import ipaddress
 import json
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Iterable, Optional
 
 from sqlmodel import Session, select
@@ -46,6 +46,12 @@ FEATURE_SCOPES = frozenset({FEATURE_BACKUP, FEATURE_OS, FEATURE_DOCKER})
 
 VALID_SCOPES = CAPABILITY_SCOPES | FEATURE_SCOPES
 DEFAULT_SCOPES = (SCOPE_READ, SCOPE_JOBS)
+
+# MCP agent mint preset (Settings UI): least privilege starts at read-only
+MCP_DEFAULT_SCOPES = (SCOPE_READ,)
+MCP_NAME_PREFIX = "mcp-"
+EXPIRES_PRESETS = frozenset({"none", "30d", "90d", "custom"})
+MCP_SNIPPET_PLACEHOLDER_URL = "https://piherder.example.com"
 
 # Map job types → feature key used in feature:* scopes and server flags
 JOB_FEATURE_KEY = {
@@ -165,6 +171,132 @@ def hash_token(plain: str) -> str:
 
 def generate_plaintext_token() -> str:
     return TOKEN_PREFIX + secrets.token_urlsafe(TOKEN_BYTES)
+
+
+def suggest_mcp_token_name(now: datetime | None = None) -> str:
+    """Default name when the Settings MCP agent preset is selected."""
+    stamp = (now or datetime.utcnow()).strftime("%Y%m%d")
+    return f"{MCP_NAME_PREFIX}agent-{stamp}"
+
+
+def parse_expires_at_value(value: datetime | str | None) -> datetime | None:
+    """Parse an absolute expiry from a datetime or ISO-ish string.
+
+    Accepts ``YYYY-MM-DD``, ``YYYY-MM-DDTHH:MM``, ``YYYY-MM-DDTHH:MM:SS``,
+    and trailing ``Z``. Naive values are treated as UTC. Empty → None.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is not None:
+            return value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    text = text.replace("Z", "").replace("z", "")
+    if "T" in text:
+        date_part, time_part = text.split("T", 1)
+    elif " " in text:
+        date_part, time_part = text.split(" ", 1)
+    else:
+        date_part, time_part = text, "23:59:59"
+    time_part = time_part.strip()
+    if len(time_part) == 5:  # HH:MM from datetime-local
+        time_part = f"{time_part}:00"
+    try:
+        parsed = datetime.fromisoformat(f"{date_part}T{time_part}")
+    except ValueError as e:
+        raise ValueError(f"Invalid expires_at: {value!r}") from e
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
+def resolve_expires_at(
+    *,
+    expires_preset: str | None = None,
+    expires_at: datetime | str | None = None,
+    now: datetime | None = None,
+) -> datetime | None:
+    """Resolve operator expiry selection to a naive-UTC datetime, or None (never).
+
+    ``expires_preset``: ``none`` | ``30d`` | ``90d`` | ``custom``.
+    When preset is ``custom`` (or omitted) and ``expires_at`` is set, that
+    absolute value wins. Relative presets ignore ``expires_at``.
+    """
+    preset = (expires_preset or "").strip().lower() or None
+    if preset and preset not in EXPIRES_PRESETS:
+        raise ValueError(f"Invalid expires_preset: {expires_preset!r}")
+    base = now or datetime.utcnow()
+    if preset in (None, "none") and expires_at is None:
+        return None
+    if preset == "none":
+        return None
+    if preset == "30d":
+        return base + timedelta(days=30)
+    if preset == "90d":
+        return base + timedelta(days=90)
+    # custom, or absolute expires_at without a relative preset
+    parsed = parse_expires_at_value(expires_at)
+    if parsed is None:
+        if preset == "custom":
+            raise ValueError("Custom expiry requires expires_at")
+        return None
+    if parsed <= base:
+        raise ValueError("expires_at must be in the future")
+    return parsed
+
+
+def mcp_client_snippet(
+    *,
+    public_url: str | None,
+    token_secret: str,
+    prefer_pypi: bool = True,
+) -> str:
+    """One-time copyable env + mcp.json for Cursor/Claude after mint/rotate.
+
+    ``${PIHERDER_TOKEN}`` is *not* used here — many MCP hosts do not expand
+    shell-style placeholders. The flash banner embeds the real secret once.
+    Prefer short ``uvx piherder-mcp``; note the git fallback when not on PyPI.
+    """
+    url = (public_url or "").strip().rstrip("/") or MCP_SNIPPET_PLACEHOLDER_URL
+    secret = (token_secret or "").strip() or "ph_…"
+    if prefer_pypi:
+        args_line = '      "args": ["piherder-mcp"],'
+        cmd_note = (
+            "# Prefer: uvx piherder-mcp\n"
+            "# If the package is not on PyPI yet, use:\n"
+            '#   "args": ["--from", "git+https://github.com/bjorngluck/piherder-mcp.git", "piherder-mcp"]\n'
+        )
+    else:
+        args_line = (
+            '      "args": ["--from", '
+            '"git+https://github.com/bjorngluck/piherder-mcp.git", '
+            '"piherder-mcp"],'
+        )
+        cmd_note = ""
+    return (
+        f"export PIHERDER_URL='{url}'\n"
+        f"export PIHERDER_TOKEN='{secret}'\n"
+        "\n"
+        f"{cmd_note}"
+        "# Cursor / Claude — .cursor/mcp.json (or project .mcp.json)\n"
+        "# Paste the secret into the client secret UI or host env if the host\n"
+        "# does not expand ${…} placeholders.\n"
+        "{\n"
+        '  "mcpServers": {\n'
+        '    "piherder": {\n'
+        '      "command": "uvx",\n'
+        f"{args_line}\n"
+        '      "env": {\n'
+        f'        "PIHERDER_URL": "{url}",\n'
+        f'        "PIHERDER_TOKEN": "{secret}"\n'
+        "      }\n"
+        "    }\n"
+        "  }\n"
+        "}\n"
+    )
 
 
 def normalize_allowed_cidrs(value: Iterable[str] | str | None) -> list[str]:
