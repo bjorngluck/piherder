@@ -1,6 +1,6 @@
 # PiHerder v1.7.0 — token-API MCP, then one job runtime
 
-**Status:** **Active** (train opened 2026-09-25). MCP-1 **0.1.0**, Jr-1, Jr-2, Brand-1, Brand-2, Q, and HA-cards are on this branch. Operator walks are open. Q: full compose **81.01%** (39638/48927). CI fail-under stays **80** so the extra point is headroom.  
+**Status:** **Active** (train opened 2026-09-25). MCP-1 **0.1.0**, Jr-1, Jr-2, Brand-1, Brand-2, Q, and HA-cards are on this branch. MCP-1 and Jr-2 operator walks signed 2026-09-27. Other live walks stay open. Q: full compose **81.01%** (39638/48927). CI fail-under stays **80** so the extra point is headroom.  
 **Date opened:** 2026-09-25 (inbox parked 2026-09-18)  
 **Git branch:** `v1.7.0-dev` → `main` · tag `v1.7.0` at freeze  
 **Package / image version:** **`1.6.0`** until freeze  
@@ -101,11 +101,11 @@ Phase 0   Open train + docs lock              done 2026-09-25 (22d3a04)
 Phase 0b  Lock retune                         done 2026-09-25 (85d0ec4)
 Phase 0c  MCP-1 read/write contract           done 2026-09-26 (3f63d16)
 Phase 0d  Operator wiki + remaining pointers  done 2026-09-26 (a8eb012)
-Phase 1   MCP-1 stdio adapter                 0.1.0 in piherder-mcp (fcd90cf). Walk still open
+Phase 1   MCP-1 hosted POST /mcp              landed. Operator signed 2026-09-27. Adapter 0.1.0 (fcd90cf) is the air-gapped fallback
 Phase 2   Jr-1 exclusive types → Celery       landed (operator walk still open)
 Phase 3   Q fail-under 75 → 80                Should (may slip)
 Phase 4   Brand-1 + Brand-2                   landed (operator signed 2026-09-27)
-Phase 5   Jr-2 Settings max wait              landed (operator walk still open)
+Phase 5   Jr-2 Settings max wait              landed (operator signed 2026-09-27)
 Phase 5b  HA-cards                            Should, landed (walk open; may slip the tag)
 Phase 6   Discover spikes                     only if Must is green and you promote
 Phase 7   Wiki + QA_v1.7.0                    operator sign-off
@@ -284,12 +284,12 @@ Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) �
 
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
-| **Must** | **MCP-1** | Hosted `POST /mcp` on the herder (Streamable HTTP, `ph_` Bearer). Same read/write tool list. stdio adapter remains the air-gapped fallback | Hosted listener on `v1.7.0-dev`. Adapter repo still **0.1.x**. Operator walk still open |
+| **Must** | **MCP-1** | Hosted `POST /mcp` on the herder (Streamable HTTP, `ph_` Bearer). Same read/write tool list. stdio adapter remains the air-gapped fallback | Landed. Operator signed 2026-09-27. Adapter repo still **0.1.x** |
 | **Must** | **Jr-1** | Exclusive types on the default Celery queue; host-down waits; running mutate fails honest; web recycle does not fail them | Landed. Default host wait **1800s**. Operator walk still open |
 | **Should** | **Q** | CI fail-under **75 → 80**. Floor stays 75 if this slips | Landed. Compose **81.01%** (39638/48927), 1694 passed, after packs through `tests/test_coverage_v17_q10.py`. Fail-under stays **80** (headroom above the gate) |
 | **Should** | **Brand-1** | Instance name + one accent; demo ignored | Landed. Operator signed 2026-09-27 |
 | **Should** | **Brand-2** | Hide Catalog in nav; `/catalog` still works | Landed. Operator signed 2026-09-27 |
-| **Should** | **Jr-2** | Settings max wait; Kuma/`last_seen` is a signal | Landed. Operator walk still open |
+| **Should** | **Jr-2** | Settings max wait; Kuma/`last_seen` is a signal | Landed. Operator signed 2026-09-27 |
 | **Should** | **HA-cards** | Host, updates, and resources cards. Confirm writes including `host_reboot`. Plugin repo. No new herder path | Landed. Plugin **0.3.0**. Operator walk still open |
 | **Discover** | Bak-alt · AC-fg · HA bus event · Undo-2 · Mux-2 | Notes only unless promoted | Parked |
 | **Out** | HA Slice 3 (start/stop, webhooks, Move, Files) · Brand-3 · M-flag C · plugin-in-image · MCP OAuth · a second MCP service · CSP Slice 2 | Stay out | Hosted `/mcp` landed 2026-09-27. OAuth and a sidecar stay out |
@@ -366,9 +366,9 @@ Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) �
 | 2 | Retune: MCP-1 first, Q is Should, Bak-alt noted | **Done** 2026-09-25 (`85d0ec4`) |
 | 3 | MCP-1 read/write contract in this plan | **Done** 2026-09-26 (`3f63d16`) |
 | 3b | Operator wiki [Agents (MCP)](../wiki/operations/mcp.md) and the remaining pointers | **Done** 2026-09-26 (`a8eb012`) |
-| 4 | **MCP-1** adapter in [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) | **0.1.0** pushed (`fcd90cf`). Walk still open |
+| 4 | **MCP-1** hosted `POST /mcp`, stdio adapter as fallback | **Landed.** Operator signed 2026-09-27. Adapter **0.1.0** (`fcd90cf`) |
 | 5 | **Jr-1** exclusive types → default Celery queue | **Landed.** Walk still open ([QA_v1.7.0.md](QA_v1.7.0.md)) |
-| 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). **Brand-1**, **Brand-2**, **Audit pulse**, and **1.6 regression** signed 2026-09-27. Other live boxes stay empty |
+| 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). **MCP-1**, **Jr-2**, **Brand-1**, **Brand-2**, **Audit pulse**, and **1.6 regression** signed 2026-09-27. Other live boxes stay empty |
 | 7 | Q / Brand-1 / Brand-2 / Jr-2 / HA-cards as capacity after Must | **Landed.** Compose **81.01%**, fail-under **80**. Plugin **0.3.0**. Brand walks signed. Other walks still open |
 | 9 | **HA-cards** in piherder-ha | **Landed** as plugin **0.3.0**. Walk still open ([QA_v1.7.0.md](QA_v1.7.0.md)) |
 | 8 | Freeze · `1.7.0` · tag · Hub | Only when asked |
