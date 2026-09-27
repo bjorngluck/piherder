@@ -958,12 +958,14 @@ Probes tools needed for **enabled** features only (`rsync` / sudo path, `docker`
 | Model | Detail |
 |-------|--------|
 | Ownership | **Instance-wide**, admin-managed (not per-user PATs) |
-| Secret | `ph_…` shown **once** at create or **rotate**; **Copy token** + **Test now** in UI; stored hashed |
+| Secret | `ph_…` shown **once** at create or **rotate**; **Copy token** + **Test now** + one-time **MCP client config** snippet in UI; stored hashed |
+| MCP agent preset | Create form checkbox: suggests `mcp-…` name, default scope `read`; add `jobs` / `edit` / `files` as needed. External stdio adapter only |
+| Expiry | Optional never / 30d / 90d / custom (`expires_at`); expired tokens fail lookup |
 | Test now | After create/rotate: verifies secret, scopes, and whether *your browser IP* passes the allowlist (admin session; no `read` scope required) |
-| Capability scopes | `read` · `jobs` · `edit` — editable later without rotating |
+| Capability scopes | `read` · `jobs` · `edit` · `files` — editable later without rotating |
 | Feature allowlist | Optional `feature:backup` · `feature:os` · `feature:docker` (none = all features) |
-| IP allowlist | Optional IPs/CIDRs per token; empty = any IP; enforced on backend using Caddy-forwarded client IP |
-| Rotate | New secret, same name/scopes/IPs; old secret stops immediately |
+| IP allowlist | Optional IPs/CIDRs per token; empty = any IP (use empty for roaming MCP laptops); enforced on backend using Caddy-forwarded client IP |
+| Rotate | New secret, same name/scopes/IPs/expiry; old secret stops immediately |
 | Revoke | Soft-disables secret; **row is kept** (name, id, scopes) for audit trail — never hard-deleted in UI |
 | List filter | **Active** (default) · **Revoked** · **All** — counts on each pill |
 | Last used | Updated on each successful Bearer request; shown in Settings |

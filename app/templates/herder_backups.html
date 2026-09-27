@@ -208,6 +208,20 @@
             title="Verify secret, scopes, and whether your browser IP passes the allowlist">Test now</button>
   </div>
   <p class="text-[10px] text-muted mt-2 mb-0" id="api-token-copy-status" aria-live="polite"></p>
+  {% if new_api_token_mcp_snippet %}
+  <div class="mt-3 pt-3 border-t border-border" data-testid="api-token-mcp-snippet">
+    <p class="text-xs font-medium text-text mb-1">MCP / agent client config</p>
+    <p class="text-[10px] text-muted mb-2">
+      Env vars + sample <code class="font-mono">mcp.json</code> for Cursor/Claude (<code class="font-mono">uvx piherder-mcp</code>).
+      Many MCP hosts do <strong>not</strong> expand <code class="font-mono">${PIHERDER_TOKEN}</code> — paste the secret into the client secret UI or host env.
+      Stdio adapter only; not a herder MCP port.
+    </p>
+    <pre id="api-token-mcp-snippet-value"
+         class="text-[11px] font-mono p-2 bg-surface border border-border rounded overflow-x-auto whitespace-pre-wrap break-all mb-2">{{ new_api_token_mcp_snippet }}</pre>
+    <button type="button" class="btn btn-secondary min-h-11 text-sm" id="api-token-mcp-copy-btn"
+            data-testid="api-token-mcp-copy-btn">Copy client config</button>
+  </div>
+  {% endif %}
   <div id="api-token-test-result" class="hidden mt-3 p-3 rounded border border-border bg-surface text-xs" role="status" aria-live="polite"></div>
 </div>
 {% endif %}
@@ -531,6 +545,8 @@
   var secretInput = document.getElementById('api-token-secret-value');
   var copyStatus = document.getElementById('api-token-copy-status');
   var testResult = document.getElementById('api-token-test-result');
+  var mcpCopyBtn = document.getElementById('api-token-mcp-copy-btn');
+  var mcpSnippetEl = document.getElementById('api-token-mcp-snippet-value');
 
   function stripSecretFromUrl() {
     try {
@@ -539,6 +555,50 @@
       window.history.replaceState({}, '', u.pathname + '?' + u.searchParams.toString());
     } catch (e) {}
   }
+
+  // Create-form: MCP agent preset + optional expiry
+  (function initApiTokenCreateForm() {
+    var form = document.getElementById('api-token-create-form');
+    if (!form) return;
+    var mcpCb = document.getElementById('api-token-mcp-preset');
+    var nameInput = document.getElementById('api-token-name');
+    var scopeRead = document.getElementById('api-scope-read');
+    var scopeJobs = document.getElementById('api-scope-jobs');
+    var scopeEdit = document.getElementById('api-scope-edit');
+    var scopeFiles = document.getElementById('api-scope-files');
+    var expiresPreset = document.getElementById('api-token-expires-preset');
+    var expiresAt = document.getElementById('api-token-expires-at');
+    var mcpName = form.getAttribute('data-mcp-name') || 'mcp-agent';
+    var touchedName = false;
+
+    if (nameInput) {
+      nameInput.addEventListener('input', function () { touchedName = true; });
+    }
+    function applyMcpPreset(on) {
+      if (scopeRead) scopeRead.checked = true;
+      if (scopeJobs) scopeJobs.checked = !on;
+      if (scopeEdit && on) scopeEdit.checked = false;
+      if (scopeFiles && on) scopeFiles.checked = false;
+      if (nameInput && on && (!touchedName || !nameInput.value || nameInput.value.indexOf('mcp-') === 0)) {
+        nameInput.value = mcpName;
+        touchedName = false;
+      }
+    }
+    if (mcpCb) {
+      mcpCb.addEventListener('change', function () { applyMcpPreset(!!mcpCb.checked); });
+    }
+    function syncExpiresCustom() {
+      if (!expiresPreset || !expiresAt) return;
+      var custom = expiresPreset.value === 'custom';
+      expiresAt.classList.toggle('hidden', !custom);
+      expiresAt.required = custom;
+      if (!custom) expiresAt.value = '';
+    }
+    if (expiresPreset) {
+      expiresPreset.addEventListener('change', syncExpiresCustom);
+      syncExpiresCustom();
+    }
+  })();
 
   function renderTokenTest(data, httpOk) {
     if (!testResult) return;
@@ -599,6 +659,13 @@
     });
     // Select on focus for easy manual copy
     secretInput.addEventListener('focus', function () { secretInput.select(); });
+  }
+
+  if (mcpCopyBtn && mcpSnippetEl) {
+    mcpCopyBtn.addEventListener('click', function () {
+      copyText(mcpSnippetEl.textContent || '', copyStatus, 'Client config copied to clipboard.');
+      stripSecretFromUrl();
+    });
   }
 
   if (testBtn && secretInput) {

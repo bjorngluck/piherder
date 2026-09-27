@@ -5,6 +5,7 @@ Admin-managed instance tokens. See docs/API.md and GET /api/v1.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
@@ -977,11 +978,19 @@ class TokenCreateBody(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     scopes: Optional[list[str]] = Field(
         None,
-        description="read, jobs, edit, feature:backup, feature:os, feature:docker",
+        description="read, jobs, edit, files, feature:backup, feature:os, feature:docker",
     )
     allowed_cidrs: Optional[list[str]] = Field(
         None,
         description="Optional IP/CIDR allowlist, e.g. [\"10.0.0.0/8\", \"192.168.1.10\"]",
+    )
+    expires_at: Optional[datetime] = Field(
+        None,
+        description="Optional UTC expiry (ISO-8601). Omit or null = never expires.",
+    )
+    expires_preset: Optional[str] = Field(
+        None,
+        description="Optional relative expiry: none | 30d | 90d | custom (uses expires_at).",
     )
 
 
@@ -1018,18 +1027,32 @@ def admin_create_token(
 
     http_403_if_demo("api_token")
     try:
+        expires = tok_svc.resolve_expires_at(
+            expires_preset=body.expires_preset,
+            expires_at=body.expires_at,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    try:
         row, plain = tok_svc.create_api_token(
             session,
             name=body.name,
             created_by=user,
             scopes=body.scopes,
             allowed_cidrs=body.allowed_cidrs,
+            expires_at=expires,
         )
     except DemoBlocked as e:
         raise HTTPException(status_code=403, detail=e.message) from e
+    from ..services.password_reset import configured_public_origin
+
     return {
         "token": tok_svc.token_public_dict(row),
         "secret": plain,
+        "mcp_snippet": tok_svc.mcp_client_snippet(
+            public_url=configured_public_origin(),
+            token_secret=plain,
+        ),
         "warning": "Store this secret now; it cannot be retrieved again.",
     }
 

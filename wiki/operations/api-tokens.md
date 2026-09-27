@@ -22,6 +22,13 @@ Authorization: Bearer ph_<secret>
 - Secret shown **once** at create or rotate; only a hash is stored.  
 - **Rotate** issues a new secret immediately.  
 - **Revoke** soft-disables; row kept for audit.
+- Optional **expires** (never / 30d / 90d / custom). Expired tokens fail lookup the same as revoked.
+
+### Mint for an MCP agent
+
+In Settings → API management → **Create new token**, tick **MCP agent**. That suggests a `mcp-…` name and starts with scope `read` only — add `jobs` / `edit` / `files` and optional `feature:*` when the agent needs write tools. Leave the IP allowlist empty for a roaming laptop; use a LAN CIDR for a fixed agent host.
+
+After create or rotate, copy the secret **and** the one-time **MCP / agent client config** block (`PIHERDER_URL`, `PIHERDER_TOKEN`, sample `mcp.json` with `uvx piherder-mcp`). The plaintext is never shown again. Details: [Agents (MCP)](mcp.md).
 
 ## Scopes
 
