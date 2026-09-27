@@ -355,7 +355,7 @@ If you insist on `sudo install` into the volume, use **`-o 472 -g 0`** (not root
    # ls -l /home/piherder/certs/snakeoil.pem
    ```
 
-2. Install a **NOPASSWD** drop-in whose command line **exactly** matches post-deploy (sudo is strict about args). Examples above: [OctoPi](#cookbook-octopi--haproxy-host-no-docker-least-priv-piherder), [Grafana volume](#cookbook-grafana-tls-into-a-docker-named-volume).
+2. Install a **NOPASSWD** drop-in whose command line **exactly** matches post-deploy (sudo is strict about args). Examples above: [OctoPi](#cookbook-octopi-haproxy-host-no-docker-least-priv-piherder), [Grafana volume](#cookbook-grafana-tls-into-a-docker-named-volume).
 
 3. Validate and dry-run **non-interactively** (`-n` must not ask for a password):
 

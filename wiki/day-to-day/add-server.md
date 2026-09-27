@@ -159,7 +159,7 @@ Below the dest cards, a **two-column row** (stacked on narrow screens) holds:
 | **Backups** | rsync backup/restore UI + schedules | Hosts without files to protect stay quiet; needs `rsync` on the host (incl. HAOS SSH add-on) |
 | **OS updates** (UI: OS patch / **HA updates** on HAOS) | Debian: apt check/apply. **HAOS:** Core / OS / Supervisor via `ha` CLI | Same feature flag; backend branches on host profile |
 | **Docker / containers** | Docker page, container patch, template deploy targets | Leave **off** on pure HAOS — add-ons are not fleet Compose stacks |
-| **Console mux** (v1.6) | Web SSH uses host `tmux` then `screen` when already installed | Default **off**. Hidden on HAOS. Public demo never muxes. PiHerder never `apt install`s the binary. [Web SSH](web-ssh-console.md#host-mux-v16) |
+| **Console mux** (v1.6) | Web SSH uses host `tmux` then `screen` when already installed | Default **off**. Hidden on HAOS. Public demo never muxes. PiHerder never `apt install`s the binary. [Web SSH](web-ssh-console.md#host-mux-mux-1) |
 
 Disabled features are **hard-hidden** from dest cards and ⋯ menus. Console mux only changes how an already-enabled web SSH attaches; it is not a dest card.
 
