@@ -118,11 +118,13 @@ Must before Should product. MCP-1 before Jr-1. Discover only if Must is green an
 
 ## 2. Stream **MCP-1** — read/write token-API adapter (Must, first slice)
 
-Not product code in the PiHerder image. Own repo, same shape as [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha): [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.1.0**. This train’s herder tree does not contain the adapter. The process runs on the **agent machine** (the laptop running Cursor, Grok, Codex, or Claude), not in the herder container.
+**Hosted path (2026-09-27):** the primary install is `POST /mcp` on this herder (Streamable HTTP, stateless JSON, same `ph_` Bearer token). No second process. The stdio adapter below stays the air-gapped fallback. Operator page: [wiki/operations/mcp.md](../wiki/operations/mcp.md). The “stdio only / remote stays out / not in this image” locks in this section are the original adapter contract. They are **not** the install story anymore.
+
+Original adapter: [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp), same shape as [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). That process runs on the **agent machine** only when `/mcp` is not reachable. It is still not a second service in this Compose file.
 
 **Locks:**
 
-1. **stdio only.** Until PyPI, the command is `uvx --from git+https://github.com/bjorngluck/piherder-mcp.git piherder-mcp`. After a PyPI release it is `uvx piherder-mcp`. Config is `PIHERDER_URL` plus `PIHERDER_TOKEN`. The token is never committed. Remote Streamable HTTP stays out.
+1. **stdio adapter (fallback only).** Until PyPI, the command is `uvx --from git+https://github.com/bjorngluck/piherder-mcp.git piherder-mcp`. After a PyPI release it is `uvx piherder-mcp`. Config is `PIHERDER_URL` plus `PIHERDER_TOKEN`. The token is never committed. The primary remote path is hosted Streamable HTTP at `POST /mcp` (see the note above this list).
 2. Hand-written tools over existing `/api/v1` only. Do not generate a tool per OpenAPI path. No new herder routes.
 3. Startup calls `GET /api/v1/health`. Tools register only for scopes on that token. Missing `jobs`, `edit`, or `files` means those tools are absent. A token without `read` fails closed (stderr, never stdout).
 4. Write is the bearer writes that already exist: trigger the six job types, patch `backup` / `os_patch` / `docker`, and fleet-jail files (list, read, write, mkdir, rename, delete a file or empty directory). Feature flags and `feature:*` scopes stay the API’s job.
@@ -172,7 +174,7 @@ Not product code in the PiHerder image. Own repo, same shape as [bjorngluck/pihe
 3. A `read`-only token exposes no write tool. A token with `jobs`, `edit`, or `files` can perform those bearer writes and no others.
 4. `trigger_job` surfaces 202 and 409. It does not start a second job when one is already active.
 5. Cursor, Grok, Claude, and Codex can each launch the same stdio command from the sample for that client.
-6. Nothing from this slice is copied into the PiHerder image or `app/`.
+6. The stdio adapter repo is not vendored into the image. Hosted `/mcp` lives in `app/` and runs in the existing web process.
 
 ---
 
@@ -282,7 +284,7 @@ Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) �
 
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
-| **Must** | **MCP-1** | stdio adapter in its own repo; read plus bearer writes (`jobs`, `edit`, `files`); four client samples; not in this image | Repo **0.1.0** (`fcd90cf`). Mocked tests green. Operator walk still open |
+| **Must** | **MCP-1** | Hosted `POST /mcp` on the herder (Streamable HTTP, `ph_` Bearer). Same read/write tool list. stdio adapter remains the air-gapped fallback | Hosted listener on `v1.7.0-dev`. Adapter repo still **0.1.x**. Operator walk still open |
 | **Must** | **Jr-1** | Exclusive types on the default Celery queue; host-down waits; running mutate fails honest; web recycle does not fail them | Landed. Default host wait **1800s**. Operator walk still open |
 | **Should** | **Q** | CI fail-under **75 → 80**. Floor stays 75 if this slips | Landed. Compose **81.01%** (39638/48927), 1694 passed, after packs through `tests/test_coverage_v17_q10.py`. Fail-under stays **80** (headroom above the gate) |
 | **Should** | **Brand-1** | Instance name + one accent; demo ignored | Landed. Operator walk still open |
@@ -290,7 +292,7 @@ Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) �
 | **Should** | **Jr-2** | Settings max wait; Kuma/`last_seen` is a signal | Landed. Operator walk still open |
 | **Should** | **HA-cards** | Host, updates, and resources cards. Confirm writes including `host_reboot`. Plugin repo. No new herder path | Landed. Plugin **0.3.0**. Operator walk still open |
 | **Discover** | Bak-alt · AC-fg · HA bus event · Undo-2 · Mux-2 | Notes only unless promoted | Parked |
-| **Out** | HA Slice 3 (start/stop, webhooks, Move, Files) · Brand-3 · M-flag C · plugin-in-image · MCP-in-image · remote HTTP MCP · CSP Slice 2 | Stay out | Locked 2026-09-26 |
+| **Out** | HA Slice 3 (start/stop, webhooks, Move, Files) · Brand-3 · M-flag C · plugin-in-image · MCP OAuth · a second MCP service · CSP Slice 2 | Stay out | Hosted `/mcp` landed 2026-09-27. OAuth and a sidecar stay out |
 
 ---
 
@@ -298,7 +300,7 @@ Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) �
 
 | Gate | Target |
 |------|--------|
-| Unit | Floor **75**. `--cov-fail-under` is **80** on `app` (compose **81.01%**). Jr-1 tests cover enqueue-on-Celery, web-recycle does not fail, worker-recycle fails a running mutate, host-down stays pending, exclusive lane still blocks a second stack mutate. No live SSH. MCP-1 tests live in the adapter repo and mock HTTP: scope-filtered tools, `trigger_job` 202 and 409, no call to SSH, Move, or console |
+| Unit | Floor **75**. `--cov-fail-under` is **80** on `app` (unit run **80.92%** after hosted MCP). Jr-1 tests cover enqueue-on-Celery, web-recycle does not fail, worker-recycle fails a running mutate, host-down stays pending, exclusive lane still blocks a second stack mutate. No live SSH. Hosted MCP tests in this repo cover 401, query-token rejection, initialize, a `health` tool call, and scope filtering. The stdio adapter repo still mocks HTTP |
 | E2E | Wizard chrome. No live apt, compose, or two-host copy in CI |
 | Docs | Wiki multi-worker and Jobs describe the Celery lane, including `host_reboot`. `mkdocs build --strict` at freeze |
 | Security | Same exclusive lanes. No new token scope. Move and undo stay off the token API. MCP write tools use `jobs`, `edit`, and `files` only. HA-cards uses `jobs` and `edit` only and is tested in the plugin repo with mocked HTTP. Demo never live-runs the moved types and is not an MCP or HA-cards target. Brand env lock cannot be overridden from the UI when set |
@@ -346,6 +348,8 @@ Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) �
 | 2026-09-26 | **Q landed.** Packs `_q7` and `_q8` (router bodies: docker, DNS, integrations, nmap, files, patch, settings). Full compose **80.05%** (39165/48927), 1692 passed, 6 skipped. CI `--cov-fail-under` raised **75 → 80**. |
 | 2026-09-26 | **Q packs `_q9` and `_q10`.** Settings, certificates, Pi-hole, SSH identities, OIDC callback. Full compose **81.01%** (39638/48927), 1694 passed. CI `--cov-fail-under` stays **80** so the extra point is headroom. |
 | 2026-09-26 | **HA-cards landed.** `host_reboot` on the existing jobs POST (exclusive lane, 409 against patch and backup). Plugin **0.3.0**: host, updates, and resources cards. Graphs are HA history of snapshot sensors. Operator walk still open. |
+| 2026-09-27 | **Hosted MCP.** `POST /mcp` on the web process. Streamable HTTP, stateless JSON, existing `ph_` Bearer tokens. Tool list matches `piherder-mcp`. Mint snippet leads with the hosted URL. stdio `uvx` is the collapsed fallback. No OAuth. No second service. Package stays `1.6.0`. |
+| 2026-09-27 | **Hosted MCP review.** Capped `read_file` closes the download generator in-process. `http`/`https` Origin must match Host or `PIHERDER_PUBLIC_URL` (Bearer does not bypass). Job **409** tool results include `already_active`. `write_file` / `mkdir` require `p`. Mint `token_secret` query flash stays a known follow-up. |
 | 2026-09-26 | **Docs alignment.** Architecture, SPEC, ADMIN, SECURITY, and the multi-worker wiki match the Celery exclusive lane. Discover rows stay parked. Operator walk boxes stay empty. |
 | 2026-09-26 | **QA and screenshot list.** [QA_v1.7.0.md](QA_v1.7.0.md) covers every landed stream. Docs alignment is signed. Live boxes stay empty. v1.7 screenshot files are listed and not captured. Draft PR is the review vehicle. |
 

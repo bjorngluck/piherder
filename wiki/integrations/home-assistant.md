@@ -11,7 +11,7 @@ A **HACS integration that runs on Home Assistant** and **observes** your PiHerde
 
 The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (plugin **0.3.0** on the plugin `main` branch; the GitHub Release tag is cut when that repo is tagged). The HACS repo README and the integration’s Documentation link point at this page. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from PiHerder `main` and still describes the v1.6 read-only plugin until v1.7 merges.
 
-Agent tools (Cursor, Grok, Claude, Codex) are a different client of the same token API: [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.1.0**. That process is also outside this image. [Agents (MCP)](../operations/mcp.md).
+Agent tools (Cursor, Grok, Claude, Codex) are a different client of the same token API: hosted **`/mcp`** on the herder. [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) is the optional stdio fallback. [Agents (MCP)](../operations/mcp.md).
 
 ## Why it exists
 

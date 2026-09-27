@@ -31,7 +31,7 @@ Authorization: Bearer ph_<secret>
 - Optional **`expires_at`** (never / 30d / 90d / custom). Expired tokens fail Bearer lookup like revoked ones.
 - **Rotate** issues a new secret; the previous value stops working immediately. Expiry is preserved.
 - **Revoke** immediately if leaked (Settings or `DELETE /api/v1/tokens/{id}` with admin session).
-- **MCP agent** mint preset in Settings suggests a `mcp-…` name and default scope `read` (add `jobs` / `edit` / `files` as needed). Stdio adapter only — see [wiki/operations/mcp.md](../wiki/operations/mcp.md). `${PIHERDER_TOKEN}` in sample JSON is a human placeholder; many MCP hosts do not expand it.
+- **MCP agent** mint preset in Settings suggests a `mcp-…` name and default scope `read` (add `jobs` / `edit` / `files` as needed). Hosted MCP is **`POST /mcp`** on this origin with the same Bearer token (not a query parameter). The one-time snippet is that URL plus `Authorization`. Set `PIHERDER_PUBLIC_URL` or the snippet host is `https://piherder.example.com` and the banner says so. An `http`/`https` `Origin` must match the request `Host` or that public URL; a Bearer token does not bypass it. Clients that omit `Origin` are unchanged. Optional stdio `uvx piherder-mcp` is the air-gapped fallback. See [wiki/operations/mcp.md](../wiki/operations/mcp.md).
 
 ### CORS (optional — browser clients only)
 
@@ -275,7 +275,7 @@ MCP-oriented example:
 }
 ```
 
-Response includes `secret` **once**, plus `mcp_snippet` (env + sample `mcp.json` for `uvx piherder-mcp`). Do not log or re-fetch the plaintext.
+Response includes `secret` **once**, plus `mcp_snippet` (hosted `/mcp` URL and Bearer header first, then the optional `uvx` block). Do not log or re-fetch the plaintext. Do not put the secret in the MCP URL.
 
 ---
 
@@ -311,7 +311,7 @@ HTTP Request node: Method GET/POST, Header `Authorization` = `Bearer ph_…`, JS
 
 **v1.6:** first-class **HACS integration** (runs on HA) — Slice 1: fleet sensors, host devices, **Visit** = `{origin}/servers/{id}`, Lovelace **PiHerder fleet** card (`custom:piherder-dashboard-card`). Heartbeat `GET /api/v1/summary` (`read`) includes fleet resource sums. Host `os_pretty` / `hardware` / cpu / memory / disk / `container_count` from the host-facts snapshot. Slice **1b** read APIs: `GET /api/v1/inventory`, `GET /api/v1/servers/{id}/inventory`, `GET /api/v1/services` (stored snapshots only). Plugin [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.4** is that read path. No start/stop. Operator: [wiki Home Assistant](../wiki/integrations/home-assistant.md). [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [PLAN_v1.6.0.md](PLAN_v1.6.0.md). YAML `rest` remains possible. CORS is not required (HA Core is server-side). Prefer an IP allowlist for the HA host.
 
-**v1.7 (on `v1.7.0-dev`, package still `1.6.0`):** Plugin **0.3.0** adds memory % and CPU load sensors, plus host, updates, and resources Lovelace cards. Writes go through HA services to the jobs and features routes above (including `host_reboot`). **MCP-1** is a separate stdio process, [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.1.0**. It is a client of the routes above (`read`, and `jobs` / `edit` / `files` when the token has them). It is not in this image and it does not add `/api/v1` routes. Its published job tools stay those six types. The jobs POST above is broader (`host_reboot`, compose stack types, and `template_deploy` / `template_redeploy`); those are not MCP tools. Operator page: [wiki/operations/mcp.md](../wiki/operations/mcp.md). **Jr-1** moved the remaining exclusive job types onto Celery and added `host_reboot` to that set. No new routes. [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
+**v1.7 (on `v1.7.0-dev`, package still `1.6.0`):** Plugin **0.3.0** adds memory % and CPU load sensors, plus host, updates, and resources Lovelace cards. Writes go through HA services to the jobs and features routes above (including `host_reboot`). **Hosted MCP** is `POST /mcp` on this process (Streamable HTTP, stateless JSON, the same Bearer token). It does not add `/api/v1` routes. Tool names match [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp): `read`, and `jobs` / `edit` / `files` when the token has them. Published job tools stay those six types. The jobs POST above is broader (`host_reboot`, compose stack types, and `template_deploy` / `template_redeploy`); those are not MCP tools. `uvx piherder-mcp` remains an optional air-gapped client. Operator page: [wiki/operations/mcp.md](../wiki/operations/mcp.md). **Jr-1** moved the remaining exclusive job types onto Celery and added `host_reboot` to that set. [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 ---
 
