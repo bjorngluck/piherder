@@ -3,7 +3,7 @@
 **Branch:** `v1.7.0-dev` → `main` · tag **`v1.7.0`** (cut after merge)  
 **Code freeze:** *open*  
 **Package:** **`1.6.0`** until freeze  
-**Operator QA:** *not started* (live boxes below stay empty)  
+**Operator QA:** **Brand-1**, **Brand-2**, **Audit pulse**, and **1.6 regression** signed 2026-09-27. Other live walks stay empty  
 **Docs alignment:** **done** 2026-09-26 (architecture, SPEC, ADMIN, SECURITY, wiki). Not a substitute for the live walk  
 **Screenshots:** listed in [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v170--pack-status). **Not captured**  
 **Pull request:** draft. Do not undraft, merge, tag, or publish until asked
@@ -134,24 +134,24 @@ Use one real SSH host. You do not need every stack action if one mutate and one 
 - [ ] Demo does not live-run these types. This walk stays on the local herder. Do not open the public demo and do not redeploy it onto `v1.7.0-dev`  
 - [ ] Token API does not gain `service_migrate` or undo. With a `jobs` token, `POST /api/v1/servers/{id}/jobs` body `{"job_type":"service_migrate"}` is **400** `Unsupported job_type`. The allowed list matches `JOB_FEATURE_KEY`: backup, retention, os_patch, os_update_check, host_reboot, container_patch, container_update_check, docker_stack_check, docker_stack_deploy, docker_stack_stop, docker_stack_start, docker_stack_restart, template_deploy, and template_redeploy. For the `docker_stack_*` types, `source_filter` is the compose project path. `docker_stack_down`, `docker_stack_remove`, and `template_drift_check` are **400**. MCP `trigger_job` stays the six types (no `host_reboot`, stack, or template). `service_migrate_undo` is the same **400**  
 
-## Brand-1 — instance name + accent (Should; may slip)
+## Brand-1 — instance name + accent (signed 2026-09-27)
 
-Settings → **General** → **Instance**. Boxes stay empty until you walk them. Rebuild **web** first. The header image stays the official mark.
+**Operator sign-off 2026-09-27:** every Brand-1 row below was walked and signed. Settings → **General** → **Instance**. The header image stays the official mark.
 
-- [ ] Empty instance name keeps PiHerder wording and the official mark. Clear the name, save, and reload. The header still reads **Pi** / **Herder**. The mark image is unchanged  
-- [ ] A set name shows in the header and the PWA title. Save a short name such as **Homelab**. The header text, the footer, and the sign-in wordmark use it. View source: `apple-mobile-web-app-title` is that name. `GET /manifest.webmanifest` has `"name": "Homelab"` and `"theme_color": "#e60012"`  
-- [ ] One accent recolours `--color-accent` only; primary red stays `#e60012`. Pick a blue, save, and reload. Links and accent chips follow it. The mark and the red buttons stay red. Putting the accent back on `#00a651` restores the official green  
-- [ ] No header logo upload. The Instance card has a name and a color. It has no file field  
-- [ ] Env `PIHERDER_INSTANCE_NAME` / `PIHERDER_ACCENT` when set cannot be overridden in the UI. With either variable set in `.env` and **web** recreated, that field is disabled and a save does not change it  
-- [ ] Public demo still shows official PiHerder chrome. Do not redeploy the demo. This walk is the local herder  
+- [x] Empty instance name keeps PiHerder wording and the official mark. Clear the name, save, and reload. The header still reads **Pi** / **Herder**. The mark image is unchanged  
+- [x] A set name shows in the header and the PWA title. Save a short name such as **Homelab**. The header text, the footer, and the sign-in wordmark use it. View source: `apple-mobile-web-app-title` is that name. `GET /manifest.webmanifest` has `"name": "Homelab"` and `"theme_color": "#e60012"`  
+- [x] One accent recolours `--color-accent` only; primary red stays `#e60012`. Pick a blue, save, and reload. Links and accent chips follow it. The mark and the red buttons stay red. Putting the accent back on `#00a651` restores the official green  
+- [x] No header logo upload. The Instance card has a name and a color. It has no file field  
+- [x] Env `PIHERDER_INSTANCE_NAME` / `PIHERDER_ACCENT` when set cannot be overridden in the UI. With either variable set in `.env` and **web** recreated, that field is disabled and a save does not change it  
+- [x] Public demo still shows official PiHerder chrome. Do not redeploy the demo. This walk is the local herder  
 
-## Brand-2 — hide Catalog (Should; may slip)
+## Brand-2 — hide Catalog (signed 2026-09-27)
 
-Settings → **General** → **Instance** → **Show Catalog in the navigation**. Default is on. Boxes stay empty until you walk them. Rebuild **web** first.
+**Operator sign-off 2026-09-27:** every Brand-2 row below was walked and signed. Settings → **General** → **Instance** → **Show Catalog in the navigation**. Default is on.
 
-- [ ] Default: Catalog still in the nav. Desktop links and the phone menu both include Catalog  
-- [ ] Hide removes the nav item and does **not** 404 `/catalog`. Uncheck the box, save, reload. Catalog is gone from the header and the phone menu. Open `/catalog` directly. The page still loads, including its own tabs  
-- [ ] Viewer and operator both follow the instance setting. Sign in as a non-admin after the hide. Catalog is gone for that account too. Check the box again and save. Catalog returns for both  
+- [x] Default: Catalog still in the nav. Desktop links and the phone menu both include Catalog  
+- [x] Hide removes the nav item and does **not** 404 `/catalog`. Uncheck the box, save, reload. Catalog is gone from the header and the phone menu. Open `/catalog` directly. The page still loads, including its own tabs  
+- [x] Viewer and operator both follow the instance setting. Sign in as a non-admin after the hide. Catalog is gone for that account too. Check the box again and save. Catalog returns for both  
 
 ## Jr-2 — max wait in Settings (Should; may slip)
 
@@ -193,13 +193,13 @@ Checked against [architecture](../wiki/developers/architecture.md), [SECURITY.md
 - [x] Discover rows (Bak-alt, AC-fg, HA bus event, Undo-2, Mux-2) are not written up as shipped  
 - [x] Operator wiki pages for MCP, Jobs, multi-worker, Appearance, Settings, Home Assistant, and the env reference match those locks  
 
-## Audit pulse (on this branch)
+## Audit pulse (signed 2026-09-27)
 
-The Audit hero no longer counts queued and running backup phase rows as active work. **Hide incomplete runs** still hides them. A failed apt step can include the last `E:` lines in the job summary.
+**Operator sign-off 2026-09-27:** every Audit pulse row below was walked and signed. The Audit hero no longer counts queued and running backup phase rows as active work. **Hide incomplete runs** still hides them. A failed apt step can include the last `E:` lines in the job summary.
 
-- [ ] A completed backup still appears in the Audit feed with the size summary  
-- [ ] Queued and running `backup` phase rows are hidden by **Hide incomplete runs** and are not in the active pulse  
-- [ ] An OS patch that fails on apt shows the `E:` reason on the job summary when apt printed one  
+- [x] A completed backup still appears in the Audit feed with the size summary  
+- [x] Queued and running `backup` phase rows are hidden by **Hide incomplete runs** and are not in the active pulse  
+- [x] An OS patch that fails on apt shows the `E:` reason on the job summary when apt printed one  
 
 ## Screenshots — v1.7 pack
 
@@ -216,13 +216,15 @@ Not captured. List and sequence: [wiki/assets/screenshots/README.md](../wiki/ass
 - [ ] `ha-fleet-sensors.png` recaptured only if it still says plugin **0.2.4**  
 - [ ] 1.6 mux, Move, System Info, and fleet-card PNGs left in place  
 
-## 1.6 regression
+## 1.6 regression (signed 2026-09-27)
 
-- [ ] Move still off unless you turn the flag on for a spot-check; flag returns to **false**  
-- [ ] Console mux still opt-in; HAOS and demo never mux  
-- [ ] HACS fleet card still loads against this herder (plugin not in the image)  
-- [ ] Home install CSP still enforces the script nonce; `onclick` still works  
-- [ ] Expired session → Sign in (not JSON)  
+**Operator sign-off 2026-09-27:** every 1.6 regression row below was walked and signed.
+
+- [x] Move still off unless you turn the flag on for a spot-check; flag returns to **false**  
+- [x] Console mux still opt-in; HAOS and demo never mux  
+- [x] HACS fleet card still loads against this herder (plugin not in the image)  
+- [x] Home install CSP still enforces the script nonce; `onclick` still works  
+- [x] Expired session → Sign in (not JSON)  
 
 ## Freeze gates
 
