@@ -118,9 +118,11 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-09-25, lock retune):** **MCP-1** is Must and the first slice (separate repo, read-only `/api/v1`). **Jr-1** stays Must, second. **Q** is Should: CI fail-under **75 → 80** (may slip; do not lower 75). **Bak-alt** is Discover: alternate backup destinations (Google Drive, LAN NAS, and similar) under consideration; the rsync directory stays the only implementation. See [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
-**Decision (2026-09-26):** **MCP-1** is a read/write client of the bearer API that already exists (`read`, `jobs`, `edit`, `files`). stdio only, so Cursor, Grok, Claude, and Codex launch one process. Separate repo `bjorngluck/piherder-mcp`. No new herder routes. Remote HTTP MCP stays out. Adapter code waits until that repo exists. See [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
+**Decision (2026-09-26):** **MCP-1** is a read/write client of the bearer API that already exists (`read`, `jobs`, `edit`, `files`). The first cut was stdio in `bjorngluck/piherder-mcp`. See [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
-**Progress (2026-09-26):** [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.1.0** (`fcd90cf`) is the stdio client. It is not in the PiHerder image. Operator walk is still open.
+**Decision (2026-09-27):** The primary path is hosted Streamable HTTP at **`POST /mcp`** on the herder, same `ph_` Bearer token. No OAuth and no second service. `uvx piherder-mcp` stays the air-gapped fallback.
+
+**Progress (2026-09-26):** [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.1.0** (`fcd90cf`) is the stdio client. Operator walk is still open.
 
 **Progress (2026-09-26):** **Jr-1**, **Jr-2**, **Brand-1**, **Brand-2**, **Q** (fail-under **80**, compose **81.01%**), and **HA-cards** landed on `v1.7.0-dev`. HA-cards is plugin **0.3.0** (host, updates, and resources cards) plus `host_reboot` on the existing jobs POST. Operator walks in [QA_v1.7.0.md](QA_v1.7.0.md) stay empty. Package stays `1.6.0`.
 

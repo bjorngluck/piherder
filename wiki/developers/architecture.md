@@ -77,7 +77,7 @@ flowchart TB
 | Ops-hero pulse helpers | `app/services/ops_pulse.py` |
 | Instance name, accent, Catalog nav | `app/services/instance_brand.py` · Settings → General → Instance · `POST /herder-backups/instance`. Demo forces official chrome. |
 | Push | `app/services/push.py` |
-| API tokens | `app/services/api_tokens.py`, `app/routers/api_v1.py`. The v1.7 MCP process is a separate repo that calls these routes. It is not a module in this image. Operator page: [Agents (MCP)](../operations/mcp.md) |
+| API tokens | `app/services/api_tokens.py`, `app/routers/api_v1.py`. Hosted MCP is `app/routers/mcp.py` + `app/services/mcp_hosted.py` (`POST /mcp`, same Bearer token). The stdio repo remains an optional client. Operator page: [Agents (MCP)](../operations/mcp.md) |
 | Herder backup | `app/services/herder_backup.py` |
 | Metrics | `app/services/metrics.py` |
 | Bulk server actions | `app/routers/servers.py` (`POST /servers/bulk`) |

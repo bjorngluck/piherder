@@ -14,7 +14,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 1.6 production sign-off stays [QA_v1.6.0.md](QA_v1.6.0.md) (historical). Do **not** re-open 1.6 boxes here.
 
-**Tag honesty:** freeze only with **MCP-1** and **Jr-1**. CI fail-under is **80** (compose **81.01%**, kept as headroom). Do not lower it below **80**. Do not bump version, merge, tag, or Hub until asked. Do not redeploy the public demo onto this branch. No new Alembic revision on this train.
+**Tag honesty:** freeze only with **MCP-1** and **Jr-1**. CI fail-under is **80** (unit run **80.92%** after hosted MCP, kept as headroom). Do not lower it below **80**. Do not bump version, merge, tag, or Hub until asked. Do not redeploy the public demo onto this branch. No new Alembic revision on this train.
 
 **This pass is sign-off, not new features.** Fix only a feature or regression bug you hit while walking. Discover (Bak-alt, AC-fg, the HA job-finished bus event, Undo-2, Mux-2) stays parked until a row is promoted.
 
@@ -24,7 +24,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 | Stream | Wiki |
 |--------|------|
-| MCP-1 | [Agents (MCP)](../wiki/operations/mcp.md) (operator). Herder side is [API tokens](../wiki/operations/api-tokens.md). The process is not in this image |
+| MCP-1 | [Agents (MCP)](../wiki/operations/mcp.md). Primary path is hosted `POST /mcp` on this herder. stdio `uvx` is the air-gapped fallback |
 | Jr-1 / Jr-2 | [Multi-worker](../wiki/operations/multi-worker.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Troubleshooting](../wiki/troubleshooting/index.md) |
 | Brand-1 / Brand-2 | [Appearance](../wiki/getting-started/appearance.md) · [Settings](../wiki/operations/settings.md) → General → Instance |
 | HA-cards | [Home Assistant](../wiki/integrations/home-assistant.md). Plugin **0.3.0**. Walk after HACS updates |
@@ -39,19 +39,19 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 | | |
 |--|--|
 | **Instance** | On `v1.7.0-dev`: `docker compose build web celery-worker && docker compose up -d web celery-worker`. App code is **not** bind-mounted. About / footer still **1.6.0** until freeze |
-| **Workers** | Jr-1 needs **celery-worker** up. nmap stays on `celery-worker-nmap`. MCP-1 is a separate process, not a compose service in this repo |
+| **Workers** | Jr-1 needs **celery-worker** up. nmap stays on `celery-worker-nmap`. Hosted MCP is the **web** process (`POST /mcp`). No extra compose service |
 | **Browsers** | Desktop Chrome or Firefox **and** one phone (Brand) |
 | **Accounts** | One **admin**, one **operator**, one **viewer** |
 | **Hosts** | One real SSH host you can patch or deploy a stack on, plus one host you can make unreachable (SSH down) for the wait row. Do not use the public demo |
 | **Flags** | `PIHERDER_SERVICE_MIGRATE` stays **false** except a regression spot-check you explicitly turn on, then off. Demo never live-runs patch or stack jobs |
 | **Where to look** | Local herder: `http://127.0.0.1:8000` (Caddy `:8888` / `:8443`) |
 
-**Do not test (Out or Discover):** Google Drive or NAS backup destinations (Bak-alt), per-host grants, the HA job-finished bus event, Undo-2, Mux-2 leftover list, container start/stop from HA, theme engine, logo upload, default-on Move, rewriting `onclick` for CSP. Do not look for the MCP adapter or the Home Assistant plugin inside the PiHerder image. Walk **HA-cards** on plugin **0.3.0**, not on **0.2.4**.
+**Do not test (Out or Discover):** Google Drive or NAS backup destinations (Bak-alt), per-host grants, the HA job-finished bus event, Undo-2, Mux-2 leftover list, container start/stop from HA, theme engine, logo upload, default-on Move, rewriting `onclick` for CSP. Do not look for a second MCP container or the Home Assistant plugin inside the PiHerder image. Hosted MCP is `POST /mcp` on **web**. Walk **HA-cards** on plugin **0.3.0**, not on **0.2.4**.
 
 ### Suggested order
 
 1. **Docs alignment** is already signed below. It does not tick a live box.  
-2. **MCP-1** against a local herder. Start with a scope-`read` token, then a token that also has `jobs`, `edit`, and `files`. About / footer on the herder still **1.6.0**.  
+2. **MCP-1** against a local herder at `http://127.0.0.1:8000/mcp` (or the Caddy origin). Start with a scope-`read` token, then a token that also has `jobs`, `edit`, and `files`. About / footer on the herder still **1.6.0**.  
 3. Rebuild local **web** + **celery-worker** (`docker compose build web celery-worker && docker compose up -d web celery-worker`).  
 4. **Jr-1** on one real host (one patch or stack, plus `host_reboot` if the OS-patch flag is on), including a web recycle and a worker recycle.  
 5. Host-down wait on a host whose SSH you can refuse. Then **Jr-2**: put the wait back to **30** minutes.  
@@ -63,25 +63,24 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 ---
 
-## MCP-1 — read/write token-API adapter (Must, first)
+## MCP-1 — hosted MCP on this herder (Must, first)
 
-Walk this in the adapter repo, against this herder. The adapter is **not** in the PiHerder image. Do not point it at the public demo.
+Primary path is **`POST /mcp`** on the web process (Streamable HTTP, stateless JSON). Same Bearer token as `/api/v1`. Do not point it at the public demo. stdio `uvx piherder-mcp` is optional and only for an agent that cannot reach the herder.
 
-- [ ] Process starts with `PIHERDER_URL` and `PIHERDER_TOKEN` over stdio (`uvx piherder-mcp`, or the git `--from` form if not on PyPI)  
+- [ ] With no `Authorization` header, `POST /mcp` is **401** and does not echo a secret. A `?token=` query is **400**  
 - [ ] Settings → API management → **MCP agent** preset suggests a `mcp-…` name and default `read`; optional expiry (30d / 90d / custom) sticks on create  
-- [ ] After create (and rotate), the one-time banner shows the secret **and** a copyable MCP client config snippet (`PIHERDER_URL` / `PIHERDER_TOKEN` + sample `mcp.json`); secret is not shown again after leaving the page  
-- [ ] A scope-`read` token exposes health, summary, servers, inventory, services, and jobs (list and detail), and those match `curl`  
+- [ ] After create (and rotate), the one-time banner’s **copy** block is the hosted URL (`…/mcp`) plus `Authorization: Bearer`. The secret is not in the URL. **Local / air-gapped** (`uvx`) is collapsed. The secret is not shown again after leaving the page  
+- [ ] Cursor (or Claude Code) connects with that URL and header. `initialize` succeeds. A scope-`read` token lists health, summary, servers, inventory, services, and jobs (list and detail), and `health` matches `curl` `/api/v1/health`  
 - [ ] That `read` token has no `set_features`, `trigger_job`, or files tool  
-- [ ] A token without `read` fails closed (message on stderr)  
+- [ ] A token without `read` fails closed (initialize error, no tools)  
 - [ ] `trigger_job` with `jobs` accepts only `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, `container_update_check`  
 - [ ] `trigger_job` returns **202**, and **409** when one is already active, without starting a second job  
 - [ ] `set_features` with `edit` changes only `backup`, `os_patch`, and `docker`  
 - [ ] Files tools with `files` stay in the fleet jail: list, read, write, mkdir, rename, delete a file or empty directory  
 - [ ] Read tools are marked read-only. `set_features`, `trigger_job`, `write_file`, `rename_file`, and `delete_file` are marked destructive  
 - [ ] No tool opens SSH, a console, Move, undo, a compose stack action, or token admin  
-- [ ] Cursor, Grok, Claude, and Codex samples each launch that same stdio command  
-- [ ] One instruction template: Cursor rule and Grok skill share a body; Claude and Codex get the same short copy  
-- [ ] Nothing from this slice is baked into the PiHerder image  
+- [ ] Optional: one air-gapped client still starts with `uvx piherder-mcp` (or the git `--from` form) and the same token  
+- [ ] No second MCP service in Compose. `GET /mcp` is **405** (stateless; no SSE listen channel)  
 
 ## Jr-1 — exclusive jobs on Celery (Must)
 

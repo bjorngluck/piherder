@@ -501,7 +501,16 @@ async def settings_page(
             "new_api_token_secret": qp.get("token_secret"),
             "new_api_token_name": qp.get("token_name"),
             "new_api_token_mcp_snippet": (
-                tok_svc.mcp_client_snippet(
+                tok_svc.mcp_hosted_client_snippet(
+                    public_url=public_url,
+                    token_secret=qp.get("token_secret") or "",
+                )
+                if qp.get("token_secret")
+                and (qp.get("token_created") or qp.get("token_rotated"))
+                else None
+            ),
+            "new_api_token_mcp_local_snippet": (
+                tok_svc.mcp_stdio_client_snippet(
                     public_url=public_url,
                     token_secret=qp.get("token_secret") or "",
                 )

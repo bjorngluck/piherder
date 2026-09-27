@@ -28,7 +28,7 @@ Authorization: Bearer ph_<secret>
 
 In Settings → API management → **Create new token**, tick **MCP agent**. That suggests a `mcp-…` name and starts with scope `read` only — add `jobs` / `edit` / `files` and optional `feature:*` when the agent needs write tools. Leave the IP allowlist empty for a roaming laptop; use a LAN CIDR for a fixed agent host.
 
-After create or rotate, copy the secret **and** the one-time **MCP / agent client config** block (`PIHERDER_URL`, `PIHERDER_TOKEN`, sample `mcp.json` with `uvx piherder-mcp`). The plaintext is never shown again. Details: [Agents (MCP)](mcp.md).
+After create or rotate, copy the secret **and** the one-time **hosted MCP** block (URL ending in `/mcp`, plus `Authorization: Bearer`). The token is not a query parameter. A collapsed **Local / air-gapped** block still shows `uvx piherder-mcp`. The plaintext is never shown again. Details: [Agents (MCP)](mcp.md).
 
 ## Scopes
 
@@ -73,4 +73,4 @@ Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backu
 
 ## Agents (MCP)
 
-Cursor, Grok Build, Claude, and Codex can call this same API through a **stdio** process on the agent machine. It is a v1.7 piece in its own repo, not a service in this image, and not a port on the herder. Scopes above are the tool list: `read` always, and `jobs` / `edit` / `files` only when the token has them. Operator page: [Agents (MCP)](mcp.md).
+Cursor, Grok Build, Claude Code, and Codex call this same token API through **hosted MCP** at `POST /mcp` (Streamable HTTP, Bearer header). Scopes above are the tool list: `read` always, and `jobs` / `edit` / `files` only when the token has them. `uvx piherder-mcp` is the optional air-gapped client. Operator page: [Agents (MCP)](mcp.md).
