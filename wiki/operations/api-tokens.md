@@ -26,7 +26,7 @@ Authorization: Bearer ph_<secret>
 
 ### Mint for an MCP agent
 
-In Settings → API management → **Create new token**, tick **MCP agent**. That suggests a `mcp-…` name and starts with scope `read` only — add `jobs` / `edit` / `files` and optional `feature:*` when the agent needs write tools. Leave the IP allowlist empty for a roaming laptop; use a LAN CIDR for a fixed agent host.
+In Settings → API management → **Create new token**, tick **MCP agent**. The name fills in as `mcp-…` and only **read** stays checked. Add **jobs**, **edit**, or **files** if this agent should do more than look. Leave the IP allowlist empty for a roaming laptop; use a LAN CIDR for a fixed agent host.
 
 After create or rotate, copy the secret **and** the one-time **hosted MCP** block (URL ending in `/mcp`, plus `Authorization: Bearer`). The token is not a query parameter. A collapsed **Local / air-gapped** block still shows `uvx piherder-mcp`. The plaintext is never shown again. Details: [Agents (MCP)](mcp.md).
 
