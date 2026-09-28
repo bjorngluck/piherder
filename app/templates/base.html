@@ -1567,14 +1567,21 @@
         function (data) {
           var e = els();
           if (e.status) {
+            var statusLabel;
             if (data.done || data.status === 'success' || data.status === 'failed' || data.status === 'cancelled') {
-              e.status.textContent = data.status === 'success' ? '✓ Complete'
+              statusLabel = data.status === 'success' ? '✓ Complete'
                 : (data.status === 'cancelled' ? 'Cancelled' : '✗ Failed');
             } else if (data.current) {
-              e.status.textContent = data.current;
+              statusLabel = data.current;
             } else {
-              e.status.textContent = data.status || 'running…';
+              statusLabel = data.status || 'running…';
             }
+            var workerWho = data.worker_hostname || '';
+            if (!workerWho && data.status === 'pending' && data.worker_label) {
+              workerWho = data.worker_label;
+            }
+            if (workerWho) statusLabel += ' · ' + workerWho;
+            e.status.textContent = statusLabel;
           }
           var lines = data.log_lines || data.log_tail || [];
           if (e.log && lines.length) {
