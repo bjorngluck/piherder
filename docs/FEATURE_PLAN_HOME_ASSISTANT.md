@@ -1,6 +1,6 @@
 # Feature plan — Home Assistant integration (architecture + discovery)
 
-**Status:** **v0.9.0 path 1 shipped (S2 HAOS over SSH)**. Path 2 Slice 1 and 1b shipped in **v1.6.0** (plugin **0.2.4**, read-only). **v1.7 Should HA-cards** landed as plugin **0.3.0** and the operator walk was signed 2026-09-27 ([PLAN_v1.7.0.md](PLAN_v1.7.0.md)). The 0.3.0 cards are plain, and the 24-hour chart does not draw. **v1.8.0** is **Active** on `v1.8.0-dev` ([PLAN_v1.8.0.md](PLAN_v1.8.0.md)): richer cards and stats, including that chart. The job-finished bus event stays Discover. Slice 3 stays out.  
+**Status:** **v0.9.0 path 1 shipped (S2 HAOS over SSH)**. Path 2 Slice 1 and 1b shipped in **v1.6.0** (plugin **0.2.4**, read-only). **v1.7 Should HA-cards** landed as plugin **0.3.0** and the operator walk was signed 2026-09-27 ([PLAN_v1.7.0.md](PLAN_v1.7.0.md)). The 0.3.0 cards are plain, and the 24-hour chart does not draw. **v1.8.0** is **Active** on `v1.8.0-dev` ([PLAN_v1.8.0.md](PLAN_v1.8.0.md)): MCP job types first, then backup destinations, then richer cards and that chart (**HA-vis** Must). The job-finished bus event is Should on that train. Slice 3 stays out.  
 **Ship framing:** [PLAN_v0.9.0.md](PLAN_v0.9.0.md) stream **HA**  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 3 · [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [API.md](API.md) · [SPEC.md](../SPEC.md)
 
@@ -452,6 +452,7 @@ Unit tests: pure parsers for `ha * info` fixtures + branch in `check_os_updates`
 | 2026-09-25 | **v1.6.0 tagged** (plugin **0.2.4**). Slice 2 stays **Discover** on [PLAN_v1.7.0.md](PLAN_v1.7.0.md). |
 | 2026-09-26 | **HA-cards** pulled into v1.7 as Should. Host card, updates card, and confirm writes for the six token job types plus feature flags. Not started. Plugin **0.2.4** stays read-only. Container start/stop stays Slice 3 Out. Bus event stays Discover. |
 | 2026-09-26 | **HA-cards landed.** Plugin **0.3.0**. Host, updates, and resources cards. Services `trigger_job` and `set_features`. Herder job type `host_reboot` on the existing jobs POST. Graphs read HA history of snapshot sensors. Container start/stop stays out. |
+| 2026-09-28 | **v1.8.0 lock.** **HA-vis** (richer cards and the 24-hour chart) is Must, after MCP-jobs and the backup discovery. `piherder_job_completed` is Should. Slice 3 stays out. [PLAN_v1.8.0.md](PLAN_v1.8.0.md). |
 | 2026-09-19 | **HACS** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.1.5**. Door is HA **Visit**, not press-here buttons. Herder `summary` + host-facts **044**. |
 | 2026-09-20 | Plugin **0.2.2**. Fleet Lovelace card is Slice 1 (HA allows one Visit per custom device). Resource `/local/piherder-dashboard-card.js?v=0.2.2` as module. `piherder_job_completed` bus events stay Slice 2. |
 | 2026-09-21 | Plugin **0.2.3**. Slice 1b: `GET /api/v1/inventory` and `/services`. Disk, container, and service sensors on the host device. Card resource `?v=0.2.3`. No start/stop. |

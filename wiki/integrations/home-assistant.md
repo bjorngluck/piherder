@@ -114,7 +114,7 @@ server_id: 1
 
 Leave `server_id` off the updates and resources cards for the whole fleet. Set it to show one host.
 
-The **host** card shows gauges and links into PiHerder. Confirm buttons: Backup, Retention, Check OS, Check containers, Patch OS, Patch containers, Restart host. Restart names the host and reboots the machine. It will not start while an OS patch, a container patch, or a backup is already running. Below the buttons, three toggles (backup, OS patch, Docker). Turning one off asks first. The 24-hour sparkline on this card does not draw in 0.3.0. Richer cards are [v1.8.0](https://github.com/bjorngluck/piherder/blob/v1.8.0-dev/docs/PLAN_v1.8.0.md), opened on `v1.8.0-dev`.
+The **host** card shows gauges and links into PiHerder. Confirm buttons: Backup, Retention, Check OS, Check containers, Patch OS, Patch containers, Restart host. Restart names the host and reboots the machine. It will not start while an OS patch, a container patch, or a backup is already running. Below the buttons, three toggles (backup, OS patch, Docker). Turning one off asks first. The 24-hour sparkline on this card does not draw in 0.3.0. Richer cards are part of [v1.8.0](https://github.com/bjorngluck/piherder/blob/v1.8.0-dev/docs/PLAN_v1.8.0.md), after MCP job types and the backup write-up.
 
 <figure class="ph-figure" markdown>
   ![Host card](../assets/screenshots/ha-host-card.png)

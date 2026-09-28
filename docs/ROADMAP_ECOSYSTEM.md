@@ -43,7 +43,7 @@ Design principles stay the same as SPEC:
 | **v1.5.0** | **Job runtime** — Move on **Celery worker** + Reports pin/hide/reorder + Move jobs card + unit **≥ 70%**. Kill switch stays **false**. | Post-1.4 minor | **Tagged** 2026-09-18 — [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [QA_v1.5.0.md](QA_v1.5.0.md) · Hub `1.5.0` / `1.5` / `latest` |
 | **v1.6.0** | **HACS on HA + console mux** — Slice 1 + Slice 1b (plugin **0.2.4**) · Mux-1 · CSP script nonces · fail-path Move undo · unit fail-under **75**. Move stays off. | Post-1.5 minor | **Tagged** 2026-09-25 — [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · Hub `1.6.0` / `1.6` / `latest` |
 | **v1.7.0** | **Token-API MCP, then one job runtime** — **MCP-1** · **Jr-1** · **Brand-1/2** · **Jr-2** · **HA-cards** (plugin **0.3.0**). Fail-under **80**. | Post-1.6 minor | **Tagged** 2026-09-28 — [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · Hub `1.7.0` / `1.7` / `latest` |
-| **v1.8.0** | **Home Assistant cards** — richer host, updates, and resources cards, and the 24-hour chart that does not draw on plugin **0.3.0**. Discover stays parked (Bak-alt, AC-fg, HA bus event, Undo-2, Mux-2, Slice 3). | Post-1.7 minor | **Active** 2026-09-28 on `v1.8.0-dev`. Package stays `1.7.0` until freeze. [PLAN_v1.8.0.md](PLAN_v1.8.0.md) |
+| **v1.8.0** | **MCP job types, then backup destinations, then HA cards** — **MCP-jobs** widens `trigger_job` to the existing jobs POST. **Bak-alt** discovery is Must (Google Drive lean; OneDrive and LAN NAS/SMB later). One Google Drive destination is Should. **HA-vis** is richer cards and the 24-hour chart. HA bus, Mux-2, Undo-2, and Jr-web are Should. AC-fg and Slice 3 stay parked. | Post-1.7 minor | **Active** 2026-09-28 on `v1.8.0-dev`. Package stays `1.7.0` until freeze. [PLAN_v1.8.0.md](PLAN_v1.8.0.md) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -125,7 +125,7 @@ Design principles stay the same as SPEC:
 
 **Progress (2026-09-26):** [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.1.0** (`fcd90cf`) is the stdio client. Operator walk is still open.
 
-**Progress (2026-09-28):** **v1.7.0 tagged** and Hub-published. **v1.8.0 train opened** on `v1.8.0-dev`. Must is richer HA cards and the 24-hour chart. Package stays `1.7.0` until freeze. [PLAN_v1.8.0.md](PLAN_v1.8.0.md).
+**Progress (2026-09-28):** **v1.7.0 tagged** and Hub-published. **v1.8.0 train locked** on `v1.8.0-dev`. Must, in order: **MCP-jobs**, **Bak-alt** discovery, **HA-vis**. Google Drive is the one Should destination. Package stays `1.7.0` until freeze. [PLAN_v1.8.0.md](PLAN_v1.8.0.md).
 
 **Progress (2026-09-21):** **Q-80 met** — compose suite **75.04%** (35893/47833); CI `--cov-fail-under=75`. Mux-1 and HA-p2 Slice 1 are on the branch; operator QA still open. **Docs-archive-0x**, **Slice 1b** (plugin **0.2.3**), **CSP-n Slice 1**, and **Undo-1** landed on `v1.6.0-dev`. Home installs enforce the script nonce. The public demo is on this branch and stays Report-Only.
 
@@ -490,7 +490,7 @@ Reuse existing SSH access actions; the wizard is **orchestration + progress**, n
 
 | Area | Direction |
 |------|-----------|
-| Home Assistant | **0.9 path 1 done (HAOS/S2 over SSH)** — [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md). **v1.6 shipped:** HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.4** (Visit = host page; Lovelace fleet card; Slice 1b disk/container/service sensors). **v1.7 HA-cards landed** as plugin **0.3.0**: host, updates, and resources cards; confirm writes including `host_reboot`. Operator signed 2026-09-27. The cards are plain, and the 24-hour chart does not draw. **v1.8.0** focuses on Home Assistant: richer cards and stats, including that chart. Container start/stop, Move, and Files stay out. The job-finished bus event stays Discover. API tokens already work ([API.md](API.md)). Operator: [wiki](../wiki/integrations/home-assistant.md). |
+| Home Assistant | **0.9 path 1 done (HAOS/S2 over SSH)** — [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md). **v1.6 shipped:** HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.4** (Visit = host page; Lovelace fleet card; Slice 1b disk/container/service sensors). **v1.7 HA-cards landed** as plugin **0.3.0**: host, updates, and resources cards; confirm writes including `host_reboot`. Operator signed 2026-09-27. The cards are plain, and the 24-hour chart does not draw. **v1.8.0** does MCP job types first, then backup destinations, then richer cards and that chart. Container start/stop, Move, and Files stay out. The job-finished bus event is Should on that train. API tokens already work ([API.md](API.md)). Operator: [wiki](../wiki/integrations/home-assistant.md). |
 | Plugin hooks | Prefer REST + n8n over arbitrary code on the herder host |
 | Ansible / cloud-init | Inventory export + first-boot snippets for new Pis — **overlaps H2.75 bootstrap D/E**; keep imaging depth here |
 | **Advanced secrets** | Explore beyond locked `.env`: Swarm/file permissions hardening, sealed host store for offline recreate, optional vault — never require PiHerder for normal container restart |
