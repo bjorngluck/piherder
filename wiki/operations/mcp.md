@@ -99,6 +99,8 @@ export PIHERDER_TOKEN='ph_…'
 uvx piherder-mcp
 ```
 
+`uvx piherder-mcp` installs the latest release on PyPI. **0.2.0** is the build whose `trigger_job` matches the list above. Until that tag is published, PyPI still serves **0.1.1** (the six job types). Pin the git repo if you need 0.2.0 before the tag.
+
 If the package is not on PyPI yet:
 
 ```bash
