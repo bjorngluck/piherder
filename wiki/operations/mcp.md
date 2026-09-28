@@ -73,7 +73,7 @@ Tools match the public stdio adapter. Nothing from that list is deferred. Tools 
 | Scope | Tools |
 |-------|--------|
 | `read` | `health`, `summary`, `list_servers`, `get_server`, `inventory`, `services`, `list_jobs`, `get_job`. Snapshots already in the database. |
-| `jobs` | `trigger_job` for `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, `container_update_check`. |
+| `jobs` | `trigger_job` for `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, `container_update_check`, `host_reboot`, `docker_stack_check`, `docker_stack_deploy`, `docker_stack_stop`, `docker_stack_start`, `docker_stack_restart`, `template_deploy`, and `template_redeploy`. For a `docker_stack_*` job, `source_filter` is the compose project path. |
 | `edit` | `set_features` for `backup`, `os_patch`, and `docker`. |
 | `files` | `list_files`, `read_file`, `write_file`, `mkdir`, `rename_file`, `delete_file` in the fleet jail. |
 
@@ -81,13 +81,13 @@ Tools match the public stdio adapter. Nothing from that list is deferred. Tools 
 
 `write_file` and `mkdir` require `p`, the same as the stdio adapter. `p` is the jail-relative directory. `""` is the jail root.
 
-The bearer jobs POST accepts more types than this tool list (`host_reboot`, compose stack actions, `template_deploy`, `template_redeploy`). Those are not MCP tools. File bodies returned to the agent are capped around **256 KiB**.
+`trigger_job` is that jobs POST list. It does not add `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move, or undo. File bodies returned to the agent are capped around **256 KiB**.
 
 Read tools set `readOnlyHint`. `set_features`, `trigger_job`, `write_file`, `mkdir`, `rename_file`, and `delete_file` set `destructiveHint`.
 
 ## What stays out
 
-SSH, the web console, Move, undo, compose stack actions, template deploy, nmap, DNS, certificates, Settings, token create/revoke, and stale data cleanup. Privileged Files, zip, chmod, and recursive delete stay in the browser. The public demo is not a target (API tokens are off there, so `/mcp` is too).
+SSH, the web console, Move, undo, nmap, DNS, certificates, Settings, token create/revoke, and stale data cleanup. `docker_stack_down`, `docker_stack_remove`, and `template_drift_check` stay off this tool. Privileged Files, zip, chmod, and recursive delete stay in the browser. The public demo is not a target (API tokens are off there, so `/mcp` is too).
 
 ## Local / air-gapped fallback
 
@@ -130,7 +130,7 @@ The tool list is the same. A token without `read` makes the stdio process exit o
 
 Copy into the client that needs a short rule (Cursor rule, Grok skill, `CLAUDE.md`, Codex `AGENTS.md`):
 
-Call `summary` before changing anything. `trigger_job` only for the six types. On **409**, poll `get_job`. Files stay in the fleet jail. Do not invent SSH, Move, or a console. A token without `jobs`, `edit`, or `files` has no such tool.
+Call `summary` before changing anything. `trigger_job` for the jobs POST types listed above (`host_reboot`, the `docker_stack_*` actions on that list, and template deploy or redeploy included). For a stack job, `source_filter` is the compose project path. On **409**, poll `get_job`. Files stay in the fleet jail. Do not invent SSH, Move, undo, or a console. A token without `jobs`, `edit`, or `files` has no such tool.
 
 ## Known follow-up
 

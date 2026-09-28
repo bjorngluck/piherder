@@ -265,19 +265,24 @@ def test_scope_filter_jobs_and_sse_and_noread(tmp_path, monkeypatch):
         assert "p" in by_name["write_file"]["inputSchema"]["required"]
         assert "p" in by_name["mkdir"]["inputSchema"]["required"]
         enum = by_name["trigger_job"]["inputSchema"]["properties"]["job_type"]["enum"]
-        assert "host_reboot" not in enum
         assert "backup" in enum
+        assert "host_reboot" in enum
+        assert "docker_stack_restart" in enum
+        assert "template_redeploy" in enum
+        assert "service_migrate" not in enum
+        assert "docker_stack_down" not in enum
+        assert "template_drift_check" not in enum
 
         rejected = _rpc(
             client,
             secrets["jobs"],
             "tools/call",
-            {"name": "trigger_job", "arguments": {"server_id": 1, "job_type": "host_reboot"}},
+            {"name": "trigger_job", "arguments": {"server_id": 1, "job_type": "service_migrate"}},
         )
         err = rejected.json()["result"]
         assert err["isError"] is True
-        assert "host_reboot" not in err["content"][0]["text"] or "must be one of" in err["content"][0]["text"]
         assert "must be one of" in err["content"][0]["text"]
+        assert "service_migrate" not in err["content"][0]["text"] or "must be one of" in err["content"][0]["text"]
 
         noread = _rpc(client, secrets["noread"], "initialize", {"protocolVersion": "2025-06-18"})
         assert noread.status_code == 200
@@ -445,6 +450,12 @@ def test_trigger_job_returns_api_202_and_409(monkeypatch):
 
     async def fake_create(server_id, body, background, session, auth):
         calls["n"] += 1
+        if body.job_type == "docker_stack_check":
+            assert body.source_filter == "/home/pi/docker/grafana"
+            return JSONResponse(
+                status_code=202,
+                content={"job_id": 6, "status": "pending", "job_type": body.job_type},
+            )
         if calls["n"] == 1:
             return JSONResponse(
                 status_code=202,
@@ -471,15 +482,35 @@ def test_trigger_job_returns_api_202_and_409(monkeypatch):
             session=None,
             auth=auth,
         )
-        return first, second
+        stack = await mcp_hosted.call_tool(
+            "trigger_job",
+            {
+                "server_id": 1,
+                "job_type": "docker_stack_check",
+                "source_filter": "/home/pi/docker/grafana",
+            },
+            session=None,
+            auth=auth,
+        )
+        refused = await mcp_hosted.call_tool(
+            "trigger_job",
+            {"server_id": 1, "job_type": "service_migrate"},
+            session=None,
+            auth=auth,
+        )
+        return first, second, stack, refused
 
-    first, second = asyncio.run(_run())
+    first, second, stack, refused = asyncio.run(_run())
     assert first["isError"] is False
     assert first["structuredContent"]["http_status"] == 202
     assert second["isError"] is False
     assert second["structuredContent"]["http_status"] == 409
     assert second["structuredContent"]["already_active"] is True
     assert "already_active" not in first["structuredContent"]
+    assert stack["isError"] is False
+    assert stack["structuredContent"]["http_status"] == 202
+    assert refused["isError"] is True
+    assert "must be one of" in refused["content"][0]["text"]
 
 
 def test_file_tools_and_argument_errors(monkeypatch):

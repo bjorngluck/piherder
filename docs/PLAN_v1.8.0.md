@@ -1,6 +1,6 @@
 # PiHerder v1.8.0 — MCP job types, then backup destinations, then Home Assistant cards
 
-**Status:** **Active** (lock retuned 2026-09-28). No product code yet.  
+**Status:** **Active** (lock retuned 2026-09-28). **MCP-jobs** landed on this branch. Package stays `1.7.0`.  
 **Date opened:** 2026-09-28  
 **Git branch:** `v1.8.0-dev` → `main` · tag `v1.8.0` at freeze  
 **Package / image version:** stays **`1.7.0`** until freeze  
@@ -16,7 +16,7 @@
 
 ## 0. Intent
 
-Hosted MCP can already start six job types. The bearer jobs POST accepts more (`host_reboot`, compose stack actions, template deploy and redeploy). Those stay off the tool list. The first slice widens `trigger_job` to that existing list. No new herder route.
+Hosted MCP used to start six job types. **MCP-jobs** widened `trigger_job` to the bearer jobs POST list (`host_reboot`, the compose stack actions on that list, template deploy and redeploy). No new herder route. Move, undo, and nmap stay off the tool.
 
 Per-server backups still rsync onto a directory on the herder host. The second slice writes the destination model. The build lean is **Google Drive**, one destination, and it may slip. **OneDrive** and a **LAN NAS / SMB share** are named for later releases and are not built here. The rsync directory stays. PiHerder’s own Settings DR backup stays that separate path.
 
@@ -114,7 +114,7 @@ Hosted path stays `POST /mcp` on this herder. The stdio adapter in [bjorngluck/p
 3. Stack and template calls may pass the body fields that POST already takes (`source_filter` for the compose project). Do not invent new fields.
 4. `host_reboot` keeps today’s **409** while an OS patch, a container patch, or a backup is active, and the reverse.
 5. On **409** the agent polls `get_job` and does not fire again. `trigger_job` stays `destructiveHint`.
-6. Operator page [wiki/operations/mcp.md](../wiki/operations/mcp.md) lists the wider set when the slice lands. Until then the page stays the 1.7 six.
+6. Operator page [wiki/operations/mcp.md](../wiki/operations/mcp.md) lists the wider set. The stdio adapter in piherder-mcp uses the same allowlist.
 
 ---
 
@@ -204,7 +204,7 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
-| **Must** | **MCP-jobs** | `trigger_job` accepts the jobs POST list. Move and undo stay refused. Hosted and stdio match | Not started |
+| **Must** | **MCP-jobs** | `trigger_job` accepts the jobs POST list. Move and undo stay refused. Hosted and stdio match | Landed on branch. Operator walk still open |
 | **Must** | **Bak-alt discovery** | This plan names Drive, OneDrive, and SMB. Local rsync stays the default | Written in §3.1 |
 | **Should** | **Google Drive** | One per-server destination. Demo never uploads | Not started. May slip |
 | **Must** | **HA-vis** | Plugin **0.4.0**. Bars and a drawing 24-hour series. Same token rules | Not started |
@@ -234,6 +234,7 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 |------|------|
 | 2026-09-28 | Train opened from `main` after **v1.7.0** shipped. First theme was the visual pass and the 24-hour chart. Package stays `1.7.0`. |
 | 2026-09-28 | **Lock retune.** **MCP-jobs** is Must and first. **Bak-alt discovery** is Must (Google Drive lean; OneDrive and LAN NAS/SMB named for later). **Google Drive** is the one Should destination. **HA-vis** stays Must, after those two. HA bus, Mux-2, Undo-2, and Jr-web are Should. AC-fg stays parked. |
+| 2026-09-28 | **MCP-jobs landed.** `trigger_job` matches the jobs POST list on hosted `/mcp` and the stdio adapter. `service_migrate`, undo, nmap, `docker_stack_down`, `docker_stack_remove`, and `template_drift_check` stay refused. |
 
 ---
 
@@ -243,7 +244,7 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 |---|------|--------|
 | 1 | Open **`v1.8.0-dev`** | **Done** 2026-09-28 |
 | 2 | Lock Must / Should in this plan | **Done** 2026-09-28 |
-| 3 | **MCP-jobs** | Not started |
+| 3 | **MCP-jobs** | **Landed** on branch. Walk is [QA_v1.8.0.md](QA_v1.8.0.md) |
 | 4 | Bak-alt discovery is §3.1. Google Drive client | Discovery written. Client not started |
 | 5 | **HA-vis** in piherder-ha, then the Should rows | Not started |
 | 6 | Freeze · `1.8.0` · tag · Hub | Only when asked |
