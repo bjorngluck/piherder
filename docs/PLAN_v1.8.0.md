@@ -1,6 +1,6 @@
 # PiHerder v1.8.0 — MCP job types, then backup destinations, then Home Assistant cards
 
-**Status:** **Active** (lock retuned 2026-09-28). **MCP-jobs** landed on this branch. Package stays `1.7.0`.  
+**Status:** **Active** (lock retuned 2026-09-28). **MCP-jobs** landed. **Bak-alt discovery** written in §3.1. Package stays `1.7.0`.  
 **Date opened:** 2026-09-28  
 **Git branch:** `v1.8.0-dev` → `main` · tag `v1.8.0` at freeze  
 **Package / image version:** stays **`1.7.0`** until freeze  
@@ -18,7 +18,7 @@
 
 Hosted MCP used to start six job types. **MCP-jobs** widened `trigger_job` to the bearer jobs POST list (`host_reboot`, the compose stack actions on that list, template deploy and redeploy). No new herder route. Move, undo, and nmap stay off the tool.
 
-Per-server backups still rsync onto a directory on the herder host. The second slice writes the destination model. The build lean is **Google Drive**, one destination, and it may slip. **OneDrive** and a **LAN NAS / SMB share** are named for later releases and are not built here. The rsync directory stays. PiHerder’s own Settings DR backup stays that separate path.
+Per-server backups still rsync onto a directory on the herder host. §3.1 is the destination model: a second hop from that tree (path A). The build lean is **Google Drive**, one rclone copy, and it may slip. **OneDrive** and a **LAN NAS / SMB share** are named for later releases and are not built here. A client on each Pi that writes straight to cloud or NAS (path C) stays parked. The rsync directory stays. PiHerder’s own Settings DR backup stays that separate path.
 
 Plugin **0.3.0** shipped with v1.7.0: host, updates, and resources cards, plus confirm actions. The cards are plain. The host 24-hour sparkline and the resources 24-hour series do not draw. The points, when they draw, are Home Assistant history of the snapshot sensors (about every 15 minutes), not a live SSH chart. That visual pass is Must, after MCP and the backup write-up.
 
@@ -122,22 +122,36 @@ Hosted path stays `POST /mcp` on this herder. The stdio adapter in [bjorngluck/p
 
 ### 3.1 Discovery (Must)
 
-Today each server backup rsyncs onto a directory on the herder host (`PIHERDER_BACKUP_HOST_PATH`, default `./backups`, mounted at `/backups`). That directory remains a destination. PiHerder’s own Settings backup (instance DR) is not this stream.
+Today `run_backup` in [app/services/backup.py](../app/services/backup.py) pulls chosen directories over SSH. The worker runs `rsync -aHz --delete --numeric-ids` with `--rsync-path` `sudo -n rsync` (plain `rsync` on root or HAOS) into `{backup_dest_root}/{hostname}/{dest_name}`. The default root is `PIHERDER_BACKUP_HOST_PATH` (`./backups`, mounted at `/backups`). Path policy in [app/services/backup_path_policy.py](../app/services/backup_path_policy.py) denies `/` and the OS roots, so a whole-host copy is an explicit allow. The remote only needs SSH and `rsync`. Restore rsyncs that tree back. PiHerder’s own Settings backup (instance DR, `/herder_backups`) is not this stream.
 
-The write-up names three alternates and builds none of them except the Should below:
+rsync speaks a local path, SSH, or an `rsync://` daemon. It does not speak Google Drive, OneDrive, or SMB. Do not FUSE-mount Drive or OneDrive and point `rsync --delete` at that mount.
 
-| Destination | This train |
-|-------------|------------|
-| Local rsync directory | Stays. Default. |
-| **Google Drive** | The one build lean. Should, may slip. |
-| **OneDrive** | Named only. Later release. |
-| **LAN NAS / SMB share** | Named only. Later release. |
+| Path | Data | This train |
+|------|------|------------|
+| **A. Second hop** | Remote → `/backups` (today’s rsync) → herder copies selected dest folders onward | **The model.** Drive, if the Should lands, is this hop. |
+| **B. NAS is the dest root** | Remote → a share mounted on the Docker host and bound in. One copy. | Named for later. No mount helper this train. |
+| **C. Remote writes the alternate** | The Pi pushes to Drive, OneDrive, or the NAS. Data never lands on `/backups`. | **Parked.** That needs `rclone` or CIFS on every host. |
 
-No vendor-neutral plugin framework. No client for OneDrive or SMB.
+Path A keeps the no-agent rule. Selection is the dest folders that already exist (`dest_name`): one folder, many, or the whole host folder under `/backups`. The local tree stays the restore source. The herder disk still holds the fleet. Bandwidth is remote to herder, then herder to the alternate.
+
+Path B is LAN only. Mount the share on the Docker host and bind it in, then set that host’s `backup_dest_root` to the mount. A host mount is safer than mounting CIFS inside the app container. CIFS is a poor POSIX disk for `--numeric-ids`. This shape does not help Drive or OneDrive.
+
+Path C stays parked. Every Pi would need a route to the store and a client installed. Credentials would sit on the Pi or pass through SSH. The sudo rsync path, path policy, and vanished-file retry would not apply. rsync on the Pi still cannot speak Drive or OneDrive.
+
+| Destination | How | This train |
+|-------------|-----|------------|
+| Local rsync directory | Path today. Default. | Stays. |
+| **Google Drive** | Path A. **rclone** on the herder, after the pull, from `/backups/{host}/{folder}`. | The one build lean. Should, may slip. |
+| **OneDrive** | Same rclone binary, a different remote, later. | Named only. No client. |
+| **LAN NAS / SMB** | Path B (mounted dest root) when the share should be the only copy. rclone `smb` as path A when it is a second copy. | Named only. No client. |
+
+No vendor-neutral plugin framework. No restic, borg, or kopia: those replace the browsable mirror and the restore wizard. One rclone binary is how OneDrive and SMB can be added later. It is not a framework, and those two remotes are not configured this train.
+
+Do not write a Drive, Graph, or SMB client. A job-scoped temp rclone config is the shape, with the token encrypted at rest the same way as other integration secrets. Google OAuth is once (device code or a Settings redirect). Not built in this write-up.
 
 ### 3.2 Google Drive (Should)
 
-One alternate destination for the **per-server** backup job. Credentials stay encrypted at rest, same bar as other integration secrets. The job still shows on the host Backups page and in audit. A failed upload fails the job honestly. Demo never uploads. If this slips, the tag still ships with the local directory only and the write-up in this plan.
+Locked in [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). One destination row over the whole `/backups` drive, not a setting on one host. The page is a read-only file list: tick a folder to take it, untick rows to leave them behind. No typed excludes. rclone runs on the herder. The token is Fernet-encrypted and not written to the job log. A failed upload fails the **copy** job. The rsync job and `last_backup_at` stay as they were. Demo never uploads. `backup_replicate` is not on the token API. If this slips, the tag still ships with the local directory only and §3.1.
 
 ---
 
@@ -195,7 +209,7 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 | HA Slice 3 | Start/stop, webhooks, Move-from-HA, Files | Out. Cards and the bus event are the HA slices. |
 | Brand-3 | Own-docs MkDocs skin | Out. No theme engine. |
 | CSP Slice 2 | Rewrite `onclick` | Out. Large, easy to regress. |
-| OneDrive / SMB | Clients | Named in §3.1 only. |
+| OneDrive / SMB | Clients | Named in §3.1. SMB later is path B or rclone `smb`. OneDrive is rclone later. Path C stays parked. |
 | Also out | ACME · NPM CRUD · richer Files API · N3c · M-live · plugin-in-image · MCP OAuth · Move default-on | Unchanged from 1.7 |
 
 ---
@@ -205,8 +219,8 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
 | **Must** | **MCP-jobs** | `trigger_job` accepts the jobs POST list. Move and undo stay refused. Hosted and stdio match | Landed on branch. Operator walk still open |
-| **Must** | **Bak-alt discovery** | This plan names Drive, OneDrive, and SMB. Local rsync stays the default | Written in §3.1 |
-| **Should** | **Google Drive** | One per-server destination. Demo never uploads | Not started. May slip |
+| **Must** | **Bak-alt discovery** | §3.1 names path A (rclone second hop), path B (SMB mount later), path C parked. Local rsync stays the default | Written in §3.1 |
+| **Should** | **Google Drive** | Path A rclone copy after the local rsync. A failed upload fails the job. Demo never uploads | Not started. May slip |
 | **Must** | **HA-vis** | Plugin **0.4.0**. Bars and a drawing 24-hour series. Same token rules | Not started |
 | **Should** | **HA bus** | `piherder_job_completed` from the plugin poll | Not started. May slip |
 | **Should** | **Mux-2** | List/kill `ph-u*` on SSH access | Not started. May slip |
@@ -236,6 +250,7 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 | 2026-09-28 | **Lock retune.** **MCP-jobs** is Must and first. **Bak-alt discovery** is Must (Google Drive lean; OneDrive and LAN NAS/SMB named for later). **Google Drive** is the one Should destination. **HA-vis** stays Must, after those two. HA bus, Mux-2, Undo-2, and Jr-web are Should. AC-fg stays parked. |
 | 2026-09-28 | **MCP-jobs landed.** `trigger_job` matches the jobs POST list on hosted `/mcp` and the stdio adapter. `service_migrate`, undo, nmap, `docker_stack_down`, `docker_stack_remove`, and `template_drift_check` stay refused. |
 | 2026-09-28 | Adapter package set to **0.2.0** in [piherder-mcp](https://github.com/bjorngluck/piherder-mcp). Tag `v0.2.0` publishes it. `uvx` stays on **0.1.1** until then. |
+| 2026-09-28 | **Bak-alt discovery written.** Path A is a rclone second hop from `/backups`. Path B (SMB as the dest root) and OneDrive are later. Path C (a client on each Pi) stays parked. No Drive client in this pass. |
 
 ---
 
@@ -246,7 +261,7 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 | 1 | Open **`v1.8.0-dev`** | **Done** 2026-09-28 |
 | 2 | Lock Must / Should in this plan | **Done** 2026-09-28 |
 | 3 | **MCP-jobs** | **Landed** on branch. Walk is [QA_v1.8.0.md](QA_v1.8.0.md) |
-| 4 | Bak-alt discovery is §3.1. Google Drive client | Discovery written. Client not started |
+| 4 | Bak-alt discovery is §3.1. Google Drive client | **Written** (path A). Client not started |
 | 5 | **HA-vis** in piherder-ha, then the Should rows | Not started |
 | 6 | Freeze · `1.8.0` · tag · Hub | Only when asked |
 
