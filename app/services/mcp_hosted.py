@@ -48,17 +48,28 @@ MCP_JOB_TYPES = (
     "container_patch",
     "os_update_check",
     "container_update_check",
+    "host_reboot",
+    "docker_stack_check",
+    "docker_stack_deploy",
+    "docker_stack_stop",
+    "docker_stack_start",
+    "docker_stack_restart",
+    "template_deploy",
+    "template_redeploy",
 )
 _QUERY_SECRET_KEYS = frozenset(
     {"token", "access_token", "api_key", "api_token", "secret", "authorization"}
 )
 _SERVER_INSTRUCTIONS = (
     "Call summary before changing anything. "
-    "trigger_job only starts backup, retention, os_patch, container_patch, "
-    "os_update_check, or container_update_check. "
+    "trigger_job starts backup, retention, os_patch, container_patch, "
+    "os_update_check, container_update_check, host_reboot, "
+    "docker_stack_check, docker_stack_deploy, docker_stack_stop, "
+    "docker_stack_start, docker_stack_restart, template_deploy, or template_redeploy. "
+    "For a docker_stack job, source_filter is the compose project path. "
     "On HTTP 409 poll get_job and do not start another. "
     "Files stay in the fleet jail. "
-    "Do not invent SSH, Move, a console, compose stack actions, or token admin. "
+    "Do not invent SSH, Move, undo, a console, nmap, or token admin. "
     "Tools appear only for scopes on this token. A token without read has no tools."
 )
 
@@ -188,8 +199,12 @@ def tool_catalog() -> list[dict[str, Any]]:
         {
             "name": "trigger_job",
             "description": (
-                "Start one of backup, retention, os_patch, container_patch, "
-                "os_update_check, container_update_check. "
+                "Start backup, retention, os_patch, container_patch, "
+                "os_update_check, container_update_check, host_reboot, "
+                "docker_stack_check, docker_stack_deploy, docker_stack_stop, "
+                "docker_stack_start, docker_stack_restart, template_deploy, "
+                "or template_redeploy. "
+                "For a docker_stack job, source_filter is the compose project path. "
                 "HTTP 202 means accepted. HTTP 409 means that job is already active: "
                 "poll get_job and do not start another."
             ),
@@ -200,9 +215,11 @@ def tool_catalog() -> list[dict[str, Any]]:
                     "job_type": {
                         "type": "string",
                         "enum": list(MCP_JOB_TYPES),
-                        "description": "One of the six MCP job types",
+                        "description": "One of the jobs POST types",
                     },
-                    "source_filter": _str_prop("Optional backup source name"),
+                    "source_filter": _str_prop(
+                        "Backup source name, or the compose project path for a docker_stack job"
+                    ),
                     "os_steps": {
                         "type": "array",
                         "items": {"type": "string"},
