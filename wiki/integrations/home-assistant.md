@@ -9,7 +9,7 @@ A **HACS integration that runs on Home Assistant** and **observes** your PiHerde
 | Path 1 | This PiHerder image | SSH + `ha` CLI on an HAOS **server** |
 | Path 2 (this page) | Separate HACS repo | HA polls PiHerder snapshots; **Visit** opens the herder |
 
-The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (plugin **0.3.0** on the plugin `main` branch; the GitHub Release tag is cut when that repo is tagged). The HACS repo README and the integration’s Documentation link point at this page. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from PiHerder `main` and still describes the v1.6 read-only plugin until v1.7 merges.
+The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (plugin **0.3.0** on the plugin `main` branch; the GitHub Release tag is cut when that repo is tagged). The HACS repo README and the integration’s Documentation link point at this page. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from PiHerder `main` and describes plugin **0.3.0**. Richer cards are on `v1.8.0-dev` until that train merges.
 
 Agent tools (Cursor, Grok, Claude, Codex) are a different client of the same token API: hosted **`/mcp`** on the herder. [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) is the optional stdio fallback. [Agents (MCP)](../operations/mcp.md).
 
@@ -114,7 +114,7 @@ server_id: 1
 
 Leave `server_id` off the updates and resources cards for the whole fleet. Set it to show one host.
 
-The **host** card shows gauges and links into PiHerder. Confirm buttons: Backup, Retention, Check OS, Check containers, Patch OS, Patch containers, Restart host. Restart names the host and reboots the machine. It will not start while an OS patch, a container patch, or a backup is already running. Below the buttons, three toggles (backup, OS patch, Docker). Turning one off asks first. The 24-hour sparkline on this card does not draw in 0.3.0. Richer cards are the next release.
+The **host** card shows gauges and links into PiHerder. Confirm buttons: Backup, Retention, Check OS, Check containers, Patch OS, Patch containers, Restart host. Restart names the host and reboots the machine. It will not start while an OS patch, a container patch, or a backup is already running. Below the buttons, three toggles (backup, OS patch, Docker). Turning one off asks first. The 24-hour sparkline on this card does not draw in 0.3.0. Richer cards are [v1.8.0](https://github.com/bjorngluck/piherder/blob/v1.8.0-dev/docs/PLAN_v1.8.0.md), opened on `v1.8.0-dev`.
 
 <figure class="ph-figure" markdown>
   ![Host card](../assets/screenshots/ha-host-card.png)
@@ -147,4 +147,4 @@ No container start/stop, Move, compose write, Files, or console. Slice 1b only *
 
 - [API tokens](../operations/api-tokens.md) · [Agents (MCP)](../operations/mcp.md) · [API.md](https://github.com/bjorngluck/piherder/blob/main/docs/API.md)  
 - [System Info](../day-to-day/system-info.md) (why the snapshot exists) · [HAOS hosts](../day-to-day/haos-hosts.md) (path 1) · [Add a server](../day-to-day/add-server.md)  
-- Maintainer: [PLAN_v1.7.0.md](https://github.com/bjorngluck/piherder/blob/v1.7.0-dev/docs/PLAN_v1.7.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](https://github.com/bjorngluck/piherder/blob/v1.7.0-dev/docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7 · shipped [PLAN_v1.6.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.6.0.md)  
+- Maintainer: [PLAN_v1.8.0.md](https://github.com/bjorngluck/piherder/blob/v1.8.0-dev/docs/PLAN_v1.8.0.md) · shipped [PLAN_v1.7.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.7.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7  
