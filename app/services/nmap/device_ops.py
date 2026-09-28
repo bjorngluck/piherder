@@ -168,6 +168,9 @@ def set_device_map_identity(
     map_role: str | None = None,
     sync_network_gateway: bool = True,
     mark_known: bool = True,
+    user_id: int | None = None,
+    api_token_id: int | None = None,
+    api_token_name: str | None = None,
 ) -> NmapDevice:
     """Single form: map name + kind override + map role (gateway).
 
@@ -224,7 +227,51 @@ def set_device_map_identity(
     session.add(device)
     session.commit()
     session.refresh(device)
+    _audit_device_mapped(
+        session,
+        device,
+        user_id=user_id,
+        api_token_id=api_token_id,
+        api_token_name=api_token_name,
+    )
     return device
+
+
+def _audit_device_mapped(
+    session: Session,
+    device: NmapDevice,
+    *,
+    user_id: int | None = None,
+    api_token_id: int | None = None,
+    api_token_name: str | None = None,
+) -> None:
+    """Record nmap_device_mapped for every caller, not only the HTTP route."""
+    import logging
+
+    details = (
+        f"device={device.id} name={(device.display_name or '')[:64]!r} "
+        f"kind={(device.kind_override or 'auto')!r} "
+        f"role={(device.map_role or '')!r}"
+    )
+    try:
+        from ..audit_write import make_audit_log
+
+        session.add(
+            make_audit_log(
+                user_id=user_id,
+                api_token_id=api_token_id,
+                api_token_name=api_token_name,
+                action="nmap_device_mapped",
+                status="success",
+                details=details[:2000],
+                started_at=datetime.utcnow(),
+                finished_at=datetime.utcnow(),
+            )
+        )
+        session.commit()
+    except Exception as e:
+        logging.getLogger(__name__).debug("nmap map audit skip: %s", e)
+        session.rollback()
 
 
 # Human labels for device lifecycle states (UI / docs)

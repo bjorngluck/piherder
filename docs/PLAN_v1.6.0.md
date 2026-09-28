@@ -8,7 +8,7 @@
 **Baseline:** `v1.5.0` (tagged 2026-09-18; Hub digest `sha256:98cf929a6577b84ca03c5f8145f7cf24021ed56176a986a314f3b3cb59145949`)  
 **Mode:** **Must → Should → Discover.** Must **HA-p2 Slice 1** + **Mux-1** + **Q-80**. Should **Slice 1b** + **Docs-archive-0x** + **CSP-n Slice 1** + **Undo-1**. **Brand** and **AC-fg** are out (park **v1.7**).  
 **QA:** [QA_v1.6.0.md](QA_v1.6.0.md) (full maintainer checklist — **not** the operator wiki)  
-**Related:** [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (candidate inbox) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [API.md](API.md) · [SPEC.md](../SPEC.md) · wiki [System Info](../wiki/day-to-day/system-info.md) · [HAOS hosts](../wiki/day-to-day/haos-hosts.md) · [API tokens](../wiki/operations/api-tokens.md) · [web SSH](../wiki/day-to-day/web-ssh-console.md) · [Move a service](../wiki/docker/service-migration.md)
+**Related:** [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) (**Active** on `v1.7.0-dev`) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [API.md](API.md) · [SPEC.md](../SPEC.md) · wiki [System Info](../wiki/day-to-day/system-info.md) · [HAOS hosts](../wiki/day-to-day/haos-hosts.md) · [API tokens](../wiki/operations/api-tokens.md) · [web SSH](../wiki/day-to-day/web-ssh-console.md) · [Move a service](../wiki/docker/service-migration.md)
 
 > **Train open 2026-09-19.** Production stays **v1.5.0** on `main`. Kill switch `PIHERDER_SERVICE_MIGRATE` stays **false**. Plugin is a **separate** HACS repo — not in this image.
 
@@ -323,6 +323,7 @@ Written findings. No schema / plugin mutating actions until a row is promoted.
 | 2026-09-21 | **Slice 1b.** Read APIs `GET /api/v1/inventory`, `/servers/{id}/inventory`, `/services` (DB snapshots, no SSH). Plugin **0.2.3**: container, service, and disk sensors on the existing host device. No start/stop. |
 | 2026-09-21 | **CSP-n Slice 1.** Per-request script nonce; `script-src-attr 'unsafe-inline'`; style stays unsafe-inline; `/docs` `/redoc` keep unsafe-inline. Local installs enforce. Demo mode is Report-Only. |
 | 2026-09-21 | **Undo-1.** Job `service_migrate_undo` on a failed Move at cutover / rebind / validate. Preview → confirm. Revert DNS/NPM, rebind rows, `compose stop` dest, `compose start` source. Dest dir and volumes stay. Green Move and pre-flip stay as before. Viewer 403. Demo and flag-off 404. Token API has no undo POST. |
+| 2026-09-25 | **v1.6.0 tagged** and Hub-published. Next train opened: [PLAN_v1.7.0.md](PLAN_v1.7.0.md) on `v1.7.0-dev`. Must **MCP-1** (first) and **Jr-1**. |
 
 ---
 

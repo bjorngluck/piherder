@@ -612,6 +612,98 @@ def test_stale_data_cleanup_preview_and_purge_jobs(tmp_path):
     assert conf_clamped["nmap_enabled"] is True
 
 
+def test_stale_data_cleanup_respects_nmap_foreign_keys(tmp_path):
+    """Postgres-style FKs: detach last_run_id and job_id before deletes."""
+    from datetime import datetime, timedelta
+
+    from sqlalchemy import event
+    from sqlmodel import Session, SQLModel, create_engine, select
+
+    from app.models import Integration, Job, NmapDevice, NmapScanRun, NmapScriptResult
+    from app.services import stale_data_cleanup as sdc
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'cleanup-fk.db'}",
+        connect_args={"check_same_thread": False},
+    )
+
+    @event.listens_for(engine, "connect")
+    def _enable_fk(dbapi_conn, _rec):
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA foreign_keys=ON")
+        cur.close()
+
+    SQLModel.metadata.create_all(engine)
+    old = datetime.utcnow() - timedelta(days=40)
+    recent = datetime.utcnow() - timedelta(days=2)
+    with Session(engine) as s:
+        integ = Integration(type="nmap", name="LAN", base_url="local")
+        s.add(integ)
+        s.commit()
+        s.refresh(integ)
+        old_job = Job(job_type="nmap_scan", status="success", created_at=old, finished_at=old)
+        s.add(old_job)
+        s.commit()
+        s.refresh(old_job)
+        kept = NmapScanRun(
+            integration_id=integ.id,
+            job_id=old_job.id,
+            intensity="discovery",
+            status="success",
+            created_at=recent,
+            finished_at=recent,
+        )
+        stale_run = NmapScanRun(
+            integration_id=integ.id,
+            intensity="discovery",
+            status="success",
+            created_at=old,
+            finished_at=old,
+        )
+        s.add(kept)
+        s.add(stale_run)
+        s.commit()
+        s.refresh(kept)
+        s.refresh(stale_run)
+        device = NmapDevice(
+            integration_id=integ.id,
+            identity_key="ip:192.168.1.20",
+            ip_address="192.168.1.20",
+            last_run_id=stale_run.id,
+        )
+        s.add(device)
+        s.commit()
+        s.refresh(device)
+        s.add(
+            NmapScriptResult(
+                device_id=device.id,
+                run_id=stale_run.id,
+                script_id="vulners",
+                output="old",
+            )
+        )
+        s.commit()
+
+        conf = {
+            "data_cleanup_jobs_enabled": True,
+            "data_cleanup_jobs_days": 30,
+            "data_cleanup_audit_enabled": False,
+            "data_cleanup_nmap_enabled": True,
+            "data_cleanup_nmap_days": 30,
+        }
+        res = sdc.run_stale_data_cleanup(s, job_id=None, dry_run=False, cfg=conf)
+        assert res["status"] == "success"
+        assert res["deleted_jobs"] == 1
+        assert res["deleted_nmap_runs"] == 1
+        s.refresh(device)
+        s.refresh(kept)
+        assert device.last_run_id is None
+        assert kept.job_id is None
+        assert s.get(NmapScanRun, stale_run.id) is None
+        scripts = list(s.exec(select(NmapScriptResult)).all())
+        assert scripts == []
+
+
 def test_schedule_options_dump_parse_and_deep_gate():
     from app.services.nmap import schedules as sch
     from types import SimpleNamespace

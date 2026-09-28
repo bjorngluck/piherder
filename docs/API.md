@@ -26,10 +26,12 @@ Home Assistant can consume these endpoints with a bearer token today. Managing a
 Authorization: Bearer ph_<secret>
 ```
 
-- Secret is shown **once** at **create** or **rotate** (Settings UI has **Copy token**); only a hash is stored.
+- Secret is shown **once** at **create** or **rotate** (Settings UI has **Copy token** + a one-time **MCP / agent client config** snippet); only a hash is stored.
 - Admins can **edit** name, scopes, and IP allowlist without rotating the secret.
-- **Rotate** issues a new secret; the previous value stops working immediately.
+- Optional **`expires_at`** (never / 30d / 90d / custom). Expired tokens fail Bearer lookup like revoked ones.
+- **Rotate** issues a new secret; the previous value stops working immediately. Expiry is preserved.
 - **Revoke** immediately if leaked (Settings or `DELETE /api/v1/tokens/{id}` with admin session).
+- **MCP agent** mint preset in Settings suggests a `mcp-…` name and default scope `read` (add `jobs` / `edit` / `files` as needed). Hosted MCP is **`POST /mcp`** on this origin with the same Bearer token (not a query parameter). The one-time snippet is that URL plus `Authorization`. Set `PIHERDER_PUBLIC_URL` or the snippet host is `https://piherder.example.com` and the banner says so. An `http`/`https` `Origin` must match the request `Host` or that public URL; a Bearer token does not bypass it. Clients that omit `Origin` are unchanged. Optional stdio `uvx piherder-mcp` is the air-gapped fallback. See [wiki/operations/mcp.md](../wiki/operations/mcp.md).
 
 ### CORS (optional — browser clients only)
 
@@ -89,14 +91,15 @@ If **any** `feature:*` scope is set, only those features are allowed for jobs an
 | Scope | Feature key | Jobs | Edit flags |
 |-------|-------------|------|------------|
 | `feature:backup` | `backup` | `backup`, `retention` | `backup` |
-| `feature:os` | `os` | `os_patch`, `os_update_check` | `os_patch` |
-| `feature:docker` | `docker` | `container_patch`, `container_update_check` | `docker` |
+| `feature:os` | `os` | `os_patch`, `os_update_check`, `host_reboot` | `os_patch` |
+| `feature:docker` | `docker` | `container_patch`, `container_update_check`, `docker_stack_check`, `docker_stack_deploy`, `docker_stack_stop`, `docker_stack_start`, `docker_stack_restart`, `template_deploy`, `template_redeploy` | `docker` |
 
 **Example least-privilege tokens**
 
 | Use case | Scopes | IP allowlist |
 |----------|--------|--------------|
 | Grafana / status poller | `read` | monitoring subnet |
+| MCP agent (read-only) | `read` | empty (roaming) or laptop LAN CIDR |
 | n8n nightly backup only | `read`, `jobs`, `feature:backup` | n8n host |
 | HA enable/disable docker ops | `read`, `edit`, `jobs`, `feature:docker` | HA host |
 | Full automation (lab) | `read`, `jobs`, `edit` | private LAN CIDR |
@@ -197,8 +200,20 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 | `retention` | backup | `feature:backup` |
 | `os_patch` | os_patch | `feature:os` |
 | `os_update_check` | os_patch | `feature:os` |
+| `host_reboot` | os_patch | `feature:os` |
 | `container_patch` | docker | `feature:docker` |
 | `container_update_check` | docker | `feature:docker` |
+| `docker_stack_check` | docker | `feature:docker` |
+| `docker_stack_deploy` | docker | `feature:docker` |
+| `docker_stack_stop` | docker | `feature:docker` |
+| `docker_stack_start` | docker | `feature:docker` |
+| `docker_stack_restart` | docker | `feature:docker` |
+| `template_deploy` | docker | `feature:docker` |
+| `template_redeploy` | docker | `feature:docker` |
+
+That table is the allowlist (`JOB_FEATURE_KEY`). Anything else, including `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, `service_migrate`, and `service_migrate_undo`, is **400** `Unsupported job_type`.
+
+`source_filter` is the backup source name for `backup`. For `docker_stack_check`, `docker_stack_deploy`, `docker_stack_stop`, `docker_stack_start`, and `docker_stack_restart` it is the compose project path. `template_deploy` and `template_redeploy` are on this allowlist, but this body has no template slug or variable values, so it does not start a catalog deploy. Those jobs still run from the template UI.
 
 **Responses**
 
@@ -209,10 +224,24 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 | 401 | Missing/invalid token |
 | 403 | Missing scope, feature not allowed, or IP not allowed |
 | 404 | Server or job not found |
-| 409 | Job already active for this server — body includes existing `job` / `already_active`. Applies to `backup` and exclusive types (`os_patch`, `container_patch`, `os_update_check`, `container_update_check`). Clients should poll the returned job rather than retry-create. |
+| 409 | Job already active for this server — body includes existing `job` / `already_active`. Applies to `backup` and exclusive types (`os_patch`, `container_patch`, `host_reboot`, `os_update_check`, `container_update_check`, `docker_stack_check`, `docker_stack_deploy`, `docker_stack_stop`, `docker_stack_start`, `docker_stack_restart`, `template_deploy`, `template_redeploy`). `host_reboot` is also **409** while `os_patch`, `container_patch`, or `backup` is pending or running, and those three are **409** while a reboot is active. Clients should poll the returned job rather than retry-create. |
 | 503 | e.g. Celery unavailable for backups |
 
-**Exclusivity:** At most one **pending/running** job of each exclusive type per server. A second trigger does not start a parallel SSH session.
+**Exclusivity:** At most one **pending/running** job of each exclusive type per server. A second trigger does not start a parallel SSH session. `host_reboot` also waits for an OS patch, a container patch, or a backup on that host.
+
+This POST is broader than the MCP adapter. MCP `trigger_job` stays `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, and `container_update_check`. It does not expose `host_reboot`, the `docker_stack_*` types, or `template_deploy` / `template_redeploy`. `host_reboot` is for the herder UI and the Home Assistant plugin. A `jobs` token with `feature:docker` can still call the stack types on this route.
+
+### Stale data cleanup
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| `POST` | `/api/v1/maintenance/stale-data-cleanup` | `jobs` | Queue fleet `stale_data_cleanup` (HTTP **202**) |
+
+```json
+{ "dry_run": false }
+```
+
+The token must have `jobs` and **no** `feature:*` scope. A feature-restricted token is **403**. This route is not an MCP tool. The queued audit and the finished audit both store that token (`api_token_id`, `api_token_name`) and the client IP. The worker copies them off the job, because the Celery task has no request.
 
 ### Token management (admin **session**, not Bearer token)
 
@@ -229,11 +258,24 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 {
   "name": "n8n",
   "scopes": ["read", "jobs", "feature:backup"],
-  "allowed_cidrs": ["10.0.0.0/8"]
+  "allowed_cidrs": ["10.0.0.0/8"],
+  "expires_preset": "90d"
 }
 ```
 
-Response includes `secret` **once**.
+Optional expiry fields: `expires_preset` (`none` | `30d` | `90d` | `custom`) and/or absolute `expires_at` (ISO-8601 UTC). Omit both for never.
+
+MCP-oriented example:
+
+```json
+{
+  "name": "mcp-laptop",
+  "scopes": ["read"],
+  "expires_preset": "30d"
+}
+```
+
+Response includes `secret` **once**, plus `mcp_snippet` (hosted `/mcp` URL and Bearer header first, then the optional `uvx` block). Do not log or re-fetch the plaintext. Do not put the secret in the MCP URL.
 
 ---
 
@@ -267,7 +309,9 @@ HTTP Request node: Method GET/POST, Header `Authorization` = `Bearer ph_…`, JS
 
 ### Home Assistant
 
-**v1.6:** first-class **HACS integration** (runs on HA) — Slice 1: fleet sensors, host devices, **Visit** = `{origin}/servers/{id}`, Lovelace **PiHerder fleet** card (`custom:piherder-dashboard-card`). Heartbeat `GET /api/v1/summary` (`read`) includes fleet resource sums. Host `os_pretty` / `hardware` / cpu / memory / disk / `container_count` from the host-facts snapshot. Slice **1b** read APIs: `GET /api/v1/inventory`, `GET /api/v1/servers/{id}/inventory`, `GET /api/v1/services` (stored snapshots only). Plugin [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.3** adds container, service, and host-disk sensors on the existing host device (no start/stop). Operator: [wiki Home Assistant](../wiki/integrations/home-assistant.md). [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [PLAN_v1.6.0.md](PLAN_v1.6.0.md). YAML `rest` remains possible. CORS is not required (HA Core is server-side). Prefer an IP allowlist for the HA host.
+**v1.6:** first-class **HACS integration** (runs on HA) — Slice 1: fleet sensors, host devices, **Visit** = `{origin}/servers/{id}`, Lovelace **PiHerder fleet** card (`custom:piherder-dashboard-card`). Heartbeat `GET /api/v1/summary` (`read`) includes fleet resource sums. Host `os_pretty` / `hardware` / cpu / memory / disk / `container_count` from the host-facts snapshot. Slice **1b** read APIs: `GET /api/v1/inventory`, `GET /api/v1/servers/{id}/inventory`, `GET /api/v1/services` (stored snapshots only). Plugin [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.4** is that read path. No start/stop. Operator: [wiki Home Assistant](../wiki/integrations/home-assistant.md). [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [PLAN_v1.6.0.md](PLAN_v1.6.0.md). YAML `rest` remains possible. CORS is not required (HA Core is server-side). Prefer an IP allowlist for the HA host.
+
+**v1.7 (on `v1.7.0-dev`, package still `1.6.0`):** Plugin **0.3.0** adds memory % and CPU load sensors, plus host, updates, and resources Lovelace cards. Writes go through HA services to the jobs and features routes above (including `host_reboot`). **Hosted MCP** is `POST /mcp` on this process (Streamable HTTP, stateless JSON, the same Bearer token). It does not add `/api/v1` routes. Tool names match [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp): `read`, and `jobs` / `edit` / `files` when the token has them. Published job tools stay those six types. The jobs POST above is broader (`host_reboot`, compose stack types, and `template_deploy` / `template_redeploy`); those are not MCP tools. `uvx piherder-mcp` remains an optional air-gapped client. Operator page: [wiki/operations/mcp.md](../wiki/operations/mcp.md). **Jr-1** moved the remaining exclusive job types onto Celery and added `host_reboot` to that set. [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 ---
 
@@ -293,7 +337,7 @@ Every job trigger checks **all three** layers:
 
 Missing capability or feature allowlist → **403**. Server flag off → **400** with a clear “feature is disabled for this server” message. Feature edits require `edit` plus each affected feature allowlist scope before any flag is written.
 
-Audit entries for API-triggered jobs and feature patches record the **token name + id** (and the creating user when known), plus **`client_ip`** resolved from Caddy’s `X-Forwarded-For` / `X-Real-IP` (or TCP peer if hit direct). In the UI: **Settings → API tokens → Audit trail**, or **Audit → filter by API token** (list/detail show IP; search matches IP).
+Audit entries for API **mutations** record the **token name + id** (and the creating user when known), plus **`client_ip`** resolved from Caddy’s `X-Forwarded-For` / `X-Real-IP` (or TCP peer if hit direct). That covers job triggers, feature-flag patches, and host-file writes. Host-file list and download are audited too. Ordinary read GETs — catalog, health, summary, servers, inventory, services, and job reads — are not written to Audit. In the UI: **Settings → API tokens → Audit trail**, or **Audit → filter by API token** (list/detail show IP; search matches IP).
 
 ---
 

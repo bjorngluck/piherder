@@ -22,6 +22,13 @@ Authorization: Bearer ph_<secret>
 - Secret shown **once** at create or rotate; only a hash is stored.  
 - **Rotate** issues a new secret immediately.  
 - **Revoke** soft-disables; row kept for audit.
+- Optional **expires** (never / 30d / 90d / custom). Expired tokens fail lookup the same as revoked.
+
+### Mint for an MCP agent
+
+In Settings → API management → **Create new token**, tick **MCP agent**. The name fills in as `mcp-…` and only **read** stays checked. Add **jobs**, **edit**, or **files** if this agent should do more than look. Leave the IP allowlist empty for a roaming laptop; use a LAN CIDR for a fixed agent host.
+
+After create or rotate, copy the secret **and** the one-time **hosted MCP** block (URL ending in `/mcp`, plus `Authorization: Bearer`). The token is not a query parameter. A collapsed **Local / air-gapped** block still shows `uvx piherder-mcp`. The plaintext is never shown again. Details: [Agents (MCP)](mcp.md).
 
 ## Scopes
 
@@ -33,7 +40,7 @@ Authorization: Bearer ph_<secret>
 | `files` | Host Files fleet list / download / upload / mkdir / rename / empty-delete — not in default scopes. Privileged, zip, edit, chmod, recursive delete stay UI + 2FA. Richer Files token API is still out of 1.4. |
 | `feature:backup` | Restrict `jobs` to backup-related types when any `feature:*` is set |
 | `feature:os` | OS patch / OS update-check jobs (apt **or** HAOS `ha` CLI when `os_type=haos`) |
-| `feature:docker` | Container patch / container update-check / stack check-deploy jobs |
+| `feature:docker` | Container patch, container update-check, compose stack check/deploy/stop/start/restart, and template deploy/redeploy jobs |
 
 If **no** `feature:*` scopes are set, any job type allowed by `jobs` may run (still subject to server feature flags). Prefer least privilege: e.g. n8n backups = `read` + `jobs` + `feature:backup`.
 
@@ -63,3 +70,7 @@ curl -sS -X POST -H "Authorization: Bearer $PH_TOKEN" \
 ```
 
 Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backup` + n8n host IP.
+
+## Agents (MCP)
+
+Cursor, Grok Build, Claude Code, and Codex call this same token API through **hosted MCP** at `POST /mcp` (Streamable HTTP, Bearer header). Scopes above are the tool list: `read` always, and `jobs` / `edit` / `files` only when the token has them. `uvx piherder-mcp` is the optional air-gapped client. Operator page: [Agents (MCP)](mcp.md).

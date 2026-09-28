@@ -74,7 +74,17 @@ def test_os_patch_summary_and_modal_tail():
 
 
 def test_backup_running_is_noise():
+    from app.services.audit_format import pulse_bucket
+    from app.services.backup_audit import PHASE_ACTIONS
+
     assert is_noise_entry({"action": "backup", "status": "running", "details": "", "output_snippet": ""})
+    phase = {"action": "backup_running", "status": "running", "details": "", "output_snippet": ""}
+    assert is_noise_entry(phase)
+    assert is_noise_entry({"action": "backup_queued", "status": "queued", "details": "", "output_snippet": ""})
+    assert pulse_bucket(phase) is None
+    assert pulse_bucket({"action": "backup", "status": "success", "details": "ok", "output_snippet": "{}"}) == "success"
+    assert PHASE_ACTIONS["queued"][1] == "info"
+    assert PHASE_ACTIONS["running"][1] == "info"
 
 
 def test_backup_complete_summary_with_sizes(monkeypatch):

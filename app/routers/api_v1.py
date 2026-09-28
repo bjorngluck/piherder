@@ -5,6 +5,7 @@ Admin-managed instance tokens. See docs/API.md and GET /api/v1.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
@@ -828,9 +829,17 @@ def list_jobs(
 class JobCreateBody(BaseModel):
     job_type: str = Field(
         ...,
-        description="backup | retention | os_patch | container_patch | os_update_check | container_update_check",
+        description=(
+            "backup | retention | os_patch | os_update_check | host_reboot | "
+            "container_patch | container_update_check | docker_stack_check | "
+            "docker_stack_deploy | docker_stack_stop | docker_stack_start | "
+            "docker_stack_restart | template_deploy | template_redeploy"
+        ),
     )
-    source_filter: Optional[str] = None
+    source_filter: Optional[str] = Field(
+        None,
+        description="Backup source name for backup. Compose project path for docker_stack_* jobs.",
+    )
     os_steps: Optional[list[str]] = None
 
 
@@ -882,10 +891,16 @@ async def create_server_job(
             },
         )
     except job_service.JobAlreadyActive as e:
+        blocking = (getattr(e.job, "job_type", None) or job_type)
+        detail = (
+            f"{blocking} already active for this server"
+            if blocking != job_type
+            else f"{job_type} already active for this server"
+        )
         return JSONResponse(
             status_code=409,
             content={
-                "detail": f"{job_type} already active for this server",
+                "detail": detail,
                 "job": job_service.job_public_dict(e.job),
                 "already_active": True,
             },
@@ -904,6 +919,58 @@ async def create_server_job(
     )
 
 
+# ---------- Fleet maintenance ----------
+
+
+class StaleCleanupBody(BaseModel):
+    dry_run: bool = False
+
+
+@router.post(
+    "/maintenance/stale-data-cleanup",
+    status_code=202,
+    summary="Queue stale data cleanup",
+    description=(
+        "Fleet purge of old jobs, audit rows, and optional nmap runs. "
+        "Requires scope jobs on a token that is not feature-restricted. "
+        "Not an MCP tool. The audit row records this token and the client IP."
+    ),
+)
+def api_queue_stale_data_cleanup(
+    body: StaleCleanupBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import stale_data_cleanup as sdc
+
+    auth.require(tok_svc.SCOPE_JOBS)
+    if tok_svc.feature_keys_allowed(auth.scopes) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Stale data cleanup needs a jobs token with no feature:* limit. "
+                "Feature-restricted tokens cannot purge fleet history."
+            ),
+        )
+    try:
+        job = sdc.enqueue_stale_data_cleanup(
+            session,
+            user_id=auth.user_id,
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
+            client_ip=auth.client_ip,
+            dry_run=bool(body.dry_run),
+        )
+    except Exception as e:
+        raise HTTPException(503, detail=str(e)[:200]) from e
+    return {
+        "job_id": job.id,
+        "status": job.status,
+        "job_type": job.job_type,
+        "dry_run": bool(body.dry_run),
+    }
+
+
 # ---------- Token admin (session cookie / JWT, admin only) ----------
 
 
@@ -911,11 +978,19 @@ class TokenCreateBody(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     scopes: Optional[list[str]] = Field(
         None,
-        description="read, jobs, edit, feature:backup, feature:os, feature:docker",
+        description="read, jobs, edit, files, feature:backup, feature:os, feature:docker",
     )
     allowed_cidrs: Optional[list[str]] = Field(
         None,
         description="Optional IP/CIDR allowlist, e.g. [\"10.0.0.0/8\", \"192.168.1.10\"]",
+    )
+    expires_at: Optional[datetime] = Field(
+        None,
+        description="Optional UTC expiry (ISO-8601). Omit or null = never expires.",
+    )
+    expires_preset: Optional[str] = Field(
+        None,
+        description="Optional relative expiry: none | 30d | 90d | custom (uses expires_at).",
     )
 
 
@@ -952,18 +1027,32 @@ def admin_create_token(
 
     http_403_if_demo("api_token")
     try:
+        expires = tok_svc.resolve_expires_at(
+            expires_preset=body.expires_preset,
+            expires_at=body.expires_at,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    try:
         row, plain = tok_svc.create_api_token(
             session,
             name=body.name,
             created_by=user,
             scopes=body.scopes,
             allowed_cidrs=body.allowed_cidrs,
+            expires_at=expires,
         )
     except DemoBlocked as e:
         raise HTTPException(status_code=403, detail=e.message) from e
+    from ..services.password_reset import configured_public_origin
+
     return {
         "token": tok_svc.token_public_dict(row),
         "secret": plain,
+        "mcp_snippet": tok_svc.mcp_client_snippet(
+            public_url=configured_public_origin(),
+            token_secret=plain,
+        ),
         "warning": "Store this secret now; it cannot be retrieved again.",
     }
 

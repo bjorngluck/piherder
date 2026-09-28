@@ -286,6 +286,7 @@ def test_canned_job_success(demo_on, tmp_path):
         )
         assert job.status == "success"
         assert job.finished_at is not None
+        assert job.worker_hostname == "web"
         details = json.loads(job.details or "{}")
         assert details.get("demo") is True
         assert "Demo simulation" in (details.get("summary") or "")

@@ -454,6 +454,15 @@ def test_set_device_map_identity_kind_and_role():
                 assert out.state == "known"  # map save reviews new → known
                 save.assert_called()
                 assert save.call_args[0][0]["network_gateway_ip"] == "192.168.1.1"
+                from app.models import AuditLog
+
+                audits = [
+                    c.args[0]
+                    for c in session.add.call_args_list
+                    if c.args and isinstance(c.args[0], AuditLog)
+                ]
+                assert audits and audits[-1].action == "nmap_device_mapped"
+                assert "udm-pro" in (audits[-1].details or "")
 
 
 def test_mark_device_known_and_new():

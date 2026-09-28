@@ -233,7 +233,8 @@ app = FastAPI(
     description=(
         "Self-hosted fleet manager. Interactive UI uses session cookies. "
         "Automation uses **Bearer API tokens** under `/api/v1` "
-        "(admin-managed; see **docs/API.md** and Settings → API tokens)."
+        "(admin-managed; see **docs/API.md** and Settings → API tokens). "
+        "Hosted MCP for agents is **POST /mcp** with the same Bearer token."
     ),
     version=_APP_VERSION,
     lifespan=lifespan,
@@ -451,16 +452,32 @@ async def service_worker():
 
 @app.get("/manifest.webmanifest", include_in_schema=False)
 async def web_manifest():
-    from fastapi.responses import FileResponse
+    import json
 
-    return FileResponse(
-        _static_file("manifest.webmanifest"),
+    from fastapi.responses import Response
+
+    from .services.instance_brand import OFFICIAL_NAME, effective_brand
+
+    try:
+        raw = json.loads(_static_file("manifest.webmanifest").read_text(encoding="utf-8"))
+    except Exception:
+        raw = {}
+    if not isinstance(raw, dict):
+        raw = {}
+    brand = effective_brand()
+    plain = str(brand.get("plain") or OFFICIAL_NAME)
+    raw["name"] = plain
+    raw["short_name"] = plain[:12]
+    raw["theme_color"] = "#e60012"
+    return Response(
+        content=json.dumps(raw),
         media_type="application/manifest+json",
         headers={"Cache-Control": "no-cache"},
     )
 
 
 from .routers import jobs_page as jobs_page_router
+from .routers import mcp as mcp_router
 from .routers import settings as settings_router
 from .services import scheduler as sched
 
@@ -475,6 +492,7 @@ app.include_router(push_router.router, prefix="", tags=["push"])
 app.include_router(jobs_page_router.router, prefix="", tags=["jobs"])
 app.include_router(metrics_router.router, prefix="", tags=["metrics"])
 app.include_router(api_v1_router.router, prefix="/api/v1", tags=["api-v1"])
+app.include_router(mcp_router.router, tags=["mcp"])
 app.include_router(settings_router.router, prefix="", tags=["settings"])
 app.include_router(integrations_router.router, prefix="", tags=["integrations"])
 app.include_router(certificates_router.router, prefix="", tags=["certificates"])
