@@ -14,7 +14,7 @@ Plan: [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 1.6 production sign-off stays [QA_v1.6.0.md](QA_v1.6.0.md) (historical). Do **not** re-open 1.6 boxes here.
 
-**Tag honesty:** freeze only with **MCP-1** and **Jr-1**. CI fail-under is **80** (unit run **80.92%** after hosted MCP, kept as headroom). Do not lower it below **80**. Do not bump version, merge, tag, or Hub until asked. Do not redeploy the public demo onto this branch. No new Alembic revision on this train.
+**Tag honesty:** freeze only with **MCP-1** and **Jr-1**. CI fail-under is **80** (unit run **80.92%** after hosted MCP, kept as headroom). Do not lower it below **80**. Do not bump version, merge, tag, or Hub until asked. Do not redeploy the public demo onto this branch. Package stays **1.6.0**. Alembic **046** (`job.worker_hostname`) is the only new revision on this train.
 
 **This pass is sign-off, not new features.** Fix only a feature or regression bug you hit while walking. Discover (Bak-alt, AC-fg, the HA job-finished bus event, Undo-2, Mux-2) stays parked until a row is promoted.
 
@@ -109,6 +109,12 @@ docker logs --since 5m piherder-celery 2>&1 | grep exclusive_job
 ```
 
 Web should log `Enqueued <type> job #<id> … on the default Celery queue`. The worker should log `Received task: app.tasks.exclusive_job`. A hit only in the web log, with no `exclusive_job` on `piherder-celery`, fails the row.
+
+### Worker on the job row
+
+Open **Jobs** (`/jobs`) after a worker has picked a job up. The row and the detail modal show the Celery nodename (`celery@…` on the default worker, `nmap@…` on `celery-worker-nmap`). JobHold’s status line includes the same name. A row that is still queued and not picked up says **not claimed**. Two worker containers must not show the same nodename. `retention`, herder backup, and host-facts say **web**. Older rows from before Alembic **046** stay **—**.
+
+- [ ] Worker shown on job row. Start an OS check or backup, then open **Jobs** while it is pending or running. The row names the worker that claimed it (not **not claimed**). Detail and JobHold show the same name. With two workers, the names differ. A brand-new job that no worker has taken yet says **not claimed**
 
 ### Enqueue
 

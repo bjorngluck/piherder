@@ -52,7 +52,7 @@ def _server(engine) -> Server:
 
 class _Task:
     def __init__(self):
-        self.request = SimpleNamespace(id="exclusive-1")
+        self.request = SimpleNamespace(id="exclusive-1", hostname="celery@lab-a")
         self.countdowns: list[int] = []
 
     def retry(self, countdown=None):
@@ -143,6 +143,7 @@ def test_running_redelivery_fails_honest_without_ssh(monkeypatch):
             server_id=srv.id,
             job_type="os_patch",
             status="running",
+            worker_hostname="celery@original",
             details='{"current":"patching"}',
         )
         session.add(job)
@@ -170,6 +171,7 @@ def test_running_redelivery_fails_honest_without_ssh(monkeypatch):
         row = session.get(Job, jid)
         audit_row = session.get(AuditLog, aid)
         assert row.status == "failed"
+        assert row.worker_hostname == "celery@original"
         assert "not resumed" in (row.details or "")
         assert audit_row.status == "failed"
 
@@ -210,8 +212,25 @@ def test_host_down_stays_pending_and_retries(monkeypatch):
     with Session(engine) as session:
         row = session.get(Job, jid)
         assert row.status == "pending"
+        assert row.worker_hostname == "celery@lab-a"
         assert "waiting_for_host" in (row.details or "")
         assert "host_wait_started" in (row.details or "")
+
+    other = _Task()
+    other.request.hostname = "celery@lab-b"
+    with pytest.raises(Retry):
+        run_exclusive_job(
+            other,
+            jid,
+            srv.id,
+            1,
+            "docker_stack_deploy",
+            {"project_path": "/home/pi/docker/g", "pull": True, "compose_files": []},
+        )
+    with Session(engine) as session:
+        row = session.get(Job, jid)
+        assert row.status == "pending"
+        assert row.worker_hostname == "celery@lab-b"
 
 
 def test_host_wait_past_limit_fails(monkeypatch):
@@ -268,6 +287,9 @@ def test_ssh_up_runs_body_without_backup_lock(monkeypatch):
     assert result["status"] == "ok"
     assert called["args"][0] == jid
     assert called["args"][1] == srv.id
+    with Session(engine) as session:
+        row = session.get(Job, jid)
+        assert row.worker_hostname == "celery@lab-a"
 
 
 def test_demo_does_not_probe_ssh(monkeypatch):

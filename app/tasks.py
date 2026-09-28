@@ -33,6 +33,15 @@ import traceback
 
 logger = logging.getLogger(__name__)
 
+
+def _remember_worker(job, request) -> bool:
+    """Record the Celery nodename on a job the caller will commit."""
+    from app.services.job_worker import remember_celery_worker
+
+    if job is None:
+        return False
+    return remember_celery_worker(job, request)
+
 # Wait for another backup on the same server (multi-worker queue)
 _LOCK_WAIT_COUNTDOWN_SEC = 20
 # ~1h of waits before failing the job (20s * 180)
@@ -71,6 +80,7 @@ def nmap_scan(
                 return {"status": "cancelled", "job_id": job_id, "run_id": run_id}
             if job:
                 job.celery_task_id = self.request.id
+                _remember_worker(job, self.request)
                 db.add(job)
                 db.commit()
         return run_nmap_scan(
@@ -108,6 +118,7 @@ def stale_data_cleanup(self, job_id: int | None = None, dry_run: bool = False):
                 return {"status": "cancelled", "job_id": job_id}
             if job:
                 job.celery_task_id = self.request.id
+                _remember_worker(job, self.request)
                 db.add(job)
                 db.commit()
         return run_stale_data_cleanup(db, job_id=job_id, dry_run=bool(dry_run))
@@ -152,6 +163,7 @@ def nmap_vuln_db_update(
                 return {"status": "cancelled", "job_id": job_id}
             if job:
                 job.celery_task_id = self.request.id
+                _remember_worker(job, self.request)
                 db.add(job)
                 db.commit()
         return run_vuln_db_update(
@@ -200,6 +212,9 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
             if not job or job.status not in ("pending", "running"):
                 logger.info(f"[Celery] Job {job_id} no longer active (status={getattr(job, 'status', None)}), skipping")
                 return {"status": "skipped", "job_id": job_id}
+            if _remember_worker(job, self.request):
+                db.add(job)
+                db.commit()
 
         holder = str(job_id or self.request.id or f"task-{server_id}")
         lock_token = try_acquire_server_lock("backup", server_id, holder=holder)
@@ -477,6 +492,7 @@ def service_migrate(
             return {"status": "failed", "job_id": job_id, "reason": "worker_restart"}
 
         job.celery_task_id = self.request.id
+        _remember_worker(job, self.request)
         db.add(job)
         db.commit()
 
@@ -614,6 +630,7 @@ def service_migrate_undo(self, job_id: int, source_id: int, dest_id: int, audit_
             return {"status": "failed", "job_id": job_id, "reason": "worker_restart"}
 
         job.celery_task_id = self.request.id
+        _remember_worker(job, self.request)
         db.add(job)
         db.commit()
         holder = str(job_id or self.request.id or f"undo-{source_id}-{dest_id}")

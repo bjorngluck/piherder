@@ -81,7 +81,8 @@ A second start reuses the existing job (UI follows it; REST **409** with `alread
 - Filters: server, status, type, **date range** with **7d / 30d / 90d / Clear** presets, per-page **10 / 20 / 50 / 100** (cookie `ph_per_page` shared with Servers / Docker / discovery)  
 - Date presets use the **Settings timezone** calendar day (not the browser’s local midnight)  
 - **Active only** — pending + running  
-- Row → detail modal (summary, log tail, scheduled flag)  
+- Row → detail modal (summary, log tail, scheduled flag)
+- **Worker** on each row and in the detail modal: the Celery nodename (`celery@…`, `nmap@…`) once a worker has claimed the job, **not claimed** while it is still queued, **web** for retention / herder backup / host facts. Two workers show two different names. JobHold’s status line includes the same name  
 - **Cancel** works from list and modal (where applicable)  
 - Link to **Audit** for historical trail  
 

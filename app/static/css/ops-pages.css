@@ -840,6 +840,15 @@ html.dark .ph-file-badge--config,
   font-size: 0.7rem;
   gap: 0.25rem 0.55rem;
 }
+.job-worker-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: bottom;
+}
 .audit-event-summary {
   font-size: 0.8rem;
   line-height: 1.35;
