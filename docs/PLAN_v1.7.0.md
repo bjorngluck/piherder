@@ -1,6 +1,6 @@
 # PiHerder v1.7.0 — token-API MCP, then one job runtime
 
-**Status:** **Active** (train opened 2026-09-25). MCP-1 **0.1.0**, Jr-1, Jr-2, Brand-1, Brand-2, Q, and HA-cards are on this branch. MCP-1 and Jr-2 operator walks signed 2026-09-27. Other live walks stay open. Q: full compose **81.01%** (39638/48927). CI fail-under stays **80** so the extra point is headroom.  
+**Status:** **Active** (train opened 2026-09-25). MCP-1 **0.1.0**, Jr-1, Jr-2, Brand-1, Brand-2, Q, and HA-cards are on this branch. MCP-1, Jr-1, Jr-2, and HA-cards operator walks signed 2026-09-27. Screenshot pack and freeze gates stay open. **v1.8.0** focuses on Home Assistant: richer cards and stats. The 0.3.0 24-hour chart does not draw and is a known issue for that release. Q: full compose **81.01%** (39638/48927). CI fail-under stays **80** so the extra point is headroom.  
 **Date opened:** 2026-09-25 (inbox parked 2026-09-18)  
 **Git branch:** `v1.7.0-dev` → `main` · tag `v1.7.0` at freeze  
 **Package / image version:** **`1.6.0`** until freeze  
@@ -30,7 +30,7 @@ Wanted:
 4. A worker kill of a **running** apt or compose stays **fail honest**  
 5. Optional instance name + one accent, and a nav hide for Catalog, without a theme engine  
 6. CI fail-under raised **75 → 80** if the suite can get there without lowering the floor  
-7. **HA-cards** (Should): Lovelace cards in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.3.0**, plus confirm actions for the job types and feature toggles today’s bearer token already allows, and `host_reboot` on that same jobs POST. No new herder path. Operator walk still open  
+7. **HA-cards** (Should): Lovelace cards in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.3.0**, plus confirm actions for the job types and feature toggles today’s bearer token already allows, and `host_reboot` on that same jobs POST. No new herder path. Operator signed 2026-09-27. The cards are accepted as they are. **v1.8.0** is the Home Assistant release and replaces them with richer cards and stats. The 24-hour chart does not draw; that is a known issue for v1.8.0.  
 
 **Out of 1.7 product code until promoted:** fine-grained grants, the HA job-finished bus event, Undo-2, Mux-2, alternate backup destinations (**Bak-alt**), HA Slice 3 (container start/stop, webhooks, Move-from-HA, Files), Brand-3, turning Move on by default.
 
@@ -90,7 +90,7 @@ main @ v1.6.0 (+ v1.6.x patches)
 | 15 | Coverage | **Should.** Raise fail-under **75 → 80**. May slip. Do not lower **75**. |
 | 16 | Version bump | `1.7.0` at freeze only |
 | 17 | Public demo | Stays on the **1.6** image. Do not redeploy it onto `v1.7.0-dev`. |
-| 18 | **HA-cards** | **Should** (2026-09-26). Landed. Plugin **0.3.0**. Host, updates, and resources cards, plus `host_reboot` on the existing jobs POST. Does not block the tag. Walk still open. |
+| 18 | **HA-cards** | **Should** (2026-09-26). Landed. Plugin **0.3.0**. Host, updates, and resources cards, plus `host_reboot` on the existing jobs POST. Operator signed 2026-09-27. Visual follow-up and the broken 24-hour chart are **v1.8.0**, which focuses on Home Assistant. |
 
 ---
 
@@ -102,11 +102,11 @@ Phase 0b  Lock retune                         done 2026-09-25 (85d0ec4)
 Phase 0c  MCP-1 read/write contract           done 2026-09-26 (3f63d16)
 Phase 0d  Operator wiki + remaining pointers  done 2026-09-26 (a8eb012)
 Phase 1   MCP-1 hosted POST /mcp              landed. Operator signed 2026-09-27. Adapter 0.1.0 (fcd90cf) is the air-gapped fallback
-Phase 2   Jr-1 exclusive types → Celery       landed (operator walk still open)
+Phase 2   Jr-1 exclusive types → Celery       landed (operator signed 2026-09-27)
 Phase 3   Q fail-under 75 → 80                Should (may slip)
 Phase 4   Brand-1 + Brand-2                   landed (operator signed 2026-09-27)
 Phase 5   Jr-2 Settings max wait              landed (operator signed 2026-09-27)
-Phase 5b  HA-cards                            Should, landed (walk open; may slip the tag)
+Phase 5b  HA-cards                            landed (operator signed 2026-09-27). Richer cards and the 24h chart are v1.8.0
 Phase 6   Discover spikes                     only if Must is green and you promote
 Phase 7   Wiki + QA_v1.7.0                    operator sign-off
 Phase 8   Freeze                              1.7.0 bump · RELEASE · PR · tag · Hub — only when asked
@@ -244,7 +244,9 @@ Owning notes: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 Brand. Operator leans from 20
 
 ## 4b. Stream **HA-cards** — Lovelace cards and token writes (Should)
 
-Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7. Operator page: [Home Assistant](../wiki/integrations/home-assistant.md). Plugin **0.3.0** adds the cards and the write services. Operator walk still open.
+Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7. Operator page: [Home Assistant](../wiki/integrations/home-assistant.md). Plugin **0.3.0** adds the cards and the write services. Operator signed 2026-09-27.
+
+The 0.3.0 cards are accepted for this train. They are plain. **v1.8.0** focuses on Home Assistant and will ship richer, more visually pleasing cards and stats. Known issue for that release: the 24-hour chart on these cards is not working.
 
 **Where:** [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) for the cards. The herder only grows the `host_reboot` job type on the existing jobs POST. Not in the PiHerder image. Not a Supervisor add-on. The public demo is not a target.
 
@@ -285,12 +287,12 @@ Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) �
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
 | **Must** | **MCP-1** | Hosted `POST /mcp` on the herder (Streamable HTTP, `ph_` Bearer). Same read/write tool list. stdio adapter remains the air-gapped fallback | Landed. Operator signed 2026-09-27. Adapter repo still **0.1.x** |
-| **Must** | **Jr-1** | Exclusive types on the default Celery queue; host-down waits; running mutate fails honest; web recycle does not fail them | Landed. Default host wait **1800s**. Operator walk still open |
+| **Must** | **Jr-1** | Exclusive types on the default Celery queue; host-down waits; running mutate fails honest; web recycle does not fail them | Landed. Default host wait **1800s**. Operator signed 2026-09-27 |
 | **Should** | **Q** | CI fail-under **75 → 80**. Floor stays 75 if this slips | Landed. Compose **81.01%** (39638/48927), 1694 passed, after packs through `tests/test_coverage_v17_q10.py`. Fail-under stays **80** (headroom above the gate) |
 | **Should** | **Brand-1** | Instance name + one accent; demo ignored | Landed. Operator signed 2026-09-27 |
 | **Should** | **Brand-2** | Hide Catalog in nav; `/catalog` still works | Landed. Operator signed 2026-09-27 |
 | **Should** | **Jr-2** | Settings max wait; Kuma/`last_seen` is a signal | Landed. Operator signed 2026-09-27 |
-| **Should** | **HA-cards** | Host, updates, and resources cards. Confirm writes including `host_reboot`. Plugin repo. No new herder path | Landed. Plugin **0.3.0**. Operator walk still open |
+| **Should** | **HA-cards** | Host, updates, and resources cards. Confirm writes including `host_reboot`. Plugin repo. No new herder path | Landed. Plugin **0.3.0**. Operator signed 2026-09-27. Richer cards and the broken 24-hour chart are **v1.8.0** |
 | **Discover** | Bak-alt · AC-fg · HA bus event · Undo-2 · Mux-2 | Notes only unless promoted | Parked |
 | **Out** | HA Slice 3 (start/stop, webhooks, Move, Files) · Brand-3 · M-flag C · plugin-in-image · MCP OAuth · a second MCP service · CSP Slice 2 | Stay out | Hosted `/mcp` landed 2026-09-27. OAuth and a sidecar stay out |
 
@@ -367,10 +369,10 @@ Owning notes: [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) �
 | 3 | MCP-1 read/write contract in this plan | **Done** 2026-09-26 (`3f63d16`) |
 | 3b | Operator wiki [Agents (MCP)](../wiki/operations/mcp.md) and the remaining pointers | **Done** 2026-09-26 (`a8eb012`) |
 | 4 | **MCP-1** hosted `POST /mcp`, stdio adapter as fallback | **Landed.** Operator signed 2026-09-27. Adapter **0.1.0** (`fcd90cf`) |
-| 5 | **Jr-1** exclusive types → default Celery queue | **Landed.** Walk still open ([QA_v1.7.0.md](QA_v1.7.0.md)) |
-| 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). **MCP-1**, **Jr-2**, **Brand-1**, **Brand-2**, **Audit pulse**, and **1.6 regression** signed 2026-09-27. Other live boxes stay empty |
-| 7 | Q / Brand-1 / Brand-2 / Jr-2 / HA-cards as capacity after Must | **Landed.** Compose **81.01%**, fail-under **80**. Plugin **0.3.0**. Brand walks signed. Other walks still open |
-| 9 | **HA-cards** in piherder-ha | **Landed** as plugin **0.3.0**. Walk still open ([QA_v1.7.0.md](QA_v1.7.0.md)) |
+| 5 | **Jr-1** exclusive types → default Celery queue | **Landed.** Operator signed 2026-09-27 ([QA_v1.7.0.md](QA_v1.7.0.md)) |
+| 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). **MCP-1**, **Jr-1**, **Jr-2**, **Brand-1**, **Brand-2**, **Audit pulse**, and **1.6 regression** signed 2026-09-27. Other live boxes stay empty |
+| 7 | Q / Brand-1 / Brand-2 / Jr-2 / HA-cards as capacity after Must | **Landed.** Compose **81.01%**, fail-under **80**. Plugin **0.3.0**. Brand, Jr-2, and HA-cards walks signed. Screenshot pack and freeze stay open. Richer HA cards are **v1.8.0** |
+| 9 | **HA-cards** in piherder-ha | **Landed** as plugin **0.3.0**. Operator signed 2026-09-27. Richer cards, stats, and the 24-hour chart are **v1.8.0** ([QA_v1.7.0.md](QA_v1.7.0.md)) |
 | 8 | Freeze · `1.7.0` · tag · Hub | Only when asked |
 
 ---
