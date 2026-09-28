@@ -176,6 +176,9 @@
         <span>Server: —</span>
         {% endif %}
         <span>{{ j.when_label or 'When' }}: {{ j.when_display or '—' }}</span>
+        <span>Worker:
+          <span class="job-worker-name"{% if j.worker_hostname %} title="{{ j.worker_hostname }}"{% endif %}>{{ j.worker_label or '—' }}</span>
+        </span>
       </div>
       <div class="audit-event-summary">{{ j.summary or j.current or '—' }}</div>
     </button>
@@ -285,6 +288,7 @@ function renderJobDetailsModal(job, opts) {
     if (job.server_id) {
       parts.push('<span><strong>Server</strong> <a class="text-accent" href="/servers/' + encodeURIComponent(job.server_id) + '">' + esc(job.server_name || ('#' + job.server_id)) + '</a></span>');
     }
+    parts.push('<span><strong>Worker</strong> <span class="job-worker-name">' + esc(job.worker_label || '—') + '</span></span>');
     if (job.scheduled) parts.push('<span>scheduled</span>');
     if (job.summary) parts.push('<span style="flex-basis:100%"><strong>Summary</strong> ' + esc(job.summary) + '</span>');
     if (job.current && !job.done) parts.push('<span><strong>Phase</strong> ' + esc(job.current) + '</span>');
@@ -367,15 +371,25 @@ async function pollJobIntoModal(jobId) {
     var merged = Object.assign({}, _jobModalJob, data);
     // Keep modal open on completion so the operator can read the final log.
     renderJobDetailsModal(merged);
+    try {
+      var row = document.querySelector('[data-job-id="' + jobId + '"]');
+      if (row) {
+        var nameEl = row.querySelector('.job-worker-name');
+        if (nameEl && data.worker_label) {
+          nameEl.textContent = data.worker_label;
+          nameEl.title = data.worker_hostname || '';
+        }
+      }
+    } catch (_) {}
     if (data.done) {
       if (_jobPollTimer) { clearInterval(_jobPollTimer); _jobPollTimer = null; }
       // Soft-mark the list row status without closing the detail panel.
       try {
-        var row = document.querySelector('[data-job-id="' + jobId + '"]');
-        if (row) {
-          row.classList.remove('status-pending', 'status-running');
-          row.classList.add('status-' + (data.status || 'success'));
-          var pill = row.querySelector('.status-pill');
+        var doneRow = document.querySelector('[data-job-id="' + jobId + '"]');
+        if (doneRow) {
+          doneRow.classList.remove('status-pending', 'status-running');
+          doneRow.classList.add('status-' + (data.status || 'success'));
+          var pill = doneRow.querySelector('.status-pill');
           if (pill) {
             pill.className = 'status-pill ' + statusClass(data.status);
             pill.textContent = data.status || 'done';

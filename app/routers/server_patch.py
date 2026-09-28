@@ -253,6 +253,8 @@ async def get_server_job_status(
             except Exception:
                 pass
     done = job.status in ("success", "failed")
+    from ..services.job_worker import job_worker_label
+
     return {
         "job_id": job.id,
         "job_type": job.job_type,
@@ -266,6 +268,8 @@ async def get_server_job_status(
         "recover_source": details.get("recover_source"),
         "undo_move": details.get("undo_move"),
         "undo_completed": bool(details.get("undo_completed")),
+        "worker_hostname": (job.worker_hostname or "").strip() or None,
+        "worker_label": job_worker_label(job),
     }
 
 

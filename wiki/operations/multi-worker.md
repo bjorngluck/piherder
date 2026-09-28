@@ -17,6 +17,8 @@ Backups run **in parallel across different hosts**. The same host never has two 
 
 **Default:** `1 node · 2 pool slots`. Prefer raising `CELERY_CONCURRENCY` before scaling containers.
 
+**Jobs** records the Celery nodename (`hostname` on the task request) when a worker claims the row, including while it is still pending on SSH or the per-host lock. The Jobs list, job detail, and JobHold show that name. A queued row no worker has taken says **not claimed**. Scaled containers must use distinct nodenames (default `celery@<container hostname>`, nmap worker `nmap@%h`) so the UI can tell them apart. A redelivery that fails a job already **running** keeps the name of the worker that started it.
+
 | Knob | Default | Notes |
 |------|---------|--------|
 | `CELERY_CONCURRENCY` | `2` | Pool slots per Celery node |

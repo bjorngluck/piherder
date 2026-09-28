@@ -152,6 +152,10 @@ templates.env.globals["get_update_notice"] = _app_update.get_update_notice
 from .services import demo as _demo_svc  # noqa: E402
 
 templates.env.globals["demo_mode"] = _demo_svc.demo_mode
+
+from .services.job_worker import job_worker_label as _job_worker_label  # noqa: E402
+
+templates.env.globals["job_worker_label"] = _job_worker_label
 templates.env.globals["demo_banner"] = _demo_svc.demo_banner
 templates.env.globals["x_conversion_enabled"] = _demo_svc.x_conversion_enabled
 

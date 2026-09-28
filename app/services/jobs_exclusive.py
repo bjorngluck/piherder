@@ -199,7 +199,10 @@ def handoff_exclusive(
         if demo_mode():
             with js._get_fresh_session() as session:
                 job = session.get(js.Job, job_id)
-                if job and job.status == "pending":
+                if job and job.status == "running":
+                    js._start_demo_job(session, job)
+                elif job and job.status == "pending":
+                    js._start_demo_job(session, job)
                     js._finish_demo_job(session, job)
             return
         _enqueue_celery(job_id, server_id, audit_id, job_type, body)
@@ -278,9 +281,17 @@ def run_exclusive_job(task, job_id: int, server_id: int, audit_id: int, job_type
                 return {"status": "cancelled", "job_id": job_id}
             if job.status not in ("pending", "running"):
                 return {"status": "skipped", "job_id": job_id, "reason": job.status}
-            task_id = getattr(getattr(task, "request", None), "id", None)
+            from .job_worker import remember_celery_worker
+
+            task_req = getattr(task, "request", None)
+            task_id = getattr(task_req, "id", None)
+            changed = False
             if task_id and not (job.celery_task_id or "").strip():
                 job.celery_task_id = str(task_id)
+                changed = True
+            if remember_celery_worker(job, task_req):
+                changed = True
+            if changed:
                 session.add(job)
                 session.commit()
             if job.status == "running":
@@ -296,7 +307,10 @@ def run_exclusive_job(task, job_id: int, server_id: int, audit_id: int, job_type
         if demo_mode():
             with js._get_fresh_session() as session:
                 job = session.get(js.Job, job_id)
-                if job and job.status == "pending":
+                if job and job.status == "running":
+                    js._start_demo_job(session, job)
+                elif job and job.status == "pending":
+                    js._start_demo_job(session, job)
                     js._finish_demo_job(session, job)
             return {"status": "demo", "job_id": job_id}
 
