@@ -1,8 +1,8 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-09-25 (**v1.6.0** current production — [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md); **v1.7 Active** on `v1.7.0-dev` — [PLAN_v1.7.0.md](PLAN_v1.7.0.md))  
-**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [RELEASE_v1.1.1.md](RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)
+**Date:** 2026-07-12 · **Refreshed:** 2026-09-28 (**v1.7.0** current production — [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md); **v1.8 Active** on `v1.8.0-dev` — [PLAN_v1.8.0.md](PLAN_v1.8.0.md))  
+**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [RELEASE_v1.1.1.md](RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
 This document is the public multi-horizon roadmap for taking PiHerder from a production-ready **fleet manager** to the hub of a self-hosted **homelab / security ops** ecosystem (DNS, proxy, monitoring, smart home, media, automation).
@@ -42,7 +42,8 @@ Design principles stay the same as SPEC:
 | **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME **or NPM backend** retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate, leftover) + **host lock** (HAOS refuse, Frigate/TPU-class) + demo simulated Files | Post-1.3 minor | **Tagged** 2026-09-06 — [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · wiki [Move a service](../wiki/docker/service-migration.md) · Hub `1.4.0` / `1.4` / `latest` |
 | **v1.5.0** | **Job runtime** — Move on **Celery worker** + Reports pin/hide/reorder + Move jobs card + unit **≥ 70%**. Kill switch stays **false**. | Post-1.4 minor | **Tagged** 2026-09-18 — [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · [QA_v1.5.0.md](QA_v1.5.0.md) · Hub `1.5.0` / `1.5` / `latest` |
 | **v1.6.0** | **HACS on HA + console mux** — Slice 1 + Slice 1b (plugin **0.2.4**) · Mux-1 · CSP script nonces · fail-path Move undo · unit fail-under **75**. Move stays off. | Post-1.5 minor | **Tagged** 2026-09-25 — [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · Hub `1.6.0` / `1.6` / `latest` |
-| **v1.7.0** | **Token-API MCP, then one job runtime** — **MCP-1** Must (first; read/write of today’s bearer API, hosted `POST /mcp`, stdio as fallback) · **Jr-1** Must. Should: fail-under **75 → 80** · **Brand-1/2** · **Jr-2** · **HA-cards** (plugin **0.3.0**, including `host_reboot`). Discover: **Bak-alt** · **AC-fg** · HA bus event · Undo-2 · Mux-2. | Post-1.6 minor | **Code freeze** 2026-09-28 on `v1.7.0-dev`. Walks and the screenshot pack are signed. Package stays `1.6.0` until the bump. The 0.3.0 cards stay plain; the 24-hour chart does not draw. **v1.8.0** focuses on Home Assistant and richer cards. [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) |
+| **v1.7.0** | **Token-API MCP, then one job runtime** — **MCP-1** · **Jr-1** · **Brand-1/2** · **Jr-2** · **HA-cards** (plugin **0.3.0**). Fail-under **80**. | Post-1.6 minor | **Tagged** 2026-09-28 — [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · Hub `1.7.0` / `1.7` / `latest` |
+| **v1.8.0** | **Home Assistant cards** — richer host, updates, and resources cards, and the 24-hour chart that does not draw on plugin **0.3.0**. Discover stays parked (Bak-alt, AC-fg, HA bus event, Undo-2, Mux-2, Slice 3). | Post-1.7 minor | **Active** 2026-09-28 on `v1.8.0-dev`. Package stays `1.7.0` until freeze. [PLAN_v1.8.0.md](PLAN_v1.8.0.md) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -58,7 +59,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-19):** **v0.7.0 feature-locked and tagged**. Wizard, E2E A+B, annotations, compose sets, drift Job shipped. Screenshot pack deferred; residual polish + E2E/coverage growth + full docs review + **nmap** → **v0.8.0 RC3**. See [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md).
 
-**Production path:** ~~RC line through v0.9.0~~ → **v1.0.0** → **v1.1.0** → **v1.2.0 tagged** ([RELEASE_v1.2.0.md](RELEASE_v1.2.0.md)) → **v1.3.0 tagged** ([RELEASE_v1.3.0.md](RELEASE_v1.3.0.md)) → **v1.4.0 tagged** ([RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md)) → **v1.5.0 tagged** ([RELEASE_v1.5.0.md](RELEASE_v1.5.0.md)) → **v1.6.0 tagged** ([RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md)) → **v1.7.0** ([PLAN_v1.7.0.md](PLAN_v1.7.0.md) on `v1.7.0-dev`).
+**Production path:** ~~RC line through v0.9.0~~ → **v1.0.0** → **v1.1.0** → **v1.2.0 tagged** ([RELEASE_v1.2.0.md](RELEASE_v1.2.0.md)) → **v1.3.0 tagged** ([RELEASE_v1.3.0.md](RELEASE_v1.3.0.md)) → **v1.4.0 tagged** ([RELEASE_v1.4.0.md](RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md)) → **v1.5.0 tagged** ([RELEASE_v1.5.0.md](RELEASE_v1.5.0.md)) → **v1.6.0 tagged** ([RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [PLAN_v1.6.0.md](PLAN_v1.6.0.md)) → **v1.7.0 tagged** ([RELEASE_v1.7.0.md](RELEASE_v1.7.0.md)) → **v1.8.0** ([PLAN_v1.8.0.md](PLAN_v1.8.0.md) on `v1.8.0-dev`).
 
 **Decision (2026-07-22):** Post-0.8 operator UX triage — micro-pass **B1/E4/E8** on main for 0.8 screenshots; remaining discovery/Network/coverage polish → **v0.9.0** ([PLAN_v0.9.0.md](PLAN_v0.9.0.md)). Cross-cutting human-readable schedules, selectable hero stats, and full templates catalog redesign stay **post-1.0 discovery** (see Quality & platform § below).
 
@@ -124,13 +125,13 @@ Design principles stay the same as SPEC:
 
 **Progress (2026-09-26):** [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.1.0** (`fcd90cf`) is the stdio client. Operator walk is still open.
 
-**Progress (2026-09-28):** **Code freeze** on `v1.7.0-dev`. Operator walks and the screenshot pack are signed. Notes: [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md). HA-cards is plugin **0.3.0**. The cards are plain, and the 24-hour chart does not draw. **v1.8.0** focuses on Home Assistant and richer cards and stats. Package stays `1.6.0` until the bump.
+**Progress (2026-09-28):** **v1.7.0 tagged** and Hub-published. **v1.8.0 train opened** on `v1.8.0-dev`. Must is richer HA cards and the 24-hour chart. Package stays `1.7.0` until freeze. [PLAN_v1.8.0.md](PLAN_v1.8.0.md).
 
 **Progress (2026-09-21):** **Q-80 met** — compose suite **75.04%** (35893/47833); CI `--cov-fail-under=75`. Mux-1 and HA-p2 Slice 1 are on the branch; operator QA still open. **Docs-archive-0x**, **Slice 1b** (plugin **0.2.3**), **CSP-n Slice 1**, and **Undo-1** landed on `v1.6.0-dev`. Home installs enforce the script nonce. The public demo is on this branch and stays Report-Only.
 
 **Decision (2026-08-19):** **Slice 1 Deep landed** (P + T1–T6). **Slice 2 Deep landed** (W-cfg). **Slice 3 Deep landed** (L). **Slice 4 Deep landed** (W-id). **Slice 5 Deep landed** (W-audit). **Slice 6 Deep landed** (A). **Slice 7 N2:** `/reports` is history (backups, OS patches, LAN live, Docker, console) — not Grafana, not status portlets. **F Deep (2026-08-20):** Host Files explorer (flag off): edit, zip, perms, search, move, folder upload, preview, `.env` step-up, thin Docker volumes/`docker cp`. API Files expansions → v1.4+ under consideration.
 
-**Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.6.0` / `1.6` / `latest` (`1.5.0` / `1.5` remain valid). Next development is **v1.7.0** on `v1.7.0-dev` (package stays `1.6.0` until freeze).
+**Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.7.0` / `1.7` / `latest` (`1.6.0` / `1.6` remain valid). Next development is **v1.8.0** on `v1.8.0-dev` (package stays `1.7.0` until freeze).
 
 ---
 
