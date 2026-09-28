@@ -244,6 +244,13 @@ def test_run_exclusive_job_branches(monkeypatch):
     monkeypatch.setattr("app.services.demo.demo_mode", lambda: True)
     monkeypatch.setattr(_js, "_finish_demo_job", lambda session, row: None)
     assert ex.run_exclusive_job(task, pending.id, pending.server_id, 1, "container_patch", {})["status"] == "demo"
+    # Finish is stubbed, so the demo start leaves the row running. Later
+    # branches in this test still need the original pending job.
+    with Session(engine) as session:
+        row = session.get(Job, pending.id)
+        row.status = "pending"
+        session.add(row)
+        session.commit()
 
     monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
     real_ssh_ready = ex._ssh_ready

@@ -448,6 +448,11 @@ def job_public_dict(job: Job, *, detail: bool = False) -> dict:
         "undo_move": details.get("undo_move"),
         "undo_completed": bool(details.get("undo_completed")),
     }
+    from ..job_worker import job_worker_label
+
+    worker_name = (getattr(job, "worker_hostname", None) or "").strip() or None
+    out["worker_hostname"] = worker_name
+    out["worker_label"] = job_worker_label(job)
     from ..jobs_exclusive import host_wait_display
 
     wait_label, wait_signal = host_wait_display(job, details)
@@ -858,6 +863,7 @@ def create_job_and_run(
     from ..demo import demo_mode
 
     if demo_mode():
+        _start_demo_job(session, job)
         return _finish_demo_job(
             session,
             job,
@@ -1108,6 +1114,7 @@ def enqueue_backup_for_server(
     from ..demo import demo_mode
 
     if demo_mode():
+        _start_demo_job(session, job)
         return _finish_demo_job(
             session,
             job,
@@ -1161,6 +1168,26 @@ def enqueue_backup_for_server(
     return job
 
 
+def _start_demo_job(session: Session, job: Job) -> Job:
+    """Demo simulation is executing. Stamp ``web`` while the row is running.
+
+    ``overwrite=False`` so a Celery nodename already on the row is kept.
+    Terminal rows are left alone.
+    """
+    from ..job_worker import WEB_WORKER_NAME, stamp_job_worker
+
+    if not job or (job.status or "") in ("success", "failed", "cancelled"):
+        return job
+    if job.status != "running":
+        job.status = "running"
+        if job.started_at is None:
+            job.started_at = datetime.utcnow()
+    stamp_job_worker(job, WEB_WORKER_NAME, overwrite=False)
+    session.add(job)
+    session.commit()
+    return job
+
+
 def _finish_demo_job(
     session: Session,
     job: Job,
@@ -1171,6 +1198,7 @@ def _finish_demo_job(
     source_filter: str | None = None,
 ) -> Job:
     """Mark job success with demo simulation (no outbound side effects)."""
+    _start_demo_job(session, job)
     msg = "Demo simulation — no live host action"
     details: dict = {}
     if job.details:
@@ -1193,6 +1221,9 @@ def _finish_demo_job(
     job.status = "success"
     job.finished_at = datetime.utcnow()
     job.details = json.dumps(details)
+    from ..job_worker import WEB_WORKER_NAME, stamp_job_worker
+
+    stamp_job_worker(job, WEB_WORKER_NAME, overwrite=False)
     session.add(job)
 
     if job.job_type == "backup":
@@ -1786,6 +1817,9 @@ async def _run_retention_job(job_id: int, server_id: int, audit_id: int):
         if job:
             job.status = "running"
             job.started_at = datetime.utcnow()
+            from ..job_worker import WEB_WORKER_NAME, stamp_job_worker
+
+            stamp_job_worker(job, WEB_WORKER_NAME, overwrite=False)
             _merge_job_details(
                 job,
                 current="cleaning",
@@ -1831,6 +1865,13 @@ async def _run_retention_job(job_id: int, server_id: int, audit_id: int):
 async def _run_herder_backup_job(job_id: int, audit_id: int):
     logger.debug("[JOB] Starting herder self-backup")
     hostname = "piherder"
+    from ..job_worker import WEB_WORKER_NAME, stamp_job_worker
+
+    with _get_fresh_session() as s:
+        job = s.get(Job, job_id)
+        if job and stamp_job_worker(job, WEB_WORKER_NAME, overwrite=False):
+            s.add(job)
+            s.commit()
     try:
         res = await run_in_threadpool(herder_backup.create_herder_backup, include_audit=False, config_only=True)
         summary = json.dumps({"path": str(res)})
@@ -2406,6 +2447,13 @@ def _apply_container_check_result(session: Session, server_id: int, res: dict) -
 
 
 async def _run_host_facts_job(job_id: int, server_id: int, audit_id: int):
+    from ..job_worker import WEB_WORKER_NAME, stamp_job_worker
+
+    with _get_fresh_session() as s:
+        job = s.get(Job, job_id)
+        if job and stamp_job_worker(job, WEB_WORKER_NAME, overwrite=False):
+            s.add(job)
+            s.commit()
     server, hostname = _load_server_for_job(server_id)
     if not server:
         _finish(audit_id, job_id, "failed", "Server not found", hostname, "host_facts")

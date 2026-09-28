@@ -386,6 +386,9 @@ class Job(SQLModel, table=True):
     job_type: str  # backup, container_patch, os_patch, os_update_check, container_update_check, docker_stack_check, docker_stack_deploy, retention, diagnostics, herder_backup
     status: str = "pending"  # pending, running, success, failed, cancelled
     celery_task_id: Optional[str] = None
+    # Celery nodename (celery@host, nmap@host) or "web" for in-process jobs.
+    # Null until a worker claims the row.
+    worker_hostname: Optional[str] = Field(default=None, max_length=200)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
