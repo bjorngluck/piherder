@@ -82,7 +82,7 @@ A second start reuses the existing job (UI follows it; REST **409** with `alread
 - Date presets use the **Settings timezone** calendar day (not the browser’s local midnight)  
 - **Active only** — pending + running  
 - Row → detail modal (summary, log tail, scheduled flag)
-- **Worker** on each row and in the detail modal: the Celery nodename (`celery@…`, `nmap@…`) once a worker has claimed the job, **not claimed** while it is still queued, **web** for retention / herder backup / host facts. Two workers show two different names. JobHold’s status line includes the same name  
+- **Worker** on each row and in the detail modal: the Celery nodename (`celery@…`, `nmap@…`) once a worker has claimed the job, **not claimed** while it is still queued, **web** for retention, herder backup, host facts, and demo simulation. Two workers show two different names. JobHold’s status line includes the same name  
 - **Cancel** works from list and modal (where applicable)  
 - Link to **Audit** for historical trail  
 

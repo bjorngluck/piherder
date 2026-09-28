@@ -46,8 +46,10 @@ def test_remember_pending_overwrites_and_running_keeps_original():
     assert job.worker_hostname == "celery@b"
 
     blank = SimpleNamespace(status="running", worker_hostname=None)
-    assert remember_celery_worker(blank, SimpleNamespace(hostname="celery@c")) is False
-    assert blank.worker_hostname is None
+    assert remember_celery_worker(blank, SimpleNamespace(hostname="celery@c")) is True
+    assert blank.worker_hostname == "celery@c"
+    assert remember_celery_worker(blank, SimpleNamespace(hostname="celery@d")) is False
+    assert blank.worker_hostname == "celery@c"
 
 
 def test_stamp_web_does_not_clobber_celery_name():
@@ -101,6 +103,44 @@ def test_job_public_dict_includes_worker():
     qpub = job_public_dict(queued)
     assert qpub["worker_hostname"] is None
     assert qpub["worker_label"] == "not claimed"
+
+
+def test_start_demo_job_stamps_web_while_running():
+    """Demo execution records web before the row is marked success."""
+    from sqlmodel import Session, SQLModel, create_engine
+
+    from app.models import Job
+    from app.services import jobs as js
+
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        job = Job(job_type="os_update_check", status="pending", details="{}")
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+
+        js._start_demo_job(session, job)
+        assert job.status == "running"
+        assert job.worker_hostname == "web"
+        assert job_worker_label(job) == "web"
+
+        named = Job(
+            job_type="os_patch",
+            status="running",
+            worker_hostname="celery@lab-a",
+            details="{}",
+        )
+        session.add(named)
+        session.commit()
+        session.refresh(named)
+        js._start_demo_job(session, named)
+        assert named.status == "running"
+        assert named.worker_hostname == "celery@lab-a"
+
+        finished = js._finish_demo_job(session, job)
+        assert finished.status == "success"
+        assert finished.worker_hostname == "web"
 
 
 def test_remember_worker_helper_mutates_without_committing():
