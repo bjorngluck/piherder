@@ -114,7 +114,7 @@ Hosted path stays `POST /mcp` on this herder. The stdio adapter in [bjorngluck/p
 3. Stack and template calls may pass the body fields that POST already takes (`source_filter` for the compose project). Do not invent new fields.
 4. `host_reboot` keeps today’s **409** while an OS patch, a container patch, or a backup is active, and the reverse.
 5. On **409** the agent polls `get_job` and does not fire again. `trigger_job` stays `destructiveHint`.
-6. Operator page [wiki/operations/mcp.md](../wiki/operations/mcp.md) lists the wider set. The stdio adapter is [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.2.0** (tag `v0.2.0` to publish; `uvx` stays on **0.1.1** until PyPI has 0.2.0).
+6. Operator page [wiki/operations/mcp.md](../wiki/operations/mcp.md) lists every tool and job type. The stdio adapter is [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.2.0** on PyPI ([notes](https://github.com/bjorngluck/piherder-mcp/blob/main/docs/RELEASE_v0.2.0.md)).
 
 ---
 
