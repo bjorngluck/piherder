@@ -56,7 +56,7 @@ Wiki: [Home Assistant](https://piherder-docs.hacknow.info/integrations/home-assi
 
 ## Fixed
 
-All six v1.7 bug issues are fixed on this branch. Each GitHub issue is still **open**. They close when the version pull request merges. None of these fixes are on `main` yet.
+All six v1.7 bug issues are fixed in **v1.7.0** and **closed** on GitHub. [#8](https://github.com/bjorngluck/piherder/issues/8), [#9](https://github.com/bjorngluck/piherder/issues/9), [#10](https://github.com/bjorngluck/piherder/issues/10), and [#16](https://github.com/bjorngluck/piherder/issues/16) closed when pull request #13 merged. [#11](https://github.com/bjorngluck/piherder/issues/11) and [#12](https://github.com/bjorngluck/piherder/issues/12) were closed after the tag.
 
 | Issue | What you see now |
 |--|--|
