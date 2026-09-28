@@ -805,6 +805,11 @@ async def register(
         session.add(user)
         session.commit()
         session.refresh(user)
+        if is_first:
+            details = f"First administrator registered: {user.email}"
+        else:
+            details = f"Registered {user.email} as operator"
+        _audit(session, user.id, "user_registered", details)
         return RedirectResponse("/auth/login", status_code=303)
     except Exception:
         msg = "Registration failed. Please try a different email or shorter password."

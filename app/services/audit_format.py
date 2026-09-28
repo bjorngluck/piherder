@@ -57,6 +57,7 @@ _ACTION_LABELS = {
     "user_role_changed": "User role changed",
     "user_role_sync_skipped": "SSO role sync skipped",
     "user_created": "User created",
+    "user_registered": "User registered",
     "user_deleted": "User deleted",
     "admin_password_reset": "Admin password reset",
     "admin_2fa_cleared": "Admin cleared 2FA",
