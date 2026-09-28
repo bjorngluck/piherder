@@ -31,8 +31,9 @@ Hosted `POST /mcp` and, if you use it, the stdio adapter. Token masked. Same bea
 Reading pass against [PLAN_v1.8.0.md](PLAN_v1.8.0.md) §3.1. No client required for this box.
 
 - [ ] The write-up keeps the local rsync directory as the default and leaves the Settings DR backup on its own path  
-- [ ] Google Drive is the only destination this train may build  
-- [ ] OneDrive and a LAN NAS / SMB share are named for a later release and have no client  
+- [ ] Path A is a second hop from `/backups` (rclone on the herder). Path B is a later SMB mount used as the dest root. Path C (the Pi writes straight to the alternate store) stays parked  
+- [ ] Google Drive is the only destination this train may build, and it is that rclone copy. A failed upload fails the job  
+- [ ] OneDrive and a LAN NAS / SMB share are named for a later release and have no client. restic, borg, and kopia are not this train  
 
 ## Google Drive (Should)
 
