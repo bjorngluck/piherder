@@ -20,7 +20,7 @@ All contributions are offered under the **[MIT License](LICENSE)**. By submittin
 ## Getting Started
 
 - Read the [README](README.md) and [SPEC.md](SPEC.md) for project goals and design principles.
-- Current production: **[v1.6.0](docs/RELEASE_v1.6.0.md)** — [PLAN](docs/PLAN_v1.6.0.md) · [QA](docs/QA_v1.6.0.md) (maintainer; not the operator wiki). Operator wiki [Home Assistant](wiki/integrations/home-assistant.md) · [Web SSH](wiki/day-to-day/web-ssh-console.md). Active train: [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md) on `v1.7.0-dev`, **code freeze** 2026-09-28. Notes: [RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md). Package stays `1.6.0` until the bump. Prior: [v1.5.0](docs/RELEASE_v1.5.0.md) · [v1.4.0](docs/RELEASE_v1.4.0.md) · [v1.3.0](docs/RELEASE_v1.3.0.md) · [v1.2.0](docs/RELEASE_v1.2.0.md) · [v1.1.1](docs/RELEASE_v1.1.1.md) · [v1.0.0](docs/RELEASE_v1.0.0.md).
+- Current production: **[v1.7.0](docs/RELEASE_v1.7.0.md)** — [PLAN](docs/PLAN_v1.7.0.md) · [QA](docs/QA_v1.7.0.md). Operator wiki [Agents (MCP)](wiki/operations/mcp.md) · [Home Assistant](wiki/integrations/home-assistant.md). Image `1.7.0` / `1.7` / `latest`. Prior: [v1.6.0](docs/RELEASE_v1.6.0.md). Prior: [v1.5.0](docs/RELEASE_v1.5.0.md) · [v1.4.0](docs/RELEASE_v1.4.0.md) · [v1.3.0](docs/RELEASE_v1.3.0.md) · [v1.2.0](docs/RELEASE_v1.2.0.md) · [v1.1.1](docs/RELEASE_v1.1.1.md) · [v1.0.0](docs/RELEASE_v1.0.0.md).
 - Look for issues tagged `good first issue` or `help wanted`.
 
 ## Documentation

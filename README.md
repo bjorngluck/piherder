@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Release](https://img.shields.io/badge/release-v1.6.0-green.svg)](docs/RELEASE_v1.6.0.md)
+[![Release](https://img.shields.io/badge/release-v1.7.0-green.svg)](docs/RELEASE_v1.7.0.md)
 [![Docker Hub](https://img.shields.io/badge/docker-bjorngluck%2Fpiherder-blue.svg)](https://hub.docker.com/r/bjorngluck/piherder)
 [![Docs](https://img.shields.io/badge/docs-wiki-red.svg)](https://piherder-docs.hacknow.info/)
 [![Demo](https://img.shields.io/badge/demo-view--only-orange.svg)](https://piherder-demo.hacknow.info)
@@ -65,8 +65,8 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Full docs & wiki: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
-- **Current production:** [docs/RELEASE_v1.6.0.md](docs/RELEASE_v1.6.0.md) — HACS fleet · console mux · script nonce · fail-path undo. Technical record: [PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md). Wiki: [Home Assistant](wiki/integrations/home-assistant.md) · [Web SSH](wiki/day-to-day/web-ssh-console.md)
-- **Next train:** [docs/PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md) — **code freeze** 2026-09-28 on `v1.7.0-dev`. Notes: [docs/RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md). Hosted MCP, exclusive jobs on Celery, instance name and accent, Catalog hide, and HA-cards (plugin **0.3.0**) are signed. Package stays `1.6.0` until the bump. Hub stays **1.6.0** until tag and publish.
+- **Current production:** [docs/RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md) — hosted MCP · exclusive jobs on Celery · instance name and accent · HA plugin **0.3.0**. Technical record: [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md). Wiki: [Agents (MCP)](wiki/operations/mcp.md) · [Home Assistant](wiki/integrations/home-assistant.md). Image `bjorngluck/piherder:1.7.0` · `1.7` · `latest`. Pins `1.6.0` / `1.6` stay valid.
+- **Next:** v1.8.0 focuses on Home Assistant cards. The 0.3.0 24-hour chart does not draw.
 - Prior: [docs/RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · [docs/RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [docs/RELEASE_v1.3.0.md](docs/RELEASE_v1.3.0.md) · [docs/RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
 - API reference: [docs/API.md](docs/API.md)
 

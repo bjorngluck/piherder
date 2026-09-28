@@ -3,7 +3,7 @@
 **Status:** **Active** (train opened 2026-09-25). MCP-1 **0.1.0**, Jr-1, Jr-2, Brand-1, Brand-2, Q, and HA-cards are on this branch. MCP-1, Jr-1, Jr-2, HA-cards, Brand, Audit pulse, the 1.6 regression, and the screenshot pack are signed. **Code freeze 2026-09-28.** Release notes drafted. Package bump, merge, tag, and Hub are not done. **v1.8.0** focuses on Home Assistant: richer cards and stats. The 0.3.0 24-hour chart does not draw and is a known issue for that release. Q: full compose **81.01%** (39638/48927). CI fail-under stays **80** so the extra point is headroom.  
 **Date opened:** 2026-09-25 (inbox parked 2026-09-18)  
 **Git branch:** `v1.7.0-dev` → `main` · tag `v1.7.0` at freeze  
-**Package / image version:** **`1.6.0`** until the bump is asked. **Code freeze set 2026-09-28.**  
+**Package / image version:** **`1.7.0`**. Tag **v1.7.0**. **Code freeze set 2026-09-28.**  
 **Theme:** **MCP-1** first (read/write client of the existing token API, separate repo), then **Jr-1** (remaining exclusive jobs onto Celery)  
 **Baseline:** `v1.6.0` (tagged 2026-09-25; Hub digest `sha256:cdf88c70099f78830943e6529f05eff1b83bb5565e7b12f71ebf0877c7b018a8`)  
 **Mode:** **Must → Should → Discover.** Must **MCP-1** + **Jr-1**. Should **Q** (fail-under **75 → 80**) + **Brand-1** + **Brand-2** + **Jr-2** + **HA-cards**. Discover **AC-fg** · HA bus event · Undo-2 · Mux-2 · **Bak-alt**.  

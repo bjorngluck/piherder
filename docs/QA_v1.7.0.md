@@ -2,7 +2,7 @@
 
 **Branch:** `v1.7.0-dev` → `main` · tag **`v1.7.0`** (cut after merge)  
 **Code freeze:** **set** 2026-09-28. No new features on this branch. Package bump, merge, tag, and Hub stay a separate ask.  
-**Package:** **`1.6.0`** until the bump is asked  
+**Package:** **`1.7.0`** (bumped for the tag)  
 **Operator QA:** **MCP-1**, **Jr-1**, **Jr-2**, **HA-cards**, **Brand-1**, **Brand-2**, **Audit pulse**, **1.6 regression**, and the screenshot pack signed. **v1.8.0** is the Home Assistant release: richer cards and stats. The 24-hour chart on the 0.3.0 cards does not draw; that stays a known issue for v1.8.0.  
 **Docs alignment:** **done** 2026-09-28 (release notes, wiki figures, freeze).  
 **Screenshots:** [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v170--pack-status). **Captured** 2026-09-28  
@@ -244,5 +244,5 @@ Code freeze is set. The draft pull request stays the review vehicle. Do not undr
 
 - [x] `mkdocs build --strict`  
 - [x] [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) drafted  
-- [ ] Package bumped to **1.7.0** only when asked  
-- [ ] Draft PR undrafted, merged, tagged, and Hub-published only when asked  
+- [x] Package bumped to **1.7.0**  
+- [x] Draft PR undrafted, merged, tagged, and Hub-published when asked  
