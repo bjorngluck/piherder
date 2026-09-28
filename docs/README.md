@@ -8,7 +8,7 @@ Maintainer plans and release notes. Operator wiki is `wiki/` (MkDocs).
 |------|--------|
 | Current production | [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) |
 | This release | [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md) |
-| Active train | [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) on `v1.8.0-dev`. Richer HA cards. Package stays `1.7.0` until freeze. Operator: [Home Assistant](../wiki/integrations/home-assistant.md) |
+| Active train | [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) on `v1.8.0-dev`. MCP job types, backup destinations, then HA cards. Package stays `1.7.0` until freeze. Operator: [Agents (MCP)](../wiki/operations/mcp.md) · [Home Assistant](../wiki/integrations/home-assistant.md) |
 | API | [API.md](API.md) |
 | Design | `FEATURE_PLAN_*.md`, [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md), [SPEC.md](../SPEC.md), [ADMIN.md](ADMIN.md) |
 

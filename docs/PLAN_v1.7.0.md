@@ -1,6 +1,6 @@
 # PiHerder v1.7.0 — token-API MCP, then one job runtime
 
-**Status:** **Shipped** 2026-09-28 (tag **v1.7.0**, Hub `1.7.0` / `1.7` / `latest`). Next train: [PLAN_v1.8.0.md](PLAN_v1.8.0.md) on `v1.8.0-dev` (richer HA cards; the 0.3.0 24-hour chart still does not draw). Q: full compose **81.01%** (39638/48927). CI fail-under stays **80**.  
+**Status:** **Shipped** 2026-09-28 (tag **v1.7.0**, Hub `1.7.0` / `1.7` / `latest`). Next train: [PLAN_v1.8.0.md](PLAN_v1.8.0.md) on `v1.8.0-dev` (MCP job types first, then backup destinations, then richer HA cards; the 0.3.0 24-hour chart still does not draw). Q: full compose **81.01%** (39638/48927). CI fail-under stays **80**.  
 **Date opened:** 2026-09-25 (inbox parked 2026-09-18)  
 **Git branch:** `v1.7.0-dev` → `main` · tag `v1.7.0` at freeze  
 **Package / image version:** **`1.7.0`**. Tag **v1.7.0**. **Code freeze set 2026-09-28.**  

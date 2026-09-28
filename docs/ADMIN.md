@@ -606,7 +606,7 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
 | **Image pin** | Prefer a tagged image: Hub **`1.7.0`** / `1.7` / `latest` (`1.6.0` / `1.6` pins remain valid) |
 
-Current production: [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md). Active train: [PLAN_v1.8.0.md](PLAN_v1.8.0.md) on `v1.8.0-dev` (richer HA cards). Prior: [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current production: [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md). Active train: [PLAN_v1.8.0.md](PLAN_v1.8.0.md) on `v1.8.0-dev` (MCP job types, backup destinations, then HA cards). Prior: [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 
