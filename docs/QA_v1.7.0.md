@@ -3,7 +3,7 @@
 **Branch:** `v1.7.0-dev` → `main` · tag **`v1.7.0`** (cut after merge)  
 **Code freeze:** *open*  
 **Package:** **`1.6.0`** until freeze  
-**Operator QA:** **MCP-1**, **Jr-2**, **Brand-1**, **Brand-2**, **Audit pulse**, and **1.6 regression** signed 2026-09-27. Other live walks stay empty  
+**Operator QA:** **MCP-1**, **Jr-1**, **Jr-2**, **HA-cards**, **Brand-1**, **Brand-2**, **Audit pulse**, and **1.6 regression** signed 2026-09-27. Screenshot pack and freeze gates stay empty. **v1.8.0** is the Home Assistant release: richer cards and stats. The 24-hour chart on the 0.3.0 cards does not draw; that stays a known issue for v1.8.0.  
 **Docs alignment:** **done** 2026-09-26 (architecture, SPEC, ADMIN, SECURITY, wiki). Not a substitute for the live walk  
 **Screenshots:** listed in [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v170--pack-status). **Not captured**  
 **Pull request:** draft. Do not undraft, merge, tag, or publish until asked
@@ -86,11 +86,11 @@ Operator signed every box below on 2026-09-27, including the optional `uvx`, pub
 - [x] Optional: Codex `~/.codex/config.toml` uses `url` and `bearer_token_env_var = "PIHERDER_TOKEN"` (the raw `ph_…` secret). `initialize` succeeds  
 - [x] No second MCP service in Compose. `GET /mcp` is **405** (stateless; no SSE listen channel)  
 
-## Jr-1 — exclusive jobs on Celery (Must)
+## Jr-1 — exclusive jobs on Celery (signed 2026-09-27)
 
 Code is on `v1.7.0-dev`. Task name `app.tasks.exclusive_job`, default queue, container **`piherder-celery`**. Not Move’s backup mutex. Default host wait **30 minutes** (`PIHERDER_EXCLUSIVE_HOST_WAIT_SEC`, probe every 30s). Wiki: [Multi-worker](../wiki/operations/multi-worker.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md).
 
-Boxes stay empty until you walk them. Do this on the **local** herder. Do not redeploy or exercise this on the public demo.
+Operator signed every Jr-1 section on 2026-09-27: worker on the job row, enqueue, recycle and host-down, and the lanes that must stay put. Do this on the **local** herder. Do not redeploy or exercise this on the public demo.
 
 ### Setup
 
@@ -114,33 +114,33 @@ Web should log `Enqueued <type> job #<id> … on the default Celery queue`. The 
 
 Open **Jobs** (`/jobs`) after a worker has picked a job up. The row and the detail modal show the Celery nodename (`celery@…` on the default worker, `nmap@…` on `celery-worker-nmap`). JobHold’s status line includes the same name. A row that is still queued and not picked up says **not claimed**. Two worker containers must not show the same nodename. `retention`, herder backup, host-facts, and a demo simulation say **web** (including while the demo row is still running). Older rows from before Alembic **046** stay **—**.
 
-- [ ] Worker shown on job row. Start an OS check or backup, then open **Jobs** while it is pending or running. The row names the worker that claimed it (not **not claimed**). Detail and JobHold show the same name. With two workers, the names differ. A brand-new job that no worker has taken yet says **not claimed**
+- [x] Worker shown on job row. Start an OS check or backup, then open **Jobs** while it is pending or running. The row names the worker that claimed it (not **not claimed**). Detail and JobHold show the same name. With two workers, the names differ. A brand-new job that no worker has taken yet says **not claimed**
 
 ### Enqueue
 
 Use one real SSH host. You do not need every stack action if one mutate and one check are honest; tick only the rows you actually ran.
 
-- [ ] `os_patch` and `container_patch` enqueue on **celery-worker** (not the web process). Server → check for updates, then apply. JobHold leaves **pending** and reaches **running** / **success** or a real apt/compose failure. Worker log shows `exclusive_job`  
-- [ ] Update checks (`os_update_check`, `container_update_check`, `docker_stack_check`) enqueue on **celery-worker**. Dashboard or server **Check**, and one stack **Check updates**. Same log pair as above  
-- [ ] Stack mutate (`deploy` / `stop` / `start` / `restart` / `down` / `remove`) enqueues on **celery-worker**. One disposable project is enough: **Deploy** or **Restart**, and note the job id  
-- [ ] Template deploy / redeploy / drift check enqueue on **celery-worker**. Catalog → deploy a small template, or an existing deployment → **Check drift** / **Save & redeploy**  
-- [ ] `host_reboot` enqueues on **celery-worker**. Server **Reboot** (or the HA host card). OS-patch flag must be on. Refused (**409**) while `os_patch`, `container_patch`, or `backup` is pending or running. Those three are refused while a reboot is active. SSH down stays pending. Worker log shows `exclusive_job`  
+- [x] `os_patch` and `container_patch` enqueue on **celery-worker** (not the web process). Server → check for updates, then apply. JobHold leaves **pending** and reaches **running** / **success** or a real apt/compose failure. Worker log shows `exclusive_job`  
+- [x] Update checks (`os_update_check`, `container_update_check`, `docker_stack_check`) enqueue on **celery-worker**. Dashboard or server **Check**, and one stack **Check updates**. Same log pair as above  
+- [x] Stack mutate (`deploy` / `stop` / `start` / `restart` / `down` / `remove`) enqueues on **celery-worker**. One disposable project is enough: **Deploy** or **Restart**, and note the job id  
+- [x] Template deploy / redeploy / drift check enqueue on **celery-worker**. Catalog → deploy a small template, or an existing deployment → **Check drift** / **Save & redeploy**  
+- [x] `host_reboot` enqueues on **celery-worker**. Server **Reboot** (or the HA host card). OS-patch flag must be on. Refused (**409**) while `os_patch`, `container_patch`, or `backup` is pending or running. Those three are refused while a reboot is active. SSH down stays pending. Worker log shows `exclusive_job`  
 
 ### Recycle and host-down
 
-- [ ] Recycle **web** during a running patch or stack job: the Job does **not** fail because web died. Start a slow apply or deploy, then `docker compose up -d --force-recreate --no-deps web`. Job stays **pending** or **running** and still finishes or fails for a real reason. It must not say `Web process restarted — this job was no longer running`  
-- [ ] Recycle **celery-worker** during a **running** patch or stack mutate: the Job **fails honest**. Wait until status is **running** (not still waiting on SSH), then `docker compose up -d --force-recreate --no-deps celery-worker`. Job becomes **failed**. Details include `Worker restarted while this job was running. It was not resumed.` Do not expect apt or compose to continue  
-- [ ] SSH down at start: Job stays **pending** until SSH works or max wait; it does not fail on the first refused connect. On a lab host only, point SSH at a closed port (or stop `sshd`) and start an OS check or patch. JobHold stays **pending** and the log says `Host SSH unreachable — waiting`. Restore SSH. The same job should proceed without a second click. Leaving it down for 30 minutes fails it with `Host stayed unreachable` — that is the limit, not the first probe  
+- [x] Recycle **web** during a running patch or stack job: the Job does **not** fail because web died. Start a slow apply or deploy, then `docker compose up -d --force-recreate --no-deps web`. Job stays **pending** or **running** and still finishes or fails for a real reason. It must not say `Web process restarted — this job was no longer running`  
+- [x] Recycle **celery-worker** during a **running** patch or stack mutate: the Job **fails honest**. Wait until status is **running** (not still waiting on SSH), then `docker compose up -d --force-recreate --no-deps celery-worker`. Job becomes **failed**. Details include `Worker restarted while this job was running. It was not resumed.` Do not expect apt or compose to continue  
+- [x] SSH down at start: Job stays **pending** until SSH works or max wait; it does not fail on the first refused connect. On a lab host only, point SSH at a closed port (or stop `sshd`) and start an OS check or patch. JobHold stays **pending** and the log says `Host SSH unreachable — waiting`. Restore SSH. The same job should proceed without a second click. Leaving it down for 30 minutes fails it with `Host stayed unreachable` — that is the limit, not the first probe  
 
 ### Lanes that must stay put
 
-- [ ] A second stack mutate on the same host is refused while the first holds the lane. During the deploy/restart above, start Stop or Deploy again on that host. The UI follows the existing job. It does not start a second compose. `POST /api/v1/servers/{id}/jobs` for that type returns **409** with `already_active`  
-- [ ] A single-host patch does **not** take Move’s dual-host backup mutex. With a patch **running** on host A, a backup on host B still starts. Worker log for the patch has no backup-lock wait. Move stays off (`PIHERDER_SERVICE_MIGRATE=false`)  
-- [ ] nmap still runs on the nmap queue. If `celery-worker-nmap` is up, a LAN discover shows on `piherder-celery-nmap`, not as `exclusive_job` on `piherder-celery`. If the profile is not running, confirm the main worker command has no `-Q nmap` and skip the live scan  
-- [ ] `retention` and `herder_backup` behave as before. Run one. It is **not** `exclusive_job`. Recreate **web** while it is still running and that row **fails** with the web-restart message. Patch/stack rows from the recycle test above do not  
-- [ ] `backup`, Move, and Undo still run on Celery as in 1.6. One backup: web log enqueues backup, worker runs `backup_server`, recreate **web** does not fail it. Move wizard stays **404** while the flag is false. Undo is not offered on a green or absent Move  
-- [ ] Demo does not live-run these types. This walk stays on the local herder. Do not open the public demo and do not redeploy it onto `v1.7.0-dev`  
-- [ ] Token API does not gain `service_migrate` or undo. With a `jobs` token, `POST /api/v1/servers/{id}/jobs` body `{"job_type":"service_migrate"}` is **400** `Unsupported job_type`. The allowed list matches `JOB_FEATURE_KEY`: backup, retention, os_patch, os_update_check, host_reboot, container_patch, container_update_check, docker_stack_check, docker_stack_deploy, docker_stack_stop, docker_stack_start, docker_stack_restart, template_deploy, and template_redeploy. For the `docker_stack_*` types, `source_filter` is the compose project path. `docker_stack_down`, `docker_stack_remove`, and `template_drift_check` are **400**. MCP `trigger_job` stays the six types (no `host_reboot`, stack, or template). `service_migrate_undo` is the same **400**  
+- [x] A second stack mutate on the same host is refused while the first holds the lane. During the deploy/restart above, start Stop or Deploy again on that host. The UI follows the existing job. It does not start a second compose. `POST /api/v1/servers/{id}/jobs` for that type returns **409** with `already_active`  
+- [x] A single-host patch does **not** take Move’s dual-host backup mutex. With a patch **running** on host A, a backup on host B still starts. Worker log for the patch has no backup-lock wait. Move stays off (`PIHERDER_SERVICE_MIGRATE=false`)  
+- [x] nmap still runs on the nmap queue. If `celery-worker-nmap` is up, a LAN discover shows on `piherder-celery-nmap`, not as `exclusive_job` on `piherder-celery`. If the profile is not running, confirm the main worker command has no `-Q nmap` and skip the live scan  
+- [x] `retention` and `herder_backup` behave as before. Run one. It is **not** `exclusive_job`. Recreate **web** while it is still running and that row **fails** with the web-restart message. Patch/stack rows from the recycle test above do not  
+- [x] `backup`, Move, and Undo still run on Celery as in 1.6. One backup: web log enqueues backup, worker runs `backup_server`, recreate **web** does not fail it. Move wizard stays **404** while the flag is false. Undo is not offered on a green or absent Move  
+- [x] Demo does not live-run these types. This walk stays on the local herder. Do not open the public demo and do not redeploy it onto `v1.7.0-dev`  
+- [x] Token API does not gain `service_migrate` or undo. With a `jobs` token, `POST /api/v1/servers/{id}/jobs` body `{"job_type":"service_migrate"}` is **400** `Unsupported job_type`. The allowed list matches `JOB_FEATURE_KEY`: backup, retention, os_patch, os_update_check, host_reboot, container_patch, container_update_check, docker_stack_check, docker_stack_deploy, docker_stack_stop, docker_stack_start, docker_stack_restart, template_deploy, and template_redeploy. For the `docker_stack_*` types, `source_filter` is the compose project path. `docker_stack_down`, `docker_stack_remove`, and `template_drift_check` are **400**. MCP `trigger_job` stays the six types (no `host_reboot`, stack, or template). `service_migrate_undo` is the same **400**  
 
 ## Brand-1 — instance name + accent (signed 2026-09-27)
 
@@ -170,20 +170,22 @@ Operator signed both boxes on 2026-09-27.
 - [x] Settings shows max wait; SSH probe is still what resumes the job. Open the Jobs card. The minutes field is there (1–1440). Save a short value such as **2** on a lab host, then refuse SSH and start an OS check. The pending log should mention the new limit (about 120s, not 1800). Restore SSH. The same job proceeds. Set the field back to **30** when you are done. If the env var is set, the field is disabled and the save does not change the wait  
 - [x] Kuma down or stale `last_seen` can show “waiting on host” and does **not** by itself resume or fail the job. With a host whose Kuma SSH monitor is down, or whose `last_seen` is over 15 minutes old, start a check while SSH still works. The Jobs row or JobHold may say **waiting on host** before the probe, then the job **runs** anyway. It must not fail just because Kuma or `last_seen` looks down. With SSH actually refused, the job stays **pending** until the probe works or the wait you saved elapses  
 
-## HA-cards — Lovelace cards and token writes (Should; may slip)
+## HA-cards — Lovelace cards and token writes (signed 2026-09-27)
 
-Plugin **0.3.0** in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). Boxes stay empty until you walk them. The herder image does not contain the plugin. Update HACS to **0.3.0** and set the card resource to `/local/piherder-dashboard-card.js?v=0.3.0`. The token needs `jobs` (and `edit` for the toggles). `host_reboot` also needs the host’s OS-patch flag on.
+Plugin **0.3.0** in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). Operator signed the walk on 2026-09-27. The herder image does not contain the plugin. Update HACS to **0.3.0** and set the card resource to `/local/piherder-dashboard-card.js?v=0.3.0`. The token needs `jobs` (and `edit` for the toggles). `host_reboot` also needs the host’s OS-patch flag on.
 
-- [ ] A `read` token still shows the fleet card and the host sensors, and shows no backup, check, patch, retention, reboot, or feature control  
-- [ ] Host card is one server (`server_id`). It shows gauges, 24h sparklines, and the Host / Docker / Backups / Alerts / Audit links. It does not SSH  
-- [ ] Updates card shows OS and container update counts from that snapshot, plus reboot pending  
-- [ ] Resources card draws memory %, disk %, and CPU load from Home Assistant history. After a System Info refresh and one poll, a new point appears. The line steps on the snapshot (about 15 minutes). It is not a live chart  
-- [ ] Confirm backup calls `POST /api/v1/servers/{id}/jobs` with `backup` and the job appears on the herder. A second confirm while it is active gets **409** and does not start another  
-- [ ] OS check and container check enqueue those job types. OS patch and container patch ask for a confirm, then enqueue. Retention asks for a confirm  
-- [ ] Restart host names the machine and says it reboots it. The herder job type is `host_reboot`. Start an OS patch first: the reboot confirm is refused (**409**) and does not SSH. The PiHerder Reboot button uses the same job  
-- [ ] Feature toggles call `PATCH /api/v1/servers/{id}/features` for backup, OS patch, and Docker only. Turning one off asks first. A token without `edit` does not show them  
-- [ ] No container start/stop, Move, Files, or console control appears on any card  
-- [ ] Public demo is not the target. Do not point the plugin at it  
+The cards work. They are not the visual bar. **v1.8.0** focuses on Home Assistant and replaces these with richer, more pleasing cards and stats. Known issue carried to that release: the **24-hour** chart on the cards is not working.
+
+- [x] A `read` token still shows the fleet card and the host sensors, and shows no backup, check, patch, retention, reboot, or feature control  
+- [x] Host card is one server (`server_id`). It shows gauges and the Host / Docker / Backups / Alerts / Audit links. It does not SSH. The 24-hour sparkline does **not** draw (known issue, **v1.8.0**)  
+- [x] Updates card shows OS and container update counts from that snapshot, plus reboot pending  
+- [x] Resources card is present for memory %, disk %, and CPU load. The 24-hour series does **not** draw (same known issue, **v1.8.0**). It does not SSH  
+- [x] Confirm backup calls `POST /api/v1/servers/{id}/jobs` with `backup` and the job appears on the herder. A second confirm while it is active gets **409** and does not start another  
+- [x] OS check and container check enqueue those job types. OS patch and container patch ask for a confirm, then enqueue. Retention asks for a confirm  
+- [x] Restart host names the machine and says it reboots it. The herder job type is `host_reboot`. Start an OS patch first: the reboot confirm is refused (**409**) and does not SSH. The PiHerder Reboot button uses the same job  
+- [x] Feature toggles call `PATCH /api/v1/servers/{id}/features` for backup, OS patch, and Docker only. Turning one off asks first. A token without `edit` does not show them  
+- [x] No container start/stop, Move, Files, or console control appears on any card  
+- [x] Public demo is not the target. Do not point the plugin at it  
 
 ## Q — coverage gate 80%
 
