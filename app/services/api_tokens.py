@@ -21,7 +21,7 @@ import hashlib
 import ipaddress
 import json
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Iterable, Optional
 
 from sqlmodel import Session, select
@@ -47,12 +47,21 @@ FEATURE_SCOPES = frozenset({FEATURE_BACKUP, FEATURE_OS, FEATURE_DOCKER})
 VALID_SCOPES = CAPABILITY_SCOPES | FEATURE_SCOPES
 DEFAULT_SCOPES = (SCOPE_READ, SCOPE_JOBS)
 
+# MCP agent mint preset (Settings UI): least privilege starts at read-only
+MCP_DEFAULT_SCOPES = (SCOPE_READ,)
+MCP_NAME_PREFIX = "mcp-"
+EXPIRES_PRESETS = frozenset({"none", "30d", "90d", "custom"})
+MCP_SNIPPET_PLACEHOLDER_URL = "https://piherder.example.com"
+# Hosted Streamable HTTP MCP on this herder (same origin as the web UI).
+MCP_HTTP_PATH = "/mcp"
+
 # Map job types → feature key used in feature:* scopes and server flags
 JOB_FEATURE_KEY = {
     "backup": "backup",
     "retention": "backup",
     "os_patch": "os",
     "os_update_check": "os",
+    "host_reboot": "os",
     "container_patch": "docker",
     "container_update_check": "docker",
     "docker_stack_check": "docker",
@@ -164,6 +173,202 @@ def hash_token(plain: str) -> str:
 
 def generate_plaintext_token() -> str:
     return TOKEN_PREFIX + secrets.token_urlsafe(TOKEN_BYTES)
+
+
+def suggest_mcp_token_name(now: datetime | None = None) -> str:
+    """Default name when the Settings MCP agent preset is selected."""
+    stamp = (now or datetime.utcnow()).strftime("%Y%m%d")
+    return f"{MCP_NAME_PREFIX}agent-{stamp}"
+
+
+def parse_expires_at_value(value: datetime | str | None) -> datetime | None:
+    """Parse an absolute expiry from a datetime or ISO-ish string.
+
+    Accepts ``YYYY-MM-DD``, ``YYYY-MM-DDTHH:MM``, ``YYYY-MM-DDTHH:MM:SS``,
+    and trailing ``Z``. Naive values are treated as UTC. Empty → None.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is not None:
+            return value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    text = text.replace("Z", "").replace("z", "")
+    if "T" in text:
+        date_part, time_part = text.split("T", 1)
+    elif " " in text:
+        date_part, time_part = text.split(" ", 1)
+    else:
+        date_part, time_part = text, "23:59:59"
+    time_part = time_part.strip()
+    if len(time_part) == 5:  # HH:MM from datetime-local
+        time_part = f"{time_part}:00"
+    try:
+        parsed = datetime.fromisoformat(f"{date_part}T{time_part}")
+    except ValueError as e:
+        raise ValueError(f"Invalid expires_at: {value!r}") from e
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
+def resolve_expires_at(
+    *,
+    expires_preset: str | None = None,
+    expires_at: datetime | str | None = None,
+    now: datetime | None = None,
+) -> datetime | None:
+    """Resolve operator expiry selection to a naive-UTC datetime, or None (never).
+
+    ``expires_preset``: ``none`` | ``30d`` | ``90d`` | ``custom``.
+    When preset is ``custom`` (or omitted) and ``expires_at`` is set, that
+    absolute value wins. Relative presets ignore ``expires_at``.
+    """
+    preset = (expires_preset or "").strip().lower() or None
+    if preset and preset not in EXPIRES_PRESETS:
+        raise ValueError(f"Invalid expires_preset: {expires_preset!r}")
+    base = now or datetime.utcnow()
+    if preset in (None, "none") and expires_at is None:
+        return None
+    if preset == "none":
+        return None
+    if preset == "30d":
+        return base + timedelta(days=30)
+    if preset == "90d":
+        return base + timedelta(days=90)
+    # custom, or absolute expires_at without a relative preset
+    parsed = parse_expires_at_value(expires_at)
+    if parsed is None:
+        if preset == "custom":
+            raise ValueError("Custom expiry requires expires_at")
+        return None
+    if parsed <= base:
+        raise ValueError("expires_at must be in the future")
+    return parsed
+
+
+def mcp_endpoint_url(public_url: str | None) -> str:
+    """Absolute hosted MCP URL. Token is never placed in the query string."""
+    base = (public_url or "").strip().rstrip("/") or MCP_SNIPPET_PLACEHOLDER_URL
+    return f"{base}{MCP_HTTP_PATH}"
+
+
+def _public_url_warning(public_url: str | None) -> str:
+    """One line when the snippet host is the placeholder, not the real origin."""
+    if (public_url or "").strip():
+        return ""
+    return (
+        "# WARNING: PIHERDER_PUBLIC_URL is unset. "
+        f"Replace {MCP_SNIPPET_PLACEHOLDER_URL} before pasting.\n"
+    )
+
+
+def mcp_hosted_client_snippet(
+    *,
+    public_url: str | None,
+    token_secret: str,
+) -> str:
+    """One-time copyable remote MCP config (URL + Bearer). Primary install path.
+
+    The secret is embedded once in the flash banner. It is an HTTP header, not
+    a query parameter. ``${…}`` placeholders are not used — many hosts do not
+    expand them.
+    """
+    url = mcp_endpoint_url(public_url)
+    secret = (token_secret or "").strip() or "ph_…"
+    warning = _public_url_warning(public_url)
+    payload = {
+        "mcpServers": {
+            "piherder": {
+                "type": "http",
+                "url": url,
+                "headers": {"Authorization": f"Bearer {secret}"},
+            }
+        }
+    }
+    body = json.dumps(payload, indent=2)
+    return (
+        f"{warning}"
+        "# Hosted MCP (default) — same host and port as this herder. Nothing else to run.\n"
+        "# Cursor / Grok: .cursor/mcp.json. Claude Code: keep \"type\": \"http\".\n"
+        "# The token is the Authorization header only. Do not put it in the URL.\n"
+        f"{body}\n"
+    )
+
+
+def mcp_stdio_client_snippet(
+    *,
+    public_url: str | None,
+    token_secret: str,
+    prefer_pypi: bool = True,
+) -> str:
+    """Optional local stdio config (``uvx piherder-mcp``) for air-gapped agents.
+
+    ``${PIHERDER_TOKEN}`` is *not* used here — many MCP hosts do not expand
+    shell-style placeholders. The flash banner embeds the real secret once.
+    """
+    url = (public_url or "").strip().rstrip("/") or MCP_SNIPPET_PLACEHOLDER_URL
+    secret = (token_secret or "").strip() or "ph_…"
+    warning = _public_url_warning(public_url)
+    if prefer_pypi:
+        args_line = '      "args": ["piherder-mcp"],'
+        cmd_note = (
+            "# Prefer: uvx piherder-mcp\n"
+            "# If the package is not on PyPI yet, use:\n"
+            '#   "args": ["--from", "git+https://github.com/bjorngluck/piherder-mcp.git", "piherder-mcp"]\n'
+        )
+    else:
+        args_line = (
+            '      "args": ["--from", '
+            '"git+https://github.com/bjorngluck/piherder-mcp.git", '
+            '"piherder-mcp"],'
+        )
+        cmd_note = ""
+    return (
+        f"{warning}"
+        f"export PIHERDER_URL='{url}'\n"
+        f"export PIHERDER_TOKEN='{secret}'\n"
+        "\n"
+        f"{cmd_note}"
+        "# Local / air-gapped — .cursor/mcp.json (stdio). Not required when /mcp is reachable.\n"
+        "{\n"
+        '  "mcpServers": {\n'
+        '    "piherder": {\n'
+        '      "command": "uvx",\n'
+        f"{args_line}\n"
+        '      "env": {\n'
+        f'        "PIHERDER_URL": "{url}",\n'
+        f'        "PIHERDER_TOKEN": "{secret}"\n'
+        "      }\n"
+        "    }\n"
+        "  }\n"
+        "}\n"
+    )
+
+
+def mcp_client_snippet(
+    *,
+    public_url: str | None,
+    token_secret: str,
+    prefer_pypi: bool = True,
+) -> str:
+    """Hosted config first, then the optional stdio fallback.
+
+    Used by the token-create API. The Settings banner shows the two blocks
+    separately so the copy button copies the hosted URL only.
+    """
+    hosted = mcp_hosted_client_snippet(
+        public_url=public_url, token_secret=token_secret
+    )
+    local = mcp_stdio_client_snippet(
+        public_url=public_url,
+        token_secret=token_secret,
+        prefer_pypi=prefer_pypi,
+    )
+    return hosted + "\n# Local / air-gapped fallback (optional)\n" + local
 
 
 def normalize_allowed_cidrs(value: Iterable[str] | str | None) -> list[str]:
@@ -599,6 +804,12 @@ def api_meta_dict() -> dict:
             {"method": "POST", "path": "/api/v1/servers/{id}/jobs", "scope": "jobs", "summary": "Trigger job"},
             {"method": "GET", "path": "/api/v1/jobs", "scope": "read", "summary": "List jobs"},
             {"method": "GET", "path": "/api/v1/jobs/{id}", "scope": "read", "summary": "Job detail"},
+            {
+                "method": "POST",
+                "path": "/api/v1/maintenance/stale-data-cleanup",
+                "scope": "jobs",
+                "summary": "Queue stale data cleanup (not feature-restricted; not an MCP tool)",
+            },
             {"method": "GET", "path": "/api/v1/servers/{id}/files", "scope": "files", "summary": "List a jail-relative directory (fleet)"},
             {"method": "GET", "path": "/api/v1/servers/{id}/files/download", "scope": "files", "summary": "Download one file (fleet)"},
             {"method": "POST", "path": "/api/v1/servers/{id}/files", "scope": "files", "summary": "Upload one file (fleet)"},
@@ -611,5 +822,14 @@ def api_meta_dict() -> dict:
             "markdown": "/static is app assets; human API guide: docs/API.md in the repo",
             "openapi": "/openapi.json",
             "swagger_ui": "/docs",
+        },
+        "mcp": {
+            "path": MCP_HTTP_PATH,
+            "transport": "streamable-http",
+            "auth": "Authorization: Bearer ph_… (header only; not a query parameter)",
+            "summary": (
+                "Hosted MCP on this herder. Same scopes as /api/v1. "
+                "stdio uvx piherder-mcp remains an optional air-gapped client."
+            ),
         },
     }

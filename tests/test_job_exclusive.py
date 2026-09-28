@@ -116,7 +116,7 @@ def test_enqueue_os_update_check_returns_existing():
     pool.submit.assert_not_called()
 
 
-def test_cleanup_orphan_web_jobs_fails_os_patch_keeps_backup():
+def test_cleanup_orphan_web_jobs_keeps_os_patch_fails_retention():
     from datetime import datetime
 
     from sqlmodel import Session, SQLModel, create_engine, select
@@ -143,6 +143,13 @@ def test_cleanup_orphan_web_jobs_fails_os_patch_keeps_backup():
             started_at=datetime.utcnow(),
             details='{"current":"patching"}',
         )
+        web = Job(
+            server_id=srv.id,
+            job_type="retention",
+            status="running",
+            started_at=datetime.utcnow(),
+            details='{"current":"cleaning"}',
+        )
         bak = Job(
             server_id=srv.id,
             job_type="backup",
@@ -152,28 +159,30 @@ def test_cleanup_orphan_web_jobs_fails_os_patch_keeps_backup():
         nmap = Job(server_id=srv.id, job_type="nmap_discover", status="pending")
         s.add(patch)
         s.add(running)
+        s.add(web)
         s.add(bak)
         s.add(nmap)
         s.commit()
-        s.refresh(patch)
-        s.refresh(running)
+        s.refresh(web)
         audit = AuditLog(
             server_id=srv.id,
-            action="os_patch",
+            action="retention",
             status="running",
-            details=f"Job #{running.id} started",
+            details=f"Job #{web.id} started",
         )
         s.add(audit)
         s.commit()
         n = job_service.cleanup_orphan_web_jobs(s)
-        assert n == 2
+        assert n == 1
         s.refresh(patch)
         s.refresh(running)
+        s.refresh(web)
         s.refresh(bak)
         s.refresh(nmap)
         s.refresh(audit)
-        assert patch.status == "failed"
-        assert running.status == "failed"
+        assert patch.status == "pending"
+        assert running.status == "running"
+        assert web.status == "failed"
         assert bak.status == "running"
         assert nmap.status == "pending"
         assert audit.status == "failed"

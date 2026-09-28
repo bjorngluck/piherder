@@ -657,16 +657,7 @@ async def nmap_device_set_name(
         kind_override=kind_override,
         map_role=map_role,
         sync_network_gateway=True,
-    )
-    _audit(
-        session,
-        user,
-        "nmap_device_mapped",
-        details=(
-            f"device={device_id} name={(device.display_name or '')[:64]!r} "
-            f"kind={(device.kind_override or 'auto')!r} "
-            f"role={(device.map_role or '')!r}"
-        ),
+        user_id=user.id,
     )
     # Save and close: drop modal (or return to Hosts map)
     return _device_redirect(

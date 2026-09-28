@@ -1,4 +1,5 @@
 from app.services.os_patching import (
+    apt_failure_reason,
     normalize_os_patch_steps,
     summarize_os_patch_result,
     os_patch_succeeded,
@@ -26,6 +27,23 @@ def test_normalize_full_upgrade_only():
 
 def test_normalize_unknown_filtered():
     assert normalize_os_patch_steps(["update", "hack", "autoremove"]) == ["update", "autoremove"]
+
+
+def test_apt_rc100_summary_includes_error_line():
+    reason = apt_failure_reason(
+        [
+            "Reading package lists...",
+            "E: Held packages were not upgraded",
+            "E: Unable to correct problems, you have held broken packages.",
+        ]
+    )
+    assert "Held packages were not upgraded" in reason
+    summary = summarize_os_patch_result(
+        {"results": [{"step": "upgrade", "rc": 100, "reason": reason}]}
+    )
+    assert "rc=100" in summary
+    assert "E:" in summary
+    assert not os_patch_succeeded({"results": [{"step": "upgrade", "rc": 100, "reason": reason}]})
 
 
 def test_os_patch_succeeded():

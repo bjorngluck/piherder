@@ -86,6 +86,31 @@ def alert_policy_line(alert_policy_ui: Mapping[str, Any] | None = None) -> str:
     return f"{len(on)} on · {len(muted)} muted"
 
 
+def instance_line(
+    *,
+    name: str = "",
+    accent: str = "",
+    demo: bool = False,
+    locked: bool = False,
+    catalog_hidden: bool = False,
+) -> str:
+    if demo:
+        return "Official PiHerder"
+    bits = [name or "PiHerder"]
+    bits.append(accent or "official green")
+    bits.append("Catalog hidden" if catalog_hidden else "Catalog in nav")
+    if locked:
+        bits.append("env lock")
+    return " · ".join(bits)
+
+
+def jobs_wait_line(*, minutes: int = 30, env_locked: bool = False) -> str:
+    bits = [f"Host wait {int(minutes)} min"]
+    if env_locked:
+        bits.append("env lock")
+    return " · ".join(bits)
+
+
 def files_line(*, enabled: bool = False, max_h: str = "", env_locked: bool = False) -> str:
     if not enabled:
         return "Off (compose PIHERDER_HOST_FILES)"
@@ -104,12 +129,27 @@ def hub_context(
     files_enabled: bool = False,
     files_max_h: str = "",
     files_max_locked: bool = False,
+    jobs_wait_minutes: int = 30,
+    jobs_wait_locked: bool = False,
+    instance_name: str = "",
+    instance_accent: str = "",
+    instance_demo: bool = False,
+    instance_locked: bool = False,
+    catalog_hidden: bool = False,
 ) -> dict[str, str]:
     return {
+        "instance": instance_line(
+            name=instance_name,
+            accent=instance_accent,
+            demo=instance_demo,
+            locked=instance_locked,
+            catalog_hidden=catalog_hidden,
+        ),
         "security": security_line(cfg),
         "console": console_line(console_pol),
         "sso": sso_line(cfg),
         "cleanup": cleanup_line(data_cleanup),
         "alert_policy": alert_policy_line(alert_policy_ui),
         "files": files_line(enabled=files_enabled, max_h=files_max_h, env_locked=files_max_locked),
+        "jobs": jobs_wait_line(minutes=jobs_wait_minutes, env_locked=jobs_wait_locked),
     }

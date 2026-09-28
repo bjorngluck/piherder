@@ -170,6 +170,11 @@ async def settings_page(
                     if t.revoked_at
                     else None
                 )
+                d["expires_display"] = (
+                    app_cfg.format_datetime_in_app_tz(t.expires_at)
+                    if t.expires_at
+                    else None
+                )
                 api_token_rows.append(d)
         except Exception:
             api_token_rows = []
@@ -215,6 +220,8 @@ async def settings_page(
         qp.get("security_saved")
         or qp.get("console_saved")
         or qp.get("files_saved")
+        or qp.get("jobs_wait_saved")
+        or qp.get("instance_saved")
         or qp.get("data_cleanup_saved")
         or qp.get("data_cleanup_queued")
     ):
@@ -457,6 +464,16 @@ async def settings_page(
     console_pol = cons.effective_console_policy()
     files_max_bytes = hf.max_upload_bytes()
     files_max_locked = hf.files_max_env_locked()
+    from ..services.jobs_exclusive import host_wait_env_locked, host_wait_limit_sec
+
+    host_wait_sec = host_wait_limit_sec()
+    host_wait_minutes = max(1, int(round(host_wait_sec / 60)))
+    host_wait_locked = host_wait_env_locked()
+    from ..services.instance_brand import DEFAULT_ACCENT, effective_brand
+    from ..services.password_reset import configured_public_origin
+
+    brand = effective_brand()
+    public_url = configured_public_origin()
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -483,6 +500,26 @@ async def settings_page(
             "api_meta": api_meta,
             "new_api_token_secret": qp.get("token_secret"),
             "new_api_token_name": qp.get("token_name"),
+            "new_api_token_mcp_snippet": (
+                tok_svc.mcp_hosted_client_snippet(
+                    public_url=public_url,
+                    token_secret=qp.get("token_secret") or "",
+                )
+                if qp.get("token_secret")
+                and (qp.get("token_created") or qp.get("token_rotated"))
+                else None
+            ),
+            "new_api_token_mcp_local_snippet": (
+                tok_svc.mcp_stdio_client_snippet(
+                    public_url=public_url,
+                    token_secret=qp.get("token_secret") or "",
+                )
+                if qp.get("token_secret")
+                and (qp.get("token_created") or qp.get("token_rotated"))
+                else None
+            ),
+            "mcp_token_name_suggest": tok_svc.suggest_mcp_token_name(),
+            "public_url": public_url,
             "stack_report": stack_report,
             "stack_health_interval_min": STACK_HEALTH_INTERVAL_MIN,
             "settings_pulse": settings_pulse,
@@ -503,6 +540,10 @@ async def settings_page(
             "files_max_h": hf.human_size(files_max_bytes),
             "files_max_locked": files_max_locked,
             "files_max_ceiling_h": hf.human_size(hf.MAX_UPLOAD_CEILING),
+            "host_wait_minutes": host_wait_minutes,
+            "host_wait_locked": host_wait_locked,
+            "instance_brand": brand,
+            "instance_accent_value": brand.get("accent") or DEFAULT_ACCENT,
             "settings_hub": shub.hub_context(
                 cfg=cfg,
                 console_pol=console_pol,
@@ -511,6 +552,13 @@ async def settings_page(
                 files_enabled=hf.files_enabled(),
                 files_max_h=hf.human_size(files_max_bytes),
                 files_max_locked=files_max_locked,
+                jobs_wait_minutes=host_wait_minutes,
+                jobs_wait_locked=host_wait_locked,
+                instance_name=brand.get("name") or "",
+                instance_accent=brand.get("accent") or "",
+                instance_demo=bool(brand.get("demo")),
+                instance_locked=bool(brand.get("name_locked") or brand.get("accent_locked")),
+                catalog_hidden=bool(brand.get("catalog_hidden")),
             ),
         },
     )
@@ -676,6 +724,8 @@ async def create_api_token_form(
     scope_feature_os: Optional[str] = Form(None),
     scope_feature_docker: Optional[str] = Form(None),
     allowed_cidrs: Optional[str] = Form(None),
+    expires_preset: Optional[str] = Form("none"),
+    expires_at: Optional[str] = Form(None),
     session: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
@@ -700,12 +750,23 @@ async def create_api_token_form(
         scope_feature_docker,
     )
     try:
+        expires = tok_svc.resolve_expires_at(
+            expires_preset=expires_preset,
+            expires_at=expires_at,
+        )
+    except ValueError as e:
+        return RedirectResponse(
+            _settings_url("api", error=str(e)[:120], api_panel="tokens"),
+            status_code=303,
+        )
+    try:
         row, plain = tok_svc.create_api_token(
             session,
             name=name,
             created_by=user,
             scopes=scopes,
             allowed_cidrs=allowed_cidrs or None,
+            expires_at=expires,
         )
     except DemoBlocked as e:
         return RedirectResponse(
@@ -1322,6 +1383,113 @@ async def save_files_policy(
     )
 
 
+@router.post("/herder-backups/instance")
+async def save_instance_brand(
+    instance_name: str = Form(""),
+    instance_accent: str = Form(""),
+    show_catalog: Optional[str] = Form(None),
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    """Brand-1: instance wordmark and one accent. Demo and env locks do not save."""
+    from ..services.demo import http_403_if_demo
+    from ..services.instance_brand import (
+        accent_env_locked,
+        clean_instance_name,
+        name_env_locked,
+        normalize_accent,
+    )
+
+    http_403_if_demo("settings_instance")
+    partial: dict = {}
+    if not name_env_locked():
+        partial["instance_name"] = clean_instance_name(instance_name)
+    if not accent_env_locked():
+        try:
+            partial["instance_accent"] = normalize_accent(instance_accent)
+        except ValueError as e:
+            return RedirectResponse(
+                _settings_url("general", error=str(e)[:120]), status_code=303
+            )
+    partial["catalog_nav_hidden"] = (show_catalog or "").strip().lower() not in (
+        "1",
+        "on",
+        "true",
+        "yes",
+    )
+    if not partial:
+        return RedirectResponse(
+            _settings_url("general", instance_saved="1"), status_code=303
+        )
+    try:
+        app_cfg.save_settings(partial)
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("general", error=str(e)[:120]), status_code=303
+        )
+    session.add(
+        make_audit_log(
+            user_id=user.id,
+            action="instance_brand_changed",
+            status="success",
+            details=(
+                f"name={partial.get('instance_name', '(locked)')} "
+                f"accent={partial.get('instance_accent', '(locked)') or 'official'}"
+            )[:240],
+            finished_at=datetime.utcnow(),
+        )
+    )
+    session.commit()
+    return RedirectResponse(
+        _settings_url("general", instance_saved="1"), status_code=303
+    )
+
+
+@router.post("/herder-backups/jobs-wait")
+async def save_jobs_wait(
+    host_wait_minutes: str = Form("30"),
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    """Jr-2: how long a patch/stack/template job stays pending while SSH fails."""
+    from ..services.demo import http_403_if_demo
+    from ..services.jobs_exclusive import clamp_host_wait_sec, host_wait_env_locked, host_wait_limit_sec
+
+    http_403_if_demo("settings_jobs")
+    if host_wait_env_locked():
+        return RedirectResponse(
+            _settings_url("general", jobs_wait_saved="1"), status_code=303
+        )
+    try:
+        minutes = int(str(host_wait_minutes).strip() or "30")
+    except (TypeError, ValueError):
+        minutes = 30
+    minutes = max(1, min(minutes, 1440))
+    seconds = clamp_host_wait_sec(minutes * 60)
+    before = host_wait_limit_sec()
+    try:
+        app_cfg.save_settings({"exclusive_host_wait_sec": seconds})
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("general", error=str(e)[:120]), status_code=303
+        )
+    after = host_wait_limit_sec()
+    if after != before:
+        session.add(
+            make_audit_log(
+                user_id=user.id,
+                action="jobs_wait_changed",
+                status="success",
+                details=f"host wait {before}s → {after}s",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        session.commit()
+    return RedirectResponse(
+        _settings_url("general", jobs_wait_saved="1"), status_code=303
+    )
+
+
 @router.post("/herder-backups/oidc")
 async def save_oidc_settings(
     oidc_enabled: Optional[str] = Form(None),
@@ -1721,21 +1889,9 @@ async def run_data_cleanup_now(
     http_403_if_demo("settings_write")
     is_dry = dry_run in ("1", "on", "true", "yes")
     try:
-        job = sdc.enqueue_stale_data_cleanup(
+        sdc.enqueue_stale_data_cleanup(
             session, user_id=user.id, dry_run=is_dry
         )
-        session.add(
-            make_audit_log(
-                user_id=user.id,
-                server_id=None,
-                action="stale_data_cleanup_queued",
-                status="success",
-                details=f"job={job.id} dry_run={is_dry}",
-                started_at=datetime.utcnow(),
-                finished_at=datetime.utcnow(),
-            )
-        )
-        session.commit()
     except Exception as e:
         return RedirectResponse(
             _settings_url("general", error=str(e)[:160]), status_code=303

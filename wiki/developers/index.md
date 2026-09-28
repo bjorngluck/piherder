@@ -16,6 +16,7 @@ Operators need “what / why / how on a running instance.” Developers need set
 | Architecture | [architecture](architecture.md) |
 | Template schema | [templates-schema](templates-schema.md) |
 | Testing | [testing](testing.md) |
+| Agents (MCP) | [operations/mcp](../operations/mcp.md) — separate repo; not this image |
 | Publish image | [publish-image](publish-image.md) |
 | Wiki, screenshots, **doc versioning & 1.0** | [contributing-docs](contributing-docs.md) |
 

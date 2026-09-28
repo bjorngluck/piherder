@@ -49,15 +49,24 @@ def test_cleanup_orphan_web_jobs_keeps_running_move():
             status="running",
             details="{}",
         )
+        web = Job(
+            server_id=srv.id,
+            job_type="retention",
+            status="running",
+            details="{}",
+        )
         s.add(mig)
         s.add(patch)
+        s.add(web)
         s.commit()
         n = job_service.cleanup_orphan_web_jobs(s)
         s.refresh(mig)
         s.refresh(patch)
+        s.refresh(web)
         assert n == 1
         assert mig.status == "running"
-        assert patch.status == "failed"
+        assert patch.status == "running"
+        assert web.status == "failed"
 
 
 def test_service_migrate_task_retries_when_dual_lock_busy():

@@ -15,18 +15,18 @@ docker compose run --rm --no-deps \
 pip install --require-hashes -r requirements.lock.txt
 pip install --no-deps -e .
 pytest -q
-# Coverage (v1.6 Must ≥75%)
+# Coverage (v1.7 CI floor ≥80%; v1.6 floor was 75)
 pip install pytest-cov
-pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=75
+pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=80
 ```
 
 Unit tests live under `tests/` — no live SSH required for the main suite. Default `pytest` only collects `tests/` (not `e2e/`).
 
 | Bar | Value |
 |-----|--------|
-| **Suite freeze target** | **≥ 75%** line on `app` (v1.6 Must; 1.5 freeze ~70.6%) |
-| **CI fail-under** | **75** (compose suite **75.04%**, 35893/47833) |
-| **1.x end goal** | **80%** — step fail-under in later 1.x minors (~5pp per quality-leaning train). |
+| **Suite freeze target** | **≥ 80%** line on `app` (v1.7 Should; v1.6 floor was 75) |
+| **CI fail-under** | **80** (compose suite **81.01%**, 39638/48927 — about one point of headroom) |
+| **1.x end goal** | **80%** line on `app`, now the CI floor. |
 | **v1.0 production** | Authz matrix + input validation + credential recovery tests; no 100% target; prefer service tests over router % |
 
 ### v1.0 production-hardening packs

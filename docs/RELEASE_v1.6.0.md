@@ -76,7 +76,7 @@ Alembic **043** (console mux flag), **044** (host facts), and **045** (CPU / mem
 | Mux | Needs `tmux` or `screen` already installed. Leftover sessions after you delete a host are cleaned on the Pi, not in the UI. |
 | CSP | `onclick` is still allowed. The public demo does not enforce the policy. |
 | Undo | Fail-path only. Stop failure leaves names on dest. Recycle **celery-worker** mid-undo fails that undo. |
-| Not this release | Branding, finer grants, remaining jobs on Celery, a read-only MCP adapter (v1.7 inbox). Move stays off by default. |
+| Not this release | Branding, finer grants, remaining jobs on Celery, the MCP adapter (v1.7, separate repo). Move stays off by default. |
 
 ---
 

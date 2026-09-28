@@ -12,6 +12,9 @@ celery = Celery(
 # so a killed worker redelivers. Per-server mutex in app.tasks.backup_server.
 # service_migrate uses the same backup mutex on both hosts; a redelivered
 # running Move is failed (not re-run) — see app.tasks.service_migrate.
+# exclusive_job (patch, checks, stack, templates) uses this default queue and
+# does not take that mutex. A redelivered running job fails; a pending host-wait
+# redelivers. nmap stays on -Q nmap.
 celery.conf.update(
     task_serializer="json",
     accept_content=["json"],

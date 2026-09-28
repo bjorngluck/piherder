@@ -16,7 +16,7 @@ Backups and self-backup are only as durable as the disk under these paths. Celer
 | `${PIHERDER_NMAP_VULN_PATH:-./piherder_nmap_vuln}` | `/var/lib/piherder/nmap-vuln` | Opt-in **vuln pack** (web **:ro**, nmap worker **rw**) — [LAN Discovery](../integrations/lan-discovery.md) | **No** |
 | `./certs` | `/certs` (Caddy, ro) | Edge `fullchain.pem` + `privkey.pem` for **this** UI | **No** (fleet cert vault PEMs are in self-backup DB) |
 
-**DR takeaway:** Losing the herder disk without off-box copies means: self-backup archives gone, fleet rsync trees gone, edge PEMs gone — even if you still know the master key. Store Scenario C offline — [Self-backup & DR](self-backup.md#honest-dr-what-fully-functional-means).
+**DR takeaway:** Losing the herder disk without off-box copies means: self-backup archives gone, fleet rsync trees gone, edge PEMs gone — even if you still know the master key. Store Scenario C offline — [Self-backup & DR](self-backup.md#honest-dr-scenarios-v120).
 
 Secondary disk example:
 

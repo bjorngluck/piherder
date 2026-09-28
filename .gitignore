@@ -3,6 +3,7 @@ __pycache__/
 .coverage
 coverage.xml
 coverage.json
+.cov-*.json
 htmlcov/
 *.py[cod]
 *$py.class
