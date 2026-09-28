@@ -907,7 +907,7 @@ Set `METRICS_TOKEN` whenever `/metrics` is not on a fully private network. Serie
 
 ### Image publish (when ready)
 
-Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`1.6.0` / `1.6` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v1.6.0** — [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md). Active train: [PLAN_v1.7.0.md](PLAN_v1.7.0.md) on `v1.7.0-dev` (package stays `1.6.0` until freeze). Hosted MCP is `POST /mcp` on **web**. stdio `uvx` is the air-gapped fallback, not a second Compose service.
+Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`1.6.0` / `1.6` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v1.6.0** — [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md). Active train: [PLAN_v1.7.0.md](PLAN_v1.7.0.md) on `v1.7.0-dev`, **code freeze** 2026-09-28 ([RELEASE_v1.7.0.md](RELEASE_v1.7.0.md); package stays `1.6.0` until the bump). Hosted MCP is `POST /mcp` on **web**. stdio `uvx` is the air-gapped fallback, not a second Compose service.
 
 **Supported deploy path:** Docker Compose (this repo). Platform reliability (host dependency checks, Settings → **Status**, multi-worker Celery) is live — see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 0.5. Kubernetes and bare/local install are under consideration only, not supported install paths today.
 

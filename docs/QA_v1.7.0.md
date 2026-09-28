@@ -1,11 +1,11 @@
 # PiHerder v1.7.0 — operator QA / sign-off
 
 **Branch:** `v1.7.0-dev` → `main` · tag **`v1.7.0`** (cut after merge)  
-**Code freeze:** *open*  
-**Package:** **`1.6.0`** until freeze  
-**Operator QA:** **MCP-1**, **Jr-1**, **Jr-2**, **HA-cards**, **Brand-1**, **Brand-2**, **Audit pulse**, and **1.6 regression** signed 2026-09-27. Screenshot pack and freeze gates stay empty. **v1.8.0** is the Home Assistant release: richer cards and stats. The 24-hour chart on the 0.3.0 cards does not draw; that stays a known issue for v1.8.0.  
-**Docs alignment:** **done** 2026-09-26 (architecture, SPEC, ADMIN, SECURITY, wiki). Not a substitute for the live walk  
-**Screenshots:** listed in [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v170--pack-status). **Not captured**  
+**Code freeze:** **set** 2026-09-28. No new features on this branch. Package bump, merge, tag, and Hub stay a separate ask.  
+**Package:** **`1.6.0`** until the bump is asked  
+**Operator QA:** **MCP-1**, **Jr-1**, **Jr-2**, **HA-cards**, **Brand-1**, **Brand-2**, **Audit pulse**, **1.6 regression**, and the screenshot pack signed. **v1.8.0** is the Home Assistant release: richer cards and stats. The 24-hour chart on the 0.3.0 cards does not draw; that stays a known issue for v1.8.0.  
+**Docs alignment:** **done** 2026-09-28 (release notes, wiki figures, freeze).  
+**Screenshots:** [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v170--pack-status). **Captured** 2026-09-28  
 **Pull request:** draft. Do not undraft, merge, tag, or publish until asked
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki. Walk the operator pages while ticking boxes.
@@ -213,20 +213,20 @@ Checked against [architecture](../wiki/developers/architecture.md), [SECURITY.md
 - [x] Queued and running `backup` phase rows are hidden by **Hide incomplete runs** and are not in the active pulse  
 - [x] An OS patch that fails on apt shows the `E:` reason on the job summary when apt printed one  
 
-## Screenshots — v1.7 pack
+## Screenshots — v1.7 pack (captured 2026-09-28)
 
-Not captured. List and sequence: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v170--pack-status). Tick a row only after the PNG is in `wiki/assets/screenshots/` and the wiki page has a `![…]`. Then `mkdocs build --strict`.
+List: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v170--pack-status). Each PNG is in `wiki/assets/screenshots/` and the wiki page has a `![…]`.
 
-- [ ] `settings-instance.png`  
-- [ ] `settings-jobs-wait.png`  
-- [ ] `header-instance-name.png`  
-- [ ] `nav-catalog-hidden.png` (phone)  
-- [ ] `settings-hub.png` replaced so Instance and Jobs are on the hub  
-- [ ] `ha-host-card.png`  
-- [ ] `ha-updates-card.png`  
-- [ ] `ha-resources-card.png`  
-- [ ] `ha-fleet-sensors.png` recaptured only if it still says plugin **0.2.4**  
-- [ ] 1.6 mux, Move, System Info, and fleet-card PNGs left in place  
+- [x] `settings-instance.png`  
+- [x] `settings-jobs-wait.png`  
+- [x] `header-instance-name.png`  
+- [x] `nav-catalog-hidden.png` (phone)  
+- [x] `settings-hub.png` replaced so Instance and Jobs are on the hub  
+- [x] `ha-host-card.png`  
+- [x] `ha-updates-card.png`  
+- [x] `ha-resources-card.png`  
+- [x] `ha-fleet-sensors.png` recaptured only if it still says plugin **0.2.4**  
+- [x] 1.6 mux, Move, System Info, and fleet-card PNGs left in place  
 
 ## 1.6 regression (signed 2026-09-27)
 
@@ -240,9 +240,9 @@ Not captured. List and sequence: [wiki/assets/screenshots/README.md](../wiki/ass
 
 ## Freeze gates
 
-Leave these empty. The draft pull request is the review vehicle, not a merge.
+Code freeze is set. The draft pull request stays the review vehicle. Do not undraft, merge, tag, or publish until asked. Do not bump the package until asked.
 
-- [ ] `mkdocs build --strict`  
-- [ ] [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) drafted  
+- [x] `mkdocs build --strict`  
+- [x] [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) drafted  
 - [ ] Package bumped to **1.7.0** only when asked  
 - [ ] Draft PR undrafted, merged, tagged, and Hub-published only when asked  

@@ -65,7 +65,7 @@ Timezone stays on the page (hero clock). **Security policy**, **Console**, **Fil
 
 <figure class="ph-figure" markdown>
   ![Settings General hub](../assets/screenshots/settings-hub.png)
-  <figcaption>Settings → General — timezone plus summary cards. Instance and Jobs are on this hub; the screenshot is the earlier card set.</figcaption>
+  <figcaption>Settings → General — timezone plus the summary cards, including Instance and Jobs.</figcaption>
 </figure>
 
 **Alerts → Alert policy** uses the same pattern (summary + Edit modal). Webhook and SMTP stay on the Alerts tab.
@@ -151,6 +151,11 @@ Admin-only. A name in the header and the home-screen title, one accent, and **Sh
 ### General tab — Jobs
 
 Admin-only. **Max wait for the host** is in minutes (1–1440, default 30). That is how long a patch, check, stack, or template job stays **pending** while SSH to that host fails. The worker probes every 30 seconds and resumes only when the probe works. Uptime Kuma or a `last_seen` older than 15 minutes can label the row **waiting on host**. Those labels do not start the job and do not fail it. `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` locks the field when set (seconds, 30–86400). The worker reads the saved value on the next probe, so you do not recreate **celery-worker** after a Settings save. See [Multi-worker](multi-worker.md) · [Jobs](../day-to-day/jobs-audit-notifications.md).
+
+<figure class="ph-figure" markdown>
+  ![Host wait in Settings](../assets/screenshots/settings-jobs-wait.png)
+  <figcaption>Settings → General → Jobs — max wait in minutes. The default is 30.</figcaption>
+</figure>
 
 ## Common tasks
 

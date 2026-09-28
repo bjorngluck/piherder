@@ -22,7 +22,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.4.0** | **Tagged** — pack **landed 2026-09-06**. Maintainer QA: [QA_v1.4.0.md](../../../docs/QA_v1.4.0.md). Theme: [Move a service](../../docker/service-migration.md) · [RELEASE](../../../docs/RELEASE_v1.4.0.md) |
 | **v1.5.0** | **Tagged** 2026-09-18 — reuse Move JobHold pack; Reports pin/hide + Move jobs card recapture if chrome drifted. [RELEASE](../../../docs/RELEASE_v1.5.0.md) · [QA](../../../docs/QA_v1.5.0.md) |
 | **v1.6.0** | **Captured** 2026-09-25 and wired into the wiki. [§ v1.6](#v160--pack-status). [RELEASE](../../../docs/RELEASE_v1.6.0.md) · [QA](../../../docs/QA_v1.6.0.md) |
-| **v1.7.0** | **Not captured.** Capture during the operator walk on `v1.7.0-dev`. About / footer still **1.6.0**. [§ v1.7](#v170--pack-status). [QA](../../../docs/QA_v1.7.0.md) |
+| **v1.7.0** | **Captured** 2026-09-28 on `v1.7.0-dev`. About / footer still **1.6.0** (code freeze, package not bumped). [§ v1.7](#v170--pack-status). [QA](../../../docs/QA_v1.7.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
@@ -37,7 +37,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 
 ## v1.7.0 — pack status {#v170--pack-status}
 
-**Not captured.** Take these while walking [QA_v1.7.0.md](../../../docs/QA_v1.7.0.md). Light theme, desktop width, plus one phone frame for the nav hide. Mask tokens. No PEMs, backup codes, or SMTP passwords. Do not point the Home Assistant plugin at the public demo.
+**Captured** 2026-09-28. Figures are on [Appearance](../../getting-started/appearance.md), [Settings](../../operations/settings.md), and [Home Assistant](../../integrations/home-assistant.md). Light theme, desktop width, plus one phone frame for the nav hide. Mask tokens. No PEMs, backup codes, or SMTP passwords. Do not point the Home Assistant plugin at the public demo.
 
 1.6 PNGs stay unless a row says replace. Wire a `![…]` only after the file is in this directory.
 
