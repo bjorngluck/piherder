@@ -56,15 +56,16 @@ Wiki: [Home Assistant](https://piherder-docs.hacknow.info/integrations/home-assi
 
 ## Fixed
 
-These were open GitHub issues. The fixes are on this branch. The issues stay open until the version pull request merges.
+All six v1.7 bug issues are fixed on this branch. Each GitHub issue is still **open**. They close when the version pull request merges. None of these fixes are on `main` yet.
 
 | Issue | What you see now |
 |--|--|
+| [#8](https://github.com/bjorngluck/piherder/issues/8) | Daily stale-data cleanup can delete old nmap scan runs. It clears each device’s last-run pointer, the script rows, and the run’s job link first, so that delete no longer dies on the foreign key. |
+| [#9](https://github.com/bjorngluck/piherder/issues/9) | An OS patch that fails in apt still fails. The job summary can include the apt `E:` lines, so the reason is not only `rc=100`. |
 | [#10](https://github.com/bjorngluck/piherder/issues/10) | Queued and running backup phase rows no longer fill the Audit “running” pulse. **Hide incomplete runs** still hides them. A finished backup stays in the feed. |
-| [#9](https://github.com/bjorngluck/piherder/issues/9) | An OS patch that fails in apt still fails, and the job summary can include the apt `E:` lines so the reason is not only `rc=100`. |
+| [#11](https://github.com/bjorngluck/piherder/issues/11) | API writes record the token that did them: feature changes, job triggers, Files writes, and stale cleanup. The audit row stores the token id and name. |
+| [#12](https://github.com/bjorngluck/piherder/issues/12) | Saving a LAN device’s name, type, or map role writes the audit event inside that save, not only on the page that calls it. There is still no bearer route for renaming a LAN device. |
 | [#16](https://github.com/bjorngluck/piherder/issues/16) | Registering the first admin writes a `user_registered` audit event, not only the later login. |
-
-Still open, and not part of this release: [#8](https://github.com/bjorngluck/piherder/issues/8) daily stale-data cleanup hitting a nmap foreign key, [#11](https://github.com/bjorngluck/piherder/issues/11) auditing API writes, [#12](https://github.com/bjorngluck/piherder/issues/12) LAN device rename audit on the API path.
 
 ---
 
