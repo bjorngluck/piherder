@@ -114,7 +114,7 @@ Hosted path stays `POST /mcp` on this herder. The stdio adapter in [bjorngluck/p
 3. Stack and template calls may pass the body fields that POST already takes (`source_filter` for the compose project). Do not invent new fields.
 4. `host_reboot` keeps today’s **409** while an OS patch, a container patch, or a backup is active, and the reverse.
 5. On **409** the agent polls `get_job` and does not fire again. `trigger_job` stays `destructiveHint`.
-6. Operator page [wiki/operations/mcp.md](../wiki/operations/mcp.md) lists the wider set. The stdio adapter in piherder-mcp uses the same allowlist.
+6. Operator page [wiki/operations/mcp.md](../wiki/operations/mcp.md) lists the wider set. The stdio adapter is [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.2.0** (tag `v0.2.0` to publish; `uvx` stays on **0.1.1** until PyPI has 0.2.0).
 
 ---
 
@@ -235,6 +235,7 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 | 2026-09-28 | Train opened from `main` after **v1.7.0** shipped. First theme was the visual pass and the 24-hour chart. Package stays `1.7.0`. |
 | 2026-09-28 | **Lock retune.** **MCP-jobs** is Must and first. **Bak-alt discovery** is Must (Google Drive lean; OneDrive and LAN NAS/SMB named for later). **Google Drive** is the one Should destination. **HA-vis** stays Must, after those two. HA bus, Mux-2, Undo-2, and Jr-web are Should. AC-fg stays parked. |
 | 2026-09-28 | **MCP-jobs landed.** `trigger_job` matches the jobs POST list on hosted `/mcp` and the stdio adapter. `service_migrate`, undo, nmap, `docker_stack_down`, `docker_stack_remove`, and `template_drift_check` stay refused. |
+| 2026-09-28 | Adapter package set to **0.2.0** in [piherder-mcp](https://github.com/bjorngluck/piherder-mcp). Tag `v0.2.0` publishes it. `uvx` stays on **0.1.1** until then. |
 
 ---
 
