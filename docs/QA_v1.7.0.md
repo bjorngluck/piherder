@@ -112,7 +112,7 @@ Web should log `Enqueued <type> job #<id> … on the default Celery queue`. The 
 
 ### Worker on the job row
 
-Open **Jobs** (`/jobs`) after a worker has picked a job up. The row and the detail modal show the Celery nodename (`celery@…` on the default worker, `nmap@…` on `celery-worker-nmap`). JobHold’s status line includes the same name. A row that is still queued and not picked up says **not claimed**. Two worker containers must not show the same nodename. `retention`, herder backup, and host-facts say **web**. Older rows from before Alembic **046** stay **—**.
+Open **Jobs** (`/jobs`) after a worker has picked a job up. The row and the detail modal show the Celery nodename (`celery@…` on the default worker, `nmap@…` on `celery-worker-nmap`). JobHold’s status line includes the same name. A row that is still queued and not picked up says **not claimed**. Two worker containers must not show the same nodename. `retention`, herder backup, host-facts, and a demo simulation say **web** (including while the demo row is still running). Older rows from before Alembic **046** stay **—**.
 
 - [ ] Worker shown on job row. Start an OS check or backup, then open **Jobs** while it is pending or running. The row names the worker that claimed it (not **not claimed**). Detail and JobHold show the same name. With two workers, the names differ. A brand-new job that no worker has taken yet says **not claimed**
 

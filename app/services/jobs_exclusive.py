@@ -199,7 +199,10 @@ def handoff_exclusive(
         if demo_mode():
             with js._get_fresh_session() as session:
                 job = session.get(js.Job, job_id)
-                if job and job.status == "pending":
+                if job and job.status == "running":
+                    js._start_demo_job(session, job)
+                elif job and job.status == "pending":
+                    js._start_demo_job(session, job)
                     js._finish_demo_job(session, job)
             return
         _enqueue_celery(job_id, server_id, audit_id, job_type, body)
@@ -304,7 +307,10 @@ def run_exclusive_job(task, job_id: int, server_id: int, audit_id: int, job_type
         if demo_mode():
             with js._get_fresh_session() as session:
                 job = session.get(js.Job, job_id)
-                if job and job.status == "pending":
+                if job and job.status == "running":
+                    js._start_demo_job(session, job)
+                elif job and job.status == "pending":
+                    js._start_demo_job(session, job)
                     js._finish_demo_job(session, job)
             return {"status": "demo", "job_id": job_id}
 

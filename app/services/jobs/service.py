@@ -863,6 +863,7 @@ def create_job_and_run(
     from ..demo import demo_mode
 
     if demo_mode():
+        _start_demo_job(session, job)
         return _finish_demo_job(
             session,
             job,
@@ -1113,6 +1114,7 @@ def enqueue_backup_for_server(
     from ..demo import demo_mode
 
     if demo_mode():
+        _start_demo_job(session, job)
         return _finish_demo_job(
             session,
             job,
@@ -1166,6 +1168,26 @@ def enqueue_backup_for_server(
     return job
 
 
+def _start_demo_job(session: Session, job: Job) -> Job:
+    """Demo simulation is executing. Stamp ``web`` while the row is running.
+
+    ``overwrite=False`` so a Celery nodename already on the row is kept.
+    Terminal rows are left alone.
+    """
+    from ..job_worker import WEB_WORKER_NAME, stamp_job_worker
+
+    if not job or (job.status or "") in ("success", "failed", "cancelled"):
+        return job
+    if job.status != "running":
+        job.status = "running"
+        if job.started_at is None:
+            job.started_at = datetime.utcnow()
+    stamp_job_worker(job, WEB_WORKER_NAME, overwrite=False)
+    session.add(job)
+    session.commit()
+    return job
+
+
 def _finish_demo_job(
     session: Session,
     job: Job,
@@ -1176,6 +1198,7 @@ def _finish_demo_job(
     source_filter: str | None = None,
 ) -> Job:
     """Mark job success with demo simulation (no outbound side effects)."""
+    _start_demo_job(session, job)
     msg = "Demo simulation — no live host action"
     details: dict = {}
     if job.details:

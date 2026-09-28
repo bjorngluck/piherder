@@ -47,17 +47,20 @@ def stamp_job_worker(job, name, *, overwrite: bool = True) -> bool:
 
 
 def remember_celery_worker(job, request) -> bool:
-    """Record the worker holding a job that is not yet running.
+    """Record the worker holding this job.
 
     Pending claims (including lock wait and SSH wait) update the name so a
     later worker that picks the same row replaces the previous one. A job
-    already ``running`` keeps the name from the claim that started it.
+    already ``running`` keeps a name that was set. If that name is still
+    blank, the current worker fills it once and later redeliveries do not
+    replace it.
     """
     if job is None:
         return False
+    name = hostname_from_celery_request(request)
     if (getattr(job, "status", None) or "") == "running":
-        return False
-    return stamp_job_worker(job, hostname_from_celery_request(request), overwrite=True)
+        return stamp_job_worker(job, name, overwrite=False)
+    return stamp_job_worker(job, name, overwrite=True)
 
 
 def job_worker_label(job) -> str | None:

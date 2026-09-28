@@ -983,6 +983,9 @@ document.addEventListener('DOMContentLoaded', function() {
     'diagnostics': 'Diagnostics',
     'herder_backup': 'Self-backup'
   } %}
+  {% macro job_worker(j) -%}
+  <span class="font-mono"{% if j.worker_hostname %} title="{{ j.worker_hostname }}"{% endif %}>{{ job_worker_label(j) or '—' }}</span>
+  {%- endmacro %}
   {% if active_jobs %}
   <div class="mb-3 space-y-2">
     {% for j in active_jobs %}
@@ -995,9 +998,7 @@ document.addEventListener('DOMContentLoaded', function() {
       {% if j.started_at or j.created_at %}
       <div class="text-[10px] text-muted mt-1">{{ (j.started_at or j.created_at) | app_tz }}</div>
       {% endif %}
-      <div class="text-[10px] text-muted mt-1">Worker:
-        {% if j.worker_hostname %}<span class="font-mono" title="{{ j.worker_hostname }}">{{ j.worker_hostname }}</span>{% elif j.status == 'pending' %}not claimed{% else %}—{% endif %}
-      </div>
+      <div class="text-[10px] text-muted mt-1">Worker: {{ job_worker(j) }}</div>
     </div>
     {% endfor %}
   </div>
@@ -1015,8 +1016,7 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
       <div class="text-[10px] text-muted mt-1">
         {{ (j.finished_at or j.started_at or j.created_at) | app_tz }}
-        · Worker:
-        {% if j.worker_hostname %}<span class="font-mono" title="{{ j.worker_hostname }}">{{ j.worker_hostname }}</span>{% elif j.status == 'pending' %}not claimed{% else %}—{% endif %}
+        · Worker: {{ job_worker(j) }}
       </div>
       {% if jd.summary or jd.current %}
       <div class="text-xs text-muted mt-1 break-words">{{ jd.summary or jd.current }}</div>
