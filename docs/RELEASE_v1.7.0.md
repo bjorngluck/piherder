@@ -1,12 +1,12 @@
 # PiHerder v1.7.0
 
-**28 September 2026.** Code freeze on `v1.7.0-dev`. The package and the Hub image stay **1.6.0** until the version bump, tag, and publish.
+**28 September 2026.** Tag **[v1.7.0](https://github.com/bjorngluck/piherder/releases/tag/v1.7.0)**. Package **1.7.0**.
 
 An agent can talk to this herder over `POST /mcp`. Patch, check, stack, and template jobs run on the Celery worker, and a down host waits instead of failing on the first refused connection. You can name the instance, pick one accent, and hide Catalog in the nav. Home Assistant plugin **0.3.0** adds a host card, an updates card, a resources card, and confirm actions, including restart.
 
-**Image:** not published yet. When it ships, [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.7.0` · `1.7` · `latest` (amd64 + arm64). Pins `1.6.0` / `1.6` stay valid until then.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.7.0` · `1.7` · `latest` (amd64 + arm64). Pins `1.6.0` / `1.6` stay valid.
 
-Operator how-to: [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/) · [Settings](https://piherder-docs.hacknow.info/operations/settings/) · [Appearance](https://piherder-docs.hacknow.info/getting-started/appearance/) · [Home Assistant](https://piherder-docs.hacknow.info/integrations/home-assistant/) · [Jobs](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/). Those public pages update when this branch merges to `main`. Technical record: [PLAN_v1.7.0](https://github.com/bjorngluck/piherder/blob/v1.7.0-dev/docs/PLAN_v1.7.0.md). Maintainer QA: [QA_v1.7.0](https://github.com/bjorngluck/piherder/blob/v1.7.0-dev/docs/QA_v1.7.0.md).
+Operator how-to: [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/) · [Settings](https://piherder-docs.hacknow.info/operations/settings/) · [Appearance](https://piherder-docs.hacknow.info/getting-started/appearance/) · [Home Assistant](https://piherder-docs.hacknow.info/integrations/home-assistant/) · [Jobs](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/). Technical record: [PLAN_v1.7.0](https://github.com/bjorngluck/piherder/blob/v1.7.0/docs/PLAN_v1.7.0.md). Maintainer QA: [QA_v1.7.0](https://github.com/bjorngluck/piherder/blob/v1.7.0/docs/QA_v1.7.0.md).
 
 ---
 
@@ -87,7 +87,7 @@ All six v1.7 bug issues are fixed on this branch. Each GitHub issue is still **o
 
 ## Upgrade from 1.6
 
-Do this after the `v1.7.0` tag exists. It does not exist at freeze.
+Tag **v1.7.0**. Image tags `1.7.0`, `1.7`, and `latest`.
 
 Alembic **046** (worker name on the job row) runs when **web** starts. The instance name, accent, and Catalog hide are settings, not a migration.
 
