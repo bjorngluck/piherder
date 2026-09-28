@@ -114,11 +114,26 @@ server_id: 1
 
 Leave `server_id` off the updates and resources cards for the whole fleet. Set it to show one host.
 
-The **host** card shows gauges, 24-hour sparklines, and links into PiHerder. Confirm buttons: Backup, Retention, Check OS, Check containers, Patch OS, Patch containers, Restart host. Restart names the host and reboots the machine. It will not start while an OS patch, a container patch, or a backup is already running. Below the buttons, three toggles (backup, OS patch, Docker). Turning one off asks first.
+The **host** card shows gauges and links into PiHerder. Confirm buttons: Backup, Retention, Check OS, Check containers, Patch OS, Patch containers, Restart host. Restart names the host and reboots the machine. It will not start while an OS patch, a container patch, or a backup is already running. Below the buttons, three toggles (backup, OS patch, Docker). Turning one off asks first. The 24-hour sparkline on this card does not draw in 0.3.0. Richer cards are the next release.
+
+<figure class="ph-figure" markdown>
+  ![Host card](../assets/screenshots/ha-host-card.png)
+  <figcaption>Host card on plugin 0.3.0 — one server, gauges, and confirm actions. The 24-hour sparkline does not draw yet.</figcaption>
+</figure>
 
 The **updates** card shows OS and container counts and reboot pending, plus the check and patch confirms.
 
-The **resources** card draws memory %, disk %, and CPU load. Those lines are Home Assistant history of the snapshot sensors. They step about every 15 minutes, when PiHerder stores System Info. They are not a live chart.
+<figure class="ph-figure" markdown>
+  ![Updates card](../assets/screenshots/ha-updates-card.png)
+  <figcaption>Updates card — OS and container counts from the stored snapshot, plus reboot pending.</figcaption>
+</figure>
+
+The **resources** card is for memory %, disk %, and CPU load over 24 hours. That series does not draw in 0.3.0. When it does, the points are Home Assistant history of the snapshot sensors, about every 15 minutes, not a live SSH chart.
+
+<figure class="ph-figure" markdown>
+  ![Resources card](../assets/screenshots/ha-resources-card.png)
+  <figcaption>Resources card on plugin 0.3.0. The 24-hour lines are a known gap for the next release.</figcaption>
+</figure>
 
 A token with only `read` keeps the fleet card and the sensors and shows no buttons. `jobs` shows the confirms. `edit` shows the toggles. `feature:os` is required for patch, OS check, and restart. `feature:backup` for backup and retention. `feature:docker` for container check and patch. The host’s own feature flag must be on as well.
 

@@ -66,6 +66,21 @@ Toggle theme swaps the image `src` in the browser. Asset inventory: [`app/static
 
 When `PIHERDER_INSTANCE_NAME` or `PIHERDER_ACCENT` is set and non-blank, that field is locked. Recreate **web** after changing either variable. The Catalog checkbox can still be saved while a name or accent is locked. Demo mode disables the whole card.
 
+<figure class="ph-figure" markdown>
+  ![Instance name, accent, and Catalog](../assets/screenshots/settings-instance.png)
+  <figcaption>Settings → General → Instance — a name, one accent, and Show Catalog in the navigation. There is no logo upload.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Header with an instance name](../assets/screenshots/header-instance-name.png)
+  <figcaption>A short instance name in the header. The official mark stays, and the red buttons stay red.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Catalog hidden on a phone](../assets/screenshots/nav-catalog-hidden.png)
+  <figcaption>With Catalog hidden, the phone menu no longer lists it. Opening /catalog directly still loads the page.</figcaption>
+</figure>
+
 Live docs URL (custom domain only): **[piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)**. Example hostnames in guides use **`*.example.com`**.
 
 ### About & updates

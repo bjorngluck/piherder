@@ -3,7 +3,7 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** Historical phase checklist (v1.0 era). **Hub production:** [v1.6.0](docs/RELEASE_v1.6.0.md) · [PLAN](docs/PLAN_v1.6.0.md). Active train: [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md) on `v1.7.0-dev` (MCP-1 0.1.0, Jr-1, Jr-2, Brand-1, Brand-2, Q, and HA-cards landed; walks open). Prior: [v1.5.0](docs/RELEASE_v1.5.0.md).  
+> **Status:** Historical phase checklist (v1.0 era). **Hub production:** [v1.6.0](docs/RELEASE_v1.6.0.md) · [PLAN](docs/PLAN_v1.6.0.md). Active train: [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md) on `v1.7.0-dev`, **code freeze** 2026-09-28 ([RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md)). Package stays `1.6.0` until the bump. Prior: [v1.5.0](docs/RELEASE_v1.5.0.md).  
 > **Last updated:** 2026-09-26 — do not treat this file as the operator guide (use the wiki + RELEASE).
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
@@ -352,7 +352,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [ ] Expanded curated pack (Frigate, HA, n8n, media, …)
 - [ ] Plugin hooks / event webhooks (`job.completed`, `server.added`, …) — prefer REST + n8n over code exec
 - [ ] Ansible inventory / cloud-init bootstrap for new Pis (overlaps H2.75 P4 imaging depth)
-- [x] Home Assistant: HACS integration on HA (fleet + host devices + fleet Lovelace card; container/service/disk sensors from snapshots; details in PiHerder) — **v1.6.0 tagged**, plugin **0.2.4** ([PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7). **v1.7 HA-cards** (plugin **0.3.0**: host, updates, and resources cards, plus `host_reboot`) landed on `v1.7.0-dev`; operator walk still open ([PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md))
+- [x] Home Assistant: HACS integration on HA (fleet + host devices + fleet Lovelace card; container/service/disk sensors from snapshots; details in PiHerder) — **v1.6.0 tagged**, plugin **0.2.4** ([PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7). **v1.7 HA-cards** (plugin **0.3.0**: host, updates, and resources cards, plus `host_reboot`) signed on `v1.7.0-dev` at code freeze 2026-09-28. The 24-hour chart does not draw ([RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md))
 - [ ] Optional AI (OpenAI-compatible BYO; off by default; no private keys in prompts)
 - [ ] Community: Discord + Discussions; project website / clickthrough
 
