@@ -172,6 +172,18 @@
     <p class="text-sm text-muted">The destination table is not ready. Run migrations, then reload.</p>
     {% else %}
     <form method="post" action="/backup-copies/config" class="space-y-3 text-sm mb-4">
+      <div class="text-xs text-muted border border-border rounded p-3 bg-surface">
+        <p class="font-semibold text-text mb-1">Google Drive</p>
+        <ol class="space-y-1 list-decimal pl-4">
+          <li>Open <a href="https://console.cloud.google.com/" class="text-accent hover:underline" target="_blank" rel="noopener">Google Cloud Console</a> and choose a project.</li>
+          <li><a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" class="text-accent hover:underline" target="_blank" rel="noopener">Enable the Google Drive API</a>.</li>
+          <li><a href="https://console.cloud.google.com/iam-admin/serviceaccounts" class="text-accent hover:underline" target="_blank" rel="noopener">Create a service account</a> and add a JSON key. Paste its email and private key below. Do not paste the whole file.</li>
+          <li>In <a href="https://drive.google.com/drive/my-drive" class="text-accent hover:underline" target="_blank" rel="noopener">Google Drive</a>, share the folder with that email as Editor, then tick the shared-folder box.</li>
+        </ol>
+        <p class="mt-2">
+          <a href="{{ docs_url }}day-to-day/backups/#set-up-google-drive" class="text-accent hover:underline" target="_blank" rel="noopener">Full setup steps</a>
+        </p>
+      </div>
       <div class="settings-backup-fields">
         <div class="settings-backup-field">
           <label class="block text-xs text-muted mb-1" for="copy-provider">Service</label>
@@ -236,7 +248,7 @@
       {% elif copy_account_email %}
       <p class="text-xs text-muted">Key saved for {{ copy_account_email }}. Share the Drive folder with that email. The key is not shown again.</p>
       {% else %}
-      <p class="text-xs text-muted">Use a Google service account. Share the Drive folder with its email. The key is stored encrypted and is not shown again.</p>
+      <p class="text-xs text-muted">The key is stored encrypted and is not shown again.</p>
       {% endif %}
     </form>
 

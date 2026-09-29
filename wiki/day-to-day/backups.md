@@ -34,6 +34,21 @@ Not in the published **1.7.0** image. On branch `v1.8.0-dev`, **Settings → PiH
 
 Rebuild the image before a real copy. rclone is in that image. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](https://github.com/bjorngluck/piherder/blob/v1.8.0-dev/docs/FEATURE_PLAN_BACKUP_DESTINATIONS.md).
 
+## Set up Google Drive
+
+**Where in PiHerder:** Settings → **PiHerder backup** → **Copy the backup drive**. Pick **Google Drive**. OneDrive and a LAN share are listed and cannot be selected yet.
+
+PiHerder does not sign in as you. It uses a **Google service account**. You create that in Google Cloud, then paste its email and private key. Share one Drive folder with that email.
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) and select a project, or [create one](https://console.cloud.google.com/projectcreate).
+2. [Enable the Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com) on that project.
+3. Open [Service accounts](https://console.cloud.google.com/iam-admin/serviceaccounts). Create an account. On it, **Keys → Add key → Create new key → JSON**. Download the file. You do not need to grant the account a project role.
+4. From that JSON file, copy `client_email` into **Email**. Copy `private_key` into **Private key**, including the `BEGIN PRIVATE KEY` and `END PRIVATE KEY` lines. Do not paste the whole file. Save. The key is not shown again; leave the box blank later to keep it.
+5. In [Google Drive](https://drive.google.com/drive/my-drive), create a folder (or use one you already have). Share it with the service account email as **Editor**. The name you type in **Folder on Drive** must be that folder’s name. Tick **The Drive folder is shared with this email**.
+6. In the folder tree, tick the backup folders to copy. **Copy now**, or set a schedule. A failed copy fails that job only. Restore still uses the copies on this PiHerder.
+
+**Done when:** the Drive copy job succeeds, and the shared folder on Google Drive contains those trees.
+
 ---
 
 ## End-to-end: first backup you trust
