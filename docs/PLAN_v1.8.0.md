@@ -1,6 +1,6 @@
 # PiHerder v1.8.0 — MCP job types, then backup destinations, then Home Assistant cards
 
-**Status:** **Active** (lock retuned 2026-09-28). **MCP-jobs** landed. **Bak-alt discovery** written in §3.1. Package stays `1.7.0`.  
+**Status:** **Active** (lock retuned 2026-09-28). **MCP-jobs** landed. **Bak-alt discovery** is §3.1. **Google Drive** copy is built on this branch; the walk is still open and the Should may slip. Package stays `1.7.0`.  
 **Date opened:** 2026-09-28  
 **Git branch:** `v1.8.0-dev` → `main` · tag `v1.8.0` at freeze  
 **Package / image version:** stays **`1.7.0`** until freeze  
@@ -128,11 +128,11 @@ rsync speaks a local path, SSH, or an `rsync://` daemon. It does not speak Googl
 
 | Path | Data | This train |
 |------|------|------------|
-| **A. Second hop** | Remote → `/backups` (today’s rsync) → herder copies selected dest folders onward | **The model.** Drive, if the Should lands, is this hop. |
+| **A. Second hop** | Remote → `/backups` (today’s rsync) → herder copies checked paths onward | **The model.** The Google Drive copy on this branch is this hop. |
 | **B. NAS is the dest root** | Remote → a share mounted on the Docker host and bound in. One copy. | Named for later. No mount helper this train. |
 | **C. Remote writes the alternate** | The Pi pushes to Drive, OneDrive, or the NAS. Data never lands on `/backups`. | **Parked.** That needs `rclone` or CIFS on every host. |
 
-Path A keeps the no-agent rule. Selection is the dest folders that already exist (`dest_name`): one folder, many, or the whole host folder under `/backups`. The local tree stays the restore source. The herder disk still holds the fleet. Bandwidth is remote to herder, then herder to the alternate.
+Path A keeps the no-agent rule. Selection is checked paths under `/backups`, with skipped children left behind. The local tree stays the restore source. The herder disk still holds the fleet. Bandwidth is remote to herder, then herder to the alternate.
 
 Path B is LAN only. Mount the share on the Docker host and bind it in, then set that host’s `backup_dest_root` to the mount. A host mount is safer than mounting CIFS inside the app container. CIFS is a poor POSIX disk for `--numeric-ids`. This shape does not help Drive or OneDrive.
 
@@ -141,17 +141,17 @@ Path C stays parked. Every Pi would need a route to the store and a client insta
 | Destination | How | This train |
 |-------------|-----|------------|
 | Local rsync directory | Path today. Default. | Stays. |
-| **Google Drive** | Path A. **rclone** on the herder, after the pull, from `/backups/{host}/{folder}`. | The one build lean. Should, may slip. |
-| **OneDrive** | Same rclone binary, a different remote, later. | Named only. No client. |
-| **LAN NAS / SMB** | Path B (mounted dest root) when the share should be the only copy. rclone `smb` as path A when it is a second copy. | Named only. No client. |
+| **Google Drive** | Path A. **rclone** on the herder, after the pull, from checked paths under `/backups`. | Built on this branch. Walk open. May slip. |
+| **OneDrive** | Same rclone binary, a different remote, later. | In the service list. Cannot be selected. |
+| **LAN NAS / SMB** | Path B (mounted dest root) when the share should be the only copy. rclone `smb` as path A when it is a second copy. | In the service list. Cannot be selected. |
 
-No vendor-neutral plugin framework. No restic, borg, or kopia: those replace the browsable mirror and the restore wizard. One rclone binary is how OneDrive and SMB can be added later. It is not a framework, and those two remotes are not configured this train.
+No vendor-neutral plugin framework. No restic, borg, or kopia: those replace the browsable mirror and the restore wizard. One rclone binary is how OneDrive and SMB can be added later. It is not a framework. Those two services are visible in the list and cannot be saved.
 
-Do not write a Drive, Graph, or SMB client. A job-scoped temp rclone config is the shape, with the token encrypted at rest the same way as other integration secrets. Google OAuth is once (device code or a Settings redirect). Not built in this write-up.
+The Drive copy uses a job-scoped temp rclone config. The form stores a service account email and private key with Fernet, the same way as other secrets. There is no Graph client, no device-code login, and no SMB client.
 
 ### 3.2 Google Drive (Should)
 
-Locked in [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). One destination row over the whole `/backups` drive, not a setting on one host. The UI is an extra section on Settings → PiHerder backup. The page is a read-only file list: tick a folder to take it, untick rows to leave them behind. No typed excludes. rclone runs on the herder as job `backup_replicate` on the existing worker. The token is Fernet-encrypted and not written to the job log. A failed upload fails the **copy** job. The rsync job and `last_backup_at` stay as they were. Demo never uploads. `backup_replicate` is not on the token API. If this slips, the tag still ships with the local directory only and §3.1. The image must be rebuilt before a real upload; rclone is pinned in the Dockerfile.
+Built on this branch. Detail is [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). One destination row over the whole `/backups` drive, not a setting on one host. **Settings → PiHerder backup** has the section under the instance self-backup. The service list is Google Drive, plus OneDrive and LAN NAS / SMB disabled. The account is an email and a private key. The schedule uses the same presets as the rest of Settings. The browser is a read-only folder tree: tick a folder, open it, untick a child to leave it behind. No typed excludes. rclone runs on the herder as job `backup_replicate` (**Drive copy**) on the existing worker. The key is Fernet-encrypted and not written to the job log. A failed upload fails the **copy** job. The rsync job and `last_backup_at` stay as they were. Demo never uploads. `backup_replicate` is not on the token API. If this slips, the tag still ships with the local directory only and §3.1. Rebuild the image before a real upload; rclone **1.68.2** is pinned in the Dockerfile. Apply Alembic **047**.
 
 ---
 
@@ -251,6 +251,7 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 | 2026-09-28 | **MCP-jobs landed.** `trigger_job` matches the jobs POST list on hosted `/mcp` and the stdio adapter. `service_migrate`, undo, nmap, `docker_stack_down`, `docker_stack_remove`, and `template_drift_check` stay refused. |
 | 2026-09-28 | Adapter package set to **0.2.0** in [piherder-mcp](https://github.com/bjorngluck/piherder-mcp). Tag `v0.2.0` publishes it. `uvx` stays on **0.1.1** until then. |
 | 2026-09-28 | **Bak-alt discovery written.** Path A is a rclone second hop from `/backups`. Path B (SMB as the dest root) and OneDrive are later. Path C (a client on each Pi) stays parked. No Drive client in this pass. |
+| 2026-09-29 | **Google Drive copy built** on the branch. Settings → PiHerder backup. Service list shows Drive, with OneDrive and SMB not selectable. Service account email and private key. Folder tree. Job `backup_replicate`. Walk still open. |
 
 ---
 

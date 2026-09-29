@@ -18,6 +18,22 @@ Homelab hosts hold compose data, configs, and media that are painful to rebuild.
 
 See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 
+### Copy to Google Drive (v1.8 train)
+
+Not in the published **1.7.0** image. On branch `v1.8.0-dev`, **Settings → PiHerder backup** has a section under the self-backup cards.
+
+| | |
+|--|--|
+| What it copies | Checked folders on the herder backup drive (`/backups`), not one host’s source list |
+| Service | **Google Drive** can be saved. **OneDrive** and **LAN NAS / SMB** are in the list and cannot be selected |
+| Account | Service account email and private key. The key is not shown again. Leave it blank to keep the saved one |
+| Schedule | The same presets as other schedules, **Copy now**, and an optional copy after a host backup succeeds |
+| Browser | Folder tree on the left, the open folder on the right. A ticked folder stays ticked inside. Untick a child to leave it behind |
+| Job | **Drive copy** (`backup_replicate`) on the existing Celery worker. A failure fails that job only. The host backup time stays |
+| Restore | Still the local tree. The demo does not upload |
+
+Rebuild the image before a real copy. rclone is in that image. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](https://github.com/bjorngluck/piherder/blob/v1.8.0-dev/docs/FEATURE_PLAN_BACKUP_DESTINATIONS.md).
+
 ---
 
 ## End-to-end: first backup you trust

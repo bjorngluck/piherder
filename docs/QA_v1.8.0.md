@@ -33,16 +33,17 @@ Reading pass against [PLAN_v1.8.0.md](PLAN_v1.8.0.md) §3.1. No client required 
 - [ ] The write-up keeps the local rsync directory as the default and leaves the Settings DR backup on its own path  
 - [ ] Path A is a second hop from `/backups` (rclone on the herder). Path B is a later SMB mount used as the dest root. Path C (the Pi writes straight to the alternate store) stays parked  
 - [ ] Google Drive is the only destination this train may build, and it is that rclone copy. A failed upload fails the copy job, not the rsync job  
-- [ ] OneDrive and a LAN NAS / SMB share are named for a later release and have no client. restic, borg, and kopia are not this train  
+- [ ] OneDrive and a LAN NAS / SMB share are in the service list and cannot be selected. restic, borg, and kopia are not this train  
 
 ## Google Drive (Should)
 
 Skip this section if the destination slips the tag. Demo is not the target.
 
-- [ ] Settings → PiHerder backup has a section that copies the whole backup drive. Tick a folder, untick children. No typed excludes. The local rsync directory still restores  
-- [ ] The credential is not shown back in the UI and is not written to the job log  
-- [ ] A failed upload fails the Drive copy job only. The host backup time stays  
-- [ ] The public demo does not upload  
+- [ ] Settings → PiHerder backup, under the self-backup cards, copies the whole backup drive. The service list saves Google Drive only. OneDrive and LAN NAS / SMB are visible and cannot be selected  
+- [ ] The account is an email and a private key. The key is not shown again. A blank key keeps the saved one. The schedule uses the same presets as the rest of Settings  
+- [ ] Folders are a tree on the left and the open folder on the right. Tick a folder, open it, and the children stay ticked. Untick a child to leave it out. No typed excludes. Restore still uses the local tree  
+- [ ] Copy now, the schedule, and the optional follow-up after a host backup enqueue a **Drive copy** job. A failed copy does not change the host backup time  
+- [ ] The credential is not written to the job log. The public demo does not upload. The token API and MCP cannot start this job  
 
 ## HA-vis (Must)
 

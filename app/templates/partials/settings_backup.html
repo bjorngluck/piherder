@@ -79,7 +79,7 @@
         <div class="source-row-body min-w-0">
           <div class="source-row-path" title="{{ b.name }}">{{ b.name }}</div>
           <div class="source-row-when text-muted">
-            {{ (b.size / 1024)|int }} KB
+            {{ b.size_human or ((b.size / 1024)|int ~ ' KB') }}
             <span class="text-muted">·</span>
             <span class="utc-time" data-utc="{{ b.mtime }}">{{ b.mtime }}</span>
           </div>
@@ -148,151 +148,415 @@
     </details>
   </div>
 
-  <div class="card p-4 space-y-4" id="drive-copy">
-    <div>
-      <h2 class="font-semibold">Copy the backup drive</h2>
-      <p class="text-xs text-muted mt-1">
-        rclone on this PiHerder copies checked folders under <code>/backups</code> to Google Drive.
-        A failed copy fails its own job. Host backups and their timestamps stay as they were.
-        Restore still uses the local tree.
-      </p>
-    </div>
-    {% if copy_saved %}<p class="text-sm text-green-700">Saved.</p>{% endif %}
-    {% if copy_error %}<p class="text-sm text-red-700">{{ copy_error }}</p>{% endif %}
+  <div class="card p-5 mb-4" id="drive-copy">
+    <h2 class="font-semibold text-text">Copy the backup drive</h2>
+    <p class="text-xs text-muted mt-1 mb-4">
+      Copies checked folders from this PiHerder’s backup drive to an external service. Google Drive is the one available now.
+      A failed copy fails its own job. Host backups keep their time. Restore still uses the local copies.
+    </p>
+    {% if copy_saved %}<p class="text-sm text-accent mb-3">Saved.</p>{% endif %}
+    {% if copy_error == 'cron' %}
+    <p class="text-sm text-danger mb-3">Choose a schedule from the list, or enter a 5-field cron.</p>
+    {% elif copy_error == 'email' %}
+    <p class="text-sm text-danger mb-3">Enter the service account email.</p>
+    {% elif copy_error == 'key' %}
+    <p class="text-sm text-danger mb-3">Paste the private key, including the BEGIN and END lines.</p>
+    {% elif copy_error == 'folder' %}
+    <p class="text-sm text-danger mb-3">That Drive folder name is not valid.</p>
+    {% elif copy_error == 'provider' %}
+    <p class="text-sm text-danger mb-3">That service is not available yet.</p>
+    {% elif copy_error %}
+    <p class="text-sm text-danger mb-3">{{ copy_error }}</p>
+    {% endif %}
     {% if not copy_dest %}
     <p class="text-sm text-muted">The destination table is not ready. Run migrations, then reload.</p>
     {% else %}
-    <form method="post" action="/backup-copies/config" class="space-y-3 text-sm">
+    <form method="post" action="/backup-copies/config" class="space-y-3 text-sm mb-4">
+      <div class="settings-backup-fields">
+        <div class="settings-backup-field">
+          <label class="block text-xs text-muted mb-1" for="copy-provider">Service</label>
+          <select id="copy-provider" name="provider"
+                  class="settings-backup-control bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+            <option value="drive" {% if copy_dest.provider == 'drive' %}selected{% endif %}>Google Drive</option>
+            <option value="onedrive" disabled>OneDrive (more to follow)</option>
+            <option value="smb" disabled>LAN NAS / SMB (more to follow)</option>
+          </select>
+        </div>
+        <div class="settings-backup-field">
+          <label class="block text-xs text-muted mb-1" for="copy-email">Email</label>
+          <input id="copy-email" name="account_email" type="email" autocomplete="off"
+                 value="{{ copy_account_email or '' }}"
+                 placeholder="backup@project.iam.gserviceaccount.com"
+                 class="settings-backup-control bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+        </div>
+        <div class="settings-backup-field">
+          <label class="block text-xs text-muted mb-1" for="copy-key">Private key</label>
+          <textarea id="copy-key" name="private_key" rows="4" autocomplete="off" spellcheck="false"
+                    placeholder="{% if copy_has_token %}Saved. Leave blank to keep it.{% else %}-----BEGIN PRIVATE KEY-----{% endif %}"
+                    class="settings-backup-control bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11"></textarea>
+        </div>
+        <div class="settings-backup-field">
+          <label class="block text-xs text-muted mb-1" for="copy-folder">Folder on Drive</label>
+          <input id="copy-folder" name="drive_folder" value="{{ copy_drive_folder or 'PiHerder' }}"
+                 class="settings-backup-control bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+        </div>
+        <div class="settings-backup-field settings-backup-field--schedule">
+          <label class="block text-xs text-muted mb-1">Schedule</label>
+          <select class="settings-backup-control bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 mb-1"
+                  aria-label="Drive copy schedule preset"
+                  onchange="var el=this.form.querySelector('[name=schedule_cron]'); if(!el) return; if(this.value==='manual'){el.value='';} else if(this.value){el.value=this.value;}">
+            <option value="manual" {% if not copy_dest.schedule %}selected{% endif %}>Manual only</option>
+            <option value="">Custom / advanced cron…</option>
+            {% for val, lab in cron_presets %}
+            <option value="{{ val }}" {% if copy_dest.schedule == val %}selected{% endif %}>{{ lab }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" name="schedule_cron" value="{{ copy_dest.schedule or '' }}" placeholder="0 3 * * *"
+                 class="settings-backup-control bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
+          {% if copy_dest.schedule %}
+          <p class="text-[10px] text-muted mt-1">{{ copy_dest.schedule | cron_human(current_tz if current_tz is defined else get_app_timezone()) }}</p>
+          {% else %}
+          <p class="text-[10px] text-muted mt-1">No schedule. Use Copy now, or copy after each host backup.</p>
+          {% endif %}
+        </div>
+        <div class="settings-backup-field settings-backup-field--save">
+          <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save</button>
+        </div>
+      </div>
+      <label class="flex items-center gap-2 min-h-11">
+        <input type="checkbox" name="shared_with_me" value="1" {% if copy_shared %}checked{% endif %}>
+        The Drive folder is shared with this email
+      </label>
       <label class="flex items-center gap-2 min-h-11">
         <input type="checkbox" name="after_host_backup" value="1" {% if copy_dest.after_host_backup %}checked{% endif %}>
-        After a host backup succeeds, copy that host’s checked paths
+        After a host backup succeeds, copy that host’s checked folders
       </label>
-      <div>
-        <label class="block text-xs text-muted mb-1">Schedule (5-field cron, empty = manual and follow-up only)</label>
-        <input name="schedule_cron" value="{{ copy_dest.schedule or '' }}"
-               placeholder="0 4 * * *"
-               class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
-      </div>
-      <div>
-        <label class="block text-xs text-muted mb-1">
-          rclone token JSON {% if copy_has_token %}(saved — leave blank to keep it){% else %}(paste once){% endif %}
-        </label>
-        <textarea name="token_json" rows="3" autocomplete="off"
-                  placeholder='{"access_token":"…","refresh_token":"…","expiry":"…"}'
-                  class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11"></textarea>
-        <p class="text-xs text-muted mt-1">From <code>rclone authorize drive</code>. The token is stored encrypted and is not shown again.</p>
-      </div>
-      <button type="submit" class="btn btn-primary min-h-11">Save copy settings</button>
+      {% if copy_account_kind == 'connected' %}
+      <p class="text-xs text-muted">A Google login is already saved. Enter an email and private key to replace it.</p>
+      {% elif copy_account_email %}
+      <p class="text-xs text-muted">Key saved for {{ copy_account_email }}. Share the Drive folder with that email. The key is not shown again.</p>
+      {% else %}
+      <p class="text-xs text-muted">Use a Google service account. Share the Drive folder with its email. The key is stored encrypted and is not shown again.</p>
+      {% endif %}
     </form>
-    <form method="post" action="/backup-copies/run">
-      <button type="submit" class="btn btn-secondary min-h-11">Copy now</button>
-    </form>
-    <div>
-      <div class="flex items-center justify-between gap-2 mb-2">
-        <p class="text-xs text-muted font-mono" id="copy-path">/</p>
-        <button type="button" class="btn btn-secondary min-h-11 text-sm" id="copy-up">Up</button>
+
+    <div class="bc-win" id="bc-win">
+      <div class="bc-toolbar">
+        <button type="button" class="btn btn-secondary text-xs min-h-10 bc-tree-toggle" id="bc-tree-toggle">Folders</button>
+        <nav class="bc-path" id="bc-path" aria-label="Backup path"></nav>
+        <form method="post" action="/backup-copies/run">
+          <button type="submit" class="btn btn-accent min-h-10 text-sm">Copy now</button>
+        </form>
       </div>
-      <div class="overflow-x-auto border border-border rounded">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="text-left text-xs text-muted border-b border-border">
-              <th class="p-2 w-10"><input type="checkbox" id="copy-all" aria-label="Select all in this folder"></th>
-              <th class="p-2">Name</th>
-              <th class="p-2">Size</th>
-            </tr>
-          </thead>
-          <tbody id="copy-rows"></tbody>
-        </table>
+      <div class="bc-panes">
+        <button type="button" class="bc-scrim" id="bc-scrim" aria-label="Close folders"></button>
+        <aside class="bc-tree" id="bc-tree" aria-label="Folders"></aside>
+        <div class="bc-list" id="bc-list">
+          <div class="bc-cols">
+            <span><input type="checkbox" id="bc-all" aria-label="Select all in this folder"></span>
+            <span>Name</span>
+            <span class="bc-hide-sm">Size</span>
+            <span class="bc-hide-sm">Modified</span>
+          </div>
+          <div id="bc-rows"></div>
+        </div>
       </div>
-      <p class="text-xs text-muted mt-2">Tick a folder to take it and everything inside. Open it and untick a child to leave that child behind.</p>
+      <div class="bc-status" id="bc-status"></div>
     </div>
     {% endif %}
   </div>
 </div>
+<style>
+  .bc-win {
+    display: flex; flex-direction: column;
+    height: 28rem; min-height: 22rem;
+    border: 1px solid var(--color-border); border-radius: 12px;
+    background: var(--color-surface); overflow: hidden;
+    box-shadow: 0 8px 28px color-mix(in srgb, #000 12%, transparent);
+  }
+  .bc-toolbar {
+    display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+    padding: 0.45rem 0.55rem; border-bottom: 1px solid var(--color-border); flex: 0 0 auto;
+  }
+  .bc-tree-toggle { display: none; }
+  .bc-path {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.15rem;
+    flex: 1 1 12rem; min-width: 0;
+    font-family: ui-monospace, monospace; font-size: 0.78rem;
+    padding: 0.28rem 0.45rem; border: 1px solid var(--color-border); border-radius: 8px;
+    background: var(--color-bg);
+  }
+  .bc-path button { border: 0; background: transparent; color: var(--color-accent); cursor: pointer; font: inherit; padding: 0; }
+  .bc-path button:hover { text-decoration: underline; }
+  .bc-path span { color: var(--color-accent); margin: 0 0.12rem; }
+  .bc-panes { display: flex; flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; }
+  .bc-tree {
+    width: 15.5rem; flex: 0 0 15.5rem; overflow: auto; min-height: 0;
+    padding: 0.35rem 0.2rem 0.6rem;
+    border-right: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-bg) 55%, var(--color-surface));
+  }
+  .bc-scrim { display: none; }
+  .bc-list { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; }
+  .bc-tree-row, .bc-item {
+    display: flex; align-items: center; gap: 0.2rem; width: 100%;
+    text-align: left; border: 0; background: transparent; color: inherit;
+  }
+  .bc-tree-row { padding: 0.15rem 0.25rem; border-radius: 6px; font-size: 0.82rem; }
+  .bc-tree-row:hover, .bc-item:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+  .bc-tree-row.is-current { background: color-mix(in srgb, var(--color-accent) 18%, transparent); font-weight: 600; }
+  .bc-item.is-on { background: color-mix(in srgb, var(--color-accent) 14%, transparent); }
+  .bc-twist { width: 1.1rem; flex: 0 0 1.1rem; color: var(--color-muted); font-size: 0.7rem; border: 0; background: transparent; color: var(--color-muted); cursor: pointer; }
+  .bc-open { flex: 1 1 auto; min-width: 0; text-align: left; border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; font-weight: 600; }
+  .bc-open span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bc-cols, .bc-item {
+    display: grid;
+    grid-template-columns: 2.4rem minmax(8rem, 1fr) 5.5rem 8.5rem;
+    gap: 0.35rem; align-items: center;
+    padding: 0.35rem 0.7rem;
+  }
+  .bc-cols {
+    position: sticky; top: 0; z-index: 1;
+    font-size: 0.68rem; color: var(--color-muted); font-weight: 650;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--color-border); background: var(--color-surface);
+  }
+  .bc-item { min-height: 2.6rem; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent); font-size: 0.85rem; }
+  .bc-item input, .bc-tree-row input, .bc-cols input { width: 1.05rem; height: 1.05rem; }
+  .bc-meta { color: var(--color-muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+  .bc-empty { padding: 2rem 1rem; text-align: center; color: var(--color-muted); }
+  .bc-status {
+    flex: 0 0 auto; padding: 0.4rem 0.7rem; font-size: 0.75rem; color: var(--color-muted);
+    border-top: 1px solid var(--color-border);
+  }
+  .bc-status.is-err { color: var(--color-danger, #dc2626); }
+  @media (max-width: 719px) {
+    .bc-tree-toggle { display: inline-flex; }
+    .bc-scrim { display: none; position: absolute; inset: 0; z-index: 24; border: 0; background: color-mix(in srgb, #000 42%, transparent); }
+    .bc-win.is-tree .bc-scrim { display: block; }
+    .bc-tree {
+      position: absolute; left: 0; top: 0; bottom: 0; z-index: 25;
+      width: min(18.5rem, 86vw); flex: none;
+      transform: translateX(-105%); transition: transform 0.2s ease;
+      box-shadow: 8px 0 28px color-mix(in srgb, #000 22%, transparent);
+    }
+    .bc-win.is-tree .bc-tree { transform: translateX(0); }
+    .bc-cols, .bc-item { grid-template-columns: 2.4rem minmax(0, 1fr); }
+    .bc-hide-sm { display: none; }
+  }
+</style>
 {% if copy_dest %}
 <script>
 (function () {
-  var path = "";
-  var rowsEl = document.getElementById("copy-rows");
-  var pathEl = document.getElementById("copy-path");
-  var allEl = document.getElementById("copy-all");
-  function render(data) {
-    path = data.path || "";
-    pathEl.textContent = path ? "/" + path : "/";
-    rowsEl.innerHTML = "";
-    var entries = data.entries || [];
-    var allOn = entries.length > 0;
-    entries.forEach(function (row) {
-      if (!row.included) allOn = false;
-      var tr = document.createElement("tr");
-      tr.className = "border-b border-border";
-      var tdCheck = document.createElement("td");
-      tdCheck.className = "p-2";
+  var current = "";
+  var viewGen = 0;
+  var cache = {};
+  var rowsEl = document.getElementById("bc-rows");
+  var treeEl = document.getElementById("bc-tree");
+  var pathEl = document.getElementById("bc-path");
+  var allEl = document.getElementById("bc-all");
+  var statusEl = document.getElementById("bc-status");
+  var win = document.getElementById("bc-win");
+
+  function setStatus(text, isErr) {
+    statusEl.textContent = text || "";
+    statusEl.className = "bc-status" + (isErr ? " is-err" : "");
+  }
+  function whenLabel(sec) {
+    if (!sec) return "";
+    try { return new Date(sec * 1000).toLocaleString(); } catch (e) { return ""; }
+  }
+  function applyBox(box, state) {
+    box.indeterminate = state === "partial";
+    box.checked = state === "on";
+  }
+  function paintCrumbs(path) {
+    pathEl.innerHTML = "";
+    function add(label, rel) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = label;
+      b.addEventListener("click", function () { load(rel); });
+      pathEl.appendChild(b);
+    }
+    add("Backups", "");
+    if (!path) return;
+    var acc = "";
+    path.split("/").forEach(function (part) {
+      var sep = document.createElement("span");
+      sep.textContent = "/";
+      pathEl.appendChild(sep);
+      acc = acc ? acc + "/" + part : part;
+      var rel = acc;
+      add(part, rel);
+    });
+  }
+  function renderTree() {
+    treeEl.innerHTML = "";
+    function node(rel, name) {
+      var data = cache[rel];
+      var row = document.createElement("div");
+      row.className = "bc-tree-row" + (rel === current ? " is-current" : "");
+      var twist = document.createElement("button");
+      twist.type = "button";
+      twist.className = "bc-twist";
+      var kids = (data && data.entries) ? data.entries.filter(function (e) { return e.is_dir; }) : [];
+      twist.textContent = data ? (kids.length ? "▾" : "·") : "▸";
+      twist.addEventListener("click", function () { load(rel); });
       var box = document.createElement("input");
       box.type = "checkbox";
-      box.checked = !!row.included;
-      box.addEventListener("change", function () { toggle(row.path, box.checked); });
-      tdCheck.appendChild(box);
-      var tdName = document.createElement("td");
-      tdName.className = "p-2";
-      if (row.is_dir) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "font-mono text-left";
-        btn.textContent = row.name + "/";
-        btn.addEventListener("click", function () { load(row.path); });
-        tdName.appendChild(btn);
+      box.setAttribute("aria-label", "Include " + name);
+      if (rel) {
+        applyBox(box, (data && data.state) || "off");
+        box.addEventListener("click", function (ev) { ev.stopPropagation(); });
+        box.addEventListener("change", function () { toggle(rel, box.checked); });
       } else {
-        tdName.textContent = row.name;
-        tdName.className = "p-2 font-mono";
+        box.disabled = true;
+        box.style.visibility = "hidden";
       }
-      var tdSize = document.createElement("td");
-      tdSize.className = "p-2 text-muted";
-      tdSize.textContent = row.is_dir ? "" : String(row.size || 0);
-      tr.appendChild(tdCheck);
-      tr.appendChild(tdName);
-      tr.appendChild(tdSize);
-      rowsEl.appendChild(tr);
+      var open = document.createElement("button");
+      open.type = "button";
+      open.className = "bc-open";
+      open.textContent = name;
+      open.addEventListener("click", function () { load(rel); closeTree(); });
+      row.appendChild(twist);
+      row.appendChild(box);
+      row.appendChild(open);
+      treeEl.appendChild(row);
+      if (data) kids.forEach(function (e) { node(e.path, e.name); });
+    }
+    node("", "Backups");
+  }
+  function render(data) {
+    current = data.path || "";
+    cache[current] = data;
+    paintCrumbs(current);
+    rowsEl.innerHTML = "";
+    var entries = data.entries || [];
+    if (!entries.length) {
+      var empty = document.createElement("div");
+      empty.className = "bc-empty";
+      empty.textContent = "This folder is empty.";
+      rowsEl.appendChild(empty);
+    }
+    var allOn = entries.length > 0;
+    var anyPartial = false;
+    entries.forEach(function (entry) {
+      if (entry.state !== "on") allOn = false;
+      if (entry.state === "partial") anyPartial = true;
+      var row = document.createElement("div");
+      row.className = "bc-item" + (entry.state === "on" ? " is-on" : "");
+      row.setAttribute("data-path", entry.path);
+      var cell = document.createElement("span");
+      var box = document.createElement("input");
+      box.type = "checkbox";
+      box.setAttribute("aria-label", "Include " + entry.name);
+      applyBox(box, entry.state || "off");
+      box.addEventListener("change", function () { toggle(entry.path, box.checked); });
+      cell.appendChild(box);
+      var name = document.createElement(entry.is_dir ? "button" : "span");
+      if (entry.is_dir) name.type = "button";
+      name.className = "bc-open";
+      var nm = document.createElement("span");
+      nm.textContent = entry.is_dir ? entry.name + "/" : entry.name;
+      name.appendChild(nm);
+      if (entry.is_dir) name.addEventListener("click", function () { load(entry.path); });
+      var size = document.createElement("span");
+      size.className = "bc-meta bc-hide-sm";
+      size.textContent = entry.is_dir ? "—" : (entry.size_h || "—");
+      var mod = document.createElement("span");
+      mod.className = "bc-meta bc-hide-sm";
+      mod.textContent = whenLabel(entry.mtime);
+      row.appendChild(cell);
+      row.appendChild(name);
+      row.appendChild(size);
+      row.appendChild(mod);
+      rowsEl.appendChild(row);
     });
+    allEl.indeterminate = anyPartial && !allOn;
     allEl.checked = allOn;
+    var folderState = data.state || "off";
+    if (!current) setStatus(folderState === "partial" ? "Some folders are included." : "Tick the folders to copy.");
+    else if (folderState === "on") setStatus("This folder is included. Untick anything you want to leave behind.");
+    else if (folderState === "partial") setStatus("Part of this folder is included.");
+    else setStatus("This folder is not included.");
+    renderTree();
+    warmAncestors(current);
+  }
+  function warmAncestors(path) {
+    if (!path) return;
+    var acc = "";
+    var chain = [""];
+    path.split("/").forEach(function (part) {
+      acc = acc ? acc + "/" + part : part;
+      if (acc !== path) chain.push(acc);
+    });
+    chain.forEach(function (rel) {
+      if (cache[rel]) return;
+      fetch("/backup-copies/list?p=" + encodeURIComponent(rel), { credentials: "same-origin" })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.ok || cache[rel]) return;
+          cache[rel] = data;
+          renderTree();
+        })
+        .catch(function () {});
+    });
   }
   function load(next) {
-    fetch("/backup-copies/list?p=" + encodeURIComponent(next || ""), { credentials: "same-origin" })
+    var gen = ++viewGen;
+    var rel = next || "";
+    fetch("/backup-copies/list?p=" + encodeURIComponent(rel), { credentials: "same-origin" })
       .then(function (r) { return r.json(); })
-      .then(function (data) { if (data.ok) render(data); });
+      .then(function (data) {
+        if (gen !== viewGen) return;
+        if (!data.ok) { setStatus(data.error || "Could not open that folder.", true); return; }
+        render(data);
+      })
+      .catch(function () {
+        if (gen === viewGen) setStatus("Could not open that folder.", true);
+      });
   }
   function toggle(itemPath, on) {
+    setStatus("Saving…");
     fetch("/backup-copies/toggle", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: itemPath, on: on })
-    }).then(function () { load(path); });
+      body: JSON.stringify({ path: itemPath, on: !!on })
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (!data.ok) { setStatus(data.error || "Could not update the selection.", true); load(current); return; }
+      cache = {};
+      load(current);
+    }).catch(function () {
+      setStatus("Could not update the selection.", true);
+      load(current);
+    });
   }
   allEl.addEventListener("change", function () {
     var on = allEl.checked;
-    var boxes = rowsEl.querySelectorAll('input[type="checkbox"]');
     var changes = [];
-    boxes.forEach(function (box) {
-      var row = box.closest("tr");
-      var nameBtn = row.querySelector("button");
-      var name = nameBtn ? nameBtn.textContent.replace(/\/$/, "") : row.children[1].textContent;
-      changes.push({ path: path ? path + "/" + name : name, on: on });
+    rowsEl.querySelectorAll("[data-path]").forEach(function (row) {
+      changes.push({ path: row.getAttribute("data-path"), on: on });
     });
     if (!changes.length) return;
+    setStatus("Saving…");
     fetch("/backup-copies/toggle", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ changes: changes })
-    }).then(function () { load(path); });
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (!data.ok) { setStatus(data.error || "Could not update the selection.", true); }
+      cache = {};
+      load(current);
+    }).catch(function () { setStatus("Could not update the selection.", true); load(current); });
   });
-  document.getElementById("copy-up").addEventListener("click", function () {
-    if (!path) return;
-    var parts = path.split("/");
-    parts.pop();
-    load(parts.join("/"));
+  function closeTree() { win.classList.remove("is-tree"); }
+  document.getElementById("bc-tree-toggle").addEventListener("click", function () {
+    win.classList.toggle("is-tree");
   });
+  document.getElementById("bc-scrim").addEventListener("click", closeTree);
   load("");
 })();
 </script>
