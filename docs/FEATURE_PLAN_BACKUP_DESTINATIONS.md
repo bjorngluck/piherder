@@ -2,7 +2,7 @@
 
 **Status:** Locked 2026-09-28. First slice is the Drive copy below.  
 **Train:** [PLAN_v1.8.0.md](PLAN_v1.8.0.md) §3 (path A).  
-**Not this product:** Settings → PiHerder backup (`/herder_backups`). Restore stays the local tree.
+**Not this product:** the instance self-backup (pg_dump / `/herder_backups` archives). The Drive section sits under that same Settings tab. Restore stays the local tree.
 
 ## What stays
 
@@ -10,7 +10,7 @@
 
 ## The copy
 
-A **backup destination** is its own row, aimed at the whole backup drive (`BACKUP_ROOT`). It is not a checkbox on one host.
+A **backup destination** is its own row, aimed at the whole backup drive (`BACKUP_ROOT`). It is not a checkbox on one host. The page is an extra section on **Settings → PiHerder backup**, under the instance self-backup. The running copy is a row on **Jobs**.
 
 | Piece | Lock |
 |-------|------|
@@ -18,7 +18,7 @@ A **backup destination** is its own row, aimed at the whole backup drive (`BACKU
 | Secret | Fernet (`PIHERDER_MASTER_KEY`). Drive stores the rclone OAuth token JSON. The UI never shows it again. Empty save keeps the previous token. |
 | When | Its own cron, an on-demand button, and an optional follow-up after one host backup finishes. The follow-up copies only checked paths under that host folder. |
 | Failure | The copy job fails. `last_backup_at` and the rsync job stay as they were. |
-| Job | `backup_replicate`. Full sync has `server_id` null. Not in `JOB_FEATURE_KEY`, so MCP and the token API cannot start it. |
+| Job | `backup_replicate` on the existing `celery-worker` default queue. Web only enqueues. Not a dedicated container (that pattern is nmap, which needs host networking). A long upload uses one concurrency slot, the same as a long rsync. Full sync has `server_id` null. Not in `JOB_FEATURE_KEY`, so MCP and the token API cannot start it. |
 | Demo | Refuses. No upload. |
 | Tool | `rclone` in the herder image. Temp config `0600`, deleted after the run. Token is not logged. |
 

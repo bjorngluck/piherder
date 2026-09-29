@@ -287,6 +287,7 @@ JOB_TYPE_LABELS = {
     "retention": "Retention",
     "diagnostics": "Diagnostics",
     "herder_backup": "PiHerder backup",
+    "backup_replicate": "Drive copy",
     "pihole_action": "Pi-hole action",
     "stale_data_cleanup": "Stale data cleanup",
     "nmap_discovery": "Nmap discovery",

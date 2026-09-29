@@ -1,0 +1,134 @@
+"""Settings actions for the fleet Drive copy of /backups."""
+from __future__ import annotations
+
+import json
+
+from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import JSONResponse, RedirectResponse
+from sqlmodel import Session
+
+from ..database import get_session
+from ..models import User
+from ..security.auth import get_admin_user
+from ..services import backup_replicate as copies
+from ..services.input_validation import ValidationError, safe_cron
+
+router = APIRouter()
+
+
+def _redirect(query: str = "") -> RedirectResponse:
+    url = "/herder-backups?tab=backup"
+    if query:
+        url = f"{url}&{query}"
+    return RedirectResponse(url, status_code=303)
+
+
+@router.get("/backup-copies/list")
+async def list_copy_dir(
+    p: str = "",
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    del user
+    dest = copies.get_or_create(session)
+    checked, skipped = copies.parse_selection(dest.selection_json)
+    try:
+        rows = copies.list_directory(p)
+    except (FileNotFoundError, ValueError) as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    for row in rows:
+        row["included"] = copies.path_included(row["path"], checked, skipped)
+    parent = (p or "").strip().strip("/")
+    return {
+        "ok": True,
+        "path": parent,
+        "included": copies.path_included(parent, checked, skipped) if parent else False,
+        "entries": rows,
+    }
+
+
+@router.post("/backup-copies/toggle")
+async def toggle_copy_path(
+    request: Request,
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    del user
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    changes = (body or {}).get("changes")
+    if not isinstance(changes, list):
+        changes = [{"path": (body or {}).get("path"), "on": (body or {}).get("on")}]
+    dest = copies.get_or_create(session)
+    checked, skipped = copies.parse_selection(dest.selection_json)
+    try:
+        for change in changes:
+            if not isinstance(change, dict):
+                continue
+            checked, skipped = copies.apply_toggle(
+                checked, skipped, str(change.get("path") or ""), bool(change.get("on"))
+            )
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    dest.selection_json = copies.selection_json(checked, skipped)
+    from datetime import datetime
+
+    dest.updated_at = datetime.utcnow()
+    session.add(dest)
+    session.commit()
+    return {"ok": True, "checked": checked, "skipped": skipped}
+
+
+@router.post("/backup-copies/config")
+async def save_copy_config(
+    schedule_cron: str = Form(""),
+    after_host_backup: str = Form(""),
+    token_json: str = Form(""),
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    del user
+    dest = copies.get_or_create(session)
+    try:
+        cron = safe_cron(schedule_cron, field="schedule", allow_empty=True) or ""
+    except ValidationError:
+        return _redirect("copy_error=cron")
+    dest.schedule = cron or None
+    dest.after_host_backup = after_host_backup in ("1", "on", "true")
+    token = (token_json or "").strip()
+    if token:
+        try:
+            dest.credentials_encrypted = copies.encrypt_token(token)
+        except Exception:
+            return _redirect("copy_error=token")
+    from datetime import datetime
+
+    dest.updated_at = datetime.utcnow()
+    session.add(dest)
+    session.commit()
+    try:
+        from ..main import HAS_SCHEDULER, scheduler
+        from ..services.scheduler import sync_backup_copy_schedule
+
+        sync_backup_copy_schedule(scheduler, HAS_SCHEDULER)
+    except Exception:
+        pass
+    return _redirect("copy_saved=1")
+
+
+@router.post("/backup-copies/run")
+async def run_copy_now(
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    dest = copies.get_or_create(session)
+    job = copies.enqueue(session, dest, user_id=user.id)
+    if job.status == "failed":
+        try:
+            err = json.loads(job.details or "{}").get("error") or "failed"
+        except Exception:
+            err = "failed"
+        return _redirect("copy_error=" + str(err)[:80])
+    return RedirectResponse(f"/jobs/{job.id}", status_code=303)

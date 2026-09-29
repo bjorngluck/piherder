@@ -32,16 +32,16 @@ Reading pass against [PLAN_v1.8.0.md](PLAN_v1.8.0.md) §3.1. No client required 
 
 - [ ] The write-up keeps the local rsync directory as the default and leaves the Settings DR backup on its own path  
 - [ ] Path A is a second hop from `/backups` (rclone on the herder). Path B is a later SMB mount used as the dest root. Path C (the Pi writes straight to the alternate store) stays parked  
-- [ ] Google Drive is the only destination this train may build, and it is that rclone copy. A failed upload fails the job  
+- [ ] Google Drive is the only destination this train may build, and it is that rclone copy. A failed upload fails the copy job, not the rsync job  
 - [ ] OneDrive and a LAN NAS / SMB share are named for a later release and have no client. restic, borg, and kopia are not this train  
 
 ## Google Drive (Should)
 
 Skip this section if the destination slips the tag. Demo is not the target.
 
-- [ ] A per-server backup can target Google Drive. The local directory still works for a host that does not  
+- [ ] Settings → PiHerder backup has a section that copies the whole backup drive. Tick a folder, untick children. No typed excludes. The local rsync directory still restores  
 - [ ] The credential is not shown back in the UI and is not written to the job log  
-- [ ] A failed upload fails the job. Audit shows the attempt  
+- [ ] A failed upload fails the Drive copy job only. The host backup time stays  
 - [ ] The public demo does not upload  
 
 ## HA-vis (Must)
