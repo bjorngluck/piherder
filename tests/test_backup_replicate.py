@@ -1,4 +1,5 @@
 """Selection and rclone argv for the fleet Drive copy. No live rclone or Google."""
+import json
 import os
 
 import pytest
@@ -70,12 +71,59 @@ def test_service_account_fields_not_a_token_blob():
     path = copies.write_rclone_config(raw, shared_with_me=True)
     try:
         text = open(path, encoding="utf-8").read()
+        sa = json.loads(open(path + ".sa.json", encoding="utf-8").read())
     finally:
-        os.remove(path)
-    assert "service_account_credentials" in text
+        copies.discard_rclone_config(path)
+    assert "service_account_file = " in text
     assert "token =" not in text
     assert "shared_with_me = true" in text
-    assert "backup@example.iam.gserviceaccount.com" in text
+    assert sa["client_email"] == "backup@example.iam.gserviceaccount.com"
+    assert "\n" in sa["private_key"]
+    assert "\\n" not in sa["private_key"]
+
+
+def test_google_auth_url_asks_for_offline_drive_access():
+    url = copies.google_auth_url(
+        "client.apps.googleusercontent.com",
+        "https://herder.example/backup-copies/google/callback",
+        "state-1",
+    )
+    assert url.startswith("https://accounts.google.com/o/oauth2/v2/auth?")
+    assert "client_id=client.apps.googleusercontent.com" in url
+    assert "access_type=offline" in url
+    assert "prompt=consent" in url
+    assert "scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive" in url
+    assert "redirect_uri=https%3A%2F%2Fherder.example%2Fbackup-copies%2Fgoogle%2Fcallback" in url
+
+
+def test_oauth_rclone_config_uses_the_user_token_not_a_shared_drive():
+    raw = copies.pack_oauth_token(
+        client_id="client.apps.googleusercontent.com",
+        client_secret="secret",
+        refresh_token="refresh",
+        access_token="access",
+        email="bjorn@gmail.com",
+        expires_in=3600,
+    )
+    path = copies.write_rclone_config(raw, shared_with_me=False)
+    try:
+        text = open(path, encoding="utf-8").read()
+    finally:
+        copies.discard_rclone_config(path)
+    assert "client_id = client.apps.googleusercontent.com" in text
+    assert "client_secret = secret" in text
+    assert "refresh" in text
+    assert "shared_with_me" not in text
+    assert "service_account_file" not in text
+
+
+def test_literal_backslash_n_in_pasted_key_becomes_pem_newlines():
+    pasted = "-----BEGIN PRIVATE KEY-----\\nMIIE\\n-----END PRIVATE KEY-----\\n"
+    packed = json.loads(
+        copies.pack_service_account("backup@example.iam.gserviceaccount.com", pasted)
+    )
+    assert packed["private_key"] == "-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----"
+    assert "\\n" not in packed["private_key"]
 
 
 def test_service_account_config_uses_shared_drive_even_when_flag_off():

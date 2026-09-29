@@ -153,9 +153,11 @@
       <div class="min-w-0">
         <h2 class="font-semibold text-text m-0">Copy the backup drive</h2>
         <p class="text-xs text-muted mt-1">
-          {% if copy_has_token %}
-          Google Drive · {{ copy_account_email or 'key saved' }} · folder {{ copy_drive_folder or 'PiHerder' }}
+          {% if copy_account_kind == 'oauth' and copy_has_token %}
+          Google Drive · {{ copy_account_email or 'signed in' }} · folder {{ copy_drive_folder or 'PiHerder' }}
           · {% if copy_dest.schedule %}{{ copy_dest.schedule | cron_human(current_tz if current_tz is defined else get_app_timezone()) }}{% else %}manual{% endif %}
+          {% elif copy_has_token %}
+          A service-account key is saved. Connect Google so new files use your Drive space.
           {% else %}
           No external copy yet. Host backups stay on this PiHerder.
           {% endif %}
@@ -163,7 +165,7 @@
       </div>
       {% if copy_dest %}
       <div class="flex gap-2 shrink-0">
-        {% if copy_has_token %}
+        {% if copy_account_kind == 'oauth' and copy_has_token %}
         <form method="post" action="/backup-copies/test">
           <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Test</button>
         </form>
@@ -178,11 +180,11 @@
     {% if copy_test == 'ok' %}
     <p class="text-sm text-accent mb-3">The folder is shared with this account. Nothing was copied.</p>
     {% elif copy_test == 'folder' %}
-    <p class="text-sm text-danger mb-3">That folder name was not found in Drive shared with this account. Check the name and that the folder is shared as Editor.</p>
+    <p class="text-sm text-danger mb-3">That folder was not found in this Google account’s My Drive. The name must match a folder you own.</p>
     {% elif copy_test == 'auth' %}
-    <p class="text-sm text-danger mb-3">Google rejected the key. Paste the private key again.</p>
+    <p class="text-sm text-danger mb-3">Google rejected the sign-in. Connect Google again.</p>
     {% elif copy_test == 'account' %}
-    <p class="text-sm text-danger mb-3">Save an email and private key first.</p>
+    <p class="text-sm text-danger mb-3">Connect Google before testing.</p>
     {% elif copy_test == 'rclone' %}
     <p class="text-sm text-danger mb-3">rclone is not available in this container. Rebuild the image, then test again.</p>
     {% elif copy_test == 'timeout' %}
@@ -194,10 +196,14 @@
     {% endif %}
     {% if copy_error == 'cron' %}
     <p class="text-sm text-danger mb-3">Choose a schedule from the list, or enter a 5-field cron.</p>
-    {% elif copy_error == 'email' %}
-    <p class="text-sm text-danger mb-3">Enter the service account email.</p>
-    {% elif copy_error == 'key' %}
-    <p class="text-sm text-danger mb-3">Paste the private key, including the BEGIN and END lines.</p>
+    {% elif copy_error == 'client' %}
+    <p class="text-sm text-danger mb-3">Paste the OAuth client ID and secret from Google Cloud, then connect again.</p>
+    {% elif copy_error == 'origin' %}
+    <p class="text-sm text-danger mb-3">PiHerder could not tell which address to send Google back to. Set PIHERDER_PUBLIC_URL and try again.</p>
+    {% elif copy_error == 'state' %}
+    <p class="text-sm text-danger mb-3">The Google sign-in did not match this browser. Connect again.</p>
+    {% elif copy_error == 'google' %}
+    <p class="text-sm text-danger mb-3">Google did not finish the sign-in. Check the redirect URL on the OAuth client, then connect again.</p>
     {% elif copy_error == 'folder' %}
     <p class="text-sm text-danger mb-3">That Drive folder name is not valid.</p>
     {% elif copy_error == 'provider' %}
@@ -220,6 +226,23 @@
         </div>
         <form method="post" action="/backup-copies/config" class="settings-sheet-form" id="drive-copy-form">
           <div class="settings-sheet-body space-y-3 text-sm">
+            {% if copy_error == 'client' %}
+            <p class="text-sm text-danger">Paste the OAuth client ID and secret, then connect again.</p>
+            {% elif copy_error == 'origin' %}
+            <p class="text-sm text-danger">PiHerder could not tell which address to send Google back to. Set PIHERDER_PUBLIC_URL and try again.</p>
+            {% elif copy_error == 'state' %}
+            <p class="text-sm text-danger">The Google sign-in did not match this browser. Connect again.</p>
+            {% elif copy_error == 'google' %}
+            <p class="text-sm text-danger">Google did not finish the sign-in. Check the redirect URL on the OAuth client, then connect again.</p>
+            {% elif copy_error == 'cron' %}
+            <p class="text-sm text-danger">Choose a schedule from the list, or enter a 5-field cron.</p>
+            {% elif copy_error == 'folder' %}
+            <p class="text-sm text-danger">That Drive folder name is not valid.</p>
+            {% elif copy_error == 'provider' %}
+            <p class="text-sm text-danger">That service is not available yet.</p>
+            {% elif copy_error %}
+            <p class="text-sm text-danger">{{ copy_error }}</p>
+            {% endif %}
             <div>
               <label class="block text-xs text-muted mb-1" for="copy-provider">Service</label>
               <select id="copy-provider" name="provider"
@@ -230,30 +253,38 @@
               </select>
             </div>
             <div data-copy-help="drive" class="text-xs text-muted border border-border rounded p-3 bg-surface">
+              <p class="mb-2">Do these in order in Google Cloud, then paste the client here. Leave the app in <strong>Testing</strong>. Do not publish it. Publishing asks Google to verify the Drive scope.</p>
               <ol class="space-y-1 list-decimal pl-4">
-                <li>Open <a href="https://console.cloud.google.com/" class="text-accent hover:underline" target="_blank" rel="noopener">Google Cloud Console</a> and choose a project.</li>
+                <li>Open a <a href="https://console.cloud.google.com/projectcreate" class="text-accent hover:underline" target="_blank" rel="noopener">project</a>, or select the one you already use.</li>
                 <li><a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" class="text-accent hover:underline" target="_blank" rel="noopener">Enable the Google Drive API</a>.</li>
-                <li><a href="https://console.cloud.google.com/iam-admin/serviceaccounts" class="text-accent hover:underline" target="_blank" rel="noopener">Create a service account</a> and add a JSON key. Paste its email and private key. Do not paste the whole file.</li>
-                <li>In <a href="https://drive.google.com/drive/my-drive" class="text-accent hover:underline" target="_blank" rel="noopener">Google Drive</a>, share the folder with that email as Editor. PiHerder looks in folders shared with the service account.</li>
+                <li><a href="https://console.cloud.google.com/auth/branding" class="text-accent hover:underline" target="_blank" rel="noopener">Google Auth platform → Branding</a>. App name <span class="text-text">PiHerder</span>. Support email: your Gmail. Save.</li>
+                <li><a href="https://console.cloud.google.com/auth/audience" class="text-accent hover:underline" target="_blank" rel="noopener">Audience</a>. User type <span class="text-text">External</span>. Publishing status stays <span class="text-text">Testing</span>. Under Test users, add the Gmail that owns the Drive folder.</li>
+                <li><a href="https://console.cloud.google.com/auth/scopes" class="text-accent hover:underline" target="_blank" rel="noopener">Data access</a>. Add scope <span class="font-mono text-text">https://www.googleapis.com/auth/drive</span> (See, edit, create, and delete all of your Google Drive files). Save.</li>
+                <li><a href="https://console.cloud.google.com/auth/clients" class="text-accent hover:underline" target="_blank" rel="noopener">Clients → Create client → Web application</a>. Under Authorised redirect URIs, add this URL exactly. Include the port. No trailing slash. Then Create:</li>
+              </ol>
+              <p class="mt-2 font-mono break-all text-text">{{ copy_redirect_uri or 'Set PIHERDER_PUBLIC_URL, then reload. The redirect URL must be the address you use in the browser.' }}</p>
+              <ol class="space-y-1 list-decimal pl-4 mt-2" start="7">
+                <li>Paste the client ID and the secret below. The secret starts with <span class="font-mono text-text">GOCSPX-</span>. Leave the secret blank only after one is already saved. If you lost it, add a new secret on that client.</li>
+                <li><strong>Connect Google</strong>. Choose Advanced, then continue, and sign in as the test user who owns the folder. The folder name is a folder in that account’s My Drive.</li>
               </ol>
               <p class="mt-2">
-                <a href="{{ docs_url }}day-to-day/backups/#set-up-google-drive" class="text-accent hover:underline" target="_blank" rel="noopener">Full setup steps</a>
+                <a href="{{ docs_url }}day-to-day/backups/#set-up-google-drive" class="text-accent hover:underline" target="_blank" rel="noopener">Same steps on the backup page</a>
               </p>
             </div>
             <p data-copy-help="later" class="hidden text-sm text-muted">That service is not available yet. Google Drive is the one this page can save.</p>
             <div data-copy-fields="drive" class="space-y-3">
               <div>
-                <label class="block text-xs text-muted mb-1" for="copy-email">Email</label>
-                <input id="copy-email" name="account_email" type="email" autocomplete="off"
-                       value="{{ copy_account_email or '' }}"
-                       placeholder="backup@project.iam.gserviceaccount.com"
-                       class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+                <label class="block text-xs text-muted mb-1" for="copy-client-id">OAuth client ID</label>
+                <input id="copy-client-id" name="client_id" autocomplete="off" spellcheck="false"
+                       value="{{ copy_client_id or '' }}"
+                       placeholder="123-abc.apps.googleusercontent.com"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11">
               </div>
               <div>
-                <label class="block text-xs text-muted mb-1" for="copy-key">Private key</label>
-                <textarea id="copy-key" name="private_key" rows="3" autocomplete="off" spellcheck="false"
-                          placeholder="{% if copy_has_token %}Saved. Leave blank to keep it.{% else %}-----BEGIN PRIVATE KEY-----{% endif %}"
-                          class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs"></textarea>
+                <label class="block text-xs text-muted mb-1" for="copy-client-secret">OAuth client secret</label>
+                <input id="copy-client-secret" name="client_secret" type="password" autocomplete="off"
+                       placeholder="{% if copy_has_secret %}Saved. Leave blank to keep it.{% else %}GOCSPX-… required the first time{% endif %}"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11">
               </div>
               <div>
                 <label class="block text-xs text-muted mb-1" for="copy-folder">Folder on Drive</label>
@@ -279,8 +310,9 @@
               </label>
             </div>
           </div>
-          <div class="settings-sheet-foot">
-            <button type="submit" class="btn btn-accent min-h-11 text-sm" data-copy-save>Save</button>
+          <div class="settings-sheet-foot flex gap-2">
+            <button type="submit" class="btn btn-secondary min-h-11 text-sm" data-copy-save>Save</button>
+            <button type="submit" class="btn btn-accent min-h-11 text-sm" formaction="/backup-copies/google/start" formmethod="post">Connect Google</button>
           </div>
         </form>
       </div>

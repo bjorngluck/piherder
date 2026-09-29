@@ -10,7 +10,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
@@ -480,6 +480,9 @@ async def settings_page(
     copy_account_kind = ""
     copy_drive_folder = "PiHerder"
     copy_shared = False
+    copy_client_id = ""
+    copy_has_secret = False
+    copy_redirect_uri = ""
     if is_admin:
         try:
             from ..services import backup_replicate as copies
@@ -491,6 +494,16 @@ async def settings_page(
             copy_account_kind = account.get("kind") or ""
             copy_drive_folder = copies.drive_folder(copy_dest)
             copy_shared = copies.shared_with_me(copy_dest)
+            copy_oauth = copies.oauth_client(copy_dest)
+            copy_client_id = copy_oauth.get("client_id") or ""
+            copy_has_secret = bool(copy_oauth.get("client_secret"))
+            origin = public_url or ""
+            if not origin:
+                parsed = urlparse(str(request.base_url))
+                if parsed.scheme in ("http", "https") and parsed.netloc:
+                    origin = f"{parsed.scheme}://{parsed.netloc}"
+            if origin:
+                copy_redirect_uri = copies.google_redirect_uri(origin)
         except Exception:
             copy_dest = None
             copy_has_token = False
@@ -498,6 +511,8 @@ async def settings_page(
             copy_account_kind = ""
             copy_drive_folder = "PiHerder"
             copy_shared = False
+            copy_client_id = ""
+            copy_has_secret = False
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -513,6 +528,9 @@ async def settings_page(
             "copy_account_kind": copy_account_kind,
             "copy_drive_folder": copy_drive_folder,
             "copy_shared": copy_shared,
+            "copy_client_id": copy_client_id,
+            "copy_has_secret": copy_has_secret,
+            "copy_redirect_uri": copy_redirect_uri,
             "copy_error": qp.get("copy_error"),
             "copy_saved": qp.get("copy_saved"),
             "copy_test": qp.get("copy_test"),

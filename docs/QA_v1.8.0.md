@@ -40,7 +40,7 @@ Reading pass against [PLAN_v1.8.0.md](PLAN_v1.8.0.md) §3.1. No client required 
 Skip this section if the destination slips the tag. Demo is not the target.
 
 - [ ] Settings → PiHerder backup, under the self-backup cards, copies the whole backup drive. The service list saves Google Drive only. OneDrive and LAN NAS / SMB are visible and cannot be selected  
-- [ ] The account is an email and a private key. The key is not shown again. A blank key keeps the saved one. Setup steps show only while Google Drive is selected. The schedule uses the same presets as the rest of Settings. **Test** confirms the shared folder and does not copy  
+- [ ] The account is a Google sign-in. The dialog lists the Cloud steps, including Branding, Audience (Testing, test user), the Drive scope, and the redirect URL. The client secret is not shown again. A blank secret keeps a saved one. Setup steps show only while Google Drive is selected. **Test** checks the folder in that account’s My Drive and does not copy  
 - [ ] Folders are a tree on the left and the open folder on the right. Tick a folder, open it, and the children stay ticked. Untick a child to leave it out. No typed excludes. Restore still uses the local tree  
 - [ ] Copy now, the schedule, and the optional follow-up after a host backup enqueue a **Drive copy** job. A failed copy does not change the host backup time  
 - [ ] The credential is not written to the job log. The public demo does not upload. The token API and MCP cannot start this job  

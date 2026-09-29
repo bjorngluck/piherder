@@ -147,11 +147,11 @@ Path C stays parked. Every Pi would need a route to the store and a client insta
 
 No vendor-neutral plugin framework. No restic, borg, or kopia: those replace the browsable mirror and the restore wizard. One rclone binary is how OneDrive and SMB can be added later. It is not a framework. Those two services are visible in the list and cannot be saved.
 
-The Drive copy uses a job-scoped temp rclone config. The form stores a service account email and private key with Fernet, the same way as other secrets. There is no Graph client, no device-code login, and no SMB client.
+The Drive copy uses a job-scoped temp rclone config. The form stores a Google web client ID, client secret, and refresh token with Fernet. PiHerder runs the redirect. A service account cannot own files on a personal Drive, so it is not the upload account. There is no Graph client, no device-code login, and no SMB client.
 
 ### 3.2 Google Drive (Should)
 
-Built on this branch. Detail is [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). One destination row over the whole `/backups` drive, not a setting on one host. **Settings → PiHerder backup** has the section under the instance self-backup. The service list is Google Drive, plus OneDrive and LAN NAS / SMB disabled. The account is an email and a private key. The schedule uses the same presets as the rest of Settings. The browser is a read-only folder tree: tick a folder, open it, untick a child to leave it behind. No typed excludes. rclone runs on the herder as job `backup_replicate` (**Drive copy**) on the existing worker. The key is Fernet-encrypted and not written to the job log. A failed upload fails the **copy** job. The rsync job and `last_backup_at` stay as they were. Demo never uploads. `backup_replicate` is not on the token API. If this slips, the tag still ships with the local directory only and §3.1. Rebuild the image before a real upload; rclone **1.68.2** is pinned in the Dockerfile. Apply Alembic **047**.
+Built on this branch. Detail is [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). One destination row over the whole `/backups` drive, not a setting on one host. **Settings → PiHerder backup** has the section under the instance self-backup. The service list is Google Drive, plus OneDrive and LAN NAS / SMB disabled. The account is a Google sign-in from this PiHerder. The schedule uses the same presets as the rest of Settings. The browser is a read-only folder tree: tick a folder, open it, untick a child to leave it behind. No typed excludes. rclone runs on the herder as job `backup_replicate` (**Drive copy**) on the existing worker. The client secret and refresh token are Fernet-encrypted and not written to the job log. A failed upload fails the **copy** job. The rsync job and `last_backup_at` stay as they were. Demo never uploads. `backup_replicate` is not on the token API. If this slips, the tag still ships with the local directory only and §3.1. Rebuild the image before a real upload; rclone **1.68.2** is pinned in the Dockerfile. Apply Alembic **047**.
 
 ---
 
@@ -251,7 +251,7 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 | 2026-09-28 | **MCP-jobs landed.** `trigger_job` matches the jobs POST list on hosted `/mcp` and the stdio adapter. `service_migrate`, undo, nmap, `docker_stack_down`, `docker_stack_remove`, and `template_drift_check` stay refused. |
 | 2026-09-28 | Adapter package set to **0.2.0** in [piherder-mcp](https://github.com/bjorngluck/piherder-mcp). Tag `v0.2.0` publishes it. `uvx` stays on **0.1.1** until then. |
 | 2026-09-28 | **Bak-alt discovery written.** Path A is a rclone second hop from `/backups`. Path B (SMB as the dest root) and OneDrive are later. Path C (a client on each Pi) stays parked. No Drive client in this pass. |
-| 2026-09-29 | **Google Drive copy built** on the branch. Settings → PiHerder backup. Service list shows Drive, with OneDrive and SMB not selectable. Service account email and private key. Folder tree. Job `backup_replicate`. Walk still open. |
+| 2026-09-29 | **Google Drive copy built** on the branch. Settings → PiHerder backup. Service list shows Drive, with OneDrive and SMB not selectable. Sign-in is the operator’s Google account (web OAuth client). A service account cannot store the files on a personal Drive. Folder tree. Job `backup_replicate`. Walk still open. |
 
 ---
 
