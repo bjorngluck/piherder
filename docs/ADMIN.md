@@ -251,6 +251,8 @@ Scheduled apply/audit attribution shows as **system / scheduler** (no user id).
 
 Per-server backup enable + cron on the server/backups UI. Enqueues **Celery** workers (web never runs rsync).
 
+On `v1.8.0-dev`, **Settings → PiHerder backup** also has **Copy the backup drive**: rclone on the herder sends checked paths under `/backups` to Google Drive. OneDrive and LAN NAS / SMB are in the service list and cannot be selected. The copy is job `backup_replicate`. It is not the self-backup below, and a failed copy does not change `last_backup_at`. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). Not in the published **1.7.0** image.
+
 ### PiHerder self-backup
 
 **Settings → PiHerder backup** tab: manual run, schedule, restore. Separate from per-server rsync backups.  
@@ -606,7 +608,7 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
 | **Image pin** | Prefer a tagged image: Hub **`1.7.0`** / `1.7` / `latest` (`1.6.0` / `1.6` pins remain valid) |
 
-Current production: [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md). Active train: [PLAN_v1.8.0.md](PLAN_v1.8.0.md) on `v1.8.0-dev` (MCP job types, backup destinations, then HA cards). Prior: [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current production: [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md). Active train: [PLAN_v1.8.0.md](PLAN_v1.8.0.md) on `v1.8.0-dev` (MCP job types landed, Google Drive copy built with the walk open, then HA cards). Prior: [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 

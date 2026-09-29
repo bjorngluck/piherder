@@ -1,4 +1,6 @@
 """Selection and rclone argv for the fleet Drive copy. No live rclone or Google."""
+import os
+
 import pytest
 
 from app.models import BackupDestination
@@ -42,6 +44,45 @@ def test_rclone_exclude_from_skipped_child():
     assert "--exclude" in cmd
     assert "data/**" in cmd
     assert ".." not in " ".join(cmd)
+
+
+def test_open_checked_folder_keeps_children_on(tmp_path, monkeypatch):
+    monkeypatch.setattr(copies, "backup_root", lambda: tmp_path)
+    (tmp_path / "host" / "keep").mkdir(parents=True)
+    (tmp_path / "host" / "skipme").mkdir()
+    checked, skipped = copies.apply_toggle([], [], "host", True)
+    states = {
+        row["name"]: copies.selection_state(row["path"], checked, skipped)
+        for row in copies.list_directory("host")
+    }
+    assert states == {"keep": "on", "skipme": "on"}
+    checked, skipped = copies.apply_toggle(checked, skipped, "host/skipme", False)
+    assert copies.selection_state("host/skipme", checked, skipped) == "off"
+    assert copies.selection_state("host/keep", checked, skipped) == "on"
+    assert copies.selection_state("host", checked, skipped) == "partial"
+
+
+def test_service_account_fields_not_a_token_blob():
+    raw = copies.pack_service_account(
+        "backup@example.iam.gserviceaccount.com",
+        "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n",
+    )
+    path = copies.write_rclone_config(raw, shared_with_me=True)
+    try:
+        text = open(path, encoding="utf-8").read()
+    finally:
+        os.remove(path)
+    assert "service_account_credentials" in text
+    assert "token =" not in text
+    assert "shared_with_me = true" in text
+    assert "backup@example.iam.gserviceaccount.com" in text
+
+
+def test_bad_key_rejected():
+    with pytest.raises(ValueError):
+        copies.pack_service_account("not-an-email", "-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----\n")
+    with pytest.raises(ValueError):
+        copies.pack_service_account("backup@example.iam.gserviceaccount.com", "nope")
 
 
 def test_demo_refuses_without_rclone(monkeypatch):

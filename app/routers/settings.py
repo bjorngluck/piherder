@@ -476,15 +476,28 @@ async def settings_page(
     public_url = configured_public_origin()
     copy_dest = None
     copy_has_token = False
+    copy_account_email = ""
+    copy_account_kind = ""
+    copy_drive_folder = "PiHerder"
+    copy_shared = False
     if is_admin:
         try:
             from ..services import backup_replicate as copies
 
             copy_dest = copies.get_or_create(session)
-            copy_has_token = bool(copy_dest.credentials_encrypted)
+            account = copies.credential_public(copy_dest)
+            copy_has_token = bool(account.get("saved"))
+            copy_account_email = account.get("email") or ""
+            copy_account_kind = account.get("kind") or ""
+            copy_drive_folder = copies.drive_folder(copy_dest)
+            copy_shared = copies.shared_with_me(copy_dest)
         except Exception:
             copy_dest = None
             copy_has_token = False
+            copy_account_email = ""
+            copy_account_kind = ""
+            copy_drive_folder = "PiHerder"
+            copy_shared = False
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -496,6 +509,10 @@ async def settings_page(
             "herder_backup_dir": str(hb.HERDER_BACKUP_DIR),
             "copy_dest": copy_dest,
             "copy_has_token": copy_has_token,
+            "copy_account_email": copy_account_email,
+            "copy_account_kind": copy_account_kind,
+            "copy_drive_folder": copy_drive_folder,
+            "copy_shared": copy_shared,
             "copy_error": qp.get("copy_error"),
             "copy_saved": qp.get("copy_saved"),
             "herder_config": cfg,

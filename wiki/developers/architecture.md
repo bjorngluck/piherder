@@ -32,6 +32,7 @@ flowchart TB
 | Work | Runs on | Concurrency rule |
 |------|---------|------------------|
 | Backups | Celery | Parallel across hosts; one backup per host (Redis mutex) |
+| Drive copy (`backup_replicate`) | Celery default queue | v1.8 train. One slot, like a long rsync. Not the per-host backup lock. Web only enqueues |
 | Move (`service_migrate`) and fail-path undo (`service_migrate_undo`) | Celery | Dual-host backup mutex; recycle web is safe; recycle worker fails a running Move or undo. Undo only after cutover / rebind / validate failed |
 | OS/container patch, update checks, stack jobs, template jobs, `host_reboot` | Celery default queue (`exclusive_job`) | One active job of that type per host. Stack writes share one lane. Reboot is also refused while OS patch, container patch, or backup is active. No backup mutex. Host-down stays pending. Worker recycle fails a running job |
 | Bulk fleet actions | Web → same enqueue paths | Feature-flag skip + exclusive rules |
@@ -57,6 +58,7 @@ flowchart TB
 | Per-server backup lock | `app/services/server_job_lock.py` |
 | Scheduler | `app/services/scheduler.py` |
 | Backup | `app/services/backup.py` (+ progress, profiles) |
+| Drive copy | `app/services/backup_replicate.py` · `app/routers/backup_copies.py` · Alembic **047** · Settings → PiHerder backup. Not in the 1.7.0 image |
 | Docker inventory | `app/services/docker_inventory.py` |
 | Host OS / hardware / CPU / RAM / disk snapshot | `app/services/host_facts.py` · Alembic **044** + **045** · System Info modal (DB first; icon refresh) · scheduler ~15 min · same columns as `/api/v1` + HACS |
 | Templates (domain) | `app/services/service_templates/` — `deploy`, `host_sync` (adopt/migrate), `harden`, `schema`, `from_host`, … |

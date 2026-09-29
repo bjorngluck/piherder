@@ -851,6 +851,8 @@ def list_backups() -> List[Dict[str, Any]]:
                 pass
     seen = set()
     out = []
+    from .backup_profiles import human_size
+
     for p in sorted((c for c in candidates if c.exists()), key=lambda x: x.stat().st_mtime, reverse=True):
         if str(p) not in seen:
             seen.add(str(p))
@@ -859,6 +861,7 @@ def list_backups() -> List[Dict[str, Any]]:
                 "path": str(p),
                 "name": p.name,
                 "size": stat.st_size,
+                "size_human": human_size(stat.st_size),
                 # UTC ISO so UI data-utc / app timezone conversion is correct
                 "mtime": datetime.utcfromtimestamp(stat.st_mtime).strftime(
                     "%Y-%m-%dT%H:%M:%SZ"

@@ -127,6 +127,25 @@ def path_included(path: str, checked: list[str], skipped: list[str]) -> bool:
     return any(rel == c or _under(rel, c) for c in checked)
 
 
+def selection_state(path: str, checked: list[str], skipped: list[str]) -> str:
+    """on, off, or partial. A checked folder stays on for everything inside it."""
+    rel = ""
+    if path:
+        try:
+            rel = _clean_rel(path)
+        except ValueError:
+            return "off"
+    if not rel:
+        return "partial" if checked else "off"
+    if path_included(rel, checked, skipped):
+        if any(_under(skip, rel) and skip != rel for skip in skipped):
+            return "partial"
+        return "on"
+    if any(_under(item, rel) and item != rel for item in checked):
+        return "partial"
+    return "off"
+
+
 def resolve_under_root(rel: str) -> Path:
     root = backup_root()
     cleaned = _clean_rel(rel)
@@ -146,6 +165,8 @@ def list_directory(rel: str) -> list[dict[str, Any]]:
     except OSError as exc:
         raise FileNotFoundError(str(exc)) from exc
     parent = _clean_rel(rel)
+    from .backup_profiles import human_size
+
     for child in children:
         if child.is_symlink():
             continue
@@ -155,12 +176,14 @@ def list_directory(rel: str) -> list[dict[str, Any]]:
             continue
         name = child.name
         child_rel = f"{parent}/{name}" if parent else name
+        is_dir = child.is_dir()
         rows.append(
             {
                 "name": name,
                 "path": child_rel,
-                "is_dir": child.is_dir(),
+                "is_dir": is_dir,
                 "size": int(st.st_size),
+                "size_h": "" if is_dir else human_size(int(st.st_size)),
                 "mtime": int(st.st_mtime),
             }
         )
@@ -238,14 +261,46 @@ def rclone_copy_file_cmd(config_path: str, local_file: str, remote_path: str) ->
     ]
 
 
-def write_rclone_config(token_json: str) -> str:
+def encrypt_account(email: str, private_key: str) -> str:
+    return encrypt_str(pack_service_account(email, private_key))
+
+
+def pack_service_account(email: str, private_key: str) -> str:
+    account = (email or "").strip()
+    key = (private_key or "").strip().replace("\r\n", "\n")
+    if "@" not in account or any(ch.isspace() for ch in account):
+        raise ValueError("email")
+    if "BEGIN" not in key or "PRIVATE KEY" not in key or "END" not in key:
+        raise ValueError("key")
+    return json.dumps(
+        {"auth": "service_account", "client_email": account, "private_key": key}
+    )
+
+
+def write_rclone_config(token_json: str, *, shared_with_me: bool = False) -> str:
     payload = json.loads(token_json)
-    if not isinstance(payload, dict) or not payload.get("refresh_token") and not payload.get("access_token"):
-        raise ValueError("Drive token must be the JSON from rclone authorize drive")
+    if not isinstance(payload, dict):
+        raise ValueError("Google account details are missing")
+    lines = [f"[{_REMOTE_NAME}]", "type = drive", "scope = drive"]
+    if payload.get("private_key") and payload.get("client_email"):
+        creds = {
+            "type": "service_account",
+            "client_email": payload["client_email"],
+            "private_key": payload["private_key"],
+            "token_uri": "https://oauth2.googleapis.com/token",
+        }
+        lines.append(
+            "service_account_credentials = " + json.dumps(creds, separators=(",", ":"))
+        )
+    elif payload.get("refresh_token") or payload.get("access_token"):
+        lines.append("token = " + json.dumps(payload, separators=(",", ":")))
+    else:
+        raise ValueError("Google account details are missing")
+    if shared_with_me or payload.get("shared_with_me"):
+        lines.append("shared_with_me = true")
     handle = tempfile.NamedTemporaryFile("w", prefix="ph-rclone-", suffix=".conf", delete=False)
     try:
-        line = json.dumps(payload, separators=(",", ":"))
-        handle.write(f"[{_REMOTE_NAME}]\ntype = drive\ntoken = {line}\n")
+        handle.write("\n".join(lines) + "\n")
         handle.flush()
         os.chmod(handle.name, 0o600)
     finally:
@@ -265,8 +320,51 @@ def encrypt_token(token_json: str) -> str:
 def decrypt_token(destination: BackupDestination) -> str:
     raw = destination.credentials_encrypted or ""
     if not raw:
-        raise ValueError("No Drive token saved")
+        raise ValueError("No Google account saved")
     return decrypt_str(raw)
+
+
+def credential_public(destination: BackupDestination) -> dict[str, Any]:
+    """Email and kind for the form. Never the private key."""
+    if not (destination.credentials_encrypted or "").strip():
+        return {"saved": False, "email": "", "kind": ""}
+    try:
+        data = json.loads(decrypt_token(destination))
+    except Exception:
+        return {"saved": True, "email": "", "kind": "saved"}
+    if not isinstance(data, dict):
+        return {"saved": True, "email": "", "kind": "saved"}
+    if data.get("client_email"):
+        return {
+            "saved": True,
+            "email": str(data["client_email"]),
+            "kind": "service_account",
+        }
+    if data.get("refresh_token") or data.get("access_token"):
+        return {"saved": True, "email": "", "kind": "connected"}
+    return {"saved": True, "email": "", "kind": "saved"}
+
+
+def drive_folder(destination: BackupDestination) -> str:
+    return _remote_dir(destination)
+
+
+def shared_with_me(destination: BackupDestination) -> bool:
+    try:
+        cfg = json.loads(destination.config_json or "{}")
+    except Exception:
+        cfg = {}
+    return bool(isinstance(cfg, dict) and cfg.get("shared_with_me"))
+
+
+def clean_drive_folder(value: str) -> str:
+    name = (value or "").strip().strip("/")
+    if not name:
+        return "PiHerder"
+    parts = [part for part in name.split("/") if part and part != "."]
+    if any(part == ".." for part in parts):
+        raise ValueError("folder")
+    return "/".join(parts) or "PiHerder"
 
 
 def host_folder_name(server: Server) -> str:
@@ -319,7 +417,10 @@ def execute(destination: BackupDestination, scope: str | None = None) -> dict[st
         return {"ok": False, "error": "Nothing selected on the backup drive"}
     config_path = ""
     try:
-        config_path = write_rclone_config(decrypt_token(destination))
+        config_path = write_rclone_config(
+            decrypt_token(destination),
+            shared_with_me=shared_with_me(destination),
+        )
         remote_root = _remote_dir(destination)
         errors: list[str] = []
         copied: list[str] = []

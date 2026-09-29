@@ -37,12 +37,15 @@ async def list_copy_dir(
     except (FileNotFoundError, ValueError) as exc:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
     for row in rows:
-        row["included"] = copies.path_included(row["path"], checked, skipped)
+        row["state"] = copies.selection_state(row["path"], checked, skipped)
+        row["included"] = row["state"] == "on"
     parent = (p or "").strip().strip("/")
+    state = copies.selection_state(parent, checked, skipped)
     return {
         "ok": True,
         "path": parent,
-        "included": copies.path_included(parent, checked, skipped) if parent else False,
+        "state": state,
+        "included": state == "on",
         "entries": rows,
     }
 
@@ -83,26 +86,57 @@ async def toggle_copy_path(
 
 @router.post("/backup-copies/config")
 async def save_copy_config(
+    provider: str = Form("drive"),
     schedule_cron: str = Form(""),
     after_host_backup: str = Form(""),
-    token_json: str = Form(""),
+    account_email: str = Form(""),
+    private_key: str = Form(""),
+    drive_folder: str = Form(""),
+    shared_with_me: str = Form(""),
     user: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
     del user
     dest = copies.get_or_create(session)
+    if (provider or "drive").strip() != "drive":
+        return _redirect("copy_error=provider")
     try:
         cron = safe_cron(schedule_cron, field="schedule", allow_empty=True) or ""
     except ValidationError:
         return _redirect("copy_error=cron")
+    try:
+        folder = copies.clean_drive_folder(drive_folder)
+    except ValueError:
+        return _redirect("copy_error=folder")
     dest.schedule = cron or None
     dest.after_host_backup = after_host_backup in ("1", "on", "true")
-    token = (token_json or "").strip()
-    if token:
+    try:
+        cfg = json.loads(dest.config_json or "{}")
+    except Exception:
+        cfg = {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    cfg["remote_dir"] = folder
+    cfg["shared_with_me"] = shared_with_me in ("1", "on", "true")
+    dest.config_json = json.dumps(cfg)
+    email = (account_email or "").strip()
+    key = (private_key or "").strip()
+    saved = copies.credential_public(dest)
+    saved_email = saved.get("email") or ""
+    if key or (email and email != saved_email):
+        if not key:
+            if saved.get("kind") != "service_account":
+                return _redirect("copy_error=key")
+            try:
+                previous = json.loads(copies.decrypt_token(dest))
+            except Exception:
+                return _redirect("copy_error=key")
+            key = previous.get("private_key") or ""
         try:
-            dest.credentials_encrypted = copies.encrypt_token(token)
-        except Exception:
-            return _redirect("copy_error=token")
+            dest.credentials_encrypted = copies.encrypt_account(email, key)
+        except ValueError as exc:
+            code = str(exc) if str(exc) in ("email", "key") else "account"
+            return _redirect("copy_error=" + code)
     from datetime import datetime
 
     dest.updated_at = datetime.utcnow()

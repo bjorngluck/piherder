@@ -11,6 +11,7 @@ It is **not** a replacement for:
 | Not this | That is… |
 |----------|----------|
 | Per-server **rsync** of docker/media trees | [Server backups](../day-to-day/backups.md) on the `/backups` volume |
+| Copy of that backup drive to Google Drive | Same Settings tab, on the v1.8 train only. It is not this archive. [Backups](../day-to-day/backups.md#copy-to-google-drive-v18-train) |
 | A VM/disk image of the herder host | You still install compose + image on the new machine |
 
 Journey: [Operator scenarios — Journey F](../getting-started/operator-scenarios.md#journey-f).
