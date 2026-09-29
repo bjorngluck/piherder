@@ -151,7 +151,7 @@ Do not write a Drive, Graph, or SMB client. A job-scoped temp rclone config is t
 
 ### 3.2 Google Drive (Should)
 
-Locked in [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). One destination row over the whole `/backups` drive, not a setting on one host. The page is a read-only file list: tick a folder to take it, untick rows to leave them behind. No typed excludes. rclone runs on the herder. The token is Fernet-encrypted and not written to the job log. A failed upload fails the **copy** job. The rsync job and `last_backup_at` stay as they were. Demo never uploads. `backup_replicate` is not on the token API. If this slips, the tag still ships with the local directory only and §3.1.
+Locked in [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). One destination row over the whole `/backups` drive, not a setting on one host. The UI is an extra section on Settings → PiHerder backup. The page is a read-only file list: tick a folder to take it, untick rows to leave them behind. No typed excludes. rclone runs on the herder as job `backup_replicate` on the existing worker. The token is Fernet-encrypted and not written to the job log. A failed upload fails the **copy** job. The rsync job and `last_backup_at` stay as they were. Demo never uploads. `backup_replicate` is not on the token API. If this slips, the tag still ships with the local directory only and §3.1. The image must be rebuilt before a real upload; rclone is pinned in the Dockerfile.
 
 ---
 
@@ -220,7 +220,7 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 |----------|------|-----|--------|
 | **Must** | **MCP-jobs** | `trigger_job` accepts the jobs POST list. Move and undo stay refused. Hosted and stdio match | Landed on branch. Operator walk still open |
 | **Must** | **Bak-alt discovery** | §3.1 names path A (rclone second hop), path B (SMB mount later), path C parked. Local rsync stays the default | Written in §3.1 |
-| **Should** | **Google Drive** | Path A rclone copy after the local rsync. A failed upload fails the job. Demo never uploads | Not started. May slip |
+| **Should** | **Google Drive** | Path A rclone copy after the local rsync. A failed upload fails the copy job. Demo never uploads | Built on branch. Walk still open. May slip |
 | **Must** | **HA-vis** | Plugin **0.4.0**. Bars and a drawing 24-hour series. Same token rules | Not started |
 | **Should** | **HA bus** | `piherder_job_completed` from the plugin poll | Not started. May slip |
 | **Should** | **Mux-2** | List/kill `ph-u*` on SSH access | Not started. May slip |
@@ -261,7 +261,7 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 | 1 | Open **`v1.8.0-dev`** | **Done** 2026-09-28 |
 | 2 | Lock Must / Should in this plan | **Done** 2026-09-28 |
 | 3 | **MCP-jobs** | **Landed** on branch. Walk is [QA_v1.8.0.md](QA_v1.8.0.md) |
-| 4 | Bak-alt discovery is §3.1. Google Drive client | **Written** (path A). Client not started |
+| 4 | Bak-alt discovery is §3.1. Google Drive client | **Built** on branch (Settings → PiHerder backup). Walk still open |
 | 5 | **HA-vis** in piherder-ha, then the Should rows | Not started |
 | 6 | Freeze · `1.8.0` · tag · Hub | Only when asked |
 

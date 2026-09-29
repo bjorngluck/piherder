@@ -364,6 +364,16 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
                 pass
 
         logger.info(f"[Celery] Backup {'completed' if ok else 'failed'} for server {server_id}")
+        if ok and server is not None:
+            try:
+                from app.services.backup_replicate import enqueue_after_host_backup
+                enqueue_after_host_backup(db, server)
+            except Exception as copy_exc:
+                logger.warning(
+                    "[Celery] Drive copy follow-up skipped for server %s: %s",
+                    server_id,
+                    copy_exc,
+                )
         return {"status": "success" if ok else "failed", "server_id": server_id, "result": result}
 
     except Exception as exc:
@@ -716,6 +726,51 @@ def exclusive_job(
         )
     except Retry:
         raise
+
+
+@celery.task(bind=True, name="app.tasks.replicate_backup")
+def replicate_backup(self, job_id: int):
+    """Copy checked /backups paths to a fleet destination. Default Celery queue."""
+    db = Session(engine)
+    try:
+        job = db.get(Job, job_id)
+        if not job or job.status not in ("pending", "running"):
+            return {"status": "skipped", "job_id": job_id}
+        if _remember_worker(job, self.request):
+            db.add(job)
+            db.commit()
+        try:
+            details = json.loads(job.details or "{}")
+        except Exception:
+            details = {}
+        from app.models import BackupDestination
+        from app.services.backup_replicate import execute
+
+        dest = db.get(BackupDestination, details.get("destination_id"))
+        _update_job_status(job_id, "running", {"current": "copying"})
+        if not dest:
+            _update_job_status(job_id, "failed", {"error": "Destination missing", "current": "failed"})
+            return {"status": "failed", "job_id": job_id}
+        result = execute(dest, details.get("scope"))
+        if result.get("ok"):
+            _update_job_status(
+                job_id,
+                "success",
+                {"current": "completed", "copied": result.get("copied") or []},
+            )
+            return {"status": "success", "job_id": job_id}
+        _update_job_status(
+            job_id,
+            "failed",
+            {"error": result.get("error") or "copy failed", "current": "failed"},
+        )
+        return {"status": "failed", "job_id": job_id, "error": result.get("error")}
+    except Exception as exc:
+        logger.error("Drive copy job %s failed: %s", job_id, exc)
+        _update_job_status(job_id, "failed", {"error": str(exc)[:500], "current": "failed"})
+        return {"status": "failed", "job_id": job_id, "error": str(exc)[:500]}
+    finally:
+        db.close()
 
 
 def _update_job_status(job_id: int, status: str, extra: dict):

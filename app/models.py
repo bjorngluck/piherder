@@ -501,6 +501,28 @@ class ApiToken(SQLModel, table=True):
     expires_at: Optional[datetime] = None
 
 
+class BackupDestination(SQLModel, table=True):
+    """Fleet copy of the local backup drive (path A). Not a per-host setting.
+
+    ``credentials_encrypted`` is Fernet JSON (Drive: rclone OAuth token).
+    ``selection_json`` is {"checked": [...], "skipped": [...]} under BACKUP_ROOT.
+    """
+
+    __tablename__ = "backup_destination"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = "Google Drive"
+    provider: str = Field(default="drive", index=True)  # drive | onedrive | smb
+    enabled: bool = True
+    config_json: Optional[str] = None
+    selection_json: Optional[str] = None
+    credentials_encrypted: Optional[str] = None
+    after_host_backup: bool = False
+    schedule: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class AppSetting(SQLModel, table=True):
     """Singleton row for instance-wide operational settings (Settings UI).
 

@@ -345,6 +345,7 @@ def sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER):
         with Session(engine) as db:
             for server in db.exec(select(Server)).all():
                 sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server)
+        sync_backup_copy_schedule(scheduler, HAS_SCHEDULER)
     except Exception as e:
         logger.warning(f"[SCHEDULER] sync_all failed: {e}")
 
@@ -352,6 +353,60 @@ def sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER):
 DOCKER_INVENTORY_JOB_ID = "docker_inventory_fleet"
 # Refresh stale docker inventories every 10 minutes (L1 SSH per enabled host)
 DOCKER_INVENTORY_INTERVAL_MIN = 10
+
+
+def schedule_backup_copy_job(destination_id: int):
+    """APScheduler entry: enqueue a Drive copy. The worker runs rclone."""
+    try:
+        from ..database import engine
+        from ..models import BackupDestination
+        from .backup_replicate import enqueue
+
+        with Session(engine) as db:
+            dest = db.get(BackupDestination, destination_id)
+            if dest and dest.enabled and (dest.schedule or "").strip():
+                enqueue(db, dest)
+    except Exception as e:
+        logger.warning("[SCHEDULER] Drive copy enqueue failed for %s: %s", destination_id, e)
+
+
+def sync_backup_copy_schedule(scheduler, HAS_SCHEDULER):
+    """Register one cron per destination that has a schedule. Default queue."""
+    if not HAS_SCHEDULER or not scheduler:
+        return
+    try:
+        for job in list(scheduler.get_jobs()):
+            if str(getattr(job, "id", "")).startswith("backup_copy_"):
+                _remove_job(scheduler, job.id)
+    except Exception as e:
+        logger.warning("[SCHEDULER] Could not clear Drive copy crons: %s", e)
+        return
+    try:
+        from ..database import engine
+        from ..models import BackupDestination
+        from sqlmodel import select
+
+        with Session(engine) as db:
+            rows = db.exec(select(BackupDestination)).all()
+            for dest in rows:
+                cron = (dest.schedule or "").strip()
+                if not dest.enabled or not cron or not dest.id:
+                    continue
+                try:
+                    trigger = _cron_trigger(cron)
+                except Exception as e:
+                    logger.warning("[SCHEDULER] Drive copy cron invalid for %s: %s", dest.id, e)
+                    continue
+                scheduler.add_job(
+                    func=schedule_backup_copy_job,
+                    trigger=trigger,
+                    args=[dest.id],
+                    id=f"backup_copy_{dest.id}",
+                    replace_existing=True,
+                    name=f"Drive copy {dest.name}",
+                )
+    except Exception as e:
+        logger.warning("[SCHEDULER] Drive copy schedule sync failed: %s", e)
 
 
 def schedule_docker_inventory_fleet():

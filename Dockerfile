@@ -25,6 +25,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get install -y --no-install-recommends postgresql-client-16 \
     && rm -rf /var/lib/apt/lists/*
 
+# rclone copies /backups to Drive. Pinned release, both image arches.
+ARG RCLONE_VERSION=1.68.2
+RUN arch="$(dpkg --print-architecture)" \
+    && case "$arch" in amd64) rarch=amd64 ;; arm64) rarch=arm64 ;; *) echo "unsupported $arch"; exit 1 ;; esac \
+    && curl -fsSL -o /tmp/rclone.deb \
+         "https://github.com/rclone/rclone/releases/download/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-${rarch}.deb" \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends /tmp/rclone.deb \
+    && rm -rf /var/lib/apt/lists/* /tmp/rclone.deb
+
 WORKDIR /app
 
 # Locked third-party deps first (layer cache when requirements.lock.txt is unchanged).

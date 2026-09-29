@@ -147,6 +147,155 @@
       </form>
     </details>
   </div>
+
+  <div class="card p-4 space-y-4" id="drive-copy">
+    <div>
+      <h2 class="font-semibold">Copy the backup drive</h2>
+      <p class="text-xs text-muted mt-1">
+        rclone on this PiHerder copies checked folders under <code>/backups</code> to Google Drive.
+        A failed copy fails its own job. Host backups and their timestamps stay as they were.
+        Restore still uses the local tree.
+      </p>
+    </div>
+    {% if copy_saved %}<p class="text-sm text-green-700">Saved.</p>{% endif %}
+    {% if copy_error %}<p class="text-sm text-red-700">{{ copy_error }}</p>{% endif %}
+    {% if not copy_dest %}
+    <p class="text-sm text-muted">The destination table is not ready. Run migrations, then reload.</p>
+    {% else %}
+    <form method="post" action="/backup-copies/config" class="space-y-3 text-sm">
+      <label class="flex items-center gap-2 min-h-11">
+        <input type="checkbox" name="after_host_backup" value="1" {% if copy_dest.after_host_backup %}checked{% endif %}>
+        After a host backup succeeds, copy that host’s checked paths
+      </label>
+      <div>
+        <label class="block text-xs text-muted mb-1">Schedule (5-field cron, empty = manual and follow-up only)</label>
+        <input name="schedule_cron" value="{{ copy_dest.schedule or '' }}"
+               placeholder="0 4 * * *"
+               class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1">
+          rclone token JSON {% if copy_has_token %}(saved — leave blank to keep it){% else %}(paste once){% endif %}
+        </label>
+        <textarea name="token_json" rows="3" autocomplete="off"
+                  placeholder='{"access_token":"…","refresh_token":"…","expiry":"…"}'
+                  class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11"></textarea>
+        <p class="text-xs text-muted mt-1">From <code>rclone authorize drive</code>. The token is stored encrypted and is not shown again.</p>
+      </div>
+      <button type="submit" class="btn btn-primary min-h-11">Save copy settings</button>
+    </form>
+    <form method="post" action="/backup-copies/run">
+      <button type="submit" class="btn btn-secondary min-h-11">Copy now</button>
+    </form>
+    <div>
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <p class="text-xs text-muted font-mono" id="copy-path">/</p>
+        <button type="button" class="btn btn-secondary min-h-11 text-sm" id="copy-up">Up</button>
+      </div>
+      <div class="overflow-x-auto border border-border rounded">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-muted border-b border-border">
+              <th class="p-2 w-10"><input type="checkbox" id="copy-all" aria-label="Select all in this folder"></th>
+              <th class="p-2">Name</th>
+              <th class="p-2">Size</th>
+            </tr>
+          </thead>
+          <tbody id="copy-rows"></tbody>
+        </table>
+      </div>
+      <p class="text-xs text-muted mt-2">Tick a folder to take it and everything inside. Open it and untick a child to leave that child behind.</p>
+    </div>
+    {% endif %}
+  </div>
 </div>
+{% if copy_dest %}
+<script>
+(function () {
+  var path = "";
+  var rowsEl = document.getElementById("copy-rows");
+  var pathEl = document.getElementById("copy-path");
+  var allEl = document.getElementById("copy-all");
+  function render(data) {
+    path = data.path || "";
+    pathEl.textContent = path ? "/" + path : "/";
+    rowsEl.innerHTML = "";
+    var entries = data.entries || [];
+    var allOn = entries.length > 0;
+    entries.forEach(function (row) {
+      if (!row.included) allOn = false;
+      var tr = document.createElement("tr");
+      tr.className = "border-b border-border";
+      var tdCheck = document.createElement("td");
+      tdCheck.className = "p-2";
+      var box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = !!row.included;
+      box.addEventListener("change", function () { toggle(row.path, box.checked); });
+      tdCheck.appendChild(box);
+      var tdName = document.createElement("td");
+      tdName.className = "p-2";
+      if (row.is_dir) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "font-mono text-left";
+        btn.textContent = row.name + "/";
+        btn.addEventListener("click", function () { load(row.path); });
+        tdName.appendChild(btn);
+      } else {
+        tdName.textContent = row.name;
+        tdName.className = "p-2 font-mono";
+      }
+      var tdSize = document.createElement("td");
+      tdSize.className = "p-2 text-muted";
+      tdSize.textContent = row.is_dir ? "" : String(row.size || 0);
+      tr.appendChild(tdCheck);
+      tr.appendChild(tdName);
+      tr.appendChild(tdSize);
+      rowsEl.appendChild(tr);
+    });
+    allEl.checked = allOn;
+  }
+  function load(next) {
+    fetch("/backup-copies/list?p=" + encodeURIComponent(next || ""), { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) { if (data.ok) render(data); });
+  }
+  function toggle(itemPath, on) {
+    fetch("/backup-copies/toggle", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: itemPath, on: on })
+    }).then(function () { load(path); });
+  }
+  allEl.addEventListener("change", function () {
+    var on = allEl.checked;
+    var boxes = rowsEl.querySelectorAll('input[type="checkbox"]');
+    var changes = [];
+    boxes.forEach(function (box) {
+      var row = box.closest("tr");
+      var nameBtn = row.querySelector("button");
+      var name = nameBtn ? nameBtn.textContent.replace(/\/$/, "") : row.children[1].textContent;
+      changes.push({ path: path ? path + "/" + name : name, on: on });
+    });
+    if (!changes.length) return;
+    fetch("/backup-copies/toggle", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ changes: changes })
+    }).then(function () { load(path); });
+  });
+  document.getElementById("copy-up").addEventListener("click", function () {
+    if (!path) return;
+    var parts = path.split("/");
+    parts.pop();
+    load(parts.join("/"));
+  });
+  load("");
+})();
+</script>
+{% endif %}
 {% endif %}
 
