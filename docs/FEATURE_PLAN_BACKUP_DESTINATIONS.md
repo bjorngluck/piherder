@@ -33,7 +33,7 @@ The page matches the host file manager and is read-only: folder tree on the left
 
 `rclone sync` uses `--drive-use-trash`. A checked file is copied on its own.
 
-The service account’s Drive folder can be marked **shared with this email**. That sets rclone `shared_with_me`. Restore does not read Drive.
+A service account has no My Drive, so rclone always uses `shared_with_me`. The operator shares the folder as Editor. There is no checkbox. **Test** lists that folder and does not copy. Restore does not read Drive.
 
 ## Out
 

@@ -515,6 +515,7 @@ async def settings_page(
             "copy_shared": copy_shared,
             "copy_error": qp.get("copy_error"),
             "copy_saved": qp.get("copy_saved"),
+            "copy_test": qp.get("copy_test"),
             "herder_config": cfg,
             "tz_choices": app_cfg.get_available_timezones(),
             "schedule_status": schedule_status,

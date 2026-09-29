@@ -149,12 +149,49 @@
   </div>
 
   <div class="card p-5 mb-4" id="drive-copy">
-    <h2 class="font-semibold text-text">Copy the backup drive</h2>
-    <p class="text-xs text-muted mt-1 mb-4">
-      Copies checked folders from this PiHerder’s backup drive to an external service. Google Drive is the one available now.
-      A failed copy fails its own job. Host backups keep their time. Restore still uses the local copies.
-    </p>
+    <div class="flex items-start justify-between gap-3 mb-3">
+      <div class="min-w-0">
+        <h2 class="font-semibold text-text m-0">Copy the backup drive</h2>
+        <p class="text-xs text-muted mt-1">
+          {% if copy_has_token %}
+          Google Drive · {{ copy_account_email or 'key saved' }} · folder {{ copy_drive_folder or 'PiHerder' }}
+          · {% if copy_dest.schedule %}{{ copy_dest.schedule | cron_human(current_tz if current_tz is defined else get_app_timezone()) }}{% else %}manual{% endif %}
+          {% else %}
+          No external copy yet. Host backups stay on this PiHerder.
+          {% endif %}
+        </p>
+      </div>
+      {% if copy_dest %}
+      <div class="flex gap-2 shrink-0">
+        {% if copy_has_token %}
+        <form method="post" action="/backup-copies/test">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Test</button>
+        </form>
+        {% endif %}
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy">
+          {% if copy_has_token %}Edit{% else %}Set up{% endif %}
+        </button>
+      </div>
+      {% endif %}
+    </div>
     {% if copy_saved %}<p class="text-sm text-accent mb-3">Saved.</p>{% endif %}
+    {% if copy_test == 'ok' %}
+    <p class="text-sm text-accent mb-3">The folder is shared with this account. Nothing was copied.</p>
+    {% elif copy_test == 'folder' %}
+    <p class="text-sm text-danger mb-3">That folder name was not found in Drive shared with this account. Check the name and that the folder is shared as Editor.</p>
+    {% elif copy_test == 'auth' %}
+    <p class="text-sm text-danger mb-3">Google rejected the key. Paste the private key again.</p>
+    {% elif copy_test == 'account' %}
+    <p class="text-sm text-danger mb-3">Save an email and private key first.</p>
+    {% elif copy_test == 'rclone' %}
+    <p class="text-sm text-danger mb-3">rclone is not available in this container. Rebuild the image, then test again.</p>
+    {% elif copy_test == 'timeout' %}
+    <p class="text-sm text-danger mb-3">Google did not answer in time. Try the test again.</p>
+    {% elif copy_test == 'demo' %}
+    <p class="text-sm text-danger mb-3">The public demo does not contact Google Drive.</p>
+    {% elif copy_test %}
+    <p class="text-sm text-danger mb-3">The test did not succeed.</p>
+    {% endif %}
     {% if copy_error == 'cron' %}
     <p class="text-sm text-danger mb-3">Choose a schedule from the list, or enter a 5-field cron.</p>
     {% elif copy_error == 'email' %}
@@ -171,86 +208,118 @@
     {% if not copy_dest %}
     <p class="text-sm text-muted">The destination table is not ready. Run migrations, then reload.</p>
     {% else %}
-    <form method="post" action="/backup-copies/config" class="space-y-3 text-sm mb-4">
-      <div class="text-xs text-muted border border-border rounded p-3 bg-surface">
-        <p class="font-semibold text-text mb-1">Google Drive</p>
-        <ol class="space-y-1 list-decimal pl-4">
-          <li>Open <a href="https://console.cloud.google.com/" class="text-accent hover:underline" target="_blank" rel="noopener">Google Cloud Console</a> and choose a project.</li>
-          <li><a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" class="text-accent hover:underline" target="_blank" rel="noopener">Enable the Google Drive API</a>.</li>
-          <li><a href="https://console.cloud.google.com/iam-admin/serviceaccounts" class="text-accent hover:underline" target="_blank" rel="noopener">Create a service account</a> and add a JSON key. Paste its email and private key below. Do not paste the whole file.</li>
-          <li>In <a href="https://drive.google.com/drive/my-drive" class="text-accent hover:underline" target="_blank" rel="noopener">Google Drive</a>, share the folder with that email as Editor, then tick the shared-folder box.</li>
-        </ol>
-        <p class="mt-2">
-          <a href="{{ docs_url }}day-to-day/backups/#set-up-google-drive" class="text-accent hover:underline" target="_blank" rel="noopener">Full setup steps</a>
-        </p>
+    <div id="settings-drive-copy-modal" class="{{ 'hidden' if not copy_error else '' }} fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+         data-settings-modal="drive-copy" role="dialog" aria-modal="true" aria-labelledby="settings-drive-copy-title">
+      <div class="modal-content settings-sheet card ph-modal-brand">
+        <div class="settings-sheet-head">
+          <div class="min-w-0 pr-2">
+            <h2 id="settings-drive-copy-title" class="font-semibold text-text m-0">Copy the backup drive</h2>
+            <p class="text-xs text-muted mt-1">A failed copy fails its own job. Restore still uses the local copies.</p>
+          </div>
+          <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+        </div>
+        <form method="post" action="/backup-copies/config" class="settings-sheet-form" id="drive-copy-form">
+          <div class="settings-sheet-body space-y-3 text-sm">
+            <div>
+              <label class="block text-xs text-muted mb-1" for="copy-provider">Service</label>
+              <select id="copy-provider" name="provider"
+                      class="settings-backup-control w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+                <option value="drive" selected>Google Drive</option>
+                <option value="onedrive">OneDrive (more to follow)</option>
+                <option value="smb">LAN NAS / SMB (more to follow)</option>
+              </select>
+            </div>
+            <div data-copy-help="drive" class="text-xs text-muted border border-border rounded p-3 bg-surface">
+              <ol class="space-y-1 list-decimal pl-4">
+                <li>Open <a href="https://console.cloud.google.com/" class="text-accent hover:underline" target="_blank" rel="noopener">Google Cloud Console</a> and choose a project.</li>
+                <li><a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" class="text-accent hover:underline" target="_blank" rel="noopener">Enable the Google Drive API</a>.</li>
+                <li><a href="https://console.cloud.google.com/iam-admin/serviceaccounts" class="text-accent hover:underline" target="_blank" rel="noopener">Create a service account</a> and add a JSON key. Paste its email and private key. Do not paste the whole file.</li>
+                <li>In <a href="https://drive.google.com/drive/my-drive" class="text-accent hover:underline" target="_blank" rel="noopener">Google Drive</a>, share the folder with that email as Editor. PiHerder looks in folders shared with the service account.</li>
+              </ol>
+              <p class="mt-2">
+                <a href="{{ docs_url }}day-to-day/backups/#set-up-google-drive" class="text-accent hover:underline" target="_blank" rel="noopener">Full setup steps</a>
+              </p>
+            </div>
+            <p data-copy-help="later" class="hidden text-sm text-muted">That service is not available yet. Google Drive is the one this page can save.</p>
+            <div data-copy-fields="drive" class="space-y-3">
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-email">Email</label>
+                <input id="copy-email" name="account_email" type="email" autocomplete="off"
+                       value="{{ copy_account_email or '' }}"
+                       placeholder="backup@project.iam.gserviceaccount.com"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-key">Private key</label>
+                <textarea id="copy-key" name="private_key" rows="3" autocomplete="off" spellcheck="false"
+                          placeholder="{% if copy_has_token %}Saved. Leave blank to keep it.{% else %}-----BEGIN PRIVATE KEY-----{% endif %}"
+                          class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs"></textarea>
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-folder">Folder on Drive</label>
+                <input id="copy-folder" name="drive_folder" value="{{ copy_drive_folder or 'PiHerder' }}"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-schedule">Schedule</label>
+                <select id="copy-schedule" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
+                        aria-label="Drive copy schedule preset">
+                  <option value="manual" {% if not copy_dest.schedule %}selected{% endif %}>Manual only</option>
+                  <option value="custom" {% if copy_dest.schedule and copy_dest.schedule not in cron_preset_values %}selected{% endif %}>Custom / advanced cron…</option>
+                  {% for val, lab in cron_presets %}
+                  <option value="{{ val }}" {% if copy_dest.schedule == val %}selected{% endif %}>{{ lab }}</option>
+                  {% endfor %}
+                </select>
+                <input id="copy-cron" type="text" name="schedule_cron" value="{{ copy_dest.schedule or '' }}" placeholder="0 3 * * *"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11 mt-1 {% if not copy_dest.schedule or copy_dest.schedule in cron_preset_values %}hidden{% endif %}">
+              </div>
+              <label class="flex items-center gap-2 min-h-11">
+                <input type="checkbox" name="after_host_backup" value="1" {% if copy_dest.after_host_backup %}checked{% endif %}>
+                After a host backup succeeds, copy that host’s checked folders
+              </label>
+            </div>
+          </div>
+          <div class="settings-sheet-foot">
+            <button type="submit" class="btn btn-accent min-h-11 text-sm" data-copy-save>Save</button>
+          </div>
+        </form>
       </div>
-      <div class="settings-backup-fields">
-        <div class="settings-backup-field">
-          <label class="block text-xs text-muted mb-1" for="copy-provider">Service</label>
-          <select id="copy-provider" name="provider"
-                  class="settings-backup-control bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
-            <option value="drive" {% if copy_dest.provider == 'drive' %}selected{% endif %}>Google Drive</option>
-            <option value="onedrive" disabled>OneDrive (more to follow)</option>
-            <option value="smb" disabled>LAN NAS / SMB (more to follow)</option>
-          </select>
-        </div>
-        <div class="settings-backup-field">
-          <label class="block text-xs text-muted mb-1" for="copy-email">Email</label>
-          <input id="copy-email" name="account_email" type="email" autocomplete="off"
-                 value="{{ copy_account_email or '' }}"
-                 placeholder="backup@project.iam.gserviceaccount.com"
-                 class="settings-backup-control bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
-        </div>
-        <div class="settings-backup-field">
-          <label class="block text-xs text-muted mb-1" for="copy-key">Private key</label>
-          <textarea id="copy-key" name="private_key" rows="4" autocomplete="off" spellcheck="false"
-                    placeholder="{% if copy_has_token %}Saved. Leave blank to keep it.{% else %}-----BEGIN PRIVATE KEY-----{% endif %}"
-                    class="settings-backup-control bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11"></textarea>
-        </div>
-        <div class="settings-backup-field">
-          <label class="block text-xs text-muted mb-1" for="copy-folder">Folder on Drive</label>
-          <input id="copy-folder" name="drive_folder" value="{{ copy_drive_folder or 'PiHerder' }}"
-                 class="settings-backup-control bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
-        </div>
-        <div class="settings-backup-field settings-backup-field--schedule">
-          <label class="block text-xs text-muted mb-1">Schedule</label>
-          <select class="settings-backup-control bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 mb-1"
-                  aria-label="Drive copy schedule preset"
-                  onchange="var el=this.form.querySelector('[name=schedule_cron]'); if(!el) return; if(this.value==='manual'){el.value='';} else if(this.value){el.value=this.value;}">
-            <option value="manual" {% if not copy_dest.schedule %}selected{% endif %}>Manual only</option>
-            <option value="">Custom / advanced cron…</option>
-            {% for val, lab in cron_presets %}
-            <option value="{{ val }}" {% if copy_dest.schedule == val %}selected{% endif %}>{{ lab }}</option>
-            {% endfor %}
-          </select>
-          <input type="text" name="schedule_cron" value="{{ copy_dest.schedule or '' }}" placeholder="0 3 * * *"
-                 class="settings-backup-control bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
-          {% if copy_dest.schedule %}
-          <p class="text-[10px] text-muted mt-1">{{ copy_dest.schedule | cron_human(current_tz if current_tz is defined else get_app_timezone()) }}</p>
-          {% else %}
-          <p class="text-[10px] text-muted mt-1">No schedule. Use Copy now, or copy after each host backup.</p>
-          {% endif %}
-        </div>
-        <div class="settings-backup-field settings-backup-field--save">
-          <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save</button>
-        </div>
-      </div>
-      <label class="flex items-center gap-2 min-h-11">
-        <input type="checkbox" name="shared_with_me" value="1" {% if copy_shared %}checked{% endif %}>
-        The Drive folder is shared with this email
-      </label>
-      <label class="flex items-center gap-2 min-h-11">
-        <input type="checkbox" name="after_host_backup" value="1" {% if copy_dest.after_host_backup %}checked{% endif %}>
-        After a host backup succeeds, copy that host’s checked folders
-      </label>
-      {% if copy_account_kind == 'connected' %}
-      <p class="text-xs text-muted">A Google login is already saved. Enter an email and private key to replace it.</p>
-      {% elif copy_account_email %}
-      <p class="text-xs text-muted">Key saved for {{ copy_account_email }}. Share the Drive folder with that email. The key is not shown again.</p>
-      {% else %}
-      <p class="text-xs text-muted">The key is stored encrypted and is not shown again.</p>
-      {% endif %}
-    </form>
+    </div>
+    <script>
+    (function () {
+      var form = document.getElementById('drive-copy-form');
+      if (!form) return;
+      var provider = document.getElementById('copy-provider');
+      var schedule = document.getElementById('copy-schedule');
+      var cron = document.getElementById('copy-cron');
+      function show(name, on) {
+        form.querySelectorAll('[data-copy-help="' + name + '"], [data-copy-fields="' + name + '"]').forEach(function (el) {
+          el.classList.toggle('hidden', !on);
+        });
+      }
+      function applyProvider() {
+        var drive = !provider || provider.value === 'drive';
+        show('drive', drive);
+        show('later', !drive);
+        var save = form.querySelector('[data-copy-save]');
+        if (save) save.disabled = !drive;
+        form.querySelectorAll('[data-copy-fields="drive"] input, [data-copy-fields="drive"] textarea, [data-copy-fields="drive"] select').forEach(function (el) {
+          el.disabled = !drive;
+        });
+      }
+      function applySchedule() {
+        if (!schedule || !cron) return;
+        var custom = schedule.value === 'custom';
+        cron.classList.toggle('hidden', !custom);
+        if (schedule.value === 'manual') cron.value = '';
+        else if (!custom) cron.value = schedule.value;
+      }
+      if (provider) provider.addEventListener('change', applyProvider);
+      if (schedule) schedule.addEventListener('change', applySchedule);
+      applyProvider();
+      applySchedule();
+    })();
+    </script>
 
     <div class="bc-win" id="bc-win">
       <div class="bc-toolbar">
@@ -363,6 +432,7 @@
   var current = "";
   var viewGen = 0;
   var cache = {};
+  var expanded = { "": true };
   var rowsEl = document.getElementById("bc-rows");
   var treeEl = document.getElementById("bc-tree");
   var pathEl = document.getElementById("bc-path");
@@ -403,23 +473,57 @@
       add(part, rel);
     });
   }
+  function markExpanded(path) {
+    expanded[""] = true;
+    if (!path) return;
+    var acc = "";
+    path.split("/").forEach(function (part) {
+      acc = acc ? acc + "/" + part : part;
+      expanded[acc] = true;
+    });
+  }
+  function fetchListing(rel, done) {
+    fetch("/backup-copies/list?p=" + encodeURIComponent(rel), { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) return;
+        cache[rel] = data;
+        if (done) done();
+      })
+      .catch(function () {});
+  }
   function renderTree() {
     treeEl.innerHTML = "";
-    function node(rel, name) {
+    function node(rel, name, state, depth) {
       var data = cache[rel];
+      var kids = (data && data.entries) ? data.entries.filter(function (e) { return e.is_dir; }) : [];
+      var isOpen = !!expanded[rel];
       var row = document.createElement("div");
       row.className = "bc-tree-row" + (rel === current ? " is-current" : "");
+      row.style.paddingLeft = (0.2 + depth * 0.85) + "rem";
       var twist = document.createElement("button");
       twist.type = "button";
       twist.className = "bc-twist";
-      var kids = (data && data.entries) ? data.entries.filter(function (e) { return e.is_dir; }) : [];
-      twist.textContent = data ? (kids.length ? "▾" : "·") : "▸";
-      twist.addEventListener("click", function () { load(rel); });
+      twist.setAttribute("aria-label", (isOpen ? "Collapse " : "Expand ") + name);
+      twist.textContent = kids.length || !data ? (isOpen && data ? "▾" : "▸") : "·";
+      twist.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (!rel && isOpen) return;
+        if (isOpen) {
+          delete expanded[rel];
+          renderTree();
+          return;
+        }
+        expanded[rel] = true;
+        if (cache[rel]) { renderTree(); return; }
+        fetchListing(rel, renderTree);
+      });
       var box = document.createElement("input");
       box.type = "checkbox";
       box.setAttribute("aria-label", "Include " + name);
       if (rel) {
-        applyBox(box, (data && data.state) || "off");
+        applyBox(box, state || (data && data.state) || "off");
         box.addEventListener("click", function (ev) { ev.stopPropagation(); });
         box.addEventListener("change", function () { toggle(rel, box.checked); });
       } else {
@@ -430,14 +534,18 @@
       open.type = "button";
       open.className = "bc-open";
       open.textContent = name;
-      open.addEventListener("click", function () { load(rel); closeTree(); });
+      open.addEventListener("click", function () {
+        expanded[rel] = true;
+        load(rel);
+        closeTree();
+      });
       row.appendChild(twist);
       row.appendChild(box);
       row.appendChild(open);
       treeEl.appendChild(row);
-      if (data) kids.forEach(function (e) { node(e.path, e.name); });
+      if (isOpen && data) kids.forEach(function (e) { node(e.path, e.name, e.state, depth + 1); });
     }
-    node("", "Backups");
+    node("", "Backups", "off", 0);
   }
   function render(data) {
     current = data.path || "";
@@ -492,6 +600,7 @@
     else if (folderState === "on") setStatus("This folder is included. Untick anything you want to leave behind.");
     else if (folderState === "partial") setStatus("Part of this folder is included.");
     else setStatus("This folder is not included.");
+    markExpanded(current);
     renderTree();
     warmAncestors(current);
   }
@@ -501,18 +610,11 @@
     var chain = [""];
     path.split("/").forEach(function (part) {
       acc = acc ? acc + "/" + part : part;
-      if (acc !== path) chain.push(acc);
+      chain.push(acc);
     });
     chain.forEach(function (rel) {
       if (cache[rel]) return;
-      fetch("/backup-copies/list?p=" + encodeURIComponent(rel), { credentials: "same-origin" })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          if (!data.ok || cache[rel]) return;
-          cache[rel] = data;
-          renderTree();
-        })
-        .catch(function () {});
+      fetchListing(rel, renderTree);
     });
   }
   function load(next) {
@@ -539,6 +641,8 @@
     }).then(function (r) { return r.json(); }).then(function (data) {
       if (!data.ok) { setStatus(data.error || "Could not update the selection.", true); load(current); return; }
       cache = {};
+      expanded = { "": true };
+      markExpanded(current);
       load(current);
     }).catch(function () {
       setStatus("Could not update the selection.", true);
@@ -561,6 +665,8 @@
     }).then(function (r) { return r.json(); }).then(function (data) {
       if (!data.ok) { setStatus(data.error || "Could not update the selection.", true); }
       cache = {};
+      expanded = { "": true };
+      markExpanded(current);
       load(current);
     }).catch(function () { setStatus("Could not update the selection.", true); load(current); });
   });

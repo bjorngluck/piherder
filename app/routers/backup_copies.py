@@ -92,7 +92,6 @@ async def save_copy_config(
     account_email: str = Form(""),
     private_key: str = Form(""),
     drive_folder: str = Form(""),
-    shared_with_me: str = Form(""),
     user: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
@@ -117,7 +116,7 @@ async def save_copy_config(
     if not isinstance(cfg, dict):
         cfg = {}
     cfg["remote_dir"] = folder
-    cfg["shared_with_me"] = shared_with_me in ("1", "on", "true")
+    cfg["shared_with_me"] = True
     dest.config_json = json.dumps(cfg)
     email = (account_email or "").strip()
     key = (private_key or "").strip()
@@ -152,6 +151,20 @@ async def save_copy_config(
     return _redirect("copy_saved=1")
 
 
+@router.post("/backup-copies/test")
+async def test_copy_account(
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    del user
+    dest = copies.get_or_create(session)
+    result = copies.probe(dest)
+    code = result.get("code") or "rclone"
+    if result.get("ok") == "1":
+        return _redirect("copy_test=ok")
+    return _redirect("copy_test=" + code)
+
+
 @router.post("/backup-copies/run")
 async def run_copy_now(
     user: User = Depends(get_admin_user),
@@ -165,4 +178,4 @@ async def run_copy_now(
         except Exception:
             err = "failed"
         return _redirect("copy_error=" + str(err)[:80])
-    return RedirectResponse(f"/jobs/{job.id}", status_code=303)
+    return RedirectResponse(f"/jobs?highlight={job.id}", status_code=303)
