@@ -141,7 +141,13 @@ sudo apt-get install -y tmux    # preferred
 
 Privileged **Connect as…** uses a different suffix (`-p`) so it never attaches to a fleet session.
 
-After [removing a host](remove-server.md), leftover `ph-u*` sessions may remain until you:
+### Leftover sessions (Mux-2)
+
+While the host is still in PiHerder, open **SSH access** and use **Leftover console sessions → List sessions**. The list is only `ph-u*` sessions for **this** host (`ph-u{user}-s{server}-n{tab}-f` or `-p`). **Kill** ends that one session. Listing does not open the shell again. Hide still leaves the session on the Pi. ✕ still kills the session you are in.
+
+This block is hidden on HAOS and on the public demo. Console mux can be off and the list still works, because a session from an earlier opt-in stays on the host.
+
+After [removing a host](remove-server.md), PiHerder does not `kill-server` for every Unix user. Kill leftovers on the Pi yourself:
 
 ```bash
 tmux ls
@@ -149,7 +155,7 @@ tmux kill-session -t ph-u1-s12-n0-f
 # or: screen -ls && screen -S ph-u1-s12-n0-f -X quit
 ```
 
-**Not Mux-1:** leftover list/kill UI on SSH-access (that is Mux-2, Discover). Auto-on when the binary is present. Shared lab `piherder` session. Mux on HAOS.
+**Still out:** turning mux on just because the binary is present. A shared lab `piherder` session. Mux on HAOS. Opening a leftover session from the list.
 
 How to try it: enable `PIHERDER_SSH_CONSOLE=true`, migrate, recreate **web**, tick **Console mux** on a Debian host that has `tmux`, open Console → **+ Shell**, confirm the banner mentions `mux tmux`, Hide then `tmux ls` on the host, ✕ then confirm the session is gone.
 

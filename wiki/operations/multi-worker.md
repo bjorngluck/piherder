@@ -23,6 +23,8 @@ Backups run **in parallel across different hosts**. The same host never has two 
 |------|---------|--------|
 | `CELERY_CONCURRENCY` | `2` | Pool slots per Celery node |
 | `PIHERDER_SERVER_LOCK_TTL` | `7200` | Lock TTL if worker dies mid-rsync. **Not refreshed** during a long copy — a Move/backup longer than this can lose the mutex. Raise the TTL for huge datasets. |
+| Task hard limit | `7200` | Host backup, Move, and exclusive jobs. A **Drive copy** may run for 7 days and is acknowledged when the worker receives it. |
+| Redis visibility | `10800` | An unacked task is handed out again after 3 hours, which is longer than the 2-hour hard limit. |
 | Shared volumes | required | Same `/backups` (and herder/data mounts) on **web** + **celery-worker** |
 | Cancel | — | Revoke via `celery_task_id`; mutex released in `finally` |
 

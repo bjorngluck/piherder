@@ -1,6 +1,6 @@
 # PiHerder v1.8.0 — MCP job types, then backup destinations, then Home Assistant cards
 
-**Status:** **Active** (lock retuned 2026-09-28). **MCP-jobs** landed. **Bak-alt discovery** is §3.1. **Google Drive** copy is built on this branch; the walk is still open and the Should may slip. Package stays `1.7.0`.  
+**Status:** **Active** (lock retuned 2026-09-28). **MCP-jobs** landed. **Bak-alt discovery** is §3.1. **Google Drive** copy is built on this branch; the walk is still open and the Should may slip. **Mux-2** leftover list/kill is built on this branch; the walk is still open. Package stays `1.7.0`.  
 **Date opened:** 2026-09-28  
 **Git branch:** `v1.8.0-dev` → `main` · tag `v1.8.0` at freeze  
 **Package / image version:** stays **`1.7.0`** until freeze  
@@ -151,7 +151,7 @@ The Drive copy uses a job-scoped temp rclone config. The form stores a Google we
 
 ### 3.2 Google Drive (Should)
 
-Built on this branch. Detail is [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). One destination row over the whole `/backups` drive, not a setting on one host. **Settings → PiHerder backup** has the section under the instance self-backup. The service list is Google Drive, plus OneDrive and LAN NAS / SMB disabled. The account is a Google sign-in from this PiHerder. The schedule uses the same presets as the rest of Settings. The browser is a read-only folder tree: tick a folder, open it, untick a child to leave it behind. No typed excludes. rclone runs on the herder as job `backup_replicate` (**Drive copy**) on the existing worker. The client secret and refresh token are Fernet-encrypted and not written to the job log. A failed upload fails the **copy** job. The rsync job and `last_backup_at` stay as they were. Demo never uploads. `backup_replicate` is not on the token API. If this slips, the tag still ships with the local directory only and §3.1. Rebuild the image before a real upload; rclone **1.68.2** is pinned in the Dockerfile. Apply Alembic **047**.
+Built on this branch. Detail is [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). One destination row over the whole `/backups` drive, not a setting on one host. **Settings → PiHerder backup** has the section under the instance self-backup. The service list is Google Drive, plus OneDrive and LAN NAS / SMB disabled. The account is a Google sign-in from this PiHerder. The schedule uses the same presets as the rest of Settings. The browser is a read-only folder tree: tick a folder, open it, untick a child to leave it behind. No typed excludes. rclone runs on the herder as job `backup_replicate` (**Drive copy**) on the existing worker. The global Celery hard limit stays 2 hours for host backups. This copy may run for up to 7 days, and it is acknowledged when the worker receives it so Redis does not start a second rclone an hour later. If the worker process dies, the job is marked failed and **Copy now** can run again. Files already uploaded stay. The client secret and refresh token are Fernet-encrypted and not written to the job log. A failed upload fails the **copy** job. The rsync job and `last_backup_at` stay as they were. Demo never uploads. `backup_replicate` is not on the token API. If this slips, the tag still ships with the local directory only and §3.1. Rebuild the image before a real upload; rclone **1.68.2** is pinned in the Dockerfile. Apply Alembic **047**.
 
 ---
 
@@ -179,9 +179,11 @@ Poll-diff on the plugin coordinator fires `piherder_job_completed` on the Home A
 
 ## 6. Stream **Mux-2** — leftover sessions (Should)
 
-On the host SSH-access page, list and kill leftover `ph-u*` tmux or screen sessions for **that** host. Names stay `ph-u{user}-s{server}-n{tab}-{f|p}` (`app/services/ssh_console.py`). This is the list an operator needs after a web recycle, because idle timeout does not kill a detached mux session.
+**Built on this branch. Walk still open.**
 
-No automatic reattach. Removing a server still does not `kill-server` for every Unix user. HAOS and the demo never mux. May slip.
+On the host SSH-access page, **List sessions** shows leftover `ph-u*` tmux or screen sessions for **that** host, and **Kill** ends one. Names stay `ph-u{user}-s{server}-n{tab}-{f|p}` (`app/services/ssh_console.py`). This is the list an operator needs after a web recycle, because idle timeout does not kill a detached mux session. The list does not attach.
+
+No automatic reattach. Removing a server still does not `kill-server` for every Unix user. After remove, the wiki kill remains. HAOS and the demo never mux. May slip.
 
 ---
 
@@ -223,7 +225,7 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 | **Should** | **Google Drive** | Path A rclone copy after the local rsync. A failed upload fails the copy job. Demo never uploads | Built on branch. Walk still open. May slip |
 | **Must** | **HA-vis** | Plugin **0.4.0**. Bars and a drawing 24-hour series. Same token rules | Not started |
 | **Should** | **HA bus** | `piherder_job_completed` from the plugin poll | Not started. May slip |
-| **Should** | **Mux-2** | List/kill `ph-u*` on SSH access | Not started. May slip |
+| **Should** | **Mux-2** | List/kill `ph-u*` on SSH access | Built on branch. Walk still open. May slip |
 | **Should** | **Undo-2** | `dest_up` inspect helper. No green-Move undo | Not started. May slip |
 | **Should** | **Jr-web** | Three web jobs survive a web recycle | Not started. May slip |
 | **Parked** | AC-fg · Slice 3 · OneDrive · SMB · the rest of §9 | No code | Parked |
@@ -252,6 +254,8 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 | 2026-09-28 | Adapter package set to **0.2.0** in [piherder-mcp](https://github.com/bjorngluck/piherder-mcp). Tag `v0.2.0` publishes it. `uvx` stays on **0.1.1** until then. |
 | 2026-09-28 | **Bak-alt discovery written.** Path A is a rclone second hop from `/backups`. Path B (SMB as the dest root) and OneDrive are later. Path C (a client on each Pi) stays parked. No Drive client in this pass. |
 | 2026-09-29 | **Google Drive copy built** on the branch. Settings → PiHerder backup. Service list shows Drive, with OneDrive and SMB not selectable. Sign-in is the operator’s Google account (web OAuth client). A service account cannot store the files on a personal Drive. Folder tree. Job `backup_replicate`. Walk still open. |
+| 2026-09-29 | **Mux-2 built** on the branch. SSH access lists and kills leftover `ph-u*` sessions for that host. No reattach. Remove server still does not `kill-server`. HAOS and the demo stay off. Walk still open. |
+| 2026-09-29 | **Drive copy time limit.** Job 2268 was killed at the global 2-hour Celery limit, and Redis had already started a second copy at 1 hour. This copy now allows 7 days, acks on receive, and Redis visibility for other tasks is 3 hours. A dead worker marks the job failed. |
 
 ---
 

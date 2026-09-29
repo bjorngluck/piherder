@@ -730,6 +730,7 @@ async def server_detail(
     flash_msg = request.query_params.get("msg") or ""
     flash_error = request.query_params.get("error") or ""
     flash_detail = request.query_params.get("detail") or ""
+    mux_listed = request.query_params.get("mux_listed") == "1"
 
     server_dict = server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"})
     # Template helpers for SSH onboarding UI (not persisted fields)
@@ -982,6 +983,11 @@ async def server_detail(
     from ..services import ssh_console as cons_svc
     from ..services import host_files as hf_svc
 
+    mux_sessions = (
+        cons_svc.decode_mux_list(request.query_params.get("mux") or "", int(server.id))
+        if mux_listed
+        else []
+    )
     files_on = False
     files_jail = ""
     try:
@@ -1033,6 +1039,8 @@ async def server_detail(
             "diagnostics": diagnostics,
             "reboot_initiated": reboot_initiated,
             "show_ssh_key": show_ssh_key,
+            "mux_listed": mux_listed,
+            "mux_sessions": mux_sessions,
             "edit_mode": edit_mode,
             "flash_msg": flash_msg,
             "flash_error": flash_error,
