@@ -211,7 +211,7 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 | `template_deploy` | docker | `feature:docker` |
 | `template_redeploy` | docker | `feature:docker` |
 
-That table is the allowlist (`JOB_FEATURE_KEY`). Anything else, including `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, `service_migrate`, and `service_migrate_undo`, is **400** `Unsupported job_type`.
+That table is the allowlist (`JOB_FEATURE_KEY`). Anything else, including `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, `service_migrate`, `service_migrate_undo`, and `service_migrate_dest_recover`, is **400** `Unsupported job_type`.
 
 `source_filter` is the backup source name for `backup`. For `docker_stack_check`, `docker_stack_deploy`, `docker_stack_stop`, `docker_stack_start`, and `docker_stack_restart` it is the compose project path. `template_deploy` and `template_redeploy` are on this allowlist, but this body has no template slug or variable values, so it does not start a catalog deploy. Those jobs still run from the template UI.
 

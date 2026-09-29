@@ -50,17 +50,18 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 | `docker_stack_stop` / `_start` / `_restart` | Project ⋯ Stop/Start/Restart all | **Celery** (default queue) |
 | `service_migrate` | Docker **Move to another host…** (flag `PIHERDER_SERVICE_MIGRATE`) | **Celery** (same worker as backups). Recycle **web** is safe. Recycle **worker** mid-copy **fails** the job (staging kept; **Start source stack** when copy/dest-up had begun). JobHold stays until Close. |
 | `service_migrate_undo` | **Undo move** on a Move that failed after names flipped (cutover / rebind / validate). Preview, then confirm | **Celery**, same dual-host lock. Stops dest (`compose stop`, not `down -v`) and starts source. A green Move has no Undo. Recycle **worker** mid-undo fails that undo and leaves the dest tree |
+| `service_migrate_dest_recover` | **Inspect destination** on a Move that died while starting dest. Then **Stop dest and start source** | **Celery**, same dual-host lock. `compose stop` on dest, then start source. DNS and NPM stay. A green Move does not offer it |
 | `template_deploy` / `template_redeploy` | Catalog template confirm / Save & redeploy | **Celery** (default queue, stack-mutation lane) |
 | `template_drift_check` | Deployment **Check drift** (live log) | **Celery** (default queue) |
-| `retention` | Per-server backup file retention | As configured |
+| `retention` | Per-server backup file retention | **Celery** (default queue). No host exclusive slot. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job |
 | `stale_data_cleanup` | Opt-in Jobs / Audit / nmap-run purge | Scheduler or Settings → Run now |
 | `nmap_discover` / `nmap_inventory` / `nmap_detailed` / `nmap_host_deep` | LAN Discovery scans | **celery-worker-nmap** (`-Q nmap`) |
 | `nmap_vuln_db_update` | Download / refresh vuln pack | nmap worker |
-| `herder_backup` | PiHerder self-backup | As configured |
+| `herder_backup` | PiHerder self-backup | **Celery** (default queue). No host. One at a time. Settings → Run opens the job. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job |
 
 Statuses: `pending` → `running` → `success` / `failed`.
 
-**Web restart:** `retention`, the herder’s own backup, and host-facts snapshots that are still pending or running are **failed on startup**. They cannot still be executing after uvicorn exits. **OS/container patch, host reboot, update checks, stack jobs, template jobs, backups, nmap, and Move** are Celery — a web recycle does **not** fail them. Recycle **celery-worker** while a patch, stack mutate, or Move is **running** **fails** that job (it is not resumed mid-flight). If SSH is down at the start of a patch or stack job, the row stays **pending** and is probed again until the host answers or the wait limit (Settings → General → Jobs, default 30 minutes). A Kuma “host down” alert or a `last_seen` older than 15 minutes can show **waiting on host** on that pending job. Those are labels. The job resumes only when SSH works, and they do not fail it. See [Multi-worker](../operations/multi-worker.md).
+**Web restart:** retention, the herder’s own backup, host facts, OS/container patch, host reboot, update checks, stack jobs, template jobs, backups, nmap, and Move are Celery — a web recycle does **not** fail them. Recycle **celery-worker** while one of those is **running** **fails** that job (it is not resumed mid-flight). If SSH is down at the start of a patch or stack job, the row stays **pending** and is probed again until the host answers or the wait limit (Settings → General → Jobs, default 30 minutes). A Kuma “host down” alert or a `last_seen` older than 15 minutes can show **waiting on host** on that pending job. Those are labels. The job resumes only when SSH works, and they do not fail it. See [Multi-worker](../operations/multi-worker.md).
 
 ### Exclusive jobs (one per type per host)
 
@@ -69,8 +70,9 @@ These types do not stack on the same server while already **pending** or **runni
 - `os_patch`, `container_patch`, `host_reboot` (also waits for a patch or backup, and those wait for a reboot)  
 - `os_update_check`, `container_update_check`  
 - Stack lifecycle + template deploy/redeploy (shared **stack mutation** lane on the host)  
-- `service_migrate` and `service_migrate_undo` — exclusive with backup **and** stack mutation on **both** source and dest  
+- `service_migrate`, `service_migrate_undo`, and `service_migrate_dest_recover` — exclusive with backup **and** stack mutation on **both** source and dest  
 - `template_drift_check` (one drift job at a time per host; not a stack write)  
+- `host_facts` (one snapshot job at a time per host)  
 
 A second start reuses the existing job (UI follows it; REST **409** with `already_active` / existing `job`). Backups use a separate rule: per-host Redis mutex + Celery (see [Multi-worker](../operations/multi-worker.md)). [Move a service](../docker/service-migration.md) also refuses a migrate while either host is busy.
 
@@ -83,7 +85,7 @@ A second start reuses the existing job (UI follows it; REST **409** with `alread
 - Date presets use the **Settings timezone** calendar day (not the browser’s local midnight)  
 - **Active only** — pending + running  
 - Row → detail modal (summary, log tail, scheduled flag)
-- **Worker** on each row and in the detail modal: the Celery nodename (`celery@…`, `nmap@…`) once a worker has claimed the job, **not claimed** while it is still queued, **web** for retention, herder backup, host facts, and demo simulation. Two workers show two different names. JobHold’s status line includes the same name  
+- **Worker** on each row and in the detail modal: the Celery nodename (`celery@…`, `nmap@…`) once a worker has claimed the job, **not claimed** while it is still queued, **web** for demo simulation. Two workers show two different names. JobHold’s status line includes the same name  
 - **Cancel** works from list and modal (where applicable)  
 - Link to **Audit** for historical trail  
 

@@ -268,6 +268,8 @@ async def get_server_job_status(
         "recover_source": details.get("recover_source"),
         "undo_move": details.get("undo_move"),
         "undo_completed": bool(details.get("undo_completed")),
+        "dest_up_recover": details.get("dest_up_recover"),
+        "dest_up_recovered": bool(details.get("dest_up_recovered")),
         "worker_hostname": (job.worker_hostname or "").strip() or None,
         "worker_label": job_worker_label(job),
     }

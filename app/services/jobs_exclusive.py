@@ -1,9 +1,9 @@
 """Jr-1: exclusive host jobs on the default Celery queue.
 
-OS patch, container patch, host reboot, update checks, compose stack jobs, and
-template jobs leave the web process. nmap stays on ``-Q nmap``. ``retention`` and
-``herder_backup`` stay on web. Backup, Move, and undo keep their own tasks
-and are not given this dispatcher.
+OS patch, container patch, host reboot, update checks, compose stack jobs,
+template jobs, and host facts leave the web process. nmap stays on ``-Q nmap``.
+``retention`` and ``herder_backup`` use ``housekeeping_job``, not this dispatcher.
+Backup, Move, and undo keep their own tasks.
 
 A single-host job does **not** take Move's dual-host backup mutex. The DB
 exclusive lane (one active type, shared stack-mutation lane) is unchanged.
@@ -21,7 +21,8 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# Types moved off BackgroundTasks / in-process pools. host_facts stays on web.
+# Types moved off BackgroundTasks / in-process pools.
+# retention and herder_backup are housekeeping_job, not this set.
 EXCLUSIVE_CELERY_TYPES = frozenset(
     {
         "os_patch",
@@ -39,6 +40,7 @@ EXCLUSIVE_CELERY_TYPES = frozenset(
         "template_deploy",
         "template_redeploy",
         "template_drift_check",
+        "host_facts",
     }
 )
 
@@ -502,5 +504,7 @@ def _execute(job_type: str, job_id: int, server_id: int, audit_id: int, payload:
         js._execute_template_drift_check(
             job_id, server_id, audit_id, int(payload.get("deployment_id") or 0)
         )
+    elif job_type == "host_facts":
+        js._execute_host_facts(job_id, server_id, audit_id)
     else:
         raise ValueError(f"not an exclusive celery job: {job_type}")

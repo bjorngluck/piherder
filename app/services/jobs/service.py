@@ -3,9 +3,10 @@
 Fleet job queue: create Job rows, run work, stream progress for UI polling.
 
 Execution paths (do not merge without care):
-- Exclusive host jobs (patch, checks, stack, templates): Celery ``exclusive_job``
-  on the default queue. Under pytest they still run in-process.
-- retention + herder_backup + host_facts: web BackgroundTasks
+- Exclusive host jobs (patch, checks, stack, templates, host_facts): Celery
+  ``exclusive_job`` on the default queue. Under pytest they still run in-process.
+- retention + herder_backup: Celery ``housekeeping_job`` on the default queue.
+  They do not take a host exclusive slot. Under pytest they still use BackgroundTasks.
 - Backups + service_migrate + undo: their own Celery tasks (web recycle does not fail them)
 - nmap: celery-worker-nmap (-Q nmap)
 
@@ -73,6 +74,7 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "template_drift_check",
         "service_migrate",
         "service_migrate_undo",
+        "service_migrate_dest_recover",
         "host_facts",
     }
 )
@@ -90,6 +92,7 @@ _STACK_MUTATING_JOB_TYPES = frozenset(
         "template_redeploy",
         "service_migrate",
         "service_migrate_undo",
+        "service_migrate_dest_recover",
     }
 )
 
@@ -107,6 +110,8 @@ try:
     from ...tasks import exclusive_job as exclusive_job_task
     from ...tasks import service_migrate as service_migrate_task
     from ...tasks import service_migrate_undo as service_migrate_undo_task
+    from ...tasks import service_migrate_dest_recover as service_migrate_dest_recover_task
+    from ...tasks import housekeeping_job as housekeeping_job_task
     HAS_CELERY = True
 except Exception as e:
     HAS_CELERY = False
@@ -114,6 +119,8 @@ except Exception as e:
     exclusive_job_task = None
     service_migrate_task = None
     service_migrate_undo_task = None
+    service_migrate_dest_recover_task = None
+    housekeeping_job_task = None
     logger.warning("Celery backup task unavailable (backups will not enqueue): %s", e)
 
 from ..jobs_exclusive import EXCLUSIVE_CELERY_TYPES, handoff_exclusive
@@ -297,6 +304,7 @@ JOB_TYPE_LABELS = {
     "nmap_vuln_db_update": "Nmap vuln DB update",
     "service_migrate": "Service migrate",
     "service_migrate_undo": "Undo move",
+    "service_migrate_dest_recover": "Stop dest, start source",
     "host_facts": "Host facts",
 }
 
@@ -448,6 +456,8 @@ def job_public_dict(job: Job, *, detail: bool = False) -> dict:
         "recover_source": details.get("recover_source"),
         "undo_move": details.get("undo_move"),
         "undo_completed": bool(details.get("undo_completed")),
+        "dest_up_recover": details.get("dest_up_recover"),
+        "dest_up_recovered": bool(details.get("dest_up_recovered")),
     }
     from ..job_worker import job_worker_label
 
@@ -683,7 +693,14 @@ def cleanup_stale_backup_jobs(session: Session, max_age_minutes: int = 120) -> i
     cutoff = datetime.utcnow() - timedelta(minutes=max_age_minutes)
     stale = session.exec(
         select(Job).where(
-            Job.job_type.in_(["backup", "service_migrate", "service_migrate_undo"]),
+            Job.job_type.in_(
+                [
+                    "backup",
+                    "service_migrate",
+                    "service_migrate_undo",
+                    "service_migrate_dest_recover",
+                ]
+            ),
             Job.status.in_(["pending", "running"]),
             Job.created_at < cutoff,
         )
@@ -696,11 +713,23 @@ def cleanup_stale_backup_jobs(session: Session, max_age_minutes: int = 120) -> i
     return len(stale)
 
 
+# Default-queue housekeeping. Not a host exclusive slot and not the 2h stale sweep.
+_HOUSEKEEPING_JOB_TYPES = frozenset({"retention", "herder_backup"})
+
 # Celery-owned types survive a web restart. Everything else runs in this
 # process (BackgroundTasks / thread pools) and is dead after uvicorn exits.
-_CELERY_JOB_TYPES = frozenset(
-    {"backup", "service_migrate", "service_migrate_undo"}
-) | EXCLUSIVE_CELERY_TYPES
+_CELERY_JOB_TYPES = (
+    frozenset(
+        {
+            "backup",
+            "service_migrate",
+            "service_migrate_undo",
+            "service_migrate_dest_recover",
+        }
+    )
+    | EXCLUSIVE_CELERY_TYPES
+    | _HOUSEKEEPING_JOB_TYPES
+)
 
 
 def _is_celery_owned_job(job: Job) -> bool:
@@ -742,9 +771,9 @@ def cleanup_orphan_web_jobs(
 ) -> int:
     """Fail pending/running web-process jobs left behind after a restart.
 
-    Celery-owned rows (backup, Move, undo, nmap, and the Jr-1 exclusive types)
-    keep their status. retention, herder_backup, and host_facts still run in
-    this process, so a web recycle fails those rows.
+    Celery-owned rows (backup, Move, undo, nmap, exclusive types, retention,
+    herder_backup, and host_facts) keep their status. A leftover web-process
+    row is failed.
     """
     stale = session.exec(
         select(Job).where(Job.status.in_(["pending", "running"]))
@@ -842,6 +871,8 @@ def create_job_and_run(
             "container_patch": "Container patch queued…",
             "host_reboot": "Host reboot queued…",
             "retention": "Retention cleanup queued…",
+            "herder_backup": "PiHerder backup queued…",
+            "host_facts": "Host facts queued…",
             "os_update_check": "OS update check queued…",
             "container_update_check": "Container update check queued…",
             "docker_stack_check": "Stack update check queued…",
@@ -998,7 +1029,15 @@ def create_job_and_run(
             sync_args=(job.id, server.id, audit.id),
         )
     elif job_type == "host_facts":
-        background_tasks.add_task(_run_host_facts_job, job.id, server.id, audit.id)
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            background_tasks=background_tasks,
+            bg_fn=_run_host_facts_job,
+            bg_args=(job.id, server.id, audit.id),
+        )
     elif job_type == "container_update_check":
         handoff_exclusive(
             job_id=job.id,
@@ -1074,9 +1113,25 @@ def create_job_and_run(
             sync_args=(job.id, server.id, audit.id, project_path),
         )
     elif job_type == "retention":
-        background_tasks.add_task(_run_retention_job, job.id, server.id, audit.id)
+        handoff_housekeeping(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            background_tasks=background_tasks,
+            bg_fn=_run_retention_job,
+            bg_args=(job.id, server.id, audit.id),
+        )
     elif job_type == "herder_backup":
-        background_tasks.add_task(_run_herder_backup_job, job.id, audit.id)
+        handoff_housekeeping(
+            job_id=job.id,
+            server_id=server.id if server is not None else 0,
+            audit_id=audit.id,
+            job_type=job_type,
+            background_tasks=background_tasks,
+            bg_fn=_run_herder_backup_job,
+            bg_args=(job.id, audit.id),
+        )
 
     return job
 
@@ -1811,24 +1866,52 @@ async def _run_os_patch_job(job_id: int, server_id: int, audit_id: int, os_steps
             pass
 
 
-async def _run_retention_job(job_id: int, server_id: int, audit_id: int):
-    server, hostname = _load_server_for_job(server_id)
+def _stamp_web_worker(job_id: int) -> None:
+    """Pytest BackgroundTasks path. Production Celery keeps the nodename."""
+    from ..job_worker import WEB_WORKER_NAME, stamp_job_worker
+
     with _get_fresh_session() as s:
         job = s.get(Job, job_id)
-        if job:
-            job.status = "running"
-            job.started_at = datetime.utcnow()
-            from ..job_worker import WEB_WORKER_NAME, stamp_job_worker
-
-            stamp_job_worker(job, WEB_WORKER_NAME, overwrite=False)
-            _merge_job_details(
-                job,
-                current="cleaning",
-                log_line="Retention cleanup started…",
-                done=False,
-            )
+        if job and stamp_job_worker(job, WEB_WORKER_NAME, overwrite=False):
             s.add(job)
             s.commit()
+
+
+def _mark_housekeeping_running(job_id: int, *, current: str, log_line: str) -> None:
+    """Commit running before the long call so a redelivery does not resume it."""
+    with _get_fresh_session() as s:
+        job = s.get(Job, job_id)
+        if not job:
+            return
+        if job.status != "running":
+            job.status = "running"
+            if job.started_at is None:
+                job.started_at = datetime.utcnow()
+        _merge_job_details(job, current=current, log_line=log_line, done=False)
+        s.add(job)
+        s.commit()
+
+
+def _herder_backup_flags(job: Job | None) -> tuple[bool, bool]:
+    """Return (include_audit, config_only). Generic jobs stay config-only."""
+    data: dict = {}
+    if job and job.details:
+        try:
+            parsed = json.loads(job.details)
+            if isinstance(parsed, dict):
+                data = parsed
+        except Exception:
+            data = {}
+    if "config_only" in data or "include_audit" in data:
+        return bool(data.get("include_audit")), bool(data.get("config_only", True))
+    return False, True
+
+
+def _execute_retention(job_id: int, server_id: int, audit_id: int) -> None:
+    server, hostname = _load_server_for_job(server_id)
+    _mark_housekeeping_running(
+        job_id, current="cleaning", log_line="Retention cleanup started…"
+    )
     if not server:
         _finish(audit_id, job_id, "failed", "Server not found", hostname, "retention")
         return
@@ -1842,7 +1925,7 @@ async def _run_retention_job(job_id: int, server_id: int, audit_id: int):
                 )
                 s.add(j)
                 s.commit()
-        res = await run_in_threadpool(backup.run_retention, server)
+        res = backup.run_retention(server)
         summary = (
             res
             if isinstance(res, str)
@@ -1863,22 +1946,228 @@ async def _run_retention_job(job_id: int, server_id: int, audit_id: int):
         _finish(audit_id, job_id, "failed", str(e), hostname, "retention")
 
 
-async def _run_herder_backup_job(job_id: int, audit_id: int):
+async def _run_retention_job(job_id: int, server_id: int, audit_id: int):
+    _stamp_web_worker(job_id)
+    await run_in_threadpool(_execute_retention, job_id, server_id, audit_id)
+
+
+def _notify_herder_backup_failed(message: str) -> None:
+    try:
+        from .notifications import upsert_notification
+
+        with _get_fresh_session() as s:
+            upsert_notification(
+                s,
+                fingerprint="herder_backup_failed",
+                type="herder_backup_failed",
+                title="PiHerder self-backup failed",
+                body=(message or "PiHerder self-backup failed")[:300],
+                link_url="/herder-backups",
+                severity="critical",
+            )
+    except Exception:
+        logger.debug("herder backup failure notification skipped", exc_info=True)
+
+
+def _resolve_herder_backup_failed() -> None:
+    try:
+        from .notifications import resolve_by_fingerprint
+
+        with _get_fresh_session() as s:
+            resolve_by_fingerprint(s, "herder_backup_failed")
+    except Exception:
+        logger.debug("herder backup resolve skipped", exc_info=True)
+
+
+def _execute_herder_backup(job_id: int, audit_id: int) -> None:
     logger.debug("[JOB] Starting herder self-backup")
     hostname = "piherder"
-    from ..job_worker import WEB_WORKER_NAME, stamp_job_worker
-
+    include_audit, config_only = False, True
     with _get_fresh_session() as s:
         job = s.get(Job, job_id)
-        if job and stamp_job_worker(job, WEB_WORKER_NAME, overwrite=False):
-            s.add(job)
-            s.commit()
+        include_audit, config_only = _herder_backup_flags(job)
+    _mark_housekeeping_running(
+        job_id, current="archiving", log_line="PiHerder backup started…"
+    )
     try:
-        res = await run_in_threadpool(herder_backup.create_herder_backup, include_audit=False, config_only=True)
+        res = herder_backup.create_herder_backup(
+            include_audit=include_audit, config_only=config_only
+        )
         summary = json.dumps({"path": str(res)})
         _finish(audit_id, job_id, "success", summary, hostname, "herder_backup")
+        _resolve_herder_backup_failed()
     except Exception as e:
         _finish(audit_id, job_id, "failed", str(e), hostname, "herder_backup")
+        _notify_herder_backup_failed(str(e))
+
+
+async def _run_herder_backup_job(job_id: int, audit_id: int):
+    _stamp_web_worker(job_id)
+    await run_in_threadpool(_execute_herder_backup, job_id, audit_id)
+
+
+def fail_housekeeping_from_signal(
+    job_id: int, audit_id: int, job_type: str, message: str
+) -> None:
+    """Mark a housekeeping row failed when the worker dies outside the body."""
+    _fail_housekeeping_open(job_id, audit_id, job_type, message)
+
+
+def _fail_housekeeping_open(job_id: int, audit_id: int, job_type: str, message: str) -> None:
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if not job or job.status not in ("pending", "running"):
+            return
+    hostname = "piherder" if job_type == "herder_backup" else ""
+    if job_type == "retention":
+        with _get_fresh_session() as session:
+            job = session.get(Job, job_id)
+            if job and job.server_id:
+                server = session.get(Server, job.server_id)
+                hostname = (server.hostname if server else "") or ""
+    _finish(audit_id, job_id, "failed", message, hostname, job_type)
+
+
+def handoff_housekeeping(
+    *,
+    job_id: int,
+    server_id: int | None,
+    audit_id: int,
+    job_type: str,
+    background_tasks=None,
+    bg_fn=None,
+    bg_args: tuple = (),
+) -> None:
+    """Send retention or herder_backup to the default queue.
+
+    Under pytest, queue the existing async function and do not run it here.
+    """
+    from ..jobs_exclusive import exclusive_runs_inline
+
+    if exclusive_runs_inline():
+        if background_tasks is not None and bg_fn is not None:
+            background_tasks.add_task(bg_fn, *bg_args)
+            return
+        raise RuntimeError(f"No in-process runner for {job_type}")
+    if not HAS_CELERY or housekeeping_job_task is None:
+        msg = "Celery worker required — start the celery-worker container"
+        _fail_housekeeping_open(job_id, audit_id, job_type, msg)
+        raise RuntimeError(msg)
+    try:
+        async_result = housekeeping_job_task.delay(
+            job_id, int(server_id or 0), audit_id, job_type
+        )
+    except Exception as exc:
+        msg = f"Failed to enqueue {job_type} to Celery: {exc}"
+        logger.exception("[Jobs] %s", msg)
+        _fail_housekeeping_open(job_id, audit_id, job_type, msg)
+        raise RuntimeError(msg) from exc
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.celery_task_id = async_result.id
+            session.add(job)
+            session.commit()
+    logger.info(
+        "[Jobs] Enqueued %s job #%s on the default Celery queue",
+        job_type,
+        job_id,
+    )
+
+
+def run_housekeeping_job(task, job_id: int, server_id: int, audit_id: int, job_type: str) -> dict:
+    """Celery body. No host slot. A running redelivery fails and does not resume."""
+    jt = job_type or ""
+    try:
+        with _get_fresh_session() as session:
+            job = session.get(Job, job_id)
+            if not job:
+                return {"status": "skipped", "job_id": job_id}
+            jt = job.job_type or jt
+            if jt not in _HOUSEKEEPING_JOB_TYPES:
+                return {"status": "skipped", "job_id": job_id, "reason": jt}
+            if job.status == "cancelled":
+                return {"status": "cancelled", "job_id": job_id}
+            if job.status not in ("pending", "running"):
+                return {"status": "skipped", "job_id": job_id, "reason": job.status}
+            from ..job_worker import remember_celery_worker
+
+            task_req = getattr(task, "request", None)
+            task_id = getattr(task_req, "id", None)
+            changed = False
+            if task_id and not (job.celery_task_id or "").strip():
+                job.celery_task_id = str(task_id)
+                changed = True
+            if remember_celery_worker(job, task_req):
+                changed = True
+            if changed:
+                session.add(job)
+                session.commit()
+            already_running = job.status == "running"
+            sid = int(job.server_id or 0)
+        if already_running:
+            _fail_housekeeping_open(
+                job_id,
+                audit_id,
+                jt,
+                "Worker restarted while this job was running. It was not resumed.",
+            )
+            return {"status": "failed", "job_id": job_id, "reason": "worker_restart"}
+        if jt == "retention":
+            _execute_retention(job_id, int(server_id or 0) or sid, audit_id)
+        elif jt == "herder_backup":
+            _execute_herder_backup(job_id, audit_id)
+        return {"status": "ok", "job_id": job_id}
+    except Exception as exc:
+        logger.exception("housekeeping_job failed job=%s type=%s", job_id, jt)
+        _fail_housekeeping_open(job_id, audit_id, jt, str(exc)[:800])
+        return {"status": "error", "job_id": job_id}
+
+
+def _active_herder_backup(session: Session) -> Job | None:
+    """One PiHerder backup at a time. This is not a per-host exclusive slot."""
+    return session.exec(
+        select(Job)
+        .where(Job.job_type == "herder_backup")
+        .where(Job.status.in_(["pending", "running"]))
+        .order_by(Job.created_at.desc())
+    ).first()
+
+
+def enqueue_herder_backup_job(
+    session: Session,
+    user_id: int | None,
+    *,
+    include_audit: bool,
+    config_only: bool,
+    background_tasks: BackgroundTasks | None = None,
+) -> Job:
+    """Queue a self-backup. server_id stays empty. A second call returns the active row."""
+    active = _active_herder_backup(session)
+    if active:
+        logger.info("[Jobs] PiHerder backup skip — job #%s already active", active.id)
+        return active
+    mode = "config_only" if config_only else "full"
+    job, audit = _create_queued_job_with_audit(
+        session,
+        server_id=None,
+        job_type="herder_backup",
+        queue_message="PiHerder backup queued…",
+        user_id=user_id,
+        audit_details=f"Job #{{job_id}} started · {mode}",
+        include_audit=bool(include_audit),
+        config_only=bool(config_only),
+    )
+    handoff_housekeeping(
+        job_id=job.id,
+        server_id=0,
+        audit_id=audit.id,
+        job_type="herder_backup",
+        background_tasks=background_tasks,
+        bg_fn=_run_herder_backup_job,
+        bg_args=(job.id, audit.id),
+    )
+    return job
 
 
 # Limited pool so scheduled fleet checks queue rather than all SSH at once.
@@ -2447,14 +2736,10 @@ def _apply_container_check_result(session: Session, server_id: int, res: dict) -
         logger.debug(f"notify_container_updates: {e}")
 
 
-async def _run_host_facts_job(job_id: int, server_id: int, audit_id: int):
-    from ..job_worker import WEB_WORKER_NAME, stamp_job_worker
-
-    with _get_fresh_session() as s:
-        job = s.get(Job, job_id)
-        if job and stamp_job_worker(job, WEB_WORKER_NAME, overwrite=False):
-            s.add(job)
-            s.commit()
+def _execute_host_facts(job_id: int, server_id: int, audit_id: int) -> None:
+    _mark_housekeeping_running(
+        job_id, current="refreshing", log_line="Host facts refresh started…"
+    )
     server, hostname = _load_server_for_job(server_id)
     if not server:
         _finish(audit_id, job_id, "failed", "Server not found", hostname, "host_facts")
@@ -2462,13 +2747,23 @@ async def _run_host_facts_job(job_id: int, server_id: int, audit_id: int):
     try:
         from .. import host_facts as facts_svc
 
-        res = await run_in_threadpool(
-            lambda: facts_svc.refresh_server_facts(server_id, force=True)
-        )
+        res = facts_svc.refresh_server_facts(server_id, force=True)
         status = "failed" if res.get("error") and res.get("status") == "error" else "success"
-        _finish(audit_id, job_id, status, json.dumps(res, default=str)[:4000], hostname, "host_facts")
+        _finish(
+            audit_id,
+            job_id,
+            status,
+            json.dumps(res, default=str)[:4000],
+            hostname,
+            "host_facts",
+        )
     except Exception as e:
         _finish(audit_id, job_id, "failed", str(e), hostname, "host_facts")
+
+
+async def _run_host_facts_job(job_id: int, server_id: int, audit_id: int):
+    _stamp_web_worker(job_id)
+    await run_in_threadpool(_execute_host_facts, job_id, server_id, audit_id)
 
 
 async def _run_os_update_check_job(job_id: int, server_id: int, audit_id: int):
@@ -3081,6 +3376,7 @@ def enqueue_docker_stack_remove(
 from ..jobs_migrate import (  # noqa: E402
     enqueue_service_migrate,
     enqueue_service_migrate_undo,
+    enqueue_service_migrate_dest_recover,
     fail_migrate_worker_restart,
 )
 
@@ -3306,7 +3602,15 @@ def _active_migrate_as_dest(session: Session, server_id: int) -> Job | None:
     sid = int(server_id)
     rows = session.exec(
         select(Job)
-        .where(Job.job_type.in_(["service_migrate", "service_migrate_undo"]))
+        .where(
+            Job.job_type.in_(
+                [
+                    "service_migrate",
+                    "service_migrate_undo",
+                    "service_migrate_dest_recover",
+                ]
+            )
+        )
         .where(Job.status.in_(["pending", "running"]))
         .where(Job.server_id != sid)
     ).all()

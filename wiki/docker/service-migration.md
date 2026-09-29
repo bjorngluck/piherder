@@ -58,7 +58,7 @@ Use lock for Frigate + Coral, USB gadgets, or anything you must not relocate by 
 7. If preflight lists NPM names with **no fabric DNS row**, optional **Adopt into fabric** (default off) — see below.  
 8. Choose leftover (see below). Default is **leave source stopped**.  
 9. **Move service** — danger confirm (downtime). **Remove source** also requires the extra checkbox and a stronger confirm.  
-10. **JobHold** live log stays open with **Succeeded** or **Failed** until you Close (does not vanish). Job type `service_migrate`. `Job.server_id` is the **source**; dest is in job details. Copy / dest-up fail offers **Start source stack**. A failure at **cutover**, **rebind**, or **validate** offers **Undo move** (preview, then confirm): dest is `compose stop` first (not `down -v`), then DNS/NPM and control-plane rows go back to the source, then source is `compose start`. A stop failure leaves names on dest. If names have not moved and a later step fails, dest is started again. A retry skips steps that already committed. The dest directory and volumes stay. A **successful** Move has no Undo — run a new Move the other way. After Undo itself succeeds, **Undo move** is hidden on that failed job. A failed Undo can be retried. The job runs on the **Celery worker** (same as backups). Recreating **web** mid-Move is safe. Recreating **celery-worker** (or `compose restart celery-worker`) **fails** a running Move — staging stays under `/backups/_migrate/{job_id}` and you can **Start source stack** only if names had not flipped.
+10. **JobHold** live log stays open with **Succeeded** or **Failed** until you Close (does not vanish). Job type `service_migrate`. `Job.server_id` is the **source**; dest is in job details. Copy / dest-up fail offers **Start source stack**. A failure at **cutover**, **rebind**, or **validate** offers **Undo move** (preview, then confirm): dest is `compose stop` first (not `down -v`), then DNS/NPM and control-plane rows go back to the source, then source is `compose start`. A stop failure leaves names on dest. If names have not moved and a later step fails, dest is started again. A retry skips steps that already committed. The dest directory and volumes stay. A **successful** Move has no Undo — run a new Move the other way. After Undo itself succeeds, **Undo move** is hidden on that failed job. A failed Undo can be retried. The job runs on the **Celery worker** (same as backups). Recreating **web** mid-Move is safe. Recreating **celery-worker** (or `compose restart celery-worker`) **fails** a running Move — staging stays under `/backups/_migrate/{job_id}`. **Start source stack** is offered when the death was during stop or copy. A death during dest up offers **Inspect destination**, then stop dest and start source, and does not change DNS or NPM.
 
 <figure class="ph-figure" markdown>
   ![Move wizard dest picker](../assets/screenshots/docker-migrate-wizard.png)
@@ -175,13 +175,13 @@ Remove is a second danger confirm plus checkbox. Preflight lists the project pat
 
 ## Failure
 
-Validate red (TLS mismatch, Kuma down) **does not auto-roll back**. Dest may already be up with DNS/NPM flipped. Fix dest yourself. Staging is **kept** on failure — PiHerder does **not** auto-wipe `/backups/_migrate/{job_id}`. After you have copied what you need (or **Start source stack**), delete that directory yourself so failed Moves do not fill the backup volume. There is **no** post-flip undo job yet (planned as a later named recover, not a silent revert).
+Validate red (TLS mismatch, Kuma down) **does not auto-roll back**. Dest may already be up with DNS/NPM flipped. Fix dest yourself, or use **Undo move** when the failure is cutover, rebind, or validate. Staging is **kept** on failure — PiHerder does **not** auto-wipe `/backups/_migrate/{job_id}`. After you have copied what you need (or **Start source stack**), delete that directory yourself so failed Moves do not fill the backup volume.
 
 | Fail | State | JobHold |
 |------|--------|---------|
 | Stop / copy | Source stopped (or stop failed), dest untouched | **Start source stack** |
 | Dest up | Source stopped, dest partial, DNS/NPM **unchanged** | **Start source stack** |
-| Dest up, worker recycled mid-up | Dest **may** already be running; names unchanged | **No** Start source — look at dest first (starting source too would dual-run) |
+| Dest up, worker recycled mid-up | Dest **may** already be running; names unchanged | **Inspect destination**, then **Stop dest and start source**. DNS and NPM stay. No `down -v` |
 | NPM PUT / DNS | Dest up, proxy or names maybe stale | Fix dest / poll NPM; no auto-revert |
 | Validate | Dest up, names already flipped | No **Start source** (would dual-run) |
 

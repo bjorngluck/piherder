@@ -120,7 +120,7 @@ JSON + gzip of **selected** tables (often dominated by capped audit + logos) typ
 ## End-to-end: first DR pack (v1.2+)
 
 1. Store **`PIHERDER_MASTER_KEY` offline**.  
-2. Settings → **PiHerder backup** → **Full DR** → Run (or schedule **Full**).  
+2. Settings → **PiHerder backup** → **Full DR** → Run (or schedule **Full**). Run queues a job and opens Jobs. It does not block the page, and a web restart does not stop the archive.  
 3. Copy the archive **off** the herder host.  
 4. Lab restore with the **same** master key; smoke test.  
 

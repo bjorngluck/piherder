@@ -45,7 +45,7 @@ own counter — prefer a reverse-proxy rate limit or a future Redis-backed limit
 
 ## Exclusive jobs on the default queue
 
-OS patch, container patch, OS/container/stack **update checks**, compose stack mutations, and template deploy / redeploy / drift check run as `app.tasks.exclusive_job` on the **default** Celery queue (the same `celery-worker` as backups). They do **not** take Move’s dual-host backup mutex. nmap stays on `celery-worker-nmap` (`-Q nmap`). `retention` and the herder’s own backup still run in the **web** process.
+OS patch, container patch, OS/container/stack **update checks**, compose stack mutations, template deploy / redeploy / drift check, and host facts run as `app.tasks.exclusive_job` on the **default** Celery queue (the same `celery-worker` as backups). They do **not** take Move’s dual-host backup mutex. `retention` and the herder’s own backup run as `app.tasks.housekeeping_job` on that same queue and do **not** take a host exclusive slot. nmap stays on `celery-worker-nmap` (`-Q nmap`).
 
 Recycling **web** does not fail these exclusive jobs. Recycling **celery-worker** while one is **running** fails it (a patch or compose action is not resumed mid-flight). If the host’s SSH is down when the worker picks the job up, the row stays **pending**, the worker probes again every 30 seconds, and the exclusive slot stays held. The wait ends when SSH works or after the max wait. Default **30 minutes**. Change it under **Settings → General → Jobs**. `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` locks that field when it is set (minimum 30 seconds, maximum 86400). Uptime Kuma showing the host down, or `last_seen` older than 15 minutes, can label the job **waiting on host**. Only a successful SSH probe resumes it. Neither signal fails the job.
 
@@ -54,11 +54,14 @@ Recycling **web** does not fail these exclusive jobs. Recycling **celery-worker*
 | `backup` | Celery | Many hosts in parallel; **one backup per host** (Redis mutex) |
 | `service_migrate` | Celery | Dual-host backup mutex + DB exclusive with stack mutation on **both** ids. Recycle **web** is safe; recycle **worker** fails a running Move |
 | `service_migrate_undo` | Celery | Same mutex. Only a failed post-flip Move. `compose stop` on dest, never `down -v`. Recycle **worker** fails a running undo and leaves the dest tree |
+| `service_migrate_dest_recover` | Celery | Same mutex. Only a Move that died during `dest_up`. Inspect dest, then `compose stop` and start source. DNS and NPM stay. Recycle **worker** fails a running recover |
 | `os_patch` / `container_patch` | Celery default queue | **One active job of that type per host** (DB exclusive). No backup mutex. Refused while `host_reboot` is active |
 | `host_reboot` | Celery default queue | **One reboot per host**. Also refused while `os_patch`, `container_patch`, or `backup` is pending or running on that host |
 | `os_update_check` / `container_update_check` / `docker_stack_check` | Celery default queue | **One active check of that type per host**. SSH down keeps the job pending |
 | `docker_stack_deploy` / `_stop` / `_start` / `_restart` / `_down` / `_remove` / template deploy and redeploy | Celery default queue | **One active stack mutation per host** (shared lane) |
 | `template_drift_check` | Celery default queue | One drift check per host. Not a stack write |
-| `retention` / `herder_backup` / `host_facts` | Web process | A web recycle fails a pending or running row |
+| `host_facts` | Celery default queue | **One active snapshot per host**. SSH down keeps it pending |
+| `retention` | Celery default queue | No host exclusive slot. A web recycle does not fail it |
+| `herder_backup` | Celery default queue | No host. One PiHerder backup at a time. A web recycle does not fail it |
 
 Raising `CELERY_CONCURRENCY` or adding Celery nodes does **not** cause a single container patch to run twice. Double-triggers from the UI or bulk queue attach to the existing job instead (HTTP **409** on the API). A single-host patch does not block a backup or Move on a different host.

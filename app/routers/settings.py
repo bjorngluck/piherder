@@ -12,7 +12,16 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlencode, urlparse
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session
@@ -999,49 +1008,31 @@ async def revoke_api_token_form(
 
 @router.post("/herder-backups/run")
 async def trigger_herder_backup(
+    background_tasks: BackgroundTasks,
     backup_mode: str = Form("config_only"),
     user: User = Depends(get_admin_user),
 ):
+    from ..services import jobs as js
     from ..services.demo import http_403_if_demo
 
     http_403_if_demo("settings_write")
     mode = backup_mode if backup_mode in ("config_only", "full") else "config_only"
     include_audit = mode == "full"
     config_only = mode != "full"
-    with next(get_session()) as s:
-        audit = make_audit_log(
-            user_id=user.id,
-            server_id=None,
-            action="herder_backup",
-            status="running",
-            details=f"Manual self-backup triggered ({mode})",
-            started_at=datetime.utcnow(),
+    try:
+        with next(get_session()) as s:
+            job = js.enqueue_herder_backup_job(
+                s,
+                user.id,
+                include_audit=include_audit,
+                config_only=config_only,
+                background_tasks=background_tasks,
+            )
+        return RedirectResponse(f"/jobs?highlight={job.id}", status_code=303)
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("backup", error=str(e)[:120]), status_code=303
         )
-        s.add(audit)
-        s.commit()
-        s.refresh(audit)
-        try:
-            path = hb.create_herder_backup(
-                include_audit=include_audit, config_only=config_only
-            )
-            audit.status = "success"
-            audit.output_snippet = json.dumps({"path": str(path), "mode": mode})
-            audit.finished_at = datetime.utcnow()
-            s.add(audit)
-            s.commit()
-            return RedirectResponse(
-                _settings_url("backup", backup_ok="1", file=path.name),
-                status_code=303,
-            )
-        except Exception as e:
-            audit.status = "failed"
-            audit.output_snippet = str(e)[:2000]
-            audit.finished_at = datetime.utcnow()
-            s.add(audit)
-            s.commit()
-            return RedirectResponse(
-                _settings_url("backup", error=str(e)[:120]), status_code=303
-            )
 
 
 @router.post("/herder-backups/restore")

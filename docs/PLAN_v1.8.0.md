@@ -1,6 +1,6 @@
 # PiHerder v1.8.0 — MCP job types, then backup destinations, then Home Assistant cards
 
-**Status:** **Active** (lock retuned 2026-09-28). **MCP-jobs** landed. **Bak-alt discovery** is §3.1. **Google Drive** copy is built on this branch; the walk is still open and the Should may slip. **Mux-2** leftover list/kill is built on this branch; the walk is still open. Package stays `1.7.0`.  
+**Status:** **Active** (lock retuned 2026-09-28). **MCP-jobs** landed. **Bak-alt discovery** is §3.1. **Google Drive** copy is built on this branch; the walk is still open and the Should may slip. **Mux-2** leftover list/kill is built on this branch; the walk is still open. **Undo-2** dest-up inspect is built on this branch; the walk is still open. **Jr-web** is built on this branch; the walk is still open and the Should may slip. Package stays `1.7.0`.  
 **Date opened:** 2026-09-28  
 **Git branch:** `v1.8.0-dev` → `main` · tag `v1.8.0` at freeze  
 **Package / image version:** stays **`1.7.0`** until freeze  
@@ -77,7 +77,7 @@ main @ v1.7.0 (+ v1.7.x patches)
 | 8 | HA bus | **Should.** Poll-diff `piherder_job_completed`. No herder webhook. |
 | 9 | Mux-2 | **Should.** List and kill leftover `ph-u*` on SSH access. No automatic reattach. Remove-server still does not `kill-server`. |
 | 10 | Undo-2 | **Should.** `dest_up` worker-restart helper: inspect dest, optional stop-dest then start-source. No DNS revert. No green-Move undo. |
-| 11 | Jr-web | **Should.** `retention`, `herder_backup`, and `host_facts` leave web `BackgroundTasks`. `host_facts` uses the exclusive lane. The other two use the default queue and do not take a host slot. |
+| 11 | Jr-web | **Should.** Built on this branch. `retention`, `herder_backup`, and `host_facts` leave web `BackgroundTasks`. `host_facts` uses the exclusive lane. The other two use the default queue and do not take a host slot. Walk still open. |
 | 12 | AC-fg | **Parked.** No grant write-up. Three global roles stay. |
 | 13 | Version bump | `1.8.0` at freeze only |
 | 14 | Public demo | Stays on the **1.7** image |
@@ -189,17 +189,19 @@ No automatic reattach. Removing a server still does not `kill-server` for every 
 
 ## 7. Stream **Undo-2** — `dest_up` helper (Should)
 
+**Built on this branch. Walk still open.**
+
 Undo-1 already reverts a Move that failed at cutover, rebind, or validate. This slice is only the hole left when the worker dies during `dest_up`: dest may already be up, so Start source would dual-run.
 
-Inspect dest. Offer stop-dest, then start-source, without reverting DNS or NPM. No `down -v`. A green Move is still a new Move in the other direction, not an undo. `WORKER_RESTART_RECOVER_STEPS` today is `stop` and `copy` only. May slip.
+JobHold and the job detail offer **Inspect destination**, then **Stop dest and start source**. That is `compose stop` on dest and `compose start` on source. DNS and NPM stay. No `down -v`. A green Move is still a new Move in the other direction, not an undo. `WORKER_RESTART_RECOVER_STEPS` stays `stop` and `copy` only. A pipeline failure at dest up (the up command returned) still offers **Start source stack**. May slip.
 
 ---
 
 ## 8. Stream **Jr-web** — three jobs off the web process (Should)
 
-`retention`, `herder_backup`, and `host_facts` still run in web `BackgroundTasks`. `cleanup_orphan_web_jobs` fails them when **web** recycles.
+**Built on this branch. Walk still open.**
 
-Move them to Celery so a web recycle does not fail the row. `host_facts` uses the existing exclusive lane. `retention` and `herder_backup` use the default queue and do not take a host exclusive slot (`herder_backup` has no host). A worker kill of a **running** job stays fail-honest. nmap stays `-Q nmap`. May slip.
+`retention`, `herder_backup`, and `host_facts` run on Celery. A web recycle does not fail the row. `host_facts` uses the existing exclusive lane (one per host, SSH-down wait). `retention` and `herder_backup` use `housekeeping_job` on the default queue and do not take a host exclusive slot. `herder_backup` has no host. One self-backup runs at a time. Settings → Run and the schedule queue that job. A worker kill of a **running** job stays fail-honest. The worker cap for these two is 2 hours, under the 3-hour Redis visibility window. nmap stays `-Q nmap`. May slip.
 
 ---
 
@@ -226,8 +228,8 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 | **Must** | **HA-vis** | Plugin **0.4.0**. Bars and a drawing 24-hour series. Same token rules | Not started |
 | **Should** | **HA bus** | `piherder_job_completed` from the plugin poll | Not started. May slip |
 | **Should** | **Mux-2** | List/kill `ph-u*` on SSH access | Built on branch. Walk still open. May slip |
-| **Should** | **Undo-2** | `dest_up` inspect helper. No green-Move undo | Not started. May slip |
-| **Should** | **Jr-web** | Three web jobs survive a web recycle | Not started. May slip |
+| **Should** | **Undo-2** | `dest_up` inspect helper. No green-Move undo | Built on branch. Walk still open. May slip |
+| **Should** | **Jr-web** | Three web jobs survive a web recycle | Built on branch. Walk still open. May slip |
 | **Parked** | AC-fg · Slice 3 · OneDrive · SMB · the rest of §9 | No code | Parked |
 
 ---
@@ -256,6 +258,8 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 | 2026-09-29 | **Google Drive copy built** on the branch. Settings → PiHerder backup. Service list shows Drive, with OneDrive and SMB not selectable. Sign-in is the operator’s Google account (web OAuth client). A service account cannot store the files on a personal Drive. Folder tree. Job `backup_replicate`. Walk still open. |
 | 2026-09-29 | **Mux-2 built** on the branch. SSH access lists and kills leftover `ph-u*` sessions for that host. No reattach. Remove server still does not `kill-server`. HAOS and the demo stay off. Walk still open. |
 | 2026-09-29 | **Drive copy time limit.** Job 2268 was killed at the global 2-hour Celery limit, and Redis had already started a second copy at 1 hour. This copy now allows 7 days, acks on receive, and Redis visibility for other tasks is 3 hours. A dead worker marks the job failed. |
+| 2026-09-29 | **Undo-2 built** on the branch. A Move that dies during `dest_up` offers inspect, then `compose stop` dest and start source. DNS and NPM stay. No `down -v`. A green Move still has no Undo. Walk still open. |
+| 2026-09-29 | **Jr-web built** on the branch. Retention, PiHerder backup, and host facts run on Celery. A web recycle does not fail them. Host facts stays one-per-host. The backup and retention do not take a host slot. Walk still open. |
 
 ---
 
@@ -267,7 +271,7 @@ Move them to Celery so a web recycle does not fail the row. `host_facts` uses th
 | 2 | Lock Must / Should in this plan | **Done** 2026-09-28 |
 | 3 | **MCP-jobs** | **Landed** on branch. Walk is [QA_v1.8.0.md](QA_v1.8.0.md) |
 | 4 | Bak-alt discovery is §3.1. Google Drive client | **Built** on branch (Settings → PiHerder backup). Walk still open |
-| 5 | **HA-vis** in piherder-ha, then the Should rows | Not started |
+| 5 | **HA-vis** (deferred). Undo-2 and Jr-web are built | HA not started. Walks still open |
 | 6 | Freeze · `1.8.0` · tag · Hub | Only when asked |
 
 ---
