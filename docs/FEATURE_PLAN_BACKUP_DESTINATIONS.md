@@ -15,7 +15,7 @@ A **backup destination** is its own row, aimed at the whole backup drive (`BACKU
 | Piece | Lock |
 |-------|------|
 | Provider | The service list shows Google Drive, which is the only one that can be saved. OneDrive and LAN NAS / SMB are in that list and cannot be selected yet. No plugin framework. |
-| Secret | Fernet (`PIHERDER_MASTER_KEY`). The form asks for the service account email and private key. The key is not shown again. A blank key keeps the saved one. |
+| Secret | Fernet (`PIHERDER_MASTER_KEY`). The form asks for the service account email and private key, and links the Google Cloud pages plus the operator steps. The key is not shown again. A blank key keeps the saved one. |
 | When | The same schedule presets as the rest of Settings, an on-demand button, and an optional follow-up after one host backup finishes. The follow-up copies only checked paths under that host folder. |
 | Failure | The copy job fails. `last_backup_at` and the rsync job stay as they were. |
 | Job | `backup_replicate` on the existing `celery-worker` default queue. Web only enqueues. Not a dedicated container (that pattern is nmap, which needs host networking). A long upload uses one concurrency slot, the same as a long rsync. Full sync has `server_id` null. Not in `JOB_FEATURE_KEY`, so MCP and the token API cannot start it. |
