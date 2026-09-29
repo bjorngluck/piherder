@@ -32,7 +32,7 @@ flowchart TB
 | Work | Runs on | Concurrency rule |
 |------|---------|------------------|
 | Backups | Celery | Parallel across hosts; one backup per host (Redis mutex) |
-| Drive copy (`backup_replicate`) | Celery default queue | v1.8 train. One slot, like a long rsync. Not the per-host backup lock. Web only enqueues |
+| Drive copy (`backup_replicate`) | Celery default queue | v1.8 train. One slot, like a long rsync. Up to 7 days. Acked on receive. Not the per-host backup lock. Web only enqueues |
 | Move (`service_migrate`) and fail-path undo (`service_migrate_undo`) | Celery | Dual-host backup mutex; recycle web is safe; recycle worker fails a running Move or undo. Undo only after cutover / rebind / validate failed |
 | OS/container patch, update checks, stack jobs, template jobs, `host_reboot` | Celery default queue (`exclusive_job`) | One active job of that type per host. Stack writes share one lane. Reboot is also refused while OS patch, container patch, or backup is active. No backup mutex. Host-down stays pending. Worker recycle fails a running job |
 | Bulk fleet actions | Web → same enqueue paths | Feature-flag skip + exclusive rules |
@@ -49,7 +49,7 @@ flowchart TB
 | Roles / middleware | `app/security/auth.py` — expired session: HTML **303** `/auth/login`, HTMX `HX-Redirect`, `/api/v1` JSON 401 |
 | Password policy | `app/services/password_policy.py` · Settings Security |
 | Account / 2FA step-up policy | `app/services/account_stepup.py` · Settings Security |
-| Web SSH console | `app/services/ssh_console.py` · `app/routers/server_console.py` · Settings Console (timeouts) / Security (factors). Mux-1: `Server.console_mux_enabled` + probe tmux/screen |
+| Web SSH console | `app/services/ssh_console.py` · `app/routers/server_console.py` · Settings Console (timeouts) / Security (factors). Mux-1: `Server.console_mux_enabled` + probe tmux/screen. Mux-2: SSH access lists and kills leftover `ph-u*` for that host (`POST /servers/{id}/ssh/mux-sessions`) |
 | Jobs / progress / exclusive types | `app/services/jobs/` (`service.py`; package preserves `patch.object` surface). Move: `app/services/jobs_migrate.py`. Jr-1 handoff: `app/services/jobs_exclusive.py`. Backups, **Move**, and **exclusive_job** on Celery (`app/tasks.py`) |
 | Reports layout (N3a) + Move card (N3b) | `app/services/report_layout.py` · cookie `ph_reports_layout` · `POST /reports/layout` · Move stats from `ops_reports.collect_move_history` (`service_migrate` Jobs) |
 | Service migrate pipeline | `app/services/service_migrate/` · Celery `app.tasks.service_migrate` · undo `undo.py` + `app.tasks.service_migrate_undo` |
@@ -58,7 +58,7 @@ flowchart TB
 | Per-server backup lock | `app/services/server_job_lock.py` |
 | Scheduler | `app/services/scheduler.py` |
 | Backup | `app/services/backup.py` (+ progress, profiles) |
-| Drive copy | `app/services/backup_replicate.py` · `app/routers/backup_copies.py` · Alembic **047** · Settings → PiHerder backup. Google web OAuth client, refresh token in Fernet. Not in the 1.7.0 image |
+| Drive copy | `app/services/backup_replicate.py` · `app/routers/backup_copies.py` · `app/tasks.py` `replicate_backup` · Alembic **047** · Settings → PiHerder backup. Google web OAuth client, refresh token in Fernet. Not in the 1.7.0 image |
 | Docker inventory | `app/services/docker_inventory.py` |
 | Host OS / hardware / CPU / RAM / disk snapshot | `app/services/host_facts.py` · Alembic **044** + **045** · System Info modal (DB first; icon refresh) · scheduler ~15 min · same columns as `/api/v1` + HACS |
 | Templates (domain) | `app/services/service_templates/` — `deploy`, `host_sync` (adopt/migrate), `harden`, `schema`, `from_host`, … |

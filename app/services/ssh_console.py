@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import secrets
 import shlex
 import threading
@@ -633,6 +634,118 @@ def kill_mux_session(client: Any, backend: Optional[str], session_name: str) -> 
             run_command(client, f"screen -S {q} -X quit 2>/dev/null || true", timeout=8)
     except Exception:
         logger.debug("mux kill %s %s failed", backend, session_name, exc_info=True)
+
+
+# ph-u{user}-s{server}-n{tab}-{f|p} — tab is clamped to 0–99 when created.
+_MUX_NAME_RE = re.compile(r"^ph-u(\d+)-s(\d+)-n(\d{1,2})-([fp])$")
+_SCREEN_NAME_RE = re.compile(
+    r"(?:^|\s)(\d+)\.(ph-u\d+-s\d+-n\d{1,2}-[fp])\b"
+)
+
+
+def parse_mux_session_name(name: str) -> Optional[dict]:
+    """Parse a PiHerder mux name. Other tmux/screen sessions return None."""
+    match = _MUX_NAME_RE.fullmatch((name or "").strip())
+    if not match:
+        return None
+    return {
+        "name": match.group(0),
+        "user_id": int(match.group(1)),
+        "server_id": int(match.group(2)),
+        "tab": int(match.group(3)),
+        "role": "privileged" if match.group(4) == "p" else "fleet",
+    }
+
+
+def encode_mux_list(rows: list) -> str:
+    """Compact ``backend:name`` list for the SSH-access redirect."""
+    parts = []
+    for row in rows or []:
+        backend = (row or {}).get("backend")
+        name = (row or {}).get("name") or ""
+        if backend in ("tmux", "screen") and parse_mux_session_name(name):
+            parts.append(f"{backend}:{name}")
+    return ",".join(parts)
+
+
+def decode_mux_list(raw: str, server_id: int) -> list:
+    """Keep only names that belong to *server_id*. Drops anything else."""
+    rows = []
+    seen = set()
+    try:
+        want = int(server_id)
+    except (TypeError, ValueError):
+        return rows
+    for part in (raw or "").split(","):
+        piece = part.strip()
+        if ":" not in piece:
+            continue
+        backend, name = piece.split(":", 1)
+        if backend not in ("tmux", "screen"):
+            continue
+        parsed = parse_mux_session_name(name)
+        if not parsed or parsed["server_id"] != want:
+            continue
+        key = (backend, parsed["name"])
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append({**parsed, "backend": backend})
+    return rows
+
+
+def _screen_session_names(text: str) -> list:
+    return [match.group(2) for match in _SCREEN_NAME_RE.finditer(text or "")]
+
+
+def list_host_mux_sessions(client: Any, server_id: int) -> list:
+    """PiHerder tmux/screen sessions whose name is for this server id.
+
+    Does not install a binary and does not attach. Other users' shells and
+    sessions for a different server id are omitted.
+    """
+    if client is None:
+        return []
+    try:
+        want = int(server_id)
+    except (TypeError, ValueError):
+        return []
+    from .ssh import run_command
+
+    found: list = []
+    seen = set()
+
+    def _add(backend: str, raw_name: str) -> None:
+        parsed = parse_mux_session_name(raw_name)
+        if not parsed or parsed["server_id"] != want:
+            return
+        key = (backend, parsed["name"])
+        if key in seen:
+            return
+        seen.add(key)
+        found.append({**parsed, "backend": backend})
+
+    try:
+        _st, out, _err = run_command(
+            client,
+            "tmux list-sessions -F '#{session_name}' 2>/dev/null || true",
+            timeout=8,
+        )
+        for line in (out or "").splitlines():
+            _add("tmux", line.strip())
+    except Exception:
+        logger.debug("mux list tmux failed", exc_info=True)
+    try:
+        _st, out, _err = run_command(
+            client,
+            "screen -ls 2>/dev/null || true",
+            timeout=8,
+        )
+        for name in _screen_session_names(out or ""):
+            _add("screen", name)
+    except Exception:
+        logger.debug("mux list screen failed", exc_info=True)
+    return found
 
 
 def _attach_mux_meta(client: Any, *, backend: Optional[str], name: str, note: str) -> None:

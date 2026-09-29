@@ -29,7 +29,7 @@ Not in the published **1.7.0** image. On branch `v1.8.0-dev`, **Settings → PiH
 | Account | A Google sign-in from this PiHerder. New files are owned by that Google account. A service account cannot store them on a personal Drive |
 | Schedule | The same presets as other schedules, **Copy now**, and an optional copy after a host backup succeeds |
 | Browser | Folder tree on the left, the open folder on the right. A ticked folder stays ticked inside. Untick a child to leave it behind |
-| Job | **Drive copy** (`backup_replicate`) on the existing Celery worker. A failure fails that job only. The host backup time stays |
+| Job | **Drive copy** (`backup_replicate`) on the existing Celery worker. It may run for up to 7 days. Host backups stay on the 2-hour worker limit. If the worker stops, the job fails and **Copy now** can run again. Files already uploaded stay. A failure fails that job only. The host backup time stays |
 | Restore | Still the local tree. The demo does not upload |
 
 Rebuild the image before a real copy. rclone is in that image. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](https://github.com/bjorngluck/piherder/blob/v1.8.0-dev/docs/FEATURE_PLAN_BACKUP_DESTINATIONS.md).

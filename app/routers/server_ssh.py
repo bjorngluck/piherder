@@ -19,7 +19,9 @@ from ..security import encryption
 from ..security.auth import get_current_user, get_operator_user
 from ..services import host_deps as host_deps_svc
 from ..services import ssh as ssh_service
+from ..services import ssh_console
 from ..services import ssh_onboarding
+from ..services.demo import http_403_if_demo
 from ..services.server_audit import record_server_audit
 from .server_common import server_redirect
 
@@ -201,6 +203,161 @@ async def ssh_reset_host_key(
     )
     session.commit()
     return RedirectResponse(server_redirect(server_id, msg="ssh_hostkey_reset"), status_code=303)
+
+
+def _host_refuses_mux(server: Server) -> Optional[str]:
+    """HAOS never muxes. Demo is refused before this runs."""
+    if "haos" in (getattr(server, "os_type", None) or "").lower():
+        return "Home Assistant OS does not use console mux."
+    return None
+
+
+def _mux_with_client(server: Server, fn):
+    client = ssh_service.get_ssh_client(server)
+    try:
+        return fn(client)
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+@router.post("/{server_id}/ssh/mux-sessions")
+async def ssh_list_mux_sessions(
+    server_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """List leftover PiHerder tmux/screen sessions for this host. Does not attach."""
+    http_403_if_demo("console")
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    refused = _host_refuses_mux(server)
+    if refused:
+        return RedirectResponse(
+            server_redirect(server_id, show_ssh_key="1", error="mux_fail", detail=refused),
+            status_code=303,
+        )
+
+    def _list():
+        return _mux_with_client(
+            server, lambda client: ssh_console.list_host_mux_sessions(client, server.id)
+        )
+
+    try:
+        rows = await run_in_threadpool(_list)
+        rows = [row for row in rows if int(row.get("server_id") or 0) == int(server.id)]
+    except Exception:
+        logger.warning("mux list failed for server %s", server_id, exc_info=True)
+        return RedirectResponse(
+            server_redirect(
+                server_id,
+                show_ssh_key="1",
+                error="mux_fail",
+                detail="Could not list console sessions. Test connection, then try again.",
+            ),
+            status_code=303,
+        )
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_mux_listed",
+        message=f"Listed {len(rows)} leftover console session(s) on {server.name}",
+        details={"count": len(rows)},
+    )
+    session.commit()
+    return RedirectResponse(
+        server_redirect(
+            server_id,
+            show_ssh_key="1",
+            mux_listed="1",
+            mux=ssh_console.encode_mux_list(rows),
+        ),
+        status_code=303,
+    )
+
+
+@router.post("/{server_id}/ssh/mux-sessions/kill")
+async def ssh_kill_mux_session(
+    server_id: int,
+    session_name: str = Form(""),
+    backend: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Kill one named PiHerder session on this host. No reattach. No kill-server."""
+    http_403_if_demo("console")
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    refused = _host_refuses_mux(server)
+    if refused:
+        return RedirectResponse(
+            server_redirect(server_id, show_ssh_key="1", error="mux_fail", detail=refused),
+            status_code=303,
+        )
+    parsed = ssh_console.parse_mux_session_name(session_name)
+    kind = (backend or "").strip().lower()
+    if (
+        not parsed
+        or parsed["server_id"] != int(server.id)
+        or kind not in ("tmux", "screen")
+    ):
+        return RedirectResponse(
+            server_redirect(
+                server_id,
+                show_ssh_key="1",
+                error="mux_bad",
+                detail="That session is not a PiHerder console on this host.",
+            ),
+            status_code=303,
+        )
+    name = parsed["name"]
+
+    def _kill():
+        def _run(client):
+            ssh_console.kill_mux_session(client, kind, name)
+            return ssh_console.list_host_mux_sessions(client, server.id)
+
+        return _mux_with_client(server, _run)
+
+    try:
+        rows = await run_in_threadpool(_kill)
+        rows = [row for row in rows if int(row.get("server_id") or 0) == int(server.id)]
+    except Exception:
+        logger.warning("mux kill failed for server %s", server_id, exc_info=True)
+        return RedirectResponse(
+            server_redirect(
+                server_id,
+                show_ssh_key="1",
+                error="mux_fail",
+                detail="Could not kill that console session. Test connection, then try again.",
+            ),
+            status_code=303,
+        )
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_mux_killed",
+        message=f"Killed console session {name} on {server.name}",
+        details={"name": name, "backend": kind},
+    )
+    session.commit()
+    return RedirectResponse(
+        server_redirect(
+            server_id,
+            show_ssh_key="1",
+            msg="mux_killed",
+            mux_listed="1",
+            mux=ssh_console.encode_mux_list(rows),
+            detail=name,
+        ),
+        status_code=303,
+    )
 
 
 @router.post("/{server_id}/host-deps/check")

@@ -728,7 +728,18 @@ def exclusive_job(
         raise
 
 
-@celery.task(bind=True, name="app.tasks.replicate_backup")
+# Host rsync stays on the 2h global limit. A Drive copy can run much longer.
+# Ack on receive so Redis does not start a second rclone while the first is still going.
+# 7 days is the safety stop; the failure signal below records it on the job row.
+_DRIVE_COPY_TIME_LIMIT = 7 * 24 * 3600
+
+
+@celery.task(
+    bind=True,
+    name="app.tasks.replicate_backup",
+    acks_late=False,
+    time_limit=_DRIVE_COPY_TIME_LIMIT,
+)
 def replicate_backup(self, job_id: int):
     """Copy checked /backups paths to a fleet destination. Default Celery queue."""
     db = Session(engine)
@@ -771,6 +782,79 @@ def replicate_backup(self, job_id: int):
         return {"status": "failed", "job_id": job_id, "error": str(exc)[:500]}
     finally:
         db.close()
+
+
+def fail_replicate_job(job_id: int, message: str) -> bool:
+    """Mark a Drive copy failed when the worker process dies outside execute()."""
+    text = (message or "Drive copy stopped").strip()[:500]
+    try:
+        with Session(engine) as s:
+            job = s.get(Job, job_id)
+            if not job or job.job_type != "backup_replicate":
+                return False
+            if job.status in ("success", "failed", "cancelled"):
+                return False
+            existing: dict = {}
+            try:
+                if job.details:
+                    existing = json.loads(job.details)
+            except Exception:
+                existing = {}
+            lines = list(existing.get("log_lines") or [])
+            if not lines or lines[-1] != text:
+                lines.append(text)
+            existing["log_lines"] = lines[-15:]
+            existing["error"] = text
+            existing["current"] = "failed"
+            existing["done"] = True
+            job.details = json.dumps(existing)
+            job.status = "failed"
+            job.finished_at = datetime.utcnow()
+            s.add(job)
+            s.commit()
+            return True
+    except Exception as exc:
+        logger.error("Drive copy job %s could not be marked failed: %s", job_id, exc)
+        return False
+
+
+def _drive_copy_failure_message(exception: BaseException | None) -> str:
+    name = type(exception).__name__ if exception else ""
+    if name in ("TimeLimitExceeded", "HardTimeLimitExceeded") or "time limit" in str(exception or "").lower():
+        return (
+            "Drive copy hit the worker time limit and was stopped. "
+            "Start it again. Files already uploaded stay on Drive."
+        )
+    return (
+        "The worker stopped during the Drive copy. "
+        "Start it again. Files already uploaded stay on Drive."
+    )
+
+
+def _on_drive_copy_task_failure(
+    sender=None,
+    exception=None,
+    args=None,
+    **kwargs,
+) -> None:
+    """SIGKILL and the hard time limit never reach the task's own except."""
+    if getattr(sender, "name", "") != "app.tasks.replicate_backup":
+        return
+    if not args:
+        return
+    try:
+        job_id = int(args[0])
+    except (TypeError, ValueError):
+        return
+    fail_replicate_job(job_id, _drive_copy_failure_message(exception))
+
+
+try:
+    from celery.signals import task_failure
+
+    task_failure.connect(_on_drive_copy_task_failure)
+except Exception:
+    logger.debug("Drive copy failure signal not connected", exc_info=True)
 
 
 def _update_job_status(job_id: int, status: str, extra: dict):

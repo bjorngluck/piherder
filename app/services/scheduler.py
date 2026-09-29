@@ -517,6 +517,10 @@ def schedule_stack_health_job():
             from ..main import HAS_SCHEDULER as _hs, scheduler as _sched
         except Exception:
             _hs, _sched = False, None
+        # Shutdown sets running to false before the process exits. A check in
+        # that window used to mail "APScheduler not running".
+        if _sched is not None and not getattr(_sched, "running", False):
+            return
         stack_svc.run_stack_health_check(
             scheduler=_sched,
             has_scheduler=bool(_hs),

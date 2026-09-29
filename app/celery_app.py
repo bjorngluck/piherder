@@ -23,6 +23,9 @@ celery.conf.update(
     enable_utc=True,
     task_track_started=True,
     task_time_limit=7200,
+    # Redis redelivers an unacked task after visibility_timeout (default 1h).
+    # That must stay above task_time_limit or a still-running job is started twice.
+    broker_transport_options={"visibility_timeout": 10800},
     worker_prefetch_multiplier=1,
     task_acks_late=True,
     # Avoid stealing tasks that another worker is about to run after lock wait
