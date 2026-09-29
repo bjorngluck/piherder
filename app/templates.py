@@ -119,6 +119,7 @@ templates.env.filters["interval_human"] = describe_interval_hours
 templates.env.globals["describe_cron"] = describe_cron
 templates.env.globals["schedule_summary"] = schedule_summary
 templates.env.globals["cron_presets"] = CRON_PRESETS
+templates.env.globals["cron_preset_values"] = [val for val, _lab in CRON_PRESETS]
 
 
 def _fromjson_filter(value):

@@ -350,11 +350,68 @@ def drive_folder(destination: BackupDestination) -> str:
 
 
 def shared_with_me(destination: BackupDestination) -> bool:
+    """A service account has no My Drive. The folder is always one shared with it."""
+    if credential_public(destination).get("kind") == "service_account":
+        return True
     try:
         cfg = json.loads(destination.config_json or "{}")
     except Exception:
         cfg = {}
     return bool(isinstance(cfg, dict) and cfg.get("shared_with_me"))
+
+
+def probe(destination: BackupDestination) -> dict[str, str]:
+    """Check the saved key and folder. Does not copy anything."""
+    from .demo import demo_mode
+
+    if demo_mode():
+        return {"ok": "0", "code": "demo"}
+    if destination.provider != "drive":
+        return {"ok": "0", "code": "provider"}
+    if not (destination.credentials_encrypted or "").strip():
+        return {"ok": "0", "code": "account"}
+    folder = _remote_dir(destination)
+    config_path = ""
+    try:
+        config_path = write_rclone_config(
+            decrypt_token(destination),
+            shared_with_me=shared_with_me(destination),
+        )
+        cmd = [
+            "rclone",
+            "lsd",
+            f"{_REMOTE_NAME}:{folder}",
+            "--config",
+            config_path,
+            "--max-depth",
+            "1",
+            "--timeout",
+            "20s",
+            "--contimeout",
+            "15s",
+        ]
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
+        except FileNotFoundError:
+            return {"ok": "0", "code": "rclone"}
+        except subprocess.TimeoutExpired:
+            return {"ok": "0", "code": "timeout"}
+        if proc.returncode == 0:
+            return {"ok": "1", "code": "ok"}
+        err = f"{proc.stderr or ''} {proc.stdout or ''}".lower()
+        if "not found" in err or "404" in err:
+            return {"ok": "0", "code": "folder"}
+        if any(word in err for word in ("unauthorized", "invalid", "403", "401", "permission", "auth")):
+            return {"ok": "0", "code": "auth"}
+        return {"ok": "0", "code": "rclone"}
+    except Exception:
+        return {"ok": "0", "code": "auth"}
+    finally:
+        if config_path:
+            try:
+                os.remove(config_path)
+            except OSError:
+                pass
 
 
 def clean_drive_folder(value: str) -> str:

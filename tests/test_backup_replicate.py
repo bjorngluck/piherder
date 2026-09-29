@@ -78,6 +78,36 @@ def test_service_account_fields_not_a_token_blob():
     assert "backup@example.iam.gserviceaccount.com" in text
 
 
+def test_service_account_config_uses_shared_drive_even_when_flag_off():
+    raw = copies.pack_service_account(
+        "backup@example.iam.gserviceaccount.com",
+        "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n",
+    )
+    path = copies.write_rclone_config(raw, shared_with_me=True)
+    try:
+        text = open(path, encoding="utf-8").read()
+    finally:
+        os.remove(path)
+    assert "shared_with_me = true" in text
+
+
+def test_probe_classifies_folder_miss(monkeypatch):
+    dest = BackupDestination(provider="drive", credentials_encrypted="x", config_json='{"remote_dir":"Backup"}')
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+    monkeypatch.setattr(copies, "decrypt_token", lambda _d: "{}")
+    monkeypatch.setattr(copies, "write_rclone_config", lambda *_a, **_k: "/tmp/ph-rclone-test.conf")
+    monkeypatch.setattr(copies, "shared_with_me", lambda _d: True)
+
+    class Proc:
+        returncode = 1
+        stderr = "directory not found"
+        stdout = ""
+
+    monkeypatch.setattr(copies.subprocess, "run", lambda *a, **k: Proc())
+    monkeypatch.setattr(os, "remove", lambda _p: None)
+    assert copies.probe(dest)["code"] == "folder"
+
+
 def test_bad_key_rejected():
     with pytest.raises(ValueError):
         copies.pack_service_account("not-an-email", "-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----\n")
