@@ -58,7 +58,7 @@ flowchart TB
 | Per-server backup lock | `app/services/server_job_lock.py` |
 | Scheduler | `app/services/scheduler.py` |
 | Backup | `app/services/backup.py` (+ progress, profiles) |
-| Drive copy | `app/services/backup_replicate.py` · `app/routers/backup_copies.py` · Alembic **047** · Settings → PiHerder backup. Not in the 1.7.0 image |
+| Drive copy | `app/services/backup_replicate.py` · `app/routers/backup_copies.py` · Alembic **047** · Settings → PiHerder backup. Google web OAuth client, refresh token in Fernet. Not in the 1.7.0 image |
 | Docker inventory | `app/services/docker_inventory.py` |
 | Host OS / hardware / CPU / RAM / disk snapshot | `app/services/host_facts.py` · Alembic **044** + **045** · System Info modal (DB first; icon refresh) · scheduler ~15 min · same columns as `/api/v1` + HACS |
 | Templates (domain) | `app/services/service_templates/` — `deploy`, `host_sync` (adopt/migrate), `harden`, `schema`, `from_host`, … |

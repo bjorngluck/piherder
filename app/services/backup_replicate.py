@@ -9,9 +9,13 @@ from __future__ import annotations
 import json
 import logging
 import os
+import secrets
 import subprocess
 import tempfile
-from datetime import datetime
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +29,11 @@ logger = logging.getLogger(__name__)
 
 JOB_TYPE = "backup_replicate"
 _REMOTE_NAME = "dest"
+DRIVE_SCOPE = "https://www.googleapis.com/auth/drive"
+_GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth"
+_GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
+_GOOGLE_USERINFO = "https://www.googleapis.com/oauth2/v2/userinfo"
+OAUTH_STATE_COOKIE = "ph_drive_oauth"
 
 
 def backup_root() -> Path:
@@ -265,16 +274,200 @@ def encrypt_account(email: str, private_key: str) -> str:
     return encrypt_str(pack_service_account(email, private_key))
 
 
+def normalize_private_key(raw: str) -> str:
+    """Turn a pasted JSON key, or a key whose newlines are the two characters \\n, into PEM."""
+    text = (raw or "").strip()
+    if text.startswith("{"):
+        try:
+            data = json.loads(text)
+        except Exception:
+            data = None
+        if isinstance(data, dict) and data.get("private_key"):
+            text = str(data["private_key"]).strip()
+    if len(text) >= 2 and text[0] == text[-1] == '"':
+        try:
+            loaded = json.loads(text)
+        except Exception:
+            loaded = None
+        if isinstance(loaded, str):
+            text = loaded.strip()
+    text = text.replace("\r\n", "\n").replace("\\n", "\n").strip()
+    return text
+
+
 def pack_service_account(email: str, private_key: str) -> str:
     account = (email or "").strip()
-    key = (private_key or "").strip().replace("\r\n", "\n")
+    key = normalize_private_key(private_key)
     if "@" not in account or any(ch.isspace() for ch in account):
         raise ValueError("email")
-    if "BEGIN" not in key or "PRIVATE KEY" not in key or "END" not in key:
+    if "BEGIN" not in key or "PRIVATE KEY" not in key or "END" not in key or "\n" not in key:
         raise ValueError("key")
     return json.dumps(
         {"auth": "service_account", "client_email": account, "private_key": key}
     )
+
+
+def google_redirect_uri(origin: str) -> str:
+    return origin.rstrip("/") + "/backup-copies/google/callback"
+
+
+def google_auth_url(client_id: str, redirect_uri: str, state: str) -> str:
+    query = urllib.parse.urlencode(
+        {
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "scope": DRIVE_SCOPE,
+            "access_type": "offline",
+            "prompt": "consent",
+            "include_granted_scopes": "true",
+            "state": state,
+        }
+    )
+    return _GOOGLE_AUTH + "?" + query
+
+
+def new_oauth_state() -> str:
+    return secrets.token_urlsafe(24)
+
+
+def oauth_client(destination: BackupDestination) -> dict[str, str]:
+    try:
+        cfg = json.loads(destination.config_json or "{}")
+    except Exception:
+        cfg = {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    secret = ""
+    enc = str(cfg.get("oauth_client_secret_encrypted") or "")
+    if enc:
+        try:
+            secret = decrypt_str(enc)
+        except Exception:
+            secret = ""
+    return {"client_id": str(cfg.get("oauth_client_id") or "").strip(), "client_secret": secret}
+
+
+def store_oauth_client(
+    destination: BackupDestination,
+    *,
+    client_id: str,
+    client_secret: str,
+    folder: str,
+    schedule: str | None,
+    after_host_backup: bool,
+) -> None:
+    try:
+        cfg = json.loads(destination.config_json or "{}")
+    except Exception:
+        cfg = {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    client_id = (client_id or "").strip()
+    if client_id and (any(ch.isspace() for ch in client_id) or "://" in client_id):
+        raise ValueError("client")
+    cfg["remote_dir"] = folder
+    cfg["shared_with_me"] = False
+    cfg["oauth_client_id"] = client_id
+    secret = (client_secret or "").strip()
+    if secret:
+        cfg["oauth_client_secret_encrypted"] = encrypt_str(secret)
+    destination.config_json = json.dumps(cfg)
+    destination.schedule = schedule or None
+    destination.after_host_backup = after_host_backup
+    if destination.credentials_encrypted:
+        try:
+            token = json.loads(decrypt_token(destination))
+        except Exception:
+            token = None
+        if isinstance(token, dict) and token.get("refresh_token"):
+            if client_id:
+                token["client_id"] = client_id
+            if secret:
+                token["client_secret"] = secret
+            destination.credentials_encrypted = encrypt_str(json.dumps(token))
+
+
+def exchange_google_code(
+    *,
+    client_id: str,
+    client_secret: str,
+    code: str,
+    redirect_uri: str,
+) -> dict[str, Any]:
+    body = urllib.parse.urlencode(
+        {
+            "code": code,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
+        }
+    ).encode()
+    request = urllib.request.Request(_GOOGLE_TOKEN, data=body, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode())
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode(errors="replace")[:300]
+        logger.warning("Google token exchange failed: %s", detail)
+        raise ValueError("google") from exc
+    except Exception as exc:
+        raise ValueError("google") from exc
+    if not isinstance(payload, dict) or not payload.get("refresh_token"):
+        raise ValueError("google")
+    return payload
+
+
+def google_account_email(access_token: str) -> str:
+    request = urllib.request.Request(
+        _GOOGLE_USERINFO,
+        headers={"Authorization": "Bearer " + access_token},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode())
+    except Exception:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("email") or "").strip()
+
+
+def pack_oauth_token(
+    *,
+    client_id: str,
+    client_secret: str,
+    refresh_token: str,
+    access_token: str,
+    email: str,
+    expires_in: int | None,
+) -> str:
+    expiry = "2000-01-01T00:00:00Z"
+    if expires_in:
+        expiry = (datetime.utcnow() + timedelta(seconds=int(expires_in))).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return json.dumps(
+        {
+            "auth": "oauth",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
+            "access_token": access_token or "",
+            "token_type": "Bearer",
+            "expiry": expiry,
+            "email": email,
+        }
+    )
+
+
+def discard_rclone_config(path: str) -> None:
+    if not path:
+        return
+    for extra in (path, path + ".sa.json"):
+        try:
+            os.remove(extra)
+        except OSError:
+            pass
 
 
 def write_rclone_config(token_json: str, *, shared_with_me: bool = False) -> str:
@@ -282,21 +475,48 @@ def write_rclone_config(token_json: str, *, shared_with_me: bool = False) -> str
     if not isinstance(payload, dict):
         raise ValueError("Google account details are missing")
     lines = [f"[{_REMOTE_NAME}]", "type = drive", "scope = drive"]
+    sa_path = ""
     if payload.get("private_key") and payload.get("client_email"):
+        key = normalize_private_key(str(payload["private_key"]))
         creds = {
             "type": "service_account",
             "client_email": payload["client_email"],
-            "private_key": payload["private_key"],
+            "private_key": key,
             "token_uri": "https://oauth2.googleapis.com/token",
         }
-        lines.append(
-            "service_account_credentials = " + json.dumps(creds, separators=(",", ":"))
-        )
-    elif payload.get("refresh_token") or payload.get("access_token"):
-        lines.append("token = " + json.dumps(payload, separators=(",", ":")))
+        handle = tempfile.NamedTemporaryFile("w", prefix="ph-rclone-", suffix=".conf", delete=False)
+        sa_path = handle.name + ".sa.json"
+        try:
+            with open(sa_path, "w", encoding="utf-8") as sa:
+                json.dump(creds, sa)
+            os.chmod(sa_path, 0o600)
+            lines.append("service_account_file = " + sa_path)
+            handle.write("\n".join(lines) + "\n")
+            if shared_with_me or payload.get("shared_with_me"):
+                handle.write("shared_with_me = true\n")
+            handle.flush()
+            os.chmod(handle.name, 0o600)
+        except Exception:
+            discard_rclone_config(handle.name)
+            raise
+        finally:
+            handle.close()
+        return handle.name
+    if payload.get("refresh_token") or payload.get("access_token"):
+        token = {
+            "access_token": payload.get("access_token") or "",
+            "token_type": payload.get("token_type") or "Bearer",
+            "refresh_token": payload.get("refresh_token") or "",
+            "expiry": payload.get("expiry") or "2000-01-01T00:00:00Z",
+        }
+        lines.append("token = " + json.dumps(token, separators=(",", ":")))
+        if payload.get("client_id"):
+            lines.append("client_id = " + str(payload["client_id"]))
+        if payload.get("client_secret"):
+            lines.append("client_secret = " + str(payload["client_secret"]))
     else:
         raise ValueError("Google account details are missing")
-    if shared_with_me or payload.get("shared_with_me"):
+    if (shared_with_me or payload.get("shared_with_me")) and payload.get("private_key"):
         lines.append("shared_with_me = true")
     handle = tempfile.NamedTemporaryFile("w", prefix="ph-rclone-", suffix=".conf", delete=False)
     try:
@@ -340,8 +560,12 @@ def credential_public(destination: BackupDestination) -> dict[str, Any]:
             "email": str(data["client_email"]),
             "kind": "service_account",
         }
-    if data.get("refresh_token") or data.get("access_token"):
-        return {"saved": True, "email": "", "kind": "connected"}
+    if data.get("auth") == "oauth" or data.get("refresh_token"):
+        return {
+            "saved": bool(data.get("refresh_token") or data.get("access_token")),
+            "email": str(data.get("email") or ""),
+            "kind": "oauth",
+        }
     return {"saved": True, "email": "", "kind": "saved"}
 
 
@@ -408,10 +632,7 @@ def probe(destination: BackupDestination) -> dict[str, str]:
         return {"ok": "0", "code": "auth"}
     finally:
         if config_path:
-            try:
-                os.remove(config_path)
-            except OSError:
-                pass
+            discard_rclone_config(config_path)
 
 
 def clean_drive_folder(value: str) -> str:
@@ -505,10 +726,7 @@ def execute(destination: BackupDestination, scope: str | None = None) -> dict[st
         return {"ok": False, "error": str(exc)[:500]}
     finally:
         if config_path:
-            try:
-                os.remove(config_path)
-            except OSError:
-                pass
+            discard_rclone_config(config_path)
 
 
 def get_or_create(session: Session) -> BackupDestination:

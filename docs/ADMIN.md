@@ -251,7 +251,7 @@ Scheduled apply/audit attribution shows as **system / scheduler** (no user id).
 
 Per-server backup enable + cron on the server/backups UI. Enqueues **Celery** workers (web never runs rsync).
 
-On `v1.8.0-dev`, **Settings → PiHerder backup** also has **Copy the backup drive**: rclone on the herder sends checked paths under `/backups` to Google Drive. OneDrive and LAN NAS / SMB are in the service list and cannot be selected. The copy is job `backup_replicate`. It is not the self-backup below, and a failed copy does not change `last_backup_at`. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). Not in the published **1.7.0** image.
+On `v1.8.0-dev`, **Settings → PiHerder backup** also has **Copy the backup drive**: rclone on the herder sends checked paths under `/backups` to a folder in the operator’s Google Drive. The sign-in is a web OAuth client created in their Google Cloud project. A service account is not used. OneDrive and LAN NAS / SMB are in the service list and cannot be selected. The copy is job `backup_replicate`. It is not the self-backup below, and a failed copy does not change `last_backup_at`. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). Not in the published **1.7.0** image.
 
 ### PiHerder self-backup
 
