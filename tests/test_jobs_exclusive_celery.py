@@ -68,10 +68,14 @@ def test_exclusive_types_are_celery_owned_and_not_the_backup_mutex():
     assert "backup" not in EXCLUSIVE_CELERY_TYPES
     assert "nmap_discover" not in EXCLUSIVE_CELERY_TYPES
     assert "retention" not in EXCLUSIVE_CELERY_TYPES
-    assert "host_facts" not in EXCLUSIVE_CELERY_TYPES
+    assert "herder_backup" not in EXCLUSIVE_CELERY_TYPES
+    assert "host_facts" in EXCLUSIVE_CELERY_TYPES
+    assert "retention" not in js._EXCLUSIVE_JOB_TYPES
+    assert "herder_backup" not in js._EXCLUSIVE_JOB_TYPES
     assert js._is_celery_owned_job(Job(job_type="os_patch", status="pending")) is True
-    assert js._is_celery_owned_job(Job(job_type="host_facts", status="pending")) is False
-    assert js._is_celery_owned_job(Job(job_type="retention", status="running")) is False
+    assert js._is_celery_owned_job(Job(job_type="host_facts", status="pending")) is True
+    assert js._is_celery_owned_job(Job(job_type="retention", status="running")) is True
+    assert js._is_celery_owned_job(Job(job_type="herder_backup", status="pending")) is True
     assert exclusive_job.name == "app.tasks.exclusive_job"
     from app.services import jobs_exclusive as exclusive_mod
 

@@ -382,12 +382,12 @@ A row in the job queue for long-running work:
 | `os_update_check` / `container_update_check` / `docker_stack_check` | Manual or check schedule → Celery `exclusive_job` |
 | `docker_stack_*` / `template_deploy` / `template_redeploy` / `template_drift_check` | Compose and Catalog actions → Celery `exclusive_job` |
 | `host_reboot` | Server **Reboot** or the Home Assistant host card → Celery `exclusive_job`. Refused while OS patch, container patch, or backup is active |
-| `retention` | Per-server backup file retention — **web** process |
+| `retention` | Per-server backup file retention — Celery `housekeeping_job` (no host slot) |
 | `stale_data_cleanup` | Opt-in Jobs / Audit / nmap-run purge (Settings → General) → Celery default queue |
 | `nmap_discover` / `nmap_inventory` / `nmap_detailed` / `nmap_host_deep` | LAN Discovery scans → **celery-worker-nmap** (`-Q nmap`) |
 | `nmap_vuln_db_update` | Vuln pack download on nmap worker |
-| `herder_backup` | PiHerder self-backup — **web** process |
-| `host_facts` | Fleet snapshot on the scheduler — **web** process |
+| `herder_backup` | PiHerder self-backup — Celery `housekeeping_job` (no host; one at a time) |
+| `host_facts` | Fleet snapshot — Celery `exclusive_job` (one per host) |
 
 Statuses: `pending` → `running` → `success` / `failed`.
 
@@ -936,7 +936,7 @@ Optional multi-container scale: remove `container_name` from `celery-worker` and
 
 Redis visibility for an unacked task is **3 hours**, above the 2-hour hard limit, so a still-running host backup is not started twice. **Drive copy** acks when received and may run for **7 days**.
 
-**Celery default queue:** `backup`, `backup_replicate`, `service_migrate`, `service_migrate_undo`, stale cleanup, and `exclusive_job` (OS/container patch, update checks, stack lifecycle, templates, `host_reboot`). **nmap queue:** LAN scans and the vuln pack, on `celery-worker-nmap` only. **Web process:** `retention`, `herder_backup`, and `host_facts` — a web recycle fails those rows. Exclusive DB rules still prevent two concurrent jobs of the same type on one host. Raising `CELERY_CONCURRENCY` does not double-run a container patch. Recycling **web** does not fail an exclusive job. Recycling **celery-worker** fails one that is **running**. Wiki: [Multi-worker](../wiki/operations/multi-worker.md).
+**Celery default queue:** `backup`, `backup_replicate`, `service_migrate`, `service_migrate_undo`, `service_migrate_dest_recover`, stale cleanup, `housekeeping_job` (`retention`, `herder_backup`), and `exclusive_job` (OS/container patch, update checks, stack lifecycle, templates, `host_reboot`, `host_facts`). **nmap queue:** LAN scans and the vuln pack, on `celery-worker-nmap` only. Exclusive DB rules still prevent two concurrent jobs of the same type on one host. `retention` and `herder_backup` do not take that host slot. Raising `CELERY_CONCURRENCY` does not double-run a container patch. Recycling **web** does not fail a Celery job. Recycling **celery-worker** fails one that is **running**. Wiki: [Multi-worker](../wiki/operations/multi-worker.md).
 
 Full env list: [`.env.example`](../.env.example).
 

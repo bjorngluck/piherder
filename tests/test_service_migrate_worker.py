@@ -51,6 +51,12 @@ def test_cleanup_orphan_web_jobs_keeps_running_move():
         )
         web = Job(
             server_id=srv.id,
+            job_type="diagnostics",
+            status="running",
+            details="{}",
+        )
+        kept = Job(
+            server_id=srv.id,
             job_type="retention",
             status="running",
             details="{}",
@@ -58,14 +64,17 @@ def test_cleanup_orphan_web_jobs_keeps_running_move():
         s.add(mig)
         s.add(patch)
         s.add(web)
+        s.add(kept)
         s.commit()
         n = job_service.cleanup_orphan_web_jobs(s)
         s.refresh(mig)
         s.refresh(patch)
         s.refresh(web)
+        s.refresh(kept)
         assert n == 1
         assert mig.status == "running"
         assert patch.status == "running"
+        assert kept.status == "running"
         assert web.status == "failed"
 
 

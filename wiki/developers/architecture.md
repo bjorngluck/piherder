@@ -15,12 +15,12 @@ flowchart TB
     Scheduler -->|backup cron| Celery
     Scheduler -->|patch / check enqueue| Celery
     Scheduler -->|nmap schedules / stale cleanup| Celery
-    Scheduler -->|host facts| FastAPI
+    Scheduler -->|host facts · herder backup| Celery
     Celery -->|reads/writes| DB
-    Celery -->|SSH · apt · docker · rsync| PiFleet["Remote fleet"]
+    Celery -->|SSH · apt · docker · rsync · self-backup| PiFleet["Remote fleet"]
     CeleryNmap -->|nmap -oX / vuln pack| LAN["Configured LAN CIDR(s)"]
     CeleryNmap -->|reads/writes| DB
-    FastAPI -->|console · files · retention · herder backup · host facts| PiFleet
+    FastAPI -->|console · files| PiFleet
     FastAPI -->|DB reads for UI| DB
     FastAPI -.->|Job.details progress| Celery
     FastAPI -.->|enqueue exclusive_job| Celery
@@ -33,12 +33,13 @@ flowchart TB
 |------|---------|------------------|
 | Backups | Celery | Parallel across hosts; one backup per host (Redis mutex) |
 | Drive copy (`backup_replicate`) | Celery default queue | v1.8 train. One slot, like a long rsync. Up to 7 days. Acked on receive. Not the per-host backup lock. Web only enqueues |
-| Move (`service_migrate`) and fail-path undo (`service_migrate_undo`) | Celery | Dual-host backup mutex; recycle web is safe; recycle worker fails a running Move or undo. Undo only after cutover / rebind / validate failed |
+| Move (`service_migrate`), fail-path undo (`service_migrate_undo`), and dest-up recover (`service_migrate_dest_recover`) | Celery | Dual-host backup mutex; recycle web is safe; recycle worker fails a running Move, undo, or recover. Undo only after cutover / rebind / validate failed. Dest-up recover is only a worker death during `dest_up`: inspect, `compose stop` dest, start source, no DNS change |
 | OS/container patch, update checks, stack jobs, template jobs, `host_reboot` | Celery default queue (`exclusive_job`) | One active job of that type per host. Stack writes share one lane. Reboot is also refused while OS patch, container patch, or backup is active. No backup mutex. Host-down stays pending. Worker recycle fails a running job |
 | Bulk fleet actions | Web → same enqueue paths | Feature-flag skip + exclusive rules |
 | LAN nmap scans / vuln pack update | **celery-worker-nmap** (`-Q nmap`, concurrency 1) | Opt-in profile; host network; `PIHERDER_NMAP_WORKER=1` only here |
 | Stale Jobs/Audit/nmap-run purge | Celery (default queue) | Opt-in Settings schedule |
-| `retention`, `herder_backup`, `host_facts` | Web process | A web recycle fails a pending or running row. Not `exclusive_job` |
+| `host_facts` | Celery default queue (`exclusive_job`) | One active snapshot per host. SSH down stays pending. A web recycle does not fail it |
+| `retention`, `herder_backup` | Celery default queue (`housekeeping_job`) | No host exclusive slot. One self-backup at a time. A web recycle does not fail them. Worker cap is 2 hours |
 
 **Nmap privilege boundary:** web + main celery set `PIHERDER_NMAP_WORKER=0` in compose; tasks call `worker_guard` and refuse if marker is off or `nmap` is missing. Never put queue `nmap` on the main worker. See [env reference](../operations/env-reference.md#lan-discovery-nmap--opt-in) · [`.env.example`](https://github.com/bjorngluck/piherder/blob/main/.env.example).
 
@@ -52,7 +53,7 @@ flowchart TB
 | Web SSH console | `app/services/ssh_console.py` · `app/routers/server_console.py` · Settings Console (timeouts) / Security (factors). Mux-1: `Server.console_mux_enabled` + probe tmux/screen. Mux-2: SSH access lists and kills leftover `ph-u*` for that host (`POST /servers/{id}/ssh/mux-sessions`) |
 | Jobs / progress / exclusive types | `app/services/jobs/` (`service.py`; package preserves `patch.object` surface). Move: `app/services/jobs_migrate.py`. Jr-1 handoff: `app/services/jobs_exclusive.py`. Backups, **Move**, and **exclusive_job** on Celery (`app/tasks.py`) |
 | Reports layout (N3a) + Move card (N3b) | `app/services/report_layout.py` · cookie `ph_reports_layout` · `POST /reports/layout` · Move stats from `ops_reports.collect_move_history` (`service_migrate` Jobs) |
-| Service migrate pipeline | `app/services/service_migrate/` · Celery `app.tasks.service_migrate` · undo `undo.py` + `app.tasks.service_migrate_undo` |
+| Service migrate pipeline | `app/services/service_migrate/` · Celery `app.tasks.service_migrate` · undo `undo.py` + `app.tasks.service_migrate_undo` · dest-up recover `dest_up_recover.py` + `app.tasks.service_migrate_dest_recover` |
 | CSP | `app/security/headers.py` — per-request script nonce; `script-src-attr 'unsafe-inline'`; demo Report-Only unless `PIHERDER_CSP_ENFORCE` |
 | Docker unused cleanup HTML | `app/services/docker_unused_html.py` |
 | Per-server backup lock | `app/services/server_job_lock.py` |

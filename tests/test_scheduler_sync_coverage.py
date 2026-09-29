@@ -391,27 +391,21 @@ def test_schedule_herder_backup_job_success_and_fail():
         return_value={"schedule_mode": "config_only"},
     ):
         with patch(
-            "app.services.herder_backup.create_herder_backup",
-            return_value=SimpleNamespace(name="b.tar.gz"),
-        ):
+            "app.services.jobs.enqueue_herder_backup_job",
+            return_value=SimpleNamespace(id=4),
+        ) as enq:
             with patch("app.services.scheduler.Session", session_cls):
                 with patch("app.database.engine", MagicMock()):
-                    with patch(
-                        "app.services.audit_write.make_audit_log",
-                        return_value=MagicMock(),
-                    ):
-                        with patch(
-                            "app.services.notifications.resolve_by_fingerprint"
-                        ):
-                            sched_mod.schedule_herder_backup_job()
+                    sched_mod.schedule_herder_backup_job()
+                    assert enq.call_args.kwargs["config_only"] is True
+                    assert enq.call_args.kwargs["include_audit"] is False
 
-    # failure → notification
     with patch(
         "app.services.app_settings.load_settings",
         return_value={"schedule_mode": "full"},
     ):
         with patch(
-            "app.services.herder_backup.create_herder_backup",
+            "app.services.jobs.enqueue_herder_backup_job",
             side_effect=RuntimeError("disk full"),
         ):
             with patch("app.services.scheduler.Session", session_cls):

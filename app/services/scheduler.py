@@ -781,48 +781,40 @@ def schedule_stale_data_cleanup_job():
 
 
 def schedule_herder_backup_job():
-    """Global scheduled PiHerder self-backup (config + keys + optional audit)."""
-    logger.info("[SCHEDULER] Running scheduled PiHerder self-backup")
+    """Queue the scheduled PiHerder self-backup. The worker writes the archive."""
+    logger.info("[SCHEDULER] Enqueueing scheduled PiHerder self-backup")
+    from fastapi import BackgroundTasks
+
     from ..database import engine
+    from .jobs_exclusive import exclusive_runs_inline
+
     try:
-        from . import herder_backup as hb
         from . import app_settings as app_cfg
-        from ..models import AuditLog
+        from . import jobs as js
 
         cfg = app_cfg.load_settings()
         mode = cfg.get("schedule_mode", "config_only")
-        include_audit = (mode == "full")
-        config_only = (mode != "full")
-        path = hb.create_herder_backup(include_audit=include_audit, config_only=config_only)
-        logger.info(f"[SCHEDULER] PiHerder self-backup written: {path}")
-        try:
-            with Session(engine) as s:
-                from .audit_write import make_audit_log
-
-                al = make_audit_log(
-                    user_id=None,
-                    server_id=None,
-                    action="herder_backup",
-                    status="success",
-                    details=f"Scheduled self-backup ({mode}): {getattr(path, 'name', path)}",
-                    output_snippet=json.dumps({"path": str(path), "mode": mode}),
-                    started_at=datetime.utcnow(),
-                    finished_at=datetime.utcnow(),
-                    client_ip=None,  # system / scheduler — no HTTP request
-                )
-                s.add(al)
-                s.commit()
-                try:
-                    from .notifications import resolve_by_fingerprint
-                    resolve_by_fingerprint(s, "herder_backup_failed")
-                except Exception:
-                    pass
-        except Exception:
-            pass
+        include_audit = mode == "full"
+        config_only = mode != "full"
+        bg = BackgroundTasks() if exclusive_runs_inline() else None
+        with Session(engine) as s:
+            job = js.enqueue_herder_backup_job(
+                s,
+                user_id=None,
+                include_audit=include_audit,
+                config_only=config_only,
+                background_tasks=bg,
+            )
+        logger.info(
+            "[SCHEDULER] PiHerder self-backup job #%s queued (%s)",
+            getattr(job, "id", None),
+            mode,
+        )
     except Exception as e:
         logger.error(f"[SCHEDULER] PiHerder self-backup error: {e}")
         try:
             from .notifications import upsert_notification
+
             with Session(engine) as s:
                 upsert_notification(
                     s,

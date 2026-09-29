@@ -395,12 +395,14 @@ def test_jobs_update_checks_cancel_orphan_demo(monkeypatch):
     monkeypatch.setattr(jobs_mod, "_revoke_celery_task", lambda *a, **k: None)
     jobs_mod.cancel_job(session, bak)
 
-    # orphan web jobs: retention still dies with web. Patch, backup, and Move do not.
-    web = Job(server_id=srv.id, job_type="retention", status="running", details="{}")
+    # orphan web jobs: a non-celery row still dies with web. Retention does not.
+    web = Job(server_id=srv.id, job_type="diagnostics", status="running", details="{}")
+    kept = Job(server_id=srv.id, job_type="retention", status="running", details="{}")
     patch = Job(server_id=srv.id, job_type="os_patch", status="running", details="{}")
     cel = Job(server_id=srv.id, job_type="backup", status="running", details="{}", celery_task_id="x")
     mig = Job(server_id=srv.id, job_type="service_migrate", status="running", details="{}")
     session.add(web)
+    session.add(kept)
     session.add(patch)
     session.add(cel)
     session.add(mig)
@@ -408,10 +410,12 @@ def test_jobs_update_checks_cancel_orphan_demo(monkeypatch):
     n = jobs_mod.cleanup_orphan_web_jobs(session)
     assert n >= 1
     session.refresh(web)
+    session.refresh(kept)
     session.refresh(patch)
     session.refresh(cel)
     session.refresh(mig)
     assert web.status == "failed"
+    assert kept.status == "running"
     assert patch.status == "running"
     assert cel.status == "running"
     assert mig.status == "running"
