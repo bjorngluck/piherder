@@ -94,4 +94,4 @@ Needs the v1.8 herder. A 1.7 herder answers 400 for these two job types. Resourc
 - [ ] Hosted `POST /mcp` still answers with the same bearer token. The original six job types still enqueue  
 - [ ] Exclusive jobs from 1.7 still run on Celery. About / footer still **1.7.0** until the version bump  
 - [ ] Move stays off. Console mux stays opt-in and off on HAOS and the demo  
-- [ ] Plugin **0.3.0** cards still load until you switch the resource URL to **0.4.1**  
+- [ ] Plugin **0.3.0** cards still load until you switch the resource URL to **0.4.2**  
