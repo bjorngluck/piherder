@@ -832,6 +832,7 @@ class JobCreateBody(BaseModel):
         description=(
             "backup | retention | os_patch | os_update_check | host_reboot | "
             "container_patch | container_update_check | container_start | container_stop | "
+            "container_restart | container_redeploy | "
             "docker_stack_check | "
             "docker_stack_deploy | docker_stack_stop | docker_stack_start | "
             "docker_stack_restart | template_deploy | template_redeploy"
@@ -841,12 +842,12 @@ class JobCreateBody(BaseModel):
         None,
         description=(
             "Backup source name for backup. Compose project path for docker_stack_* jobs "
-            "and for container_start / container_stop."
+            "and for container_start, container_stop, container_restart, and container_redeploy."
         ),
     )
     service: Optional[str] = Field(
         None,
-        description="Compose service name. Required for container_start and container_stop.",
+        description="Compose service name. Required for one-service start, stop, restart, and redeploy.",
     )
     os_steps: Optional[list[str]] = None
 

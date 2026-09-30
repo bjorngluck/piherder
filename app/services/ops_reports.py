@@ -43,6 +43,8 @@ _DOCKER_DEPLOY_TYPES = (
     "docker_stack_restart",
     "container_start",
     "container_stop",
+    "container_restart",
+    "container_redeploy",
     "template_deploy",
     "template_redeploy",
 )
