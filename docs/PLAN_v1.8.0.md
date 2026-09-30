@@ -1,6 +1,6 @@
 # PiHerder v1.8.0 — MCP job types, then backup destinations, then Home Assistant cards
 
-**Status:** **Active** (lock retuned 2026-09-28). **MCP-jobs** landed. **Bak-alt discovery** is §3.1. **Google Drive** copy is built on this branch; the walk is still open and the Should may slip. **Mux-2** leftover list/kill is built on this branch; the walk is still open. **Undo-2** dest-up inspect is built on this branch; the walk is still open. **Jr-web** is built on this branch; the walk is still open and the Should may slip. Package stays `1.7.0`.  
+**Status:** **Active** (lock retuned 2026-09-30). **MCP-jobs** landed. **Bak-alt discovery** is §3.1. **Google Drive**, **Mux-2**, **Undo-2**, and **Jr-web** are built on this branch; walks are still open and those Should rows may slip. **HA-vis** is built in plugin **0.4.0** (one card, host strip, click-through history); the walk is still open. **HA bus** is built in that same plugin; the walk is still open and it may slip. Package stays `1.7.0`.  
 **Date opened:** 2026-09-28  
 **Git branch:** `v1.8.0-dev` → `main` · tag `v1.8.0` at freeze  
 **Package / image version:** stays **`1.7.0`** until freeze  
@@ -73,8 +73,8 @@ main @ v1.7.0 (+ v1.7.x patches)
 | 4 | Backup discovery | **Must**, second. Model for the per-server rsync backup. Local directory stays. Settings DR backup stays its own path. |
 | 5 | One built destination | **Should.** **Google Drive** only. May slip. |
 | 6 | Later destinations | **OneDrive** and **LAN NAS / SMB** are in the write-up for a later release. No client this train. |
-| 7 | HA-vis | **Must**, after MCP and the backup write-up. Plugin **0.4.0**. Same three card types. Fix the 24-hour series from HA history. |
-| 8 | HA bus | **Should.** Poll-diff `piherder_job_completed`. No herder webhook. |
+| 7 | HA-vis | **Must**, after MCP and the backup write-up. Plugin **0.4.0**. One card with Fleet / Host / Updates. Host strip, device and OS icons, click a stat for Home Assistant history. |
+| 8 | HA bus | **Should.** Built in plugin 0.4.0. Poll-diff `piherder_job_completed`. No herder webhook. May slip. |
 | 9 | Mux-2 | **Should.** List and kill leftover `ph-u*` on SSH access. No automatic reattach. Remove-server still does not `kill-server`. |
 | 10 | Undo-2 | **Should.** `dest_up` worker-restart helper: inspect dest, optional stop-dest then start-source. No DNS revert. No green-Move undo. |
 | 11 | Jr-web | **Should.** Built on this branch. `retention`, `herder_backup`, and `host_facts` leave web `BackgroundTasks`. `host_facts` uses the exclusive lane. The other two use the default queue and do not take a host slot. Walk still open. |
@@ -155,25 +155,28 @@ Built on this branch. Detail is [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PL
 
 ---
 
-## 4. Stream **HA-vis** — richer cards and the 24-hour series (Must)
+## 4. Stream **HA-vis** — one interactive card (Must)
 
-Plugin work lands in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) as **0.4.0**, not in this image.
+**Built in plugin 0.4.0. Walk still open.** Lands in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha), not in this image.
 
 **Locks:**
 
-1. Same three card types: host, updates, resources. The fleet card is not a rewrite. Shared CSS may touch it.
-2. Host card stays one server. Links, confirm actions, and the three toggles stay. Token rules stay (`read` sensors only; `jobs` confirms; `edit` toggles).
-3. The three empty “No history yet” blocks on the host card become fleet-style bars (absolute memory and disk, current value) plus one 24-hour sparkline.
-4. Updates becomes one compact row per host: name, OS count, container count, reboot, short actions.
-5. Resources is where the three 24-hour series live (memory %, disk %, CPU load). Empty state only when the recorder has no points.
-6. The history call reads the websocket map keyed by entity id. `rows[0]` is why 0.3.0 always draws the empty state. Points stay HA history of the snapshot sensors (`server_id` + `piherder_metric`), about every 15 minutes. No new herder route unless a walk shows those sensors are not enough.
-7. No container start/stop, Move, Files, or console.
+1. One renderer. Tabs are Fleet, Host, and Updates. The old four elements stay registered so a 0.3.0 dashboard still loads: fleet opens on Fleet, host on Host, updates on Updates, resources on Host at the stats.
+2. A host strip picks the machine. `server_id` still pins one host and hides the strip. You do not add a Lovelace card per host.
+3. Each host shows a device icon and a short model (`5`, `4`, `400`, `Zero`, `CM4`, `CM5` from the stored hardware string) plus an OS icon (Ubuntu, Home Assistant, Debian / Raspberry Pi OS, otherwise Linux). No new herder field.
+4. Memory, disk, and CPU load are fleet-style bars (absolute memory and disk, CPU load over core count) with a thin 24-hour sparkline. Clicking a stat, reboot, or last backup opens Home Assistant more-info for that sensor. Empty sparkline only when the recorder has no points.
+5. The history call reads the websocket map keyed by entity id. `rows[0]` is only the older list shape. Points stay HA history of the snapshot sensors (`server_id` + `piherder_metric`), about every 15 minutes. No new herder route.
+6. Backup is the one face button. Everything else is an Actions menu. Features (the three toggles) are collapsed. Open host is the one link; Docker, Backups, Alerts, and Audit are behind Also. Token rules stay (`read` has no job buttons; `jobs` confirms; `edit` toggles).
+7. Updates is one row per host: model icon, name, OS count, container count, reboot. The row opens that host. It does not repeat the action buttons.
+8. No container start/stop, Move, Files, or console.
 
 ---
 
 ## 5. Stream **HA bus** — `piherder_job_completed` (Should)
 
-Poll-diff on the plugin coordinator fires `piherder_job_completed` on the Home Assistant bus when a watched job leaves the active set. No herder webhook. No new herder route. The backup button and the other confirms already exist on the cards. This event did not ship with 0.3.0. May slip.
+**Built in plugin 0.4.0. Walk still open. May slip.**
+
+Poll-diff on the plugin coordinator fires `piherder_job_completed` on the Home Assistant bus when a watched job leaves the active set. The first poll does not fire. The payload is the last-seen job: id, server, type, and the status it had while active. No herder webhook. No new herder route.
 
 ---
 
@@ -225,8 +228,8 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | **Must** | **MCP-jobs** | `trigger_job` accepts the jobs POST list. Move and undo stay refused. Hosted and stdio match | Landed on branch. Operator walk still open |
 | **Must** | **Bak-alt discovery** | §3.1 names path A (rclone second hop), path B (SMB mount later), path C parked. Local rsync stays the default | Written in §3.1 |
 | **Should** | **Google Drive** | Path A rclone copy after the local rsync. A failed upload fails the copy job. Demo never uploads | Built on branch. Walk still open. May slip |
-| **Must** | **HA-vis** | Plugin **0.4.0**. Bars and a drawing 24-hour series. Same token rules | Not started |
-| **Should** | **HA bus** | `piherder_job_completed` from the plugin poll | Not started. May slip |
+| **Must** | **HA-vis** | Plugin **0.4.0**. One card, host strip, click a stat for Home Assistant history. Same token rules | Built in the plugin. Walk still open |
+| **Should** | **HA bus** | `piherder_job_completed` from the plugin poll | Built in the plugin. Walk still open. May slip |
 | **Should** | **Mux-2** | List/kill `ph-u*` on SSH access | Built on branch. Walk still open. May slip |
 | **Should** | **Undo-2** | `dest_up` inspect helper. No green-Move undo | Built on branch. Walk still open. May slip |
 | **Should** | **Jr-web** | Three web jobs survive a web recycle | Built on branch. Walk still open. May slip |
@@ -260,6 +263,7 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 2026-09-29 | **Drive copy time limit.** Job 2268 was killed at the global 2-hour Celery limit, and Redis had already started a second copy at 1 hour. This copy now allows 7 days, acks on receive, and Redis visibility for other tasks is 3 hours. A dead worker marks the job failed. |
 | 2026-09-29 | **Undo-2 built** on the branch. A Move that dies during `dest_up` offers inspect, then `compose stop` dest and start source. DNS and NPM stay. No `down -v`. A green Move still has no Undo. Walk still open. |
 | 2026-09-29 | **Jr-web built** on the branch. Retention, PiHerder backup, and host facts run on Celery. A web recycle does not fail them. Host facts stays one-per-host. The backup and retention do not take a host slot. Walk still open. |
+| 2026-09-30 | **HA-vis and HA bus built** in plugin **0.4.0**. One card with a host strip, Raspberry Pi model and OS icons, and a click that opens Home Assistant history. Actions sit in one menu. A job that leaves the active set fires `piherder_job_completed`. No new herder route. Walks still open. |
 
 ---
 
@@ -271,7 +275,7 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 2 | Lock Must / Should in this plan | **Done** 2026-09-28 |
 | 3 | **MCP-jobs** | **Landed** on branch. Walk is [QA_v1.8.0.md](QA_v1.8.0.md) |
 | 4 | Bak-alt discovery is §3.1. Google Drive client | **Built** on branch (Settings → PiHerder backup). Walk still open |
-| 5 | **HA-vis** (deferred). Undo-2 and Jr-web are built | HA not started. Walks still open |
+| 5 | **HA-vis** and the bus event | **Built** in plugin 0.4.0. Walks still open |
 | 6 | Freeze · `1.8.0` · tag · Hub | Only when asked |
 
 ---
