@@ -23,15 +23,52 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.5.0** | **Tagged** 2026-09-18 — reuse Move JobHold pack; Reports pin/hide + Move jobs card recapture if chrome drifted. [RELEASE](../../../docs/RELEASE_v1.5.0.md) · [QA](../../../docs/QA_v1.5.0.md) |
 | **v1.6.0** | **Captured** 2026-09-25 and wired into the wiki. [§ v1.6](#v160--pack-status). [RELEASE](../../../docs/RELEASE_v1.6.0.md) · [QA](../../../docs/QA_v1.6.0.md) |
 | **v1.7.0** | **Captured** 2026-09-28 on `v1.7.0-dev`. About / footer still **1.6.0** (code freeze, package not bumped). [§ v1.7](#v170--pack-status). [QA](../../../docs/QA_v1.7.0.md) |
+| **v1.8.0** | **Open.** Plugin **0.4.1** (container start/stop; HACS after the tag). Recapture the Home Assistant card frames. [§ v1.8](#v180--pack-status). [QA](../../../docs/QA_v1.8.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    Rebuild **`v1.7.0-dev`**: `docker compose build web celery-worker && docker compose up -d web celery-worker`.  
-    App code is **not** bind-mounted — stale containers = stale chrome.  
-    About / footer still **1.6.0** until freeze.  
-    Do not photograph the public demo. Move stays off unless a regression shot needs the flag, then turn it off again.  
-    **v1.6 captures** stay. New frames are [§ v1.7](#v170--pack-status).
+    Herder shots stay on **`v1.8.0-dev`**. About / footer still **1.7.0** until freeze.  
+    Home Assistant shots use plugin **0.4.1**. Restart Home Assistant after the HACS update, then set the resource to `/local/piherder-dashboard-card.js?v=0.4.1` (JavaScript module) and hard-refresh.  
+    Do not photograph the public demo. Mask the token.  
+    **v1.7 captures** stay until a row below says replace. New frames are [§ v1.8](#v180--pack-status).
+
+---
+
+## v1.8.0 — pack status {#v180--pack-status}
+
+**Open.** Walk is [QA_v1.8.0.md](../../../docs/QA_v1.8.0.md). Plugin **0.4.1** (HACS after the `v0.4.1` tag). Light theme, desktop width. Mask tokens. Do not point the plugin at the public demo.
+
+The files below already exist from **0.3.0**. Replace the PNG in place. The wiki keeps the same `![…]` links. Captions on [Home Assistant](../../integrations/home-assistant.md) say the current pictures are 0.3.0 until you drop the new files and the caption is updated in the same commit.
+
+### Replace these
+
+| Pri | File | Surface | Must show |
+|-----|------|---------|-----------|
+| **P0** | `ha-fleet-card.png` | Lovelace `custom:piherder-dashboard-card` | Logo, name **PiHerder**, tabs **Fleet / Host / Updates**. Fleet totals. Host rows with a Raspberry Pi mark and an OS icon. Not an expanded host with a row of chips |
+| **P0** | `ha-host-card.png` | Host tab (or `custom:piherder-host-card`) | Host strip, or one pinned host if `server_id` is set. Memory and disk bars, CPU load, a thin sparkline or **No history yet**. **Backup** and **Actions**. **Containers** open, with Start or Stop. Token not in frame |
+| **P0** | `ha-updates-card.png` | Updates tab | One row per host: model icon, name, OS count, container count, reboot. No action buttons on the row |
+| **P1** | `ha-resources-card.png` | `custom:piherder-resources-card` | Same card opened on the three stats. A sparkline if the recorder has points |
+| **P1** | `ha-fleet-sensors.png` | HA **Devices** | Fleet **Plugin** reads **0.4.1**. One host device. Visit still goes to the herder host page |
+| **P1** | `ha-more-info.png` | Click memory, disk, or CPU load | Home Assistant more-info for that sensor, history visible. New file. Wire it on the Home Assistant page only after it exists |
+
+### Do not recapture for 1.8
+
+| File | Why leave it |
+|------|----------------|
+| `ha-hacs-config.png`, `ha-visit-host.png`, `ha-slice1b-sensors.png` | Config flow, Visit, and snapshot sensors are unchanged. No start/stop |
+| `settings-instance.png`, `header-instance-name.png`, `nav-catalog-hidden.png`, `settings-jobs-wait.png` | 1.7 chrome. Package stays **1.7.0** |
+| Drive copy, Mux-2, Undo-2, Jr-web | No new frame unless a walk shows a caption is false |
+| Move, console, login, maps | Unchanged |
+
+### Capture sequence (while you walk QA)
+
+1. Restart Home Assistant after HACS shows **0.4.1**. Resource URL `?v=0.4.1`. Hard-refresh.  
+2. **Devices** — `ha-fleet-sensors.png` with Plugin **0.4.1**.  
+3. **Fleet** tab — `ha-fleet-card.png`.  
+4. **Host** tab — `ha-host-card.png`. Click a stat and save `ha-more-info.png` if the history dialog is up.  
+5. **Updates** tab — `ha-updates-card.png`.  
+6. Drop the PNGs here. Update the captions that still say 0.3.0. `.venv-docs/bin/mkdocs build --strict`. Commit the PNGs and the captions together.
 
 ---
 
@@ -259,7 +296,7 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 1. Rebuild/restart **web** on **`v1.7.0-dev`**. About / footer still **1.6.0**.  
 2. Light theme · desktop width · one phone frame for the Catalog hide · redact hostnames/IPs if needed.  
 3. **Move** shots are not part of the 1.7 pack. Leave `PIHERDER_SERVICE_MIGRATE=false`. Do not photograph `.env` bodies, PEMs, or NPM passwords.  
-4. **HA cards:** plugin **0.3.0**, token masked, not the public demo.  
+4. **HA cards:** plugin **0.4.1**, resource `?v=0.4.1`, token masked, not the public demo. See [§ v1.8](#v180--pack-status).  
 5. **Instance name:** clear it or restore Pi / Herder after `header-instance-name.png` if you do not want the lab left renamed. Turn **Show Catalog** back on after the phone shot.  
 6. After saving PNGs: add `![…]` on the wiki pages in the **v1.7** table · `mkdocs build --strict` · commit binaries + captions together.
 
@@ -315,7 +352,7 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 | **Header** | Custom wordmark, official mark, primary red unchanged |
 | **Phone nav** | Catalog hidden. `/catalog` still loads |
 | **Settings → Jobs** | Max wait, default 30 minutes |
-| **HA cards** | Host, updates, and resources on plugin **0.3.0**. Fleet card stays a separate file |
+| **HA cards** | Host, updates, and resources on plugin **0.3.0**. Those frames are replaced by the [v1.8 pack](#v180--pack-status) |
 
 ### New / changed in 1.3
 
