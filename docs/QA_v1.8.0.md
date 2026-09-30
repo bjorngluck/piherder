@@ -1,9 +1,11 @@
 # PiHerder v1.8.0 — operator QA / sign-off
 
 **Branch:** `v1.8.0-dev` → `main` · tag **`v1.8.0`** (cut after merge)  
-**Code freeze:** not set  
-**Package:** stays **`1.7.0`** until freeze  
-**Operator QA:** in progress. Signed 2026-09-30: **MCP-jobs**, **Bak-alt discovery**, **Google Drive**, **HA-vis**, **Containers**, **HA bus**, **Mux-2**, **Undo-2**, **Jr-web**, and the **1.7 regression**. The screenshot pack is still open  
+**Code freeze:** **set** 2026-09-30. No new features on this branch. Package bump, merge, tag, and Hub stay a separate ask.  
+**Package:** stays **`1.7.0`** until the version bump  
+**Operator QA:** walks signed 2026-09-30: **MCP-jobs**, **Bak-alt discovery**, **Google Drive**, **HA-vis**, **Containers**, **HA bus**, **Mux-2**, **Undo-2**, **Jr-web**, and the **1.7 regression**  
+**Release notes:** [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) (freeze draft; tag not cut)  
+**Screenshots:** **in progress**. [v1.8 pack](../wiki/assets/screenshots/README.md#v180--pack-status). Frames on disk are still the 0.3.0 cards until the new PNGs land  
 **Pull request:** draft [#19](https://github.com/bjorngluck/piherder/pull/19). Body is [PR_v1.8.0.md](PR_v1.8.0.md). Do not undraft, merge, tag, or publish until asked
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
