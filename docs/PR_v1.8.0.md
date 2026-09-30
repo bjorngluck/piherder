@@ -4,7 +4,7 @@
 
 **Base:** `main` · **Head:** `v1.8.0-dev` · **Tag:** `v1.8.0` (only after this PR is no longer a draft)
 
-**State:** **Draft.** Operator QA is in progress (2026-09-30) and is not signed. Package stays **`1.7.0`**. No release notes file yet. Do not undraft, merge, tag, or publish until asked.
+**State:** **Draft** [#19](https://github.com/bjorngluck/piherder/pull/19). Operator QA is in progress (2026-09-30) and is not signed. Package stays **`1.7.0`**. No release notes file yet. Do not undraft, merge, tag, or publish until asked.
 
 ---
 
