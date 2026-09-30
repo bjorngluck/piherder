@@ -4,7 +4,7 @@
 **Code freeze:** not set  
 **Package:** stays **`1.7.0`** until freeze  
 **Operator QA:** not started  
-**Pull request:** none. Open a draft only when asked
+**Pull request:** draft. Body is [PR_v1.8.0.md](PR_v1.8.0.md). Do not undraft, merge, tag, or publish until asked
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
