@@ -1,6 +1,6 @@
 # PiHerder v1.8.0 — MCP job types, then backup destinations, then Home Assistant cards
 
-**Status:** **Active** (lock retuned 2026-09-30). **MCP-jobs** landed. **Bak-alt discovery** is §3.1. **Google Drive**, **Mux-2**, **Undo-2**, and **Jr-web** are built on this branch; walks are still open and those Should rows may slip. **HA-vis** is built in plugin **0.4.2** (one card, host strip, click-through history, and the selected host stays put); the walk is still open. Start and stop of one compose service is on that card. **HA bus** is built in the same plugin; the walk is still open and it may slip. Package stays `1.7.0`.  
+**Status:** **Active** (lock retuned 2026-09-30). Operator-signed 2026-09-30: **MCP-jobs**, **Bak-alt discovery**, **Google Drive**, **HA-vis** (plugin **0.4.3**), one-service start and stop, the **HA bus**, **Mux-2**, **Undo-2**, **Jr-web**, and the **1.7 regression**. The screenshot pack is still open. Package stays `1.7.0`.  
 **Date opened:** 2026-09-28  
 **Git branch:** `v1.8.0-dev` → `main` · tag `v1.8.0` at freeze  
 **Package / image version:** stays **`1.7.0`** until freeze  
@@ -20,7 +20,7 @@ Hosted MCP used to start six job types. **MCP-jobs** widened `trigger_job` to th
 
 Per-server backups still rsync onto a directory on the herder host. §3.1 is the destination model: a second hop from that tree (path A). The build lean is **Google Drive**, one rclone copy, and it may slip. **OneDrive** and a **LAN NAS / SMB share** are named for later releases and are not built here. A client on each Pi that writes straight to cloud or NAS (path C) stays parked. The rsync directory stays. PiHerder’s own Settings DR backup stays that separate path.
 
-Plugin **0.3.0** shipped with v1.7.0. Plugin **[v0.4.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.0)** is the visual pass: one card, a host strip, and a click that opens Home Assistant history of the snapshot sensors (about every 15 minutes, not a live SSH chart). Plugin **[v0.4.1](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.1)** adds Start and Stop for one compose service. Plugin **[v0.4.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.2)** keeps the tab and the selected host across a redraw. The walks are still open. Screenshot recapture is [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v180--pack-status).
+Plugin **0.3.0** shipped with v1.7.0. Plugin **[v0.4.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.0)** is the visual pass: one card, a host strip, and a click that opens Home Assistant history of the snapshot sensors (about every 15 minutes, not a live SSH chart). Plugin **[v0.4.1](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.1)** adds Start and Stop for one compose service. Plugin **[v0.4.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.2)** keeps the tab and the selected host across a redraw. Plugin **[v0.4.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.3)** writes the update counts in full and adds Restart and Update for one service. Those walks are signed. Screenshot recapture is still open: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v180--pack-status). The stdio adapter stays [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.2.0**.
 
 Wanted:
 
@@ -30,7 +30,7 @@ Wanted:
 4. Cards that are easier to read at a glance, and a 24-hour series that actually draws from HA history  
 5. Optional after that: the job-finished bus event, leftover mux list/kill, a `dest_up` Move helper, and the three web-process jobs onto Celery  
 
-**Out until a later train:** AC-fg, HA Slice 3, Brand-3, CSP Slice 2, ACME, plugin-in-image, Move default-on, MCP OAuth, an OneDrive client, an SMB/NAS client.
+**Out until a later train:** AC-fg, HA Slice 3, Brand-3, CSP Slice 2, ACME, plugin-in-image, Move default-on, MCP OAuth, an OneDrive client, an SMB/NAS client. **MCP-svc** (§14) is a discovery for the next release: whether one-service start, stop, restart, and update join `trigger_job`. No MCP change in this train. Adapter **0.2.0** stays.
 
 ---
 
@@ -44,6 +44,7 @@ Wanted:
 | Image tags (freeze) | `1.8.0` · `1.8` · `latest` (multi-arch); keep `1.7` / `1.7.x` pins valid |
 | In-scope | **MCP-jobs** Must (first) · **Bak-alt discovery** Must · **Google Drive** Should · **HA-vis** Must · **HA bus** Should · **Mux-2** Should · **Undo-2** Should · **Jr-web** Should |
 | Parked (no code) | **AC-fg** · HA Slice 3 · Brand-3 · CSP Slice 2 · ACME · plugin-in-image · M-flag C · MCP OAuth · OneDrive client · SMB/NAS client |
+| Next release, discovery only | **MCP-svc** (§14). Not this train. No allowlist change and no adapter tag until that train promotes it |
 | Version bump | Freeze only. About / footer stay **1.7.0** until then |
 | Demo | Stays the published **1.7.0** image. Do not redeploy this branch |
 | Coverage | Fail-under stays **80**. Do not lower it |
@@ -73,11 +74,11 @@ main @ v1.7.0 (+ v1.7.x patches)
 | 4 | Backup discovery | **Must**, second. Model for the per-server rsync backup. Local directory stays. Settings DR backup stays its own path. |
 | 5 | One built destination | **Should.** **Google Drive** only. May slip. |
 | 6 | Later destinations | **OneDrive** and **LAN NAS / SMB** are in the write-up for a later release. No client this train. |
-| 7 | HA-vis | **Must**, after MCP and the backup write-up. Plugin **0.4.0**. One card with Fleet / Host / Updates. Host strip, device and OS icons, click a stat for Home Assistant history. |
-| 8 | HA bus | **Should.** Built in plugin 0.4.0. Poll-diff `piherder_job_completed`. No herder webhook. May slip. |
+| 7 | HA-vis | **Must.** Plugin **0.4.3**. One card with Fleet / Host / Updates. Host strip, device and OS icons, click a stat for Home Assistant history. Operator signed 2026-09-30. |
+| 8 | HA bus | **Should.** Plugin **0.4.3**. Poll-diff `piherder_job_completed`. No herder webhook. Operator signed 2026-09-30. |
 | 9 | Mux-2 | **Should.** List and kill leftover `ph-u*` on SSH access. No automatic reattach. Remove-server still does not `kill-server`. |
 | 10 | Undo-2 | **Should.** `dest_up` worker-restart helper: inspect dest, optional stop-dest then start-source. No DNS revert. No green-Move undo. |
-| 11 | Jr-web | **Should.** Built on this branch. `retention`, `herder_backup`, and `host_facts` leave web `BackgroundTasks`. `host_facts` uses the exclusive lane. The other two use the default queue and do not take a host slot. Walk still open. |
+| 11 | Jr-web | **Should.** `retention`, `herder_backup`, and `host_facts` leave web `BackgroundTasks`. `host_facts` uses the exclusive lane. The other two use the default queue and do not take a host slot. Operator signed 2026-09-30. |
 | 12 | AC-fg | **Parked.** No grant write-up. Three global roles stay. |
 | 13 | Version bump | `1.8.0` at freeze only |
 | 14 | Public demo | Stays on the **1.7** image |
@@ -91,7 +92,7 @@ Phase 0   Lock this plan + QA + pointers     this docs pass
 Phase 1   MCP-jobs                           Must, first
 Phase 2   Bak-alt discovery                  Must (Drive lean; OneDrive + SMB later)
 Phase 3   Google Drive destination          Should, one client
-Phase 4   HA-vis (plugin 0.4.0)              Must
+Phase 4   HA-vis (plugin 0.4.3)              Must, signed
 Phase 5   HA bus event                       Should, same plugin
 Phase 6   Mux-2                              Should
 Phase 7   Undo-2                             Should
@@ -104,6 +105,8 @@ Must before Should product. MCP-jobs before the backup write-up. The write-up be
 ---
 
 ## 2. Stream **MCP-jobs** — wider `trigger_job` (Must, first)
+
+**Operator signed 2026-09-30.**
 
 Hosted path stays `POST /mcp` on this herder. The stdio adapter in [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) gets the same allowlist. No second Compose service. No OAuth.
 
@@ -121,6 +124,8 @@ Hosted path stays `POST /mcp` on this herder. The stdio adapter in [bjorngluck/p
 ## 3. Stream **Bak-alt** — destination model, then Google Drive
 
 ### 3.1 Discovery (Must)
+
+**Operator signed 2026-09-30.**
 
 Today `run_backup` in [app/services/backup.py](../app/services/backup.py) pulls chosen directories over SSH. The worker runs `rsync -aHz --delete --numeric-ids` with `--rsync-path` `sudo -n rsync` (plain `rsync` on root or HAOS) into `{backup_dest_root}/{hostname}/{dest_name}`. The default root is `PIHERDER_BACKUP_HOST_PATH` (`./backups`, mounted at `/backups`). Path policy in [app/services/backup_path_policy.py](../app/services/backup_path_policy.py) denies `/` and the OS roots, so a whole-host copy is an explicit allow. The remote only needs SSH and `rsync`. Restore rsyncs that tree back. PiHerder’s own Settings backup (instance DR, `/herder_backups`) is not this stream.
 
@@ -141,7 +146,7 @@ Path C stays parked. Every Pi would need a route to the store and a client insta
 | Destination | How | This train |
 |-------------|-----|------------|
 | Local rsync directory | Path today. Default. | Stays. |
-| **Google Drive** | Path A. **rclone** on the herder, after the pull, from checked paths under `/backups`. | Built on this branch. Walk open. May slip. |
+| **Google Drive** | Path A. **rclone** on the herder, after the pull, from checked paths under `/backups`. | Built on this branch. Operator signed 2026-09-30. |
 | **OneDrive** | Same rclone binary, a different remote, later. | In the service list. Cannot be selected. |
 | **LAN NAS / SMB** | Path B (mounted dest root) when the share should be the only copy. rclone `smb` as path A when it is a second copy. | In the service list. Cannot be selected. |
 
@@ -151,13 +156,13 @@ The Drive copy uses a job-scoped temp rclone config. The form stores a Google we
 
 ### 3.2 Google Drive (Should)
 
-Built on this branch. Detail is [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). One destination row over the whole `/backups` drive, not a setting on one host. **Settings → PiHerder backup** has the section under the instance self-backup. The service list is Google Drive, plus OneDrive and LAN NAS / SMB disabled. The account is a Google sign-in from this PiHerder. The schedule uses the same presets as the rest of Settings. The browser is a read-only folder tree: tick a folder, open it, untick a child to leave it behind. No typed excludes. rclone runs on the herder as job `backup_replicate` (**Drive copy**) on the existing worker. The global Celery hard limit stays 2 hours for host backups. This copy may run for up to 7 days, and it is acknowledged when the worker receives it so Redis does not start a second rclone an hour later. A task failure, including that time limit, marks the row failed so **Copy now** can run again. A hard kill of the worker process does not run that failure hook, so the row can stay **running** and **Copy now** returns it until someone marks it failed. Files already uploaded stay. The Google scope is full Drive (`https://www.googleapis.com/auth/drive`), not `drive.file`: a folder created in the Drive UI is invisible to the narrower scope. The client secret and refresh token are Fernet-encrypted and not written to the job log. A failed upload fails the **copy** job. The rsync job and `last_backup_at` stay as they were. Demo never uploads. `backup_replicate` is not on the token API. If this slips, the tag still ships with the local directory only and §3.1. Rebuild the image before a real upload; rclone **1.68.2** is pinned in the Dockerfile. Apply Alembic **047**.
+**Operator signed 2026-09-30.** Built on this branch. Detail is [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). One destination row over the whole `/backups` drive, not a setting on one host. **Settings → PiHerder backup** has the section under the instance self-backup. The service list is Google Drive, plus OneDrive and LAN NAS / SMB disabled. The account is a Google sign-in from this PiHerder. The schedule uses the same presets as the rest of Settings. The browser is a read-only folder tree: tick a folder, open it, untick a child to leave it behind. No typed excludes. rclone runs on the herder as job `backup_replicate` (**Drive copy**) on the existing worker. The global Celery hard limit stays 2 hours for host backups. This copy may run for up to 7 days, and it is acknowledged when the worker receives it so Redis does not start a second rclone an hour later. A task failure, including that time limit, marks the row failed so **Copy now** can run again. A hard kill of the worker process does not run that failure hook, so the row can stay **running** and **Copy now** returns it until someone marks it failed. Files already uploaded stay. The Google scope is full Drive (`https://www.googleapis.com/auth/drive`), not `drive.file`: a folder created in the Drive UI is invisible to the narrower scope. The client secret and refresh token are Fernet-encrypted and not written to the job log. A failed upload fails the **copy** job. The rsync job and `last_backup_at` stay as they were. Demo never uploads. `backup_replicate` is not on the token API. If this slips, the tag still ships with the local directory only and §3.1. Rebuild the image before a real upload; rclone **1.68.2** is pinned in the Dockerfile. Apply Alembic **047**.
 
 ---
 
 ## 4. Stream **HA-vis** — one interactive card (Must)
 
-**Built in plugin 0.4.0. Walk still open.** Lands in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha), not in this image.
+**Operator signed 2026-09-30.** Plugin **0.4.3**. Lands in [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha), not in this image.
 
 **Locks:**
 
@@ -168,13 +173,13 @@ Built on this branch. Detail is [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PL
 5. The history call reads the websocket map keyed by entity id. `rows[0]` is only the older list shape. Points stay HA history of the snapshot sensors (`server_id` + `piherder_metric`), about every 15 minutes. No new herder route.
 6. Backup is the one face button. Everything else is an Actions menu. Features (the three toggles) are collapsed. Open host is the one link; Docker, Backups, Alerts, and Audit are behind Also. Token rules stay (`read` has no job buttons; `jobs` confirms; `edit` toggles).
 7. Updates is one row per host: model icon, name, OS count, container count, reboot. The row opens that host. It does not repeat the action buttons.
-8. Plugin **0.4.1** starts or stops one compose service from the Host tab (**Containers**). It does not stop the whole project. Move, Files, and console stay out. MCP does not accept `container_start` or `container_stop`.
+8. Plugin **0.4.3** starts, stops, restarts, or updates one compose service from the Host tab (**Containers**). It does not stop the whole project. Move, Files, and console stay out. MCP adapter **0.2.0** does not accept `container_start`, `container_stop`, `container_restart`, or `container_redeploy`. Operator signed 2026-09-30.
 
 ---
 
 ## 5. Stream **HA bus** — `piherder_job_completed` (Should)
 
-**Built in plugin 0.4.0. Walk still open. May slip.**
+**Operator signed 2026-09-30.** Plugin **0.4.3**.
 
 Poll-diff on the plugin coordinator fires `piherder_job_completed` on the Home Assistant bus when a watched job leaves the active set. The first poll does not fire. The payload is the last-seen job: id, server, type, and the status it had while active. No herder webhook. No new herder route.
 
@@ -182,7 +187,7 @@ Poll-diff on the plugin coordinator fires `piherder_job_completed` on the Home A
 
 ## 6. Stream **Mux-2** — leftover sessions (Should)
 
-**Built on this branch. Walk still open.**
+**Operator signed 2026-09-30.**
 
 On the host SSH-access page, **List sessions** shows leftover `ph-u*` tmux or screen sessions for **that** host, and **Kill** ends one. Kill is any PiHerder session on this host, including another operator’s tab. A session name for a different server is refused. Names stay `ph-u{user}-s{server}-n{tab}-{f|p}` (`app/services/ssh_console.py`). This is the list an operator needs after a web recycle, because idle timeout does not kill a detached mux session. The list does not attach.
 
@@ -192,7 +197,7 @@ No automatic reattach. Removing a server still does not `kill-server` for every 
 
 ## 7. Stream **Undo-2** — `dest_up` helper (Should)
 
-**Built on this branch. Walk still open.**
+**Operator signed 2026-09-30.**
 
 Undo-1 already reverts a Move that failed at cutover, rebind, or validate. This slice is only the hole left when the worker dies during `dest_up`: dest may already be up, so Start source would dual-run.
 
@@ -202,7 +207,7 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 
 ## 8. Stream **Jr-web** — three jobs off the web process (Should)
 
-**Built on this branch. Walk still open.**
+**Operator signed 2026-09-30.**
 
 `retention`, `herder_backup`, and `host_facts` run on Celery. A web recycle does not fail the row. `host_facts` uses the existing exclusive lane (one per host, SSH-down wait). `retention` and `herder_backup` use `housekeeping_job` on the default queue and do not take a host exclusive slot. `herder_backup` has no host. One self-backup runs at a time. Settings → Run and the schedule queue that job. A worker kill of a **running** job stays fail-honest. The worker cap for these two is 2 hours, under the 3-hour Redis visibility window. nmap stays `-Q nmap`. May slip.
 
@@ -213,11 +218,12 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | ID | Item | Why it stays out |
 |----|------|------------------|
 | **AC-fg** | Per-host / per-feature grants | No grant write-up this train. Three global roles stay. Not multi-tenant. |
-| HA Slice 3 | Webhooks, Move-from-HA, Files, whole-project stop | Start and stop of **one** compose service is plugin **0.4.1**. The rest stays out. |
+| HA Slice 3 | Webhooks, Move-from-HA, Files, whole-project stop | Start, stop, restart, and update of **one** compose service is plugin **0.4.3**. The rest stays out. |
 | Brand-3 | Own-docs MkDocs skin | Out. No theme engine. |
 | CSP Slice 2 | Rewrite `onclick` | Out. Large, easy to regress. |
 | OneDrive / SMB | Clients | Named in §3.1. SMB later is path B or rclone `smb`. OneDrive is rclone later. Path C stays parked. |
 | Also out | ACME · NPM CRUD · richer Files API · N3c · M-live · plugin-in-image · MCP OAuth · Move default-on | Unchanged from 1.7 |
+| **MCP-svc** | One-service jobs on `trigger_job` | Next release. Discovery only (§14). Not this train. |
 
 ---
 
@@ -225,15 +231,16 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 
 | Priority | Item | Bar | Status |
 |----------|------|-----|--------|
-| **Must** | **MCP-jobs** | `trigger_job` accepts the jobs POST list. Move and undo stay refused. Hosted and stdio match | Landed on branch. Operator walk still open |
-| **Must** | **Bak-alt discovery** | §3.1 names path A (rclone second hop), path B (SMB mount later), path C parked. Local rsync stays the default | Written in §3.1 |
-| **Should** | **Google Drive** | Path A rclone copy after the local rsync. A failed upload fails the copy job. Demo never uploads | Built on branch. Walk still open. May slip |
-| **Must** | **HA-vis** | Plugin **0.4.2**. One card, host strip, click a stat for Home Assistant history. The selected host stays put. Start or stop one compose service. Same token rules | Built in the plugin. Walk still open |
-| **Should** | **HA bus** | `piherder_job_completed` from the plugin poll | Built in the plugin. Walk still open. May slip |
-| **Should** | **Mux-2** | List/kill `ph-u*` on SSH access | Built on branch. Walk still open. May slip |
-| **Should** | **Undo-2** | `dest_up` inspect helper. No green-Move undo | Built on branch. Walk still open. May slip |
-| **Should** | **Jr-web** | Three web jobs survive a web recycle | Built on branch. Walk still open. May slip |
+| **Must** | **MCP-jobs** | `trigger_job` accepts the jobs POST list. Move and undo stay refused. Hosted and stdio match | Operator signed 2026-09-30 |
+| **Must** | **Bak-alt discovery** | §3.1 names path A (rclone second hop), path B (SMB mount later), path C parked. Local rsync stays the default | Operator signed 2026-09-30 |
+| **Should** | **Google Drive** | Path A rclone copy after the local rsync. A failed upload fails the copy job. Demo never uploads | Operator signed 2026-09-30 |
+| **Must** | **HA-vis** | Plugin **0.4.3**. One card, host strip, click a stat for Home Assistant history. The selected host stays put. Update counts are written out. Start, stop, restart, or update one compose service. Same token rules | Operator signed 2026-09-30 |
+| **Should** | **HA bus** | `piherder_job_completed` from the plugin poll | Operator signed 2026-09-30 |
+| **Should** | **Mux-2** | List/kill `ph-u*` on SSH access | Operator signed 2026-09-30 |
+| **Should** | **Undo-2** | `dest_up` inspect helper. No green-Move undo | Operator signed 2026-09-30 |
+| **Should** | **Jr-web** | Three web jobs survive a web recycle | Operator signed 2026-09-30 |
 | **Parked** | AC-fg · Slice 3 · OneDrive · SMB · the rest of §9 | No code | Parked |
+| **Next** | **MCP-svc** | Discovery: should one-service start, stop, restart, and update join MCP. A yes is an adapter tag in that train | Not this train. §14 |
 
 ---
 
@@ -266,7 +273,10 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 2026-09-30 | **HA-vis and HA bus built** in plugin **0.4.0**. One card with a host strip, Raspberry Pi model and OS icons, and a click that opens Home Assistant history. Actions sit in one menu. A job that leaves the active set fires `piherder_job_completed`. No new herder route. Walks still open. Tag **v0.4.0** is the HACS release. Screenshot recapture is still open. |
 | 2026-09-30 | **Container start/stop** in plugin **0.4.1**. Host tab **Containers** starts or stops one compose service (`container_start` / `container_stop`). Not the whole project. Not MCP. Walk still open. HACS lists 0.4.1 after the tag. |
 | 2026-09-30 | **Plugin 0.4.2.** The card keeps the tab, the selected host, and open sections across a redraw. Tag **v0.4.2**. Walk still open. |
+| 2026-09-30 | **Plugin 0.4.3.** Updates names **OS updates** and **container updates**. A due container has a gold name, **Restart** on a running service, **Start** on a stopped one, and **Update** for that service only. Tag **v0.4.3**. Walk still open. |
 | 2026-09-30 | **Review on draft PR #19.** `container_start` / `container_stop` now run from the Celery `_execute` branch. A hard kill of the Drive-copy worker can still leave the row running. Full Drive scope stays. Mux kill is any session on that host. |
+| 2026-09-30 | **MCP-svc** named for the next release. Discovery only: whether `container_start`, `container_stop`, `container_restart`, and `container_redeploy` join `trigger_job`. This train does not change the allowlist. Adapter stays **0.2.0**. |
+| 2026-09-30 | **Operator sign-off.** **MCP-jobs**, **Bak-alt discovery**, **Google Drive**, **HA-vis**, **Containers** (plugin **0.4.3**), the **HA bus**, **Mux-2**, **Undo-2**, **Jr-web**, and the **1.7 regression** signed in [QA_v1.8.0.md](QA_v1.8.0.md). The screenshot pack stays open. |
 
 ---
 
@@ -276,10 +286,28 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 |---|------|--------|
 | 1 | Open **`v1.8.0-dev`** | **Done** 2026-09-28 |
 | 2 | Lock Must / Should in this plan | **Done** 2026-09-28 |
-| 3 | **MCP-jobs** | **Landed** on branch. Walk is [QA_v1.8.0.md](QA_v1.8.0.md) |
-| 4 | Bak-alt discovery is §3.1. Google Drive client | **Built** on branch (Settings → PiHerder backup). Walk still open |
-| 5 | **HA-vis**, container start/stop, and the bus event | **Built** in plugin 0.4.2. Walks still open |
+| 3 | **MCP-jobs** | **Signed** 2026-09-30 ([QA_v1.8.0.md](QA_v1.8.0.md)) |
+| 4 | Bak-alt discovery is §3.1. Google Drive client | **Signed** 2026-09-30 |
+| 5 | **HA-vis**, container start/stop, and the bus event | **Signed** 2026-09-30. Plugin **0.4.3** |
 | 6 | Freeze · `1.8.0` · tag · Hub | Only when asked |
+| 7 | **MCP-svc** discovery | **Next release.** Not this train. §14 |
+
+---
+
+## 14. Next release — **MCP-svc** (Should discovery)
+
+**Not this train.** No allowlist change, no adapter release, and no PyPI publish from v1.8.
+
+The Home Assistant card already starts, stops, restarts, and updates one compose service. Each call needs the compose directory (`source_filter`) and the service name, and it leaves the rest of the project alone. Hosted MCP and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.2.0** refuse `container_start`, `container_stop`, `container_restart`, and `container_redeploy`. An agent has no confirm. The card does.
+
+MCP can already restart a whole compose project (`docker_stack_restart`) and update every container on a host (`container_patch`). The discovery is whether the narrower one-service jobs should join `trigger_job` as well.
+
+| Question | Notes for the write-up |
+|----------|------------------------|
+| Which of the four, if any | Start, stop, restart, and update can be split. Update is the narrow form of `container_patch`. Restart is the narrow form of `docker_stack_restart`. Stop and start are the ones with no confirm on an agent. |
+| Both clients together | Hosted `MCP_JOB_TYPES` and the stdio `JOB_TYPES` list move in the same train. Tagging the adapter before the herder accepts the type returns **400**. |
+| If the discovery says yes | New piherder-mcp version, annotated tag, and GitHub Release in that same turn so `uvx` and the MCP registry pick it up. PyPI follows that tag. The tool count stays the same: `trigger_job` grows `job_type` values. `source_filter` is the compose directory and `service` is required. |
+| Still refused | `docker_stack_down`, `docker_stack_remove`, Move, undo, nmap, console, and token admin. |
 
 ---
 

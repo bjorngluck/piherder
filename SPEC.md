@@ -352,7 +352,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [ ] Expanded curated pack (Frigate, HA, n8n, media, …)
 - [ ] Plugin hooks / event webhooks (`job.completed`, `server.added`, …) — prefer REST + n8n over code exec
 - [ ] Ansible inventory / cloud-init bootstrap for new Pis (overlaps H2.75 P4 imaging depth)
-- [x] Home Assistant: HACS integration on HA (fleet + host devices + fleet Lovelace card; container/service/disk sensors from snapshots; details in PiHerder) — **v1.6.0 tagged**, plugin **0.2.4** ([PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7). **v1.7 HA-cards** (plugin **0.3.0**: host, updates, and resources cards, plus `host_reboot`) signed on `v1.7.0-dev` at code freeze 2026-09-28. The 24-hour chart does not draw ([RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md))
+- [x] Home Assistant: HACS integration on HA (fleet + host devices + fleet Lovelace card; container/service/disk sensors from snapshots; details in PiHerder) — **v1.6.0 tagged**, plugin **0.2.4** ([PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7). **v1.7 HA-cards** (plugin **0.3.0**: host, updates, and resources cards, plus `host_reboot`) signed on `v1.7.0-dev` at code freeze 2026-09-28. The 24-hour chart does not draw ([RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md)). **v1.8** replaces that with plugin **0.4.3** (one card, history click, one-service start/stop/restart/update). The walk is signed. Screenshots are still open. MCP adapter **0.2.0** does not accept those four job types.
 - [ ] Optional AI (OpenAI-compatible BYO; off by default; no private keys in prompts)
 - [ ] Community: Discord + Discussions; project website / clickthrough
 

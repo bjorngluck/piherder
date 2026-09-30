@@ -7,6 +7,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Release](https://img.shields.io/badge/release-v1.7.0-green.svg)](docs/RELEASE_v1.7.0.md)
+[![HA plugin](https://img.shields.io/github/v/release/bjorngluck/piherder-ha?label=HA%20plugin)](https://github.com/bjorngluck/piherder-ha/releases/latest)
+[![MCP](https://img.shields.io/github/v/release/bjorngluck/piherder-mcp?label=MCP)](https://github.com/bjorngluck/piherder-mcp/releases/latest)
 [![Docker Hub](https://img.shields.io/badge/docker-bjorngluck%2Fpiherder-blue.svg)](https://hub.docker.com/r/bjorngluck/piherder)
 [![Docs](https://img.shields.io/badge/docs-wiki-red.svg)](https://piherder-docs.hacknow.info/)
 [![Demo](https://img.shields.io/badge/demo-view--only-orange.svg)](https://piherder-demo.hacknow.info)
@@ -36,7 +38,7 @@ Inspired by projects like [Nginx Proxy Manager](https://github.com/NginxProxyMan
 - Optional in-browser **web SSH console** (off by default). Per host, **Console mux** can attach `tmux` or `screen` so Hide keeps the shell on the Pi
 - Optional **Host Files** jailed SFTP explorer (off by default; `PIHERDER_HOST_FILES`)
 - Optional **Move a service** — compose project host→host as one job (off by default; `PIHERDER_SERVICE_MIGRATE`). Runs on the Celery worker. A failure after names flip can be undone
-- Token REST API for automation (n8n, Home Assistant, etc.). Home Assistant observes the fleet with HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.3.0** (not inside this image). A `read` token is sensors and the fleet card. `jobs` and `edit` add confirm actions, including host reboot
+- Token REST API for automation (n8n, Home Assistant, etc.). Home Assistant observes the fleet with HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha) (not inside this image). Production pairs with plugin **0.3.0**. The v1.8 train pairs with plugin **0.4.3**. A `read` token is sensors and the card. `jobs` and `edit` add confirm actions, including host reboot. Agents use hosted `POST /mcp`, or the air-gapped [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) adapter **0.2.0**
 
 ### Quick Start
 
@@ -66,7 +68,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - **Current production:** [docs/RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md) — hosted MCP · exclusive jobs on Celery · instance name and accent · HA plugin **0.3.0**. Technical record: [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md). Wiki: [Agents (MCP)](wiki/operations/mcp.md) · [Home Assistant](wiki/integrations/home-assistant.md). Image `bjorngluck/piherder:1.7.0` · `1.7` · `latest`. Pins `1.6.0` / `1.6` stay valid.
-- **Next train:** [docs/PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md) — MCP job types landed, Google Drive copy built on the branch (walk open), then richer HA cards (**Active** on `v1.8.0-dev`). Package stays `1.7.0` until freeze. Design: [docs/FEATURE_PLAN_BACKUP_DESTINATIONS.md](docs/FEATURE_PLAN_BACKUP_DESTINATIONS.md)
+- **Next train:** [docs/PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md) on `v1.8.0-dev`. Operator walks are signed, including plugin **[0.4.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.3)** and MCP adapter **[0.2.0](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.2.0)**. The screenshot pack is still open. Package stays `1.7.0` until freeze. Design: [docs/FEATURE_PLAN_BACKUP_DESTINATIONS.md](docs/FEATURE_PLAN_BACKUP_DESTINATIONS.md)
 - Prior: [docs/RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · [docs/RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [docs/RELEASE_v1.3.0.md](docs/RELEASE_v1.3.0.md) · [docs/RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
 - API reference: [docs/API.md](docs/API.md)
 
