@@ -50,12 +50,11 @@ Skip this section if the destination slips the tag. Demo is not the target.
 
 Walk on a Home Assistant that has plugin **0.4.0**. Hard-refresh after the Lovelace resource URL changes. Token masked in every screenshot.
 
-- [ ] Host card gauges and stats are readable without opening PiHerder. Confirm actions still match the token (`jobs` / `edit` / feature flags)  
-- [ ] Host card shows bars (absolute memory and disk) and one 24-hour sparkline from Home Assistant history of the snapshot sensors  
-- [ ] Resources card 24-hour series draws for memory %, disk %, and CPU load. It does not SSH. Empty state only when the recorder has no points  
-- [ ] Updates card is one compact row per host and still shows OS and container counts from the stored snapshot  
-- [ ] A `read` token shows sensors and no buttons  
-- [ ] Fleet card from 0.3.0 still loads  
+- [ ] One card. The host strip picks a machine, with a Raspberry Pi model mark and an OS icon. `server_id` still pins one host  
+- [ ] Clicking memory, disk, or CPU load opens that sensor’s Home Assistant history. A thin sparkline draws when the recorder has points, and stays empty when it does not. It does not SSH  
+- [ ] Backup is a button. The other confirms are under Actions. Features are collapsed. A `read` token shows no job buttons  
+- [ ] Updates is one row per host (OS count, container count, reboot). The row opens that host and does not repeat the buttons  
+- [ ] A 0.3.0 dashboard still loads the fleet, host, updates, and resources elements  
 
 ## HA bus (Should)
 

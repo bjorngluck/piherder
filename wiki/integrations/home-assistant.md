@@ -9,7 +9,7 @@ A **HACS integration that runs on Home Assistant** and **observes** your PiHerde
 | Path 1 | This PiHerder image | SSH + `ha` CLI on an HAOS **server** |
 | Path 2 (this page) | Separate HACS repo | HA polls PiHerder snapshots; **Visit** opens the herder |
 
-The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) (plugin **0.3.0** on the plugin `main` branch; the GitHub Release tag is cut when that repo is tagged). The HACS repo README and the integration’s Documentation link point at this page. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from PiHerder `main` and describes plugin **0.3.0**. Richer cards are on `v1.8.0-dev` until that train merges.
+The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). This branch documents plugin **0.4.0**. The tagged GitHub Release is still **0.3.0** until that repo is tagged. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from PiHerder `main` and still describes **0.3.0** until this train merges.
 
 Agent tools (Cursor, Grok, Claude, Codex) are a different client of the same token API: hosted **`/mcp`** on the herder. [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) is the optional stdio fallback. [Agents (MCP)](../operations/mcp.md).
 
@@ -22,7 +22,7 @@ YAML `rest` sensors against an API token already work. Path 2 is that, first-cla
 1. In PiHerder: Settings → **API management** → create a token with **`read`**. Add **`jobs`** and **`edit`** if you want the confirm buttons and feature toggles. Set the **IP allowlist** to the HA host (HAOS ≈ appliance LAN IP; a container HA may egress as a Docker/bridge IP).  
 2. HACS → custom repository → **Integration** → `https://github.com/bjorngluck/piherder-ha`.  
 3. Add **PiHerder**: base URL (your herder origin, including scheme), token `ph_…`, TLS verify, poll interval. A bad URL or token keeps the fields filled (plugin ≥ 0.1.3).  
-4. Confirm fleet **Plugin** is **0.3.0**. Device page **Visit** is still the host. For totals and per-host links, add the **PiHerder fleet** card (below). Memory, disk, and CPU load sensors sit on that same host device, plus one sensor per container and monitored service. They are status only — not start/stop. Write buttons live on the host and updates cards, and only if the token has `jobs`.
+4. Confirm fleet **Plugin** is **0.4.0** after you redownload this build. Device page **Visit** is still the host. Add the **PiHerder** card below. Memory, disk, and CPU load sensors sit on that same host device, plus one sensor per container and monitored service. They are status only — not start/stop. Job buttons show only if the token has `jobs`.
 
 HACS does **not** auto-refresh custom repos. New GitHub Release: HACS → PiHerder → **⋮ → Redownload** (pick the tag) → **restart Home Assistant**. Reload of the config entry is not enough for new files.
 
@@ -40,10 +40,10 @@ Host **hardware**, **OS**, CPU, memory, and disk come from PiHerder **[System In
 
 The built-in HA **device page** only has one Visit link. For fleet totals and per-host shortcuts, add the **PiHerder fleet** Lovelace card:
 
-1. HACS plugin **0.3.0**, **restart Home Assistant**, then **hard-refresh the browser** (Ctrl+Shift+R). Reload of the config entry is not enough.  
-2. Dashboard **⋮ → Resources** — delete any `/api/piherder/…` or older `/local/piherder-dashboard-card.js?v=0.2.2`, `?v=0.2.3`, or `?v=0.2.4` card URL. You want **one** resource:
+1. HACS plugin **0.4.0**, **restart Home Assistant**, then **hard-refresh the browser** (Ctrl+Shift+R). Reload of the config entry is not enough.  
+2. Dashboard **⋮ → Resources** — delete any `/api/piherder/…` or older `/local/piherder-dashboard-card.js?v=0.2.2`, `?v=0.2.3`, `?v=0.2.4`, or `?v=0.3.0` card URL. You want **one** resource:
 
-   - URL: `/local/piherder-dashboard-card.js?v=0.3.0`  
+   - URL: `/local/piherder-dashboard-card.js?v=0.4.0`  
    - Type: **JavaScript module** (not JavaScript)
 
    After setup, the integration copies the card into HA `config/www/` so `/local/…` works.  
@@ -56,7 +56,7 @@ type: custom:piherder-dashboard-card
 The custom-tag field (if you use it) wants `piherder-dashboard-card` **without** the `custom:` prefix.  
 4. Hard-refresh again. “Custom element doesn’t exist” means the resource is missing, still type “JavaScript” (not module), or the browser has a cached `/api/piherder/…` URL.
 
-The card header is the PiHerder logo and the name **PiHerder**. Under that it shows **hosts, CPU cores, containers, memory %, disk %** for the whole fleet, then each host. Expand a host for CPU/memory/disk bars and chips: Host, Docker, Backups, Alerts, Audit. Those chips are real `<a href>` links into PiHerder.
+The card header is the PiHerder logo and the name **PiHerder**, then tabs for **Fleet**, **Host**, and **Updates**. Fleet shows **hosts, CPU cores, containers, memory %, disk %**, then one row per host with a model icon and an OS icon. Click a row to open that host. **Open host** goes to PiHerder. Docker, Backups, Alerts, and Audit are under **Also**. The picture below is the previous expand-a-host layout.
 
 Numbers come from the same **[System Info](../day-to-day/system-info.md)** snapshot the herder modal shows (CPU cores, memory, disk). Recreate **web** so Alembic **045** is applied, then the System Info refresh icon once per host (or wait for the scheduler). Empty CPU/memory/disk on the card means the herder has not stored a resource snapshot yet — not a card bug.
 
@@ -67,7 +67,7 @@ Numbers come from the same **[System Info](../day-to-day/system-info.md)** snaps
 
 <figure class="ph-figure" markdown>
   ![PiHerder fleet card](../assets/screenshots/ha-fleet-card.png)
-  <figcaption>Lovelace card — logo and name, fleet totals, one host expanded, chips into PiHerder.</figcaption>
+  <figcaption>Lovelace card on plugin 0.3.0 — logo, fleet totals, one host expanded. Plugin 0.4.0 uses tabs and a host strip.</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
@@ -91,12 +91,16 @@ Numbers come from the same **[System Info](../day-to-day/system-info.md)** snaps
 |---------|---------|
 | Fleet device | Counts, herder version, **Plugin** version, Visit = herder origin |
 | Host device | One per PiHerder server. **Visit** = host page only. Hardware / OS from the stored snapshot |
-| Fleet Lovelace card | Fleet sums + expand host + chips to Host / Docker / Backups / Alerts / Audit |
+| Lovelace card | Fleet, Host, and Updates tabs. Host strip, model and OS icons. Click a stat for Home Assistant history |
 | Sensors | OS, features, alert, last seen, reboot, last backup, **memory %**, **disk %**, **CPU load**, plus one sensor per container (running / image / uptime text) and one per monitored service (up/down). All on the host device. Tapping a sensor opens HA history, not PiHerder |
 
-## Operator cards (plugin 0.3.0)
+## The card (plugin 0.4.0)
 
-The fleet card stays read-only. Three more cards live in the same file. Dashboard **⋮ → Resources**: one URL, `/local/piherder-dashboard-card.js?v=0.3.0`. Delete an older `?v=0.2.4` entry if it is still there.
+One card, three tabs: **Fleet**, **Host**, **Updates**. The same file still registers the 0.3.0 names, so an existing dashboard does not go blank. Dashboard **⋮ → Resources**: one URL, `/local/piherder-dashboard-card.js?v=0.4.0`. Delete an older `?v=0.3.0` entry if it is still there. Restart Home Assistant, then hard-refresh.
+
+```yaml
+type: custom:piherder-dashboard-card
+```
 
 ```yaml
 type: custom:piherder-host-card
@@ -109,30 +113,33 @@ type: custom:piherder-updates-card
 
 ```yaml
 type: custom:piherder-resources-card
-server_id: 1
 ```
 
-Leave `server_id` off the updates and resources cards for the whole fleet. Set it to show one host.
+Leave `server_id` off to get the host strip. Set it to pin one host and hide the strip. `piherder-resources-card` opens on the Host tab at the bars.
 
-The **host** card shows gauges and links into PiHerder. Confirm buttons: Backup, Retention, Check OS, Check containers, Patch OS, Patch containers, Restart host. Restart names the host and reboots the machine. It will not start while an OS patch, a container patch, or a backup is already running. Below the buttons, three toggles (backup, OS patch, Docker). Turning one off asks first. The 24-hour sparkline on this card does not draw in 0.3.0. Richer cards are part of [v1.8.0](https://github.com/bjorngluck/piherder/blob/v1.8.0-dev/docs/PLAN_v1.8.0.md), after MCP job types and the backup write-up.
+The host chip shows a Raspberry Pi icon with a short model (`5`, `4`, `400`, `Zero`, `CM4`, `CM5`) when the stored hardware string says so, and an OS icon for Ubuntu, Home Assistant, or Debian / Raspberry Pi OS. Anything else is a plain server and a Linux icon.
+
+Click **memory**, **disk**, or **CPU load** and Home Assistant opens that sensor’s history. The card draws a thin 24-hour sparkline from those same sensors (about every 15 minutes, not a live SSH chart). The sparkline stays empty until the recorder has points. Reboot and last backup open the same way when those sensors exist.
+
+**Backup** is the button on the face. **Actions** holds Retention, Check OS, Check containers, Patch OS, Patch containers, and Restart host. Restart names the host and reboots the machine. It will not start while an OS patch, a container patch, or a backup is already running. **Features** (backup, OS patch, Docker) is collapsed. Turning one off asks first. **Open host** is the link. Docker, Backups, Alerts, and Audit are under **Also**.
+
+Updates is one row per host: model icon, name, OS count, container count, reboot. The row opens that host. It does not repeat the buttons.
+
+The pictures below are the **0.3.0** cards, kept so the old layout is recognizable. 0.4.0 replaces that button row with the strip and the Actions menu.
 
 <figure class="ph-figure" markdown>
   ![Host card](../assets/screenshots/ha-host-card.png)
-  <figcaption>Host card on plugin 0.3.0 — one server, gauges, and confirm actions. The 24-hour sparkline does not draw yet.</figcaption>
+  <figcaption>Host card on plugin 0.3.0. Plugin 0.4.0 uses one card and a host strip instead of this button row.</figcaption>
 </figure>
-
-The **updates** card shows OS and container counts and reboot pending, plus the check and patch confirms.
 
 <figure class="ph-figure" markdown>
   ![Updates card](../assets/screenshots/ha-updates-card.png)
-  <figcaption>Updates card — OS and container counts from the stored snapshot, plus reboot pending.</figcaption>
+  <figcaption>Updates on plugin 0.3.0. Plugin 0.4.0 is one row per host, and the row opens that host.</figcaption>
 </figure>
-
-The **resources** card is for memory %, disk %, and CPU load over 24 hours. That series does not draw in 0.3.0. When it does, the points are Home Assistant history of the snapshot sensors, about every 15 minutes, not a live SSH chart.
 
 <figure class="ph-figure" markdown>
   ![Resources card](../assets/screenshots/ha-resources-card.png)
-  <figcaption>Resources card on plugin 0.3.0. The 24-hour lines are a known gap for the next release.</figcaption>
+  <figcaption>Resources on plugin 0.3.0. Plugin 0.4.0 draws a thin sparkline and opens Home Assistant history when you click the stat.</figcaption>
 </figure>
 
 A token with only `read` keeps the fleet card and the sensors and shows no buttons. `jobs` shows the confirms. `edit` shows the toggles. `feature:os` is required for patch, OS check, and restart. `feature:backup` for backup and retention. `feature:docker` for container check and patch. The host’s own feature flag must be on as well.
