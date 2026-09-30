@@ -66,6 +66,8 @@ JOB_FEATURE_KEY = {
     "container_update_check": "docker",
     "container_start": "docker",
     "container_stop": "docker",
+    "container_restart": "docker",
+    "container_redeploy": "docker",
     "docker_stack_check": "docker",
     "docker_stack_deploy": "docker",
     "docker_stack_stop": "docker",

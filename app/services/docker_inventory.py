@@ -57,6 +57,7 @@ def _public_container(c: Dict[str, Any], project: str) -> Dict[str, Any]:
         "project": project or c.get("compose_project") or "",
         "service": c.get("compose_service") or "",
         "path": (c.get("compose_workdir") or "").strip(),
+        "update": bool(c.get("has_pending_update")),
     }
 
 

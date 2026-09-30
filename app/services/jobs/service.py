@@ -64,6 +64,8 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "container_update_check",
         "container_start",
         "container_stop",
+        "container_restart",
+        "container_redeploy",
         "docker_stack_check",
         "docker_stack_deploy",
         "docker_stack_stop",
@@ -92,6 +94,8 @@ _STACK_MUTATING_JOB_TYPES = frozenset(
         "docker_stack_remove",
         "container_start",
         "container_stop",
+        "container_restart",
+        "container_redeploy",
         "template_deploy",
         "template_redeploy",
         "service_migrate",
@@ -105,7 +109,15 @@ _STACK_LIFECYCLE_ACTIONS = frozenset({"stop", "start", "restart", "down"})
 _STACK_LIFECYCLE_JOB_TYPES = frozenset(
     {f"docker_stack_{a}" for a in _STACK_LIFECYCLE_ACTIONS}
 )
-_CONTAINER_SERVICE_JOB_TYPES = frozenset({"container_start", "container_stop"})
+_CONTAINER_SERVICE_JOB_TYPES = frozenset(
+    {"container_start", "container_stop", "container_restart", "container_redeploy"}
+)
+_CONTAINER_SERVICE_ACTIONS = {
+    "container_start": "start",
+    "container_stop": "stop",
+    "container_restart": "restart",
+    "container_redeploy": "redeploy",
+}
 
 
 def container_service_target(source_filter: str | None, service: str | None) -> tuple[str, str]:
@@ -299,6 +311,8 @@ JOB_TYPE_LABELS = {
     "container_update_check": "Image check",
     "container_start": "Container start",
     "container_stop": "Container stop",
+    "container_restart": "Container restart",
+    "container_redeploy": "Container update",
     "docker_stack_check": "Stack check",
     "docker_stack_deploy": "Stack deploy",
     "docker_stack_stop": "Stack stop",
@@ -916,6 +930,8 @@ def create_job_and_run(
             "docker_stack_remove": "Stack delete queued…",
             "container_start": f"Start {(service or '').strip() or 'container'} queued…",
             "container_stop": f"Stop {(service or '').strip() or 'container'} queued…",
+            "container_restart": f"Restart {(service or '').strip() or 'container'} queued…",
+            "container_redeploy": f"Update {(service or '').strip() or 'container'} queued…",
         }
         detail_extra = dict(actor_extra)
         if job_type in _CONTAINER_SERVICE_JOB_TYPES:
@@ -1121,7 +1137,7 @@ def create_job_and_run(
         )
     elif job_type in _CONTAINER_SERVICE_JOB_TYPES:
         path, svc = container_service_target(source_filter, service)
-        action = "start" if job_type == "container_start" else "stop"
+        action = _CONTAINER_SERVICE_ACTIONS[job_type]
         handoff_exclusive(
             job_id=job.id,
             server_id=server.id,
@@ -1549,7 +1565,7 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
         return f"{proj}: deploy failed — {err}"[:200]
     if job_type in _CONTAINER_SERVICE_JOB_TYPES and isinstance(data, dict):
         svc = data.get("service") or "service"
-        act = "start" if job_type == "container_start" else "stop"
+        act = _CONTAINER_SERVICE_ACTIONS.get(job_type, "stop")
         if data.get("success") or status == "success":
             return f"{svc}: {act} ok"
         err = data.get("error") or status
@@ -3449,11 +3465,12 @@ def _execute_container_service(
     service: str,
     action: str,
 ) -> None:
-    """docker compose start|stop for one service. Never the rest of the project."""
+    """docker compose for one service. Never the rest of the project."""
     from .. import docker_management as docker_svc
     from .. import docker_inventory as inventory_svc
 
-    act = "start" if (action or "").strip().lower() == "start" else "stop"
+    raw = (action or "").strip().lower()
+    act = raw if raw in ("start", "stop", "restart", "redeploy") else "stop"
     job_type = f"container_{act}"
     server, hostname = _load_server_for_job(server_id)
     path = (project_path or "").strip()
@@ -3491,7 +3508,10 @@ def _execute_container_service(
             f"Running docker compose {act} {svc} in {path}…",
             default_current=act,
         )
-        result = docker_svc.compose_action(server, path, act, service=svc) or {}
+        if act == "redeploy":
+            result = docker_svc.compose_service_redeploy(server, path, svc) or {}
+        else:
+            result = docker_svc.compose_action(server, path, act, service=svc) or {}
         _append_output_log_lines(job_id, act, result.get("output") or "")
         ok = bool(result.get("success"))
         if ok:
