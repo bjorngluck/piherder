@@ -1,9 +1,9 @@
 # PiHerder v1.8.0 — MCP job types, then backup destinations, then Home Assistant cards
 
-**Status:** **Active** (lock retuned 2026-09-30). Operator-signed 2026-09-30: **MCP-jobs**, **Bak-alt discovery**, **Google Drive**, **HA-vis** (plugin **0.4.3**), one-service start and stop, the **HA bus**, **Mux-2**, **Undo-2**, **Jr-web**, and the **1.7 regression**. The screenshot pack is still open. Package stays `1.7.0`.  
+**Status:** **Code freeze set 2026-09-30.** Operator walks signed. Screenshot pack **in progress**. No new features on this branch. Package bump, merge, tag, and Hub stay a separate ask.  
 **Date opened:** 2026-09-28  
-**Git branch:** `v1.8.0-dev` → `main` · tag `v1.8.0` at freeze  
-**Package / image version:** stays **`1.7.0`** until freeze  
+**Git branch:** `v1.8.0-dev` → `main` · tag `v1.8.0` only when asked, after the draft is undrafted  
+**Package / image version:** stays **`1.7.0`** until the version bump. Freeze does not publish `1.8.0`  
 **Theme:** **MCP-jobs** first, then **Bak-alt** (discovery, then one Google Drive destination), then **HA-vis**  
 **Baseline:** `v1.7.0` (tagged 2026-09-28; Hub digest `sha256:174cb1313f6717d323211c8c899b30240e97f5097bd35770f7a6c4555de95270`)  
 **Mode:** **Must → Should → parked.** Must **MCP-jobs** + **Bak-alt discovery** + **HA-vis**. Should **Google Drive** + **HA bus** + **Mux-2** + **Undo-2** + **Jr-web**.  
@@ -277,6 +277,7 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 2026-09-30 | **Review on draft PR #19.** `container_start` / `container_stop` now run from the Celery `_execute` branch. A hard kill of the Drive-copy worker can still leave the row running. Full Drive scope stays. Mux kill is any session on that host. |
 | 2026-09-30 | **MCP-svc** named for the next release. Discovery only: whether `container_start`, `container_stop`, `container_restart`, and `container_redeploy` join `trigger_job`. This train does not change the allowlist. Adapter stays **0.2.0**. |
 | 2026-09-30 | **Operator sign-off.** **MCP-jobs**, **Bak-alt discovery**, **Google Drive**, **HA-vis**, **Containers** (plugin **0.4.3**), the **HA bus**, **Mux-2**, **Undo-2**, **Jr-web**, and the **1.7 regression** signed in [QA_v1.8.0.md](QA_v1.8.0.md). The screenshot pack stays open. |
+| 2026-09-30 | **Code freeze.** End-user notes drafted in [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Screenshot pack **in progress**. Package stays **1.7.0**. Tag and Hub not cut. |
 
 ---
 
@@ -289,8 +290,9 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 3 | **MCP-jobs** | **Signed** 2026-09-30 ([QA_v1.8.0.md](QA_v1.8.0.md)) |
 | 4 | Bak-alt discovery is §3.1. Google Drive client | **Signed** 2026-09-30 |
 | 5 | **HA-vis**, container start/stop, and the bus event | **Signed** 2026-09-30. Plugin **0.4.3** |
-| 6 | Freeze · `1.8.0` · tag · Hub | Only when asked |
-| 7 | **MCP-svc** discovery | **Next release.** Not this train. §14 |
+| 6 | Freeze | **Set** 2026-09-30. Notes: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Screenshots in progress |
+| 7 | Version bump · tag `v1.8.0` · Hub | Only when asked |
+| 8 | **MCP-svc** discovery | **Next release.** Not this train. §14 |
 
 ---
 

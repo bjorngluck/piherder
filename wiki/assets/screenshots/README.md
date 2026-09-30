@@ -23,7 +23,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.5.0** | **Tagged** 2026-09-18 — reuse Move JobHold pack; Reports pin/hide + Move jobs card recapture if chrome drifted. [RELEASE](../../../docs/RELEASE_v1.5.0.md) · [QA](../../../docs/QA_v1.5.0.md) |
 | **v1.6.0** | **Captured** 2026-09-25 and wired into the wiki. [§ v1.6](#v160--pack-status). [RELEASE](../../../docs/RELEASE_v1.6.0.md) · [QA](../../../docs/QA_v1.6.0.md) |
 | **v1.7.0** | **Captured** 2026-09-28 on `v1.7.0-dev`. About / footer still **1.6.0** (code freeze, package not bumped). [§ v1.7](#v170--pack-status). [QA](../../../docs/QA_v1.7.0.md) |
-| **v1.8.0** | **Open.** Plugin **0.4.3** (card keeps the selected host; HACS after the tag). Recapture the Home Assistant card frames. [§ v1.8](#v180--pack-status). [QA](../../../docs/QA_v1.8.0.md) |
+| **v1.8.0** | **In progress.** Plugin **0.4.3**. Recapture the Home Assistant card frames. Frames on disk are still **0.3.0**. [§ v1.8](#v180--pack-status). [QA](../../../docs/QA_v1.8.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
@@ -37,7 +37,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 
 ## v1.8.0 — pack status {#v180--pack-status}
 
-**Open.** Walk is [QA_v1.8.0.md](../../../docs/QA_v1.8.0.md). Plugin **0.4.3** ([release](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.3)). Light theme, desktop width. Mask tokens. Do not point the plugin at the public demo.
+**In progress** (2026-09-30). The operator is capturing. Walk is signed in [QA_v1.8.0.md](../../../docs/QA_v1.8.0.md). Plugin **0.4.3** ([release](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.3)). Light theme, desktop width. Mask tokens. Do not point the plugin at the public demo. Do not mark this pack captured until the PNGs are in this directory and the captions no longer say 0.3.0.
 
 The files below already exist from **0.3.0**. Replace the PNG in place. The wiki keeps the same `![…]` links. Captions on [Home Assistant](../../integrations/home-assistant.md) say the current pictures are 0.3.0 until you drop the new files and the caption is updated in the same commit.
 
@@ -46,8 +46,8 @@ The files below already exist from **0.3.0**. Replace the PNG in place. The wiki
 | Pri | File | Surface | Must show |
 |-----|------|---------|-----------|
 | **P0** | `ha-fleet-card.png` | Lovelace `custom:piherder-dashboard-card` | Logo, name **PiHerder**, tabs **Fleet / Host / Updates**. Fleet totals. Host rows with a Raspberry Pi mark and an OS icon. Not an expanded host with a row of chips |
-| **P0** | `ha-host-card.png` | Host tab (or `custom:piherder-host-card`) | Host strip, or one pinned host if `server_id` is set. Memory and disk bars, CPU load, a thin sparkline or **No history yet**. **Backup** and **Actions**. **Containers** open, with Start or Stop. Token not in frame |
-| **P0** | `ha-updates-card.png` | Updates tab | One row per host: model icon, name, OS count, container count, reboot. No action buttons on the row |
+| **P0** | `ha-host-card.png` | Host tab (or `custom:piherder-host-card`) | Host strip, or one pinned host if `server_id` is set. Update counts written out. Memory and disk bars, CPU load, a thin sparkline or **No history yet**. **Backup** and **Actions**. **Containers** open. A running service shows **Stop** and **Restart**. A due container has a gold name. Token not in frame |
+| **P0** | `ha-updates-card.png` | Updates tab | One row per host: model icon, name, and the counts written out (**OS updates**, **container updates**, reboot pending), gold when something is due. No action buttons on the row |
 | **P1** | `ha-resources-card.png` | `custom:piherder-resources-card` | Same card opened on the three stats. A sparkline if the recorder has points |
 | **P1** | `ha-fleet-sensors.png` | HA **Devices** | Fleet **Plugin** reads **0.4.3**. One host device. Visit still goes to the herder host page |
 | **P1** | `ha-more-info.png` | Click memory, disk, or CPU load | Home Assistant more-info for that sensor, history visible. New file. Wire it on the Home Assistant page only after it exists |
