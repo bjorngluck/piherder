@@ -265,6 +265,7 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 2026-09-29 | **Jr-web built** on the branch. Retention, PiHerder backup, and host facts run on Celery. A web recycle does not fail them. Host facts stays one-per-host. The backup and retention do not take a host slot. Walk still open. |
 | 2026-09-30 | **HA-vis and HA bus built** in plugin **0.4.0**. One card with a host strip, Raspberry Pi model and OS icons, and a click that opens Home Assistant history. Actions sit in one menu. A job that leaves the active set fires `piherder_job_completed`. No new herder route. Walks still open. Tag **v0.4.0** is the HACS release. Screenshot recapture is still open. |
 | 2026-09-30 | **Container start/stop** in plugin **0.4.1**. Host tab **Containers** starts or stops one compose service (`container_start` / `container_stop`). Not the whole project. Not MCP. Walk still open. HACS lists 0.4.1 after the tag. |
+| 2026-09-30 | **Plugin 0.4.2.** The card keeps the tab, the selected host, and open sections across a redraw. Tag **v0.4.2**. Walk still open. |
 
 ---
 

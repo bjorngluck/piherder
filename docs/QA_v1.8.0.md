@@ -48,10 +48,11 @@ Skip this section if the destination slips the tag. Demo is not the target.
 
 ## HA-vis (Must)
 
-Walk on Home Assistant with plugin **[v0.4.1](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.1)**. Restart Home Assistant after the HACS update. Set the dashboard resource to `/local/piherder-dashboard-card.js?v=0.4.1` as a **JavaScript module**, then hard-refresh. The **Plugin** sensor reads **0.4.1**. Token masked in every screenshot. Capture list: [v1.8 pack](../wiki/assets/screenshots/README.md#v180--pack-status). Replace `ha-fleet-card.png`, `ha-host-card.png`, `ha-updates-card.png`, and `ha-resources-card.png` in place. Add `ha-more-info.png` only after that dialog is in the frame. Do not tick these boxes from the pictures; the pictures land with the captions.
+Walk on Home Assistant with plugin **[v0.4.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.2)**. Restart Home Assistant after the HACS update. Set the dashboard resource to `/local/piherder-dashboard-card.js?v=0.4.2` as a **JavaScript module**, then hard-refresh. The **Plugin** sensor reads **0.4.2**. Token masked in every screenshot. Capture list: [v1.8 pack](../wiki/assets/screenshots/README.md#v180--pack-status). Replace `ha-fleet-card.png`, `ha-host-card.png`, `ha-updates-card.png`, and `ha-resources-card.png` in place. Add `ha-more-info.png` only after that dialog is in the frame. Do not tick these boxes from the pictures; the pictures land with the captions.
 
-- [ ] HACS shows **0.4.1**. After a Home Assistant restart the **Plugin** sensor reads **0.4.1**  
+- [ ] HACS shows **0.4.2**. After a Home Assistant restart the **Plugin** sensor reads **0.4.2**  
 - [ ] One card. The host strip picks a machine, with a Raspberry Pi model mark and an OS icon. `server_id` still pins one host  
+- [ ] The selected host and tab stay put after an action and after the card redraws. Open **Containers** stays open  
 - [ ] Clicking memory, disk, or CPU load opens that sensor’s Home Assistant history. A thin sparkline draws when the recorder has points, and stays empty when it does not. It does not SSH. Reboot and last backup open the same way when those sensors exist  
 - [ ] Backup is a button. The other confirms are under Actions. Features are collapsed. A `read` token shows no job buttons  
 - [ ] Updates is one row per host (OS count, container count, reboot). The row opens that host and does not repeat the buttons  
@@ -59,9 +60,9 @@ Walk on Home Assistant with plugin **[v0.4.1](https://github.com/bjorngluck/pihe
 
 ## Container start/stop (plugin 0.4.1)
 
-Needs the v1.8 herder. A 1.7 herder answers 400 for these two job types. Resource `/local/piherder-dashboard-card.js?v=0.4.1`. Plugin sensor **0.4.1**. Boxes stay empty until walked.
+Needs the v1.8 herder. A 1.7 herder answers 400 for these two job types. Resource `/local/piherder-dashboard-card.js?v=0.4.2`. Plugin sensor **0.4.2**. Boxes stay empty until walked.
 
-- [ ] HACS shows **0.4.1** after the release tag. Home Assistant was restarted. The resource query is `?v=0.4.1`
+- [ ] HACS shows **0.4.2** after the release tag. Home Assistant was restarted. The resource query is `?v=0.4.2`
 - [ ] Host tab **Containers** lists the inventory. **Stop** on a running service and **Start** on a stopped one each ask first, then run `docker compose` for that service only
 - [ ] A container with no compose directory or service name has no button. A `read` token has no buttons. Docker feature off hides them
 - [ ] MCP `trigger_job` still refuses `container_start` and `container_stop`
