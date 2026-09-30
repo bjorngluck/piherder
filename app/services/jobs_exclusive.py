@@ -30,6 +30,8 @@ EXCLUSIVE_CELERY_TYPES = frozenset(
         "host_reboot",
         "os_update_check",
         "container_update_check",
+        "container_start",
+        "container_stop",
         "docker_stack_check",
         "docker_stack_deploy",
         "docker_stack_stop",

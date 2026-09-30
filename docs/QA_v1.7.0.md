@@ -3,7 +3,7 @@
 **Branch:** `v1.7.0-dev` → `main` · tag **`v1.7.0`** (cut after merge)  
 **Code freeze:** **set** 2026-09-28. No new features on this branch. Package bump, merge, tag, and Hub stay a separate ask.  
 **Package:** **`1.7.0`** (bumped for the tag)  
-**Operator QA:** **MCP-1**, **Jr-1**, **Jr-2**, **HA-cards**, **Brand-1**, **Brand-2**, **Audit pulse**, **1.6 regression**, and the screenshot pack signed. **v1.8.0** is the Home Assistant release: richer cards and stats. The 24-hour chart on the 0.3.0 cards does not draw; that stays a known issue for v1.8.0.  
+**Operator QA:** **MCP-1**, **Jr-1**, **Jr-2**, **HA-cards**, **Brand-1**, **Brand-2**, **Audit pulse**, **1.6 regression**, and the screenshot pack signed. The 0.3.0 cards are the signed 1.7 UI. Plugin **v0.4.1** on the v1.8 train replaces that layout and adds start or stop of one container. Do not re-open these boxes for it.  
 **Docs alignment:** **done** 2026-09-28 (release notes, wiki figures, freeze).  
 **Screenshots:** [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v170--pack-status). **Captured** 2026-09-28  
 **Pull request:** draft. Do not undraft, merge, tag, or publish until asked

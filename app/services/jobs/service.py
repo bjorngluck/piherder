@@ -62,6 +62,8 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "host_reboot",
         "os_update_check",
         "container_update_check",
+        "container_start",
+        "container_stop",
         "docker_stack_check",
         "docker_stack_deploy",
         "docker_stack_stop",
@@ -88,6 +90,8 @@ _STACK_MUTATING_JOB_TYPES = frozenset(
         "docker_stack_restart",
         "docker_stack_down",
         "docker_stack_remove",
+        "container_start",
+        "container_stop",
         "template_deploy",
         "template_redeploy",
         "service_migrate",
@@ -101,6 +105,18 @@ _STACK_LIFECYCLE_ACTIONS = frozenset({"stop", "start", "restart", "down"})
 _STACK_LIFECYCLE_JOB_TYPES = frozenset(
     {f"docker_stack_{a}" for a in _STACK_LIFECYCLE_ACTIONS}
 )
+_CONTAINER_SERVICE_JOB_TYPES = frozenset({"container_start", "container_stop"})
+
+
+def container_service_target(source_filter: str | None, service: str | None) -> tuple[str, str]:
+    """Compose directory and one service. Never the whole project."""
+    path = (source_filter or "").strip()
+    svc = (service or "").strip()
+    if not path or not svc:
+        raise ValueError(
+            "container start and stop need a compose directory and a service name"
+        )
+    return path, svc
 
 
 # Import Celery task for backup jobs (integrated path).
@@ -281,6 +297,8 @@ JOB_TYPE_LABELS = {
     "host_reboot": "Host reboot",
     "os_update_check": "OS check",
     "container_update_check": "Image check",
+    "container_start": "Container start",
+    "container_stop": "Container stop",
     "docker_stack_check": "Stack check",
     "docker_stack_deploy": "Stack deploy",
     "docker_stack_stop": "Stack stop",
@@ -821,6 +839,7 @@ def create_job_and_run(
     user_id: int | None = None,
     source_filter: str | None = None,
     os_steps: list[str] | None = None,
+    service: str | None = None,
     api_token_id: int | None = None,
     api_token_name: str | None = None,
 ):
@@ -843,6 +862,19 @@ def create_job_and_run(
                 server_id,
             )
             raise JobAlreadyActive(blocker)
+    if job_type in _CONTAINER_SERVICE_JOB_TYPES:
+        source_filter, service = container_service_target(source_filter, service)
+        if server_id:
+            blocker = _active_stack_mutating_job(session, server_id)
+            if blocker:
+                logger.info(
+                    "[Jobs] %s skip — %s job #%s already active for server %s",
+                    job_type,
+                    blocker.job_type,
+                    blocker.id,
+                    server_id,
+                )
+                raise JobAlreadyActive(blocker)
     if job_type == "backup":
         cleanup_stale_backup_jobs(session)
         if server_id:
@@ -882,10 +914,16 @@ def create_job_and_run(
             "docker_stack_restart": "Stack restart queued…",
             "docker_stack_down": "Stack undeploy queued…",
             "docker_stack_remove": "Stack delete queued…",
+            "container_start": f"Start {(service or '').strip() or 'container'} queued…",
+            "container_stop": f"Stop {(service or '').strip() or 'container'} queued…",
         }
+        detail_extra = dict(actor_extra)
+        if job_type in _CONTAINER_SERVICE_JOB_TYPES:
+            detail_extra["source_filter"] = (source_filter or "").strip()
+            detail_extra["service"] = (service or "").strip()
         job.details = _initial_job_details(
             labels.get(job_type, f"{job_type} queued…"),
-            **actor_extra,
+            **detail_extra,
         )
     session.add(job)
     session.commit()
@@ -1080,6 +1118,22 @@ def create_job_and_run(
             pool=_update_check_pool,
             sync_fn=_execute_docker_stack_deploy,
             sync_args=(job.id, server.id, audit.id, project_path, True, []),
+        )
+    elif job_type in _CONTAINER_SERVICE_JOB_TYPES:
+        path, svc = container_service_target(source_filter, service)
+        action = "start" if job_type == "container_start" else "stop"
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            payload={"project_path": path, "service": svc, "action": action},
+            background_tasks=background_tasks,
+            bg_fn=_run_container_service_job,
+            bg_args=(job.id, server.id, audit.id, path, svc, action),
+            pool=_update_check_pool,
+            sync_fn=_execute_container_service,
+            sync_args=(job.id, server.id, audit.id, path, svc, action),
         )
     elif job_type in _STACK_LIFECYCLE_JOB_TYPES:
         project_path = (source_filter or "").strip()
@@ -1493,6 +1547,13 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
             return f"{proj}: deploy ok"
         err = data.get("error") or status
         return f"{proj}: deploy failed — {err}"[:200]
+    if job_type in _CONTAINER_SERVICE_JOB_TYPES and isinstance(data, dict):
+        svc = data.get("service") or "service"
+        act = "start" if job_type == "container_start" else "stop"
+        if data.get("success") or status == "success":
+            return f"{svc}: {act} ok"
+        err = data.get("error") or status
+        return f"{svc}: {act} failed — {err}"[:200]
     if job_type in _STACK_LIFECYCLE_JOB_TYPES and isinstance(data, dict):
         proj = data.get("project") or data.get("project_path") or "stack"
         act = data.get("action") or job_type.replace("docker_stack_", "", 1)
@@ -3379,6 +3440,114 @@ from ..jobs_migrate import (  # noqa: E402
     enqueue_service_migrate_dest_recover,
     fail_migrate_worker_restart,
 )
+
+def _execute_container_service(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    project_path: str,
+    service: str,
+    action: str,
+) -> None:
+    """docker compose start|stop for one service. Never the rest of the project."""
+    from .. import docker_management as docker_svc
+    from .. import docker_inventory as inventory_svc
+
+    act = "start" if (action or "").strip().lower() == "start" else "stop"
+    job_type = f"container_{act}"
+    server, hostname = _load_server_for_job(server_id)
+    path = (project_path or "").strip()
+    svc = (service or "").strip()
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current=act,
+                log_line=f"docker compose {act} {svc}…",
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+    if not svc or not path:
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps({"error": "compose directory and service are required", "service": svc}),
+            hostname,
+            job_type,
+        )
+        return
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, job_type)
+        return
+    try:
+        _flush_job_progress(
+            job_id,
+            act,
+            f"Running docker compose {act} {svc} in {path}…",
+            default_current=act,
+        )
+        result = docker_svc.compose_action(server, path, act, service=svc) or {}
+        _append_output_log_lines(job_id, act, result.get("output") or "")
+        ok = bool(result.get("success"))
+        if ok:
+            try:
+                with _get_fresh_session() as s:
+                    srv = s.get(Server, server_id)
+                    if srv:
+                        inventory_svc.invalidate_after_mutation(s, srv, None)
+            except Exception as inv_e:
+                logger.debug("inventory invalidate after container %s: %s", act, inv_e)
+        payload = {
+            "service": svc,
+            "project_path": path,
+            "action": act,
+            "success": ok,
+            "error": result.get("error"),
+            "output": (result.get("output") or "")[:1500],
+        }
+        status = "success" if ok else "failed"
+        _flush_job_progress(
+            job_id,
+            "done" if ok else "error",
+            f"{svc} {act} {'ok' if ok else 'failed'}",
+            default_current=act,
+        )
+        _finish(audit_id, job_id, status, json.dumps(payload), hostname, job_type)
+    except Exception as e:
+        logger.exception("container_%s failed", act)
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps({"service": svc, "project_path": path, "action": act, "error": str(e)}),
+            hostname,
+            job_type,
+        )
+
+
+async def _run_container_service_job(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    project_path: str,
+    service: str,
+    action: str,
+):
+    await run_in_threadpool(
+        _execute_container_service,
+        job_id,
+        server_id,
+        audit_id,
+        project_path,
+        service,
+        action,
+    )
+
 
 def _execute_docker_stack_lifecycle(
     job_id: int,

@@ -1,6 +1,6 @@
 # PiHerder v1.8.0 — MCP job types, then backup destinations, then Home Assistant cards
 
-**Status:** **Active** (lock retuned 2026-09-30). **MCP-jobs** landed. **Bak-alt discovery** is §3.1. **Google Drive**, **Mux-2**, **Undo-2**, and **Jr-web** are built on this branch; walks are still open and those Should rows may slip. **HA-vis** is built in plugin **0.4.0** (one card, host strip, click-through history); the walk is still open. **HA bus** is built in that same plugin; the walk is still open and it may slip. Package stays `1.7.0`.  
+**Status:** **Active** (lock retuned 2026-09-30). **MCP-jobs** landed. **Bak-alt discovery** is §3.1. **Google Drive**, **Mux-2**, **Undo-2**, and **Jr-web** are built on this branch; walks are still open and those Should rows may slip. **HA-vis** is built in plugin **0.4.0** (one card, host strip, click-through history); the walk is still open. Plugin **0.4.1** starts or stops one compose service from that card. **HA bus** is built in the same plugin; the walk is still open and it may slip. Package stays `1.7.0`.  
 **Date opened:** 2026-09-28  
 **Git branch:** `v1.8.0-dev` → `main` · tag `v1.8.0` at freeze  
 **Package / image version:** stays **`1.7.0`** until freeze  
@@ -20,7 +20,7 @@ Hosted MCP used to start six job types. **MCP-jobs** widened `trigger_job` to th
 
 Per-server backups still rsync onto a directory on the herder host. §3.1 is the destination model: a second hop from that tree (path A). The build lean is **Google Drive**, one rclone copy, and it may slip. **OneDrive** and a **LAN NAS / SMB share** are named for later releases and are not built here. A client on each Pi that writes straight to cloud or NAS (path C) stays parked. The rsync directory stays. PiHerder’s own Settings DR backup stays that separate path.
 
-Plugin **0.3.0** shipped with v1.7.0: host, updates, and resources cards, plus confirm actions. The cards are plain. The host 24-hour sparkline and the resources 24-hour series do not draw. The points, when they draw, are Home Assistant history of the snapshot sensors (about every 15 minutes), not a live SSH chart. That visual pass is Must, after MCP and the backup write-up.
+Plugin **0.3.0** shipped with v1.7.0. Plugin **[v0.4.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.0)** is the visual pass: one card, a host strip, and a click that opens Home Assistant history of the snapshot sensors (about every 15 minutes, not a live SSH chart). Plugin **[v0.4.1](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.1)** adds Start and Stop for one compose service. The walks are still open. Screenshot recapture is [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v180--pack-status).
 
 Wanted:
 
@@ -168,7 +168,7 @@ Built on this branch. Detail is [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PL
 5. The history call reads the websocket map keyed by entity id. `rows[0]` is only the older list shape. Points stay HA history of the snapshot sensors (`server_id` + `piherder_metric`), about every 15 minutes. No new herder route.
 6. Backup is the one face button. Everything else is an Actions menu. Features (the three toggles) are collapsed. Open host is the one link; Docker, Backups, Alerts, and Audit are behind Also. Token rules stay (`read` has no job buttons; `jobs` confirms; `edit` toggles).
 7. Updates is one row per host: model icon, name, OS count, container count, reboot. The row opens that host. It does not repeat the action buttons.
-8. No container start/stop, Move, Files, or console.
+8. Plugin **0.4.1** starts or stops one compose service from the Host tab (**Containers**). It does not stop the whole project. Move, Files, and console stay out. MCP does not accept `container_start` or `container_stop`.
 
 ---
 
@@ -213,7 +213,7 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | ID | Item | Why it stays out |
 |----|------|------------------|
 | **AC-fg** | Per-host / per-feature grants | No grant write-up this train. Three global roles stay. Not multi-tenant. |
-| HA Slice 3 | Start/stop, webhooks, Move-from-HA, Files | Out. Cards and the bus event are the HA slices. |
+| HA Slice 3 | Webhooks, Move-from-HA, Files, whole-project stop | Start and stop of **one** compose service is plugin **0.4.1**. The rest stays out. |
 | Brand-3 | Own-docs MkDocs skin | Out. No theme engine. |
 | CSP Slice 2 | Rewrite `onclick` | Out. Large, easy to regress. |
 | OneDrive / SMB | Clients | Named in §3.1. SMB later is path B or rclone `smb`. OneDrive is rclone later. Path C stays parked. |
@@ -228,7 +228,7 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | **Must** | **MCP-jobs** | `trigger_job` accepts the jobs POST list. Move and undo stay refused. Hosted and stdio match | Landed on branch. Operator walk still open |
 | **Must** | **Bak-alt discovery** | §3.1 names path A (rclone second hop), path B (SMB mount later), path C parked. Local rsync stays the default | Written in §3.1 |
 | **Should** | **Google Drive** | Path A rclone copy after the local rsync. A failed upload fails the copy job. Demo never uploads | Built on branch. Walk still open. May slip |
-| **Must** | **HA-vis** | Plugin **0.4.0**. One card, host strip, click a stat for Home Assistant history. Same token rules | Built in the plugin. Walk still open |
+| **Must** | **HA-vis** | Plugin **0.4.1**. One card, host strip, click a stat for Home Assistant history. Start or stop one compose service. Same token rules | Built in the plugin. Walk still open |
 | **Should** | **HA bus** | `piherder_job_completed` from the plugin poll | Built in the plugin. Walk still open. May slip |
 | **Should** | **Mux-2** | List/kill `ph-u*` on SSH access | Built on branch. Walk still open. May slip |
 | **Should** | **Undo-2** | `dest_up` inspect helper. No green-Move undo | Built on branch. Walk still open. May slip |
@@ -263,7 +263,8 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 2026-09-29 | **Drive copy time limit.** Job 2268 was killed at the global 2-hour Celery limit, and Redis had already started a second copy at 1 hour. This copy now allows 7 days, acks on receive, and Redis visibility for other tasks is 3 hours. A dead worker marks the job failed. |
 | 2026-09-29 | **Undo-2 built** on the branch. A Move that dies during `dest_up` offers inspect, then `compose stop` dest and start source. DNS and NPM stay. No `down -v`. A green Move still has no Undo. Walk still open. |
 | 2026-09-29 | **Jr-web built** on the branch. Retention, PiHerder backup, and host facts run on Celery. A web recycle does not fail them. Host facts stays one-per-host. The backup and retention do not take a host slot. Walk still open. |
-| 2026-09-30 | **HA-vis and HA bus built** in plugin **0.4.0**. One card with a host strip, Raspberry Pi model and OS icons, and a click that opens Home Assistant history. Actions sit in one menu. A job that leaves the active set fires `piherder_job_completed`. No new herder route. Walks still open. |
+| 2026-09-30 | **HA-vis and HA bus built** in plugin **0.4.0**. One card with a host strip, Raspberry Pi model and OS icons, and a click that opens Home Assistant history. Actions sit in one menu. A job that leaves the active set fires `piherder_job_completed`. No new herder route. Walks still open. Tag **v0.4.0** is the HACS release. Screenshot recapture is still open. |
+| 2026-09-30 | **Container start/stop** in plugin **0.4.1**. Host tab **Containers** starts or stops one compose service (`container_start` / `container_stop`). Not the whole project. Not MCP. Walk still open. HACS lists 0.4.1 after the tag. |
 
 ---
 
@@ -275,7 +276,7 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 2 | Lock Must / Should in this plan | **Done** 2026-09-28 |
 | 3 | **MCP-jobs** | **Landed** on branch. Walk is [QA_v1.8.0.md](QA_v1.8.0.md) |
 | 4 | Bak-alt discovery is §3.1. Google Drive client | **Built** on branch (Settings → PiHerder backup). Walk still open |
-| 5 | **HA-vis** and the bus event | **Built** in plugin 0.4.0. Walks still open |
+| 5 | **HA-vis**, container start/stop, and the bus event | **Built** in plugin 0.4.1. Walks still open |
 | 6 | Freeze · `1.8.0` · tag · Hub | Only when asked |
 
 ---
