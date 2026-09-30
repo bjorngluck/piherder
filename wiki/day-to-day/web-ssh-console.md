@@ -143,7 +143,7 @@ Privileged **Connect as…** uses a different suffix (`-p`) so it never attaches
 
 ### Leftover sessions (Mux-2)
 
-While the host is still in PiHerder, open **SSH access** and use **Leftover console sessions → List sessions**. The list is only `ph-u*` sessions for **this** host (`ph-u{user}-s{server}-n{tab}-f` or `-p`). **Kill** ends that one session. Listing does not open the shell again. Hide still leaves the session on the Pi. ✕ still kills the session you are in.
+While the host is still in PiHerder, open **SSH access** and use **Leftover console sessions → List sessions**. The list is only `ph-u*` sessions for **this** host (`ph-u{user}-s{server}-n{tab}-f` or `-p`). **Kill** ends that one session, including another operator’s tab on this host. A name that belongs to a different server is refused. Listing does not open the shell again. Hide still leaves the session on the Pi. ✕ still kills the session you are in.
 
 This block is hidden on HAOS and on the public demo. Console mux can be off and the list still works, because a session from an earlier opt-in stays on the host.
 

@@ -265,6 +265,37 @@ def test_host_wait_past_limit_fails(monkeypatch):
         assert "unreachable" in (row.details or "")
 
 
+def test_container_stop_reaches_the_service_on_the_celery_path(monkeypatch):
+    """Production dispatch is run_exclusive_job, not the pytest inline handoff."""
+    engine = _engine()
+    _bind(monkeypatch, engine)
+    srv = _server(engine)
+    with Session(engine) as session:
+        job = Job(server_id=srv.id, job_type="container_stop", status="pending", details="{}")
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        jid = job.id
+
+    called: dict = {}
+
+    def execute(job_id, server_id, audit_id, project_path, service, action):
+        called["args"] = (job_id, server_id, audit_id, project_path, service, action)
+
+    monkeypatch.setattr("app.services.ssh.test_connection", lambda *a, **k: True)
+    monkeypatch.setattr(js, "_execute_container_service", execute)
+    result = run_exclusive_job(
+        _Task(),
+        jid,
+        srv.id,
+        8,
+        "container_stop",
+        {"project_path": "/opt/web", "service": "web", "action": "stop"},
+    )
+    assert result["status"] == "ok"
+    assert called["args"] == (jid, srv.id, 8, "/opt/web", "web", "stop")
+
+
 def test_ssh_up_runs_body_without_backup_lock(monkeypatch):
     engine = _engine()
     _bind(monkeypatch, engine)

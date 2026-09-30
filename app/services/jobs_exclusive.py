@@ -508,5 +508,17 @@ def _execute(job_type: str, job_id: int, server_id: int, audit_id: int, payload:
         )
     elif job_type == "host_facts":
         js._execute_host_facts(job_id, server_id, audit_id)
+    elif job_type in ("container_start", "container_stop"):
+        action = payload.get("action") or (
+            "start" if job_type == "container_start" else "stop"
+        )
+        js._execute_container_service(
+            job_id,
+            server_id,
+            audit_id,
+            payload.get("project_path") or "",
+            payload.get("service") or "",
+            action,
+        )
     else:
         raise ValueError(f"not an exclusive celery job: {job_type}")
