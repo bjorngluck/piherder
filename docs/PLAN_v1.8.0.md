@@ -1,6 +1,6 @@
 # PiHerder v1.8.0 — MCP job types, then backup destinations, then Home Assistant cards
 
-**Status:** **Shipped** 2026-10-01 (tag **v1.8.0**, Hub `1.8.0` / `1.8` / `latest`). Pull request [#19](https://github.com/bjorngluck/piherder/pull/19) merged. **MCP-svc** is locked for **v1.9.0** ([PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md)). §14 is the discovery this train left open.  
+**Status:** **Shipped** 2026-10-01 (tag **v1.8.0**, Hub `1.8.0` / `1.8` / `latest`). Pull request [#19](https://github.com/bjorngluck/piherder/pull/19) merged. **MCP-svc** is locked for **v1.9.0** ([PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md)). §14 is the discovery this train left open. The herder allowlist change is the v1.9 implementation.
 **Date opened:** 2026-09-28  
 **Git branch:** `v1.8.0-dev` merged to `main` · tag `v1.8.0`  
 **Package / image version:** **`1.8.0`**. Image tags `1.8.0` / `1.8` / `latest`. Pins `1.7.0` / `1.7` stay valid.  
@@ -30,7 +30,7 @@ Wanted:
 4. Cards that are easier to read at a glance, and a 24-hour series that actually draws from HA history  
 5. Optional after that: the job-finished bus event, leftover mux list/kill, a `dest_up` Move helper, and the three web-process jobs onto Celery  
 
-**Out until a later train:** AC-fg, HA Slice 3, Brand-3, CSP Slice 2, ACME, plugin-in-image, Move default-on, MCP OAuth, an OneDrive client, an SMB/NAS client. **MCP-svc** (§14) was the open question for the next release. Locked 2026-10-01 as **v1.9.0** ([PLAN_v1.9.0.md](PLAN_v1.9.0.md)). No MCP change in this train. Adapter **0.2.0** stays.
+**Out until a later train:** AC-fg, HA Slice 3, Brand-3, CSP Slice 2, ACME, plugin-in-image, Move default-on, MCP OAuth, an OneDrive client, an SMB/NAS client. **MCP-svc** (§14) was the open question for the next release. Locked 2026-10-01 as **v1.9.0** ([PLAN_v1.9.0.md](PLAN_v1.9.0.md)): the four one-service jobs join hosted `trigger_job`. No MCP change in this train. Adapter **0.2.0** stays.
 
 ---
 
@@ -44,7 +44,7 @@ Wanted:
 | Image tags (freeze) | `1.8.0` · `1.8` · `latest` (multi-arch); keep `1.7` / `1.7.x` pins valid |
 | In-scope | **MCP-jobs** Must (first) · **Bak-alt discovery** Must · **Google Drive** Should · **HA-vis** Must · **HA bus** Should · **Mux-2** Should · **Undo-2** Should · **Jr-web** Should |
 | Parked (no code) | **AC-fg** · HA Slice 3 · Brand-3 · CSP Slice 2 · ACME · plugin-in-image · M-flag C · MCP OAuth · OneDrive client · SMB/NAS client |
-| Next release | **MCP-svc** (§14), locked for **v1.9.0**. Not this train. No allowlist change and no adapter tag until that train |
+| Next release | **MCP-svc** (§14), locked for **v1.9.0**. Not this train. Herder allowlist and adapter tag land on that train |
 | Version bump | **1.8.0** shipped |
 | Demo | Stays the published **1.7.0** image |
 | Coverage | Fail-under stays **80**. Do not lower it |
@@ -240,7 +240,7 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | **Should** | **Undo-2** | `dest_up` inspect helper. No green-Move undo | Operator signed 2026-09-30 |
 | **Should** | **Jr-web** | Three web jobs survive a web recycle | Operator signed 2026-09-30 |
 | **Parked** | AC-fg · Slice 3 · OneDrive · SMB · the rest of §9 | No code | Parked |
-| **Next** | **MCP-svc** | All four one-service jobs join MCP on **v1.9.0**, with an adapter tag in that train | Not this train. §14 |
+| **Next** | **MCP-svc** | Locked yes: one-service start, stop, restart, and update join hosted MCP on **v1.9.0**. Adapter tag in that train | Not this train. §14 · [PLAN_v1.9.0.md](PLAN_v1.9.0.md) |
 
 ---
 
@@ -294,13 +294,13 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 5 | **HA-vis**, container start/stop, and the bus event | **Signed** 2026-09-30. Plugin **0.4.3** |
 | 6 | Freeze | **Set** 2026-09-30. Notes: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Screenshot pack **captured** 2026-10-01 |
 | 7 | Version bump · tag `v1.8.0` · Hub | **Done** 2026-10-01. Tag **v1.8.0**. Hub `1.8.0` / `1.8` / `latest` |
-| 8 | **MCP-svc** | **v1.9.0.** Locked 2026-10-01. Not this train. §14 |
+| 8 | **MCP-svc** | **v1.9.0.** Locked 2026-10-01. Not this train. §14 · [PLAN_v1.9.0.md](PLAN_v1.9.0.md) |
 
 ---
 
-## 14. Next release — **MCP-svc** (Should discovery)
+## 14. Next release — **MCP-svc** (locked for v1.9.0)
 
-**Locked 2026-10-01 for v1.9.0.** Option A: all four one-service jobs join `trigger_job`. The decision and the plan are [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md) and [PLAN_v1.9.0.md](PLAN_v1.9.0.md). The notes below are the discovery this train wrote. **v1.8.0** did not change the allowlist. No adapter release and no PyPI publish from v1.8. Adapter **0.2.0** stays until the v1.9 train.
+**Locked 2026-10-01 for v1.9.0.** Option A: all four one-service jobs join hosted `trigger_job`. The decision and the plan are [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md) and [PLAN_v1.9.0.md](PLAN_v1.9.0.md). The notes below are the discovery this train wrote. **v1.8.0** did not change the allowlist. No adapter release and no PyPI publish from v1.8. Adapter **0.2.0** stays until the v1.9 companion tag.
 
 The Home Assistant card already starts, stops, restarts, and updates one compose service. Each call needs the compose directory (`source_filter`) and the service name, and it leaves the rest of the project alone. Hosted MCP and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.2.0** refuse `container_start`, `container_stop`, `container_restart`, and `container_redeploy`. An agent has no confirm. The card does.
 

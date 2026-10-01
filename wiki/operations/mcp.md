@@ -68,7 +68,7 @@ Call the herder through the published HTTPS port (Caddy **8443**, or **8888** fo
 
 ## What a token can do
 
-Tools match the public stdio adapter. Nothing from that list is deferred. Tools appear only for scopes on the token. A token **without `read` fails closed**: initialize returns an error and no tools are listed.
+Tool names match the public stdio adapter. Hosted `trigger_job` also accepts the four one-service types below. Adapter **0.2.0** does not. Tools appear only for scopes on the token. A token **without `read` fails closed**: initialize returns an error and no tools are listed.
 
 | Scope | Tools |
 |-------|--------|
@@ -100,7 +100,7 @@ Tools match the public stdio adapter. Nothing from that list is deferred. Tools 
 
 ### Job types
 
-`trigger_job` takes `server_id` and `job_type`. `source_filter` and `os_steps` are optional. The host feature flag and any `feature:*` scope still apply.
+`trigger_job` takes `server_id` and `job_type`. `source_filter` and `os_steps` are optional except where the table says they are required. The host feature flag and any `feature:*` scope still apply. One-service jobs also need the `jobs` scope, `feature:docker` when the token is feature-restricted, and the server docker flag.
 
 | `job_type` | Host feature | Arguments |
 |------------|----------------|-----------|
@@ -111,6 +111,10 @@ Tools match the public stdio adapter. Nothing from that list is deferred. Tools 
 | `host_reboot` | os_patch | Reboot the host. |
 | `container_patch` | docker | Update containers. |
 | `container_update_check` | docker | Check for container image updates. |
+| `container_start` | docker | `service` (one compose service) and `source_filter` (compose project directory) are required. The rest of the project stays up. |
+| `container_stop` | docker | Same as `container_start`. |
+| `container_restart` | docker | Same as `container_start`. |
+| `container_redeploy` | docker | Same arguments. Redeploy is `docker compose up -d --no-deps --pull always` for that service. |
 | `docker_stack_check` | docker | `source_filter` is the compose project path. |
 | `docker_stack_deploy` | docker | `source_filter` is the compose project path. |
 | `docker_stack_stop` | docker | `source_filter` is the compose project path. |
@@ -121,7 +125,9 @@ Tools match the public stdio adapter. Nothing from that list is deferred. Tools 
 
 A second start of an exclusive job returns **409** with the job that is already running. The tool result includes `http_status` and `already_active`. Poll `get_job`. Do not start another.
 
-Not accepted on **v1.8.0**: `container_start`, `container_stop`, `container_restart`, `container_redeploy` (Home Assistant card only), `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move (`service_migrate`), undo (`service_migrate_undo`), and dest-up recover (`service_migrate_dest_recover`). Those four one-service jobs are locked for **v1.9.0** ([DECISION_MCP_SVC.md](https://github.com/bjorngluck/piherder/blob/main/docs/DECISION_MCP_SVC.md) · [PLAN_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.9.0.md)). This page does not add them. Adapter **0.2.0** stays until that train ships herder and adapter together.
+These four one-service jobs are on hosted `trigger_job` for **v1.9** ([DECISION_MCP_SVC.md](https://github.com/bjorngluck/piherder/blob/main/docs/DECISION_MCP_SVC.md) · [PLAN_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.9.0.md)). There is no confirm dialog. The Home Assistant card still has one. Adapter **[0.2.0](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.2.0)** does not list them yet. The stdio companion has to gain the same types before that train is tagged.
+
+Not accepted: `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move (`service_migrate`), undo (`service_migrate_undo`), dest-up recover (`service_migrate_dest_recover`), nmap, the console, token admin, and stale-data cleanup.
 
 Read tools set `readOnlyHint`. `set_features`, `trigger_job`, `write_file`, `mkdir`, `rename_file`, and `delete_file` set `destructiveHint`.
 
@@ -139,7 +145,7 @@ export PIHERDER_TOKEN='ph_…'
 uvx piherder-mcp
 ```
 
-`uvx piherder-mcp` installs the latest release on PyPI. That release is **[0.2.0](https://pypi.org/project/piherder-mcp/0.2.0/)**, and its `trigger_job` list is the table above. Notes: [piherder-mcp 0.2.0](https://github.com/bjorngluck/piherder-mcp/blob/main/docs/RELEASE_v0.2.0.md).
+`uvx piherder-mcp` installs the latest release on PyPI. That release is **[0.2.0](https://pypi.org/project/piherder-mcp/0.2.0/)**. Its `trigger_job` list is the **v1.8** list: the table above without `container_start`, `container_stop`, `container_restart`, and `container_redeploy`. Hosted `/mcp` on this tree accepts those four. Notes: [piherder-mcp 0.2.0](https://github.com/bjorngluck/piherder-mcp/blob/main/docs/RELEASE_v0.2.0.md). The companion change is a pull request on [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp), not this repository.
 
 Git pin, when you need a commit that is not the PyPI release:
 
@@ -166,13 +172,13 @@ uvx --from git+https://github.com/bjorngluck/piherder-mcp.git piherder-mcp
 
 `${PIHERDER_TOKEN}` in older samples is a human placeholder. Many hosts do **not** expand it. Paste the real secret, or set it in the environment the host already inherits.
 
-The tool list is the same. A token without `read` makes the stdio process exit on stderr.
+Tool names match. Adapter **0.2.0** does not offer the four one-service job types. A token without `read` makes the stdio process exit on stderr.
 
 ## Operating note
 
 Copy into the client that needs a short rule (Cursor rule, Grok skill, `CLAUDE.md`, Codex `AGENTS.md`):
 
-Call `summary` before changing anything. `trigger_job` for the jobs POST types listed above (`host_reboot`, the `docker_stack_*` actions on that list, and template deploy or redeploy included). For a stack job, `source_filter` is the compose project path. On **409**, poll `get_job`. Files stay in the fleet jail. Do not invent SSH, Move, undo, or a console. A token without `jobs`, `edit`, or `files` has no such tool.
+Call `summary` before changing anything. `trigger_job` for the jobs POST types listed above (`host_reboot`, the one-service `container_*` actions, the `docker_stack_*` actions on that list, and template deploy or redeploy included). For a stack job, `source_filter` is the compose project path. For `container_start`, `container_stop`, `container_restart`, and `container_redeploy`, `service` and `source_filter` are required. On **409**, poll `get_job`. Files stay in the fleet jail. Do not invent SSH, Move, undo, a console, `docker_stack_down`, or `docker_stack_remove`. A token without `jobs`, `edit`, or `files` has no such tool.
 
 ## Known follow-up
 
