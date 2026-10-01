@@ -4,9 +4,11 @@
 
 | Version | Support |
 |---------|---------|
-| **v1.6.x** | **Current production** line ([RELEASE_v1.6.0.md](docs/RELEASE_v1.6.0.md) · [PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md)) |
-| **v1.5.x** | Prior production; prefer upgrade to **v1.6.x** ([RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · [PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md)) |
-| **v1.4.x** | Prior production; prefer upgrade to **v1.6.x** ([RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](docs/PLAN_v1.4.0.md)) |
+| **v1.8.x** | **Current release** ([RELEASE_v1.8.0.md](docs/RELEASE_v1.8.0.md) · [PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md)). Tag **v1.8.0** |
+| **v1.7.x** | Prior production pin; still valid ([RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md)) |
+| **v1.6.x** | Prior production; prefer upgrade to **v1.8.x** ([RELEASE_v1.6.0.md](docs/RELEASE_v1.6.0.md) · [PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md)) |
+| **v1.5.x** | Prior production; prefer upgrade to **v1.7.x** ([RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · [PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md)) |
+| **v1.4.x** | Prior production; prefer upgrade to **v1.7.x** ([RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [PLAN_v1.4.0.md](docs/PLAN_v1.4.0.md)) |
 | **v1.3.x** | Prior production; prefer upgrade to **v1.4.x** ([RELEASE_v1.3.0.md](docs/RELEASE_v1.3.0.md) · [PLAN_v1.3.0.md](docs/PLAN_v1.3.0.md)) |
 | **v1.2.x** | Prior production; prefer upgrade to **v1.4.x** ([RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [PLAN_v1.2.0.md](docs/PLAN_v1.2.0.md)) |
 | **v1.1.x** | Prior production; prefer upgrade to **v1.4.x** ([RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md)) |
@@ -14,7 +16,7 @@
 | **`main`** | Development tip; security fixes land here first |
 | **v0.9.x and older** | Best-effort; prefer upgrade to latest production |
 
-Security fixes are applied on the default branch (`main`) and released as **v1.6.x** (or later) patch tags when warranted. Prefer the latest **1.6.x** tag for production. The open train is `v1.7.0-dev` ([PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md)); it is not a supported production line until tagged.
+Security fixes are applied on the default branch (`main`) and released as **v1.8.x** (or later) patch tags when warranted. The current Hub image is **v1.8.0**. Pins **v1.7.0** stay valid ([PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md)).
 
 ## Reporting a vulnerability
 
@@ -103,7 +105,7 @@ Demo must use **unique** Fernet/session secrets and never hold decryptable produ
   - **operator+ only** (viewer 403); session cookie required (no Bearer `/api/v1` console)
   - Ticket mint requires **same-site browser** Origin/Referer; rejects `Sec-Fetch-Site: cross-site`
   - WebSocket requires **Origin == Host**; open-ticket in first WS message only (not query string)
-  - Open ticket is **single-use**; **soft resume** after unexpected WS drop parks the SSH PTY (bound resume token, same user/host/session/device) until idle/max (or Settings park hold / `PIHERDER_SSH_CONSOLE_HOLD_SEC` if set); explicit close (`bye`) destroys the PTY. **Host mux** (v1.6, per-host opt-in `console_mux_enabled`, default off): when `tmux` or `screen` is already on the host, Hide/park **detaches** the mux session and ✕/`bye` **kills** it (`tmux kill-session` / `screen -X quit`). Idle timeout does not kill mux leftovers. Session names are `ph-u{user}-s{server}-n{tab}-f` or `-p` (fleet vs privileged; never shared). Probe never `apt install`s; missing binary falls back to plain PTY. **HAOS and the public demo never mux.** Leftover `ph-u*` sessions after host remove may remain until reboot or kill as that Unix user.
+  - Open ticket is **single-use**; **soft resume** after unexpected WS drop parks the SSH PTY (bound resume token, same user/host/session/device) until idle/max (or Settings park hold / `PIHERDER_SSH_CONSOLE_HOLD_SEC` if set); explicit close (`bye`) destroys the PTY. **Host mux** (v1.6, per-host opt-in `console_mux_enabled`, default off): when `tmux` or `screen` is already on the host, Hide/park **detaches** the mux session and ✕/`bye` **kills** it (`tmux kill-session` / `screen -X quit`). Idle timeout does not kill mux leftovers. Session names are `ph-u{user}-s{server}-n{tab}-f` or `-p` (fleet vs privileged; never shared). Probe never `apt install`s; missing binary falls back to plain PTY. **HAOS and the public demo never mux.** On SSH access, an operator can list and kill leftover `ph-u*` sessions for that host only (Mux-2). The list does not attach. Removing the host still does not `kill-server` for every Unix user; those sessions may remain until reboot or a kill on the Pi.
   - Ticket / resume bound to **login `session_version`**, **client IP** (default on; mobile resume may allow IP change if device cookie still matches), and **console device cookie** (default on)
   - **Continuous revalidation** (~every 10s while attached): session still valid, bindings still match, user still operator+ — else PTY killed
   - Logout / password change / admin “sign out sessions” invalidates open and parked shells within one revalidation / claim check

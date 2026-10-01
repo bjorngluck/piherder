@@ -364,6 +364,16 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
                 pass
 
         logger.info(f"[Celery] Backup {'completed' if ok else 'failed'} for server {server_id}")
+        if ok and server is not None:
+            try:
+                from app.services.backup_replicate import enqueue_after_host_backup
+                enqueue_after_host_backup(db, server)
+            except Exception as copy_exc:
+                logger.warning(
+                    "[Celery] Drive copy follow-up skipped for server %s: %s",
+                    server_id,
+                    copy_exc,
+                )
         return {"status": "success" if ok else "failed", "server_id": server_id, "result": result}
 
     except Exception as exc:
@@ -591,17 +601,20 @@ def service_migrate(
             db.close()
 
 
-@celery.task(
-    name="app.tasks.service_migrate_undo",
-    bind=True,
-    max_retries=_LOCK_MAX_RETRIES,
-    default_retry_delay=30,
-)
-def service_migrate_undo(self, job_id: int, source_id: int, dest_id: int, audit_id: int):
-    """Fail-path undo of a Move. Same dual-host backup mutex. Never dest down -v."""
+def _migrate_dual_lock_task(
+    self,
+    job_id: int,
+    source_id: int,
+    dest_id: int,
+    audit_id: int,
+    *,
+    job_type: str,
+    execute,
+    running_message: str,
+    log_name: str,
+):
+    """Shared Celery body for undo and dest-up recover. Never dest down -v."""
     from celery.exceptions import Retry
-
-    from app.services.jobs_migrate import _execute_service_migrate_undo
 
     db = Session(engine)
     lock_tokens: tuple[str, str] | None = None
@@ -619,21 +632,14 @@ def service_migrate_undo(self, job_id: int, source_id: int, dest_id: int, audit_
             from app.services.jobs.service import _finish, _load_server_for_job
 
             _src, hostname = _load_server_for_job(source_id)
-            _finish(
-                audit_id,
-                job_id,
-                "failed",
-                "Worker restarted during Undo. Dest directory was left in place. Inspect both hosts before retrying.",
-                hostname,
-                "service_migrate_undo",
-            )
+            _finish(audit_id, job_id, "failed", running_message, hostname, job_type)
             return {"status": "failed", "job_id": job_id, "reason": "worker_restart"}
 
         job.celery_task_id = self.request.id
         _remember_worker(job, self.request)
         db.add(job)
         db.commit()
-        holder = str(job_id or self.request.id or f"undo-{source_id}-{dest_id}")
+        holder = str(job_id or self.request.id or f"{job_type}-{source_id}-{dest_id}")
         lock_tokens = try_acquire_dual_server_lock(
             "backup", source_id, dest_id, holder=holder
         )
@@ -655,20 +661,20 @@ def service_migrate_undo(self, job_id: int, source_id: int, dest_id: int, audit_
                 },
             )
             raise self.retry(countdown=_LOCK_WAIT_COUNTDOWN_SEC)
-        _execute_service_migrate_undo(job_id, source_id, dest_id, audit_id)
+        execute(job_id, source_id, dest_id, audit_id)
         return {"status": "ok", "job_id": job_id}
     except Exception as exc:
         if isinstance(exc, Retry):
             raise
-        logger.exception("service_migrate_undo celery task failed job=%s", job_id)
+        logger.exception("%s celery task failed job=%s", log_name, job_id)
         err = str(exc)[:800]
         try:
             from app.services.jobs.service import _finish, _load_server_for_job
 
             _src, hostname = _load_server_for_job(source_id)
-            _finish(audit_id, job_id, "failed", err, hostname, "service_migrate_undo")
+            _finish(audit_id, job_id, "failed", err, hostname, job_type)
         except Exception:
-            logger.exception("service_migrate_undo fail-close")
+            logger.exception("%s fail-close", log_name)
             _update_job_status(
                 job_id,
                 "failed",
@@ -682,9 +688,68 @@ def service_migrate_undo(self, job_id: int, source_id: int, dest_id: int, audit_
                     "backup", source_id, lock_tokens[0], dest_id, lock_tokens[1]
                 )
             except Exception as e:
-                logger.warning("[Celery] Failed to release undo dual lock job=%s: %s", job_id, e)
+                logger.warning(
+                    "[Celery] Failed to release %s dual lock job=%s: %s",
+                    log_name,
+                    job_id,
+                    e,
+                )
         if db is not None:
             db.close()
+
+
+@celery.task(
+    name="app.tasks.service_migrate_undo",
+    bind=True,
+    max_retries=_LOCK_MAX_RETRIES,
+    default_retry_delay=30,
+)
+def service_migrate_undo(self, job_id: int, source_id: int, dest_id: int, audit_id: int):
+    """Fail-path undo of a Move. Same dual-host backup mutex. Never dest down -v."""
+    from app.services.jobs_migrate import _execute_service_migrate_undo
+
+    return _migrate_dual_lock_task(
+        self,
+        job_id,
+        source_id,
+        dest_id,
+        audit_id,
+        job_type="service_migrate_undo",
+        execute=_execute_service_migrate_undo,
+        running_message=(
+            "Worker restarted during Undo. Dest directory was left in place. "
+            "Inspect both hosts before retrying."
+        ),
+        log_name="service_migrate_undo",
+    )
+
+
+@celery.task(
+    name="app.tasks.service_migrate_dest_recover",
+    bind=True,
+    max_retries=_LOCK_MAX_RETRIES,
+    default_retry_delay=30,
+)
+def service_migrate_dest_recover(
+    self, job_id: int, source_id: int, dest_id: int, audit_id: int
+):
+    """Stop dest and start source after a dest_up worker death. No DNS revert."""
+    from app.services.jobs_migrate import _execute_dest_up_recover
+
+    return _migrate_dual_lock_task(
+        self,
+        job_id,
+        source_id,
+        dest_id,
+        audit_id,
+        job_type="service_migrate_dest_recover",
+        execute=_execute_dest_up_recover,
+        running_message=(
+            "Worker restarted while stopping dest or starting source. "
+            "Inspect both hosts before trying again. Names were not changed."
+        ),
+        log_name="service_migrate_dest_recover",
+    )
 
 
 @celery.task(
@@ -701,7 +766,7 @@ def exclusive_job(
     job_type: str,
     payload: dict | None = None,
 ):
-    """Patch, checks, stack, and template jobs on the default queue.
+    """Patch, checks, stack, template, and host-facts jobs on the default queue.
 
     Does not take the backup / Move mutex. Host-down stays pending and
     redelivers. A redelivery that finds the job already running fails it.
@@ -716,6 +781,207 @@ def exclusive_job(
         )
     except Retry:
         raise
+
+
+# Same 2h cap as host jobs, and under the 3h Redis visibility window, so a
+# still-running archive is not started twice. Ack stays late: a dead worker
+# redelivers, and the body fails a row that was already running.
+_HOUSEKEEPING_TIME_LIMIT = 7200
+
+
+@celery.task(
+    name="app.tasks.housekeeping_job",
+    bind=True,
+    acks_late=True,
+    time_limit=_HOUSEKEEPING_TIME_LIMIT,
+)
+def housekeeping_job(
+    self,
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    job_type: str,
+):
+    """retention and herder_backup on the default queue.
+
+    Not a host exclusive slot. Does not retry the work. A redelivery that
+    finds the job already running fails it.
+    """
+    from app.services.jobs import run_housekeeping_job
+
+    return run_housekeeping_job(
+        self, job_id, int(server_id or 0), audit_id, job_type or ""
+    )
+
+
+def _housekeeping_failure_message(exception: BaseException | None) -> str:
+    name = type(exception).__name__ if exception else ""
+    if name in ("TimeLimitExceeded", "HardTimeLimitExceeded") or "time limit" in str(
+        exception or ""
+    ).lower():
+        return "Worker hit the time limit while this job was running. It was not resumed."
+    return "Worker restarted while this job was running. It was not resumed."
+
+
+def _on_housekeeping_task_failure(
+    sender=None,
+    exception=None,
+    args=None,
+    **kwargs,
+) -> None:
+    """The hard time limit never reaches the task body."""
+    if getattr(sender, "name", "") != "app.tasks.housekeeping_job":
+        return
+    if not args or len(args) < 4:
+        return
+    try:
+        job_id = int(args[0])
+        audit_id = int(args[2])
+        job_type = str(args[3] or "")
+    except (TypeError, ValueError):
+        return
+    from app.services.jobs import fail_housekeeping_from_signal
+
+    fail_housekeeping_from_signal(
+        job_id, audit_id, job_type, _housekeeping_failure_message(exception)
+    )
+
+
+try:
+    from celery.signals import task_failure
+
+    task_failure.connect(_on_housekeeping_task_failure)
+except Exception:
+    logger.debug("Housekeeping failure signal not connected", exc_info=True)
+
+
+# Host rsync stays on the 2h global limit. A Drive copy can run much longer.
+# Ack on receive so Redis does not start a second rclone while the first is still going.
+# 7 days is the safety stop; the failure signal below records it on the job row.
+_DRIVE_COPY_TIME_LIMIT = 7 * 24 * 3600
+
+
+@celery.task(
+    bind=True,
+    name="app.tasks.replicate_backup",
+    acks_late=False,
+    time_limit=_DRIVE_COPY_TIME_LIMIT,
+)
+def replicate_backup(self, job_id: int):
+    """Copy checked /backups paths to a fleet destination. Default Celery queue."""
+    db = Session(engine)
+    try:
+        job = db.get(Job, job_id)
+        if not job or job.status not in ("pending", "running"):
+            return {"status": "skipped", "job_id": job_id}
+        if _remember_worker(job, self.request):
+            db.add(job)
+            db.commit()
+        try:
+            details = json.loads(job.details or "{}")
+        except Exception:
+            details = {}
+        from app.models import BackupDestination
+        from app.services.backup_replicate import execute
+
+        dest = db.get(BackupDestination, details.get("destination_id"))
+        _update_job_status(job_id, "running", {"current": "copying"})
+        if not dest:
+            _update_job_status(job_id, "failed", {"error": "Destination missing", "current": "failed"})
+            return {"status": "failed", "job_id": job_id}
+        result = execute(dest, details.get("scope"))
+        if result.get("ok"):
+            _update_job_status(
+                job_id,
+                "success",
+                {"current": "completed", "copied": result.get("copied") or []},
+            )
+            return {"status": "success", "job_id": job_id}
+        _update_job_status(
+            job_id,
+            "failed",
+            {"error": result.get("error") or "copy failed", "current": "failed"},
+        )
+        return {"status": "failed", "job_id": job_id, "error": result.get("error")}
+    except Exception as exc:
+        logger.error("Drive copy job %s failed: %s", job_id, exc)
+        _update_job_status(job_id, "failed", {"error": str(exc)[:500], "current": "failed"})
+        return {"status": "failed", "job_id": job_id, "error": str(exc)[:500]}
+    finally:
+        db.close()
+
+
+def fail_replicate_job(job_id: int, message: str) -> bool:
+    """Mark a Drive copy failed when the worker process dies outside execute()."""
+    text = (message or "Drive copy stopped").strip()[:500]
+    try:
+        with Session(engine) as s:
+            job = s.get(Job, job_id)
+            if not job or job.job_type != "backup_replicate":
+                return False
+            if job.status in ("success", "failed", "cancelled"):
+                return False
+            existing: dict = {}
+            try:
+                if job.details:
+                    existing = json.loads(job.details)
+            except Exception:
+                existing = {}
+            lines = list(existing.get("log_lines") or [])
+            if not lines or lines[-1] != text:
+                lines.append(text)
+            existing["log_lines"] = lines[-15:]
+            existing["error"] = text
+            existing["current"] = "failed"
+            existing["done"] = True
+            job.details = json.dumps(existing)
+            job.status = "failed"
+            job.finished_at = datetime.utcnow()
+            s.add(job)
+            s.commit()
+            return True
+    except Exception as exc:
+        logger.error("Drive copy job %s could not be marked failed: %s", job_id, exc)
+        return False
+
+
+def _drive_copy_failure_message(exception: BaseException | None) -> str:
+    name = type(exception).__name__ if exception else ""
+    if name in ("TimeLimitExceeded", "HardTimeLimitExceeded") or "time limit" in str(exception or "").lower():
+        return (
+            "Drive copy hit the worker time limit and was stopped. "
+            "Start it again. Files already uploaded stay on Drive."
+        )
+    return (
+        "The worker stopped during the Drive copy. "
+        "Start it again. Files already uploaded stay on Drive."
+    )
+
+
+def _on_drive_copy_task_failure(
+    sender=None,
+    exception=None,
+    args=None,
+    **kwargs,
+) -> None:
+    """SIGKILL and the hard time limit never reach the task's own except."""
+    if getattr(sender, "name", "") != "app.tasks.replicate_backup":
+        return
+    if not args:
+        return
+    try:
+        job_id = int(args[0])
+    except (TypeError, ValueError):
+        return
+    fail_replicate_job(job_id, _drive_copy_failure_message(exception))
+
+
+try:
+    from celery.signals import task_failure
+
+    task_failure.connect(_on_drive_copy_task_failure)
+except Exception:
+    logger.debug("Drive copy failure signal not connected", exc_info=True)
 
 
 def _update_job_status(job_id: int, status: str, extra: dict):

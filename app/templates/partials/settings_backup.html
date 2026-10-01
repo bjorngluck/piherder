@@ -70,6 +70,7 @@
         </select>
       </div>
       <button type="submit" class="btn btn-accent min-h-11">Run backup</button>
+      <p class="text-xs text-muted mt-2">Run queues a job. A web restart does not stop it.</p>
     </form>
 
     {% if backups %}
@@ -79,7 +80,7 @@
         <div class="source-row-body min-w-0">
           <div class="source-row-path" title="{{ b.name }}">{{ b.name }}</div>
           <div class="source-row-when text-muted">
-            {{ (b.size / 1024)|int }} KB
+            {{ b.size_human or ((b.size / 1024)|int ~ ' KB') }}
             <span class="text-muted">·</span>
             <span class="utc-time" data-utc="{{ b.mtime }}">{{ b.mtime }}</span>
           </div>
@@ -147,6 +148,569 @@
       </form>
     </details>
   </div>
+
+  <div class="card p-5 mb-4" id="drive-copy">
+    <div class="flex items-start justify-between gap-3 mb-3">
+      <div class="min-w-0">
+        <h2 class="font-semibold text-text m-0">Copy the backup drive</h2>
+        <p class="text-xs text-muted mt-1">
+          {% if copy_account_kind == 'oauth' and copy_has_token %}
+          Google Drive · {{ copy_account_email or 'signed in' }} · folder {{ copy_drive_folder or 'PiHerder' }}
+          · {% if copy_dest.schedule %}{{ copy_dest.schedule | cron_human(current_tz if current_tz is defined else get_app_timezone()) }}{% else %}manual{% endif %}
+          {% elif copy_has_token %}
+          A service-account key is saved. Connect Google so new files use your Drive space.
+          {% else %}
+          No external copy yet. Host backups stay on this PiHerder.
+          {% endif %}
+        </p>
+      </div>
+      {% if copy_dest %}
+      <div class="flex gap-2 shrink-0">
+        {% if copy_account_kind == 'oauth' and copy_has_token %}
+        <form method="post" action="/backup-copies/test">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Test</button>
+        </form>
+        {% endif %}
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy">
+          {% if copy_has_token %}Edit{% else %}Set up{% endif %}
+        </button>
+      </div>
+      {% endif %}
+    </div>
+    {% if copy_saved %}<p class="text-sm text-accent mb-3">Saved.</p>{% endif %}
+    {% if copy_test == 'ok' %}
+    <p class="text-sm text-accent mb-3">The folder is shared with this account. Nothing was copied.</p>
+    {% elif copy_test == 'folder' %}
+    <p class="text-sm text-danger mb-3">That folder was not found in this Google account’s My Drive. The name must match a folder you own.</p>
+    {% elif copy_test == 'auth' %}
+    <p class="text-sm text-danger mb-3">Google rejected the sign-in. Connect Google again.</p>
+    {% elif copy_test == 'account' %}
+    <p class="text-sm text-danger mb-3">Connect Google before testing.</p>
+    {% elif copy_test == 'rclone' %}
+    <p class="text-sm text-danger mb-3">rclone is not available in this container. Rebuild the image, then test again.</p>
+    {% elif copy_test == 'timeout' %}
+    <p class="text-sm text-danger mb-3">Google did not answer in time. Try the test again.</p>
+    {% elif copy_test == 'demo' %}
+    <p class="text-sm text-danger mb-3">The public demo does not contact Google Drive.</p>
+    {% elif copy_test %}
+    <p class="text-sm text-danger mb-3">The test did not succeed.</p>
+    {% endif %}
+    {% if copy_error == 'cron' %}
+    <p class="text-sm text-danger mb-3">Choose a schedule from the list, or enter a 5-field cron.</p>
+    {% elif copy_error == 'client' %}
+    <p class="text-sm text-danger mb-3">Paste the OAuth client ID and secret from Google Cloud, then connect again.</p>
+    {% elif copy_error == 'origin' %}
+    <p class="text-sm text-danger mb-3">PiHerder could not tell which address to send Google back to. Set PIHERDER_PUBLIC_URL and try again.</p>
+    {% elif copy_error == 'state' %}
+    <p class="text-sm text-danger mb-3">The Google sign-in did not match this browser. Connect again.</p>
+    {% elif copy_error == 'google' %}
+    <p class="text-sm text-danger mb-3">Google did not finish the sign-in. Check the redirect URL on the OAuth client, then connect again.</p>
+    {% elif copy_error == 'folder' %}
+    <p class="text-sm text-danger mb-3">That Drive folder name is not valid.</p>
+    {% elif copy_error == 'provider' %}
+    <p class="text-sm text-danger mb-3">That service is not available yet.</p>
+    {% elif copy_error %}
+    <p class="text-sm text-danger mb-3">{{ copy_error }}</p>
+    {% endif %}
+    {% if not copy_dest %}
+    <p class="text-sm text-muted">The destination table is not ready. Run migrations, then reload.</p>
+    {% else %}
+    <div id="settings-drive-copy-modal" class="{{ 'hidden' if not copy_error else '' }} fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+         data-settings-modal="drive-copy" role="dialog" aria-modal="true" aria-labelledby="settings-drive-copy-title">
+      <div class="modal-content settings-sheet card ph-modal-brand">
+        <div class="settings-sheet-head">
+          <div class="min-w-0 pr-2">
+            <h2 id="settings-drive-copy-title" class="font-semibold text-text m-0">Copy the backup drive</h2>
+            <p class="text-xs text-muted mt-1">A failed copy fails its own job. Restore still uses the local copies.</p>
+          </div>
+          <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
+        </div>
+        <form method="post" action="/backup-copies/config" class="settings-sheet-form" id="drive-copy-form">
+          <div class="settings-sheet-body space-y-3 text-sm">
+            {% if copy_error == 'client' %}
+            <p class="text-sm text-danger">Paste the OAuth client ID and secret, then connect again.</p>
+            {% elif copy_error == 'origin' %}
+            <p class="text-sm text-danger">PiHerder could not tell which address to send Google back to. Set PIHERDER_PUBLIC_URL and try again.</p>
+            {% elif copy_error == 'state' %}
+            <p class="text-sm text-danger">The Google sign-in did not match this browser. Connect again.</p>
+            {% elif copy_error == 'google' %}
+            <p class="text-sm text-danger">Google did not finish the sign-in. Check the redirect URL on the OAuth client, then connect again.</p>
+            {% elif copy_error == 'cron' %}
+            <p class="text-sm text-danger">Choose a schedule from the list, or enter a 5-field cron.</p>
+            {% elif copy_error == 'folder' %}
+            <p class="text-sm text-danger">That Drive folder name is not valid.</p>
+            {% elif copy_error == 'provider' %}
+            <p class="text-sm text-danger">That service is not available yet.</p>
+            {% elif copy_error %}
+            <p class="text-sm text-danger">{{ copy_error }}</p>
+            {% endif %}
+            <div>
+              <label class="block text-xs text-muted mb-1" for="copy-provider">Service</label>
+              <select id="copy-provider" name="provider"
+                      class="settings-backup-control w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+                <option value="drive" selected>Google Drive</option>
+                <option value="onedrive">OneDrive (more to follow)</option>
+                <option value="smb">LAN NAS / SMB (more to follow)</option>
+              </select>
+            </div>
+            <div data-copy-help="drive" class="text-xs text-muted border border-border rounded p-3 bg-surface">
+              <p class="mb-2">Do these in order in Google Cloud, then paste the client here. Leave the app in <strong>Testing</strong>. Do not publish it. Publishing asks Google to verify the Drive scope.</p>
+              <ol class="space-y-1 list-decimal pl-4">
+                <li>Open a <a href="https://console.cloud.google.com/projectcreate" class="text-accent hover:underline" target="_blank" rel="noopener">project</a>, or select the one you already use.</li>
+                <li><a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" class="text-accent hover:underline" target="_blank" rel="noopener">Enable the Google Drive API</a>.</li>
+                <li><a href="https://console.cloud.google.com/auth/branding" class="text-accent hover:underline" target="_blank" rel="noopener">Google Auth platform → Branding</a>. App name <span class="text-text">PiHerder</span>. Support email: your Gmail. Save.</li>
+                <li><a href="https://console.cloud.google.com/auth/audience" class="text-accent hover:underline" target="_blank" rel="noopener">Audience</a>. User type <span class="text-text">External</span>. Publishing status stays <span class="text-text">Testing</span>. Under Test users, add the Gmail that owns the Drive folder.</li>
+                <li><a href="https://console.cloud.google.com/auth/scopes" class="text-accent hover:underline" target="_blank" rel="noopener">Data access</a>. Add scope <span class="font-mono text-text">https://www.googleapis.com/auth/drive</span> (See, edit, create, and delete all of your Google Drive files). Save.</li>
+                <li><a href="https://console.cloud.google.com/auth/clients" class="text-accent hover:underline" target="_blank" rel="noopener">Clients → Create client → Web application</a>. Under Authorised redirect URIs, add this URL exactly. Include the port. No trailing slash. Then Create:</li>
+              </ol>
+              <p class="mt-2 font-mono break-all text-text">{{ copy_redirect_uri or 'Set PIHERDER_PUBLIC_URL, then reload. The redirect URL must be the address you use in the browser.' }}</p>
+              <ol class="space-y-1 list-decimal pl-4 mt-2" start="7">
+                <li>Paste the client ID and the secret below. The secret starts with <span class="font-mono text-text">GOCSPX-</span>. Leave the secret blank only after one is already saved. If you lost it, add a new secret on that client.</li>
+                <li><strong>Connect Google</strong>. Choose Advanced, then continue, and sign in as the test user who owns the folder. The folder name is a folder in that account’s My Drive.</li>
+              </ol>
+              <p class="mt-2">
+                <a href="{{ docs_url }}day-to-day/backups/#set-up-google-drive" class="text-accent hover:underline" target="_blank" rel="noopener">Same steps on the backup page</a>
+              </p>
+            </div>
+            <p data-copy-help="later" class="hidden text-sm text-muted">That service is not available yet. Google Drive is the one this page can save.</p>
+            <div data-copy-fields="drive" class="space-y-3">
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-client-id">OAuth client ID</label>
+                <input id="copy-client-id" name="client_id" autocomplete="off" spellcheck="false"
+                       value="{{ copy_client_id or '' }}"
+                       placeholder="123-abc.apps.googleusercontent.com"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11">
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-client-secret">OAuth client secret</label>
+                <input id="copy-client-secret" name="client_secret" type="password" autocomplete="off"
+                       placeholder="{% if copy_has_secret %}Saved. Leave blank to keep it.{% else %}GOCSPX-… required the first time{% endif %}"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11">
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-folder">Folder on Drive</label>
+                <input id="copy-folder" name="drive_folder" value="{{ copy_drive_folder or 'PiHerder' }}"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-schedule">Schedule</label>
+                <select id="copy-schedule" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
+                        aria-label="Drive copy schedule preset">
+                  <option value="manual" {% if not copy_dest.schedule %}selected{% endif %}>Manual only</option>
+                  <option value="custom" {% if copy_dest.schedule and copy_dest.schedule not in cron_preset_values %}selected{% endif %}>Custom / advanced cron…</option>
+                  {% for val, lab in cron_presets %}
+                  <option value="{{ val }}" {% if copy_dest.schedule == val %}selected{% endif %}>{{ lab }}</option>
+                  {% endfor %}
+                </select>
+                <input id="copy-cron" type="text" name="schedule_cron" value="{{ copy_dest.schedule or '' }}" placeholder="0 3 * * *"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11 mt-1 {% if not copy_dest.schedule or copy_dest.schedule in cron_preset_values %}hidden{% endif %}">
+              </div>
+              <label class="flex items-center gap-2 min-h-11">
+                <input type="checkbox" name="after_host_backup" value="1" {% if copy_dest.after_host_backup %}checked{% endif %}>
+                After a host backup succeeds, copy that host’s checked folders
+              </label>
+            </div>
+          </div>
+          <div class="settings-sheet-foot flex gap-2">
+            <button type="submit" class="btn btn-secondary min-h-11 text-sm" data-copy-save>Save</button>
+            <button type="submit" class="btn btn-accent min-h-11 text-sm" formaction="/backup-copies/google/start" formmethod="post">Connect Google</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <script>
+    (function () {
+      var form = document.getElementById('drive-copy-form');
+      if (!form) return;
+      var provider = document.getElementById('copy-provider');
+      var schedule = document.getElementById('copy-schedule');
+      var cron = document.getElementById('copy-cron');
+      function show(name, on) {
+        form.querySelectorAll('[data-copy-help="' + name + '"], [data-copy-fields="' + name + '"]').forEach(function (el) {
+          el.classList.toggle('hidden', !on);
+        });
+      }
+      function applyProvider() {
+        var drive = !provider || provider.value === 'drive';
+        show('drive', drive);
+        show('later', !drive);
+        var save = form.querySelector('[data-copy-save]');
+        if (save) save.disabled = !drive;
+        form.querySelectorAll('[data-copy-fields="drive"] input, [data-copy-fields="drive"] textarea, [data-copy-fields="drive"] select').forEach(function (el) {
+          el.disabled = !drive;
+        });
+      }
+      function applySchedule() {
+        if (!schedule || !cron) return;
+        var custom = schedule.value === 'custom';
+        cron.classList.toggle('hidden', !custom);
+        if (schedule.value === 'manual') cron.value = '';
+        else if (!custom) cron.value = schedule.value;
+      }
+      if (provider) provider.addEventListener('change', applyProvider);
+      if (schedule) schedule.addEventListener('change', applySchedule);
+      applyProvider();
+      applySchedule();
+    })();
+    </script>
+
+    <div class="bc-win" id="bc-win">
+      <div class="bc-toolbar">
+        <button type="button" class="btn btn-secondary text-xs min-h-10 bc-tree-toggle" id="bc-tree-toggle">Folders</button>
+        <nav class="bc-path" id="bc-path" aria-label="Backup path"></nav>
+        <form method="post" action="/backup-copies/run">
+          <button type="submit" class="btn btn-accent min-h-10 text-sm">Copy now</button>
+        </form>
+      </div>
+      <div class="bc-panes">
+        <button type="button" class="bc-scrim" id="bc-scrim" aria-label="Close folders"></button>
+        <aside class="bc-tree" id="bc-tree" aria-label="Folders"></aside>
+        <div class="bc-list" id="bc-list">
+          <div class="bc-cols">
+            <span><input type="checkbox" id="bc-all" aria-label="Select all in this folder"></span>
+            <span>Name</span>
+            <span class="bc-hide-sm">Size</span>
+            <span class="bc-hide-sm">Modified</span>
+          </div>
+          <div id="bc-rows"></div>
+        </div>
+      </div>
+      <div class="bc-status" id="bc-status"></div>
+    </div>
+    {% endif %}
+  </div>
 </div>
+<style>
+  .bc-win {
+    display: flex; flex-direction: column;
+    height: 28rem; min-height: 22rem;
+    border: 1px solid var(--color-border); border-radius: 12px;
+    background: var(--color-surface); overflow: hidden;
+    box-shadow: 0 8px 28px color-mix(in srgb, #000 12%, transparent);
+  }
+  .bc-toolbar {
+    display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+    padding: 0.45rem 0.55rem; border-bottom: 1px solid var(--color-border); flex: 0 0 auto;
+  }
+  .bc-tree-toggle { display: none; }
+  .bc-path {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.15rem;
+    flex: 1 1 12rem; min-width: 0;
+    font-family: ui-monospace, monospace; font-size: 0.78rem;
+    padding: 0.28rem 0.45rem; border: 1px solid var(--color-border); border-radius: 8px;
+    background: var(--color-bg);
+  }
+  .bc-path button { border: 0; background: transparent; color: var(--color-accent); cursor: pointer; font: inherit; padding: 0; }
+  .bc-path button:hover { text-decoration: underline; }
+  .bc-path span { color: var(--color-accent); margin: 0 0.12rem; }
+  .bc-panes { display: flex; flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; }
+  .bc-tree {
+    width: 15.5rem; flex: 0 0 15.5rem; overflow: auto; min-height: 0;
+    padding: 0.35rem 0.2rem 0.6rem;
+    border-right: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-bg) 55%, var(--color-surface));
+  }
+  .bc-scrim { display: none; }
+  .bc-list { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; }
+  .bc-tree-row, .bc-item {
+    display: flex; align-items: center; gap: 0.2rem; width: 100%;
+    text-align: left; border: 0; background: transparent; color: inherit;
+  }
+  .bc-tree-row { padding: 0.15rem 0.25rem; border-radius: 6px; font-size: 0.82rem; }
+  .bc-tree-row:hover, .bc-item:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+  .bc-tree-row.is-current { background: color-mix(in srgb, var(--color-accent) 18%, transparent); font-weight: 600; }
+  .bc-item.is-on { background: color-mix(in srgb, var(--color-accent) 14%, transparent); }
+  .bc-twist { width: 1.1rem; flex: 0 0 1.1rem; color: var(--color-muted); font-size: 0.7rem; border: 0; background: transparent; color: var(--color-muted); cursor: pointer; }
+  .bc-open { flex: 1 1 auto; min-width: 0; text-align: left; border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; font-weight: 600; }
+  .bc-open span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bc-cols, .bc-item {
+    display: grid;
+    grid-template-columns: 2.4rem minmax(8rem, 1fr) 5.5rem 8.5rem;
+    gap: 0.35rem; align-items: center;
+    padding: 0.35rem 0.7rem;
+  }
+  .bc-cols {
+    position: sticky; top: 0; z-index: 1;
+    font-size: 0.68rem; color: var(--color-muted); font-weight: 650;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--color-border); background: var(--color-surface);
+  }
+  .bc-item { min-height: 2.6rem; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent); font-size: 0.85rem; }
+  .bc-item input, .bc-tree-row input, .bc-cols input { width: 1.05rem; height: 1.05rem; }
+  .bc-meta { color: var(--color-muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+  .bc-empty { padding: 2rem 1rem; text-align: center; color: var(--color-muted); }
+  .bc-status {
+    flex: 0 0 auto; padding: 0.4rem 0.7rem; font-size: 0.75rem; color: var(--color-muted);
+    border-top: 1px solid var(--color-border);
+  }
+  .bc-status.is-err { color: var(--color-danger, #dc2626); }
+  @media (max-width: 719px) {
+    .bc-tree-toggle { display: inline-flex; }
+    .bc-scrim { display: none; position: absolute; inset: 0; z-index: 24; border: 0; background: color-mix(in srgb, #000 42%, transparent); }
+    .bc-win.is-tree .bc-scrim { display: block; }
+    .bc-tree {
+      position: absolute; left: 0; top: 0; bottom: 0; z-index: 25;
+      width: min(18.5rem, 86vw); flex: none;
+      transform: translateX(-105%); transition: transform 0.2s ease;
+      box-shadow: 8px 0 28px color-mix(in srgb, #000 22%, transparent);
+    }
+    .bc-win.is-tree .bc-tree { transform: translateX(0); }
+    .bc-cols, .bc-item { grid-template-columns: 2.4rem minmax(0, 1fr); }
+    .bc-hide-sm { display: none; }
+  }
+</style>
+{% if copy_dest %}
+<script>
+(function () {
+  var current = "";
+  var viewGen = 0;
+  var cache = {};
+  var expanded = { "": true };
+  var rowsEl = document.getElementById("bc-rows");
+  var treeEl = document.getElementById("bc-tree");
+  var pathEl = document.getElementById("bc-path");
+  var allEl = document.getElementById("bc-all");
+  var statusEl = document.getElementById("bc-status");
+  var win = document.getElementById("bc-win");
+
+  function setStatus(text, isErr) {
+    statusEl.textContent = text || "";
+    statusEl.className = "bc-status" + (isErr ? " is-err" : "");
+  }
+  function whenLabel(sec) {
+    if (!sec) return "";
+    try { return new Date(sec * 1000).toLocaleString(); } catch (e) { return ""; }
+  }
+  function applyBox(box, state) {
+    box.indeterminate = state === "partial";
+    box.checked = state === "on";
+  }
+  function paintCrumbs(path) {
+    pathEl.innerHTML = "";
+    function add(label, rel) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = label;
+      b.addEventListener("click", function () { load(rel); });
+      pathEl.appendChild(b);
+    }
+    add("Backups", "");
+    if (!path) return;
+    var acc = "";
+    path.split("/").forEach(function (part) {
+      var sep = document.createElement("span");
+      sep.textContent = "/";
+      pathEl.appendChild(sep);
+      acc = acc ? acc + "/" + part : part;
+      var rel = acc;
+      add(part, rel);
+    });
+  }
+  function markExpanded(path) {
+    expanded[""] = true;
+    if (!path) return;
+    var acc = "";
+    path.split("/").forEach(function (part) {
+      acc = acc ? acc + "/" + part : part;
+      expanded[acc] = true;
+    });
+  }
+  function fetchListing(rel, done) {
+    fetch("/backup-copies/list?p=" + encodeURIComponent(rel), { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) return;
+        cache[rel] = data;
+        if (done) done();
+      })
+      .catch(function () {});
+  }
+  function renderTree() {
+    treeEl.innerHTML = "";
+    function node(rel, name, state, depth) {
+      var data = cache[rel];
+      var kids = (data && data.entries) ? data.entries.filter(function (e) { return e.is_dir; }) : [];
+      var isOpen = !!expanded[rel];
+      var row = document.createElement("div");
+      row.className = "bc-tree-row" + (rel === current ? " is-current" : "");
+      row.style.paddingLeft = (0.2 + depth * 0.85) + "rem";
+      var twist = document.createElement("button");
+      twist.type = "button";
+      twist.className = "bc-twist";
+      twist.setAttribute("aria-label", (isOpen ? "Collapse " : "Expand ") + name);
+      twist.textContent = kids.length || !data ? (isOpen && data ? "▾" : "▸") : "·";
+      twist.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (!rel && isOpen) return;
+        if (isOpen) {
+          delete expanded[rel];
+          renderTree();
+          return;
+        }
+        expanded[rel] = true;
+        if (cache[rel]) { renderTree(); return; }
+        fetchListing(rel, renderTree);
+      });
+      var box = document.createElement("input");
+      box.type = "checkbox";
+      box.setAttribute("aria-label", "Include " + name);
+      if (rel) {
+        applyBox(box, state || (data && data.state) || "off");
+        box.addEventListener("click", function (ev) { ev.stopPropagation(); });
+        box.addEventListener("change", function () { toggle(rel, box.checked); });
+      } else {
+        box.disabled = true;
+        box.style.visibility = "hidden";
+      }
+      var open = document.createElement("button");
+      open.type = "button";
+      open.className = "bc-open";
+      open.textContent = name;
+      open.addEventListener("click", function () {
+        expanded[rel] = true;
+        load(rel);
+        closeTree();
+      });
+      row.appendChild(twist);
+      row.appendChild(box);
+      row.appendChild(open);
+      treeEl.appendChild(row);
+      if (isOpen && data) kids.forEach(function (e) { node(e.path, e.name, e.state, depth + 1); });
+    }
+    node("", "Backups", "off", 0);
+  }
+  function render(data) {
+    current = data.path || "";
+    cache[current] = data;
+    paintCrumbs(current);
+    rowsEl.innerHTML = "";
+    var entries = data.entries || [];
+    if (!entries.length) {
+      var empty = document.createElement("div");
+      empty.className = "bc-empty";
+      empty.textContent = "This folder is empty.";
+      rowsEl.appendChild(empty);
+    }
+    var allOn = entries.length > 0;
+    var anyPartial = false;
+    entries.forEach(function (entry) {
+      if (entry.state !== "on") allOn = false;
+      if (entry.state === "partial") anyPartial = true;
+      var row = document.createElement("div");
+      row.className = "bc-item" + (entry.state === "on" ? " is-on" : "");
+      row.setAttribute("data-path", entry.path);
+      var cell = document.createElement("span");
+      var box = document.createElement("input");
+      box.type = "checkbox";
+      box.setAttribute("aria-label", "Include " + entry.name);
+      applyBox(box, entry.state || "off");
+      box.addEventListener("change", function () { toggle(entry.path, box.checked); });
+      cell.appendChild(box);
+      var name = document.createElement(entry.is_dir ? "button" : "span");
+      if (entry.is_dir) name.type = "button";
+      name.className = "bc-open";
+      var nm = document.createElement("span");
+      nm.textContent = entry.is_dir ? entry.name + "/" : entry.name;
+      name.appendChild(nm);
+      if (entry.is_dir) name.addEventListener("click", function () { load(entry.path); });
+      var size = document.createElement("span");
+      size.className = "bc-meta bc-hide-sm";
+      size.textContent = entry.is_dir ? "—" : (entry.size_h || "—");
+      var mod = document.createElement("span");
+      mod.className = "bc-meta bc-hide-sm";
+      mod.textContent = whenLabel(entry.mtime);
+      row.appendChild(cell);
+      row.appendChild(name);
+      row.appendChild(size);
+      row.appendChild(mod);
+      rowsEl.appendChild(row);
+    });
+    allEl.indeterminate = anyPartial && !allOn;
+    allEl.checked = allOn;
+    var folderState = data.state || "off";
+    if (!current) setStatus(folderState === "partial" ? "Some folders are included." : "Tick the folders to copy.");
+    else if (folderState === "on") setStatus("This folder is included. Untick anything you want to leave behind.");
+    else if (folderState === "partial") setStatus("Part of this folder is included.");
+    else setStatus("This folder is not included.");
+    markExpanded(current);
+    renderTree();
+    warmAncestors(current);
+  }
+  function warmAncestors(path) {
+    if (!path) return;
+    var acc = "";
+    var chain = [""];
+    path.split("/").forEach(function (part) {
+      acc = acc ? acc + "/" + part : part;
+      chain.push(acc);
+    });
+    chain.forEach(function (rel) {
+      if (cache[rel]) return;
+      fetchListing(rel, renderTree);
+    });
+  }
+  function load(next) {
+    var gen = ++viewGen;
+    var rel = next || "";
+    fetch("/backup-copies/list?p=" + encodeURIComponent(rel), { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (gen !== viewGen) return;
+        if (!data.ok) { setStatus(data.error || "Could not open that folder.", true); return; }
+        render(data);
+      })
+      .catch(function () {
+        if (gen === viewGen) setStatus("Could not open that folder.", true);
+      });
+  }
+  function toggle(itemPath, on) {
+    setStatus("Saving…");
+    fetch("/backup-copies/toggle", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: itemPath, on: !!on })
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (!data.ok) { setStatus(data.error || "Could not update the selection.", true); load(current); return; }
+      cache = {};
+      expanded = { "": true };
+      markExpanded(current);
+      load(current);
+    }).catch(function () {
+      setStatus("Could not update the selection.", true);
+      load(current);
+    });
+  }
+  allEl.addEventListener("change", function () {
+    var on = allEl.checked;
+    var changes = [];
+    rowsEl.querySelectorAll("[data-path]").forEach(function (row) {
+      changes.push({ path: row.getAttribute("data-path"), on: on });
+    });
+    if (!changes.length) return;
+    setStatus("Saving…");
+    fetch("/backup-copies/toggle", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ changes: changes })
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (!data.ok) { setStatus(data.error || "Could not update the selection.", true); }
+      cache = {};
+      expanded = { "": true };
+      markExpanded(current);
+      load(current);
+    }).catch(function () { setStatus("Could not update the selection.", true); load(current); });
+  });
+  function closeTree() { win.classList.remove("is-tree"); }
+  document.getElementById("bc-tree-toggle").addEventListener("click", function () {
+    win.classList.toggle("is-tree");
+  });
+  document.getElementById("bc-scrim").addEventListener("click", closeTree);
+  load("");
+})();
+</script>
+{% endif %}
 {% endif %}
 

@@ -251,6 +251,8 @@ Scheduled apply/audit attribution shows as **system / scheduler** (no user id).
 
 Per-server backup enable + cron on the server/backups UI. Enqueues **Celery** workers (web never runs rsync).
 
+On **v1.8.0**, **Settings → PiHerder backup** also has **Copy the backup drive**: rclone on the herder sends checked paths under `/backups` to a folder in the operator’s Google Drive. The sign-in is a web OAuth client created in their Google Cloud project. A service account is not used. OneDrive and LAN NAS / SMB are in the service list and cannot be selected. The copy is job `backup_replicate`. It may run for 7 days. Host backups stay on the 2-hour worker limit. It is not the self-backup below, and a failed copy does not change `last_backup_at`. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). Not in the published **1.7.0** image. It ships in **1.8.0**.
+
 ### PiHerder self-backup
 
 **Settings → PiHerder backup** tab: manual run, schedule, restore. Separate from per-server rsync backups.  
@@ -380,12 +382,12 @@ A row in the job queue for long-running work:
 | `os_update_check` / `container_update_check` / `docker_stack_check` | Manual or check schedule → Celery `exclusive_job` |
 | `docker_stack_*` / `template_deploy` / `template_redeploy` / `template_drift_check` | Compose and Catalog actions → Celery `exclusive_job` |
 | `host_reboot` | Server **Reboot** or the Home Assistant host card → Celery `exclusive_job`. Refused while OS patch, container patch, or backup is active |
-| `retention` | Per-server backup file retention — **web** process |
+| `retention` | Per-server backup file retention — Celery `housekeeping_job` (no host slot) |
 | `stale_data_cleanup` | Opt-in Jobs / Audit / nmap-run purge (Settings → General) → Celery default queue |
 | `nmap_discover` / `nmap_inventory` / `nmap_detailed` / `nmap_host_deep` | LAN Discovery scans → **celery-worker-nmap** (`-Q nmap`) |
 | `nmap_vuln_db_update` | Vuln pack download on nmap worker |
-| `herder_backup` | PiHerder self-backup — **web** process |
-| `host_facts` | Fleet snapshot on the scheduler — **web** process |
+| `herder_backup` | PiHerder self-backup — Celery `housekeeping_job` (no host; one at a time) |
+| `host_facts` | Fleet snapshot — Celery `exclusive_job` (one per host) |
 
 Statuses: `pending` → `running` → `success` / `failed`.
 
@@ -593,7 +595,7 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **2FA** | Enable for admins (TOTP and/or passkeys); consider **Force 2FA** in Settings; revoke trusted devices if a device is lost |
 | **SSO** | Optional OIDC IdP; map groups carefully; keep break-glass local admin; see §3a |
 | **CSP (v1.2, nonces v1.6)** | Default on (`PIHERDER_CSP=true`). **Compiled Tailwind** (no Play / no `unsafe-eval`). `connect-src` is `'self'` + public origin / its `wss:` only. Console uses vendored xterm. App pages: `script-src 'nonce-…'` plus `script-src-attr 'unsafe-inline'` (onclick stays). Style stays `'unsafe-inline'`. `/docs` and `/redoc` keep `'unsafe-inline'`. Home enforces. Demo is Report-Only unless `PIHERDER_CSP_ENFORCE=true`. See [SECURITY.md](../SECURITY.md). |
-| **Web SSH** | Default off (`PIHERDER_SSH_CONSOLE=false`); operator+ + passkey-preferred 2FA; floating popup + multi-host `/console`. Optional **privileged** identity is console + **Files** (**Connect as…**, extra confirm + fresh 2FA; jobs stay on fleet). Optional **command audit** (Settings → Console; default off; Fernet body; operator+ read). Timeouts, concurrency, ticket/park, bind, scrollback, privileged RBAC, and audit knobs are **Settings → Console** (env still wins if set). Kill switch stays compose-only. **Host mux** (v1.6, Edit → Features, default off): tmux then screen else PTY; Hide detaches; ✕/`bye` kills; never apt-install; HAOS/demo never mux. Wiki: [web-ssh-console](../wiki/day-to-day/web-ssh-console.md) · env sample: [console-and-backup.env.example](console-and-backup.env.example) |
+| **Web SSH** | Default off (`PIHERDER_SSH_CONSOLE=false`); operator+ + passkey-preferred 2FA; floating popup + multi-host `/console`. Optional **privileged** identity is console + **Files** (**Connect as…**, extra confirm + fresh 2FA; jobs stay on fleet). Optional **command audit** (Settings → Console; default off; Fernet body; operator+ read). Timeouts, concurrency, ticket/park, bind, scrollback, privileged RBAC, and audit knobs are **Settings → Console** (env still wins if set). Kill switch stays compose-only. **Host mux** (v1.6, Edit → Features, default off): tmux then screen else PTY; Hide detaches; ✕/`bye` kills; never apt-install; HAOS/demo never mux. **Mux-2** (v1.8): SSH access lists and kills leftover `ph-u*` sessions for that host and does not reattach. Remove server still does not `kill-server`. Wiki: [web-ssh-console](../wiki/day-to-day/web-ssh-console.md) · env sample: [console-and-backup.env.example](console-and-backup.env.example) |
 | **Host Files** | Default off (`PIHERDER_HOST_FILES=false`). **Files** button on every SSH host (including HAOS). Fleet jail = docker_base or home; privileged jail = `/` minus virtual FS. Operator+ on a real herder; public demo is a **canned** tree (no SFTP). API scope `files` (fleet list/get/put only). UI: edit, zip/unzip, chmod/chown, search (names + contents), preview, `.env` step-up, Docker volumes + `docker cp`. Transfer cap: Settings → Files (default 512 MiB, ceiling 32 GiB; env lock). Wiki: [host-files](../wiki/day-to-day/host-files.md) |
 | **Service migrate** | Default off (`PIHERDER_SERVICE_MIGRATE=false`) for **Move to another host…**. Project **Lock to this host…** is always available (operator+). HAOS is never a migrate source/dest. Flag on: stop → copy → dest up → DNS **or** NPM `forward_host` PUT (proxy-host binding is enough) → TLS/Kuma validate → rebind (maps, Kuma service, Grafana container chips, cert clone). Optional **Adopt into fabric**. Optional leftover `compose down`, or **remove** source project + named volumes (extra ack; dest never wiped). Copy/dest-up fail: JobHold **Start source stack**. **v1.5:** job runs on **Celery** (`app.tasks.service_migrate`, same worker as backups). Recycle **web** mid-Move is safe; recycle **celery-worker** fails a running Move (staging kept). Rebuild **web and celery-worker** after migrate code changes. **v1.4** ran on web `BackgroundTasks` — [RELEASE_v1.4.0](RELEASE_v1.4.0.md) is historical. Wiki: [Move a service](../wiki/docker/service-migration.md) |
 | **SSH host keys** | First successful **Test connection** **pins** the remote key (TOFU). Mismatch refuses. Reset the pin under SSH access after a rebuild. New hosts default SSH user **`pi`** (existing rows unchanged). |
@@ -604,9 +606,9 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Auth chrome** | Unauthenticated `/` redirects to login; version string only when signed in |
 | **Roles** | Viewer cannot mutate fleet; Docker **build** stream is operator+ — [wiki roles](../wiki/account-security/roles.md) |
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
-| **Image pin** | Prefer a tagged image: Hub **`1.6.0`** / `1.6` / `latest` (`1.5.0` / `1.5` / `1.4.x` pins remain valid) |
+| **Image pin** | Hub **`1.8.0`** / `1.8` / `latest` (`1.7.0` / `1.7` pins remain valid) |
 
-Current production: [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [QA_v1.6.0.md](QA_v1.6.0.md). Active train: [PLAN_v1.7.0.md](PLAN_v1.7.0.md) on `v1.7.0-dev` (hosted MCP at `/mcp`, then remaining exclusive jobs on Celery). Operator: [Agents (MCP)](../wiki/operations/mcp.md). Prior: [RELEASE_v1.5.0.md](RELEASE_v1.5.0.md) · [RELEASE_v1.4.0.md](RELEASE_v1.4.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current release: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md). Prior: [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 
@@ -907,7 +909,7 @@ Set `METRICS_TOKEN` whenever `/metrics` is not on a fully private network. Serie
 
 ### Image publish (when ready)
 
-Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`1.6.0` / `1.6` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v1.6.0** — [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md). Active train: [PLAN_v1.7.0.md](PLAN_v1.7.0.md) on `v1.7.0-dev`, **code freeze** 2026-09-28 ([RELEASE_v1.7.0.md](RELEASE_v1.7.0.md); package stays `1.6.0` until the bump). Hosted MCP is `POST /mcp` on **web**. stdio `uvx` is the air-gapped fallback, not a second Compose service.
+Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`1.8.0` / `1.8` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v1.8.0** — [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Pins `1.7.0` / `1.7` stay valid. Hosted MCP is `POST /mcp` on **web**. stdio `uvx` is the air-gapped fallback, not a second Compose service.
 
 **Supported deploy path:** Docker Compose (this repo). Platform reliability (host dependency checks, Settings → **Status**, multi-worker Celery) is live — see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 0.5. Kubernetes and bare/local install are under consideration only, not supported install paths today.
 
@@ -932,7 +934,9 @@ Backups can run **in parallel across different hosts**. The same host never has 
 
 Optional multi-container scale: remove `container_name` from `celery-worker` and run `docker compose up -d --scale celery-worker=N` (same image, volumes, Redis). Status will show **N nodes** and sum of pool slots.
 
-**Celery default queue:** `backup`, `service_migrate`, `service_migrate_undo`, stale cleanup, and `exclusive_job` (OS/container patch, update checks, stack lifecycle, templates, `host_reboot`). **nmap queue:** LAN scans and the vuln pack, on `celery-worker-nmap` only. **Web process:** `retention`, `herder_backup`, and `host_facts` — a web recycle fails those rows. Exclusive DB rules still prevent two concurrent jobs of the same type on one host. Raising `CELERY_CONCURRENCY` does not double-run a container patch. Recycling **web** does not fail an exclusive job. Recycling **celery-worker** fails one that is **running**. Wiki: [Multi-worker](../wiki/operations/multi-worker.md).
+Redis visibility for an unacked task is **3 hours**, above the 2-hour hard limit, so a still-running host backup is not started twice. **Drive copy** acks when received and may run for **7 days**.
+
+**Celery default queue:** `backup`, `backup_replicate`, `service_migrate`, `service_migrate_undo`, `service_migrate_dest_recover`, stale cleanup, `housekeeping_job` (`retention`, `herder_backup`), and `exclusive_job` (OS/container patch, update checks, stack lifecycle, templates, `host_reboot`, `host_facts`). **nmap queue:** LAN scans and the vuln pack, on `celery-worker-nmap` only. Exclusive DB rules still prevent two concurrent jobs of the same type on one host. `retention` and `herder_backup` do not take that host slot. Raising `CELERY_CONCURRENCY` does not double-run a container patch. Recycling **web** does not fail a Celery job. Recycling **celery-worker** fails one that is **running**. Wiki: [Multi-worker](../wiki/operations/multi-worker.md).
 
 Full env list: [`.env.example`](../.env.example).
 
@@ -944,7 +948,7 @@ Probes tools needed for **enabled** features only (`rsync` / sudo path, `docker`
 
 ### Stack Status
 
-**Where:** Settings → **Status** (admin). Manual **Check now** plus a 2-minute scheduled poll. Covers web, PostgreSQL, Redis, Celery, APScheduler, and **mount free space** (fast; deduped when volumes share a disk). **Backup folder breakdown** (full `du` + top-level host sizes) is **on demand** via **View details** so large secondary disks do not slow every check. Celery shows **nodes** (containers) and **pool slots** (`CELERY_CONCURRENCY` — e.g. 1 node · 2 slots). Unhealthy components open in-app notifications (and webhook/push if configured); recovery resolves them.
+**Where:** Settings → **Status** (admin). Manual **Check now** plus a 2-minute scheduled poll. Covers web, PostgreSQL, Redis, Celery, APScheduler, and **mount free space** (fast; deduped when volumes share a disk). **Backup folder breakdown** (full `du` + top-level host sizes) is **on demand** via **View details** so large secondary disks do not slow every check. Celery shows **nodes** (containers) and **pool slots** (`CELERY_CONCURRENCY` — e.g. 1 node · 2 slots). Unhealthy components open in-app notifications (and webhook/push if configured); recovery resolves them. A web shutdown does not mail “APScheduler not running” after the scheduler has already stopped.
 
 ---
 

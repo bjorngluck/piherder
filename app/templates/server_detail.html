@@ -581,7 +581,7 @@ function downloadTextAsFile(id, filename, btn) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  {% if show_ssh_key and server.ssh_public_key %}
+  {% if (show_ssh_key and server.ssh_public_key) or mux_listed or flash_error == 'mux_fail' or flash_error == 'mux_bad' or flash_msg == 'mux_killed' %}
   showSshAccessModal();
   {% endif %}
 });
@@ -660,6 +660,8 @@ document.addEventListener('DOMContentLoaded', function() {
 {% if flash_msg %}
 <div class="mb-4 p-3 banner-success border border-border rounded text-sm">
   {% if flash_msg == 'ssh_ok' %}<strong>SSH connection OK.</strong> Host dependency check ran as part of the test when possible.
+  {% elif flash_msg == 'mux_killed' %}<strong>Console session killed</strong>
+    {% if flash_detail %}— <code class="font-mono">{{ flash_detail }}</code>{% endif %}.
   {% elif flash_msg == 'host_deps_ok' %}<strong>Host dependency check finished</strong>
     {% if flash_detail %}— overall <code class="font-mono">{{ flash_detail }}</code>{% endif %}.
   {% elif flash_msg == 'key_deployed' %}<strong>SSH key deployed</strong> and key-only login verified. You can clear any stored password if you have not already.
@@ -695,6 +697,8 @@ document.addEventListener('DOMContentLoaded', function() {
 {% if flash_error %}
 <div class="mb-4 p-3 banner-warning border border-border rounded text-sm">
   {% if flash_error == 'ssh_fail' %}<strong>SSH test failed.</strong>
+  {% elif flash_error == 'mux_fail' %}<strong>Console session list failed.</strong>
+  {% elif flash_error == 'mux_bad' %}<strong>That session was not killed.</strong> It is not a PiHerder console on this host.
   {% elif flash_error == 'host_deps_fail' %}<strong>Host dependency check failed.</strong>
   {% elif flash_error == 'key_deploy_fail' %}<strong>Key deploy failed.</strong>
   {% elif flash_error == 'key_rotate_fail' %}<strong>Key rotation failed.</strong> Previous key left in place.

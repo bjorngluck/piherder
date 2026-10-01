@@ -494,6 +494,9 @@ app.include_router(metrics_router.router, prefix="", tags=["metrics"])
 app.include_router(api_v1_router.router, prefix="/api/v1", tags=["api-v1"])
 app.include_router(mcp_router.router, tags=["mcp"])
 app.include_router(settings_router.router, prefix="", tags=["settings"])
+from .routers import backup_copies as backup_copies_router
+
+app.include_router(backup_copies_router.router, tags=["backup-copies"])
 app.include_router(integrations_router.router, prefix="", tags=["integrations"])
 app.include_router(certificates_router.router, prefix="", tags=["certificates"])
 app.include_router(fleet_services_router.router, prefix="", tags=["fleet-services"])

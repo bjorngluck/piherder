@@ -169,7 +169,7 @@ Matches the original verbal list (DNS before dest listen). Not built: longer hol
 |-------------|--------|----------------|
 | Copy | Source stopped, dest untouched, staging kept | JobHold **Start source stack** (landed) |
 | Dest up | Source stopped, dest partial, DNS **unchanged** | JobHold **Start source stack** (landed) |
-| Dest up **worker restart** | Dest **may** already be up; names unchanged | **No** Start source (would dual-run). Inspect dest. |
+| Dest up **worker restart** | Dest **may** already be up; names unchanged | **Inspect destination**, then **Stop dest and start source**. No DNS or NPM revert. No `down -v`. |
 | DNS / FTL | Dest up, names maybe split across Pi-holes | Re-sync fabric + restartdns. **No auto-revert.** |
 | NPM PUT | Dest up, proxy still on old backend | Poll NPM / retry Move; public name still on NPM. **No auto-revert.** |
 | Rebind | Dest up, names flipped, maps/Kuma/Grafana/certs half | **No auto-revert.** |
@@ -180,6 +180,8 @@ Matches the original verbal list (DNS before dest listen). Not built: longer hol
 **Start source stack** is pre-flip only. Auto-rollback is **not** Must and **not** a silent `finally`.
 
 **M-undo (landed v1.6 Undo-1, 2026-09-21):** fail-path only. After names have flipped, named job `service_migrate_undo` previews then confirms: revert DNS/NPM to source, `restartdns`, revert control-plane rows, re-enable the source cert target (dest clone stays), **compose stop dest**, **compose start source**. Dest dir + volumes stay. Never dest `down -v` / volume rm / project rm. Do **not** reverse a green Move (run a new Move B→A). Pre-flip failure is still **Start source stack**. Token API never POSTs migrate or undo. Kill switch `PIHERDER_SERVICE_MIGRATE`. Demo never. See [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
+
+**Undo-2 (v1.8, built on `v1.8.0-dev`):** only a worker death during `dest_up`. Job `service_migrate_dest_recover` inspects dest, then `compose stop` dest and `compose start` source. DNS and NPM stay. A green Move is not this helper.
 
 ---
 

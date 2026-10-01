@@ -35,6 +35,8 @@ def test_snapshot_containers_skips_placeholders():
                                 "image": "nginx:1",
                                 "status": "Up 2 hours",
                                 "compose_service": "web",
+                                "compose_workdir": "/opt/web",
+                                "has_pending_update": True,
                             },
                             {"name": "gone", "placeholder": True},
                         ],
@@ -51,6 +53,11 @@ def test_snapshot_containers_skips_placeholders():
     assert rows[0]["running"] is True
     assert rows[0]["status"] == "Up 2 hours"
     assert rows[0]["project"] == "web"
+    assert rows[0]["path"] == "/opt/web"
+    assert rows[0]["service"] == "web"
+    assert rows[0]["update"] is True
+    assert rows[1]["update"] is False
+    assert rows[1]["path"] == ""
     assert snapshot_containers(Server(name="x", hostname="h", ssh_username="pi")) == []
 
 

@@ -105,6 +105,54 @@
       <button type="button" onclick="document.getElementById('ssh-provision-panel').classList.toggle('hidden')" class="btn btn-secondary min-h-11 text-sm">Least-priv user</button>
     </div>
 
+    {% if not is_haos and not demo_console %}
+    <div class="border border-border rounded p-3 mb-3 space-y-2" data-testid="ssh-mux-leftovers">
+      <div class="text-sm font-medium">Leftover console sessions</div>
+      <p class="text-xs text-muted">
+        Named <code class="font-mono">ph-u*</code> tmux or screen sessions for this host.
+        A web recycle or an idle timeout leaves them on the Pi.
+        Listing does not reattach. Removing the server does not kill them.
+      </p>
+      {% if flash_error == 'mux_fail' or flash_error == 'mux_bad' %}
+      <p class="text-xs text-warning" data-testid="ssh-mux-error">{{ flash_detail or 'Could not update console sessions.' }}</p>
+      {% elif flash_msg == 'mux_killed' %}
+      <p class="text-xs text-accent" data-testid="ssh-mux-killed">Killed <span class="font-mono">{{ flash_detail }}</span>.</p>
+      {% endif %}
+      {% if is_operator %}
+      <form method="post" action="/servers/{{ server.id }}/ssh/mux-sessions"
+            data-wait-title="Listing console sessions"
+            data-wait-message="Connecting over SSH to list leftover tmux and screen sessions…">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm" data-testid="ssh-mux-list">List sessions</button>
+      </form>
+      {% endif %}
+      {% if mux_listed %}
+        {% if mux_sessions %}
+        <ul class="space-y-2" data-testid="ssh-mux-rows">
+          {% for row in mux_sessions %}
+          <li class="flex flex-wrap items-center gap-2 text-xs">
+            <span class="font-mono text-text break-all">{{ row.name }}</span>
+            <span class="text-muted">{{ row.backend }} · {{ row.role }} · tab {{ row.tab }}</span>
+            {% if is_operator %}
+            <form method="post" action="/servers/{{ server.id }}/ssh/mux-sessions/kill" class="sm:ml-auto"
+                  data-confirm="Kill {{ row.name }} on {{ server.name }}? That shell ends. This does not open it again."
+                  data-confirm-title="Kill console session"
+                  data-confirm-label="Kill session"
+                  data-confirm-danger>
+              <input type="hidden" name="session_name" value="{{ row.name }}">
+              <input type="hidden" name="backend" value="{{ row.backend }}">
+              <button type="submit" class="btn btn-secondary min-h-9 text-xs" data-testid="ssh-mux-kill">Kill</button>
+            </form>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-xs text-muted" data-testid="ssh-mux-empty">No PiHerder console sessions on this host.</p>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
+
     <div class="border border-border rounded p-3 mb-3 space-y-2" data-testid="ssh-privileged-card">
       <div class="text-sm font-medium">Privileged identity (console only)</div>
       {% if server.privileged_identity %}

@@ -1,6 +1,6 @@
 # PiHerder v1.7.0 — token-API MCP, then one job runtime
 
-**Status:** **Active** (train opened 2026-09-25). MCP-1 **0.1.0**, Jr-1, Jr-2, Brand-1, Brand-2, Q, and HA-cards are on this branch. MCP-1, Jr-1, Jr-2, HA-cards, Brand, Audit pulse, the 1.6 regression, and the screenshot pack are signed. **Code freeze 2026-09-28.** Release notes drafted. Package bump, merge, tag, and Hub are not done. **v1.8.0** focuses on Home Assistant: richer cards and stats. The 0.3.0 24-hour chart does not draw and is a known issue for that release. Q: full compose **81.01%** (39638/48927). CI fail-under stays **80** so the extra point is headroom.  
+**Status:** **Shipped** 2026-09-28 (tag **v1.7.0**, Hub `1.7.0` / `1.7` / `latest`). Next train shipped: [PLAN_v1.8.0.md](PLAN_v1.8.0.md) (tag **v1.8.0**). Plugin **v0.4.4** is the Home Assistant card (walk and pictures on **0.4.3**). Q: full compose **81.01%** (39638/48927). CI fail-under stays **80**.  
 **Date opened:** 2026-09-25 (inbox parked 2026-09-18)  
 **Git branch:** `v1.7.0-dev` → `main` · tag `v1.7.0` at freeze  
 **Package / image version:** **`1.7.0`**. Tag **v1.7.0**. **Code freeze set 2026-09-28.**  
@@ -373,8 +373,8 @@ The 0.3.0 cards are accepted for this train. They are plain. **v1.8.0** focuses 
 | 6 | Operator walk | [QA_v1.7.0.md](QA_v1.7.0.md). **MCP-1**, **Jr-1**, **Jr-2**, **Brand-1**, **Brand-2**, **Audit pulse**, and **1.6 regression** signed 2026-09-27. Other live boxes stay empty |
 | 7 | Q / Brand-1 / Brand-2 / Jr-2 / HA-cards as capacity after Must | **Landed.** Compose **81.01%**, fail-under **80**. Plugin **0.3.0**. Brand, Jr-2, and HA-cards walks signed. Screenshot pack and freeze stay open. Richer HA cards are **v1.8.0** |
 | 9 | **HA-cards** in piherder-ha | **Landed** as plugin **0.3.0**. Operator signed 2026-09-27. Richer cards, stats, and the 24-hour chart are **v1.8.0** ([QA_v1.7.0.md](QA_v1.7.0.md)) |
-| 8 | Freeze · `1.7.0` · tag · Hub | Only when asked |
+| 8 | Freeze · `1.7.0` · tag · Hub | **Shipped** 2026-09-28. Next: [PLAN_v1.8.0.md](PLAN_v1.8.0.md) |
 
 ---
 
-*Production remains [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) until this train freezes.*
+*Shipped as [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md). Next train is [PLAN_v1.8.0.md](PLAN_v1.8.0.md).*

@@ -1,7 +1,7 @@
 """DB-backed host OS/hardware snapshot (not live SSH on every page).
 
-Scheduler refreshes about every 15 minutes. System Info default-reads this
-row; Refresh now runs a ``host_facts`` job.
+The 15-minute scheduler queues a ``host_facts`` job on Celery. System Info
+default-reads this row. The modal refresh icon still SSHs in that request.
 """
 from __future__ import annotations
 
@@ -335,11 +335,25 @@ def _enrich_from_diagnostics(info: dict[str, Any]) -> dict[str, Any]:
 
 
 def request_refresh(server_id: int, *, force: bool = False) -> None:
-    t = threading.Thread(
-        target=refresh_server_facts,
-        args=(server_id,),
-        kwargs={"force": force},
-        daemon=True,
-        name=f"host-facts-{server_id}",
-    )
-    t.start()
+    """Queue one host_facts job. A second request while it is active does nothing.
+
+    ``force`` is accepted for callers. The job always refreshes. The diagnostics
+    page refresh stays a live SSH in the request and does not come through here.
+    """
+    del force
+    from fastapi import BackgroundTasks
+
+    from . import jobs as js
+
+    try:
+        with Session(engine) as session:
+            server = session.get(Server, int(server_id))
+            if server is None:
+                return
+            js.create_job_and_run(
+                BackgroundTasks(), session, server, "host_facts", user_id=None
+            )
+    except js.JobAlreadyActive:
+        return
+    except Exception:
+        logger.warning("host facts enqueue failed for %s", server_id, exc_info=True)

@@ -502,6 +502,41 @@ def compose_action(
             pass
 
 
+def compose_service_redeploy(server: Server, project_path: str, service: str) -> Dict:
+    """Pull and recreate one compose service. The rest of the project stays up."""
+    path = (project_path or "").strip()
+    svc = (service or "").strip()
+    if not path or not svc:
+        return {
+            "success": False,
+            "error": "compose directory and service are required",
+            "action": "redeploy",
+            "output": "",
+        }
+    cmd = (
+        f"cd {shlex.quote(path)} && docker compose up -d --no-deps --pull always "
+        f"{shlex.quote(svc)} 2>&1"
+    )
+    client = get_ssh_client(server)
+    try:
+        status, out, err = run_command(client, cmd, timeout=300)
+        output = ((out or "") + (err or "")).strip()
+        return {
+            "success": status == 0,
+            "action": "redeploy",
+            "service": svc,
+            "project_path": path,
+            "status": status,
+            "output": output[-2000:] if output else "",
+            "error": None if status == 0 else (output[:300] or f"compose up failed (rc={status})"),
+        }
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
 def compose_build_shell_cmd(
     project_path: str,
     services: List[str] | None = None,

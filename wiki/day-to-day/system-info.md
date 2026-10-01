@@ -12,7 +12,7 @@ So this train:
 
 1. **Persist** what System Info used to fetch live (`os_pretty`, hardware, arch — Alembic **044**).
 2. **Persist** CPU / memory / disk as columns so the Lovelace fleet card can sum the fleet (Alembic **045**).
-3. **Stop** opening the modal from SSH-ing by default. A scheduler (~**15 minutes**) plus the modal **refresh icon** write the DB.
+3. **Stop** opening the modal from SSH-ing by default. A scheduler (~**15 minutes**) queues a host-facts job, and the modal **refresh icon** still SSHs once in that request. Both write the DB.
 4. **Do not** add a second host-page “Refresh facts” button. Refresh is the icon in System Info. An extra action 500’d and duplicated the modal.
 
 One snapshot, three consumers: this modal, `/api/v1/servers` + `/api/v1/summary`, and the **PiHerder fleet** card.

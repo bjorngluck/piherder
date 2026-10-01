@@ -6,8 +6,9 @@ while the row is still pending (host wait, backup lock). A redelivery that
 finds the job already running does not replace that name — the worker that
 started it is the one that was performing it.
 
-In-process jobs (retention, herder backup, host facts, demo simulation) use
-the label ``web``.
+Demo simulation still uses the label ``web``. Pytest runs retention, herder
+backup, and host facts in-process and stamps ``web`` there too. Production
+stamps the Celery nodename.
 """
 from __future__ import annotations
 

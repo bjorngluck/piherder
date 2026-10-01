@@ -16,6 +16,7 @@ from app.security.auth import create_user_access_token, get_password_hash
 def test_settings_hub_post_writes(tmp_path, monkeypatch):
     from app.services import app_settings as cfg
     from app.services import herder_backup as hb
+    from app.services import jobs as js
 
     store: dict = {}
     monkeypatch.setattr(cfg, "_load_raw_from_db", lambda: dict(store))
@@ -28,6 +29,7 @@ def test_settings_hub_post_writes(tmp_path, monkeypatch):
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
+    monkeypatch.setattr(js, "engine", engine)
 
     def _session():
         with Session(engine) as session:

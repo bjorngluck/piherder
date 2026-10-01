@@ -345,6 +345,7 @@ def sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER):
         with Session(engine) as db:
             for server in db.exec(select(Server)).all():
                 sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server)
+        sync_backup_copy_schedule(scheduler, HAS_SCHEDULER)
     except Exception as e:
         logger.warning(f"[SCHEDULER] sync_all failed: {e}")
 
@@ -352,6 +353,60 @@ def sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER):
 DOCKER_INVENTORY_JOB_ID = "docker_inventory_fleet"
 # Refresh stale docker inventories every 10 minutes (L1 SSH per enabled host)
 DOCKER_INVENTORY_INTERVAL_MIN = 10
+
+
+def schedule_backup_copy_job(destination_id: int):
+    """APScheduler entry: enqueue a Drive copy. The worker runs rclone."""
+    try:
+        from ..database import engine
+        from ..models import BackupDestination
+        from .backup_replicate import enqueue
+
+        with Session(engine) as db:
+            dest = db.get(BackupDestination, destination_id)
+            if dest and dest.enabled and (dest.schedule or "").strip():
+                enqueue(db, dest)
+    except Exception as e:
+        logger.warning("[SCHEDULER] Drive copy enqueue failed for %s: %s", destination_id, e)
+
+
+def sync_backup_copy_schedule(scheduler, HAS_SCHEDULER):
+    """Register one cron per destination that has a schedule. Default queue."""
+    if not HAS_SCHEDULER or not scheduler:
+        return
+    try:
+        for job in list(scheduler.get_jobs()):
+            if str(getattr(job, "id", "")).startswith("backup_copy_"):
+                _remove_job(scheduler, job.id)
+    except Exception as e:
+        logger.warning("[SCHEDULER] Could not clear Drive copy crons: %s", e)
+        return
+    try:
+        from ..database import engine
+        from ..models import BackupDestination
+        from sqlmodel import select
+
+        with Session(engine) as db:
+            rows = db.exec(select(BackupDestination)).all()
+            for dest in rows:
+                cron = (dest.schedule or "").strip()
+                if not dest.enabled or not cron or not dest.id:
+                    continue
+                try:
+                    trigger = _cron_trigger(cron)
+                except Exception as e:
+                    logger.warning("[SCHEDULER] Drive copy cron invalid for %s: %s", dest.id, e)
+                    continue
+                scheduler.add_job(
+                    func=schedule_backup_copy_job,
+                    trigger=trigger,
+                    args=[dest.id],
+                    id=f"backup_copy_{dest.id}",
+                    replace_existing=True,
+                    name=f"Drive copy {dest.name}",
+                )
+    except Exception as e:
+        logger.warning("[SCHEDULER] Drive copy schedule sync failed: %s", e)
 
 
 def schedule_docker_inventory_fleet():
@@ -462,6 +517,10 @@ def schedule_stack_health_job():
             from ..main import HAS_SCHEDULER as _hs, scheduler as _sched
         except Exception:
             _hs, _sched = False, None
+        # Shutdown sets running to false before the process exits. A check in
+        # that window used to mail "APScheduler not running".
+        if _sched is not None and not getattr(_sched, "running", False):
+            return
         stack_svc.run_stack_health_check(
             scheduler=_sched,
             has_scheduler=bool(_hs),
@@ -722,48 +781,40 @@ def schedule_stale_data_cleanup_job():
 
 
 def schedule_herder_backup_job():
-    """Global scheduled PiHerder self-backup (config + keys + optional audit)."""
-    logger.info("[SCHEDULER] Running scheduled PiHerder self-backup")
+    """Queue the scheduled PiHerder self-backup. The worker writes the archive."""
+    logger.info("[SCHEDULER] Enqueueing scheduled PiHerder self-backup")
+    from fastapi import BackgroundTasks
+
     from ..database import engine
+    from .jobs_exclusive import exclusive_runs_inline
+
     try:
-        from . import herder_backup as hb
         from . import app_settings as app_cfg
-        from ..models import AuditLog
+        from . import jobs as js
 
         cfg = app_cfg.load_settings()
         mode = cfg.get("schedule_mode", "config_only")
-        include_audit = (mode == "full")
-        config_only = (mode != "full")
-        path = hb.create_herder_backup(include_audit=include_audit, config_only=config_only)
-        logger.info(f"[SCHEDULER] PiHerder self-backup written: {path}")
-        try:
-            with Session(engine) as s:
-                from .audit_write import make_audit_log
-
-                al = make_audit_log(
-                    user_id=None,
-                    server_id=None,
-                    action="herder_backup",
-                    status="success",
-                    details=f"Scheduled self-backup ({mode}): {getattr(path, 'name', path)}",
-                    output_snippet=json.dumps({"path": str(path), "mode": mode}),
-                    started_at=datetime.utcnow(),
-                    finished_at=datetime.utcnow(),
-                    client_ip=None,  # system / scheduler — no HTTP request
-                )
-                s.add(al)
-                s.commit()
-                try:
-                    from .notifications import resolve_by_fingerprint
-                    resolve_by_fingerprint(s, "herder_backup_failed")
-                except Exception:
-                    pass
-        except Exception:
-            pass
+        include_audit = mode == "full"
+        config_only = mode != "full"
+        bg = BackgroundTasks() if exclusive_runs_inline() else None
+        with Session(engine) as s:
+            job = js.enqueue_herder_backup_job(
+                s,
+                user_id=None,
+                include_audit=include_audit,
+                config_only=config_only,
+                background_tasks=bg,
+            )
+        logger.info(
+            "[SCHEDULER] PiHerder self-backup job #%s queued (%s)",
+            getattr(job, "id", None),
+            mode,
+        )
     except Exception as e:
         logger.error(f"[SCHEDULER] PiHerder self-backup error: {e}")
         try:
             from .notifications import upsert_notification
+
             with Session(engine) as s:
                 upsert_notification(
                     s,
