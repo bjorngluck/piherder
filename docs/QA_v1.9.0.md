@@ -82,7 +82,7 @@ Write-up only. Bearer stays the only path.
 
 ## Supply-chain locks (Must)
 
-Planned. Not started. Baseline on 2026-10-01 is PyJWT **2.13.0** and urllib3 **2.7.0**. Minimum fixed versions are PyJWT **2.15.0** and urllib3 **2.8.0**.
+Locks on this branch pin PyJWT **2.15.1** and urllib3 **2.8.0**. Tick these after you confirm the files and after the pins are on `main`. Dependabot alerts stay open until then.
 
 - [ ] `uv.lock`, `requirements.lock.txt`, and `requirements.runtime.lock.txt` resolve PyJWT >= 2.15.0 and urllib3 >= 2.8.0
 - [ ] The unit suite passes on those locks. Fail-under stays **80**. `pip-audit` is clean for these two packages

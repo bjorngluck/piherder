@@ -125,7 +125,7 @@ Tool names match the public stdio adapter. Hosted `trigger_job` also accepts the
 
 A second start of an exclusive job returns **409** with the job that is already running. The tool result includes `http_status` and `already_active`. Poll `get_job`. Do not start another.
 
-These four one-service jobs are on hosted `trigger_job` for **v1.9** ([DECISION_MCP_SVC.md](https://github.com/bjorngluck/piherder/blob/main/docs/DECISION_MCP_SVC.md) · [PLAN_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.9.0.md)). There is no confirm dialog. The Home Assistant card still has one. Adapter **[0.2.0](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.2.0)** does not list them yet. The stdio companion has to gain the same types before that train is tagged.
+These four one-service jobs are on hosted `trigger_job` for **v1.9** ([DECISION_MCP_SVC.md](https://github.com/bjorngluck/piherder/blob/main/docs/DECISION_MCP_SVC.md) · [PLAN_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/v1.9.0-dev/docs/PLAN_v1.9.0.md)). There is no confirm dialog. The Home Assistant card still has one. The adapter source on [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) `main` accepts the same four. Published tag **[0.2.0](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.2.0)** does not, so `uvx` still refuses them. Tag the adapter only when the herder image agents call accepts the types. The image tag is still **1.8.0**.
 
 Not accepted: `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move (`service_migrate`), undo (`service_migrate_undo`), dest-up recover (`service_migrate_dest_recover`), nmap, the console, token admin, and stale-data cleanup.
 

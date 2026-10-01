@@ -6,7 +6,7 @@
 **Package / image version:** stays **`1.8.0`** until freeze. Image tags at freeze: `1.9.0` / `1.9` / `latest`. Pins `1.8.0` / `1.8` stay valid.  
 **Theme:** **MCP-svc**, then a selectable LAN share, then Move on by default  
 **Baseline:** `v1.8.0` (tagged 2026-10-01; Hub digest `sha256:8ce50bbce758e622a996cd58557b0846e03cb02613b09471405222df620c2e89`)  
-**Mode:** **Must → Should → Discover.** Must **MCP-svc** · **LAN NAS / SMB** · **Move default-on**. Hygiene Must **Supply-chain locks** (planned, not started). Should **OneDrive** · **HA Slice 3** · **CSP Slice 2**. Discover **Path C** · **MCP OAuth**.  
+**Mode:** **Must → Should → Discover.** Must **MCP-svc** · **LAN NAS / SMB** · **Move default-on**. Hygiene Must **Supply-chain locks** (refreshed on this branch). Should **OneDrive** · **HA Slice 3** · **CSP Slice 2**. Discover **Path C** · **MCP OAuth**.  
 **QA:** [QA_v1.9.0.md](QA_v1.9.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md) · wiki [Backups](../wiki/day-to-day/backups.md)
 
@@ -20,7 +20,7 @@ v1.8.0 shipped hosted MCP for the existing jobs POST, a Google Drive copy of `/b
 
 Wanted, in order:
 
-1. **MCP-svc (Must).** `container_start`, `container_stop`, `container_restart`, and `container_redeploy` join `trigger_job`. All four. The herder side is on `main`. The stdio `JOB_TYPES` list and one annotated [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) tag follow in the same train. Tagging the adapter before a herder that accepts the types returns **400**. Published adapter stays **0.2.0** until that tag. `source_filter` is the compose directory and `service` is required. An agent still has no confirm dialog. Decision: [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md).
+1. **MCP-svc (Must).** `container_start`, `container_stop`, `container_restart`, and `container_redeploy` join `trigger_job`. All four. The herder side is on `main`. The stdio `JOB_TYPES` list is on [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) `main`. The annotated tag is not cut. Published **0.2.0** and `uvx` still refuse the types. Tag the adapter only when the herder image agents call accepts them. The image tag is still **1.8.0**. `source_filter` is the compose directory and `service` is required. An agent still has no confirm dialog. Decision: [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md).
 2. **LAN NAS / SMB (Must).** Path B from the v1.8 destination write-up: a share the operator can select, as the dest root or as an rclone `smb` remote. The local rsync directory stays the default. Google Drive stays selectable.
 3. **Move default-on (Must).** `PIHERDER_SERVICE_MIGRATE` defaults to true. The flag stays **false** until this slice lands. A finished Move still has no Undo. Move stays stop-first.
 
@@ -37,7 +37,7 @@ Wanted, in order:
 
 **Out.** AC-fg, Brand-3 (wiki skin), ACME-in-herder, NPM CRUD, a richer Files token API, N3c, and M-live (rsync while the stack is still running). The Home Assistant plugin is not a backlog row. It stays a separate HACS integration and is not shipped inside this image.
 
-**Hygiene, in scope.** Refresh the dependency locks so PyJWT is at least **2.15.0** and urllib3 is at least **2.8.0**, retest, and close the matching Dependabot alerts on this repository. That work is planned and not started. Detail is [§4](#4-supply-chain-locks-must-planned). It does not change the product order above.
+**Hygiene, in scope.** The locks on this branch pin **PyJWT 2.15.1** and **urllib3 2.8.0**. Dependabot alerts stay open until those locks are on the default branch. Detail is [§4](#4-supply-chain-locks-must-planned). It does not change the product order above.
 
 **Still refused after MCP-svc:** `docker_stack_down`, `docker_stack_remove`, undo, nmap, the console, token admin, and stale-data cleanup. Move is not an MCP tool. No new `/api/v1` route.
 
@@ -53,7 +53,7 @@ Wanted, in order:
 | Image tags (freeze) | `1.9.0` · `1.9` · `latest` (multi-arch); keep `1.8` / `1.8.x` and `1.7` / `1.7.x` pins valid |
 | Product decision | **Option A**, locked 2026-10-01. [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md) |
 | Must, in order | **MCP-svc** · **LAN NAS / SMB** · **Move default-on** |
-| Hygiene Must | **Supply-chain locks** (PyJWT **>= 2.15.0**, urllib3 **>= 2.8.0**). **Planned.** Not started. See [§4](#4-supply-chain-locks-must-planned) |
+| Hygiene Must | **Supply-chain locks** on this branch: PyJWT **2.15.1**, urllib3 **2.8.0**. Alerts close after `main` has the locks. See [§4](#4-supply-chain-locks-must-planned) |
 | Should (may slip) | **OneDrive** · **HA Slice 3** (all four) · **CSP Slice 2** |
 | Discover (no code) | **Path C** · **MCP OAuth** |
 | Out | **AC-fg** · Brand-3 · ACME-in-herder · NPM CRUD · richer Files API · **N3c** · **M-live** |
@@ -86,8 +86,9 @@ main (herder allowlist landed, image still 1.8.0)
 | Date | Note |
 |------|------|
 | 2026-10-01 | Train opened from `main` after **v1.8.0** shipped. Must is **MCP-svc**, a selectable LAN share, and Move on by default. OneDrive, HA Slice 3, and CSP Slice 2 are Should. Path C and MCP OAuth are Discover. Package stays `1.8.0`. |
-| 2026-10-01 | **MCP-svc herder.** Pull request #22 merged the four types onto `main`. `source_filter` is the compose directory and `service` is required. Published adapter **0.2.0** still refuses them. |
-| 2026-10-01 | **Supply-chain scope.** Locked PyJWT **2.13.0** and urllib3 **2.7.0** stay until a later change. The train includes a lock refresh to PyJWT **>= 2.15.0** and urllib3 **>= 2.8.0**, then tests, then Dependabot alert closure. Repo settings, workflows, and sibling repos are follow-ups. This entry does not bump the locks. |
+| 2026-10-01 | **MCP-svc herder.** Pull request #22 merged the four types onto `main`. `source_filter` is the compose directory and `service` is required. |
+| 2026-10-01 | **MCP-svc adapter source.** piherder-mcp `main` (`1cf5822`) accepts the same four types. Published tag **0.2.0** does not. |
+| 2026-10-01 | **Supply-chain locks.** `pyproject.toml` floors are PyJWT **>= 2.15** and urllib3 **>= 2.8**. The three lockfiles pin **PyJWT 2.15.1** and **urllib3 2.8.0**. `pip-audit` on the runtime lock reported no known vulnerabilities. Dependabot alerts stay open until this reaches `main`. |
 | 2026-10-01 | **Rebase.** `v1.9.0-dev` replayed onto `main` so the train keeps the merged allowlist and the rest of this plan. |
 
 ---
@@ -97,29 +98,29 @@ main (herder allowlist landed, image still 1.8.0)
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.9.0-dev`** | **Done** 2026-10-01 |
-| 2 | **MCP-svc** — four job types on hosted MCP and the adapter, then one adapter tag | Herder on `main` (#22). Adapter tag not cut. Walk open |
+| 2 | **MCP-svc** — four job types on hosted MCP and the adapter, then one adapter tag | Herder on `main` (#22). Adapter source on piherder-mcp `main`. Published tag **0.2.0**. Walk open |
 | 3 | **LAN NAS / SMB** — selectable path B | Not started |
 | 4 | **Move default-on** — flag defaults true | Not started. Flag stays false until this row |
 | 5 | Should, if they do not slip | OneDrive · HA Slice 3 · CSP Slice 2 |
 | 6 | Discover write-ups | Path C · MCP OAuth. No code |
-| 7 | Freeze · version bump · tag · Hub | Only when asked. Tag does not ship PyJWT 2.13.0 or urllib3 2.7.0 |
-| 8 | **Supply-chain locks**: refresh `uv.lock` and both requirements lockfiles, retest, close Dependabot alerts | **Planned.** Not started. [§4](#4-supply-chain-locks-must-planned) |
+| 7 | Freeze · version bump · tag · Hub | Only when asked |
+| 8 | **Supply-chain locks**: refresh `uv.lock` and both requirements lockfiles, retest, close Dependabot alerts | Locks refreshed on this branch. Alerts wait for `main`. [§4](#4-supply-chain-locks-must-planned) |
 
 ---
 
-## 4. Supply-chain locks (Must, planned)
+## 4. Supply-chain locks (Must)
 
-**Status:** **Planned.** In scope for this train. Not started. This section records the work. It does not bump dependencies, edit workflows, or change GitHub settings.
+**Status:** **Locks refreshed** on `v1.9.0-dev`. Not on the default branch yet. This section does not edit workflows or GitHub settings.
 
-Baseline on 2026-10-01: `uv.lock` pins **PyJWT 2.13.0** and **urllib3 2.7.0**. Those pins match multiple GitHub Security Advisories at critical and high severity. Advisory identifiers stay on the GitHub advisory pages.
+Previous pins were **PyJWT 2.13.0** and **urllib3 2.7.0**. Those matched multiple GitHub Security Advisories at critical and high severity. Advisory identifiers stay on the GitHub advisory pages.
 
 **In scope before the v1.9.0 tag:**
 
 | Item | What | Status |
 |------|------|--------|
-| **SC1** Lock refresh | Resolve **PyJWT >= 2.15.0** and **urllib3 >= 2.8.0**. Commit `uv.lock`, `requirements.lock.txt`, and `requirements.runtime.lock.txt` together, using `scripts/refresh-lockfiles.sh` as described in [SECURITY.md](../SECURITY.md). PyJWT is declared as `PyJWT[crypto]>=2.8` in `pyproject.toml`. Raise that floor only if a refresh still resolves below 2.15.0. urllib3 arrives through `requests`. If a refresh still resolves below 2.8.0, add a floor so the lock cannot stay on 2.7.0. | **Planned** |
-| **SC2** Retest | Run the existing unit suite and `pip-audit` on the refreshed locks. Fail-under stays **80**. | **Planned** |
-| **SC3** Dependabot alerts | After the locks are on the default branch (this train's merge, or a `v1.8.x` patch), close the matching Dependabot alerts for these two packages on this repository. | **Planned** |
+| **SC1** Lock refresh | Floors in `pyproject.toml` are `PyJWT[crypto]>=2.15` and `urllib3>=2.8`. `uv.lock`, `requirements.lock.txt`, and `requirements.runtime.lock.txt` pin **PyJWT 2.15.1** and **urllib3 2.8.0**. | **Done** on this branch |
+| **SC2** Retest | `pip-audit -r requirements.runtime.lock.txt` reported no known vulnerabilities. The unit suite was 1772 passed and 1 failed: `test_first_admin_and_open_registration_are_audited` returns the register form because this machine's password policy requires a special character. That failure is not from the lock bump. | **Audit clean.** Suite has that one local failure |
+| **SC3** Dependabot alerts | After the locks are on the default branch (this train's merge, or a `v1.8.x` patch), close the matching Dependabot alerts for these two packages on this repository. | **Waiting** on `main` |
 | **SC4** Release | Ship the locks in the **v1.9.0** tag. A **v1.8.x** patch on `main` may carry the same bump first if production should not wait for freeze. Port that patch onto this branch. This plan does not open the patch. | **Planned** |
 
 Product order stays **MCP-svc**, then the LAN share, then Move on by default. The lock refresh can land in its own commit any time before freeze. The product slices and the lock refresh do not block each other. The tag still has to include the fixed locks.
