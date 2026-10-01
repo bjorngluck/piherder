@@ -37,7 +37,7 @@ Settings → PiHerder backup. The local rsync directory stays the default. This 
 
 ## Move default-on (Must)
 
-Leave this unchecked while `PIHERDER_SERVICE_MIGRATE` is still false.
+Unset env enables Move. `PIHERDER_SERVICE_MIGRATE=false` still hides it. Operator+ only. Not an MCP tool, token job, or HA card action.
 
 - [ ] A new install has Move available without setting the flag
 - [ ] An install that sets the flag to false still hides Move
@@ -94,5 +94,5 @@ Locks on this branch pin PyJWT **2.15.1** and urllib3 **2.8.0**. Tick these afte
 - [ ] About / footer still **1.8.0** until the version bump
 - [ ] Google Drive copy still runs. OneDrive stays unselectable until that Should lands
 - [ ] Hosted `trigger_job` accepts the four one-service types. Published adapter **0.2.0** does not. The MCP-svc boxes above stay empty until the adapter tag matches and the walk is done
-- [ ] Until Move default-on lands, the flag still defaults to false
+- [ ] Unset `PIHERDER_SERVICE_MIGRATE` leaves Move on. Explicit `false` still hides it
 - [ ] Plugin install is still the separate HACS repo, not a file in this image

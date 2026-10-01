@@ -37,7 +37,7 @@ Inspired by projects like [Nginx Proxy Manager](https://github.com/NginxProxyMan
 - RBAC, 2FA (TOTP + passkeys), optional SSO/OIDC, audit trail, self-backup with full DR
 - Optional in-browser **web SSH console** (off by default). Per host, **Console mux** can attach `tmux` or `screen` so Hide keeps the shell on the Pi
 - Optional **Host Files** jailed SFTP explorer (off by default; `PIHERDER_HOST_FILES`)
-- Optional **Move a service** — compose project host→host as one job (off by default; `PIHERDER_SERVICE_MIGRATE`). Runs on the Celery worker. A failure after names flip can be undone
+- **Move a service** — compose project host→host as one job (on by default; set `PIHERDER_SERVICE_MIGRATE=false` to turn it off). Runs on the Celery worker. A failure after names flip can be undone. A finished Move has no Undo
 - Token REST API for automation (n8n, Home Assistant, etc.). Home Assistant observes the fleet with HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha) (not inside this image). **v1.8.0** pairs with plugin **0.4.4**. **v1.7.0** pairs with plugin **0.3.0**. A `read` token is sensors and the card. `jobs` and `edit` add confirm actions, including host reboot. Agents use hosted `POST /mcp`, or the air-gapped [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) adapter **0.2.0**
 
 ### Quick Start

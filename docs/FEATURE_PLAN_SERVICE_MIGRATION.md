@@ -41,7 +41,7 @@ PiHerder stays **SSH-first**. No agent on the Pis. The herder is the staging hop
 | 12 | Reuse primitives — do not fork compose, rsync, fabric upsert, Pi-hole `restartdns`, cert verify. NPM GET already exists; add **narrow PUT** only |
 | 13 | Cert targets: **clone** onto dest + deploy + verify; disable source target until leftover |
 | 14 | `Job.server_id` = **source**; `details.dest_server_id` = dest |
-| 15 | Kill switch `PIHERDER_SERVICE_MIGRATE=false` until GA-enough. Demo never copies |
+| 15 | `PIHERDER_SERVICE_MIGRATE` defaults **true** on the v1.9 train (set `false` to turn Move off). Demo never copies |
 | 16 | **ACME-in-herder** is out of 1.4 |
 
 ---
@@ -359,7 +359,7 @@ Align with design principles: auditable privileged actions; secrets encrypted at
 | Service | `app/services/service_migrate/` (preflight, copy, pipeline, leftover) |
 | NPM write | `app/services/integrations/npm.py` PUT `/api/nginx/proxy-hosts/{id}` backend only |
 | Jobs | `app/services/jobs/service.py` type `service_migrate` |
-| Config | `PIHERDER_SERVICE_MIGRATE` default false |
+| Config | `PIHERDER_SERVICE_MIGRATE` default true (v1.9); `false` disables |
 | Router / UI | Docker project ⋯ + wizard partial + JobHold |
 | DNS / FTL | wrap `upsert_service_record` + pihole `run_action` fan-out |
 | Tests | `tests/test_service_migrate.py` |
@@ -376,7 +376,7 @@ Align with design principles: auditable privileged actions; secrets encrypted at
 | 3 | Job.server_id source or dest? | **Locked:** source |
 | 4 | Multiple fabric rows per project? | **Locked:** all matching backend+project |
 | 5 | Default pipeline order | **Locked:** `health_then_dns` |
-| 6 | Kill switch env? | **Locked:** `PIHERDER_SERVICE_MIGRATE=false` until GA-enough |
+| 6 | Kill switch env? | **v1.4–v1.8:** default false. **v1.9 train:** default **true**; `false` still disables |
 
 ---
 
