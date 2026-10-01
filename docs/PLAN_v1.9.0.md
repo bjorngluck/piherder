@@ -7,7 +7,7 @@
 **Theme:** **MCP-svc**, a selectable LAN share, Move on by default, then the card and backup honesty that landed with them  
 **Baseline:** `v1.8.0` (tagged 2026-10-01; Hub digest `sha256:8ce50bbce758e622a996cd58557b0846e03cb02613b09471405222df620c2e89`)  
 **Mode:** Landed on this branch vs **freeze-only**. Landed: **MCP-svc** · **LAN NAS / SMB** · **Move default-on** · **Remove one backup dest** (#25) · **HA Slice 3** (plugin **0.5.0**, poll-only) · **CSP Slice 2**. Hygiene: **Supply-chain locks** (refreshed on this branch). Freeze-only: herder **1.9.0**, adapter **0.3.0**, tags and images. **OneDrive** stays discovery-only. Discover (no client): **Path C** · **MCP OAuth**.  
-**QA:** [QA_v1.9.0.md](QA_v1.9.0.md) (maintainer stub — **not** the operator wiki; walks still open)  
+**QA:** [QA_v1.9.0.md](QA_v1.9.0.md) (walks written, boxes empty until signed — **not** the operator wiki). Shot list is open. PNGs are not in the tree.  
 **Related:** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [Home Assistant](../wiki/integrations/home-assistant.md)
 
 > **Train open 2026-10-01.** The image tag stays **v1.8.0**. `main` already includes the herder allowlist (pull request #22). This branch is that `main` plus the rest of the train, through Remove (#25). The public demo stays the **1.7.0** image. The Home Assistant plugin stays a separate HACS repo (**0.5.0** on this train, not inside the image). Release notes (`RELEASE_v1.9.0.md`) are written at freeze. Do not treat this plan as a tagged release.
@@ -106,6 +106,7 @@ main (herder allowlist landed, image still 1.8.0)
 | 2026-10-01 | **HA Slice 3 landed.** Plugin **0.5.0**, poll-only. Card confirms Move, fleet-jail Files delete, and stop project (`docker compose stop`, not down or remove). No herder webhook. Not a slip. |
 | 2026-10-01 | **Remove one backup dest (#25).** Admin Settings, `confirm=remove`. One provider's `BackupDestination` row and Fernet secret. The other dest stays. Remote Drive and SMB files stay. Demo refuses. Not a job, token route, or MCP tool. |
 | 2026-10-01 | **Docs honesty.** LAN SMB is selectable on this train. Drive and SMB can both be live. OneDrive stays discovery-only. Herder **1.9.0** and adapter **0.3.0** stay freeze-only. |
+| 2026-10-01 | **Operator QA.** Walks and the shot list are in [QA_v1.9.0.md](QA_v1.9.0.md). Boxes are empty. HA Move shots wait until health exposes `service_migrate`. |
 
 ---
 
