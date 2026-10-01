@@ -145,6 +145,13 @@ def test_cleanup_orphan_web_jobs_keeps_os_patch_fails_retention():
         )
         web = Job(
             server_id=srv.id,
+            job_type="diagnostics",
+            status="running",
+            started_at=datetime.utcnow(),
+            details='{"current":"reading"}',
+        )
+        kept = Job(
+            server_id=srv.id,
             job_type="retention",
             status="running",
             started_at=datetime.utcnow(),
@@ -160,13 +167,14 @@ def test_cleanup_orphan_web_jobs_keeps_os_patch_fails_retention():
         s.add(patch)
         s.add(running)
         s.add(web)
+        s.add(kept)
         s.add(bak)
         s.add(nmap)
         s.commit()
         s.refresh(web)
         audit = AuditLog(
             server_id=srv.id,
-            action="retention",
+            action="diagnostics",
             status="running",
             details=f"Job #{web.id} started",
         )
@@ -177,11 +185,13 @@ def test_cleanup_orphan_web_jobs_keeps_os_patch_fails_retention():
         s.refresh(patch)
         s.refresh(running)
         s.refresh(web)
+        s.refresh(kept)
         s.refresh(bak)
         s.refresh(nmap)
         s.refresh(audit)
         assert patch.status == "pending"
         assert running.status == "running"
+        assert kept.status == "running"
         assert web.status == "failed"
         assert bak.status == "running"
         assert nmap.status == "pending"

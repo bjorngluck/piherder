@@ -15,12 +15,12 @@ flowchart TB
     Scheduler -->|backup cron| Celery
     Scheduler -->|patch / check enqueue| Celery
     Scheduler -->|nmap schedules / stale cleanup| Celery
-    Scheduler -->|host facts| FastAPI
+    Scheduler -->|host facts · herder backup| Celery
     Celery -->|reads/writes| DB
-    Celery -->|SSH · apt · docker · rsync| PiFleet["Remote fleet"]
+    Celery -->|SSH · apt · docker · rsync · self-backup| PiFleet["Remote fleet"]
     CeleryNmap -->|nmap -oX / vuln pack| LAN["Configured LAN CIDR(s)"]
     CeleryNmap -->|reads/writes| DB
-    FastAPI -->|console · files · retention · herder backup · host facts| PiFleet
+    FastAPI -->|console · files| PiFleet
     FastAPI -->|DB reads for UI| DB
     FastAPI -.->|Job.details progress| Celery
     FastAPI -.->|enqueue exclusive_job| Celery
@@ -32,12 +32,14 @@ flowchart TB
 | Work | Runs on | Concurrency rule |
 |------|---------|------------------|
 | Backups | Celery | Parallel across hosts; one backup per host (Redis mutex) |
-| Move (`service_migrate`) and fail-path undo (`service_migrate_undo`) | Celery | Dual-host backup mutex; recycle web is safe; recycle worker fails a running Move or undo. Undo only after cutover / rebind / validate failed |
+| Drive copy (`backup_replicate`) | Celery default queue | v1.8 train. One slot, like a long rsync. Up to 7 days. Acked on receive. Not the per-host backup lock. Web only enqueues |
+| Move (`service_migrate`), fail-path undo (`service_migrate_undo`), and dest-up recover (`service_migrate_dest_recover`) | Celery | Dual-host backup mutex; recycle web is safe; recycle worker fails a running Move, undo, or recover. Undo only after cutover / rebind / validate failed. Dest-up recover is only a worker death during `dest_up`: inspect, `compose stop` dest, start source, no DNS change |
 | OS/container patch, update checks, stack jobs, template jobs, `host_reboot` | Celery default queue (`exclusive_job`) | One active job of that type per host. Stack writes share one lane. Reboot is also refused while OS patch, container patch, or backup is active. No backup mutex. Host-down stays pending. Worker recycle fails a running job |
 | Bulk fleet actions | Web → same enqueue paths | Feature-flag skip + exclusive rules |
 | LAN nmap scans / vuln pack update | **celery-worker-nmap** (`-Q nmap`, concurrency 1) | Opt-in profile; host network; `PIHERDER_NMAP_WORKER=1` only here |
 | Stale Jobs/Audit/nmap-run purge | Celery (default queue) | Opt-in Settings schedule |
-| `retention`, `herder_backup`, `host_facts` | Web process | A web recycle fails a pending or running row. Not `exclusive_job` |
+| `host_facts` | Celery default queue (`exclusive_job`) | One active snapshot per host. SSH down stays pending. A web recycle does not fail it |
+| `retention`, `herder_backup` | Celery default queue (`housekeeping_job`) | No host exclusive slot. One self-backup at a time. A web recycle does not fail them. Worker cap is 2 hours |
 
 **Nmap privilege boundary:** web + main celery set `PIHERDER_NMAP_WORKER=0` in compose; tasks call `worker_guard` and refuse if marker is off or `nmap` is missing. Never put queue `nmap` on the main worker. See [env reference](../operations/env-reference.md#lan-discovery-nmap--opt-in) · [`.env.example`](https://github.com/bjorngluck/piherder/blob/main/.env.example).
 
@@ -48,15 +50,16 @@ flowchart TB
 | Roles / middleware | `app/security/auth.py` — expired session: HTML **303** `/auth/login`, HTMX `HX-Redirect`, `/api/v1` JSON 401 |
 | Password policy | `app/services/password_policy.py` · Settings Security |
 | Account / 2FA step-up policy | `app/services/account_stepup.py` · Settings Security |
-| Web SSH console | `app/services/ssh_console.py` · `app/routers/server_console.py` · Settings Console (timeouts) / Security (factors). Mux-1: `Server.console_mux_enabled` + probe tmux/screen |
+| Web SSH console | `app/services/ssh_console.py` · `app/routers/server_console.py` · Settings Console (timeouts) / Security (factors). Mux-1: `Server.console_mux_enabled` + probe tmux/screen. Mux-2: SSH access lists and kills leftover `ph-u*` for that host (`POST /servers/{id}/ssh/mux-sessions`) |
 | Jobs / progress / exclusive types | `app/services/jobs/` (`service.py`; package preserves `patch.object` surface). Move: `app/services/jobs_migrate.py`. Jr-1 handoff: `app/services/jobs_exclusive.py`. Backups, **Move**, and **exclusive_job** on Celery (`app/tasks.py`) |
 | Reports layout (N3a) + Move card (N3b) | `app/services/report_layout.py` · cookie `ph_reports_layout` · `POST /reports/layout` · Move stats from `ops_reports.collect_move_history` (`service_migrate` Jobs) |
-| Service migrate pipeline | `app/services/service_migrate/` · Celery `app.tasks.service_migrate` · undo `undo.py` + `app.tasks.service_migrate_undo` |
+| Service migrate pipeline | `app/services/service_migrate/` · Celery `app.tasks.service_migrate` · undo `undo.py` + `app.tasks.service_migrate_undo` · dest-up recover `dest_up_recover.py` + `app.tasks.service_migrate_dest_recover` |
 | CSP | `app/security/headers.py` — per-request script nonce; `script-src-attr 'unsafe-inline'`; demo Report-Only unless `PIHERDER_CSP_ENFORCE` |
 | Docker unused cleanup HTML | `app/services/docker_unused_html.py` |
 | Per-server backup lock | `app/services/server_job_lock.py` |
 | Scheduler | `app/services/scheduler.py` |
 | Backup | `app/services/backup.py` (+ progress, profiles) |
+| Drive copy | `app/services/backup_replicate.py` · `app/routers/backup_copies.py` · `app/tasks.py` `replicate_backup` · Alembic **047** · Settings → PiHerder backup. Google web OAuth client, refresh token in Fernet. Not in the 1.7.0 image |
 | Docker inventory | `app/services/docker_inventory.py` |
 | Host OS / hardware / CPU / RAM / disk snapshot | `app/services/host_facts.py` · Alembic **044** + **045** · System Info modal (DB first; icon refresh) · scheduler ~15 min · same columns as `/api/v1` + HACS |
 | Templates (domain) | `app/services/service_templates/` — `deploy`, `host_sync` (adopt/migrate), `harden`, `schema`, `from_host`, … |
@@ -77,7 +80,7 @@ flowchart TB
 | Ops-hero pulse helpers | `app/services/ops_pulse.py` |
 | Instance name, accent, Catalog nav | `app/services/instance_brand.py` · Settings → General → Instance · `POST /herder-backups/instance`. Demo forces official chrome. |
 | Push | `app/services/push.py` |
-| API tokens | `app/services/api_tokens.py`, `app/routers/api_v1.py`. Hosted MCP is `app/routers/mcp.py` + `app/services/mcp_hosted.py` (`POST /mcp`, same Bearer token). The stdio repo remains an optional client. Operator page: [Agents (MCP)](../operations/mcp.md) |
+| API tokens | `app/services/api_tokens.py`, `app/routers/api_v1.py`. Hosted MCP is `app/routers/mcp.py` + `app/services/mcp_hosted.py` (`POST /mcp`, same Bearer token). The stdio client is [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.2.0**. Home Assistant is [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.4.4**. v1.7.0 paired with **0.3.0**. Neither repo is inside this image. Operator pages: [Agents (MCP)](../operations/mcp.md) · [Home Assistant](../integrations/home-assistant.md) |
 | Herder backup | `app/services/herder_backup.py` |
 | Metrics | `app/services/metrics.py` |
 | Bulk server actions | `app/routers/servers.py` (`POST /servers/bulk`) |

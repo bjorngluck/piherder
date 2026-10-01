@@ -10,9 +10,18 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session
@@ -474,6 +483,45 @@ async def settings_page(
 
     brand = effective_brand()
     public_url = configured_public_origin()
+    copy_dest = None
+    copy_has_token = False
+    copy_account_email = ""
+    copy_account_kind = ""
+    copy_drive_folder = "PiHerder"
+    copy_shared = False
+    copy_client_id = ""
+    copy_has_secret = False
+    copy_redirect_uri = ""
+    if is_admin:
+        try:
+            from ..services import backup_replicate as copies
+
+            copy_dest = copies.get_or_create(session)
+            account = copies.credential_public(copy_dest)
+            copy_has_token = bool(account.get("saved"))
+            copy_account_email = account.get("email") or ""
+            copy_account_kind = account.get("kind") or ""
+            copy_drive_folder = copies.drive_folder(copy_dest)
+            copy_shared = copies.shared_with_me(copy_dest)
+            copy_oauth = copies.oauth_client(copy_dest)
+            copy_client_id = copy_oauth.get("client_id") or ""
+            copy_has_secret = bool(copy_oauth.get("client_secret"))
+            origin = public_url or ""
+            if not origin:
+                parsed = urlparse(str(request.base_url))
+                if parsed.scheme in ("http", "https") and parsed.netloc:
+                    origin = f"{parsed.scheme}://{parsed.netloc}"
+            if origin:
+                copy_redirect_uri = copies.google_redirect_uri(origin)
+        except Exception:
+            copy_dest = None
+            copy_has_token = False
+            copy_account_email = ""
+            copy_account_kind = ""
+            copy_drive_folder = "PiHerder"
+            copy_shared = False
+            copy_client_id = ""
+            copy_has_secret = False
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -483,6 +531,18 @@ async def settings_page(
             "user": user,
             "backups": backups,
             "herder_backup_dir": str(hb.HERDER_BACKUP_DIR),
+            "copy_dest": copy_dest,
+            "copy_has_token": copy_has_token,
+            "copy_account_email": copy_account_email,
+            "copy_account_kind": copy_account_kind,
+            "copy_drive_folder": copy_drive_folder,
+            "copy_shared": copy_shared,
+            "copy_client_id": copy_client_id,
+            "copy_has_secret": copy_has_secret,
+            "copy_redirect_uri": copy_redirect_uri,
+            "copy_error": qp.get("copy_error"),
+            "copy_saved": qp.get("copy_saved"),
+            "copy_test": qp.get("copy_test"),
             "herder_config": cfg,
             "tz_choices": app_cfg.get_available_timezones(),
             "schedule_status": schedule_status,
@@ -948,49 +1008,31 @@ async def revoke_api_token_form(
 
 @router.post("/herder-backups/run")
 async def trigger_herder_backup(
+    background_tasks: BackgroundTasks,
     backup_mode: str = Form("config_only"),
     user: User = Depends(get_admin_user),
 ):
+    from ..services import jobs as js
     from ..services.demo import http_403_if_demo
 
     http_403_if_demo("settings_write")
     mode = backup_mode if backup_mode in ("config_only", "full") else "config_only"
     include_audit = mode == "full"
     config_only = mode != "full"
-    with next(get_session()) as s:
-        audit = make_audit_log(
-            user_id=user.id,
-            server_id=None,
-            action="herder_backup",
-            status="running",
-            details=f"Manual self-backup triggered ({mode})",
-            started_at=datetime.utcnow(),
+    try:
+        with next(get_session()) as s:
+            job = js.enqueue_herder_backup_job(
+                s,
+                user.id,
+                include_audit=include_audit,
+                config_only=config_only,
+                background_tasks=background_tasks,
+            )
+        return RedirectResponse(f"/jobs?highlight={job.id}", status_code=303)
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("backup", error=str(e)[:120]), status_code=303
         )
-        s.add(audit)
-        s.commit()
-        s.refresh(audit)
-        try:
-            path = hb.create_herder_backup(
-                include_audit=include_audit, config_only=config_only
-            )
-            audit.status = "success"
-            audit.output_snippet = json.dumps({"path": str(path), "mode": mode})
-            audit.finished_at = datetime.utcnow()
-            s.add(audit)
-            s.commit()
-            return RedirectResponse(
-                _settings_url("backup", backup_ok="1", file=path.name),
-                status_code=303,
-            )
-        except Exception as e:
-            audit.status = "failed"
-            audit.output_snippet = str(e)[:2000]
-            audit.finished_at = datetime.utcnow()
-            s.add(audit)
-            s.commit()
-            return RedirectResponse(
-                _settings_url("backup", error=str(e)[:120]), status_code=303
-            )
 
 
 @router.post("/herder-backups/restore")

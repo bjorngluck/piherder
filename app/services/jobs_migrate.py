@@ -157,13 +157,14 @@ def fail_migrate_worker_restart(job_id: int, audit_id: int) -> None:
 
     Does not re-run the pipeline. Staging under ``BACKUP_ROOT/_migrate/{job_id}``
     is kept. **Start source stack** only when ``migrate_step`` is stop/copy
-    (dest never started). ``dest_up`` on worker-restart is not recoverable that
-    way — dest may already be up.
+    (dest never started). ``dest_up`` stores an inspect payload: dest may
+    already be up, so Start source alone would dual-run.
     """
     from .service_migrate.pipeline import WORKER_RESTART_RECOVER_STEPS
 
     js = _jobs()
     hostname = ""
+    finish_msg = "Worker restarted — Move was no longer running. Staging kept."
     with js._get_fresh_session() as session:
         job = session.get(Job, job_id)
         if not job or job.status in ("success", "failed", "cancelled"):
@@ -197,6 +198,47 @@ def fail_migrate_worker_restart(job_id: int, audit_id: int) -> None:
                 session.commit()
             except Exception:
                 logger.exception("migrate worker-restart recover_source")
+        elif step == "dest_up" and source and project:
+            dest_id = int(data.get("dest_server_id") or 0)
+            dest = session.get(Server, dest_id) if dest_id else None
+            payload = None
+            if dest is not None:
+                from .service_migrate.dest_up_recover import dest_up_recover_details
+
+                payload = dest_up_recover_details(
+                    source_id=int(source.id),
+                    dest_id=int(dest.id),
+                    project=project,
+                    dest_project=str(data.get("dest_project") or project),
+                )
+            if payload:
+                finish_msg = (
+                    "Worker restarted during dest up. Dest may already be running. "
+                    "Inspect it before starting source. Names were not changed."
+                )
+                try:
+                    js._merge_job_details(
+                        job,
+                        failed_step="worker_restart",
+                        migrate_step="dest_up",
+                        dest_up_recover=payload,
+                        log_line=finish_msg,
+                    )
+                    session.add(job)
+                    session.commit()
+                except Exception:
+                    logger.exception("migrate worker-restart dest_up_recover")
+            else:
+                try:
+                    js._merge_job_details(
+                        job,
+                        failed_step="worker_restart",
+                        log_line="Worker restarted — Move is no longer running. Staging kept.",
+                    )
+                    session.add(job)
+                    session.commit()
+                except Exception:
+                    pass
         else:
             try:
                 js._merge_job_details(
@@ -212,7 +254,7 @@ def fail_migrate_worker_restart(job_id: int, audit_id: int) -> None:
         audit_id,
         job_id,
         "failed",
-        "Worker restarted — Move was no longer running. Staging kept.",
+        finish_msg,
         hostname,
         "service_migrate",
     )
@@ -445,11 +487,11 @@ def _run_service_migrate_pipeline(
         js._finish(audit_id, job_id, "failed", str(e)[:800], hostname, "service_migrate")
 
 
-def _parent_already_undone(session, parent_id: int) -> bool:
-    """True when this Move already has a successful or still-running undo."""
+def _parent_has_child(session, parent_id: int, job_type: str) -> bool:
+    """True when this Move already has a successful or still-running child job."""
     rows = session.exec(
         select(Job).where(
-            Job.job_type == "service_migrate_undo",
+            Job.job_type == job_type,
             Job.status.in_(("success", "pending", "running")),
         )
     ).all()
@@ -461,6 +503,11 @@ def _parent_already_undone(session, parent_id: int) -> bool:
         if int(data.get("parent_job_id") or 0) == int(parent_id):
             return True
     return False
+
+
+def _parent_already_undone(session, parent_id: int) -> bool:
+    """True when this Move already has a successful or still-running undo."""
+    return _parent_has_child(session, parent_id, "service_migrate_undo")
 
 
 def enqueue_service_migrate_undo(
@@ -669,3 +716,206 @@ def _execute_service_migrate_undo(
         js._finish(
             audit_id, job_id, "failed", str(e)[:800], hostname, "service_migrate_undo"
         )
+
+
+def enqueue_service_migrate_dest_recover(
+    parent_job_id: int,
+    *,
+    user_id: int | None = None,
+) -> Job:
+    """Queue stop-dest then start-source after a dest_up worker death.
+
+    Raises ValueError when the parent Move is not that hole. No DNS revert.
+    """
+    from .service_migrate.dest_up_recover import JOB_TYPE, eligible_dest_up_recover
+    from .service_migrate.host_lock import migrate_surface_allowed
+
+    if not migrate_surface_allowed():
+        raise ValueError("Service migration is off")
+    js = _jobs()
+    with js._get_fresh_session() as session:
+        parent = session.get(Job, int(parent_job_id))
+        payload = eligible_dest_up_recover(parent)
+        if not payload or parent is None:
+            raise ValueError(
+                "This helper is only for a Move that died while starting the destination"
+            )
+        if _parent_has_child(session, parent.id, JOB_TYPE):
+            raise ValueError("Dest was already recovered or that job is still running")
+        source_id = int(payload["source_id"])
+        dest_id = int(payload["dest_id"])
+        project = str(payload["project"])
+        for sid in (source_id, dest_id):
+            active = js._active_stack_mutating_job(session, sid)
+            if not active:
+                active = js._active_migrate_as_dest(session, sid)
+            if not active:
+                backups = js.get_active_backup_jobs(session, sid)
+                active = backups[0] if backups else None
+            if active:
+                session.expunge(active)
+                raise js.JobAlreadyActive(active)
+        source = session.get(Server, source_id)
+        dest = session.get(Server, dest_id)
+        if not source or not dest:
+            raise ValueError("source or destination host is gone")
+        job, audit = js._create_queued_job_with_audit(
+            session,
+            server_id=source.id,
+            job_type=JOB_TYPE,
+            queue_message=f"Stop dest and start source for {project}…",
+            user_id=user_id,
+            audit_details=f"Job #{{job_id}} · dest-up recover {project} back to {source.name}",
+            parent_job_id=int(parent.id),
+            dest_server_id=dest.id,
+            dest_name=dest.name,
+            project=project,
+            dest_project=payload.get("dest_project") or project,
+        )
+        jid, aid = job.id, audit.id
+    if _migrate_run_inline():
+        _run_dest_recover_holding_locks(jid, source_id, dest_id, aid)
+    elif not js.HAS_CELERY or not js.service_migrate_dest_recover_task:
+        msg = "Celery worker required — start celery-worker container"
+        with js._get_fresh_session() as session:
+            job = session.get(Job, jid)
+            if job:
+                js._mark_job_terminal(job, msg, session, status="failed", record_audit=True)
+                session.commit()
+        raise RuntimeError(msg)
+    else:
+        try:
+            async_result = js.service_migrate_dest_recover_task.delay(
+                jid, source_id, dest_id, aid
+            )
+            with js._get_fresh_session() as session:
+                job = session.get(Job, jid)
+                if job:
+                    job.celery_task_id = async_result.id
+                    session.add(job)
+                    session.commit()
+        except Exception as e:
+            msg = f"Failed to enqueue dest-up recover to Celery: {e}"
+            logger.exception("[Jobs] %s", msg)
+            with js._get_fresh_session() as session:
+                job = session.get(Job, jid)
+                if job:
+                    js._mark_job_terminal(
+                        job, msg, session, status="failed", record_audit=True
+                    )
+                    session.commit()
+            raise RuntimeError(msg) from e
+    with js._get_fresh_session() as session:
+        job = session.get(Job, jid)
+        if job:
+            session.expunge(job)
+        return job
+
+
+def _run_dest_recover_holding_locks(
+    job_id: int, source_id: int, dest_id: int, audit_id: int
+) -> None:
+    js = _jobs()
+    from .service_migrate.dest_up_recover import JOB_TYPE
+
+    lock_tokens = try_acquire_dual_server_lock(
+        "backup", source_id, dest_id, holder=str(job_id)
+    )
+    if not lock_tokens:
+        source, hostname = js._load_server_for_job(source_id)
+        js._finish(
+            audit_id,
+            job_id,
+            "failed",
+            "A backup or Move is already using the source or destination host",
+            hostname,
+            JOB_TYPE,
+        )
+        return
+    try:
+        _execute_dest_up_recover(job_id, source_id, dest_id, audit_id)
+    finally:
+        release_dual_server_lock(
+            "backup",
+            source_id,
+            lock_tokens[0],
+            dest_id,
+            lock_tokens[1],
+        )
+
+
+def _execute_dest_up_recover(
+    job_id: int,
+    source_id: int,
+    dest_id: int,
+    audit_id: int,
+) -> None:
+    js = _jobs()
+    from .service_migrate.dest_up_recover import (
+        JOB_TYPE,
+        DestUpRecoverError,
+        run_dest_up_recover,
+    )
+
+    source, hostname = js._load_server_for_job(source_id)
+    with js._get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            js._merge_job_details(
+                job,
+                current="dest_up_recover",
+                log_line="Stopping dest, then starting source. DNS and NPM stay.",
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+            try:
+                data = json.loads(job.details or "{}") or {}
+            except Exception:
+                data = {}
+        else:
+            data = {}
+    project = str(data.get("project") or "")
+    dest_project = str(data.get("dest_project") or project)
+    parent_id = int(data.get("parent_job_id") or 0)
+
+    def log_line(msg: str) -> None:
+        js._flush_job_progress(
+            job_id, "dest_up_recover", msg, default_current="dest_up_recover"
+        )
+
+    try:
+        with js._get_fresh_session() as session:
+            src = session.get(Server, source_id)
+            dst = session.get(Server, dest_id)
+            if not src or not dst:
+                raise DestUpRecoverError("source or destination host is gone")
+            run_dest_up_recover(
+                source=src,
+                dest=dst,
+                project=project,
+                dest_project=dest_project,
+                log=log_line,
+            )
+            if parent_id:
+                parent = session.get(Job, parent_id)
+                if parent:
+                    js._merge_job_details(
+                        parent, dest_up_recovered=True, dest_up_recover_job_id=job_id
+                    )
+                    session.add(parent)
+                    session.commit()
+        js._finish(
+            audit_id,
+            job_id,
+            "success",
+            json.dumps({"ok": True, "project": project, "parent_job_id": parent_id}),
+            hostname,
+            JOB_TYPE,
+        )
+        log_line("Done.")
+    except Exception as e:
+        logger.exception("dest_up recover failed")
+        js._finish(audit_id, job_id, "failed", str(e)[:800], hostname, JOB_TYPE)

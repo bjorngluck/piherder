@@ -23,15 +23,52 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.5.0** | **Tagged** 2026-09-18 — reuse Move JobHold pack; Reports pin/hide + Move jobs card recapture if chrome drifted. [RELEASE](../../../docs/RELEASE_v1.5.0.md) · [QA](../../../docs/QA_v1.5.0.md) |
 | **v1.6.0** | **Captured** 2026-09-25 and wired into the wiki. [§ v1.6](#v160--pack-status). [RELEASE](../../../docs/RELEASE_v1.6.0.md) · [QA](../../../docs/QA_v1.6.0.md) |
 | **v1.7.0** | **Captured** 2026-09-28 on `v1.7.0-dev`. About / footer still **1.6.0** (code freeze, package not bumped). [§ v1.7](#v170--pack-status). [QA](../../../docs/QA_v1.7.0.md) |
+| **v1.8.0** | **Captured** 2026-10-01. Home Assistant plugin **0.4.3** and the Google Drive copy card. Package **1.8.0**. [§ v1.8](#v180--pack-status). [QA](../../../docs/QA_v1.8.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    Rebuild **`v1.7.0-dev`**: `docker compose build web celery-worker && docker compose up -d web celery-worker`.  
-    App code is **not** bind-mounted — stale containers = stale chrome.  
-    About / footer still **1.6.0** until freeze.  
-    Do not photograph the public demo. Move stays off unless a regression shot needs the flag, then turn it off again.  
-    **v1.6 captures** stay. New frames are [§ v1.7](#v170--pack-status).
+    Herder shots are the **v1.8.0** release. About / footer read **1.8.0**.  
+    Home Assistant shots use plugin **0.4.3**. Restart Home Assistant after the HACS update, then set the resource to `/local/piherder-dashboard-card.js?v=0.4.3` (JavaScript module) and hard-refresh.  
+    Do not photograph the public demo. Mask the token.  
+    **v1.7 captures** stay until a row below says replace. New frames are [§ v1.8](#v180--pack-status).
+
+---
+
+## v1.8.0 — pack status {#v180--pack-status}
+
+**Captured** 2026-10-01. Home Assistant frames are wired on [Home Assistant](../../integrations/home-assistant.md). The Google Drive card is wired on [Backups](../../day-to-day/backups.md). Walk is signed in [QA_v1.8.0.md](../../../docs/QA_v1.8.0.md).
+
+The card shots are a dark Home Assistant desktop. Host names in the frames are masked. Plugin **0.4.3** ([release](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.3)). The host frame shows **Stop** and **Restart** and a gold **OS updates** pill. It does not show a gold container name, because no container in that frame had an image update.
+
+### Captured
+
+| File | What the frame shows |
+|------|----------------------|
+| `ha-fleet-card.png` | Fleet tab. Totals, then one row per host with a model icon and the OS |
+| `ha-host-card.png` | Host tab. Strip, gold OS-update pill, bars, sparkline, **Containers** open, **Stop** and **Restart** |
+| `ha-updates-card.png` | Updates tab. Counts written out. Gold when something is due. No buttons on the row |
+| `ha-resources-card.png` | Memory, disk, and the CPU sparkline |
+| `ha-fleet-sensors.png` | Fleet device. Plugin **0.4.3**. Visit opens the herder |
+| `ha-more-info.png` | CPU load more-info, history visible |
+
+### Captured — Google Drive
+
+| File | What the frame shows |
+|------|----------------------|
+| `settings-drive-copy.png` | **Copy the backup drive**. Signed in, folder **Backup_PiHerder**, daily at 04:30. **Test**, **Edit**, folder tree, **Copy now** |
+| `settings-drive-setup.png` | **Edit**. Service **Google Drive**, Cloud steps, redirect URL, secret left blank, folder, schedule, **Save** and **Connect Google** |
+
+### Do not recapture for 1.8
+
+| File | Why leave it |
+|------|----------------|
+| `ha-hacs-config.png`, `ha-visit-host.png`, `ha-slice1b-sensors.png` | Config flow, Visit, and snapshot sensors are unchanged. No start/stop |
+| `settings-instance.png`, `header-instance-name.png`, `nav-catalog-hidden.png`, `settings-jobs-wait.png`, `settings-self-backup.png` | 1.7 chrome. The self-backup card is unchanged. The Drive card is a new file, not a replacement of this one |
+| Mux-2, Undo-2, Jr-web | No new frame unless a walk shows a caption is false |
+| Move, console, login, maps | Unchanged |
+
+Drive frames are on [Backups](../../day-to-day/backups.md) and [Self-backup](../../operations/self-backup.md). The client secret in the setup frame is the blank placeholder.
 
 ---
 
@@ -259,7 +296,7 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 1. Rebuild/restart **web** on **`v1.7.0-dev`**. About / footer still **1.6.0**.  
 2. Light theme · desktop width · one phone frame for the Catalog hide · redact hostnames/IPs if needed.  
 3. **Move** shots are not part of the 1.7 pack. Leave `PIHERDER_SERVICE_MIGRATE=false`. Do not photograph `.env` bodies, PEMs, or NPM passwords.  
-4. **HA cards:** plugin **0.3.0**, token masked, not the public demo.  
+4. **HA cards:** plugin **0.4.3**, resource `?v=0.4.3`, token masked, not the public demo. See [§ v1.8](#v180--pack-status).  
 5. **Instance name:** clear it or restore Pi / Herder after `header-instance-name.png` if you do not want the lab left renamed. Turn **Show Catalog** back on after the phone shot.  
 6. After saving PNGs: add `![…]` on the wiki pages in the **v1.7** table · `mkdocs build --strict` · commit binaries + captions together.
 
@@ -315,7 +352,7 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 | **Header** | Custom wordmark, official mark, primary red unchanged |
 | **Phone nav** | Catalog hidden. `/catalog` still loads |
 | **Settings → Jobs** | Max wait, default 30 minutes |
-| **HA cards** | Host, updates, and resources on plugin **0.3.0**. Fleet card stays a separate file |
+| **HA cards** | Host, updates, and resources on plugin **0.3.0**. Those frames are replaced by the [v1.8 pack](#v180--pack-status) |
 
 ### New / changed in 1.3
 

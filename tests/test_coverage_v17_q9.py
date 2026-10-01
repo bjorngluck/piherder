@@ -102,6 +102,7 @@ def test_settings_certs_pihole_and_ssh(tmp_path, monkeypatch):
 
     engine = _engine(tmp_path / "q9.db")
     client, uid, sid = _client(engine, monkeypatch)
+    monkeypatch.setattr(jobs, "engine", engine)
     try:
         with Session(engine) as s:
             user = s.get(User, uid)

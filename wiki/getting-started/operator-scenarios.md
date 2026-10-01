@@ -125,7 +125,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | 2 | [Lock](../docker/service-migration.md) a hardware-bound stack (or HAOS) | Prove Move is refused |
 | 3 | Unlock a disposable stack; **⋯ → Move to another host…** | Wizard |
 | 4 | Pick dest (wait modal) · remap dest name/ports if needed · read preflight | Blocks before copy; dest name/port overrides clear name/port clashes |
-| 5 | Confirm downtime → JobHold | Stop → copy → dest up → name/proxy on **Celery**. Recycle **web** is safe. Copy/dest-up fail: **Start source stack** |
+| 5 | Confirm downtime → JobHold | Stop → copy → dest up → name/proxy on **Celery**. Recycle **web** is safe. Copy or a dest-up command failure: **Start source stack**. Worker death during dest up: **Inspect destination** |
 | 6 | Check dest inventory, CNAME or NPM `forward_host`, maps, Grafana container chips | Green cutover |
 | 7 | Leave leftover **stopped** on the first run | Data still on source |
 

@@ -68,10 +68,14 @@ def test_exclusive_types_are_celery_owned_and_not_the_backup_mutex():
     assert "backup" not in EXCLUSIVE_CELERY_TYPES
     assert "nmap_discover" not in EXCLUSIVE_CELERY_TYPES
     assert "retention" not in EXCLUSIVE_CELERY_TYPES
-    assert "host_facts" not in EXCLUSIVE_CELERY_TYPES
+    assert "herder_backup" not in EXCLUSIVE_CELERY_TYPES
+    assert "host_facts" in EXCLUSIVE_CELERY_TYPES
+    assert "retention" not in js._EXCLUSIVE_JOB_TYPES
+    assert "herder_backup" not in js._EXCLUSIVE_JOB_TYPES
     assert js._is_celery_owned_job(Job(job_type="os_patch", status="pending")) is True
-    assert js._is_celery_owned_job(Job(job_type="host_facts", status="pending")) is False
-    assert js._is_celery_owned_job(Job(job_type="retention", status="running")) is False
+    assert js._is_celery_owned_job(Job(job_type="host_facts", status="pending")) is True
+    assert js._is_celery_owned_job(Job(job_type="retention", status="running")) is True
+    assert js._is_celery_owned_job(Job(job_type="herder_backup", status="pending")) is True
     assert exclusive_job.name == "app.tasks.exclusive_job"
     from app.services import jobs_exclusive as exclusive_mod
 
@@ -259,6 +263,37 @@ def test_host_wait_past_limit_fails(monkeypatch):
         row = session.get(Job, jid)
         assert row.status == "failed"
         assert "unreachable" in (row.details or "")
+
+
+def test_container_stop_reaches_the_service_on_the_celery_path(monkeypatch):
+    """Production dispatch is run_exclusive_job, not the pytest inline handoff."""
+    engine = _engine()
+    _bind(monkeypatch, engine)
+    srv = _server(engine)
+    with Session(engine) as session:
+        job = Job(server_id=srv.id, job_type="container_stop", status="pending", details="{}")
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        jid = job.id
+
+    called: dict = {}
+
+    def execute(job_id, server_id, audit_id, project_path, service, action):
+        called["args"] = (job_id, server_id, audit_id, project_path, service, action)
+
+    monkeypatch.setattr("app.services.ssh.test_connection", lambda *a, **k: True)
+    monkeypatch.setattr(js, "_execute_container_service", execute)
+    result = run_exclusive_job(
+        _Task(),
+        jid,
+        srv.id,
+        8,
+        "container_stop",
+        {"project_path": "/opt/web", "service": "web", "action": "stop"},
+    )
+    assert result["status"] == "ok"
+    assert called["args"] == (jid, srv.id, 8, "/opt/web", "web", "stop")
 
 
 def test_ssh_up_runs_body_without_backup_lock(monkeypatch):

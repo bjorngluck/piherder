@@ -831,14 +831,23 @@ class JobCreateBody(BaseModel):
         ...,
         description=(
             "backup | retention | os_patch | os_update_check | host_reboot | "
-            "container_patch | container_update_check | docker_stack_check | "
+            "container_patch | container_update_check | container_start | container_stop | "
+            "container_restart | container_redeploy | "
+            "docker_stack_check | "
             "docker_stack_deploy | docker_stack_stop | docker_stack_start | "
             "docker_stack_restart | template_deploy | template_redeploy"
         ),
     )
     source_filter: Optional[str] = Field(
         None,
-        description="Backup source name for backup. Compose project path for docker_stack_* jobs.",
+        description=(
+            "Backup source name for backup. Compose project path for docker_stack_* jobs "
+            "and for container_start, container_stop, container_restart, and container_redeploy."
+        ),
+    )
+    service: Optional[str] = Field(
+        None,
+        description="Compose service name. Required for one-service start, stop, restart, and redeploy.",
     )
     os_steps: Optional[list[str]] = None
 
@@ -879,9 +888,12 @@ async def create_server_job(
             user_id=auth.user_id,
             source_filter=body.source_filter,
             os_steps=os_steps,
+            service=body.service,
             api_token_id=auth.token_id,
             api_token_name=auth.token_name,
         )
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e)[:200]) from e
     except job_service.BackupAlreadyRunning as e:
         return JSONResponse(
             status_code=409,

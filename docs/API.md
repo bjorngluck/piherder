@@ -92,7 +92,7 @@ If **any** `feature:*` scope is set, only those features are allowed for jobs an
 |-------|-------------|------|------------|
 | `feature:backup` | `backup` | `backup`, `retention` | `backup` |
 | `feature:os` | `os` | `os_patch`, `os_update_check`, `host_reboot` | `os_patch` |
-| `feature:docker` | `docker` | `container_patch`, `container_update_check`, `docker_stack_check`, `docker_stack_deploy`, `docker_stack_stop`, `docker_stack_start`, `docker_stack_restart`, `template_deploy`, `template_redeploy` | `docker` |
+| `feature:docker` | `docker` | `container_patch`, `container_update_check`, `container_start`, `container_stop`, `container_restart`, `container_redeploy`, `docker_stack_check`, `docker_stack_deploy`, `docker_stack_stop`, `docker_stack_start`, `docker_stack_restart`, `template_deploy`, `template_redeploy` | `docker` |
 
 **Example least-privilege tokens**
 
@@ -203,6 +203,10 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 | `host_reboot` | os_patch | `feature:os` |
 | `container_patch` | docker | `feature:docker` |
 | `container_update_check` | docker | `feature:docker` |
+| `container_start` | docker | `feature:docker` |
+| `container_stop` | docker | `feature:docker` |
+| `container_restart` | docker | `feature:docker` |
+| `container_redeploy` | docker | `feature:docker` |
 | `docker_stack_check` | docker | `feature:docker` |
 | `docker_stack_deploy` | docker | `feature:docker` |
 | `docker_stack_stop` | docker | `feature:docker` |
@@ -211,9 +215,9 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 | `template_deploy` | docker | `feature:docker` |
 | `template_redeploy` | docker | `feature:docker` |
 
-That table is the allowlist (`JOB_FEATURE_KEY`). Anything else, including `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, `service_migrate`, and `service_migrate_undo`, is **400** `Unsupported job_type`.
+That table is the allowlist (`JOB_FEATURE_KEY`). Anything else, including `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, `service_migrate`, `service_migrate_undo`, and `service_migrate_dest_recover`, is **400** `Unsupported job_type`.
 
-`source_filter` is the backup source name for `backup`. For `docker_stack_check`, `docker_stack_deploy`, `docker_stack_stop`, `docker_stack_start`, and `docker_stack_restart` it is the compose project path. `template_deploy` and `template_redeploy` are on this allowlist, but this body has no template slug or variable values, so it does not start a catalog deploy. Those jobs still run from the template UI.
+`source_filter` is the backup source name for `backup`. For `docker_stack_check`, `docker_stack_deploy`, `docker_stack_stop`, `docker_stack_start`, and `docker_stack_restart` it is the compose project path. `container_start`, `container_stop`, `container_restart`, and `container_redeploy` need that same path plus `service` (one compose service). They do not change the rest of the project. Redeploy is `docker compose up -d --no-deps --pull always` for that service. `template_deploy` and `template_redeploy` are on this allowlist, but this body has no template slug or variable values, so it does not start a catalog deploy. Those jobs still run from the template UI.
 
 **Responses**
 
@@ -229,7 +233,7 @@ That table is the allowlist (`JOB_FEATURE_KEY`). Anything else, including `docke
 
 **Exclusivity:** At most one **pending/running** job of each exclusive type per server. A second trigger does not start a parallel SSH session. `host_reboot` also waits for an OS patch, a container patch, or a backup on that host.
 
-This POST is broader than the MCP adapter. MCP `trigger_job` stays `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, and `container_update_check`. It does not expose `host_reboot`, the `docker_stack_*` types, or `template_deploy` / `template_redeploy`. `host_reboot` is for the herder UI and the Home Assistant plugin. A `jobs` token with `feature:docker` can still call the stack types on this route.
+Hosted MCP `trigger_job` uses this same list. It does not add `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move, or undo. For a `docker_stack_*` job, `source_filter` is the compose project path. Feature flags and `feature:*` scopes still apply.
 
 ### Stale data cleanup
 
@@ -311,7 +315,7 @@ HTTP Request node: Method GET/POST, Header `Authorization` = `Bearer ph_…`, JS
 
 **v1.6:** first-class **HACS integration** (runs on HA) — Slice 1: fleet sensors, host devices, **Visit** = `{origin}/servers/{id}`, Lovelace **PiHerder fleet** card (`custom:piherder-dashboard-card`). Heartbeat `GET /api/v1/summary` (`read`) includes fleet resource sums. Host `os_pretty` / `hardware` / cpu / memory / disk / `container_count` from the host-facts snapshot. Slice **1b** read APIs: `GET /api/v1/inventory`, `GET /api/v1/servers/{id}/inventory`, `GET /api/v1/services` (stored snapshots only). Plugin [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.2.4** is that read path. No start/stop. Operator: [wiki Home Assistant](../wiki/integrations/home-assistant.md). [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) §7 · [PLAN_v1.6.0.md](PLAN_v1.6.0.md). YAML `rest` remains possible. CORS is not required (HA Core is server-side). Prefer an IP allowlist for the HA host.
 
-**v1.7 (on `v1.7.0-dev`, package still `1.6.0`):** Plugin **0.3.0** adds memory % and CPU load sensors, plus host, updates, and resources Lovelace cards. Writes go through HA services to the jobs and features routes above (including `host_reboot`). **Hosted MCP** is `POST /mcp` on this process (Streamable HTTP, stateless JSON, the same Bearer token). It does not add `/api/v1` routes. Tool names match [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp): `read`, and `jobs` / `edit` / `files` when the token has them. Published job tools stay those six types. The jobs POST above is broader (`host_reboot`, compose stack types, and `template_deploy` / `template_redeploy`); those are not MCP tools. `uvx piherder-mcp` remains an optional air-gapped client. Operator page: [wiki/operations/mcp.md](../wiki/operations/mcp.md). **Jr-1** moved the remaining exclusive job types onto Celery and added `host_reboot` to that set. [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
+**v1.7:** Plugin **0.3.0** adds memory % and CPU load sensors, plus host, updates, and resources Lovelace cards. **v1.8:** plugin **0.4.4** is one card (Fleet, Host, Updates; the walk and pictures used **0.4.3**). Click a stat for Home Assistant history. The card keeps the selected host. **Start**, **Stop**, **Restart**, and **Update** act on one compose service (`container_start`, `container_stop`, `container_restart`, `container_redeploy`). `piherder_job_completed` is a Home Assistant bus event from the plugin poll, not a new `/api/v1` route. Writes go through HA services to the jobs and features routes above (including `host_reboot`). **Hosted MCP** is `POST /mcp` on this process (Streamable HTTP, stateless JSON, the same Bearer token). It does not add `/api/v1` routes. Tool names match [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp): `read`, and `jobs` / `edit` / `files` when the token has them. The 1.7 tool list was those six types. On **v1.8.0**, MCP `trigger_job` matches the jobs POST list above except `container_start`, `container_stop`, `container_restart`, and `container_redeploy` (Home Assistant only). `uvx piherder-mcp` remains an optional air-gapped client. Adapter **0.2.0** on PyPI matches the MCP list. **0.1.1** was the six-type build. The tool and type tables are on [wiki/operations/mcp.md](../wiki/operations/mcp.md). Operator page: [wiki/operations/mcp.md](../wiki/operations/mcp.md). **Jr-1** moved the remaining exclusive job types onto Celery and added `host_reboot` to that set. [PLAN_v1.7.0.md](PLAN_v1.7.0.md).
 
 ---
 

@@ -36,13 +36,18 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 | **General** | Timezone (inline) plus a **hub** of summary cards — **Instance** (name, accent, Catalog in the nav), **Jobs** (max wait for the host), Security, Console, **Files** (transfer cap), SSO, Cleanup. **Edit** opens the full form in a modal |
 | **Alerts** | **Alert policy** (per-category severity / mute / debounce) + outbound **webhook** + **SMTP** — [details](alerts-email-webhooks.md) |
 | **Fleet defaults** | Global OS / container update-check defaults (optional apply to all hosts) |
-| **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)) |
+| **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)). On the v1.8 train, the card under that is **Copy the backup drive** ([Backups](../day-to-day/backups.md#copy-to-google-drive-v18-train)) |
 | **Status** | Stack health: web, DB, Redis, Celery, scheduler, disk ([Status](status.md)) — admin |
 | **API** | Create / rotate / revoke instance Bearer tokens; **Try a token** smoke checks; OpenAPI `/docs` + ReDoc ([API tokens](api-tokens.md)) — admin |
 
 <figure class="ph-figure" markdown>
   ![PiHerder self-backup](../assets/screenshots/settings-self-backup.png)
   <figcaption>Settings → PiHerder backup — Full DR and archives.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Copy the backup drive](../assets/screenshots/settings-drive-copy.png)
+  <figcaption>Settings → PiHerder backup — Copy the backup drive, under the self-backup cards. v1.8.0.</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>

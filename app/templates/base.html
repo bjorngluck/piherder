@@ -559,6 +559,9 @@
         <button type="button" id="job-hold-undo" class="btn btn-secondary min-h-11 text-sm hidden">
           Undo move
         </button>
+        <button type="button" id="job-hold-dest-recover" class="btn btn-secondary min-h-11 text-sm hidden">
+          Inspect destination
+        </button>
       </div>
     </div>
   </div>
@@ -1485,6 +1488,7 @@
         recover: document.getElementById('job-hold-recover'),
         startSource: document.getElementById('job-hold-start-source'),
         undoMove: document.getElementById('job-hold-undo'),
+        destRecover: document.getElementById('job-hold-dest-recover'),
       };
     }
 
@@ -1493,6 +1497,9 @@
       state.recoverSource = null;
       state.undoMove = null;
       state.undoArmed = false;
+      state.destRecover = null;
+      state.destArmed = false;
+      state.destParentId = null;
       if (e.recover) e.recover.classList.add('hidden');
       if (e.startSource) {
         e.startSource.disabled = false;
@@ -1502,6 +1509,11 @@
         e.undoMove.disabled = false;
         e.undoMove.classList.add('hidden');
         e.undoMove.textContent = 'Undo move';
+      }
+      if (e.destRecover) {
+        e.destRecover.disabled = false;
+        e.destRecover.classList.add('hidden');
+        e.destRecover.textContent = 'Inspect destination';
       }
     }
 
@@ -1617,6 +1629,19 @@
               if (e.startSource) e.startSource.classList.remove('hidden');
               if (e.hint && hold) {
                 e.hint.textContent = 'Copy / dest up failed. Source is stopped. Start it back, or Close.';
+              }
+            }
+            if (data.status === 'failed' && !data.dest_up_recovered && data.dest_up_recover && data.dest_up_recover.project && data.job_type === 'service_migrate') {
+              state.destRecover = data.dest_up_recover;
+              state.destParentId = data.job_id || data.id;
+              state.destArmed = false;
+              if (e.recover) e.recover.classList.remove('hidden');
+              if (e.destRecover) {
+                e.destRecover.classList.remove('hidden');
+                e.destRecover.textContent = 'Inspect destination';
+              }
+              if (e.hint && hold) {
+                e.hint.textContent = 'The worker died while starting dest. Dest may already be up. Inspect it before starting source. Names stay.';
               }
             }
             if (data.status === 'failed' && !data.undo_completed && data.undo_move && data.undo_move.project && data.job_type === 'service_migrate') {
@@ -1790,6 +1815,75 @@
       }).catch(function (err) {
         undoBtn.disabled = false;
         if (e.log) e.log.textContent += (err && err.message ? err.message : 'undo failed') + '\n';
+      });
+    });
+    var destBtn = document.getElementById('job-hold-dest-recover');
+    if (destBtn) destBtn.addEventListener('click', function () {
+      var sid = state.serverId;
+      var parentId = state.destParentId;
+      if (!sid || !parentId) return;
+      var e = els();
+      if (!state.destArmed) {
+        destBtn.disabled = true;
+        fetch('/servers/' + encodeURIComponent(sid) + '/docker/migrate/dest-up/inspect?parent_job_id=' + encodeURIComponent(parentId), {
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' },
+        }).then(function (res) {
+          return res.text().then(function (text) {
+            var data = {};
+            try { data = text ? JSON.parse(text) : {}; } catch (err) { data = {}; }
+            if (!res.ok) {
+              if (e.log) e.log.textContent += (data.detail || ('HTTP ' + res.status)) + '\n';
+              destBtn.disabled = false;
+              return;
+            }
+            var lines = ['Destination inspect', 'Project: ' + (data.project || '')];
+            lines.push('Dest: ' + (data.dest_name || '') + ' ' + (data.dest_path || ''));
+            lines.push(data.dest_running ? 'Dest has a container up.' : 'Dest does not show a running container.');
+            if (data.output) lines.push(data.output);
+            lines.push('DNS and NPM stay. Press Stop dest and start source to compose stop dest, then start source. Dest files stay.');
+            if (e.log) e.log.textContent += lines.join('\n') + '\n';
+            state.destArmed = true;
+            destBtn.textContent = 'Stop dest and start source';
+            destBtn.disabled = false;
+          });
+        }).catch(function (err) {
+          destBtn.disabled = false;
+          if (e.log) e.log.textContent += (err && err.message ? err.message : 'inspect failed') + '\n';
+        });
+        return;
+      }
+      destBtn.disabled = true;
+      var body = new FormData();
+      body.set('parent_job_id', String(parentId));
+      body.set('confirm', '1');
+      fetch('/servers/' + encodeURIComponent(sid) + '/docker/migrate/dest-up/recover', {
+        method: 'POST',
+        body: body,
+        credentials: 'same-origin',
+        headers: { 'X-PiHerder-Async': '1', 'Accept': 'application/json' },
+      }).then(function (res) {
+        return res.text().then(function (text) {
+          var data = {};
+          try { data = text ? JSON.parse(text) : {}; } catch (err) { data = {}; }
+          if (!res.ok && res.status !== 409) {
+            if (e.log) e.log.textContent += (data.detail || ('HTTP ' + res.status)) + '\n';
+            destBtn.disabled = false;
+            return;
+          }
+          if (data.job_id) {
+            if (e.title) e.title.textContent = 'Stop dest, start source';
+            if (e.status) e.status.textContent = 'Recovering…';
+            if (e.hint) e.hint.textContent = 'Stopping dest, then starting source. DNS and NPM stay.';
+            if (e.recover) e.recover.classList.add('hidden');
+            startPoll(sid, data.job_id, data.poll_url || null);
+          } else {
+            destBtn.disabled = false;
+          }
+        });
+      }).catch(function (err) {
+        destBtn.disabled = false;
+        if (e.log) e.log.textContent += (err && err.message ? err.message : 'recover failed') + '\n';
       });
     });
     var startSrc = document.getElementById('job-hold-start-source');
