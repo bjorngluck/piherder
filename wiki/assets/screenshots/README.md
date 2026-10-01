@@ -28,7 +28,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    Herder shots stay on **`v1.8.0-dev`**. About / footer read **1.8.0**.  
+    Herder shots are the **v1.8.0** release. About / footer read **1.8.0**.  
     Home Assistant shots use plugin **0.4.3**. Restart Home Assistant after the HACS update, then set the resource to `/local/piherder-dashboard-card.js?v=0.4.3` (JavaScript module) and hard-refresh.  
     Do not photograph the public demo. Mask the token.  
     **v1.7 captures** stay until a row below says replace. New frames are [§ v1.8](#v180--pack-status).

@@ -251,7 +251,7 @@ Scheduled apply/audit attribution shows as **system / scheduler** (no user id).
 
 Per-server backup enable + cron on the server/backups UI. Enqueues **Celery** workers (web never runs rsync).
 
-On `v1.8.0-dev`, **Settings → PiHerder backup** also has **Copy the backup drive**: rclone on the herder sends checked paths under `/backups` to a folder in the operator’s Google Drive. The sign-in is a web OAuth client created in their Google Cloud project. A service account is not used. OneDrive and LAN NAS / SMB are in the service list and cannot be selected. The copy is job `backup_replicate`. It may run for 7 days. Host backups stay on the 2-hour worker limit. It is not the self-backup below, and a failed copy does not change `last_backup_at`. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). Not in the published **1.7.0** image. It ships in **1.8.0**.
+On **v1.8.0**, **Settings → PiHerder backup** also has **Copy the backup drive**: rclone on the herder sends checked paths under `/backups` to a folder in the operator’s Google Drive. The sign-in is a web OAuth client created in their Google Cloud project. A service account is not used. OneDrive and LAN NAS / SMB are in the service list and cannot be selected. The copy is job `backup_replicate`. It may run for 7 days. Host backups stay on the 2-hour worker limit. It is not the self-backup below, and a failed copy does not change `last_backup_at`. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). Not in the published **1.7.0** image. It ships in **1.8.0**.
 
 ### PiHerder self-backup
 
@@ -606,9 +606,9 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Auth chrome** | Unauthenticated `/` redirects to login; version string only when signed in |
 | **Roles** | Viewer cannot mutate fleet; Docker **build** stream is operator+ — [wiki roles](../wiki/account-security/roles.md) |
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
-| **Image pin** | Prefer a tagged image: Hub **`1.8.0`** / `1.8` / `latest` once tag `v1.8.0` is published (`1.7.0` / `1.7` pins remain valid) |
+| **Image pin** | Hub **`1.8.0`** / `1.8` / `latest` (`1.7.0` / `1.7` pins remain valid) |
 
-Current release: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) on `v1.8.0-dev`. Prior: [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current release: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md). Prior: [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 
@@ -909,7 +909,7 @@ Set `METRICS_TOKEN` whenever `/metrics` is not on a fully private network. Serie
 
 ### Image publish (when ready)
 
-Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`1.8.0` / `1.8` / `latest` publish with tag `v1.8.0`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v1.8.0** — [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Pins `1.7.0` / `1.7` stay valid. Hosted MCP is `POST /mcp` on **web**. stdio `uvx` is the air-gapped fallback, not a second Compose service.
+Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`1.8.0` / `1.8` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v1.8.0** — [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Pins `1.7.0` / `1.7` stay valid. Hosted MCP is `POST /mcp` on **web**. stdio `uvx` is the air-gapped fallback, not a second Compose service.
 
 **Supported deploy path:** Docker Compose (this repo). Platform reliability (host dependency checks, Settings → **Status**, multi-worker Celery) is live — see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 0.5. Kubernetes and bare/local install are under consideration only, not supported install paths today.
 

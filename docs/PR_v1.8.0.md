@@ -4,7 +4,7 @@
 
 **Base:** `main` · **Head:** `v1.8.0-dev` · **Tag:** `v1.8.0` on the merge commit
 
-**State:** **Ready for review** [#19](https://github.com/bjorngluck/piherder/pull/19). **Code freeze set 2026-09-30.** Operator walks are signed. Screenshot pack is **captured**. Package **`1.8.0`**. End-user notes: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Merge, tag, and Hub publish stay a separate ask.
+**State:** **Shipped** 2026-10-01 [#19](https://github.com/bjorngluck/piherder/pull/19). Package **`1.8.0`**. Tag **v1.8.0**. Hub `1.8.0` / `1.8` / `latest`. End-user notes: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md).
 
 ---
 
@@ -53,7 +53,6 @@ Walk [QA_v1.8.0.md](QA_v1.8.0.md). Signed: **MCP-jobs**, **Bak-alt discovery**, 
 
 ## Out of scope
 
-- Merge, tag `v1.8.0`, GitHub Release, or Hub publish (after review)
 - Public demo redeploy
 - OneDrive, SMB, per-host grants, webhooks, Move or Files from Home Assistant, whole-project stop
 - Down or remove of a container from the card
@@ -66,11 +65,11 @@ Walk [QA_v1.8.0.md](QA_v1.8.0.md). Signed: **MCP-jobs**, **Bak-alt discovery**, 
 - [x] Wiki Home current-release row points at **1.8.0**
 - [x] Screenshot pack captured ([v1.8 pack](../wiki/assets/screenshots/README.md#v180--pack-status))
 - [x] Pull request marked ready for review
-- [ ] Merge `v1.8.0-dev` → `main`
-- [ ] Tag **`v1.8.0`** · Hub `1.8.0` / `1.8` / `latest`
-- [ ] Keep `1.7` / `1.7.0` pins valid
-- [ ] `PIHERDER_SERVICE_MIGRATE` stays **false**
+- [x] Merge `v1.8.0-dev` → `main`
+- [x] Tag **`v1.8.0`** · Hub `1.8.0` / `1.8` / `latest`
+- [x] Keep `1.7` / `1.7.0` pins valid
+- [x] `PIHERDER_SERVICE_MIGRATE` stays **false**
 
 ## After merge
 
-Hub publish per [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). GitHub Release body = `docs/RELEASE_v1.8.0.md` when that file exists. The public demo stays on the **1.7.0** image until a redeploy is asked for. Plugin **0.4.4** is already tagged in piherder-ha and is not part of this merge.
+Hub publish per [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). GitHub Release body is `docs/RELEASE_v1.8.0.md`. The public demo is the **1.7.0** image. Plugin **0.4.4** is already tagged in piherder-ha and is not part of this merge.
