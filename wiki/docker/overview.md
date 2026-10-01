@@ -90,7 +90,7 @@ From a compose project **⋯** menu:
 3. A **Job** runs `docker compose stop|start|restart` over SSH with a live log (same JobHold pattern as Deploy).  
 4. Success refreshes inventory; **Jobs** / **Audit** record `docker_stack_stop` / `_start` / `_restart`.  
 
-Only **one** stack mutation runs at a time per host (shared lane with Deploy and template deploy/redeploy). Operator+ only. Single-container start/stop/restart stay on the **service row** ⋯ menu. Home Assistant plugin **0.4.4** can start, stop, restart, or update that same one service. It does not stop the whole project.
+Only **one** stack mutation runs at a time per host (shared lane with Deploy and template deploy/redeploy). Operator+ only. Single-container start/stop/restart stay on the **service row** ⋯ menu. Home Assistant plugin **0.5.0** can start, stop, restart, or update that same one service, and can **Stop project** (`docker compose stop`, not down or remove) after a confirm. It can also start a stop-first Move. Files on that card stay in the fleet jail.
 
 <figure class="ph-figure" markdown>
   ![Docker project lifecycle](../assets/screenshots/docker-project-lifecycle.png)

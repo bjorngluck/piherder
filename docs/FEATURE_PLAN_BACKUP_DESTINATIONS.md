@@ -1,8 +1,8 @@
 # Backup destinations — Google Drive copy
 
-**Status:** **Shipped** in **v1.8.0** (2026-10-01). Walk signed 2026-09-30. Screenshot captured.  
-**Train:** [PLAN_v1.8.0.md](PLAN_v1.8.0.md) §3 (path A).  
-**Not this product:** the instance self-backup (pg_dump / `/herder_backups` archives). The Drive section sits under that same Settings tab. Restore stays the local tree.
+**Status:** Google Drive copy **shipped** in **v1.8.0** (2026-10-01). Walk signed 2026-09-30. Screenshot captured. On the **v1.9** train, LAN NAS / SMB is selectable beside Drive, and Settings can remove one provider (#25). Package stays **1.8.0** until freeze.  
+**Train:** [PLAN_v1.8.0.md](PLAN_v1.8.0.md) §3 (path A) · [PLAN_v1.9.0.md](PLAN_v1.9.0.md).  
+**Not this product:** the instance self-backup (pg_dump / `/herder_backups` archives). The copy section sits under that same Settings tab. Restore stays the local tree.
 
 ## What stays
 
@@ -14,7 +14,7 @@ A **backup destination** is its own row, aimed at the whole backup drive (`BACKU
 
 | Piece | Lock |
 |-------|------|
-| Provider | The service list shows Google Drive, which is the only one that can be saved. OneDrive and LAN NAS / SMB are in that list and cannot be selected yet. No plugin framework. |
+| Provider | Google Drive (shipped **1.8.0**) and **LAN NAS / SMB** (selectable on the **v1.9** train) are each their own second hop. Both can be saved and live at once. OneDrive is in the list and cannot be selected (discovery only). No plugin framework. |
 | Secret | Fernet (`PIHERDER_MASTER_KEY`). The operator creates a Google web OAuth client and pastes its ID and secret. **Connect Google** stores a refresh token. A blank secret keeps a saved one. The sign-in is not shown again. A service account is not the upload account. |
 | When | The same schedule presets as the rest of Settings, an on-demand button, and an optional follow-up after one host backup finishes. The follow-up copies only checked paths under that host folder. |
 | Failure | The copy job fails. `last_backup_at` and the rsync job stay as they were. |
@@ -37,14 +37,20 @@ The copy signs in as the operator’s Google account. PiHerder runs the redirect
 
 ## Out
 
-OneDrive is listed and cannot be selected. Path C (a client on each Pi), restic, borg, kopia, rclone crypt, restoring from Drive, and copying the herder self-backup stay out.
+OneDrive is listed and cannot be selected. Path C (a client on each Pi), restic, borg, kopia, rclone crypt, restoring from Drive or SMB, and copying the herder self-backup stay out. Removing a destination does not delete remote files.
 
 ## LAN NAS / SMB (v1.9 path A)
 
-**Status:** Built on `v1.9.0-dev`. Not a version bump.
+**Status:** Built on `v1.9.0-dev`. Not a version bump. Selectable. Not discovery-only.
 
 Same card, same job `backup_replicate`, same checked/skipped tree. The operator picks **LAN NAS / SMB** and saves one share: host, share, optional path, username, password, optional domain or workgroup. Guest access and Kerberos are not built. A blank password keeps the saved one.
 
 The username and password are Fernet (`PIHERDER_MASTER_KEY`). The password is not written to the job log. rclone runs from a temp config, mode `0600`, deleted after the run. **Test** is `rclone lsd` (list only). The public demo does not upload. The job is not on the token or MCP list. A failed copy fails that job only.
 
-Path B (mount the share as `backup_dest_root`) stays out. The local rsync directory stays the default. Google Drive stays selectable.
+Drive and SMB are independent. Saving one does not replace the other. Each row has its own secret and its own schedule. Path B (mount the share as `backup_dest_root`) stays out. The local rsync directory stays the default.
+
+## Remove one destination (v1.9, #25)
+
+**Status:** Built on `v1.9.0-dev`. Settings only.
+
+Admin, Settings → PiHerder backup, `confirm=remove`. That deletes one provider's `backup_destination` row and the Fernet secret on it. The other provider's row stays. Files already on Drive or on the SMB share are kept. Demo refuses. There is no job type, no token route, and no MCP tool.
