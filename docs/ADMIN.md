@@ -251,7 +251,7 @@ Scheduled apply/audit attribution shows as **system / scheduler** (no user id).
 
 Per-server backup enable + cron on the server/backups UI. Enqueues **Celery** workers (web never runs rsync).
 
-On **v1.8.0**, **Settings → PiHerder backup** also has **Copy the backup drive**: rclone on the herder sends checked paths under `/backups` to a folder in the operator’s Google Drive. The sign-in is a web OAuth client created in their Google Cloud project. A service account is not used. OneDrive and LAN NAS / SMB are in the service list and cannot be selected. The copy is job `backup_replicate`. It may run for 7 days. Host backups stay on the 2-hour worker limit. It is not the self-backup below, and a failed copy does not change `last_backup_at`. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). Not in the published **1.7.0** image. It ships in **1.8.0**.
+On **v1.8.0**, **Settings → PiHerder backup** also has **Copy the backup drive**: rclone on the herder sends checked paths under `/backups` to a folder in the operator’s Google Drive. The sign-in is a web OAuth client created in their Google Cloud project. A service account is not used. The copy is job `backup_replicate`. It may run for 7 days. Host backups stay on the 2-hour worker limit. It is not the self-backup below, and a failed copy does not change `last_backup_at`. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). Not in the published **1.7.0** image. It ships in **1.8.0**. On the **v1.9** train the same card can also save **LAN NAS / SMB** (rclone `smb`, one share). OneDrive still cannot be selected. A host CIFS mount is not that slice.
 
 ### PiHerder self-backup
 

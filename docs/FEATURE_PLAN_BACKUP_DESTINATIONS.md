@@ -37,4 +37,14 @@ The copy signs in as the operator’s Google account. PiHerder runs the redirect
 
 ## Out
 
-OneDrive and SMB are listed and cannot be selected. Path C (a client on each Pi), restic, borg, kopia, rclone crypt, restoring from Drive, and copying the herder self-backup stay out.
+OneDrive is listed and cannot be selected. Path C (a client on each Pi), restic, borg, kopia, rclone crypt, restoring from Drive, and copying the herder self-backup stay out.
+
+## LAN NAS / SMB (v1.9 path A)
+
+**Status:** Built on `v1.9.0-dev`. Not a version bump.
+
+Same card, same job `backup_replicate`, same checked/skipped tree. The operator picks **LAN NAS / SMB** and saves one share: host, share, optional path, username, password, optional domain or workgroup. Guest access and Kerberos are not built. A blank password keeps the saved one.
+
+The username and password are Fernet (`PIHERDER_MASTER_KEY`). The password is not written to the job log. rclone runs from a temp config, mode `0600`, deleted after the run. **Test** is `rclone lsd` (list only). The public demo does not upload. The job is not on the token or MCP list. A failed copy fails that job only.
+
+Path B (mount the share as `backup_dest_root`) stays out. The local rsync directory stays the default. Google Drive stays selectable.

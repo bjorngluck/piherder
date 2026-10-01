@@ -904,7 +904,7 @@ def replicate_backup(self, job_id: int):
         )
         return {"status": "failed", "job_id": job_id, "error": result.get("error")}
     except Exception as exc:
-        logger.error("Drive copy job %s failed: %s", job_id, exc)
+        logger.error("Backup copy job %s failed: %s", job_id, exc)
         _update_job_status(job_id, "failed", {"error": str(exc)[:500], "current": "failed"})
         return {"status": "failed", "job_id": job_id, "error": str(exc)[:500]}
     finally:
@@ -913,7 +913,7 @@ def replicate_backup(self, job_id: int):
 
 def fail_replicate_job(job_id: int, message: str) -> bool:
     """Mark a Drive copy failed when the worker process dies outside execute()."""
-    text = (message or "Drive copy stopped").strip()[:500]
+    text = (message or "Backup copy stopped").strip()[:500]
     try:
         with Session(engine) as s:
             job = s.get(Job, job_id)
@@ -941,7 +941,7 @@ def fail_replicate_job(job_id: int, message: str) -> bool:
             s.commit()
             return True
     except Exception as exc:
-        logger.error("Drive copy job %s could not be marked failed: %s", job_id, exc)
+        logger.error("Backup copy job %s could not be marked failed: %s", job_id, exc)
         return False
 
 
@@ -949,12 +949,12 @@ def _drive_copy_failure_message(exception: BaseException | None) -> str:
     name = type(exception).__name__ if exception else ""
     if name in ("TimeLimitExceeded", "HardTimeLimitExceeded") or "time limit" in str(exception or "").lower():
         return (
-            "Drive copy hit the worker time limit and was stopped. "
-            "Start it again. Files already uploaded stay on Drive."
+            "Backup copy hit the worker time limit and was stopped. "
+            "Start it again. Files already copied stay."
         )
     return (
-        "The worker stopped during the Drive copy. "
-        "Start it again. Files already uploaded stay on Drive."
+        "The worker stopped during the backup copy. "
+        "Start it again. Files already copied stay."
     )
 
 

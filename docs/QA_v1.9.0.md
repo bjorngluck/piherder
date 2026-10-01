@@ -28,7 +28,7 @@ Hosted `POST /mcp` and the stdio adapter. Token masked. All four types, in the s
 
 ## LAN NAS / SMB (Must)
 
-Settings → PiHerder backup. The local rsync directory stays the default. Demo is not the target.
+Settings → PiHerder backup. The local rsync directory stays the default. This walk is path A (rclone `smb` from `/backups`). A host CIFS mount as the dest root is not this slice. Demo is not the target.
 
 - [ ] A LAN share can be selected and saved. Google Drive can still be selected
 - [ ] **Test** checks the share and does not copy the tree
