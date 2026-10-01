@@ -34,7 +34,7 @@ Multi-arch images on **Docker Hub**: [bjorngluck/piherder](https://hub.docker.co
 
 Images: `bjorngluck/piherder` (optional later: `ghcr.io/bjorngluck/piherder`).
 
-**v1.8.0** manifest list: `sha256:8ce50bbce758e622a996cd58557b0846e03cb02613b09471405222df620c2e89` (`1.8.0` / `1.8` / `latest`). Pin **1.7.0** remains `sha256:174cb1313f6717d323211c8c899b30240e97f5097bd35770f7a6c4555de95270`.
+**v1.8.1** manifest list: `sha256:289add1ce903c9cedf1bcff6a14b9d8e865284c2db22b17a99ea399693079f9a` (`1.8.1` / `1.8` / `latest`). Pin **1.8.0** remains `sha256:8ce50bbce758e622a996cd58557b0846e03cb02613b09471405222df620c2e89`. Pin **1.7.0** remains `sha256:174cb1313f6717d323211c8c899b30240e97f5097bd35770f7a6c4555de95270`.
 
 ## Multi-arch build example
 
