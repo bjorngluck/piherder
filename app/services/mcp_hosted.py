@@ -3,6 +3,9 @@
 Same process as the web app. Clients send ``POST /mcp`` with
 ``Authorization: Bearer ph_…``. Tools mirror the public ``piherder-mcp``
 stdio adapter and call the existing ``/api/v1`` route functions in-process.
+Hosted ``trigger_job`` also accepts ``container_start``, ``container_stop``,
+``container_restart``, and ``container_redeploy`` (v1.9). Adapter 0.2.0 does
+not list those four until the companion release.
 
 Transport choice: MCP Streamable HTTP (spec 2025-03-26 and later), stateless,
 preferring a single ``application/json`` response. That is what Cursor, Claude
@@ -41,6 +44,12 @@ PROTOCOL_VERSIONS = (
 PREFERRED_PROTOCOL = "2025-03-26"
 MAX_BODY_BYTES = 1024 * 1024
 MAX_FILE_BYTES = 256 * 1024
+MCP_CONTAINER_SERVICE_JOB_TYPES = (
+    "container_start",
+    "container_stop",
+    "container_restart",
+    "container_redeploy",
+)
 MCP_JOB_TYPES = (
     "backup",
     "retention",
@@ -48,6 +57,7 @@ MCP_JOB_TYPES = (
     "container_patch",
     "os_update_check",
     "container_update_check",
+    *MCP_CONTAINER_SERVICE_JOB_TYPES,
     "host_reboot",
     "docker_stack_check",
     "docker_stack_deploy",
@@ -63,13 +73,17 @@ _QUERY_SECRET_KEYS = frozenset(
 _SERVER_INSTRUCTIONS = (
     "Call summary before changing anything. "
     "trigger_job starts backup, retention, os_patch, container_patch, "
-    "os_update_check, container_update_check, host_reboot, "
+    "os_update_check, container_update_check, container_start, container_stop, "
+    "container_restart, container_redeploy, host_reboot, "
     "docker_stack_check, docker_stack_deploy, docker_stack_stop, "
     "docker_stack_start, docker_stack_restart, template_deploy, or template_redeploy. "
     "For a docker_stack job, source_filter is the compose project path. "
+    "container_start, container_stop, container_restart, and container_redeploy "
+    "require service (one compose service) and source_filter (the compose project directory). "
     "On HTTP 409 poll get_job and do not start another. "
     "Files stay in the fleet jail. "
-    "Do not invent SSH, Move, undo, a console, nmap, or token admin. "
+    "Do not invent SSH, Move, undo, a console, nmap, token admin, "
+    "docker_stack_down, docker_stack_remove, or stale-data cleanup. "
     "Tools appear only for scopes on this token. A token without read has no tools."
 )
 
@@ -93,6 +107,47 @@ def _int_prop(description: str) -> dict[str, str]:
 
 def _str_prop(description: str) -> dict[str, str]:
     return {"type": "string", "description": description}
+
+
+def _trigger_job_schema(server_id_prop: dict[str, str]) -> dict[str, Any]:
+    """``service`` and ``source_filter`` are required for one-service container jobs."""
+    schema = _obj_schema(
+        {
+            "server_id": server_id_prop,
+            "job_type": {
+                "type": "string",
+                "enum": list(MCP_JOB_TYPES),
+                "description": "One of the jobs POST types",
+            },
+            "source_filter": _str_prop(
+                "Backup source name, the compose project path for a docker_stack job, "
+                "or the compose project directory for container_start, container_stop, "
+                "container_restart, and container_redeploy (required for those four)"
+            ),
+            "service": _str_prop(
+                "Compose service name. Required for container_start, container_stop, "
+                "container_restart, and container_redeploy"
+            ),
+            "os_steps": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Optional OS patch steps",
+            },
+        },
+        ["server_id", "job_type"],
+    )
+    schema["allOf"] = [
+        {
+            "if": {
+                "properties": {
+                    "job_type": {"enum": list(MCP_CONTAINER_SERVICE_JOB_TYPES)},
+                },
+                "required": ["job_type"],
+            },
+            "then": {"required": ["service", "source_filter"]},
+        }
+    ]
+    return schema
 
 
 def tool_catalog() -> list[dict[str, Any]]:
@@ -200,34 +255,20 @@ def tool_catalog() -> list[dict[str, Any]]:
             "name": "trigger_job",
             "description": (
                 "Start backup, retention, os_patch, container_patch, "
-                "os_update_check, container_update_check, host_reboot, "
+                "os_update_check, container_update_check, container_start, "
+                "container_stop, container_restart, container_redeploy, host_reboot, "
                 "docker_stack_check, docker_stack_deploy, docker_stack_stop, "
                 "docker_stack_start, docker_stack_restart, template_deploy, "
                 "or template_redeploy. "
                 "For a docker_stack job, source_filter is the compose project path. "
+                "container_start, container_stop, container_restart, and container_redeploy "
+                "require service (one compose service name) and source_filter "
+                "(the compose project directory). "
                 "HTTP 202 means accepted. HTTP 409 means that job is already active: "
                 "poll get_job and do not start another."
             ),
             "scope": tok_svc.SCOPE_JOBS,
-            "inputSchema": _obj_schema(
-                {
-                    "server_id": sid,
-                    "job_type": {
-                        "type": "string",
-                        "enum": list(MCP_JOB_TYPES),
-                        "description": "One of the jobs POST types",
-                    },
-                    "source_filter": _str_prop(
-                        "Backup source name, or the compose project path for a docker_stack job"
-                    ),
-                    "os_steps": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Optional OS patch steps",
-                    },
-                },
-                ["server_id", "job_type"],
-            ),
+            "inputSchema": _trigger_job_schema(sid),
             "annotations": _WRITE_ANN,
         },
         {
@@ -690,9 +731,32 @@ async def call_tool(
                     is_error=True,
                 )
             body_fields: dict[str, Any] = {"job_type": job_type}
-            source = _opt_str(args, "source_filter")
-            if source:
+            source_raw = _opt_str(args, "source_filter")
+            service_raw = _opt_str(args, "service")
+            if job_type in MCP_CONTAINER_SERVICE_JOB_TYPES:
+                source = source_raw.strip()
+                service = service_raw.strip()
+                missing = [
+                    name
+                    for name, value in (("service", service), ("source_filter", source))
+                    if not value
+                ]
+                if missing:
+                    need = " and ".join(missing)
+                    return tool_text_result(
+                        {
+                            "ok": False,
+                            "detail": (
+                                f"{job_type} requires {need} "
+                                "(compose service name and project directory)"
+                            ),
+                        },
+                        is_error=True,
+                    )
+                body_fields["service"] = service
                 body_fields["source_filter"] = source
+            elif source_raw:
+                body_fields["source_filter"] = source_raw
             if "os_steps" in args and args["os_steps"] is not None:
                 steps = args["os_steps"]
                 if not isinstance(steps, list) or not all(isinstance(item, str) for item in steps):
