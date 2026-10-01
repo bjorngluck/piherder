@@ -43,7 +43,7 @@ OneDrive is listed and cannot be selected. Path C (a client on each Pi), restic,
 
 **Status:** Built on `v1.9.0-dev`. Not a version bump. Selectable. Not discovery-only.
 
-Same card, same job `backup_replicate`, same checked/skipped tree. The operator picks **LAN NAS / SMB** and saves one share: host, share, optional path, username, password, optional domain or workgroup. Guest access and Kerberos are not built. A blank password keeps the saved one.
+Same card, same job `backup_replicate`, same checked/skipped tree. The operator picks **LAN NAS / SMB** and saves one share: host, share, optional path, username, password, optional domain or workgroup. Username and password both empty is a guest share. A blank password with a username keeps the saved password. Username without a password, or a password without a username, is refused. Kerberos is not built. The Settings list shows each saved Drive and SMB destination on its own row.
 
 The username and password are Fernet (`PIHERDER_MASTER_KEY`). The password is not written to the job log. rclone runs from a temp config, mode `0600`, deleted after the run. **Test** is `rclone lsd` (list only). The public demo does not upload. The job is not on the token or MCP list. A failed copy fails that job only.
 

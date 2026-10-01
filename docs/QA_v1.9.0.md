@@ -31,6 +31,8 @@ Hosted `POST /mcp` and the stdio adapter. Token masked. All four types, in the s
 Settings → PiHerder backup. The local rsync directory stays the default. This walk is path A (rclone `smb` from `/backups`). A host CIFS mount as the dest root is not this slice. Demo is not the target.
 
 - [ ] A LAN share can be selected and saved. Google Drive can still be selected. Both can be live at once (two hops). Removing one does not clear the other
+- [ ] A share with no login saves when username and password are both empty. A blank password on an existing account keeps the saved password. One field filled and the other empty is refused
+- [ ] A failed Save stays on the edit form with what was typed. Each saved destination has its own Edit, Remove, and folders row
 - [ ] **Test** checks the share and does not copy the tree
 - [ ] Copy now, the schedule, or the follow-up after a host backup copies to that share. A failed copy does not change the host backup time
 - [ ] The credential is not written to the job log

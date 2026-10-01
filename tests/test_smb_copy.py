@@ -60,13 +60,30 @@ def test_blank_password_keeps_saved_secret():
     assert public["domain"] == ""
 
 
-def test_guest_and_bad_paths_rejected():
+def test_guest_is_both_empty_and_half_filled_is_refused():
     dest = BackupDestination(provider="smb", name="LAN NAS / SMB")
     with pytest.raises(ValueError, match="user"):
         copies.store_smb(
             dest, host="nas.local", share="backups", path="", username="",
             password="x", domain="", schedule=None, after_host_backup=False,
         )
+    with pytest.raises(ValueError, match="password"):
+        copies.store_smb(
+            dest, host="nas.local", share="backups", path="", username="backup",
+            password="", domain="", schedule=None, after_host_backup=False,
+        )
+    copies.store_smb(
+        dest, host="nas.local", share="backups", path="PiHerder", username="",
+        password="", domain="", schedule=None, after_host_backup=False,
+    )
+    secret = json.loads(decrypt_str(dest.credentials_encrypted))
+    assert secret == {"username": "", "password": ""}
+    assert "Guest" not in (dest.credentials_encrypted or "")
+    assert "Guest" not in (dest.config_json or "")
+    public = copies.smb_public(dest)
+    assert public["guest"] is True
+    assert public["password_saved"] is False
+    assert public["username"] == ""
     with pytest.raises(ValueError, match="path"):
         copies.store_smb(
             dest, host="nas.local", share="backups", path="../etc", username="backup",
@@ -74,6 +91,18 @@ def test_guest_and_bad_paths_rejected():
         )
     with pytest.raises(ValueError, match="provider"):
         copies.normalize_provider("onedrive")
+
+
+def test_both_empty_replaces_a_saved_password():
+    dest = _dest()
+    copies.store_smb(
+        dest, host="nas.local", share="backups", path="", username="",
+        password="", domain="", schedule=None, after_host_backup=False,
+    )
+    secret = json.loads(decrypt_str(dest.credentials_encrypted))
+    assert secret["password"] == ""
+    assert secret["username"] == ""
+    assert copies.smb_public(dest)["guest"] is True
 
 
 def test_rclone_config_is_private_and_password_is_obscured():
@@ -94,6 +123,63 @@ def test_rclone_config_is_private_and_password_is_obscured():
     assert "smb-secret-9f3c1a" not in text
     obscured = next(line.split(" = ", 1)[1] for line in text.splitlines() if line.startswith("pass = "))
     assert copies._rclone_reveal(obscured) == "smb-secret-9f3c1a"
+
+
+def test_guest_rclone_config_uses_guest_user_and_no_password():
+    dest = BackupDestination(provider="smb", name="LAN NAS / SMB")
+    copies.store_smb(
+        dest, host="nas.local", share="public", path="", username="",
+        password="", domain="", schedule=None, after_host_backup=False,
+    )
+    path = copies.write_smb_rclone_config(dest)
+    try:
+        text = open(path, encoding="utf-8").read()
+    finally:
+        copies.discard_rclone_config(path)
+    assert "user = Guest" in text
+    assert "pass = " not in text
+    assert "type = smb" in text
+    assert "host = nas.local" in text
+    assert "use_kerberos" not in text
+
+
+def test_guest_probe_and_copy_do_not_log_credentials(tmp_path, monkeypatch, caplog):
+    dest = BackupDestination(provider="smb", name="LAN NAS / SMB")
+    copies.store_smb(
+        dest, host="nas.local", share="public", path="", username="",
+        password="", domain="", schedule=None, after_host_backup=False,
+    )
+    dest.selection_json = '{"checked":["host"],"skipped":[]}'
+    root = tmp_path / "backups"
+    (root / "host").mkdir(parents=True)
+    monkeypatch.setattr(copies, "backup_root", lambda: root)
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+    seen = []
+
+    def run(cmd, **_kwargs):
+        seen.append(list(cmd))
+        config = cmd[cmd.index("--config") + 1]
+        text = open(config, encoding="utf-8").read()
+        assert "user = Guest" in text
+        assert "pass = " not in text
+        assert "Guest" not in " ".join(cmd)
+
+        class Proc:
+            returncode = 0
+            stderr = "ok"
+            stdout = ""
+
+        return Proc()
+
+    monkeypatch.setattr(copies.subprocess, "run", run)
+    assert copies.probe(dest) == {"ok": "1", "code": "ok"}
+    with caplog.at_level(logging.DEBUG):
+        result = copies.execute(dest)
+    assert result["ok"] is True
+    assert seen[0][1] == "lsd"
+    assert seen[1][1] == "sync"
+    assert "Guest" not in caplog.text
+    assert not os.path.exists(seen[0][seen[0].index("--config") + 1])
 
 
 def test_probe_lists_only_and_deletes_config(monkeypatch):
