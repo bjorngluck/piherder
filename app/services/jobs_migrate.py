@@ -54,6 +54,9 @@ def enqueue_service_migrate(
     port_map: dict | None = None,
     bind_map: dict | None = None,
     skip_binds: list | None = None,
+    api_token_id: int | None = None,
+    api_token_name: str | None = None,
+    client_ip: str | None = None,
 ) -> Job:
     """Queue stop-first copy + dest up on Celery. Raises JobAlreadyActive if either host is busy.
 
@@ -111,6 +114,9 @@ def enqueue_service_migrate(
             leftover=left,
             devices_ack=bool(devices_ack),
             adopt_fabric=bool(adopt_fabric),
+            api_token_id=api_token_id,
+            api_token_name=api_token_name,
+            client_ip=client_ip,
         )
         jid, aid = job.id, audit.id
     if _migrate_run_inline():
