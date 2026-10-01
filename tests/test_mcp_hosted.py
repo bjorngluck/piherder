@@ -264,14 +264,35 @@ def test_scope_filter_jobs_and_sse_and_noread(tmp_path, monkeypatch):
         assert by_name["write_file"]["annotations"]["destructiveHint"] is True
         assert "p" in by_name["write_file"]["inputSchema"]["required"]
         assert "p" in by_name["mkdir"]["inputSchema"]["required"]
-        enum = by_name["trigger_job"]["inputSchema"]["properties"]["job_type"]["enum"]
+        schema = by_name["trigger_job"]["inputSchema"]
+        enum = schema["properties"]["job_type"]["enum"]
         assert "backup" in enum
         assert "host_reboot" in enum
         assert "docker_stack_restart" in enum
         assert "template_redeploy" in enum
+        assert "service" in schema["properties"]
+        for name in (
+            "container_start",
+            "container_stop",
+            "container_restart",
+            "container_redeploy",
+        ):
+            assert name in enum
+        then_required = schema["allOf"][0]["then"]["required"]
+        assert then_required == ["service", "source_filter"]
+        assert schema["allOf"][0]["if"]["properties"]["job_type"]["enum"] == [
+            "container_start",
+            "container_stop",
+            "container_restart",
+            "container_redeploy",
+        ]
         assert "service_migrate" not in enum
+        assert "service_migrate_undo" not in enum
+        assert "service_migrate_dest_recover" not in enum
         assert "docker_stack_down" not in enum
+        assert "docker_stack_remove" not in enum
         assert "template_drift_check" not in enum
+        assert "nmap_discovery" not in enum
 
         rejected = _rpc(
             client,
@@ -498,9 +519,15 @@ def test_trigger_job_returns_api_202_and_409(monkeypatch):
             session=None,
             auth=auth,
         )
-        return first, second, stack, refused
+        down = await mcp_hosted.call_tool(
+            "trigger_job",
+            {"server_id": 1, "job_type": "docker_stack_down"},
+            session=None,
+            auth=auth,
+        )
+        return first, second, stack, refused, down
 
-    first, second, stack, refused = asyncio.run(_run())
+    first, second, stack, refused, down = asyncio.run(_run())
     assert first["isError"] is False
     assert first["structuredContent"]["http_status"] == 202
     assert second["isError"] is False
@@ -511,6 +538,93 @@ def test_trigger_job_returns_api_202_and_409(monkeypatch):
     assert stack["structuredContent"]["http_status"] == 202
     assert refused["isError"] is True
     assert "must be one of" in refused["content"][0]["text"]
+    assert down["isError"] is True
+    assert "must be one of" in down["content"][0]["text"]
+    assert "docker_stack_remove" not in mcp_hosted.MCP_JOB_TYPES
+
+
+def test_trigger_job_container_service_requires_service_and_path(monkeypatch):
+    import asyncio
+
+    from fastapi.responses import JSONResponse
+
+    from app.services import mcp_hosted
+
+    seen = []
+
+    async def fake_create(server_id, body, background, session, auth):
+        seen.append(body)
+        return JSONResponse(
+            status_code=202,
+            content={"job_id": 9, "status": "pending", "job_type": body.job_type},
+        )
+
+    monkeypatch.setattr("app.routers.api_v1.create_server_job", fake_create)
+    auth = type("Auth", (), {"scopes": {"read", "jobs"}})()
+
+    async def _run():
+        results = []
+        for job_type in mcp_hosted.MCP_CONTAINER_SERVICE_JOB_TYPES:
+            results.append(
+                await mcp_hosted.call_tool(
+                    "trigger_job",
+                    {
+                        "server_id": 1,
+                        "job_type": job_type,
+                        "service": " web ",
+                        "source_filter": " /opt/web ",
+                    },
+                    session=None,
+                    auth=auth,
+                )
+            )
+        missing_service = await mcp_hosted.call_tool(
+            "trigger_job",
+            {
+                "server_id": 1,
+                "job_type": "container_stop",
+                "source_filter": "/opt/web",
+            },
+            session=None,
+            auth=auth,
+        )
+        missing_path = await mcp_hosted.call_tool(
+            "trigger_job",
+            {
+                "server_id": 1,
+                "job_type": "container_redeploy",
+                "service": "web",
+            },
+            session=None,
+            auth=auth,
+        )
+        blank = await mcp_hosted.call_tool(
+            "trigger_job",
+            {
+                "server_id": 1,
+                "job_type": "container_start",
+                "service": "  ",
+                "source_filter": " ",
+            },
+            session=None,
+            auth=auth,
+        )
+        return results, missing_service, missing_path, blank
+
+    results, missing_service, missing_path, blank = asyncio.run(_run())
+    assert [body.job_type for body in seen] == list(mcp_hosted.MCP_CONTAINER_SERVICE_JOB_TYPES)
+    for body, result in zip(seen, results):
+        assert result["isError"] is False
+        assert result["structuredContent"]["http_status"] == 202
+        assert body.service == "web"
+        assert body.source_filter == "/opt/web"
+    assert missing_service["isError"] is True
+    assert "requires service" in missing_service["content"][0]["text"]
+    assert missing_path["isError"] is True
+    assert "requires source_filter" in missing_path["content"][0]["text"]
+    assert blank["isError"] is True
+    assert "requires service and source_filter" in blank["content"][0]["text"]
+    assert len(seen) == 4
 
 
 def test_file_tools_and_argument_errors(monkeypatch):
