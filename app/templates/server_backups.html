@@ -46,9 +46,9 @@
       {% endif %}
     </p>
     <div class="ops-hero-actions">
-      <button type="button" onclick="showBackupConfigModal()" class="btn btn-secondary min-h-11 text-sm">Configure</button>
+      <button type="button" data-ph-click="showBackupConfigModal" class="btn btn-secondary min-h-11 text-sm">Configure</button>
       {% if running_backup_job %}
-      <button type="button" onclick="openBackupLog(null, {{ running_backup_job.id }})" class="btn btn-secondary min-h-11 text-sm">📋 Log</button>
+      <button type="button" data-ph-click="openBackupLog" data-ph-args="[null, {{ running_backup_job.id }}]" class="btn btn-secondary min-h-11 text-sm">📋 Log</button>
       {% elif not backup_running %}
       <form method="post" action="/servers/{{ server.id }}/run/backup" class="backup-run-form">
         <button type="submit" class="btn btn-accent min-h-11 text-sm">▶ Full backup</button>
@@ -91,9 +91,9 @@
       <div class="flex items-center gap-2 flex-wrap">
         <span class="font-medium">Running:</span>
         <span class="font-mono text-accent text-xs break-all">{{ rj.source_filter or rj.current or 'full backup' }}</span>
-        {# single-quoted onclick: tojson emits "…"; double-quoted attrs break the handler #}
-        <button type="button" onclick='openBackupLog({{ (rj.source_filter or '') | tojson }}, {{ running_backup_job.id }})' class="btn btn-secondary text-xs px-2 py-1">Log</button>
-        <button type="button" onclick='activePollJobId={{ running_backup_job.id }}; activePollSource={{ (rj.source_filter or '') | tojson }}; stopCurrentBackup()' class="btn btn-danger text-xs px-2 py-1">Stop</button>
+        {# single-quoted data-ph-args: tojson emits "…"; double-quoted attrs would break #}
+        <button type="button" data-ph-click="openBackupLog" data-ph-args='[{{ (rj.source_filter or "") | tojson }}, {{ running_backup_job.id }}]' class="btn btn-secondary text-xs px-2 py-1">Log</button>
+        <button type="button" data-ph-set='{{ {"activePollJobId": running_backup_job.id, "activePollSource": (rj.source_filter or "")} | tojson }}' data-ph-click="stopCurrentBackup" class="btn btn-danger text-xs px-2 py-1">Stop</button>
       </div>
     {% endif %}
     {% for qj in active_backup_jobs if qj.status == 'pending' %}
@@ -101,7 +101,7 @@
       <div class="flex items-center gap-2 text-xs text-muted flex-wrap">
         <span>Queued:</span>
         <span class="font-mono break-all">{{ qd.source_filter or 'full backup' }}</span>
-        <button type="button" onclick='openBackupLog({{ (qd.source_filter or '') | tojson }}, {{ qj.id }})' class="btn btn-secondary text-xs px-2 py-0.5">View</button>
+        <button type="button" data-ph-click="openBackupLog" data-ph-args='[{{ (qd.source_filter or "") | tojson }}, {{ qj.id }}]' class="btn btn-secondary text-xs px-2 py-0.5">View</button>
       </div>
     {% endfor %}
   </div>
@@ -126,13 +126,13 @@
         {% if p.active_job_status == 'running' %}
         <button type="button"
                 class="source-icon-btn"
-                onclick='openBackupLog({{ p.source | tojson }}, {{ p.active_job_id }})'
+                data-ph-click="openBackupLog" data-ph-args='[{{ p.source | tojson }}, {{ p.active_job_id }}]'
                 title="View live log"
                 aria-label="View log for {{ p.source }}">📋</button>
         {% elif p.active_job_status == 'pending' %}
         <button type="button"
                 class="source-icon-btn"
-                onclick='openBackupLog({{ p.source | tojson }}, {{ p.active_job_id }})'
+                data-ph-click="openBackupLog" data-ph-args='[{{ p.source | tojson }}, {{ p.active_job_id }}]'
                 title="Queued — view log"
                 aria-label="Queued {{ p.source }}">⏳</button>
         {% else %}
@@ -146,7 +146,7 @@
         {% endif %}
         <button type="button"
                 class="source-icon-btn source-icon-remove"
-                onclick='showRemoveBackupModal({{ p.source | tojson }})'
+                data-ph-click="showRemoveBackupModal" data-ph-args='[{{ p.source | tojson }}]'
                 title="Remove source"
                 aria-label="Remove {{ p.source }}">×</button>
       </div>
@@ -299,7 +299,7 @@
         <h3 class="ph-detail-title">Configure backups</h3>
         <p class="text-xs text-muted mt-1">Schedule, retention, destination, and source list</p>
       </div>
-      <button type="button" onclick="hideBackupConfigModal()" class="source-icon-btn" aria-label="Close">✕</button>
+      <button type="button" data-ph-click="hideBackupConfigModal" class="source-icon-btn" aria-label="Close">✕</button>
     </div>
 
     <form method="post" action="/servers/{{ server.id }}/backup-config">
@@ -336,7 +336,7 @@
             <select class="w-full bg-surface border border-border px-3 py-2 rounded text-xs min-h-11 mb-1"
                     data-cron-preset-for="cron-input"
                     aria-label="Schedule preset"
-                    onchange="var el=document.getElementById('cron-input'); if(this.value){el.value=this.value; el.dispatchEvent(new Event('input'));}">
+                    data-ph-fill-id="cron-input" data-ph-fill-dispatch>
               <option value="">Custom / advanced cron…</option>
               {% for val, lab in cron_presets %}
               <option value="{{ val }}" {% if server.backup_schedule == val %}selected{% endif %}>{{ lab }}</option>
@@ -375,7 +375,7 @@
 
       <div id="config-error" class="text-danger text-sm mb-2 hidden"></div>
       <div class="flex flex-wrap gap-2 mt-4 justify-end">
-        <button type="button" onclick="hideBackupConfigModal()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+        <button type="button" data-ph-click="hideBackupConfigModal" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
         <button type="submit" class="btn btn-accent min-h-11 text-sm">Save configuration</button>
       </div>
     </form>
@@ -395,8 +395,8 @@
     </form>
     
     <div class="flex gap-2 justify-end">
-      <button type="button" onclick="hideRemoveBackupModal()" class="px-4 py-1 btn btn-secondary rounded text-sm">Cancel</button>
-      <button type="button" onclick="confirmRemoveBackupSource()" class="px-4 py-1 btn btn-danger rounded text-sm">Confirm Remove</button>
+      <button type="button" data-ph-click="hideRemoveBackupModal" class="px-4 py-1 btn btn-secondary rounded text-sm">Cancel</button>
+      <button type="button" data-ph-click="confirmRemoveBackupSource" class="px-4 py-1 btn btn-danger rounded text-sm">Confirm Remove</button>
     </div>
   </div>
 </div>

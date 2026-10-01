@@ -456,7 +456,7 @@
 <div class="card p-4 border border-danger/40 max-w-md">
   <h3 class="text-sm font-medium text-danger mb-2">Danger zone</h3>
   <form method="post" action="/integrations/{{ integration.id }}/delete"
-        onsubmit="return confirm('Delete this integration and all server bindings?');">
+        data-ph-confirm="Delete this integration and all server bindings?">
     <button type="submit" class="btn btn-secondary text-sm min-h-10 text-danger">Delete integration</button>
   </form>
 </div>

@@ -28,7 +28,7 @@ Wanted, in order:
 
 - **OneDrive.** The same rclone second hop as Google Drive. Listed today, not selectable.
 - **HA Slice 3.** All four leftovers on the card: webhooks, Move from the card, Files from the card, and stop of a whole compose project. One-service start, stop, restart, and update already shipped and are not reopened here. Whole-project stop on the card is not `docker_stack_down`.
-- **CSP Slice 2.** Rewrite inline `onclick` handlers. Slice 1 script nonces stay.
+- **CSP Slice 2.** Rewrite inline `onclick` handlers. Slice 1 script nonces stay. **Built** on this branch: product templates use `data-ph-*` plus `/static/js/csp-events.js`. App CSP is `script-src-attr 'none'`. `/docs` and `/redoc` still use `script-src 'unsafe-inline'`.
 
 **Discover only. Write the note. No client until a later promotion:**
 
@@ -92,6 +92,7 @@ main (herder allowlist landed, image still 1.8.0)
 | 2026-10-01 | **Rebase.** `v1.9.0-dev` replayed onto `main` so the train keeps the merged allowlist and the rest of this plan. |
 | 2026-10-01 | **LAN NAS / SMB.** Path A rclone `smb` on Settings → PiHerder backup. One share. Password in Fernet. Path B mount stays out. |
 | 2026-10-01 | **Move default-on.** `PIHERDER_SERVICE_MIGRATE` defaults true (compose and settings). `false` still disables. Stop-first. No Undo on a finished Move. Same operator+ gate. Not on MCP, the token API, or the HA card. |
+| 2026-10-01 | **CSP Slice 2.** Inline `onclick` / `onchange` / `onsubmit` / `onerror` removed from product templates. Clicks go through `data-ph-*` and `/static/js/csp-events.js`. Script nonces stay. App `script-src-attr` is `'none'`. Style stays `'unsafe-inline'`. OpenAPI `/docs` and `/redoc` unchanged. |
 
 ---
 
@@ -103,7 +104,7 @@ main (herder allowlist landed, image still 1.8.0)
 | 2 | **MCP-svc** — four job types on hosted MCP and the adapter, then one adapter tag | Herder on `main` (#22). Adapter source on piherder-mcp `main`. Published tag **0.2.0**. Walk open |
 | 3 | **LAN NAS / SMB** — selectable path A (`rclone smb`) | Built on this branch. Path B mount stays out |
 | 4 | **Move default-on** — flag defaults true | **Done** on this branch. Unset env is on; `false` disables |
-| 5 | Should, if they do not slip | OneDrive · HA Slice 3 · CSP Slice 2 |
+| 5 | Should, if they do not slip | OneDrive · HA Slice 3 · **CSP Slice 2 built** on this branch (live walk still in QA) |
 | 6 | Discover write-ups | Path C · MCP OAuth. No code |
 | 7 | Freeze · version bump · tag · Hub | Only when asked |
 | 8 | **Supply-chain locks**: refresh `uv.lock` and both requirements lockfiles, retest, close Dependabot alerts | Locks refreshed on this branch. Alerts wait for `main`. [§4](#4-supply-chain-locks-must-planned) |

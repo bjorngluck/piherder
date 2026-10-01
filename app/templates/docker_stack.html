@@ -340,7 +340,7 @@
                      {% elif chip.state == 'down' %}status-failed
                      {% else %}feature-off{% endif %}"
                    title="{{ chip.label }}{% if chip.message %} — {{ chip.message }}{% endif %}{% if chip.cert_days is not none %} · TLS {{ chip.cert_days|int }}d{% endif %}"
-                   onclick="event.stopPropagation()">
+                   data-ph-stop>
                   {% if chip.cert_valid is sameas true and chip.cert_days is not none %}TLS {{ chip.cert_days|int }}d
                   {% elif chip.cert_valid is sameas false %}TLS ✗
                   {% else %}mon {{ chip.state }}{% endif %}
@@ -352,7 +352,7 @@
                    {% if chip.open_url %}target="_blank" rel="noopener"{% endif %}
                    class="status-pill text-xs no-underline status-running"
                    aria-label="Open {{ chip.label or 'dashboard' }} in Grafana (filtered for this container)"
-                   onclick="event.stopPropagation()">
+                   data-ph-stop>
                   Grafana
                 </a>
                 {% endfor %}

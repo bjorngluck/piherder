@@ -6,7 +6,7 @@
         <h3 id="cleanup-title" class="font-semibold text-lg">Docker cleanup</h3>
         <p class="text-xs text-muted mt-0.5">Unused images &amp; exited containers on this host</p>
       </div>
-      <button type="button" onclick="hideCleanupModal()" class="source-icon-btn" aria-label="Close">✕</button>
+      <button type="button" data-ph-click="hideCleanupModal" class="source-icon-btn" aria-label="Close">✕</button>
     </div>
 
     <div class="cleanup-modal-body">
@@ -18,7 +18,7 @@
       <div id="unused-list" class="cleanup-list" aria-label="Unused resources"></div>
 
       <div class="flex flex-wrap items-center gap-2 mb-3">
-        <button type="button" id="cleanup-refresh-btn" onclick="loadUnused()" class="btn btn-secondary text-xs min-h-9">↻ Refresh list</button>
+        <button type="button" id="cleanup-refresh-btn" data-ph-click="loadUnused" class="btn btn-secondary text-xs min-h-9">↻ Refresh list</button>
       </div>
 
       <p class="text-xs text-muted mb-2">Destructive actions (confirm after reviewing the list):</p>
@@ -62,8 +62,8 @@
         <label for="modal-no-cache" class="text-sm">--no-cache (full clean build)</label>
       </div>
       <div class="flex flex-wrap gap-2 justify-end">
-        <button type="button" onclick="hideBuildModal()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
-        <button type="button" id="modal-start-build" onclick="startBuildFromModal()" class="btn btn-accent min-h-11 text-sm">Start build</button>
+        <button type="button" data-ph-click="hideBuildModal" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+        <button type="button" id="modal-start-build" data-ph-click="startBuildFromModal" class="btn btn-accent min-h-11 text-sm">Start build</button>
       </div>
     </form>
     <div class="text-xs text-muted mt-3">Only services with a <code>build:</code> section are listed. Builds can take minutes on the host.</div>
@@ -85,7 +85,7 @@
       Raw compose edit is advanced and can cause drift until the next template redeploy.
     </p>
     <div class="flex flex-col sm:flex-row flex-wrap gap-2 justify-end">
-      <button type="button" onclick="hideTemplateEditGate()" class="btn btn-secondary min-h-11 text-sm order-3 sm:order-1">Cancel</button>
+      <button type="button" data-ph-click="hideTemplateEditGate" class="btn btn-secondary min-h-11 text-sm order-3 sm:order-1">Cancel</button>
       <button type="button" id="teg-raw-edit" class="btn btn-secondary min-h-11 text-sm order-2">Edit compose anyway</button>
       <a id="teg-template-link" href="#" class="btn btn-accent min-h-11 text-sm inline-flex items-center justify-center order-1 sm:order-3 no-underline">Template settings…</a>
     </div>
@@ -104,7 +104,7 @@
           · YAML snippets · full editor for syntax &amp; versions
         </p>
       </div>
-      <button type="button" onclick="hideQuickEditModal()" class="source-icon-btn" aria-label="Close">✕</button>
+      <button type="button" data-ph-click="hideQuickEditModal" class="source-icon-btn" aria-label="Close">✕</button>
     </div>
     <div id="qe-template-banner" class="hidden mb-3 p-2.5 banner-warning border border-border text-sm rounded">
       Template-managed stack. Prefer
@@ -113,20 +113,20 @@
     </div>
 
     <div class="mb-2 flex flex-wrap gap-2 text-sm items-center ph-file-tabs">
-      <button id="qe-tab-compose" type="button" onclick="switchQuickEditTab('compose')" class="btn btn-accent min-h-11 text-sm">Compose</button>
-      <button id="qe-tab-dockerfile" type="button" onclick="switchQuickEditTab('dockerfile')" class="btn btn-secondary min-h-11 text-sm hidden">Dockerfile</button>
+      <button id="qe-tab-compose" type="button" data-ph-click="switchQuickEditTab" data-ph-args='["compose"]' class="btn btn-accent min-h-11 text-sm">Compose</button>
+      <button id="qe-tab-dockerfile" type="button" data-ph-click="switchQuickEditTab" data-ph-args='["dockerfile"]' class="btn btn-secondary min-h-11 text-sm hidden">Dockerfile</button>
       <a id="qe-full-link" href="#"
          class="ml-auto text-accent hover:underline text-xs self-center min-h-11 inline-flex items-center px-1 relative z-10"
          data-nav-loading="Opening full editor…"
-         onclick="return goToFullEditor(event);">Open full editor →</a>
+         data-ph-click="goToFullEditor" data-ph-pass-event>Open full editor →</a>
     </div>
 
     <textarea id="qe-editor" class="w-full h-64 font-mono text-sm code-surface border border-border rounded-xl p-3 resize-y" spellcheck="false"></textarea>
 
     <div class="flex flex-wrap items-center gap-2 mt-3">
-      <button type="button" onclick="quickSaveDraft()" class="btn btn-secondary min-h-11 text-sm">Save draft</button>
-      <button type="button" onclick="quickSaveDeploy()" class="btn btn-accent min-h-11 text-sm">Save &amp; deploy</button>
-      <button type="button" onclick="hideQuickEditModal()" class="btn btn-secondary min-h-11 text-sm ml-auto">Cancel</button>
+      <button type="button" data-ph-click="quickSaveDraft" class="btn btn-secondary min-h-11 text-sm">Save draft</button>
+      <button type="button" data-ph-click="quickSaveDeploy" class="btn btn-accent min-h-11 text-sm">Save &amp; deploy</button>
+      <button type="button" data-ph-click="hideQuickEditModal" class="btn btn-secondary min-h-11 text-sm ml-auto">Cancel</button>
       <div id="qe-status" class="text-xs text-accent"></div>
     </div>
 
@@ -152,7 +152,7 @@
       <span>Also remove named volumes (<code class="text-danger">docker compose down -v</code>). Bind data in the project folder is kept.</span>
     </label>
     <div class="flex flex-wrap gap-2 justify-end">
-      <button type="button" onclick="hideUndeployConfirm()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+      <button type="button" data-ph-click="hideUndeployConfirm" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
       <button type="button" id="undeploy-confirm-btn" class="btn btn-danger min-h-11 text-sm">Undeploy</button>
     </div>
   </div>
@@ -174,7 +174,7 @@
       <span>Delete this project folder, compose files, and named volumes.</span>
     </label>
     <div class="flex flex-wrap gap-2 justify-end">
-      <button type="button" onclick="hideRemoveProjectConfirm()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+      <button type="button" data-ph-click="hideRemoveProjectConfirm" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
       <button type="button" id="remove-project-confirm-btn" class="btn btn-danger min-h-11 text-sm" disabled>Delete project</button>
     </div>
   </div>
@@ -197,7 +197,7 @@
       </label>
     </div>
     <div class="flex flex-wrap gap-2 justify-end">
-      <button type="button" onclick="hideDeployConfirm()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+      <button type="button" data-ph-click="hideDeployConfirm" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
       <button type="button" id="deploy-confirm-btn" class="btn btn-accent min-h-11 text-sm">Deploy</button>
     </div>
     <div class="text-xs text-muted mt-3">Updates running containers for the project. Use care on production.</div>
@@ -215,7 +215,7 @@
       on this host. All services in the compose project are affected.
     </p>
     <div class="flex flex-wrap gap-2 justify-end">
-      <button type="button" onclick="hideLifecycleConfirm()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+      <button type="button" data-ph-click="hideLifecycleConfirm" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
       <button type="button" id="lifecycle-confirm-btn" class="btn btn-accent min-h-11 text-sm">Confirm</button>
     </div>
     <div class="text-xs text-muted mt-3" id="lifecycle-confirm-hint">Runs as a Job with live log. Only one stack mutation at a time per host.</div>
@@ -244,7 +244,7 @@
              class="w-full bg-surface border border-border rounded px-2 py-2 text-sm mb-4 min-h-11"
              placeholder="e.g. Coral TPU on USB bus 001">
       <div class="flex flex-wrap gap-2 justify-end">
-        <button type="button" onclick="hideHostLockModal()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+        <button type="button" data-ph-click="hideHostLockModal" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
         <button type="submit" class="btn btn-accent min-h-11 text-sm">Lock</button>
       </div>
     </form>
@@ -260,7 +260,7 @@
         <label class="sr-only" for="logs-lines-select">Lines</label>
         <select id="logs-lines-select"
                 class="logs-lines-select bg-surface border border-border text-xs px-2 py-1.5 rounded min-h-9"
-                onchange="loadLogsForModal(parseInt(this.value, 10))"
+                data-ph-change="loadLogsForModal" data-ph-change-arg="int"
                 title="How many log lines to load">
           <option value="50">50 lines</option>
           <option value="200" selected>200 lines</option>
@@ -269,11 +269,11 @@
         </select>
         <button type="button"
                 id="logs-fullscreen-btn"
-                onclick="expandLogsToFullScreen()"
+                data-ph-click="expandLogsToFullScreen"
                 class="btn btn-secondary text-xs px-2.5 py-1.5 min-h-9"
                 title="Full screen">Full screen</button>
         <button type="button"
-                onclick="closeLogsModal()"
+                data-ph-click="closeLogsModal"
                 class="source-icon-btn"
                 title="Close"
                 aria-label="Close logs">×</button>
@@ -292,7 +292,7 @@
     <h3 class="text-lg font-medium mb-2" id="service-select-title">Which service?</h3>
     <div id="service-select-list" class="space-y-1.5 max-h-60 overflow-auto mb-4"></div>
     <div class="flex gap-2 justify-end">
-      <button type="button" onclick="hideServiceSelectModal()" class="px-4 py-1 btn btn-secondary rounded text-sm">Cancel</button>
+      <button type="button" data-ph-click="hideServiceSelectModal" class="px-4 py-1 btn btn-secondary rounded text-sm">Cancel</button>
     </div>
   </div>
 </div>
@@ -360,7 +360,7 @@ function startBuildFromModal() {
   if (services.length) url += `&services=${services.join(',')}`;
   if (noCache) url += '&no_cache=true';
   // immediate nav feedback
-  const startBtn = document.getElementById('modal-start-build') || document.querySelector('#build-modal button[onclick*="startBuildFromModal"]');
+  const startBtn = document.getElementById('modal-start-build') || document.querySelector('#build-modal button[data-ph-click="startBuildFromModal"]');
   if (startBtn) { startBtn.disabled = true; startBtn.textContent = 'Starting...'; }
   setTimeout(() => { window.location.href = url; }, 30);
 }

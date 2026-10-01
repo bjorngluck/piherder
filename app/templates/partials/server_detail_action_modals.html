@@ -60,7 +60,7 @@
   <div class="modal-content card p-6 w-full max-w-md">
     <div class="flex justify-between mb-3">
       <h3 class="font-semibold">{% if is_haos %}Update Home Assistant{% else %}Run OS Patch{% endif %}</h3>
-      <button type="button" onclick="hideOsPatchModal()" class="ph-icon-close" aria-label="Close">✕</button>
+      <button type="button" data-ph-click="hideOsPatchModal" class="ph-icon-close" aria-label="Close">✕</button>
     </div>
     <form method="post" action="/servers/{{ server.id }}/run/os_patch" id="os-patch-form">
       {% if is_haos %}
@@ -111,7 +111,7 @@
       {% endif %}
       <div class="flex gap-2">
         <button type="submit" class="px-4 py-1 btn btn-secondary rounded text-sm">Run Selected Steps</button>
-        <button type="button" onclick="hideOsPatchModal()" class="px-4 py-1 btn btn-secondary rounded text-sm ml-auto">Cancel</button>
+        <button type="button" data-ph-click="hideOsPatchModal" class="px-4 py-1 btn btn-secondary rounded text-sm ml-auto">Cancel</button>
       </div>
     </form>
   </div>
@@ -764,7 +764,7 @@ function computeUsableSummary(drives) {
   <div class="modal-content card p-6 w-full max-w-xl mx-4">
     <div class="flex justify-between mb-3">
       <h3 class="font-semibold">Configure Backups</h3>
-      <button type="button" onclick="hideBackupConfigModal()" class="ph-icon-close" aria-label="Close">✕</button>
+      <button type="button" data-ph-click="hideBackupConfigModal" class="ph-icon-close" aria-label="Close">✕</button>
     </div>
 
     <form method="post" action="/servers/{{ server.id }}/backup-config">
@@ -795,7 +795,7 @@ function computeUsableSummary(drives) {
         <div>
           <label class="text-xs text-muted">Schedule</label>
           <div class="flex flex-wrap gap-2 mb-1">
-            <select id="schedule-freq" onchange="updateCronBuilder()" class="bg-surface border border-border px-2 py-1 rounded text-sm">
+            <select id="schedule-freq" data-ph-change="updateCronBuilder" class="bg-surface border border-border px-2 py-1 rounded text-sm">
               <option value="daily">Every day</option>
               <option value="weekly">Every week</option>
               <option value="monthly">Every month</option>
@@ -803,17 +803,17 @@ function computeUsableSummary(drives) {
             </select>
 
             <span class="text-xs self-center">at</span>
-            <select id="schedule-hour" onchange="updateCronBuilder()" class="bg-surface border border-border px-1 py-1 rounded text-sm w-14">
+            <select id="schedule-hour" data-ph-change="updateCronBuilder" class="bg-surface border border-border px-1 py-1 rounded text-sm w-14">
               {% for h in range(24) %}<option value="{{ h }}">{{ '%02d'|format(h) }}</option>{% endfor %}
             </select>
             <span class="self-center">:</span>
-            <select id="schedule-min" onchange="updateCronBuilder()" class="bg-surface border border-border px-1 py-1 rounded text-sm w-14">
+            <select id="schedule-min" data-ph-change="updateCronBuilder" class="bg-surface border border-border px-1 py-1 rounded text-sm w-14">
               {% for m in [0,5,10,15,20,25,30,35,40,45,50,55] %}<option value="{{ m }}">{{ '%02d'|format(m) }}</option>{% endfor %}
             </select>
 
             <div id="schedule-weekday-wrap" class="hidden flex items-center gap-1">
               <span class="text-xs">on</span>
-              <select id="schedule-weekday" onchange="updateCronBuilder()" class="bg-surface border border-border px-2 py-1 rounded text-sm">
+              <select id="schedule-weekday" data-ph-change="updateCronBuilder" class="bg-surface border border-border px-2 py-1 rounded text-sm">
                 <option value="0">Sun</option><option value="1">Mon</option><option value="2">Tue</option>
                 <option value="3">Wed</option><option value="4">Thu</option><option value="5">Fri</option>
                 <option value="6">Sat</option>
@@ -822,7 +822,7 @@ function computeUsableSummary(drives) {
 
             <div id="schedule-dom-wrap" class="hidden flex items-center gap-1">
               <span class="text-xs">on day</span>
-              <input id="schedule-dom" type="number" min="1" max="31" value="1" onchange="updateCronBuilder()" class="w-14 bg-surface border border-border px-2 py-1 rounded text-sm">
+              <input id="schedule-dom" type="number" min="1" max="31" value="1" data-ph-change="updateCronBuilder" class="w-14 bg-surface border border-border px-2 py-1 rounded text-sm">
             </div>
           </div>
 
@@ -865,7 +865,7 @@ function computeUsableSummary(drives) {
       <div id="config-error" class="text-danger text-sm mb-2 hidden"></div>
       <div class="flex gap-2 mt-4">
         <button type="submit" class="px-4 py-1 btn btn-accent rounded text-sm">Save</button>
-        <button type="button" onclick="hideBackupConfigModal()" class="px-4 py-1 btn btn-secondary rounded text-sm ml-auto">Cancel</button>
+        <button type="button" data-ph-click="hideBackupConfigModal" class="px-4 py-1 btn btn-secondary rounded text-sm ml-auto">Cancel</button>
       </div>
     </form>
 
@@ -880,7 +880,7 @@ function computeUsableSummary(drives) {
   <div class="modal-content card p-6 w-full max-w-2xl mx-4">
     <div class="flex justify-between items-center mb-2">
       <h3 class="font-semibold">OS Patch in progress</h3>
-      <button onclick="hideOsPatchProgressModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
+      <button data-ph-click="hideOsPatchProgressModal" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
     </div>
     <pre id="os-patch-progress-log" class="log-output p-3 text-xs font-mono whitespace-pre-wrap max-h-[40vh] overflow-auto border border-border rounded">Starting...</pre>
   </div>
@@ -901,8 +901,8 @@ function computeUsableSummary(drives) {
     </form>
     
     <div class="flex gap-2 justify-end">
-      <button type="button" onclick="hideRemoveBackupModal()" class="px-4 py-1 btn btn-secondary rounded text-sm">Cancel</button>
-      <button type="button" onclick="confirmRemoveBackupSource()" class="px-4 py-1 btn btn-danger rounded text-sm">Confirm Remove</button>
+      <button type="button" data-ph-click="hideRemoveBackupModal" class="px-4 py-1 btn btn-secondary rounded text-sm">Cancel</button>
+      <button type="button" data-ph-click="confirmRemoveBackupSource" class="px-4 py-1 btn btn-danger rounded text-sm">Confirm Remove</button>
     </div>
   </div>
 </div>
@@ -913,7 +913,7 @@ function computeUsableSummary(drives) {
     <!-- Header on top -->
     <div class="flex justify-between mb-2 flex-shrink-0">
       <h3 class="font-semibold">Backup Details</h3>
-      <button onclick="hideBackupDetailsModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
+      <button data-ph-click="hideBackupDetailsModal" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
     </div>
     <!-- Content in middle -->
     <pre id="backup-details-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre border border-border rounded"></pre>
@@ -926,7 +926,7 @@ function computeUsableSummary(drives) {
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-semibold">System Info — {{ server.name }}</h3>
       <div class="flex items-center gap-2">
-        <button type="button" id="sysinfo-refresh" onclick="refreshSystemInfo()"
+        <button type="button" id="sysinfo-refresh" data-ph-click="refreshSystemInfo"
                 class="btn btn-secondary p-2 min-h-11 min-w-11"
                 title="Refresh snapshot from the host" aria-label="Refresh snapshot">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -935,7 +935,7 @@ function computeUsableSummary(drives) {
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
           </svg>
         </button>
-        <button type="button" onclick="hideSystemInfoModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
+        <button type="button" data-ph-click="hideSystemInfoModal" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
       </div>
     </div>
 

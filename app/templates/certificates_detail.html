@@ -250,7 +250,7 @@
       <header class="ph-cert-host-head">
         <div class="min-w-0">
           <div class="font-medium text-sm text-text">
-            <a href="/servers/{{ host.server_id }}" class="text-primary hover:underline" onclick="event.stopPropagation()">{{ host.server_name }}</a>
+            <a href="/servers/{{ host.server_id }}" class="text-primary hover:underline" data-ph-stop>{{ host.server_name }}</a>
           </div>
           <div class="text-[11px] text-muted mt-0.5">
             SSH <code class="text-[10px]">{{ host.ssh_username }}</code>

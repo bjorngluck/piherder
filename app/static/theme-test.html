@@ -32,7 +32,12 @@
 </head>
 <body>
   <h1>PiHerder Theme Variables</h1>
-  <button onclick="document.documentElement.classList.toggle('dark')">Toggle Light / Dark</button>
+  <button type="button" id="theme-test-toggle">Toggle Light / Dark</button>
+  <script>
+    document.getElementById('theme-test-toggle').addEventListener('click', function () {
+      document.documentElement.classList.toggle('dark');
+    });
+  </script>
 
   <table>
     <tr><th>Variable</th><th>Light Colour</th><th>Dark Colour</th></tr>

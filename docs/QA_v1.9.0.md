@@ -63,7 +63,7 @@ Skip this section if the card leftovers slip the tag. One-service start, stop, r
 
 ## CSP Slice 2 (Should)
 
-Skip this section if the rewrite slips the tag.
+The rewrite is on this branch (`script-src-attr 'none'`, `data-ph-*` listeners, Slice 1 nonces kept). These boxes are the live walk.
 
 - [ ] Inline `onclick` handlers that this slice rewrote no longer need the inline-event allowance
 - [ ] A click that worked before the rewrite still works. Console, Move, and Settings included
