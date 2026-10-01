@@ -806,6 +806,15 @@ def api_meta_dict() -> dict:
             },
             {"method": "GET", "path": "/api/v1/servers/{id}/jobs", "scope": "read", "summary": "Jobs for server"},
             {"method": "POST", "path": "/api/v1/servers/{id}/jobs", "scope": "jobs", "summary": "Trigger job"},
+            {
+                "method": "POST",
+                "path": "/api/v1/servers/{id}/moves",
+                "scope": "jobs",
+                "summary": (
+                    "Start a stop-first Move. Requires confirm, jobs, and docker. "
+                    "Not an MCP tool. No undo."
+                ),
+            },
             {"method": "GET", "path": "/api/v1/jobs", "scope": "read", "summary": "List jobs"},
             {"method": "GET", "path": "/api/v1/jobs/{id}", "scope": "read", "summary": "Job detail"},
             {
