@@ -1,20 +1,24 @@
 # Publish multi-arch image
 
-Multi-arch images on **Docker Hub**: [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (**v1.6.0** production, `linux/amd64` + `linux/arm64`). Full maintainer checklist: [`docs/PUBLISH_IMAGE.md`](https://github.com/bjorngluck/piherder/blob/main/docs/PUBLISH_IMAGE.md).
+Multi-arch images on **Docker Hub**: [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (**v1.8.0** production, `linux/amd64` + `linux/arm64`). Full maintainer checklist: [`docs/PUBLISH_IMAGE.md`](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/PUBLISH_IMAGE.md).
 
 ## Hub listing checklist
 
 1. Description + overview  
 2. Logo / screenshots  
-3. Link to [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.6.0.md)  
+3. Link to [RELEASE notes](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/RELEASE_v1.8.0.md)  
 4. Link description to GitHub + [these docs](https://piherder-docs.hacknow.info/)
 
 ## Tags
 
 | Tag | Meaning |
 |-----|---------|
-| `1.6.0` | Immutable release |
-| `1.6` | Rolling minor |
+| `1.8.0` | Immutable release |
+| `1.8` | Rolling minor |
+| `1.7.0` | Prior 1.7 pin |
+| `1.7` | Prior rolling minor |
+| `1.6.0` | Prior 1.6 pin |
+| `1.6` | Prior rolling minor |
 | `1.5.0` | Prior 1.5 pin |
 | `1.5` | Prior rolling minor |
 | `1.4.0` | Prior 1.4 pin |
@@ -29,19 +33,19 @@ Multi-arch images on **Docker Hub**: [bjorngluck/piherder](https://hub.docker.co
 
 Images: `bjorngluck/piherder` (optional later: `ghcr.io/bjorngluck/piherder`).
 
-**v1.6.0** manifest list: `sha256:cdf88c70099f78830943e6529f05eff1b83bb5565e7b12f71ebf0877c7b018a8` (`1.6.0` / `1.6` / `latest`).
+**v1.8.0** manifest list: `sha256:8ce50bbce758e622a996cd58557b0846e03cb02613b09471405222df620c2e89` (`1.8.0` / `1.8` / `latest`). Pin **1.7.0** remains `sha256:174cb1313f6717d323211c8c899b30240e97f5097bd35770f7a6c4555de95270`.
 
 ## Multi-arch build example
 
 ```bash
 export IMAGE=bjorngluck/piherder
-export VERSION=1.6.0
+export VERSION=1.8.0
 
 docker buildx create --use --name piherder-builder --driver docker-container 2>/dev/null || true
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t "${IMAGE}:${VERSION}" \
-  -t "${IMAGE}:1.6" \
+  -t "${IMAGE}:1.8" \
   -t "${IMAGE}:latest" \
   --push .
 ```

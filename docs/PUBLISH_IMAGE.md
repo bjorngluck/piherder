@@ -174,6 +174,21 @@ Add when account + token exist and first manual push has worked once.
 
 ---
 
+## v1.8.0 publish checklist (maintainer)
+
+- [x] `APP_VERSION` / `pyproject.toml` = `1.8.0`
+- [x] [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) finalized and published
+- [x] Merge `v1.8.0-dev` → `main` · git tag `v1.8.0`
+- [x] Multi-arch push: `1.8.0` / `1.8` / `latest` (amd64 + arm64) · digest `sha256:8ce50bbce758e622a996cd58557b0846e03cb02613b09471405222df620c2e89`
+- [x] Pins `1.7.0` / `1.7` left in place (`sha256:174cb1313f6717d323211c8c899b30240e97f5097bd35770f7a6c4555de95270`)
+
+### Prior: v1.7.0
+
+- [x] `APP_VERSION` / `pyproject.toml` = `1.7.0`
+- [x] [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) finalized
+- [x] Merge `v1.7.0-dev` → `main` · git tag `v1.7.0`
+- [x] Multi-arch push: `1.7.0` / `1.7` / `latest` (amd64 + arm64) · digest `sha256:174cb1313f6717d323211c8c899b30240e97f5097bd35770f7a6c4555de95270`
+
 ## v1.6.0 publish checklist (maintainer)
 
 - [x] `APP_VERSION` / `pyproject.toml` = `1.6.0`
