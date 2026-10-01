@@ -115,7 +115,7 @@ Base path: **`/api/v1`**
 | Method | Path | Scope | Description |
 |--------|------|-------|-------------|
 | `GET` | `/api/v1` | `read` | Machine-readable scope/endpoint catalog + **this token’s** scopes |
-| `GET` | `/api/v1/health` | `read` | `{ ok, scopes, allowed_features, client_ip }` |
+| `GET` | `/api/v1/health` | `read` | `{ ok, scopes, allowed_features, client_ip, service_migrate }` |
 | `GET` | `/api/v1/summary` | `read` | Fleet heartbeat: hosts, updates, jobs, alerts, plus resource **sums** `cpu_cores`, `memory_*_bytes`, `disk_*_bytes`, `containers`. DB snapshots only. |
 
 ### Servers
@@ -215,9 +215,9 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 | `template_deploy` | docker | `feature:docker` |
 | `template_redeploy` | docker | `feature:docker` |
 
-That table is the allowlist (`JOB_FEATURE_KEY`). Anything else, including `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, `service_migrate`, `service_migrate_undo`, and `service_migrate_dest_recover`, is **400** `Unsupported job_type`.
+That table is the allowlist (`JOB_FEATURE_KEY`). Anything else, including `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, `service_migrate`, `service_migrate_undo`, and `service_migrate_dest_recover`, is **400** `Unsupported job_type`. Move is a separate route below. It is not this POST.
 
-`source_filter` is the backup source name for `backup`. For `docker_stack_check`, `docker_stack_deploy`, `docker_stack_stop`, `docker_stack_start`, and `docker_stack_restart` it is the compose project path. `container_start`, `container_stop`, `container_restart`, and `container_redeploy` need that same path plus `service` (one compose service). They do not change the rest of the project. Redeploy is `docker compose up -d --no-deps --pull always` for that service. `template_deploy` and `template_redeploy` are on this allowlist, but this body has no template slug or variable values, so it does not start a catalog deploy. Those jobs still run from the template UI.
+`source_filter` is the backup source name for `backup`. For `docker_stack_check`, `docker_stack_deploy`, `docker_stack_stop`, `docker_stack_start`, and `docker_stack_restart` it is the compose project path. `docker_stack_stop` runs `docker compose stop` for that path. It does not remove containers or volumes. `container_start`, `container_stop`, `container_restart`, and `container_redeploy` need that same path plus `service` (one compose service). They do not change the rest of the project. Redeploy is `docker compose up -d --no-deps --pull always` for that service. `template_deploy` and `template_redeploy` are on this allowlist, but this body has no template slug or variable values, so it does not start a catalog deploy. Those jobs still run from the template UI.
 
 **Responses**
 
@@ -232,6 +232,22 @@ That table is the allowlist (`JOB_FEATURE_KEY`). Anything else, including `docke
 | 503 | e.g. Celery unavailable for backups |
 
 **Exclusivity:** At most one **pending/running** job of each exclusive type per server. A second trigger does not start a parallel SSH session. `host_reboot` also waits for an OS patch, a container patch, or a backup on that host.
+
+### Move
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| `POST` | `/api/v1/servers/{id}/moves` | `jobs` | Start a stop-first Move. HTTP **202** |
+
+```json
+{ "dest_server_id": 2, "project": "web", "confirm": true }
+```
+
+`project` is the compose project name, not a directory. `confirm` must be `true`. The source leftover is always **stopped**. This route does not accept source remove, port maps, bind overrides, or a destination rename. There is no undo route.
+
+Gates: `jobs`, `feature:docker` when the token is feature-restricted, the docker flag on **both** hosts, and the herder Move surface (`PIHERDER_SERVICE_MIGRATE`, off in demo). Health field `service_migrate` is that surface. **404** when it is off. **400** when `confirm` is not true or the project name is a path. **409** when source or dest already has a stack, Move, or backup job — poll that job. The audit row stores this token and the client IP.
+
+`POST /api/v1/servers/{id}/jobs` with `service_migrate` stays **400**. Hosted MCP `trigger_job` does not grow a Move tool.
 
 Hosted MCP `trigger_job` uses this same list, including `container_start`, `container_stop`, `container_restart`, and `container_redeploy` (**v1.9** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md)). Those four require `service` and `source_filter`, the same body as this POST. It does not add `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move, undo, nmap, the console, token admin, or stale-data cleanup. For a `docker_stack_*` job, `source_filter` is the compose project path. Feature flags and `feature:*` scopes still apply. Token gates stay `jobs`, `feature:docker` when the token is feature-restricted, and the server docker flag. Adapter source on piherder-mcp `main` lists the four one-service types. Published adapter **0.2.0** does not.
 
