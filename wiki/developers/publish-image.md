@@ -1,6 +1,6 @@
 # Publish multi-arch image
 
-Multi-arch images on **Docker Hub**: [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (**v1.8.0** production, `linux/amd64` + `linux/arm64`). Full maintainer checklist: [`docs/PUBLISH_IMAGE.md`](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/PUBLISH_IMAGE.md).
+Multi-arch images on **Docker Hub**: [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (**v1.8.1** production, `linux/amd64` + `linux/arm64`). Full maintainer checklist: [`docs/PUBLISH_IMAGE.md`](https://github.com/bjorngluck/piherder/blob/v1.8.1/docs/PUBLISH_IMAGE.md).
 
 ## Hub listing checklist
 
@@ -13,7 +13,8 @@ Multi-arch images on **Docker Hub**: [bjorngluck/piherder](https://hub.docker.co
 
 | Tag | Meaning |
 |-----|---------|
-| `1.8.0` | Immutable release |
+| `1.8.1` | Immutable patch |
+| `1.8.0` | Prior 1.8 pin |
 | `1.8` | Rolling minor |
 | `1.7.0` | Prior 1.7 pin |
 | `1.7` | Prior rolling minor |
@@ -39,7 +40,7 @@ Images: `bjorngluck/piherder` (optional later: `ghcr.io/bjorngluck/piherder`).
 
 ```bash
 export IMAGE=bjorngluck/piherder
-export VERSION=1.8.0
+export VERSION=1.8.1
 
 docker buildx create --use --name piherder-builder --driver docker-container 2>/dev/null || true
 docker buildx build \
