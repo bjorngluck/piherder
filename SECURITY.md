@@ -16,7 +16,7 @@
 | **`main`** | Development tip; security fixes land here first |
 | **v0.9.x and older** | Best-effort; prefer upgrade to latest production |
 
-Security fixes are applied on the default branch (`main`) and released as **v1.8.x** (or later) patch tags when warranted. The current Hub image is **v1.8.0**. Pins **v1.7.0** stay valid ([PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md)).
+Security fixes are applied on the default branch (`main`) and released as **v1.8.x** (or later) patch tags when warranted. The current Hub image is **v1.8.0**. Pins **v1.7.0** stay valid ([PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md)). The open train is `v1.9.0-dev` ([PLAN_v1.9.0.md](docs/PLAN_v1.9.0.md)); it is not a supported production line until tagged.
 
 ## Reporting a vulnerability
 

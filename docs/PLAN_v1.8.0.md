@@ -1,6 +1,6 @@
 # PiHerder v1.8.0 — MCP job types, then backup destinations, then Home Assistant cards
 
-**Status:** **Shipped** 2026-10-01 (tag **v1.8.0**, Hub `1.8.0` / `1.8` / `latest`). Pull request [#19](https://github.com/bjorngluck/piherder/pull/19) merged. Next discovery is **MCP-svc** (§14).  
+**Status:** **Shipped** 2026-10-01 (tag **v1.8.0**, Hub `1.8.0` / `1.8` / `latest`). Pull request [#19](https://github.com/bjorngluck/piherder/pull/19) merged. Next train: [PLAN_v1.9.0.md](PLAN_v1.9.0.md).  
 **Date opened:** 2026-09-28  
 **Git branch:** `v1.8.0-dev` merged to `main` · tag `v1.8.0`  
 **Package / image version:** **`1.8.0`**. Image tags `1.8.0` / `1.8` / `latest`. Pins `1.7.0` / `1.7` stay valid.  
@@ -30,7 +30,7 @@ Wanted:
 4. Cards that are easier to read at a glance, and a 24-hour series that actually draws from HA history  
 5. Optional after that: the job-finished bus event, leftover mux list/kill, a `dest_up` Move helper, and the three web-process jobs onto Celery  
 
-**Out until a later train:** AC-fg, HA Slice 3, Brand-3, CSP Slice 2, ACME, plugin-in-image, Move default-on, MCP OAuth, an OneDrive client, an SMB/NAS client. **MCP-svc** (§14) is a discovery for the next release: whether one-service start, stop, restart, and update join `trigger_job`. No MCP change in this train. Adapter **0.2.0** stays.
+**Out of this train:** AC-fg, HA Slice 3, Brand-3, CSP Slice 2, ACME, Move default-on, MCP OAuth, an OneDrive client, and an SMB/NAS client. Those ranks are locked on [PLAN_v1.9.0.md](PLAN_v1.9.0.md). **MCP-svc** (§14) was the note for that train. No MCP change in v1.8. Adapter **0.2.0** stays until v1.9 tags it. The Home Assistant plugin stays a separate HACS repo.
 
 ---
 
@@ -44,7 +44,7 @@ Wanted:
 | Image tags (freeze) | `1.8.0` · `1.8` · `latest` (multi-arch); keep `1.7` / `1.7.x` pins valid |
 | In-scope | **MCP-jobs** Must (first) · **Bak-alt discovery** Must · **Google Drive** Should · **HA-vis** Must · **HA bus** Should · **Mux-2** Should · **Undo-2** Should · **Jr-web** Should |
 | Parked (no code) | **AC-fg** · HA Slice 3 · Brand-3 · CSP Slice 2 · ACME · plugin-in-image · M-flag C · MCP OAuth · OneDrive client · SMB/NAS client |
-| Next release, discovery only | **MCP-svc** (§14). Not this train. No allowlist change and no adapter tag until that train promotes it |
+| Next train | [PLAN_v1.9.0.md](PLAN_v1.9.0.md) on `v1.9.0-dev`. **MCP-svc** is Must there. This train did not change the allowlist |
 | Version bump | **1.8.0** shipped |
 | Demo | Stays the published **1.7.0** image |
 | Coverage | Fail-under stays **80**. Do not lower it |
@@ -223,7 +223,7 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | CSP Slice 2 | Rewrite `onclick` | Out. Large, easy to regress. |
 | OneDrive / SMB | Clients | Named in §3.1. SMB later is path B or rclone `smb`. OneDrive is rclone later. Path C stays parked. |
 | Also out | ACME · NPM CRUD · richer Files API · N3c · M-live · plugin-in-image · MCP OAuth · Move default-on | Unchanged from 1.7 |
-| **MCP-svc** | One-service jobs on `trigger_job` | Next release. Discovery only (§14). Not this train. |
+| **MCP-svc** | One-service jobs on `trigger_job` | Opened as Must on [PLAN_v1.9.0.md](PLAN_v1.9.0.md). Not this train. |
 
 ---
 
@@ -240,7 +240,7 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | **Should** | **Undo-2** | `dest_up` inspect helper. No green-Move undo | Operator signed 2026-09-30 |
 | **Should** | **Jr-web** | Three web jobs survive a web recycle | Operator signed 2026-09-30 |
 | **Parked** | AC-fg · Slice 3 · OneDrive · SMB · the rest of §9 | No code | Parked |
-| **Next** | **MCP-svc** | Discovery: should one-service start, stop, restart, and update join MCP. A yes is an adapter tag in that train | Not this train. §14 |
+| **Next** | **MCP-svc** | All four one-service jobs join MCP. Herder and adapter move together | Opened 2026-10-01. [PLAN_v1.9.0.md](PLAN_v1.9.0.md) |
 
 ---
 
@@ -280,6 +280,7 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 2026-09-30 | **Code freeze.** End-user notes drafted in [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Screenshot pack **in progress**. Package stays **1.7.0**. Tag and Hub not cut. |
 | 2026-10-01 | **Screenshot pack captured.** Home Assistant frames and `settings-drive-copy.png` / `settings-drive-setup.png` are wired. Package bumped to **1.8.0**. |
 | 2026-10-01 | **Shipped.** Tag **v1.8.0**. Hub `1.8.0` / `1.8` / `latest`. Pull request [#19](https://github.com/bjorngluck/piherder/pull/19) merged. |
+| 2026-10-01 | **v1.9.0 train opened** on `v1.9.0-dev`. Must: **MCP-svc**, LAN share, Move on by default. [PLAN_v1.9.0.md](PLAN_v1.9.0.md). |
 
 ---
 
@@ -294,13 +295,13 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 5 | **HA-vis**, container start/stop, and the bus event | **Signed** 2026-09-30. Plugin **0.4.3** |
 | 6 | Freeze | **Set** 2026-09-30. Notes: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Screenshot pack **captured** 2026-10-01 |
 | 7 | Version bump · tag `v1.8.0` · Hub | **Done** 2026-10-01. Tag **v1.8.0**. Hub `1.8.0` / `1.8` / `latest` |
-| 8 | **MCP-svc** discovery | **Next release.** Not this train. §14 |
+| 8 | **MCP-svc** | **Opened** 2026-10-01 on `v1.9.0-dev`. [PLAN_v1.9.0.md](PLAN_v1.9.0.md) |
 
 ---
 
-## 14. Next release — **MCP-svc** (Should discovery)
+## 14. Note carried to v1.9 — **MCP-svc**
 
-**Not this train.** No allowlist change, no adapter release, and no PyPI publish from v1.8.
+**Not this train.** The lock is [PLAN_v1.9.0.md](PLAN_v1.9.0.md): all four types are Must. No allowlist change, no adapter release, and no PyPI publish from v1.8.
 
 The Home Assistant card already starts, stops, restarts, and updates one compose service. Each call needs the compose directory (`source_filter`) and the service name, and it leaves the rest of the project alone. Hosted MCP and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.2.0** refuse `container_start`, `container_stop`, `container_restart`, and `container_redeploy`. An agent has no confirm. The card does.
 

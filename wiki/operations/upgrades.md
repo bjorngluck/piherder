@@ -122,7 +122,7 @@ Alembic **043**, **044**, and **045** run on web start. Recreate **web** and **c
 
 ## 1.7 → 1.8 {#17--18}
 
-**v1.8.0** is tagged. Notes: [RELEASE_v1.8.0.md](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/RELEASE_v1.8.0.md). Image tags `1.8.0` / `1.8` / `latest`. Pins `1.7.0` / `1.7` stay valid.
+**v1.8.0** is tagged. Notes: [RELEASE_v1.8.0.md](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/RELEASE_v1.8.0.md). Image tags `1.8.0` / `1.8` / `latest`. Pins `1.7.0` / `1.7` stay valid. The open train is `v1.9.0-dev`. Those image tags do not move until `v1.9.0` is tagged.
 
 Alembic **047** runs on web start. Recreate **web** and **celery-worker**. HACS plugin **[0.4.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.4)** with resource `?v=0.4.4`. The MCP adapter stays **[0.2.0](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.2.0)** and does not start the one-service jobs. Move stays off. Google Drive copy is Settings → PiHerder backup. The public demo is the **1.7.0** image.
 6. Optional: `PIHERDER_SSH_CONSOLE=true`, recreate **web**, tick **Console mux** only on a Debian host that already has `tmux` or `screen`.
