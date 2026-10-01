@@ -11,7 +11,7 @@ It is **not** a replacement for:
 | Not this | That is… |
 |----------|----------|
 | Per-server **rsync** of docker/media trees | [Server backups](../day-to-day/backups.md) on the `/backups` volume |
-| Copy of that backup drive to Google Drive | Same Settings tab, on the v1.8 train only. It is not this archive. [Backups](../day-to-day/backups.md#copy-to-google-drive-v18-train) |
+| Copy of that backup drive to Google Drive | Same Settings tab, the card **Copy the backup drive**, on the v1.8 train only. It copies checked folders from `/backups` after the host rsync. It is not this archive. [Backups](../day-to-day/backups.md#copy-to-google-drive-v18-train) |
 | A VM/disk image of the herder host | You still install compose + image on the new machine |
 
 Journey: [Operator scenarios — Journey F](../getting-started/operator-scenarios.md#journey-f).
@@ -19,6 +19,11 @@ Journey: [Operator scenarios — Journey F](../getting-started/operator-scenario
 <figure class="ph-figure" markdown>
   ![PiHerder self-backup](../assets/screenshots/settings-self-backup.png)
   <figcaption>Settings → PiHerder backup — Full DR schedule, run now, and archives.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Copy the backup drive](../assets/screenshots/settings-drive-copy.png)
+  <figcaption>Same tab, under the self-backup cards — Copy the backup drive. This copies checked folders from /backups. It is not the Full DR archive above. Setup: [Backups](../day-to-day/backups.md#set-up-google-drive).</figcaption>
 </figure>
 
 ---

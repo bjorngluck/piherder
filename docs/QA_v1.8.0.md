@@ -1,12 +1,12 @@
 # PiHerder v1.8.0 — operator QA / sign-off
 
 **Branch:** `v1.8.0-dev` → `main` · tag **`v1.8.0`** (cut after merge)  
-**Code freeze:** **set** 2026-09-30. No new features on this branch. Package bump, merge, tag, and Hub stay a separate ask.  
-**Package:** stays **`1.7.0`** until the version bump  
+**Code freeze:** **set** 2026-09-30. No new features on this branch. Merge, tag, and Hub follow review.  
+**Package:** **`1.8.0`** (bumped for the tag)  
 **Operator QA:** walks signed 2026-09-30: **MCP-jobs**, **Bak-alt discovery**, **Google Drive**, **HA-vis**, **Containers**, **HA bus**, **Mux-2**, **Undo-2**, **Jr-web**, and the **1.7 regression**  
-**Release notes:** [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) (freeze draft; tag not cut)  
-**Screenshots:** **in progress**. [v1.8 pack](../wiki/assets/screenshots/README.md#v180--pack-status). Frames on disk are still the 0.3.0 cards until the new PNGs land  
-**Pull request:** draft [#19](https://github.com/bjorngluck/piherder/pull/19). Body is [PR_v1.8.0.md](PR_v1.8.0.md). Do not undraft, merge, tag, or publish until asked
+**Release notes:** [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Tag **v1.8.0** is cut on the merge commit.  
+**Screenshots:** **captured** 2026-10-01. [v1.8 pack](../wiki/assets/screenshots/README.md#v180--pack-status)  
+**Pull request:** [#19](https://github.com/bjorngluck/piherder/pull/19) ready for review. Body is [PR_v1.8.0.md](PR_v1.8.0.md). Do not merge, tag, or publish until asked
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
@@ -48,9 +48,11 @@ Skip this section if the destination slips the tag. Demo is not the target.
 - [x] A copy that runs longer than an hour stays one job. It is not killed at 2 hours. If the worker stops, the row fails and **Copy now** can run again. Files already on Drive stay  
 - [x] The credential is not written to the job log. The public demo does not upload. The token API and MCP cannot start this job  
 
+Pictures: `settings-drive-copy.png` and `settings-drive-setup.png`, wired 2026-10-01. The client secret is not readable in the setup frame.  
+
 ## HA-vis (Must)
 
-Walk on Home Assistant with plugin **[v0.4.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.3)**. Restart Home Assistant after the HACS update. Set the dashboard resource to `/local/piherder-dashboard-card.js?v=0.4.3` as a **JavaScript module**, then hard-refresh. The **Plugin** sensor reads **0.4.3**. Token masked in every screenshot. Capture list: [v1.8 pack](../wiki/assets/screenshots/README.md#v180--pack-status). Replace `ha-fleet-card.png`, `ha-host-card.png`, `ha-updates-card.png`, and `ha-resources-card.png` in place. Add `ha-more-info.png` only after that dialog is in the frame. Do not tick these boxes from the pictures; the pictures land with the captions.
+Walk on Home Assistant with plugin **[v0.4.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.3)**. Restart Home Assistant after the HACS update. Set the dashboard resource to `/local/piherder-dashboard-card.js?v=0.4.3` as a **JavaScript module**, then hard-refresh. The **Plugin** sensor reads **0.4.3**. Token masked in every screenshot. The six Home Assistant frames landed 2026-10-01 and are wired. [v1.8 pack](../wiki/assets/screenshots/README.md#v180--pack-status). Do not retick these boxes from the pictures.
 
 - [x] HACS shows **0.4.3**. After a Home Assistant restart the **Plugin** sensor reads **0.4.3**  
 - [x] One card. The host strip picks a machine, with a Raspberry Pi model mark and an OS icon. `server_id` still pins one host  
@@ -95,6 +97,6 @@ Needs the v1.8 herder. A 1.7 herder answers 400 for these job types. Resource `/
 ## 1.7 regression
 
 - [x] Hosted `POST /mcp` still answers with the same bearer token. The original six job types still enqueue  
-- [x] Exclusive jobs from 1.7 still run on Celery. About / footer still **1.7.0** until the version bump  
+- [x] Exclusive jobs from 1.7 still run on Celery. The regression walk saw About / footer at **1.7.0**. The package bump sets them to **1.8.0**  
 - [x] Move stays off. Console mux stays opt-in and off on HAOS and the demo  
 - [x] Plugin **0.3.0** cards still load until you switch the resource URL to **0.4.3**  

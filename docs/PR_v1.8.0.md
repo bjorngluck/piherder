@@ -2,9 +2,9 @@
 
 **Title:** `v1.8.0: MCP jobs, Drive copy, HA card, leftover consoles, Move recover`
 
-**Base:** `main` · **Head:** `v1.8.0-dev` · **Tag:** `v1.8.0` (only after this PR is no longer a draft)
+**Base:** `main` · **Head:** `v1.8.0-dev` · **Tag:** `v1.8.0` on the merge commit
 
-**State:** **Draft** [#19](https://github.com/bjorngluck/piherder/pull/19). **Code freeze set 2026-09-30.** Operator walks are signed. Screenshot pack is **in progress**. Package stays **`1.7.0`**. End-user notes: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Do not undraft, merge, tag, or publish until asked.
+**State:** **Ready for review** [#19](https://github.com/bjorngluck/piherder/pull/19). **Code freeze set 2026-09-30.** Operator walks are signed. Screenshot pack is **captured**. Package **`1.8.0`**. End-user notes: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Merge, tag, and Hub publish stay a separate ask.
 
 ---
 
@@ -12,7 +12,7 @@
 
 Eighth minor after production **v1.7.0**. Hosted MCP can enqueue the same jobs the bearer API already accepts. A Google Drive copy can follow the local `/backups` tree. Home Assistant plugin **0.4.3** is one card. It can start, stop, restart, or update one compose service, and it keeps the selected host when it redraws. Leftover console sessions can be listed and killed. A Move that dies during dest start can be recovered. Retention, the herder’s own backup, and host facts run on Celery.
 
-Design: [PLAN_v1.8.0.md](PLAN_v1.8.0.md). Maintainer ticks: [QA_v1.8.0.md](QA_v1.8.0.md). End-user notes: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) (freeze draft).
+Design: [PLAN_v1.8.0.md](PLAN_v1.8.0.md). Maintainer ticks: [QA_v1.8.0.md](QA_v1.8.0.md). End-user notes: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md).
 
 | Stream | Highlights |
 |--------|------------|
@@ -37,7 +37,7 @@ Last shipped rev on **v1.7.0** is **046**. Recreate **web** and **celery-worker*
 
 ## Test plan
 
-Walk [QA_v1.8.0.md](QA_v1.8.0.md). Signed: **MCP-jobs**, **Bak-alt discovery**, **Google Drive**, **HA-vis**, **Containers**, the **HA bus**, **Mux-2**, **Undo-2**, **Jr-web**, and the **1.7 regression**. Code freeze is set. The screenshot pack is in progress.
+Walk [QA_v1.8.0.md](QA_v1.8.0.md). Signed: **MCP-jobs**, **Bak-alt discovery**, **Google Drive**, **HA-vis**, **Containers**, the **HA bus**, **Mux-2**, **Undo-2**, **Jr-web**, and the **1.7 regression**. Code freeze is set. Screenshot pack captured 2026-10-01. Package **1.8.0**.
 
 - [x] MCP-jobs: wider `trigger_job`, **409** on a busy host, Move and console still refused
 - [x] Bak-alt write-up matches the built Drive path
@@ -47,14 +47,13 @@ Walk [QA_v1.8.0.md](QA_v1.8.0.md). Signed: **MCP-jobs**, **Bak-alt discovery**, 
 - [x] Mux-2 leftover list and kill
 - [x] Undo-2 on a Move that dies during dest start
 - [x] Jr-web: web recycle does not fail retention, herder backup, or host facts
-- [ ] Screenshot pack in [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v180--pack-status)
-- [x] `.venv-docs/bin/mkdocs build --strict` at freeze (2026-09-30)
+- [x] Screenshot pack in [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v180--pack-status). Home Assistant frames and the two Drive frames are wired
+- [x] `.venv-docs/bin/mkdocs build --strict` (2026-10-01)
 - [ ] Unit suite still meets fail-under **80**
 
 ## Out of scope
 
-- Version bump off **1.7.0** (freeze only)
-- Undraft, merge, tag `v1.8.0`, GitHub Release, or Hub publish
+- Merge, tag `v1.8.0`, GitHub Release, or Hub publish (after review)
 - Public demo redeploy
 - OneDrive, SMB, per-host grants, webhooks, Move or Files from Home Assistant, whole-project stop
 - Down or remove of a container from the card
@@ -63,10 +62,10 @@ Walk [QA_v1.8.0.md](QA_v1.8.0.md). Signed: **MCP-jobs**, **Bak-alt discovery**, 
 ## Merge checklist
 
 - [x] Operator walks signed ([QA_v1.8.0.md](QA_v1.8.0.md))
-- [ ] Version bump `app/version_info.py` + `pyproject.toml` → **1.8.0**
-- [ ] Wiki Home current-release row points at **1.8.0** (notes exist; the row stays **1.7.0** until the tag)
-- [ ] Screenshot pack captured ([wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v180--pack-status) is **in progress**)
-- [ ] Draft undrafted when asked
+- [x] Version bump `app/version_info.py` + `pyproject.toml` → **1.8.0**
+- [x] Wiki Home current-release row points at **1.8.0**
+- [x] Screenshot pack captured ([v1.8 pack](../wiki/assets/screenshots/README.md#v180--pack-status))
+- [x] Pull request marked ready for review
 - [ ] Merge `v1.8.0-dev` → `main`
 - [ ] Tag **`v1.8.0`** · Hub `1.8.0` / `1.8` / `latest`
 - [ ] Keep `1.7` / `1.7.0` pins valid

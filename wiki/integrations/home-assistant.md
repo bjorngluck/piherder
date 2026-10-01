@@ -9,7 +9,7 @@ A **HACS integration that runs on Home Assistant** and **observes** your PiHerde
 | Path 1 | This PiHerder image | SSH + `ha` CLI on an HAOS **server** |
 | Path 2 (this page) | Separate HACS repo | HA polls PiHerder snapshots; **Visit** opens the herder |
 
-The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). This branch documents plugin **[0.4.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.3)**. 0.4.0 was the one-card pass. 0.4.1 adds Start and Stop for one compose service. 0.4.2 keeps the tab, the selected host, and open sections when the card redraws. 0.4.3 writes the update counts in full, colors a container name when an image update is due, and adds Restart and Update for that one service. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from PiHerder `main` and still describes **0.3.0** until this train merges. Screenshot recapture is [the v1.8 pack](../assets/screenshots/README.md#v180--pack-status). The pictures on this page stay the 0.3.0 frames until that pack lands.
+The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). This branch documents plugin **[0.4.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.3)**. 0.4.0 was the one-card pass. 0.4.1 adds Start and Stop for one compose service. 0.4.2 keeps the tab, the selected host, and open sections when the card redraws. 0.4.3 writes the update counts in full, colors a container name when an image update is due, and adds Restart and Update for that one service. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from PiHerder `main` and still describes **0.3.0** until this train merges. The card pictures below were captured 2026-10-01 on plugin **0.4.3**. The Google Drive copy is a separate herder screen: [Backups](../day-to-day/backups.md#copy-to-google-drive-v18-train).
 
 Agent tools (Cursor, Grok, Claude, Codex) are a different client of the same token API: hosted **`/mcp`** on the herder. [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) is the optional stdio fallback. [Agents (MCP)](../operations/mcp.md).
 
@@ -56,7 +56,7 @@ type: custom:piherder-dashboard-card
 The custom-tag field (if you use it) wants `piherder-dashboard-card` **without** the `custom:` prefix.  
 4. Hard-refresh again. “Custom element doesn’t exist” means the resource is missing, still type “JavaScript” (not module), or the browser has a cached `/api/piherder/…` URL.
 
-The card header is the PiHerder logo and the name **PiHerder**, then tabs for **Fleet**, **Host**, and **Updates**. Fleet shows **hosts, CPU cores, containers, memory %, disk %**, then one row per host with a model icon and an OS icon. Click a row to open that host. **Open host** goes to PiHerder. Docker, Backups, Alerts, and Audit are under **Also**. On **Host**, **Containers** lists the last inventory. A container with an image update has a gold name. **Start**, **Stop**, **Restart**, and **Update** each confirm, then run `docker compose` for that one service. **Update** pulls and recreates it. A 1.7 herder does not have those job types. The picture below is the previous expand-a-host layout.
+The card header is the PiHerder logo and the name **PiHerder**, then tabs for **Fleet**, **Host**, and **Updates**. Fleet shows **hosts, CPU cores, containers, memory %, disk %**, then one row per host with a model icon and an OS icon. Click a row to open that host. **Open host** goes to PiHerder. Docker, Backups, Alerts, and Audit are under **Also**. On **Host**, **Containers** lists the last inventory. A container with an image update has a gold name. **Start**, **Stop**, **Restart**, and **Update** each confirm, then run `docker compose` for that one service. **Update** pulls and recreates it. A 1.7 herder does not have those job types. The fleet picture is that tab.
 
 Numbers come from the same **[System Info](../day-to-day/system-info.md)** snapshot the herder modal shows (CPU cores, memory, disk). Recreate **web** so Alembic **045** is applied, then the System Info refresh icon once per host (or wait for the scheduler). Empty CPU/memory/disk on the card means the herder has not stored a resource snapshot yet — not a card bug.
 
@@ -67,12 +67,12 @@ Numbers come from the same **[System Info](../day-to-day/system-info.md)** snaps
 
 <figure class="ph-figure" markdown>
   ![PiHerder fleet card](../assets/screenshots/ha-fleet-card.png)
-  <figcaption>Lovelace card on plugin 0.3.0 — logo, fleet totals, one host expanded. Plugin 0.4.3 uses tabs, a host strip, and Containers.</figcaption>
+  <figcaption>Fleet tab on plugin 0.4.3. Totals, then one row per host with a model icon and the OS. Click a row to open that host.</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
   ![HA devices](../assets/screenshots/ha-fleet-sensors.png)
-  <figcaption>Fleet device and one host device.</figcaption>
+  <figcaption>Fleet device on plugin 0.4.3. Hardware reads plugin 0.4.3, the Plugin sensor reads 0.4.3, and Visit opens the herder. Connected hosts are listed under the sensors.</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
@@ -125,21 +125,24 @@ Click **memory**, **disk**, or **CPU load** and Home Assistant opens that sensor
 
 Updates is one row per host. The counts are written out (for example **2 OS updates** and **1 container update**), in gold when something is due, or **Up to date**. The row opens that host and does not repeat the buttons.
 
-The pictures below are the **0.3.0** cards, kept so the old layout is recognizable. 0.4.3 replaces that button row with the strip, the Actions menu, and **Containers**.
-
 <figure class="ph-figure" markdown>
   ![Host card](../assets/screenshots/ha-host-card.png)
-  <figcaption>Host card on plugin 0.3.0. Plugin 0.4.3 uses one card, a host strip, and Containers instead of this button row.</figcaption>
+  <figcaption>Host tab on plugin 0.4.3. The strip picks the host. A gold pill names the OS updates. Containers is open: a running service has Stop and Restart. This frame has no container waiting on an image update, so no name is gold.</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
   ![Updates card](../assets/screenshots/ha-updates-card.png)
-  <figcaption>Updates on plugin 0.3.0. Plugin 0.4.3 writes the counts out and the row opens that host.</figcaption>
+  <figcaption>Updates tab on plugin 0.4.3. Each row writes the count out: Up to date, OS updates, or container updates. Gold means something is due. The row has no buttons.</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
   ![Resources card](../assets/screenshots/ha-resources-card.png)
-  <figcaption>Resources on plugin 0.3.0. Plugin 0.4.3 draws a thin sparkline and opens Home Assistant history when you click the stat.</figcaption>
+  <figcaption>Memory, disk, and CPU load on the Host tab, with the 24-hour sparkline.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![CPU load history](../assets/screenshots/ha-more-info.png)
+  <figcaption>Click CPU load and Home Assistant opens that sensor’s history. Memory and disk open the same dialog.</figcaption>
 </figure>
 
 A token with only `read` keeps the fleet card and the sensors and shows no buttons. `jobs` shows the confirms, including Start, Stop, Restart, and Update. `edit` shows the toggles. `feature:os` is required for patch, OS check, and host restart. `feature:backup` for backup and retention. `feature:docker` for container check, patch, and the one-service Start, Stop, Restart, and Update buttons. The host’s own feature flag must be on as well.

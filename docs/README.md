@@ -6,9 +6,9 @@ Maintainer plans and release notes. Operator wiki is `wiki/` (MkDocs).
 
 | Kind | Where |
 |------|--------|
-| Current production | [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) |
-| This release | [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md) |
-| Active train | [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) · [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md) on `v1.8.0-dev`. MCP job types landed. Google Drive copy built, walk open. Then HA cards. Package stays `1.7.0` until freeze. Operator: [Backups](../wiki/day-to-day/backups.md) · [Agents (MCP)](../wiki/operations/mcp.md) · [Home Assistant](../wiki/integrations/home-assistant.md) |
+| Current release | [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) |
+| Prior production | [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md) |
+| This train | [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md) on `v1.8.0-dev`. Package **1.8.0**. Screenshot pack captured. Tag `v1.8.0` follows the merge. Operator: [Backups](../wiki/day-to-day/backups.md) · [Agents (MCP)](../wiki/operations/mcp.md) · [Home Assistant](../wiki/integrations/home-assistant.md) |
 | API | [API.md](API.md) |
 | Design | `FEATURE_PLAN_*.md`, [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md), [SPEC.md](../SPEC.md), [ADMIN.md](ADMIN.md) |
 
