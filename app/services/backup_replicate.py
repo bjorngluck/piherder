@@ -741,6 +741,7 @@ def smb_public(destination: BackupDestination) -> dict[str, Any]:
         "domain": str(cfg.get("domain") or ""),
         "username": "",
         "password_saved": False,
+        "guest": False,
     }
     if not (destination.credentials_encrypted or "").strip():
         return out
@@ -750,6 +751,8 @@ def smb_public(destination: BackupDestination) -> dict[str, Any]:
         return out
     out["username"] = secret["username"]
     out["password_saved"] = bool(secret["password"])
+    # Both empty together is a saved guest share. A missing blob is not.
+    out["guest"] = secret["username"] == "" and secret["password"] == ""
     return out
 
 
@@ -765,28 +768,40 @@ def store_smb(
     schedule: str | None,
     after_host_backup: bool,
 ) -> None:
-    """Save one SMB destination. A blank password keeps the saved password."""
+    """Save one SMB destination.
+
+    Both username and password empty is guest access. A blank password with a
+    username keeps a password already stored. One of the two alone is refused.
+    """
     if (destination.provider or "smb") not in ("smb", ""):
         raise ValueError("provider")
     host_clean = _clean_smb_host(host)
     share_clean = _clean_smb_share(share)
     path_clean = _clean_smb_path(path)
-    user_clean = _clean_smb_user(username)
     domain_clean = _clean_smb_domain(domain)
-    existing = ""
+    user_text = (username or "").strip()
+    pass_text = (password or "").strip()
+    existing_pass = ""
     if (destination.credentials_encrypted or "").strip():
         try:
-            existing = decrypt_smb_secret(destination)["password"]
+            existing_pass = decrypt_smb_secret(destination)["password"]
         except ValueError:
-            existing = ""
-    if (password or "").strip():
-        secret = (password or "").strip()
-        if len(secret) > 256 or any(ord(ch) < 32 for ch in secret):
+            existing_pass = ""
+    if pass_text and not user_text:
+        raise ValueError("user")
+    if user_text and not pass_text:
+        if not existing_pass:
             raise ValueError("password")
+        user_clean = _clean_smb_user(user_text)
+        secret = existing_pass
+    elif user_text and pass_text:
+        if len(pass_text) > 256 or any(ord(ch) < 32 for ch in pass_text):
+            raise ValueError("password")
+        user_clean = _clean_smb_user(user_text)
+        secret = pass_text
     else:
-        secret = existing
-    if not secret:
-        raise ValueError("password")
+        user_clean = ""
+        secret = ""
     cfg = _load_cfg(destination)
     cfg["host"] = host_clean
     cfg["share"] = share_clean
@@ -820,19 +835,23 @@ def write_smb_rclone_config(destination: BackupDestination) -> str:
     cfg = _load_cfg(destination)
     host = _clean_smb_host(str(cfg.get("host") or ""))
     secret = decrypt_smb_secret(destination)
-    user = _clean_smb_user(secret["username"])
+    user = secret["username"]
     password = secret["password"]
-    if not password:
-        raise ValueError("password")
+    if bool(user) != bool(password):
+        raise ValueError("password" if user else "user")
     domain = _clean_smb_domain(str(cfg.get("domain") or ""))
-    obscured = _rclone_obscure(password)
     lines = [
         f"[{_REMOTE_NAME}]",
         "type = smb",
         f"host = {host}",
-        f"user = {user}",
-        f"pass = {obscured}",
     ]
+    if user:
+        lines.append(f"user = {_clean_smb_user(user)}")
+        lines.append(f"pass = {_rclone_obscure(password)}")
+    else:
+        # rclone's SMB backend needs a user. Guest lives only in this temp file.
+        # The Settings fields and the Fernet blob stay empty.
+        lines.append("user = Guest")
     if domain:
         lines.append(f"domain = {domain}")
     handle = tempfile.NamedTemporaryFile("w", prefix="ph-rclone-", suffix=".conf", delete=False)
@@ -851,12 +870,8 @@ def write_smb_rclone_config(destination: BackupDestination) -> str:
 def _probe_smb(destination: BackupDestination) -> dict[str, str]:
     """List the share. Does not copy."""
     public = smb_public(destination)
-    if not (
-        public["host"]
-        and public["share"]
-        and public["username"]
-        and public["password_saved"]
-    ):
+    authed = bool(public["username"] and public["password_saved"])
+    if not (public["host"] and public["share"] and (authed or public.get("guest"))):
         return {"ok": "0", "code": "account"}
     config_path = ""
     try:

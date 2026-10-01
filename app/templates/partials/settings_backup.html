@@ -150,131 +150,104 @@
   </div>
 
   <div class="card p-5 mb-4" id="drive-copy">
-    <div class="flex items-start justify-between gap-3 mb-3">
-      <div class="min-w-0">
-        <h2 class="font-semibold text-text m-0">Copy the backup drive</h2>
-        <p class="text-xs text-muted mt-1">
-          {% if copy_provider == 'smb' and copy_smb_has_password %}
-          LAN NAS / SMB · {{ copy_smb_host }}/{{ copy_smb_share }}{% if copy_smb_path %}/{{ copy_smb_path }}{% endif %} · {{ copy_smb_user }}
-          · {% if copy_dest.schedule %}{{ copy_dest.schedule | cron_human(current_tz if current_tz is defined else get_app_timezone()) }}{% else %}manual{% endif %}
-          {% elif copy_provider == 'smb' %}
-          LAN share selected. Save the host, share, and account. Host backups stay on this PiHerder.
-          {% elif copy_account_kind == 'oauth' and copy_has_token %}
-          Google Drive · {{ copy_account_email or 'signed in' }} · folder {{ copy_drive_folder or 'PiHerder' }}
-          · {% if copy_dest.schedule %}{{ copy_dest.schedule | cron_human(current_tz if current_tz is defined else get_app_timezone()) }}{% else %}manual{% endif %}
-          {% elif copy_has_token %}
-          A service-account key is saved. Connect Google so new files use your Drive space.
-          {% else %}
-          No external copy yet. Host backups stay on this PiHerder.
-          {% endif %}
-        </p>
-      </div>
-      {% if copy_dest %}
-      <div class="flex gap-2 shrink-0">
-        {% if copy_can_test %}
-        <form method="post" action="/backup-copies/test">
-          <input type="hidden" name="provider" value="{{ copy_provider }}">
-          <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Test</button>
-        </form>
-        {% endif %}
-        {% if copy_can_remove %}
-        <form method="post" action="/backup-copies/remove"
-              data-confirm="{% if copy_provider == 'smb' %}Remove this LAN share destination? The saved account and schedule are deleted in PiHerder. Files already on the share stay.{% else %}Remove this Google Drive destination? The saved account and schedule are deleted in PiHerder. Files already on Drive stay.{% endif %}"
-              data-confirm-title="Remove backup destination"
-              data-confirm-label="Remove"
-              data-confirm-danger>
-          <input type="hidden" name="provider" value="{{ copy_provider }}">
-          <input type="hidden" name="confirm" value="remove">
-          <button type="submit" class="btn btn-danger text-xs min-h-9 px-2.5">Remove</button>
-        </form>
-        {% endif %}
-        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy">
-          {% if copy_has_token %}Edit{% else %}Set up{% endif %}
-        </button>
-      </div>
-      {% endif %}
+    <div class="mb-3">
+      <h2 class="font-semibold text-text m-0">Copy the backup drive</h2>
+      <p class="text-xs text-muted mt-1">Each saved destination is its own copy. Host backups stay on this PiHerder.</p>
     </div>
     {% if copy_saved %}<p class="text-sm text-accent mb-3">Saved.</p>{% endif %}
-    {% if copy_removed %}<p class="text-sm text-accent mb-3">Destination removed. Files already copied were left where they are.</p>{% endif %}
+    {% if copy_removed %}
+    <p class="text-sm text-accent mb-3">
+      {% if copy_provider == 'smb' %}LAN share removed. Files already on the share were left there.{% else %}Google Drive removed. Files already in Drive were left there.{% endif %}
+    </p>
+    {% endif %}
     {% if copy_error == 'confirm' %}
     <p class="text-sm text-danger mb-3">Confirm remove before this destination is deleted.</p>
     {% elif copy_error == 'removed' %}
     <p class="text-sm text-danger mb-3">That destination is not saved, so nothing was copied.</p>
     {% elif copy_error == 'missing' %}
     <p class="text-sm text-danger mb-3">That destination is already gone.</p>
-    {% endif %}
-    {% if copy_provider == 'smb' %}
-      {% if copy_test == 'ok' %}
-      <p class="text-sm text-accent mb-3">The share listed. Nothing was copied.</p>
-      {% elif copy_test == 'folder' %}
-      <p class="text-sm text-danger mb-3">That share or path was not found.</p>
-      {% elif copy_test == 'auth' %}
-      <p class="text-sm text-danger mb-3">The share rejected the username or password.</p>
-      {% elif copy_test == 'account' %}
-      <p class="text-sm text-danger mb-3">Save the host, share, username, and password before testing.</p>
-      {% elif copy_test == 'host' %}
-      <p class="text-sm text-danger mb-3">Could not reach that host.</p>
-      {% elif copy_test == 'rclone' %}
-      <p class="text-sm text-danger mb-3">rclone is not available in this container. Rebuild the image, then test again.</p>
-      {% elif copy_test == 'timeout' %}
-      <p class="text-sm text-danger mb-3">The share did not answer in time. Try the test again.</p>
-      {% elif copy_test == 'demo' %}
-      <p class="text-sm text-danger mb-3">The public demo does not contact this share.</p>
-      {% elif copy_test %}
-      <p class="text-sm text-danger mb-3">The test did not succeed.</p>
-      {% endif %}
-    {% else %}
-      {% if copy_test == 'ok' %}
-      <p class="text-sm text-accent mb-3">The folder is shared with this account. Nothing was copied.</p>
-      {% elif copy_test == 'folder' %}
-      <p class="text-sm text-danger mb-3">That folder was not found in this Google account’s My Drive. The name must match a folder you own.</p>
-      {% elif copy_test == 'auth' %}
-      <p class="text-sm text-danger mb-3">Google rejected the sign-in. Connect Google again.</p>
-      {% elif copy_test == 'account' %}
-      <p class="text-sm text-danger mb-3">Connect Google before testing.</p>
-      {% elif copy_test == 'rclone' %}
-      <p class="text-sm text-danger mb-3">rclone is not available in this container. Rebuild the image, then test again.</p>
-      {% elif copy_test == 'timeout' %}
-      <p class="text-sm text-danger mb-3">Google did not answer in time. Try the test again.</p>
-      {% elif copy_test == 'demo' %}
-      <p class="text-sm text-danger mb-3">The public demo does not contact Google Drive.</p>
-      {% elif copy_test %}
-      <p class="text-sm text-danger mb-3">The test did not succeed.</p>
-      {% endif %}
-    {% endif %}
-    {% if copy_error == 'cron' %}
-    <p class="text-sm text-danger mb-3">Choose a schedule from the list, or enter a 5-field cron.</p>
-    {% elif copy_error == 'client' %}
-    <p class="text-sm text-danger mb-3">Paste the OAuth client ID and secret from Google Cloud, then connect again.</p>
-    {% elif copy_error == 'origin' %}
-    <p class="text-sm text-danger mb-3">PiHerder could not tell which address to send Google back to. Set PIHERDER_PUBLIC_URL and try again.</p>
-    {% elif copy_error == 'state' %}
-    <p class="text-sm text-danger mb-3">The Google sign-in did not match this browser. Connect again.</p>
-    {% elif copy_error == 'google' %}
-    <p class="text-sm text-danger mb-3">Google did not finish the sign-in. Check the redirect URL on the OAuth client, then connect again.</p>
-    {% elif copy_error == 'folder' %}
-    <p class="text-sm text-danger mb-3">That Drive folder name is not valid.</p>
-    {% elif copy_error == 'provider' %}
-    <p class="text-sm text-danger mb-3">That service is not available yet.</p>
-    {% elif copy_error == 'host' %}
-    <p class="text-sm text-danger mb-3">Enter the NAS hostname or IP.</p>
-    {% elif copy_error == 'share' %}
-    <p class="text-sm text-danger mb-3">Enter the share name.</p>
-    {% elif copy_error == 'user' %}
-    <p class="text-sm text-danger mb-3">Enter the username. Guest access is not used.</p>
-    {% elif copy_error == 'password' %}
-    <p class="text-sm text-danger mb-3">Enter the password. Leave it blank only after one is saved.</p>
-    {% elif copy_error == 'path' %}
-    <p class="text-sm text-danger mb-3">That path on the share is not valid.</p>
-    {% elif copy_error == 'domain' %}
-    <p class="text-sm text-danger mb-3">That domain or workgroup is not valid.</p>
-    {% elif copy_error and copy_error not in ('confirm', 'removed', 'missing') %}
+    {% elif copy_error and not copy_form_error %}
     <p class="text-sm text-danger mb-3">{{ copy_error }}</p>
+    {% endif %}
+    {% if copy_rows %}
+    <div class="source-list mb-3">
+      {% for row in copy_rows %}
+      <div class="source-row herder-backup-row">
+        <div class="source-row-body min-w-0">
+          <div class="source-row-path">{{ row.title }}</div>
+          <div class="source-row-when text-muted">
+            {{ row.who }}
+            <span class="text-muted">·</span>
+            {{ row.where }}
+            <span class="text-muted">·</span>
+            {% if row.schedule %}{{ row.schedule | cron_human(current_tz if current_tz is defined else get_app_timezone()) }}{% else %}manual{% endif %}
+            {% if folder_provider == row.provider %}<span class="text-muted">· folders below</span>{% endif %}
+          </div>
+          {% if copy_test and copy_provider == row.provider %}
+            {% if row.provider == 'smb' %}
+              {% if copy_test == 'ok' %}<p class="text-sm text-accent mt-1">The share listed. Nothing was copied.</p>
+              {% elif copy_test == 'folder' %}<p class="text-sm text-danger mt-1">That share or path was not found.</p>
+              {% elif copy_test == 'auth' %}<p class="text-sm text-danger mt-1">The share rejected the username or password.</p>
+              {% elif copy_test == 'account' %}<p class="text-sm text-danger mt-1">Save the host and share before testing. A login needs both a username and a password.</p>
+              {% elif copy_test == 'host' %}<p class="text-sm text-danger mt-1">Could not reach that host.</p>
+              {% elif copy_test == 'rclone' %}<p class="text-sm text-danger mt-1">rclone is not available in this container. Rebuild the image, then test again.</p>
+              {% elif copy_test == 'timeout' %}<p class="text-sm text-danger mt-1">The share did not answer in time. Try the test again.</p>
+              {% elif copy_test == 'demo' %}<p class="text-sm text-danger mt-1">The public demo does not contact this share.</p>
+              {% else %}<p class="text-sm text-danger mt-1">The test did not succeed.</p>{% endif %}
+            {% else %}
+              {% if copy_test == 'ok' %}<p class="text-sm text-accent mt-1">The folder is shared with this account. Nothing was copied.</p>
+              {% elif copy_test == 'folder' %}<p class="text-sm text-danger mt-1">That folder was not found in this Google account’s My Drive. The name must match a folder you own.</p>
+              {% elif copy_test == 'auth' %}<p class="text-sm text-danger mt-1">Google rejected the sign-in. Connect Google again.</p>
+              {% elif copy_test == 'account' %}<p class="text-sm text-danger mt-1">Connect Google before testing.</p>
+              {% elif copy_test == 'rclone' %}<p class="text-sm text-danger mt-1">rclone is not available in this container. Rebuild the image, then test again.</p>
+              {% elif copy_test == 'timeout' %}<p class="text-sm text-danger mt-1">Google did not answer in time. Try the test again.</p>
+              {% elif copy_test == 'demo' %}<p class="text-sm text-danger mt-1">The public demo does not contact Google Drive.</p>
+              {% else %}<p class="text-sm text-danger mt-1">The test did not succeed.</p>{% endif %}
+            {% endif %}
+          {% endif %}
+        </div>
+        <div class="source-row-tools herder-backup-tools">
+          {% if row.can_test %}
+          <form method="post" action="/backup-copies/test">
+            <input type="hidden" name="provider" value="{{ row.provider }}">
+            <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Test</button>
+          </form>
+          {% endif %}
+          <a href="/herder-backups?tab=backup&amp;folders={{ row.provider }}#bc-win" class="btn btn-secondary text-xs min-h-9 px-2.5">Folders</a>
+          <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy" data-copy-edit="{{ row.provider }}">Edit</button>
+          {% if row.can_remove %}
+          <form method="post" action="/backup-copies/remove"
+                data-confirm="{% if row.provider == 'smb' %}Remove LAN share {{ row.label }}? The saved account and schedule are deleted in PiHerder. Files already on the share stay.{% else %}Remove Google Drive ({{ row.label }})? The saved account and schedule are deleted in PiHerder. Files already on Drive stay.{% endif %}"
+                data-confirm-title="Remove backup destination"
+                data-confirm-label="Remove"
+                data-confirm-danger>
+            <input type="hidden" name="provider" value="{{ row.provider }}">
+            <input type="hidden" name="confirm" value="remove">
+            <button type="submit" class="btn btn-danger text-xs min-h-9 px-2.5">Remove</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-muted mb-3">No external copy yet. Host backups stay on this PiHerder.</p>
+    {% endif %}
+    {% if copy_dest %}
+    <div class="flex flex-wrap items-center gap-2 mb-3">
+      {% if not drive_saved %}
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy" data-copy-edit="drive">Add Google Drive</button>
+      {% endif %}
+      {% if not smb_saved %}
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy" data-copy-edit="smb">Add LAN share</button>
+      {% endif %}
+      <span class="text-xs text-muted">OneDrive is listed in the form and cannot be selected.</span>
+    </div>
     {% endif %}
     {% if not copy_dest %}
     <p class="text-sm text-muted">The destination table is not ready. Run migrations, then reload.</p>
     {% else %}
-    <div id="settings-drive-copy-modal" class="{% if copy_error and copy_error not in ('confirm', 'removed', 'missing') %}{% else %}hidden{% endif %} fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+    <div id="settings-drive-copy-modal" class="{% if copy_form_error %}flex{% else %}hidden{% endif %} fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
          data-settings-modal="drive-copy" role="dialog" aria-modal="true" aria-labelledby="settings-drive-copy-title">
       <div class="modal-content settings-sheet card ph-modal-brand">
         <div class="settings-sheet-head">
@@ -305,14 +278,14 @@
             {% elif copy_error == 'share' %}
             <p class="text-sm text-danger">Enter the share name.</p>
             {% elif copy_error == 'user' %}
-            <p class="text-sm text-danger">Enter the username. Guest access is not used.</p>
+            <p class="text-sm text-danger">Enter a username and a password together, or leave both empty for a share that needs no login.</p>
             {% elif copy_error == 'password' %}
-            <p class="text-sm text-danger">Enter the password. Leave it blank only after one is saved.</p>
+            <p class="text-sm text-danger">Enter a password with the username, or leave both empty. A blank password keeps a password that is already saved.</p>
             {% elif copy_error == 'path' %}
             <p class="text-sm text-danger">That path on the share is not valid.</p>
             {% elif copy_error == 'domain' %}
             <p class="text-sm text-danger">That domain or workgroup is not valid.</p>
-            {% elif copy_error %}
+            {% elif copy_form_error and copy_error %}
             <p class="text-sm text-danger">{{ copy_error }}</p>
             {% endif %}
             <div>
@@ -320,7 +293,7 @@
               <select id="copy-provider" name="provider"
                       class="settings-backup-control w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
                 <option value="drive" {% if copy_provider != 'smb' %}selected{% endif %}>Google Drive</option>
-                <option value="onedrive">OneDrive (more to follow)</option>
+                <option value="onedrive" disabled>OneDrive (more to follow)</option>
                 <option value="smb" {% if copy_provider == 'smb' %}selected{% endif %}>LAN NAS / SMB</option>
               </select>
             </div>
@@ -344,7 +317,7 @@
               </p>
             </div>
             <div data-copy-help="smb" class="text-xs text-muted border border-border rounded p-3 bg-surface {% if copy_provider != 'smb' %}hidden{% endif %}">
-              <p>rclone on this PiHerder copies the ticked folders from <span class="font-mono text-text">/backups</span> to the share. Host backups still land here first. Guest access and Kerberos are not used. Leave the password blank only after one is saved.</p>
+              <p>rclone on this PiHerder copies the ticked folders from <span class="font-mono text-text">/backups</span> to the share. Host backups still land here first. Leave the username and password both empty when the share needs no login. Leave the password blank on its own only after one is saved. Kerberos is not used.</p>
             </div>
             <p data-copy-help="later" class="hidden text-sm text-muted">That service is not available yet. Google Drive and a LAN share are the ones this page can save.</p>
             <fieldset data-copy-fields="drive" {% if copy_provider == 'smb' %}disabled{% endif %} class="space-y-3 border-0 p-0 m-0 min-w-0 {% if copy_provider == 'smb' %}hidden{% endif %}">
@@ -358,6 +331,7 @@
               <div>
                 <label class="block text-xs text-muted mb-1" for="copy-client-secret">OAuth client secret</label>
                 <input id="copy-client-secret" name="client_secret" type="password" autocomplete="off"
+                       {% if copy_draft_secret %}value="{{ copy_draft_secret }}"{% endif %}
                        placeholder="{% if copy_has_secret %}Saved. Leave blank to keep it.{% else %}GOCSPX-… required the first time{% endif %}"
                        class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11">
               </div>
@@ -412,7 +386,8 @@
               <div>
                 <label class="block text-xs text-muted mb-1" for="copy-smb-password">Password</label>
                 <input id="copy-smb-password" name="password" type="password" autocomplete="off"
-                       placeholder="{% if copy_smb_has_password %}Saved. Leave blank to keep it.{% else %}Required the first time{% endif %}"
+                       {% if copy_draft_password %}value="{{ copy_draft_password }}"{% endif %}
+                       placeholder="{% if copy_smb_has_password %}Saved. Leave blank to keep it.{% else %}Leave empty, with the username, when the share needs no login{% endif %}"
                        class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11">
               </div>
               <div>
@@ -488,16 +463,24 @@
       }
       if (provider) provider.addEventListener('change', applyProvider);
       form.querySelectorAll('[data-copy-fields]').forEach(bindSchedule);
+      document.querySelectorAll('[data-copy-edit]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          if (!provider) return;
+          provider.value = btn.getAttribute('data-copy-edit') || 'drive';
+          applyProvider();
+        });
+      });
       applyProvider();
     })();
     </script>
 
+    {% if folder_provider %}
     <div class="bc-win" id="bc-win">
       <div class="bc-toolbar">
         <button type="button" class="btn btn-secondary text-xs min-h-10 bc-tree-toggle" id="bc-tree-toggle">Folders</button>
         <nav class="bc-path" id="bc-path" aria-label="Backup path"></nav>
         <form method="post" action="/backup-copies/run">
-          <input type="hidden" name="provider" value="{{ 'smb' if copy_provider == 'smb' else 'drive' }}">
+          <input type="hidden" name="provider" value="{{ folder_provider }}">
           <button type="submit" class="btn btn-accent min-h-10 text-sm">Copy now</button>
         </form>
       </div>
@@ -516,6 +499,8 @@
       </div>
       <div class="bc-status" id="bc-status"></div>
     </div>
+    <p class="text-xs text-muted mt-2">Folders and Copy now apply to {% if folder_provider == 'smb' %}the LAN share{% else %}Google Drive{% endif %} only.</p>
+    {% endif %}
     {% endif %}
   </div>
 </div>
@@ -598,7 +583,7 @@
     .bc-hide-sm { display: none; }
   }
 </style>
-{% if copy_dest %}
+{% if folder_provider %}
 <script>
 (function () {
   var current = "";
@@ -654,7 +639,7 @@
       expanded[acc] = true;
     });
   }
-  var copyProvider = "{{ 'smb' if copy_provider == 'smb' else 'drive' }}";
+  var copyProvider = "{{ folder_provider }}";
   function listUrl(rel) {
     return "/backup-copies/list?p=" + encodeURIComponent(rel) + "&provider=" + encodeURIComponent(copyProvider);
   }

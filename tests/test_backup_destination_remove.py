@@ -12,7 +12,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from app.database import get_session
 from app.main import app
 from app.models import AuditLog, BackupDestination, Job, Server, User
-from app.security.auth import get_admin_user, get_password_hash
+from app.security.auth import get_admin_user, get_current_user, get_password_hash
 from app.security.encryption import decrypt_str
 from app.services import backup_replicate as copies
 from app.services.audit_format import format_audit_entry
@@ -367,9 +367,122 @@ def test_remove_form_uses_the_settings_confirm_bar():
     text = open("app/templates/partials/settings_backup.html", encoding="utf-8").read()
     assert 'action="/backup-copies/remove"' in text
     assert 'name="confirm" value="remove"' in text
+    assert 'name="provider" value="{{ row.provider }}"' in text
     assert "data-confirm-danger" in text
     assert "Files already on Drive stay" in text
     assert "Files already on the share stay" in text
+    assert "copy_form_error" in text
+    assert 'value="onedrive" disabled' in text
+    assert "data-copy-edit" in text
     api = open("app/routers/api_v1.py", encoding="utf-8").read()
     assert "remove_destination" not in api
     assert "/backup-copies/remove" not in api
+
+
+def _admin_client(engine):
+    with Session(engine) as session:
+        user = User(
+            email="admin@example.com",
+            hashed_password=get_password_hash("SmokeTest1ok"),
+            role="admin",
+            is_active=True,
+            must_change_password=False,
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        admin = user
+
+    def _session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = _session
+    app.dependency_overrides[get_admin_user] = lambda: admin
+    app.dependency_overrides[get_current_user] = lambda: admin
+    return TestClient(app, raise_server_exceptions=False), admin
+
+
+def test_failed_save_keeps_the_edit_form(tmp_path, monkeypatch):
+    _patch_schedule(monkeypatch)
+    monkeypatch.setattr("app.security.auth.cookie_secure", lambda: False)
+    engine = _engine(tmp_path)
+    client, _admin = _admin_client(engine)
+    secret = "typed-secret-keep"
+    try:
+        failed = client.post(
+            "/backup-copies/config",
+            data={
+                "provider": "smb",
+                "host": "",
+                "share": "media",
+                "smb_path": "PiHerder",
+                "username": "ada",
+                "password": secret,
+                "domain": "WORKGROUP",
+                "schedule_cron": "0 4 * * *",
+                "after_host_backup": "1",
+            },
+            follow_redirects=False,
+        )
+        assert failed.status_code == 303
+        location = failed.headers["location"]
+        assert "copy_error=host" in location
+        assert secret not in location
+        assert "ada" not in location
+        with Session(engine) as session:
+            assert copies.find_destination(session, "smb") is None
+        page = client.get(location)
+        assert page.status_code == 200
+        text = page.text
+        assert "Enter the NAS hostname or IP." in text
+        assert 'value="media"' in text
+        assert 'value="ada"' in text
+        assert f'value="{secret}"' in text
+        assert "settings-drive-copy-modal" in text
+        assert "flex" in text
+        again = client.get("/herder-backups?tab=backup&copy_error=host&copy_provider=smb")
+        assert secret not in again.text
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_admin_user, None)
+        app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_settings_lists_each_dest_and_remove_drops_only_that_row(tmp_path, monkeypatch):
+    _patch_schedule(monkeypatch)
+    engine = _engine(tmp_path)
+    _seed(engine)
+    client, _admin = _admin_client(engine)
+    try:
+        page = client.get("/herder-backups?tab=backup")
+        assert page.status_code == 200
+        text = page.text
+        assert "Google Drive" in text
+        assert "LAN NAS / SMB" in text
+        assert "owner@example.com" in text
+        assert "nas.local/backups/PiHerder" in text
+        assert text.count('action="/backup-copies/remove"') == 2
+        assert 'name="provider" value="drive"' in text
+        assert 'name="provider" value="smb"' in text
+        removed = client.post(
+            "/backup-copies/remove",
+            data={"provider": "smb", "confirm": "remove"},
+            follow_redirects=False,
+        )
+        assert "copy_removed=1" in removed.headers["location"]
+        after = client.get(removed.headers["location"])
+        assert after.status_code == 200
+        body = after.text
+        assert "LAN share removed" in body
+        assert "nas.local/backups/PiHerder" not in body
+        assert "owner@example.com" in body
+        assert 'name="provider" value="smb"' not in body
+        assert 'name="provider" value="drive"' in body
+        with Session(engine) as session:
+            assert copies.find_destination(session, "smb") is None
+            assert copies.find_destination(session, "drive") is not None
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_admin_user, None)
+        app.dependency_overrides.pop(get_current_user, None)
