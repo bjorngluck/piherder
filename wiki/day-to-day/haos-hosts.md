@@ -88,7 +88,7 @@ Schedules reuse the same check/apply machinery as Debian hosts; the backend bran
 - Treat HA as a **Docker Compose** project on the appliance  
 - Appear as a **Move** source or destination ([Move a service](../docker/service-migration.md)) — HAOS is always host-locked  
 - Run **apt** upgrade on HAOS  
-- Ship an HA custom component **in this image**. Path 2 (HA **observes** the fleet) is a **separate** HACS repo (plugin **[v0.4.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.4)**) — operator: [Home Assistant → PiHerder](../integrations/home-assistant.md). Device page **Visit** is the host. Lovelace is one card with Fleet, Host, and Updates. **Containers** starts, stops, restarts, or updates one service. YAML `rest` remains possible.
+- Ship an HA custom component **in this image**. Path 2 (HA **observes** the fleet) is a **separate** HACS repo (plugin **0.5.0** on this train) — operator: [Home Assistant → PiHerder](../integrations/home-assistant.md). Device page **Visit** is the host. Lovelace is one card with Fleet, Host, and Updates. **Containers** starts, stops, restarts, or updates one service, and can stop a compose project on a Docker host. That card does not manage HAOS add-ons, and its Files view is the fleet jail, not HAOS `/config`. YAML `rest` remains possible.
 
 ---
 

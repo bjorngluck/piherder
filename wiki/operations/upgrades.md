@@ -129,6 +129,10 @@ Alembic **047** runs on web start. Recreate **web** and **celery-worker**. HACS 
 7. Move stays **off** until `PIHERDER_SERVICE_MIGRATE=true` and you recreate **web**. Public demo stays Report-Only CSP. Do not set `PIHERDER_CSP_ENFORCE` there.
 8. Immediately run **Full DR** again. Hard-refresh the browser.
 
+## v1.9 train (not tagged)
+
+The **1.8.0** image above is still the published tag. `v1.9.0-dev` is not that image. On the train, Move defaults on, LAN SMB can be saved beside Drive, Settings can remove one destination, hosted MCP accepts the four one-service jobs, and HACS plugin **0.5.0** is poll-only (Move, fleet-jail Files, stop project). OneDrive stays unselectable. About still says **1.8.0**. Published adapter **0.2.0** does not send the four one-service jobs. Do not point the public demo at this branch. Notes: [PLAN_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/v1.9.0-dev/docs/PLAN_v1.9.0.md).
+
 ## Breaking notes
 
 Read the release doc for the version you jump to (migrations, new env keys, behaviour changes).

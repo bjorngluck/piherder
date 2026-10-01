@@ -30,7 +30,7 @@ See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 | | |
 |--|--|
 | What it copies | Checked folders on the herder backup drive (`/backups`), not one host’s source list |
-| Service | **Google Drive** and **LAN NAS / SMB** can be saved. **OneDrive** is in the list and cannot be selected |
+| Service | **Google Drive** and **LAN NAS / SMB** can both be saved and live at once. **OneDrive** is in the list and cannot be selected. **Remove** wipes one provider's saved row. The other stays. Files already copied stay on Drive or the share |
 | Account | A Google sign-in from this PiHerder. New files are owned by that Google account. A service account cannot store them on a personal Drive |
 | Schedule | The same presets as other schedules, **Copy now**, and an optional copy after a host backup succeeds |
 | Browser | Folder tree on the left, the open folder on the right. A ticked folder stays ticked inside. Untick a child to leave it behind |
@@ -72,7 +72,9 @@ A service account cannot store these files on a personal Gmail Drive. It has no 
 
 **Where in PiHerder:** Settings → **PiHerder backup** → **Copy the backup drive**. Pick **LAN NAS / SMB**.
 
-This is a second copy. Host backups still rsync into `/backups` on this PiHerder. rclone then sends the ticked folders to one SMB share. The share does not replace that local directory. Google Drive stays available on the same card. OneDrive cannot be selected.
+This is a second copy, independent of Google Drive. Host backups still rsync into `/backups` on this PiHerder. rclone then sends the ticked folders to one SMB share. The share does not replace that local directory. A saved Drive copy keeps running if you also save SMB. OneDrive cannot be selected.
+
+**Remove** (admin, confirm `remove`) deletes that one provider's saved destination and its secret. The other provider stays. Files already on Drive or on the share are not deleted. The public demo refuses. This is not a job and not an agent action.
 
 1. Enter the NAS hostname or IP, the share name, and an optional path under that share.
 2. Enter a username and password. Guest access and Kerberos are not used. Leave the password blank only after one is already saved. An optional domain or workgroup can be set.

@@ -20,7 +20,7 @@ Move is **on** when `PIHERDER_SERVICE_MIGRATE` is unset. To hide it:
 1. Set `PIHERDER_SERVICE_MIGRATE=false` in `.env`.  
 2. Recreate **web** (`docker compose up -d web`).  
 
-**Operator+** only. Viewer **403**. Demo never opens the wizard. Not on MCP, the token API, or the Home Assistant card.
+**Operator+** only. Viewer **403**. Demo never opens the wizard. The same flag gates the Home Assistant card and `POST /api/v1/servers/{id}/moves` (`confirm: true`, leftover stopped). Health field `service_migrate`. `POST /jobs` with `service_migrate` is refused. There is no MCP Move tool. The card does not offer Undo or source remove.
 
 Lock / unlock does **not** need this flag.
 
