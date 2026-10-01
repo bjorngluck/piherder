@@ -7,7 +7,7 @@ Maintainer plans and release notes. Operator wiki is `wiki/` (MkDocs).
 | Kind | Where |
 |------|--------|
 | Current release | [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) |
-| Active train | [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [QA_v1.9.0.md](QA_v1.9.0.md) · [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md) on `v1.9.0-dev`. Package stays **1.8.0** until freeze. Planned hygiene: PyJWT and urllib3 lock refresh ([§4](PLAN_v1.9.0.md#4-supply-chain-locks-must-planned)) |
+| Active train | [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [QA_v1.9.0.md](QA_v1.9.0.md) · [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md) on `v1.9.0-dev`. Package stays **1.8.0** until freeze. This branch pins PyJWT **2.15.1** and urllib3 **2.8.0** ([§4](PLAN_v1.9.0.md#4-supply-chain-locks-must-planned)) |
 | Prior production | [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md) |
 | This release | [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). Package **1.8.0**. Tag `v1.8.0`. Operator: [Backups](../wiki/day-to-day/backups.md) · [Agents (MCP)](../wiki/operations/mcp.md) · [Home Assistant](../wiki/integrations/home-assistant.md) |
 | API | [API.md](API.md) |
