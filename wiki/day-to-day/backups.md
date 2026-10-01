@@ -20,7 +20,12 @@ See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 
 ### Copy to Google Drive (v1.8 train)
 
-Not in the published **1.7.0** image. On branch `v1.8.0-dev`, **Settings → PiHerder backup** has a section under the self-backup cards.
+**Settings → PiHerder backup** has a card under the self-backup cards, titled **Copy the backup drive**. It ships in **1.8.0**. The **1.7.0** image has no such card.
+
+<figure class="ph-figure" markdown>
+  ![Copy the backup drive](../assets/screenshots/settings-drive-copy.png)
+  <figcaption>Copy the backup drive — signed in, folder Backup_PiHerder, daily at 04:30. Test checks the folder. The tree ticks what rclone copies. Copy now starts that job.</figcaption>
+</figure>
 
 | | |
 |--|--|
@@ -57,6 +62,11 @@ The redirect URL is shown in the PiHerder dialog. It is the address you use in t
 A service account cannot store these files on a personal Gmail Drive. It has no storage quota. Do not use one for this copy.
 
 **Done when:** the Drive copy job succeeds, and the ticked trees are in that Gmail account’s Drive folder.
+
+<figure class="ph-figure" markdown>
+  ![Google Drive setup](../assets/screenshots/settings-drive-setup.png)
+  <figcaption>Edit — Google Drive, the Cloud steps, the redirect URL, a saved secret left blank, folder Backup_PiHerder, and Daily at 04:30. Save keeps the form. Connect Google opens the sign-in.</figcaption>
+</figure>
 
 ---
 

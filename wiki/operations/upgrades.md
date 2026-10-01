@@ -118,7 +118,13 @@ Alembic **043**, **044**, and **045** run on web start. Recreate **web** and **c
 
 ## 1.6 → 1.7 {#16--17}
 
-**v1.7.0** is tagged. Notes: [RELEASE_v1.7.0.md](https://github.com/bjorngluck/piherder/blob/v1.7.0/docs/RELEASE_v1.7.0.md). Recreate **web** and **celery-worker**, confirm Alembic **046**, and update HACS to plugin **0.3.0**. Move stays off. Next train: [PLAN_v1.8.0.md](https://github.com/bjorngluck/piherder/blob/v1.8.0-dev/docs/PLAN_v1.8.0.md). That branch has the Google Drive copy and one-service start, stop, restart, and update. None of that is in this **1.7.0** image. Home Assistant plugin **[v0.4.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.3)** is the card for that train. Staying on **1.7.0** keeps plugin **0.3.0**. The MCP adapter for this train is **[0.2.0](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.2.0)**. Those one-service jobs need the v1.8 herder, and they are not on the adapter.
+**v1.7.0** is tagged. Notes: [RELEASE_v1.7.0.md](https://github.com/bjorngluck/piherder/blob/v1.7.0/docs/RELEASE_v1.7.0.md). Recreate **web** and **celery-worker**, confirm Alembic **046**, and update HACS to plugin **0.3.0**. Move stays off. The next jump is [1.7 → 1.8](#17--18).
+
+## 1.7 → 1.8 {#17--18}
+
+**v1.8.0** notes: [RELEASE_v1.8.0.md](https://github.com/bjorngluck/piherder/blob/v1.8.0-dev/docs/RELEASE_v1.8.0.md). Package **1.8.0**. Tag **v1.8.0** is cut on the merge, and image tags `1.8.0` / `1.8` / `latest` publish with it. Pins `1.7.0` / `1.7` stay valid.
+
+Alembic **047** runs on web start. Recreate **web** and **celery-worker**. HACS plugin **[0.4.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.3)** with resource `?v=0.4.3`. The MCP adapter stays **[0.2.0](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.2.0)** and does not start the one-service jobs. Move stays off. Google Drive copy is Settings → PiHerder backup. The public demo stays on **1.7.0** until a redeploy is asked for.
 6. Optional: `PIHERDER_SSH_CONSOLE=true`, recreate **web**, tick **Console mux** only on a Debian host that already has `tmux` or `screen`.
 7. Move stays **off** until `PIHERDER_SERVICE_MIGRATE=true` and you recreate **web**. Public demo stays Report-Only CSP. Do not set `PIHERDER_CSP_ENFORCE` there.
 8. Immediately run **Full DR** again. Hard-refresh the browser.

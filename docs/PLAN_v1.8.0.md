@@ -1,16 +1,16 @@
 # PiHerder v1.8.0 — MCP job types, then backup destinations, then Home Assistant cards
 
-**Status:** **Code freeze set 2026-09-30.** Operator walks signed. Screenshot pack **in progress**. No new features on this branch. Package bump, merge, tag, and Hub stay a separate ask.  
+**Status:** **Code freeze set 2026-09-30.** Operator walks signed. Screenshot pack **captured** 2026-10-01. Package **1.8.0**. Pull request [#19](https://github.com/bjorngluck/piherder/pull/19) is ready for review. Tag **v1.8.0** and the Hub image follow the merge.  
 **Date opened:** 2026-09-28  
-**Git branch:** `v1.8.0-dev` → `main` · tag `v1.8.0` only when asked, after the draft is undrafted  
-**Package / image version:** stays **`1.7.0`** until the version bump. Freeze does not publish `1.8.0`  
+**Git branch:** `v1.8.0-dev` → `main` · tag `v1.8.0` on the merge commit  
+**Package / image version:** **`1.8.0`**. Image tags `1.8.0` / `1.8` / `latest` publish with the tag. Pins `1.7.0` / `1.7` stay valid.  
 **Theme:** **MCP-jobs** first, then **Bak-alt** (discovery, then one Google Drive destination), then **HA-vis**  
 **Baseline:** `v1.7.0` (tagged 2026-09-28; Hub digest `sha256:174cb1313f6717d323211c8c899b30240e97f5097bd35770f7a6c4555de95270`)  
 **Mode:** **Must → Should → parked.** Must **MCP-jobs** + **Bak-alt discovery** + **HA-vis**. Should **Google Drive** + **HA bus** + **Mux-2** + **Undo-2** + **Jr-web**.  
 **QA:** [QA_v1.8.0.md](QA_v1.8.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md) · wiki [Home Assistant](../wiki/integrations/home-assistant.md)
 
-> **Train open 2026-09-28.** Production stays **v1.7.0** on `main`. Package stays **`1.7.0`** until freeze. Do not redeploy the public demo onto this branch.
+> **Train open 2026-09-28.** Package **1.8.0** on this branch. `main` stays **v1.7.0** until this pull request merges. Do not redeploy the public demo onto this branch.
 
 ---
 
@@ -20,7 +20,7 @@ Hosted MCP used to start six job types. **MCP-jobs** widened `trigger_job` to th
 
 Per-server backups still rsync onto a directory on the herder host. §3.1 is the destination model: a second hop from that tree (path A). The build lean is **Google Drive**, one rclone copy, and it may slip. **OneDrive** and a **LAN NAS / SMB share** are named for later releases and are not built here. A client on each Pi that writes straight to cloud or NAS (path C) stays parked. The rsync directory stays. PiHerder’s own Settings DR backup stays that separate path.
 
-Plugin **0.3.0** shipped with v1.7.0. Plugin **[v0.4.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.0)** is the visual pass: one card, a host strip, and a click that opens Home Assistant history of the snapshot sensors (about every 15 minutes, not a live SSH chart). Plugin **[v0.4.1](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.1)** adds Start and Stop for one compose service. Plugin **[v0.4.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.2)** keeps the tab and the selected host across a redraw. Plugin **[v0.4.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.3)** writes the update counts in full and adds Restart and Update for one service. Those walks are signed. Screenshot recapture is still open: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v180--pack-status). The stdio adapter stays [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.2.0**.
+Plugin **0.3.0** shipped with v1.7.0. Plugin **[v0.4.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.0)** is the visual pass: one card, a host strip, and a click that opens Home Assistant history of the snapshot sensors (about every 15 minutes, not a live SSH chart). Plugin **[v0.4.1](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.1)** adds Start and Stop for one compose service. Plugin **[v0.4.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.2)** keeps the tab and the selected host across a redraw. Plugin **[v0.4.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.3)** writes the update counts in full and adds Restart and Update for one service. Those walks are signed. The screenshot pack, including the Google Drive card, was captured 2026-10-01: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md#v180--pack-status). The stdio adapter stays [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.2.0**.
 
 Wanted:
 
@@ -278,6 +278,7 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 2026-09-30 | **MCP-svc** named for the next release. Discovery only: whether `container_start`, `container_stop`, `container_restart`, and `container_redeploy` join `trigger_job`. This train does not change the allowlist. Adapter stays **0.2.0**. |
 | 2026-09-30 | **Operator sign-off.** **MCP-jobs**, **Bak-alt discovery**, **Google Drive**, **HA-vis**, **Containers** (plugin **0.4.3**), the **HA bus**, **Mux-2**, **Undo-2**, **Jr-web**, and the **1.7 regression** signed in [QA_v1.8.0.md](QA_v1.8.0.md). The screenshot pack stays open. |
 | 2026-09-30 | **Code freeze.** End-user notes drafted in [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Screenshot pack **in progress**. Package stays **1.7.0**. Tag and Hub not cut. |
+| 2026-10-01 | **Screenshot pack captured.** Home Assistant frames and `settings-drive-copy.png` / `settings-drive-setup.png` are wired. Package bumped to **1.8.0**. Pull request ready for review. Tag and Hub follow the merge. |
 
 ---
 
@@ -290,8 +291,8 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 3 | **MCP-jobs** | **Signed** 2026-09-30 ([QA_v1.8.0.md](QA_v1.8.0.md)) |
 | 4 | Bak-alt discovery is §3.1. Google Drive client | **Signed** 2026-09-30 |
 | 5 | **HA-vis**, container start/stop, and the bus event | **Signed** 2026-09-30. Plugin **0.4.3** |
-| 6 | Freeze | **Set** 2026-09-30. Notes: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Screenshots in progress |
-| 7 | Version bump · tag `v1.8.0` · Hub | Only when asked |
+| 6 | Freeze | **Set** 2026-09-30. Notes: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Screenshot pack **captured** 2026-10-01 |
+| 7 | Version bump · tag `v1.8.0` · Hub | Package **1.8.0** bumped 2026-10-01. Tag and Hub follow the merge |
 | 8 | **MCP-svc** discovery | **Next release.** Not this train. §14 |
 
 ---

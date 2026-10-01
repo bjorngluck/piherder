@@ -1,10 +1,10 @@
 # PiHerder v1.8.0
 
-**30 September 2026.** Freeze draft. Tag **v1.8.0** is not cut. Package stays **1.7.0** until the version bump. Image tags `1.8.0`, `1.8`, and `latest` are not published. Draft pull request [#19](https://github.com/bjorngluck/piherder/pull/19).
+**1 October 2026.** Package **1.8.0**. Tag **[v1.8.0](https://github.com/bjorngluck/piherder/releases/tag/v1.8.0)** is cut on the merge commit. Image tags `1.8.0`, `1.8`, and `latest` publish with that tag. Pins `1.7.0` / `1.7` stay valid. Pull request [#19](https://github.com/bjorngluck/piherder/pull/19) is ready for review.
 
 An agent can start the jobs the herder already runs: host reboot, compose stack actions, and template deploy. Backups can copy on to Google Drive after they land on the herder. Home Assistant plugin **0.4.3** is one card, and it can start, stop, restart, or update one container. Leftover console sessions can be listed and killed. A Move that dies while the destination is starting can be put back. Retention, the herder’s own backup, and host facts keep running if the web process restarts.
 
-**Image, when published:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.8.0` · `1.8` · `latest` (amd64 + arm64). Pins `1.7.0` / `1.7` stay valid. The public demo stays on **1.7.0** until a redeploy is asked for.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.8.0` · `1.8` · `latest` (amd64 + arm64) publishes with tag **v1.8.0**. Pins `1.7.0` / `1.7` stay valid. The public demo stays on **1.7.0** until a redeploy is asked for.
 
 Operator how-to: [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/) · [Home Assistant](https://piherder-docs.hacknow.info/integrations/home-assistant/) · [PiHerder backup](https://piherder-docs.hacknow.info/operations/self-backup/) · [Jobs](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/) · [Move a service](https://piherder-docs.hacknow.info/docker/service-migration/). Technical record: [PLAN_v1.8.0](https://github.com/bjorngluck/piherder/blob/v1.8.0-dev/docs/PLAN_v1.8.0.md). Maintainer QA: [QA_v1.8.0](https://github.com/bjorngluck/piherder/blob/v1.8.0-dev/docs/QA_v1.8.0.md).
 
@@ -34,7 +34,7 @@ Folders are a tree. Tick a folder and the children stay ticked. Open it and unti
 
 OneDrive and a LAN NAS are in the service list and cannot be selected. The public demo does not upload. The token API and MCP cannot start this copy.
 
-Wiki: [PiHerder backup](https://piherder-docs.hacknow.info/operations/self-backup/)
+Wiki: [Backups — copy to Google Drive](https://piherder-docs.hacknow.info/day-to-day/backups/#copy-to-google-drive-v18-train). That page has the Cloud steps and the pictures of the card. The public site shows this page after the pull request merges.
 
 ### Home Assistant is one card
 
@@ -82,8 +82,6 @@ If a Move dies during destination start, you can inspect the destination, then s
 
 ## Upgrade from 1.7
 
-These steps apply when the tag and the image exist. They do not apply to the freeze draft.
-
 Alembic **047** (`backup_destination`) runs when **web** starts. Last shipped revision on **1.7.0** is **046**.
 
 1. Full DR self-backup. Keep `PIHERDER_MASTER_KEY`.
@@ -102,6 +100,6 @@ Alembic **047** (`backup_destination`) runs when **web** starts. Last shipped re
 |--|--|
 | MCP | Bearer token only. No OAuth. The four one-service container jobs stay on the Home Assistant card. Down, remove, Move, undo, nmap, and the console stay off the tool. |
 | Google Drive | The scope is full Drive, because a folder you created in the Drive UI is invisible to the narrower scope. A hard kill of the copy worker can leave the job **running**. |
-| Home Assistant | No Move, Files, console, webhooks, or whole-project stop. The wiki pictures are still the 0.3.0 cards until the 1.8 screenshot pack lands. |
+| Home Assistant | No Move, Files, console, webhooks, or whole-project stop. The 0.4.3 card and the Google Drive card are in the wiki pictures. |
 | Move | Stays off. A finished Move still has no Undo. |
 | Not this release | OneDrive, a LAN NAS, per-host grants, and putting the one-service jobs on MCP. |
