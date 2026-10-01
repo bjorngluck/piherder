@@ -177,6 +177,17 @@
           <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Test</button>
         </form>
         {% endif %}
+        {% if copy_can_remove %}
+        <form method="post" action="/backup-copies/remove"
+              data-confirm="{% if copy_provider == 'smb' %}Remove this LAN share destination? The saved account and schedule are deleted in PiHerder. Files already on the share stay.{% else %}Remove this Google Drive destination? The saved account and schedule are deleted in PiHerder. Files already on Drive stay.{% endif %}"
+              data-confirm-title="Remove backup destination"
+              data-confirm-label="Remove"
+              data-confirm-danger>
+          <input type="hidden" name="provider" value="{{ copy_provider }}">
+          <input type="hidden" name="confirm" value="remove">
+          <button type="submit" class="btn btn-danger text-xs min-h-9 px-2.5">Remove</button>
+        </form>
+        {% endif %}
         <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy">
           {% if copy_has_token %}Edit{% else %}Set up{% endif %}
         </button>
@@ -184,6 +195,14 @@
       {% endif %}
     </div>
     {% if copy_saved %}<p class="text-sm text-accent mb-3">Saved.</p>{% endif %}
+    {% if copy_removed %}<p class="text-sm text-accent mb-3">Destination removed. Files already copied were left where they are.</p>{% endif %}
+    {% if copy_error == 'confirm' %}
+    <p class="text-sm text-danger mb-3">Confirm remove before this destination is deleted.</p>
+    {% elif copy_error == 'removed' %}
+    <p class="text-sm text-danger mb-3">That destination is not saved, so nothing was copied.</p>
+    {% elif copy_error == 'missing' %}
+    <p class="text-sm text-danger mb-3">That destination is already gone.</p>
+    {% endif %}
     {% if copy_provider == 'smb' %}
       {% if copy_test == 'ok' %}
       <p class="text-sm text-accent mb-3">The share listed. Nothing was copied.</p>
@@ -249,13 +268,13 @@
     <p class="text-sm text-danger mb-3">That path on the share is not valid.</p>
     {% elif copy_error == 'domain' %}
     <p class="text-sm text-danger mb-3">That domain or workgroup is not valid.</p>
-    {% elif copy_error %}
+    {% elif copy_error and copy_error not in ('confirm', 'removed', 'missing') %}
     <p class="text-sm text-danger mb-3">{{ copy_error }}</p>
     {% endif %}
     {% if not copy_dest %}
     <p class="text-sm text-muted">The destination table is not ready. Run migrations, then reload.</p>
     {% else %}
-    <div id="settings-drive-copy-modal" class="{{ 'hidden' if not copy_error else '' }} fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+    <div id="settings-drive-copy-modal" class="{% if copy_error and copy_error not in ('confirm', 'removed', 'missing') %}{% else %}hidden{% endif %} fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
          data-settings-modal="drive-copy" role="dialog" aria-modal="true" aria-labelledby="settings-drive-copy-title">
       <div class="modal-content settings-sheet card ph-modal-brand">
         <div class="settings-sheet-head">

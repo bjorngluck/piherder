@@ -379,6 +379,48 @@ async def google_connect_callback(
     return response
 
 
+@router.post("/backup-copies/remove")
+async def remove_copy_destination(
+    provider: str = Form("drive"),
+    confirm: str = Form(""),
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    """Settings only. Not a job, token, or MCP action. Remote files stay."""
+    from ..services.audit_write import make_audit_log
+    from ..services.demo import DemoBlocked
+
+    try:
+        key = copies.normalize_provider(provider)
+    except ValueError:
+        return _redirect("copy_error=provider")
+    try:
+        summary = copies.remove_destination(session, key, confirm=confirm)
+    except DemoBlocked:
+        from ..services.demo import http_403_if_demo
+
+        http_403_if_demo("settings_write")
+        raise
+    except ValueError as exc:
+        code = str(exc) if str(exc) in ("confirm", "missing", "provider") else "confirm"
+        return _redirect("copy_error=" + code, key)
+    session.add(
+        make_audit_log(
+            user_id=user.id,
+            action="backup_destination_remove",
+            status="success",
+            details=json.dumps(
+                {
+                    "provider": summary.get("provider") or key,
+                    "remote_files": "kept",
+                }
+            ),
+        )
+    )
+    session.commit()
+    return _redirect("copy_removed=1", key)
+
+
 @router.post("/backup-copies/test")
 async def test_copy_account(
     provider: str = Form("drive"),

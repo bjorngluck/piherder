@@ -34,6 +34,7 @@ _ACTION_LABELS = {
     "server_backup_config": "Backup config",
     "server_backup_source_add": "Backup source added",
     "server_backup_source_remove": "Backup source removed",
+    "backup_destination_remove": "Backup destination removed",
     "server_move": "Server reordered",
     "server_reorder": "Server list reordered",
     "reboot": "Reboot",
@@ -364,6 +365,10 @@ def format_audit_entry(log: dict) -> dict:
     elif action == "backup_stop":
         summary = "Backup stopped by user"
         status_display = "stopped"
+
+    elif action == "backup_destination_remove":
+        provider = meta.get("provider") or "destination"
+        summary = f"Removed {provider}. Files already copied were left in place."
 
     elif action.startswith("server_"):
         msg = meta.get("message") or ""
