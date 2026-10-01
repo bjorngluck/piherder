@@ -297,7 +297,7 @@
     </form>
     {% if oidc_enabled and oidc_identities %}
     <form method="post" action="/auth/account/password/remove" class="space-y-2 border-t border-border pt-3 mt-2"
-          onsubmit="return confirm('Remove local password? You will sign in with SSO only until you set a password again.');">
+          data-ph-confirm="Remove local password? You will sign in with SSO only until you set a password again.">
       <p class="text-xs text-muted">Optional: remove password and use SSO only (keep a break-glass password if you can).</p>
       {% set show_password = true %}
       {% include "partials/account_stepup_confirm.html" %}
@@ -776,7 +776,7 @@
     <div class="space-y-2 border-t border-border pt-3">
       <div class="text-sm font-medium">Regenerate backup codes</div>
       <p class="text-xs text-muted">Invalidates existing codes. Requires password and a current authenticator (or unused backup) code.</p>
-      <button type="button" onclick="showBackupCodesModal()" class="btn btn-secondary min-h-11 text-sm"
+      <button type="button" data-ph-click="showBackupCodesModal" class="btn btn-secondary min-h-11 text-sm"
               data-testid="open-backup-codes-modal">Generate new codes…</button>
     </div>
 
@@ -785,11 +785,11 @@
          class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-4"
          role="dialog" aria-modal="true" aria-labelledby="backup-codes-modal-title"
          data-testid="backup-codes-modal"
-         onclick="if(event.target===this)hideBackupCodesModal()">
-      <div class="modal-content card p-5 sm:p-6 w-full max-w-md" role="document" onclick="event.stopPropagation()">
+         data-ph-backdrop-call="hideBackupCodesModal">
+      <div class="modal-content card p-5 sm:p-6 w-full max-w-md" role="document" data-ph-stop>
         <div class="flex items-start justify-between gap-2 mb-3">
           <h3 id="backup-codes-modal-title" class="text-base font-semibold text-text m-0">Confirm regenerate backup codes</h3>
-          <button type="button" onclick="hideBackupCodesModal()" class="ph-icon-close" aria-label="Close">✕</button>
+          <button type="button" data-ph-click="hideBackupCodesModal" class="ph-icon-close" aria-label="Close">✕</button>
         </div>
         <p class="text-sm text-muted mb-4">This replaces all unused backup codes. Confirm with your password and 2FA.</p>
         <form method="post" action="/auth/account/2fa/backup-codes" class="space-y-3" data-testid="backup-codes-form">
@@ -807,7 +807,7 @@
                    autocomplete="one-time-code" inputmode="text">
           </div>
           <div class="flex flex-wrap gap-2 justify-end pt-1">
-            <button type="button" onclick="hideBackupCodesModal()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+            <button type="button" data-ph-click="hideBackupCodesModal" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
             <button type="submit" class="btn btn-primary min-h-11 text-sm" data-testid="backup-codes-confirm">Generate new codes</button>
           </div>
         </form>
@@ -846,7 +846,7 @@
     {% elif pending_2fa_setup %}
     <div class="space-y-3">
       <p class="text-sm text-muted">Setup in progress — scan the QR in the dialog (or use the manual secret).</p>
-      <button type="button" onclick="show2faSetupModal()" class="btn btn-accent min-h-11 text-sm">Show QR code &amp; confirm</button>
+      <button type="button" data-ph-click="show2faSetupModal" class="btn btn-accent min-h-11 text-sm">Show QR code &amp; confirm</button>
     </div>
     {% else %}
     <form method="post" action="/auth/account/2fa/start">
@@ -868,7 +868,7 @@
           <h3 id="twofa-setup-title" class="font-semibold text-text">Set up authenticator</h3>
           <p class="text-xs text-muted mt-1">Scan with Google Authenticator, Aegis, 1Password, etc.</p>
         </div>
-        <button type="button" onclick="hide2faSetupModal()" class="ph-icon-close" aria-label="Close">✕</button>
+        <button type="button" data-ph-click="hide2faSetupModal" class="ph-icon-close" aria-label="Close">✕</button>
       </div>
 
       <div class="flex flex-col items-center gap-3 mb-4">
@@ -889,7 +889,7 @@
         <div class="text-xs text-muted mb-1">Or enter this key manually</div>
         <div class="flex flex-wrap gap-2 items-center">
           <code id="twofa-manual-secret" class="font-mono text-sm bg-surface border border-border rounded px-2 py-2 break-all flex-1">{{ setup_secret }}</code>
-          <button type="button" class="btn btn-secondary min-h-11 text-xs" onclick="copyTwofaSecret(this)">Copy</button>
+          <button type="button" class="btn btn-secondary min-h-11 text-xs" data-ph-click="copyTwofaSecret" data-ph-pass-el>Copy</button>
         </div>
       </div>
       {% endif %}
@@ -903,7 +903,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <button type="submit" class="btn btn-accent min-h-11 text-sm flex-1">Confirm &amp; enable</button>
-          <button type="button" onclick="hide2faSetupModal()" class="btn btn-secondary min-h-11 text-sm">Later</button>
+          <button type="button" data-ph-click="hide2faSetupModal" class="btn btn-secondary min-h-11 text-sm">Later</button>
         </div>
       </form>
       <p class="text-[10px] text-muted mt-3">After confirming you’ll get one-time backup codes. Save them somewhere safe.</p>

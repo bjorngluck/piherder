@@ -45,7 +45,7 @@
         <span class="fabric-nav-card-cta">Open →</span>
       </a>
       {% if pin_hosts_map %}
-      <div class="fabric-nav-card-pin" onclick="event.stopPropagation()">
+      <div class="fabric-nav-card-pin" data-ph-stop>
         {% with pin_kind=pin_hosts_map.pin_kind,
                 pin_page=pin_hosts_map.pin_page,
                 pin_label=pin_hosts_map.pin_label,
@@ -67,7 +67,7 @@
         <span class="fabric-nav-card-cta">Open →</span>
       </a>
       {% if pin_path_map %}
-      <div class="fabric-nav-card-pin" onclick="event.stopPropagation()">
+      <div class="fabric-nav-card-pin" data-ph-stop>
         {% with pin_kind=pin_path_map.pin_kind,
                 pin_page=pin_path_map.pin_page,
                 pin_label=pin_path_map.pin_label,
@@ -86,7 +86,7 @@
     <button type="button"
             class="fabric-nav-card fabric-nav-card--compact fabric-nav-card--action text-left"
             data-testid="dns-open-records"
-            onclick="openDnsRecordsModal()">
+            data-ph-click="openDnsRecordsModal">
       <div class="fabric-nav-card-kicker">Settings</div>
       <div class="fabric-nav-card-title">DNS records</div>
       <p class="fabric-nav-card-desc">
@@ -98,7 +98,7 @@
     <button type="button"
             class="fabric-nav-card fabric-nav-card--compact fabric-nav-card--action text-left"
             data-testid="dns-open-network"
-            onclick="openDnsHubModal('dns-modal-network')">
+            data-ph-click="openDnsHubModal" data-ph-args='["dns-modal-network"]'>
       <div class="fabric-nav-card-kicker">Settings</div>
       <div class="fabric-nav-card-title">Map settings</div>
       <p class="fabric-nav-card-desc font-mono">
@@ -110,7 +110,7 @@
     <button type="button"
             class="fabric-nav-card fabric-nav-card--compact fabric-nav-card--action text-left"
             data-testid="dns-open-adopt"
-            onclick="openDnsHubModal('dns-modal-adopt')">
+            data-ph-click="openDnsHubModal" data-ph-args='["dns-modal-adopt"]'>
       <div class="fabric-nav-card-kicker">Settings</div>
       <div class="fabric-nav-card-title">Adopt from Pi-hole</div>
       <p class="fabric-nav-card-desc">Import matching CNAMEs</p>
@@ -222,7 +222,7 @@
                   data-fabric-stack-open
                   data-stack-url="/dns/stack-panel?service_id={{ s.id }}"
                   title="Containers, ports, and Kuma for this runtime stack"
-                  onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){PiHerderStackPanel.open(this.getAttribute('data-stack-url'));}return false;">Stack</button>
+                  data-ph-stack>Stack</button>
           <form method="post" action="/dns/services/{{ s.id }}/sync" class="inline">
             <button type="submit" class="btn btn-secondary text-xs min-h-11 px-2">Sync</button>
           </form>
@@ -248,7 +248,7 @@
                   data-fabric-stack-open
                   data-stack-url="/dns/stack-panel?service_id={{ s.id }}"
                   title="Containers, ports, and Kuma for this runtime stack"
-                  onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){PiHerderStackPanel.open(this.getAttribute('data-stack-url'));}return false;">Stack</button>
+                  data-ph-stack>Stack</button>
           <button type="button" class="btn btn-secondary text-xs min-h-11 px-2"
                   data-fabric-copy-path
                   data-copy-text="{{ s.path_chain or s.fqdn }}">Copy path</button>
@@ -297,9 +297,9 @@
      role="dialog" aria-modal="true" aria-labelledby="dns-modal-records-title"
      data-testid="dns-modal-records"
      data-dns-filter="all"
-     onclick="if(event.target===this)closeDnsHubModal('dns-modal-records')">
+     data-ph-backdrop-call="closeDnsHubModal" data-ph-args='["dns-modal-records"]'>
   <div class="modal-content card p-0 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
-       role="document" onclick="event.stopPropagation()">
+       role="document" data-ph-stop>
     <header class="flex items-start justify-between gap-2 p-3 sm:p-4 border-b border-border">
       <div class="min-w-0">
         <h3 id="dns-modal-records-title" class="text-base font-semibold text-text m-0">DNS records</h3>
@@ -308,7 +308,7 @@
         </p>
       </div>
       <button type="button" class="btn btn-secondary text-xs min-h-9 shrink-0"
-              onclick="closeDnsHubModal('dns-modal-records')">Close</button>
+              data-ph-click="closeDnsHubModal" data-ph-args='["dns-modal-records"]'>Close</button>
     </header>
     <div class="px-3 sm:px-4 pt-3 pb-2 border-b border-border/70 space-y-2">
       {# v1.0 (X): operator legend for Host A vs Pi-hole A vs CNAME #}
@@ -396,7 +396,7 @@
           <span class="dns-rec-type dns-rec-type--cname" title="Service CNAME / path mapping">CNAME</span>
           <div class="dns-rec-main min-w-0">
             <a href="#path-{{ s.id }}" class="font-mono text-sm text-accent hover:underline break-all"
-               onclick="closeDnsHubModal('dns-modal-records'); setTimeout(function(){ var el=document.getElementById('path-{{ s.id }}'); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); }, 50); return true;">
+               data-ph-click="closeDnsHubModal" data-ph-args='["dns-modal-records"]' data-ph-then-scroll="path-{{ s.id }}">
               {{ s.fqdn }}
             </a>
             <div class="dns-rec-meta text-[11px] text-muted">
@@ -407,7 +407,7 @@
             </div>
             <div class="dns-rec-actions text-[11px] mt-0.5">
               <a href="#path-{{ s.id }}" class="text-accent hover:underline"
-                 onclick="closeDnsHubModal('dns-modal-records'); setTimeout(function(){ var el=document.getElementById('path-{{ s.id }}'); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); }, 50); return true;">Open path card →</a>
+                 data-ph-click="closeDnsHubModal" data-ph-args='["dns-modal-records"]' data-ph-then-scroll="path-{{ s.id }}">Open path card →</a>
               <span class="dns-rec-sep text-muted">·</span>
               <a href="/dns/logical?focus={{ s.id }}#map" class="text-accent hover:underline">Path map</a>
               {% if s.backend_href %}
@@ -428,7 +428,7 @@
         {% else %}
         <p class="text-muted text-xs py-2 mb-0" data-dns-kind="cname">
           No service path mappings yet.
-          <button type="button" class="text-accent underline" onclick="closeDnsHubModal('dns-modal-records'); openDnsHubModal('dns-modal-adopt');">Adopt from Pi-hole</button>
+          <button type="button" class="text-accent underline" data-ph-seq='[{"fn":"closeDnsHubModal","args":["dns-modal-records"]},{"fn":"openDnsHubModal","args":["dns-modal-adopt"]}]'>Adopt from Pi-hole</button>
           or map a path on this page.
         </p>
         {% endif %}
@@ -486,9 +486,9 @@
 <div id="dns-modal-network" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
      role="dialog" aria-modal="true" aria-labelledby="dns-modal-network-title"
      data-testid="dns-modal-network"
-     onclick="if(event.target===this)closeDnsHubModal('dns-modal-network')">
+     data-ph-backdrop-call="closeDnsHubModal" data-ph-args='["dns-modal-network"]'>
   <div class="modal-content card p-0 w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden"
-       role="document" onclick="event.stopPropagation()">
+       role="document" data-ph-stop>
     <header class="flex items-start justify-between gap-2 p-4 border-b border-border">
       <div>
         <h3 id="dns-modal-network-title" class="text-base font-semibold text-text m-0">Network map (LAN &amp; internet)</h3>
@@ -497,7 +497,7 @@
           Internet → Router → LAN → home hosts.
         </p>
       </div>
-      <button type="button" class="btn btn-secondary text-xs min-h-9" onclick="closeDnsHubModal('dns-modal-network')">Close</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-9" data-ph-click="closeDnsHubModal" data-ph-args='["dns-modal-network"]'>Close</button>
     </header>
     <div class="p-4 overflow-y-auto">
       {% if can_mutate %}
@@ -590,9 +590,9 @@
 <div id="dns-modal-adopt" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
      role="dialog" aria-modal="true" aria-labelledby="dns-modal-adopt-title"
      data-testid="dns-modal-adopt"
-     onclick="if(event.target===this)closeDnsHubModal('dns-modal-adopt')">
+     data-ph-backdrop-call="closeDnsHubModal" data-ph-args='["dns-modal-adopt"]'>
   <div class="modal-content card p-0 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
-       role="document" onclick="event.stopPropagation()">
+       role="document" data-ph-stop>
     <header class="flex items-start justify-between gap-2 p-4 border-b border-border">
       <div>
         <h3 id="dns-modal-adopt-title" class="text-base font-semibold text-text m-0">Adopt existing DNS</h3>
@@ -600,7 +600,7 @@
           Import Pi-hole CNAMEs that match fleet hosts/NPM (duplicates = success).
         </p>
       </div>
-      <button type="button" class="btn btn-secondary text-xs min-h-9" onclick="closeDnsHubModal('dns-modal-adopt')">Close</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-9" data-ph-click="closeDnsHubModal" data-ph-args='["dns-modal-adopt"]'>Close</button>
     </header>
     <div class="p-4 overflow-y-auto space-y-3">
       <div class="flex flex-wrap justify-end">

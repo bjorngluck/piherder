@@ -53,7 +53,7 @@
           <button type="button"
                   class="btn btn-ghost text-[10px] min-h-8 px-1.5 fabric-app-copy"
                   data-copy-text="{{ app.path_chain or app.fqdn }}"
-                  onclick="(function(b){var t=b.getAttribute('data-copy-text')||'';if(!t)return;function d(ok){b.textContent=ok?'Copied':'Copy';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){d(true);}).catch(function(){d(false);});}else{d(false);}})(this)">Copy</button>
+                  data-ph-copy-attr>Copy</button>
         </div>
       </li>
       {% endfor %}

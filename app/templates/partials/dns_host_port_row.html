@@ -48,7 +48,7 @@
             name="role_key"
             class="fabric-host-port-role-select"
             title="{% if row.role_sticky %}Sticky role (auto clears sticky){% else %}Heuristic: {{ row.role_label }} — pick to stick{% endif %}"
-            onchange="this.form.requestSubmit()">
+            data-ph-change-request>
       <option value="" {% if not row.role_sticky %}selected{% endif %}>auto{% if not row.role_sticky and row.role_label %} · {{ row.role_label }}{% endif %}</option>
       {% for rc in p.role_choices %}
       <option value="{{ rc.key }}" {% if row.role_sticky and row.role == rc.key %}selected{% endif %}>{{ rc.label }}</option>

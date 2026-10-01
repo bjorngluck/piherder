@@ -49,7 +49,7 @@
           <div>
             <label class="text-[10px] text-muted block mb-0.5">Storage type</label>
             <select name="var_{{ v.name }}_mode" class="w-full bg-surface border border-border p-2 rounded text-sm"
-                    onchange="var h=this.closest('div').parentElement.querySelector('[data-vol-hint]'); if(h){h.textContent=this.value==='named'?'Docker named volume':this.value==='bind_relative'?'Folder under the project (./…)':'Absolute path on the host'}">
+                    data-ph-vol-hint>
               <option value="named" {% if mode == 'named' %}selected{% endif %}>Named Docker volume</option>
               <option value="bind_relative" {% if mode == 'bind_relative' %}selected{% endif %}>Folder in project</option>
               <option value="bind_absolute" {% if mode == 'bind_absolute' %}selected{% endif %}>Host path</option>
