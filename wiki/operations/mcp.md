@@ -127,13 +127,13 @@ A second start of an exclusive job returns **409** with the job that is already 
 
 These four one-service jobs are on hosted `trigger_job` for **v1.9** ([DECISION_MCP_SVC.md](https://github.com/bjorngluck/piherder/blob/main/docs/DECISION_MCP_SVC.md) · [PLAN_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/v1.9.0-dev/docs/PLAN_v1.9.0.md)). There is no confirm dialog. The Home Assistant card still has one. The adapter source on [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) `main` accepts the same four. Published tag **[0.2.0](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.2.0)** does not, so `uvx` still refuses them. Tag the adapter only when the herder image agents call accepts the types. The image tag is still **1.8.0**.
 
-Not accepted: `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move (`service_migrate`), undo (`service_migrate_undo`), dest-up recover (`service_migrate_dest_recover`), nmap, the console, token admin, and stale-data cleanup.
+Not accepted: `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move (`service_migrate`), undo (`service_migrate_undo`), dest-up recover (`service_migrate_dest_recover`), nmap, the console, token admin, stale-data cleanup, and removing a backup destination. Move from a token is `POST /api/v1/servers/{id}/moves` with `confirm: true`, not this tool. The Home Assistant card uses that route. This tool does not.
 
 Read tools set `readOnlyHint`. `set_features`, `trigger_job`, `write_file`, `mkdir`, `rename_file`, and `delete_file` set `destructiveHint`.
 
 ## What stays out
 
-SSH, the web console, Move, undo, nmap, DNS, certificates, Settings, token create/revoke, and stale data cleanup. `docker_stack_down`, `docker_stack_remove`, and `template_drift_check` stay off this tool. Privileged Files, zip, chmod, and recursive delete stay in the browser. The public demo is not a target (API tokens are off there, so `/mcp` is too).
+SSH, the web console, Move, undo, nmap, DNS, certificates, Settings, token create/revoke, stale data cleanup, and removing a Drive or SMB destination. `docker_stack_down`, `docker_stack_remove`, and `template_drift_check` stay off this tool. Privileged Files, zip, chmod, and recursive delete stay in the browser. Fleet-jail Files tools stay. The public demo is not a target (API tokens are off there, so `/mcp` is too). The PiHerder UI still owns the console, the full Move wizard, privileged Files, token admin, and nmap.
 
 ## Local / air-gapped fallback
 
