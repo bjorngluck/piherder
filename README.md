@@ -68,7 +68,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - **Current production:** [docs/RELEASE_v1.8.0.md](docs/RELEASE_v1.8.0.md) — MCP job types · Google Drive copy · HA plugin **[0.4.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.4)** · leftover console kill · Move recover. Technical record: [PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md). Wiki: [Agents (MCP)](wiki/operations/mcp.md) · [Home Assistant](wiki/integrations/home-assistant.md) · [Backups](wiki/day-to-day/backups.md). Image `bjorngluck/piherder:1.8.0` · `1.8` · `latest`. Pins `1.7.0` / `1.7` stay valid. MCP adapter **[0.2.0](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.2.0)** does not start the one-service jobs.
-- **Next:** whether those one-service jobs join MCP (**MCP-svc**). [docs/PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md) §14.
+- **Next (v1.9.0):** those one-service jobs join MCP (**MCP-svc**, locked). [docs/PLAN_v1.9.0.md](docs/PLAN_v1.9.0.md) · [docs/DECISION_MCP_SVC.md](docs/DECISION_MCP_SVC.md). Not in **v1.8.0**. Adapter **0.2.0** stays until that train.
 - Prior: [docs/RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · [docs/RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [docs/RELEASE_v1.3.0.md](docs/RELEASE_v1.3.0.md) · [docs/RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
 - API reference: [docs/API.md](docs/API.md)
 
