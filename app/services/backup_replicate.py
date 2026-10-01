@@ -1106,6 +1106,31 @@ def execute(destination: BackupDestination, scope: str | None = None) -> dict[st
             discard_rclone_config(config_path)
 
 
+def credentials_saved(destination: BackupDestination | None) -> bool:
+    if destination is None:
+        return False
+    return bool((destination.credentials_encrypted or "").strip())
+
+
+def has_saved_destination(destination: BackupDestination | None) -> bool:
+    """True when this provider has something Remove should clear.
+
+    A blank row from get_or_create is not a saved destination.
+    """
+    if destination is None:
+        return False
+    if credentials_saved(destination):
+        return True
+    if (destination.schedule or "").strip() or destination.after_host_backup:
+        return True
+    cfg = _load_cfg(destination)
+    for key in ("host", "share", "oauth_client_id", "oauth_client_secret_encrypted"):
+        if str(cfg.get(key) or "").strip():
+            return True
+    checked, skipped = parse_selection(destination.selection_json)
+    return bool(checked or skipped)
+
+
 def find_destination(session: Session, provider: str) -> BackupDestination | None:
     key = (provider or "").strip().lower()
     if key not in _SELECTABLE:
@@ -1113,6 +1138,53 @@ def find_destination(session: Session, provider: str) -> BackupDestination | Non
     return session.exec(
         select(BackupDestination).where(BackupDestination.provider == key)
     ).first()
+
+
+def _destinations_for(session: Session, provider: str) -> list[BackupDestination]:
+    key = normalize_provider(provider)
+    return list(
+        session.exec(
+            select(BackupDestination).where(BackupDestination.provider == key)
+        ).all()
+    )
+
+
+def refresh_copy_schedule() -> None:
+    """Rebuild backup-copy crons from the rows that are still saved."""
+    try:
+        from ..main import HAS_SCHEDULER, scheduler
+        from .scheduler import sync_backup_copy_schedule
+
+        sync_backup_copy_schedule(scheduler, HAS_SCHEDULER)
+    except Exception:
+        logger.warning("Backup copy schedule refresh failed", exc_info=True)
+
+
+def remove_destination(session: Session, provider: str, *, confirm: str) -> dict[str, Any]:
+    """Hard-delete one provider's destination. The other provider stays.
+
+    Fernet ciphertext goes with the row. Remote Drive or SMB files are not touched.
+    """
+    from .demo import raise_if_demo
+
+    raise_if_demo("settings_write")
+    if (confirm or "").strip() != "remove":
+        raise ValueError("confirm")
+    key = normalize_provider(provider)
+    rows = _destinations_for(session, key)
+    if not rows:
+        raise ValueError("missing")
+    removed_ids = [int(row.id) for row in rows if row.id]
+    for row in rows:
+        session.delete(row)
+    session.commit()
+    refresh_copy_schedule()
+    return {
+        "removed": True,
+        "provider": key,
+        "destination_ids": removed_ids,
+        "remote_files": "kept",
+    }
 
 
 def get_or_create(session: Session, provider: str = "drive") -> BackupDestination:
@@ -1154,6 +1226,23 @@ def _active_replicate(session: Session, destination_id: int) -> Job | None:
     return None
 
 
+def _refused_copy_job(destination: BackupDestination, server_id: int | None) -> Job:
+    """In-memory failure. Not stored, and rclone is not started."""
+    return Job(
+        server_id=server_id,
+        job_type=JOB_TYPE,
+        status="failed",
+        finished_at=datetime.utcnow(),
+        details=json.dumps(
+            {
+                "error": "removed",
+                "destination_id": destination.id,
+                "done": True,
+            }
+        ),
+    )
+
+
 def enqueue(
     session: Session,
     destination: BackupDestination,
@@ -1165,6 +1254,8 @@ def enqueue(
     from .demo import demo_mode
     from .jobs.service import _initial_job_details
 
+    if not credentials_saved(destination):
+        return _refused_copy_job(destination, server_id)
     active = _active_replicate(session, int(destination.id or 0))
     if active:
         return active
@@ -1216,6 +1307,8 @@ def enqueue_after_host_backup(session: Session, server: Server) -> None:
         )
     ).all()
     for dest in rows:
+        if not credentials_saved(dest):
+            continue
         checked, skipped = parse_selection(dest.selection_json)
         scoped, _ = paths_for_scope(checked, skipped, folder)
         if not scoped:

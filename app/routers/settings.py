@@ -504,6 +504,7 @@ async def settings_page(
     smb_schedule = ""
     smb_after = False
     copy_can_test = False
+    copy_can_remove = False
     if is_admin:
         try:
             from ..services import backup_replicate as copies
@@ -549,6 +550,7 @@ async def settings_page(
                 and copy_account_kind == "oauth"
                 and copy_has_token
             )
+            copy_can_remove = copies.has_saved_destination(copy_dest)
             origin = public_url or ""
             if not origin:
                 parsed = urlparse(str(request.base_url))
@@ -577,6 +579,7 @@ async def settings_page(
             smb_schedule = ""
             smb_after = False
             copy_can_test = False
+            copy_can_remove = False
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -590,6 +593,7 @@ async def settings_page(
             "copy_provider": copy_provider,
             "copy_has_token": copy_has_token,
             "copy_can_test": copy_can_test,
+            "copy_can_remove": copy_can_remove,
             "drive_schedule": drive_schedule,
             "drive_after": drive_after,
             "copy_smb_host": copy_smb_host,
@@ -609,6 +613,7 @@ async def settings_page(
             "copy_redirect_uri": copy_redirect_uri,
             "copy_error": qp.get("copy_error"),
             "copy_saved": qp.get("copy_saved"),
+            "copy_removed": qp.get("copy_removed"),
             "copy_test": qp.get("copy_test"),
             "herder_config": cfg,
             "tz_choices": app_cfg.get_available_timezones(),
