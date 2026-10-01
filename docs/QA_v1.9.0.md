@@ -12,7 +12,7 @@ Plan: [PLAN_v1.9.0.md](PLAN_v1.9.0.md). 1.8 sign-off stays [QA_v1.8.0.md](QA_v1.
 
 The Home Assistant plugin stays [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Do not redeploy the public demo onto this branch.
 
-Boxes stay empty until the slice has landed and you walk it. A Should that slips the tag stays unchecked and is noted as slipped. Do not tick an Out row (AC-fg, Brand-3, ACME, NPM CRUD, a richer Files API, N3c, M-live).
+Boxes stay empty until the slice has landed and you walk it. A Should that slips the tag stays unchecked and is noted as slipped. Do not tick an Out row (AC-fg, Brand-3, ACME, NPM CRUD, a richer Files API, N3c, M-live). Supply-chain boxes stay empty until the locks have changed.
 
 ---
 
@@ -79,6 +79,15 @@ Write-up only. No client on the hosts.
 Write-up only. Bearer stays the only path.
 
 - [ ] The note says how an agent would sign in to `POST /mcp` and what stays on the `ph_` token until a later promotion
+
+## Supply-chain locks (Must)
+
+Planned. Not started. Baseline on 2026-10-01 is PyJWT **2.13.0** and urllib3 **2.7.0**. Minimum fixed versions are PyJWT **2.15.0** and urllib3 **2.8.0**.
+
+- [ ] `uv.lock`, `requirements.lock.txt`, and `requirements.runtime.lock.txt` resolve PyJWT >= 2.15.0 and urllib3 >= 2.8.0
+- [ ] The unit suite passes on those locks. Fail-under stays **80**. `pip-audit` is clean for these two packages
+- [ ] Matching Dependabot alerts on this repository are closed after the locks reach the default branch
+- [ ] The **v1.9.0** tag carries the bump, or an earlier **v1.8.x** patch is already on this branch
 
 ## 1.8 regression
 
