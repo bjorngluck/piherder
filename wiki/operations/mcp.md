@@ -68,7 +68,7 @@ Call the herder through the published HTTPS port (Caddy **8443**, or **8888** fo
 
 ## What a token can do
 
-Tool names match the public stdio adapter. Hosted `trigger_job` also accepts the four one-service types below. Adapter **0.2.0** does not. Tools appear only for scopes on the token. A token **without `read` fails closed**: initialize returns an error and no tools are listed.
+Tool names match the public stdio adapter. Hosted `trigger_job` accepts the four one-service types below. The adapter source on `main` accepts them. Published adapter **0.2.0** does not, so `uvx` still refuses them. Tools appear only for scopes on the token. A token **without `read` fails closed**: initialize returns an error and no tools are listed.
 
 | Scope | Tools |
 |-------|--------|
@@ -172,7 +172,7 @@ uvx --from git+https://github.com/bjorngluck/piherder-mcp.git piherder-mcp
 
 `${PIHERDER_TOKEN}` in older samples is a human placeholder. Many hosts do **not** expand it. Paste the real secret, or set it in the environment the host already inherits.
 
-Tool names match. Adapter **0.2.0** does not offer the four one-service job types. A token without `read` makes the stdio process exit on stderr.
+Tool names match. Published adapter **0.2.0** does not offer the four one-service job types. The source on `main` does. A token without `read` makes the stdio process exit on stderr.
 
 ## Operating note
 
