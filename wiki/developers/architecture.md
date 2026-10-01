@@ -80,7 +80,7 @@ flowchart TB
 | Ops-hero pulse helpers | `app/services/ops_pulse.py` |
 | Instance name, accent, Catalog nav | `app/services/instance_brand.py` · Settings → General → Instance · `POST /herder-backups/instance`. Demo forces official chrome. |
 | Push | `app/services/push.py` |
-| API tokens | `app/services/api_tokens.py`, `app/routers/api_v1.py`. Hosted MCP is `app/routers/mcp.py` + `app/services/mcp_hosted.py` (`POST /mcp`, same Bearer token). The stdio client is [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.2.0**. Home Assistant is [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.4.3**. v1.7.0 paired with **0.3.0**. Neither repo is inside this image. Operator pages: [Agents (MCP)](../operations/mcp.md) · [Home Assistant](../integrations/home-assistant.md) |
+| API tokens | `app/services/api_tokens.py`, `app/routers/api_v1.py`. Hosted MCP is `app/routers/mcp.py` + `app/services/mcp_hosted.py` (`POST /mcp`, same Bearer token). The stdio client is [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.2.0**. Home Assistant is [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.4.4**. v1.7.0 paired with **0.3.0**. Neither repo is inside this image. Operator pages: [Agents (MCP)](../operations/mcp.md) · [Home Assistant](../integrations/home-assistant.md) |
 | Herder backup | `app/services/herder_backup.py` |
 | Metrics | `app/services/metrics.py` |
 | Bulk server actions | `app/routers/servers.py` (`POST /servers/bulk`) |

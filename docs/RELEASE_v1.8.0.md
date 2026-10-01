@@ -2,7 +2,7 @@
 
 **1 October 2026.** Package **1.8.0**. Tag **[v1.8.0](https://github.com/bjorngluck/piherder/releases/tag/v1.8.0)** is cut on the merge commit. Image tags `1.8.0`, `1.8`, and `latest` publish with that tag. Pins `1.7.0` / `1.7` stay valid. Pull request [#19](https://github.com/bjorngluck/piherder/pull/19) is ready for review.
 
-An agent can start the jobs the herder already runs: host reboot, compose stack actions, and template deploy. Backups can copy on to Google Drive after they land on the herder. Home Assistant plugin **0.4.3** is one card, and it can start, stop, restart, or update one container. Leftover console sessions can be listed and killed. A Move that dies while the destination is starting can be put back. Retention, the herder’s own backup, and host facts keep running if the web process restarts.
+An agent can start the jobs the herder already runs: host reboot, compose stack actions, and template deploy. Backups can copy on to Google Drive after they land on the herder. Home Assistant plugin **0.4.4** is one card, and it can start, stop, restart, or update one container. Leftover console sessions can be listed and killed. A Move that dies while the destination is starting can be put back. Retention, the herder’s own backup, and host facts keep running if the web process restarts.
 
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.8.0` · `1.8` · `latest` (amd64 + arm64) publishes with tag **v1.8.0**. Pins `1.7.0` / `1.7` stay valid. The public demo stays on **1.7.0** until a redeploy is asked for.
 
@@ -38,7 +38,7 @@ Wiki: [Backups — copy to Google Drive](https://piherder-docs.hacknow.info/day-
 
 ### Home Assistant is one card
 
-Install [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.4.3** with HACS, then restart Home Assistant. It is not inside the PiHerder image. Set the dashboard resource to `/local/piherder-dashboard-card.js?v=0.4.3` as a JavaScript module, and hard-refresh. The **Plugin** sensor reads **0.4.3**. Delete an older `?v=0.3.0`, `?v=0.4.0`, `?v=0.4.1`, or `?v=0.4.2` resource if it is still there.
+Install [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **[0.4.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.4.4)** with HACS, then restart Home Assistant. It is not inside the PiHerder image. Set the dashboard resource to `/local/piherder-dashboard-card.js?v=0.4.4` as a JavaScript module, and hard-refresh. The **Plugin** sensor reads **0.4.4**. Delete an older `?v=0.3.0`, `?v=0.4.0`, `?v=0.4.1`, `?v=0.4.2`, or `?v=0.4.3` resource if it is still there. The wiki pictures were captured on **0.4.3**. The card is the same.
 
 One card, three tabs: **Fleet**, **Host**, **Updates**. A host strip picks the machine, with a Raspberry Pi mark and an OS icon. Click memory, disk, or CPU load to open that sensor’s Home Assistant history. A thin sparkline draws when the recorder has points. The card keeps the tab, the selected host, and an open **Containers** section when it redraws.
 
@@ -89,7 +89,7 @@ Alembic **047** (`backup_destination`) runs when **web** starts. Last shipped re
 3. `docker compose pull && docker compose up -d` — recreate **web** and **celery-worker**. App code is not bind-mounted.
 4. Confirm the database revision includes `047`.
 5. Move stays **off**.
-6. HACS: update [piherder-ha](https://github.com/bjorngluck/piherder-ha) to **0.4.3**, restart Home Assistant, and set the card resource query to `v=0.4.3`.
+6. HACS: update [piherder-ha](https://github.com/bjorngluck/piherder-ha) to **0.4.4**, restart Home Assistant, and set the card resource query to `v=0.4.4`.
 7. If you use `uvx piherder-mcp`, that package is already **0.2.0**. Hosted `/mcp` updates with this image. It does not gain the four one-service jobs.
 
 ---
@@ -100,6 +100,6 @@ Alembic **047** (`backup_destination`) runs when **web** starts. Last shipped re
 |--|--|
 | MCP | Bearer token only. No OAuth. The four one-service container jobs stay on the Home Assistant card. Down, remove, Move, undo, nmap, and the console stay off the tool. |
 | Google Drive | The scope is full Drive, because a folder you created in the Drive UI is invisible to the narrower scope. A hard kill of the copy worker can leave the job **running**. |
-| Home Assistant | No Move, Files, console, webhooks, or whole-project stop. The 0.4.3 card and the Google Drive card are in the wiki pictures. |
+| Home Assistant | No Move, Files, console, webhooks, or whole-project stop. The card pictures were captured on plugin 0.4.3. HACS current is **0.4.4**. The Google Drive card is in the wiki pictures. |
 | Move | Stays off. A finished Move still has no Undo. |
 | Not this release | OneDrive, a LAN NAS, per-host grants, and putting the one-service jobs on MCP. |
