@@ -22,7 +22,7 @@ Wanted, in order:
 
 1. **MCP-svc (Must).** `container_start`, `container_stop`, `container_restart`, and `container_redeploy` join `trigger_job`. All four. The herder side is on `main`. The stdio `JOB_TYPES` list is on [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) `main`. The annotated tag is not cut. Published **0.2.0** and `uvx` still refuse the types. Tag the adapter only when the herder image agents call accepts them. The image tag is still **1.8.0**. `source_filter` is the compose directory and `service` is required. An agent still has no confirm dialog. Decision: [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md).
 2. **LAN NAS / SMB (Must).** Path A from the v1.8 destination write-up: rclone `smb` from `/backups`, one share the operator can select. The local rsync directory stays the default. Google Drive stays selectable. Path B (a host CIFS mount as the dest root) stays out.
-3. **Move default-on (Must).** `PIHERDER_SERVICE_MIGRATE` defaults to true. The flag stays **false** until this slice lands. A finished Move still has no Undo. Move stays stop-first.
+3. **Move default-on (Must).** `PIHERDER_SERVICE_MIGRATE` defaults to true. Set it to **false** to turn Move off. A finished Move still has no Undo. Move stays stop-first. Move stays UI-only.
 
 **Should, and may slip the tag:**
 
@@ -61,7 +61,7 @@ Wanted, in order:
 | Not a backlog item | Home Assistant plugin stays HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha). Not inside the image |
 | Version bump | Freeze only. About / footer stay **1.8.0** until then |
 | Demo | Stays the published **1.7.0** image. Do not redeploy this branch |
-| Move flag | Stays **false** until the Move-default slice lands |
+| Move flag | Defaults **true**. `false` still disables. Finished Move has no Undo. UI-only |
 | Adapter | Published **0.2.0** until the MCP-svc tag. Hosted `/mcp` already accepts the four types |
 | Coverage | Fail-under stays **80**. Do not lower it |
 | Confirm | None on MCP |
@@ -91,6 +91,7 @@ main (herder allowlist landed, image still 1.8.0)
 | 2026-10-01 | **Supply-chain locks.** `pyproject.toml` floors are PyJWT **>= 2.15** and urllib3 **>= 2.8**. The three lockfiles pin **PyJWT 2.15.1** and **urllib3 2.8.0**. `pip-audit` on the runtime lock reported no known vulnerabilities. Dependabot alerts stay open until this reaches `main`. |
 | 2026-10-01 | **Rebase.** `v1.9.0-dev` replayed onto `main` so the train keeps the merged allowlist and the rest of this plan. |
 | 2026-10-01 | **LAN NAS / SMB.** Path A rclone `smb` on Settings → PiHerder backup. One share. Password in Fernet. Path B mount stays out. |
+| 2026-10-01 | **Move default-on.** `PIHERDER_SERVICE_MIGRATE` defaults true (compose and settings). `false` still disables. Stop-first. No Undo on a finished Move. Same operator+ gate. Not on MCP, the token API, or the HA card. |
 
 ---
 
@@ -101,7 +102,7 @@ main (herder allowlist landed, image still 1.8.0)
 | 1 | Open **`v1.9.0-dev`** | **Done** 2026-10-01 |
 | 2 | **MCP-svc** — four job types on hosted MCP and the adapter, then one adapter tag | Herder on `main` (#22). Adapter source on piherder-mcp `main`. Published tag **0.2.0**. Walk open |
 | 3 | **LAN NAS / SMB** — selectable path A (`rclone smb`) | Built on this branch. Path B mount stays out |
-| 4 | **Move default-on** — flag defaults true | Not started. Flag stays false until this row |
+| 4 | **Move default-on** — flag defaults true | **Done** on this branch. Unset env is on; `false` disables |
 | 5 | Should, if they do not slip | OneDrive · HA Slice 3 · CSP Slice 2 |
 | 6 | Discover write-ups | Path C · MCP OAuth. No code |
 | 7 | Freeze · version bump · tag · Hub | Only when asked |

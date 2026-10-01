@@ -20,7 +20,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 1. **General** → set app **timezone** (Audit/Jobs clocks). Optional **Instance**: a name in the header, one accent, and whether Catalog stays in the nav. See [Appearance](../getting-started/appearance.md).  
 2. **General** → **Security policy**: password rules, who must enrol 2FA (optional grace 0–60 days), step-up windows.  
-3. **General** → **Console**: idle / max session, concurrency, ticket, park hold, bind, scrollback (kill switch stays `PIHERDER_SSH_CONSOLE`). **General** → **Files**: transfer cap (default 512 MiB, ceiling 32 GiB). Kill switch stays env `PIHERDER_HOST_FILES` ([Host Files](../day-to-day/host-files.md)). Privileged Files uses the same “who may elevate” knob as the console.  
+3. **General** → **Console**: idle / max session, concurrency, ticket, park hold, bind, scrollback (kill switch stays `PIHERDER_SSH_CONSOLE`). **General** → **Files**: transfer cap (default 512 MiB, ceiling 32 GiB). Kill switch stays env `PIHERDER_HOST_FILES` ([Host Files](../day-to-day/host-files.md)). Privileged Files uses the same “who may elevate” knob as the console. **Move** is not a Settings checkbox. It is on unless `PIHERDER_SERVICE_MIGRATE=false` ([env reference](env-reference.md) · [Move a service](../docker/service-migration.md)).  
 4. Optional **General → SSO / OpenID Connect** when you have a BYO IdP — [SSO guide](../account-security/sso-oidc.md).  
 5. **PiHerder backup** → run once + schedule; store archive + master key offline.  
 6. **Status** → Check now until green.  

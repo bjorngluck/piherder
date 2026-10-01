@@ -1,7 +1,7 @@
 # Move a service
 
 !!! note "Availability"
-    **Move a service** shipped in **v1.4.0** (pipeline + lock). **v1.5.0** runs the job on the **Celery worker** (same as backups) — recycle **web** mid-Move is safe; recycle **celery-worker** fails it. Behind `PIHERDER_SERVICE_MIGRATE` (default **off**). Host **lock / unlock** has no flag. Source remove + named-volume delete is optional and **off** unless you pick it. Public demo never copies. User notes: [RELEASE_v1.5.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.5.0.md). Technical: [PLAN_v1.5.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.5.0.md).
+    **Move a service** shipped in **v1.4.0** (pipeline + lock). **v1.5.0** runs the job on the **Celery worker** (same as backups) — recycle **web** mid-Move is safe; recycle **celery-worker** fails it. `PIHERDER_SERVICE_MIGRATE` defaults **on** (set **false** to turn Move off). Host **lock / unlock** has no flag. Source remove + named-volume delete is optional and **off** unless you pick it. A finished Move has no Undo. Public demo never copies. User notes: [RELEASE_v1.5.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.5.0.md). Technical: [PLAN_v1.5.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.5.0.md).
 
 ## What this is
 
@@ -13,11 +13,14 @@ PiHerder stays **SSH-first**. The herder is the staging hop (`/backups/_migrate/
 
 Operators already stop a stack, rsync trees, retarget a CNAME, restart Pi-hole, and start on another Pi. Those steps were never **one Job** with a preview of paths, bytes, and dest free space.
 
-## Enable Move
+## Turn Move off
 
-1. Set `PIHERDER_SERVICE_MIGRATE=true` in `.env`.  
+Move is **on** when `PIHERDER_SERVICE_MIGRATE` is unset. To hide it:
+
+1. Set `PIHERDER_SERVICE_MIGRATE=false` in `.env`.  
 2. Recreate **web** (`docker compose up -d web`).  
-3. **Operator+** only. Viewer **403**. Demo never opens the wizard.
+
+**Operator+** only. Viewer **403**. Demo never opens the wizard. Not on MCP, the token API, or the Home Assistant card.
 
 Lock / unlock does **not** need this flag.
 

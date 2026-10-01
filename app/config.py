@@ -129,8 +129,9 @@ class Settings(BaseSettings):
 
     # Host Files dest-card (v1.3 Stream F) — default OFF until operators opt in
     PIHERDER_HOST_FILES: bool = False
-    # Service migration Move wizard (v1.4 Stream M) — default OFF until M is ready
-    PIHERDER_SERVICE_MIGRATE: bool = False
+    # Service migration Move wizard (v1.4 Stream M). Default on (v1.9).
+    # Set PIHERDER_SERVICE_MIGRATE=false to turn Move off. Operator+ and demo gates stay.
+    PIHERDER_SERVICE_MIGRATE: bool = True
     # Upload cap (bytes). Code default 512 MiB; env may raise up to 2 GiB.
     PIHERDER_HOST_FILES_MAX_BYTES: int = 512 * 1024 * 1024
 

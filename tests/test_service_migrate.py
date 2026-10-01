@@ -154,9 +154,27 @@ def test_annotate_projects(lock_db):
     assert projects[1]["host_lock"]["locked"] is False
 
 
-def test_migrate_enabled_default_off(monkeypatch):
+def test_migrate_enabled_follows_flag(monkeypatch):
+    monkeypatch.setattr(hl.settings, "PIHERDER_SERVICE_MIGRATE", True, raising=False)
+    assert hl.migrate_enabled() is True
     monkeypatch.setattr(hl.settings, "PIHERDER_SERVICE_MIGRATE", False, raising=False)
     assert hl.migrate_enabled() is False
+
+
+def test_service_migrate_unset_env_defaults_on(monkeypatch):
+    monkeypatch.delenv("PIHERDER_SERVICE_MIGRATE", raising=False)
+    from app.config import Settings
+
+    cfg = Settings(PIHERDER_MASTER_KEY="test-master-key-not-used", _env_file=None)
+    assert cfg.PIHERDER_SERVICE_MIGRATE is True
+
+
+def test_service_migrate_env_false_disables(monkeypatch):
+    monkeypatch.setenv("PIHERDER_SERVICE_MIGRATE", "false")
+    from app.config import Settings
+
+    cfg = Settings(PIHERDER_MASTER_KEY="test-master-key-not-used", _env_file=None)
+    assert cfg.PIHERDER_SERVICE_MIGRATE is False
 
 
 @pytest.fixture()
