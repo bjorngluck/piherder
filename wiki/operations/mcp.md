@@ -121,7 +121,7 @@ Tools match the public stdio adapter. Nothing from that list is deferred. Tools 
 
 A second start of an exclusive job returns **409** with the job that is already running. The tool result includes `http_status` and `already_active`. Poll `get_job`. Do not start another.
 
-Not accepted: `container_start`, `container_stop`, `container_restart`, `container_redeploy` (Home Assistant card only), `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move (`service_migrate`), undo (`service_migrate_undo`), and dest-up recover (`service_migrate_dest_recover`). The next release will discover whether those four one-service jobs join this tool ([PLAN_v1.8.0.md](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/PLAN_v1.8.0.md) §14). This page does not add them. Adapter **0.2.0** stays.
+Not accepted on **v1.8.0**: `container_start`, `container_stop`, `container_restart`, `container_redeploy` (Home Assistant card only), `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move (`service_migrate`), undo (`service_migrate_undo`), and dest-up recover (`service_migrate_dest_recover`). Those four one-service jobs are locked for **v1.9.0** ([DECISION_MCP_SVC.md](https://github.com/bjorngluck/piherder/blob/main/docs/DECISION_MCP_SVC.md) · [PLAN_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.9.0.md)). This page does not add them. Adapter **0.2.0** stays until that train ships herder and adapter together.
 
 Read tools set `readOnlyHint`. `set_features`, `trigger_job`, `write_file`, `mkdir`, `rename_file`, and `delete_file` set `destructiveHint`.
 
