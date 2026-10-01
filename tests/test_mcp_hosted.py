@@ -269,9 +269,24 @@ def test_scope_filter_jobs_and_sse_and_noread(tmp_path, monkeypatch):
         assert "host_reboot" in enum
         assert "docker_stack_restart" in enum
         assert "template_redeploy" in enum
+        assert "container_start" in enum
+        assert "container_stop" in enum
+        assert "container_restart" in enum
+        assert "container_redeploy" in enum
+        assert "service" in by_name["trigger_job"]["inputSchema"]["properties"]
         assert "service_migrate" not in enum
         assert "docker_stack_down" not in enum
         assert "template_drift_check" not in enum
+
+        missing = _rpc(
+            client,
+            secrets["jobs"],
+            "tools/call",
+            {"name": "trigger_job", "arguments": {"server_id": 1, "job_type": "container_start"}},
+        )
+        missing_body = missing.json()["result"]
+        assert missing_body["isError"] is True
+        assert "compose directory" in missing_body["content"][0]["text"]
 
         rejected = _rpc(
             client,

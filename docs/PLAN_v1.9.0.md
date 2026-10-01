@@ -80,6 +80,7 @@ main @ v1.8.0 (+ v1.8.x patches)
 | Date | Note |
 |------|------|
 | 2026-10-01 | Train opened from `main` after **v1.8.0** shipped. Must is **MCP-svc**, a selectable LAN share, and Move on by default. OneDrive, HA Slice 3, and CSP Slice 2 are Should. Path C and MCP OAuth are Discover. Package stays `1.8.0`. |
+| 2026-10-01 | **MCP-svc code.** Hosted `trigger_job` accepts the four one-service types. `source_filter` is the compose directory and `service` is required. Adapter tree is **0.3.0** and is not tagged. Published **0.2.0** and the **1.8.0** image still refuse the types. |
 
 ---
 
@@ -88,7 +89,7 @@ main @ v1.8.0 (+ v1.8.x patches)
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.9.0-dev`** | **Done** 2026-10-01 |
-| 2 | **MCP-svc** — four job types on hosted MCP and the adapter, then one adapter tag | Not started |
+| 2 | **MCP-svc** — four job types on hosted MCP and the adapter, then one adapter tag | Code on this branch. Adapter **0.3.0** not tagged. Walk open |
 | 3 | **LAN NAS / SMB** — selectable path B | Not started |
 | 4 | **Move default-on** — flag defaults true | Not started. Flag stays false until this row |
 | 5 | Should, if they do not slip | OneDrive · HA Slice 3 · CSP Slice 2 |

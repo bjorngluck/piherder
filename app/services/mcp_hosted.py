@@ -56,6 +56,19 @@ MCP_JOB_TYPES = (
     "docker_stack_restart",
     "template_deploy",
     "template_redeploy",
+    "container_start",
+    "container_stop",
+    "container_restart",
+    "container_redeploy",
+)
+# One compose service. source_filter is the directory. service is required.
+MCP_ONE_SERVICE_JOBS = frozenset(
+    {
+        "container_start",
+        "container_stop",
+        "container_restart",
+        "container_redeploy",
+    }
 )
 _QUERY_SECRET_KEYS = frozenset(
     {"token", "access_token", "api_key", "api_token", "secret", "authorization"}
@@ -65,8 +78,10 @@ _SERVER_INSTRUCTIONS = (
     "trigger_job starts backup, retention, os_patch, container_patch, "
     "os_update_check, container_update_check, host_reboot, "
     "docker_stack_check, docker_stack_deploy, docker_stack_stop, "
-    "docker_stack_start, docker_stack_restart, template_deploy, or template_redeploy. "
+    "docker_stack_start, docker_stack_restart, template_deploy, template_redeploy, "
+    "container_start, container_stop, container_restart, or container_redeploy. "
     "For a docker_stack job, source_filter is the compose project path. "
+    "For a one-service job, source_filter is the compose directory and service is required. "
     "On HTTP 409 poll get_job and do not start another. "
     "Files stay in the fleet jail. "
     "Do not invent SSH, Move, undo, a console, nmap, or token admin. "
@@ -203,8 +218,11 @@ def tool_catalog() -> list[dict[str, Any]]:
                 "os_update_check, container_update_check, host_reboot, "
                 "docker_stack_check, docker_stack_deploy, docker_stack_stop, "
                 "docker_stack_start, docker_stack_restart, template_deploy, "
-                "or template_redeploy. "
+                "template_redeploy, container_start, container_stop, "
+                "container_restart, or container_redeploy. "
                 "For a docker_stack job, source_filter is the compose project path. "
+                "For a one-service job, source_filter is the compose directory and "
+                "service is that one service. The rest of the project stays up. "
                 "HTTP 202 means accepted. HTTP 409 means that job is already active: "
                 "poll get_job and do not start another."
             ),
@@ -218,7 +236,12 @@ def tool_catalog() -> list[dict[str, Any]]:
                         "description": "One of the jobs POST types",
                     },
                     "source_filter": _str_prop(
-                        "Backup source name, or the compose project path for a docker_stack job"
+                        "Backup source name, the compose project path for a docker_stack job, "
+                        "or the compose directory for a one-service job"
+                    ),
+                    "service": _str_prop(
+                        "Compose service name. Required for container_start, container_stop, "
+                        "container_restart, and container_redeploy"
                     ),
                     "os_steps": {
                         "type": "array",
@@ -691,8 +714,21 @@ async def call_tool(
                 )
             body_fields: dict[str, Any] = {"job_type": job_type}
             source = _opt_str(args, "source_filter")
+            service = _opt_str(args, "service").strip()
+            if job_type in MCP_ONE_SERVICE_JOBS and (not source or not service):
+                return tool_text_result(
+                    {
+                        "ok": False,
+                        "detail": (
+                            "container start and stop need a compose directory and a service name"
+                        ),
+                    },
+                    is_error=True,
+                )
             if source:
                 body_fields["source_filter"] = source
+            if service:
+                body_fields["service"] = service
             if "os_steps" in args and args["os_steps"] is not None:
                 steps = args["os_steps"]
                 if not isinstance(steps, list) or not all(isinstance(item, str) for item in steps):

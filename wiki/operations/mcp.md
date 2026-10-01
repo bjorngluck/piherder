@@ -100,7 +100,7 @@ Tools match the public stdio adapter. Nothing from that list is deferred. Tools 
 
 ### Job types
 
-`trigger_job` takes `server_id` and `job_type`. `source_filter` and `os_steps` are optional. The host feature flag and any `feature:*` scope still apply.
+`trigger_job` takes `server_id` and `job_type`. `source_filter`, `service`, and `os_steps` are optional except on a one-service job. The host feature flag and any `feature:*` scope still apply.
 
 | `job_type` | Host feature | Arguments |
 |------------|----------------|-----------|
@@ -118,10 +118,14 @@ Tools match the public stdio adapter. Nothing from that list is deferred. Tools 
 | `docker_stack_restart` | docker | `source_filter` is the compose project path. |
 | `template_deploy` | docker | On this list because the jobs POST accepts it. This call has no template slug or variable values, so a catalog deploy still starts from the template UI. |
 | `template_redeploy` | docker | Same as `template_deploy`. |
+| `container_start` | docker | `source_filter` is the compose directory. `service` is required. The rest of the project stays up. |
+| `container_stop` | docker | Same arguments as `container_start`. |
+| `container_restart` | docker | Same arguments as `container_start`. |
+| `container_redeploy` | docker | Same arguments as `container_start`. This pulls and recreates that service only. |
 
 A second start of an exclusive job returns **409** with the job that is already running. The tool result includes `http_status` and `already_active`. Poll `get_job`. Do not start another.
 
-Not accepted on this page yet: `container_start`, `container_stop`, `container_restart`, `container_redeploy` (Home Assistant card only until the open train lands), `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move (`service_migrate`), undo (`service_migrate_undo`), and dest-up recover (`service_migrate_dest_recover`). The four one-service jobs are Must on `v1.9.0-dev` ([PLAN_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/v1.9.0-dev/docs/PLAN_v1.9.0.md)). This page does not add them. Adapter **0.2.0** stays until that change tags it.
+Not accepted: `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move (`service_migrate`), undo (`service_migrate_undo`), and dest-up recover (`service_migrate_dest_recover`). Published adapter **[0.2.0](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.2.0)** does not send the four one-service jobs. The matching adapter change is **0.3.0** and is not tagged yet. Tagging it before a herder that accepts these types returns **400**.
 
 Read tools set `readOnlyHint`. `set_features`, `trigger_job`, `write_file`, `mkdir`, `rename_file`, and `delete_file` set `destructiveHint`.
 
@@ -172,7 +176,7 @@ The tool list is the same. A token without `read` makes the stdio process exit o
 
 Copy into the client that needs a short rule (Cursor rule, Grok skill, `CLAUDE.md`, Codex `AGENTS.md`):
 
-Call `summary` before changing anything. `trigger_job` for the jobs POST types listed above (`host_reboot`, the `docker_stack_*` actions on that list, and template deploy or redeploy included). For a stack job, `source_filter` is the compose project path. On **409**, poll `get_job`. Files stay in the fleet jail. Do not invent SSH, Move, undo, or a console. A token without `jobs`, `edit`, or `files` has no such tool.
+Call `summary` before changing anything. `trigger_job` for the jobs POST types listed above, including one-service start, stop, restart, and update. For a stack job, `source_filter` is the compose project path. For a one-service job, `source_filter` is the compose directory and `service` is required. On **409**, poll `get_job`. Files stay in the fleet jail. Do not invent SSH, Move, undo, or a console. A token without `jobs`, `edit`, or `files` has no such tool.
 
 ## Known follow-up
 

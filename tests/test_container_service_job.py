@@ -1,4 +1,4 @@
-"""One compose service start/stop. Not a whole-project lifecycle job. Not MCP."""
+"""One compose service start/stop. Not a whole-project lifecycle job."""
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -10,7 +10,7 @@ from app.services.api_tokens import JOB_FEATURE_KEY
 from app.services.jobs_exclusive import EXCLUSIVE_CELERY_TYPES
 
 
-def test_container_service_is_docker_and_not_mcp():
+def test_container_service_is_docker_and_on_mcp():
     assert JOB_FEATURE_KEY["container_start"] == "docker"
     assert JOB_FEATURE_KEY["container_stop"] == "docker"
     assert "container_start" in job_service._STACK_MUTATING_JOB_TYPES
@@ -18,10 +18,12 @@ def test_container_service_is_docker_and_not_mcp():
     assert "container_restart" in EXCLUSIVE_CELERY_TYPES
     assert "container_redeploy" in EXCLUSIVE_CELERY_TYPES
     assert "container_start" not in job_service._STACK_LIFECYCLE_JOB_TYPES
-    assert "container_restart" not in mcp_hosted.MCP_JOB_TYPES
-    assert "container_redeploy" not in mcp_hosted.MCP_JOB_TYPES
-    assert "container_start" not in mcp_hosted.MCP_JOB_TYPES
-    assert "container_stop" not in mcp_hosted.MCP_JOB_TYPES
+    assert "container_restart" in mcp_hosted.MCP_JOB_TYPES
+    assert "container_redeploy" in mcp_hosted.MCP_JOB_TYPES
+    assert "container_start" in mcp_hosted.MCP_JOB_TYPES
+    assert "container_stop" in mcp_hosted.MCP_JOB_TYPES
+    assert "docker_stack_down" not in mcp_hosted.MCP_JOB_TYPES
+    assert "service_migrate" not in mcp_hosted.MCP_JOB_TYPES
 
 
 def test_container_service_target_requires_path_and_service():
