@@ -12,7 +12,7 @@
 **Docs:** https://piherder-docs.hacknow.info/
 
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) — multi-arch `linux/amd64` + `linux/arm64`  
-**Tags:** `1.8.1` · `1.8` · `latest`. Pin `1.8.0` stays the previous image. Pins `1.7.0` / `1.7` stay valid.
+**Tags:** `1.8.1` · `1.8` · `latest`. Manifest `sha256:289add1ce903c9cedf1bcff6a14b9d8e865284c2db22b17a99ea399693079f9a`. Pin `1.8.0` stays the previous image. Pins `1.7.0` / `1.7` stay valid.
 
 ---
 
