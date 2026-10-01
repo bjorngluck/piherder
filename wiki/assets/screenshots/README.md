@@ -24,14 +24,55 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.6.0** | **Captured** 2026-09-25 and wired into the wiki. [§ v1.6](#v160--pack-status). [RELEASE](../../../docs/RELEASE_v1.6.0.md) · [QA](../../../docs/QA_v1.6.0.md) |
 | **v1.7.0** | **Captured** 2026-09-28 on `v1.7.0-dev`. About / footer still **1.6.0** (code freeze, package not bumped). [§ v1.7](#v170--pack-status). [QA](../../../docs/QA_v1.7.0.md) |
 | **v1.8.0** | **Captured** 2026-10-01. Home Assistant plugin **0.4.3** and the Google Drive copy card. Package **1.8.0**. [§ v1.8](#v180--pack-status). [QA](../../../docs/QA_v1.8.0.md) |
+| **v1.9.0** | **Open.** Shot list only. PNGs not in the tree. Plugin **0.5.0** frames can be shot now. HA Move waits on the herder roll. [§ v1.9](#v190--pack-status). [QA](../../../docs/QA_v1.9.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    Herder shots are the **v1.8.0** release. About / footer read **1.8.0**.  
-    Home Assistant shots use plugin **0.4.3**. Restart Home Assistant after the HACS update, then set the resource to `/local/piherder-dashboard-card.js?v=0.4.3` (JavaScript module) and hard-refresh.  
-    Do not photograph the public demo. Mask the token.  
-    **v1.7 captures** stay until a row below says replace. New frames are [§ v1.8](#v180--pack-status).
+    **v1.9** pack is the open list. Files are not in the tree yet. [§ v1.9](#v190--pack-status).  
+    Capture now: Settings with Drive and SMB each on their own row, the Remove confirm on one row, Home Assistant **Stop project**, and the **Plugin** sensor at **0.5.0**.  
+    Herder UI Move (`docker-move-default.png`) is the train build. HA Move (`ha-move-card.png`) waits until health returns `service_migrate: true`.  
+    Do not photograph the public demo. Mask the token, the SMB password, and the Google client secret.  
+    **v1.8 captures** stay. About / footer on a pre-freeze herder still read **1.8.0**.
+
+---
+
+## v1.9.0 — pack status {#v190--pack-status}
+
+**Not captured.** Maintainer walks are in [QA_v1.9.0.md](../../../docs/QA_v1.9.0.md). Drop PNGs in this directory only after the shot exists. Do not add a wiki `![…]` before the file is here.
+
+Plugin **0.5.0** is already on the test host. Settings shows one row per saved Drive or SMB destination (Edit, Folders, Remove on that row). A guest share reads **no login**. Live health does not yet expose `service_migrate`, so the card hides Move until the `v1.9.0-dev` herder roll.
+
+### Capture now
+
+| Pri | File | Surface | Must show |
+|-----|------|---------|-----------|
+| **P0** | `settings-backup-multi-dest.png` | Settings → PiHerder backup → **Copy the backup drive** | Google Drive and LAN NAS / SMB each on their own row, with **Test**, **Folders**, **Edit**, and **Remove**. OneDrive listed as more to follow and not selectable. A guest share, if shown, reads **no login**. No client secret, no SMB password |
+| **P0** | `settings-backup-remove-confirm.png` | **Remove** on one of those rows | Confirm dialog for that row only. Account and schedule deleted in PiHerder. Files already on Drive or the share stay. The other row stays on the card |
+| **P0** | `ha-stop-project.png` | Lovelace card, Host → **Containers**, plugin **0.5.0** | **Stop project**. Confirm in frame if it is open. Token not visible |
+| **P0** | `ha-plugin-050.png` | Home Assistant device | **Plugin** sensor reads **0.5.0** |
+
+### Train build
+
+| Pri | File | Surface | Must show |
+|-----|------|---------|-----------|
+| **P1** | `docker-move-default.png` | Docker ⋯ on a `v1.9.0-dev` herder, `PIHERDER_SERVICE_MIGRATE` unset | **Move to another host…** available, wizard or confirm visible. Footer may still say **1.8.0** |
+
+### Deferred until health `service_migrate` is true
+
+| Pri | File | Surface | Must show |
+|-----|------|---------|-----------|
+| **P0** | `ha-move-card.png` | Card **Move** panel, after the 1.9 roll | Project, destination, **Move**. Do not shoot while live health omits `service_migrate` |
+
+### Do not shoot for 1.9
+
+| Slice | Why |
+|-------|-----|
+| CSP Slice 2 | No new screen |
+| Failed Save | Walk only. The edit sheet stays open with what was typed |
+| OneDrive | Still unselectable |
+| HAOS `/config` via Files | The card does not open it. Files stay in the fleet jail |
+| 1.8 Drive setup frames | `settings-drive-copy.png` and `settings-drive-setup.png` stay. The new frame is both dests on their own rows, not a replacement of the Drive card |
 
 ---
 
