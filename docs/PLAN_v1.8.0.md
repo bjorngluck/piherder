@@ -1,16 +1,16 @@
 # PiHerder v1.8.0 — MCP job types, then backup destinations, then Home Assistant cards
 
-**Status:** **Code freeze set 2026-09-30.** Operator walks signed. Screenshot pack **captured** 2026-10-01. Package **1.8.0**. Pull request [#19](https://github.com/bjorngluck/piherder/pull/19) is ready for review. Tag **v1.8.0** and the Hub image follow the merge.  
+**Status:** **Shipped** 2026-10-01 (tag **v1.8.0**, Hub `1.8.0` / `1.8` / `latest`). Pull request [#19](https://github.com/bjorngluck/piherder/pull/19) merged. Next discovery is **MCP-svc** (§14).  
 **Date opened:** 2026-09-28  
-**Git branch:** `v1.8.0-dev` → `main` · tag `v1.8.0` on the merge commit  
-**Package / image version:** **`1.8.0`**. Image tags `1.8.0` / `1.8` / `latest` publish with the tag. Pins `1.7.0` / `1.7` stay valid.  
+**Git branch:** `v1.8.0-dev` merged to `main` · tag `v1.8.0`  
+**Package / image version:** **`1.8.0`**. Image tags `1.8.0` / `1.8` / `latest`. Pins `1.7.0` / `1.7` stay valid.  
 **Theme:** **MCP-jobs** first, then **Bak-alt** (discovery, then one Google Drive destination), then **HA-vis**  
 **Baseline:** `v1.7.0` (tagged 2026-09-28; Hub digest `sha256:174cb1313f6717d323211c8c899b30240e97f5097bd35770f7a6c4555de95270`)  
 **Mode:** **Must → Should → parked.** Must **MCP-jobs** + **Bak-alt discovery** + **HA-vis**. Should **Google Drive** + **HA bus** + **Mux-2** + **Undo-2** + **Jr-web**.  
 **QA:** [QA_v1.8.0.md](QA_v1.8.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md) · wiki [Home Assistant](../wiki/integrations/home-assistant.md)
 
-> **Train open 2026-09-28.** Package **1.8.0** on this branch. `main` stays **v1.7.0** until this pull request merges. Do not redeploy the public demo onto this branch.
+> **Shipped** 2026-10-01. Tag **v1.8.0** on `main`. The public demo is the **1.7.0** image.
 
 ---
 
@@ -38,15 +38,15 @@ Wanted:
 
 | Choice | Value |
 |--------|--------|
-| Integration branch | **`v1.8.0-dev`** |
-| Production line | **`main` @ `v1.7.0`** — hotfixes → **`v1.7.x`**, port here |
+| Integration branch | **`v1.8.0-dev`** (merged) |
+| Production line | **`main` @ `v1.8.0`** |
 | Git tag (freeze) | **`v1.8.0`** |
 | Image tags (freeze) | `1.8.0` · `1.8` · `latest` (multi-arch); keep `1.7` / `1.7.x` pins valid |
 | In-scope | **MCP-jobs** Must (first) · **Bak-alt discovery** Must · **Google Drive** Should · **HA-vis** Must · **HA bus** Should · **Mux-2** Should · **Undo-2** Should · **Jr-web** Should |
 | Parked (no code) | **AC-fg** · HA Slice 3 · Brand-3 · CSP Slice 2 · ACME · plugin-in-image · M-flag C · MCP OAuth · OneDrive client · SMB/NAS client |
 | Next release, discovery only | **MCP-svc** (§14). Not this train. No allowlist change and no adapter tag until that train promotes it |
-| Version bump | Freeze only. About / footer stay **1.7.0** until then |
-| Demo | Stays the published **1.7.0** image. Do not redeploy this branch |
+| Version bump | **1.8.0** shipped |
+| Demo | Stays the published **1.7.0** image |
 | Coverage | Fail-under stays **80**. Do not lower it |
 
 ```text
@@ -278,7 +278,8 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 2026-09-30 | **MCP-svc** named for the next release. Discovery only: whether `container_start`, `container_stop`, `container_restart`, and `container_redeploy` join `trigger_job`. This train does not change the allowlist. Adapter stays **0.2.0**. |
 | 2026-09-30 | **Operator sign-off.** **MCP-jobs**, **Bak-alt discovery**, **Google Drive**, **HA-vis**, **Containers** (plugin **0.4.3**), the **HA bus**, **Mux-2**, **Undo-2**, **Jr-web**, and the **1.7 regression** signed in [QA_v1.8.0.md](QA_v1.8.0.md). The screenshot pack stays open. |
 | 2026-09-30 | **Code freeze.** End-user notes drafted in [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Screenshot pack **in progress**. Package stays **1.7.0**. Tag and Hub not cut. |
-| 2026-10-01 | **Screenshot pack captured.** Home Assistant frames and `settings-drive-copy.png` / `settings-drive-setup.png` are wired. Package bumped to **1.8.0**. Pull request ready for review. Tag and Hub follow the merge. |
+| 2026-10-01 | **Screenshot pack captured.** Home Assistant frames and `settings-drive-copy.png` / `settings-drive-setup.png` are wired. Package bumped to **1.8.0**. |
+| 2026-10-01 | **Shipped.** Tag **v1.8.0**. Hub `1.8.0` / `1.8` / `latest`. Pull request [#19](https://github.com/bjorngluck/piherder/pull/19) merged. |
 
 ---
 
@@ -292,7 +293,7 @@ JobHold and the job detail offer **Inspect destination**, then **Stop dest and s
 | 4 | Bak-alt discovery is §3.1. Google Drive client | **Signed** 2026-09-30 |
 | 5 | **HA-vis**, container start/stop, and the bus event | **Signed** 2026-09-30. Plugin **0.4.3** |
 | 6 | Freeze | **Set** 2026-09-30. Notes: [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Screenshot pack **captured** 2026-10-01 |
-| 7 | Version bump · tag `v1.8.0` · Hub | Package **1.8.0** bumped 2026-10-01. Tag and Hub follow the merge |
+| 7 | Version bump · tag `v1.8.0` · Hub | **Done** 2026-10-01. Tag **v1.8.0**. Hub `1.8.0` / `1.8` / `latest` |
 | 8 | **MCP-svc** discovery | **Next release.** Not this train. §14 |
 
 ---

@@ -1,12 +1,12 @@
 # PiHerder v1.8.0 — operator QA / sign-off
 
-**Branch:** `v1.8.0-dev` → `main` · tag **`v1.8.0`** (cut after merge)  
-**Code freeze:** **set** 2026-09-30. No new features on this branch. Merge, tag, and Hub follow review.  
-**Package:** **`1.8.0`** (bumped for the tag)  
+**Branch:** `v1.8.0-dev` merged to `main` · tag **`v1.8.0`**  
+**Code freeze:** **set** 2026-09-30. Shipped 2026-10-01.  
+**Package:** **`1.8.0`**  
 **Operator QA:** walks signed 2026-09-30: **MCP-jobs**, **Bak-alt discovery**, **Google Drive**, **HA-vis**, **Containers**, **HA bus**, **Mux-2**, **Undo-2**, **Jr-web**, and the **1.7 regression**  
-**Release notes:** [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Tag **v1.8.0** is cut on the merge commit.  
+**Release notes:** [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Tag **v1.8.0**.  
 **Screenshots:** **captured** 2026-10-01. [v1.8 pack](../wiki/assets/screenshots/README.md#v180--pack-status)  
-**Pull request:** [#19](https://github.com/bjorngluck/piherder/pull/19) ready for review. Body is [PR_v1.8.0.md](PR_v1.8.0.md). Do not merge, tag, or publish until asked
+**Pull request:** [#19](https://github.com/bjorngluck/piherder/pull/19) merged. Body is [PR_v1.8.0.md](PR_v1.8.0.md).
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 

@@ -1,6 +1,6 @@
 # Backup destinations — Google Drive copy
 
-**Status:** Built on `v1.8.0-dev` 2026-09-29. Walk still open. May slip the tag.  
+**Status:** **Shipped** in **v1.8.0** (2026-10-01). Walk signed 2026-09-30. Screenshot captured.  
 **Train:** [PLAN_v1.8.0.md](PLAN_v1.8.0.md) §3 (path A).  
 **Not this product:** the instance self-backup (pg_dump / `/herder_backups` archives). The Drive section sits under that same Settings tab. Restore stays the local tree.
 

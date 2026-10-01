@@ -1,12 +1,12 @@
 # PiHerder v1.8.0
 
-**1 October 2026.** Package **1.8.0**. Tag **[v1.8.0](https://github.com/bjorngluck/piherder/releases/tag/v1.8.0)** is cut on the merge commit. Image tags `1.8.0`, `1.8`, and `latest` publish with that tag. Pins `1.7.0` / `1.7` stay valid. Pull request [#19](https://github.com/bjorngluck/piherder/pull/19) is ready for review.
+**1 October 2026.** Tag **[v1.8.0](https://github.com/bjorngluck/piherder/releases/tag/v1.8.0)**. Package **1.8.0**. Shipped.
 
 An agent can start the jobs the herder already runs: host reboot, compose stack actions, and template deploy. Backups can copy on to Google Drive after they land on the herder. Home Assistant plugin **0.4.4** is one card, and it can start, stop, restart, or update one container. Leftover console sessions can be listed and killed. A Move that dies while the destination is starting can be put back. Retention, the herder’s own backup, and host facts keep running if the web process restarts.
 
-**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.8.0` · `1.8` · `latest` (amd64 + arm64) publishes with tag **v1.8.0**. Pins `1.7.0` / `1.7` stay valid. The public demo stays on **1.7.0** until a redeploy is asked for.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.8.0` · `1.8` · `latest` (amd64 + arm64). Pins `1.7.0` / `1.7` stay valid. The public demo is the **1.7.0** image.
 
-Operator how-to: [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/) · [Home Assistant](https://piherder-docs.hacknow.info/integrations/home-assistant/) · [PiHerder backup](https://piherder-docs.hacknow.info/operations/self-backup/) · [Jobs](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/) · [Move a service](https://piherder-docs.hacknow.info/docker/service-migration/). Technical record: [PLAN_v1.8.0](https://github.com/bjorngluck/piherder/blob/v1.8.0-dev/docs/PLAN_v1.8.0.md). Maintainer QA: [QA_v1.8.0](https://github.com/bjorngluck/piherder/blob/v1.8.0-dev/docs/QA_v1.8.0.md).
+Operator how-to: [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/) · [Home Assistant](https://piherder-docs.hacknow.info/integrations/home-assistant/) · [PiHerder backup](https://piherder-docs.hacknow.info/operations/self-backup/) · [Jobs](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/) · [Move a service](https://piherder-docs.hacknow.info/docker/service-migration/). Technical record: [PLAN_v1.8.0](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/PLAN_v1.8.0.md). Maintainer QA: [QA_v1.8.0](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/QA_v1.8.0.md).
 
 ---
 
@@ -34,7 +34,7 @@ Folders are a tree. Tick a folder and the children stay ticked. Open it and unti
 
 OneDrive and a LAN NAS are in the service list and cannot be selected. The public demo does not upload. The token API and MCP cannot start this copy.
 
-Wiki: [Backups — copy to Google Drive](https://piherder-docs.hacknow.info/day-to-day/backups/#copy-to-google-drive-v18-train). That page has the Cloud steps and the pictures of the card. The public site shows this page after the pull request merges.
+Wiki: [Backups — copy to Google Drive](https://piherder-docs.hacknow.info/day-to-day/backups/#copy-to-google-drive-v18-train). That page has the Cloud steps and the pictures of the card.
 
 ### Home Assistant is one card
 
