@@ -30,18 +30,18 @@ See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 | | |
 |--|--|
 | What it copies | Checked folders on the herder backup drive (`/backups`), not one host’s source list |
-| Service | **Google Drive** can be saved. **OneDrive** and **LAN NAS / SMB** are in the list and cannot be selected |
+| Service | **Google Drive** and **LAN NAS / SMB** can be saved. **OneDrive** is in the list and cannot be selected |
 | Account | A Google sign-in from this PiHerder. New files are owned by that Google account. A service account cannot store them on a personal Drive |
 | Schedule | The same presets as other schedules, **Copy now**, and an optional copy after a host backup succeeds |
 | Browser | Folder tree on the left, the open folder on the right. A ticked folder stays ticked inside. Untick a child to leave it behind |
-| Job | **Drive copy** (`backup_replicate`) on the existing Celery worker. It may run for up to 7 days. Host backups stay on the 2-hour worker limit. A task failure, including the 7-day limit, marks the row failed so **Copy now** can run again. A hard kill of the worker process can leave the row **running**, and **Copy now** then returns that row until it is marked failed. Files already uploaded stay. A failure fails that job only. The host backup time stays |
+| Job | **Backup copy** (`backup_replicate`) on the existing Celery worker. It may run for up to 7 days. Host backups stay on the 2-hour worker limit. A task failure, including the 7-day limit, marks the row failed so **Copy now** can run again. A hard kill of the worker process can leave the row **running**, and **Copy now** then returns that row until it is marked failed. Files already copied stay. A failure fails that job only. The host backup time stays |
 | Restore | Still the local tree. The demo does not upload |
 
 Pull `bjorngluck/piherder:1.8.0` before a real copy. rclone is in that image. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/FEATURE_PLAN_BACKUP_DESTINATIONS.md).
 
 ## Set up Google Drive
 
-**Where in PiHerder:** Settings → **PiHerder backup** → **Copy the backup drive**. Pick **Google Drive**. OneDrive and a LAN share are listed and cannot be selected.
+**Where in PiHerder:** Settings → **PiHerder backup** → **Copy the backup drive**. Pick **Google Drive**. OneDrive is listed and cannot be selected. A LAN share is a separate choice on the same card.
 
 PiHerder opens Google, you approve access, and PiHerder stores that sign-in. Each new archive is created by your Google account inside a folder you own. rclone still uploads only files that are new or changed.
 
@@ -67,6 +67,21 @@ A service account cannot store these files on a personal Gmail Drive. It has no 
   ![Google Drive setup](../assets/screenshots/settings-drive-setup.png)
   <figcaption>Edit — Google Drive, the Cloud steps, the redirect URL, a saved secret left blank, folder Backup_PiHerder, and Daily at 04:30. Save keeps the form. Connect Google opens the sign-in.</figcaption>
 </figure>
+
+## Set up a LAN share (SMB)
+
+**Where in PiHerder:** Settings → **PiHerder backup** → **Copy the backup drive**. Pick **LAN NAS / SMB**.
+
+This is a second copy. Host backups still rsync into `/backups` on this PiHerder. rclone then sends the ticked folders to one SMB share. The share does not replace that local directory. Google Drive stays available on the same card. OneDrive cannot be selected.
+
+1. Enter the NAS hostname or IP, the share name, and an optional path under that share.
+2. Enter a username and password. Guest access and Kerberos are not used. Leave the password blank only after one is already saved. An optional domain or workgroup can be set.
+3. Tick the backup folders. **Test** lists the share and does not copy. **Copy now**, the schedule, or the follow-up after a host backup runs the same **Backup copy** job as Drive.
+4. A failed copy fails that job only. The host backup time stays. The public demo does not upload. Restore still uses the local tree.
+
+The password is stored with the instance master key and is not written to the job log.
+
+**Done when:** Test lists the share, and a copy job puts the ticked trees on that share.
 
 ---
 

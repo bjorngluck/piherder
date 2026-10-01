@@ -403,7 +403,7 @@ def sync_backup_copy_schedule(scheduler, HAS_SCHEDULER):
                     args=[dest.id],
                     id=f"backup_copy_{dest.id}",
                     replace_existing=True,
-                    name=f"Drive copy {dest.name}",
+                    name=f"Backup copy {dest.name}",
                 )
     except Exception as e:
         logger.warning("[SCHEDULER] Drive copy schedule sync failed: %s", e)

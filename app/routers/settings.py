@@ -484,6 +484,7 @@ async def settings_page(
     brand = effective_brand()
     public_url = configured_public_origin()
     copy_dest = None
+    copy_provider = "drive"
     copy_has_token = False
     copy_account_email = ""
     copy_account_kind = ""
@@ -492,20 +493,62 @@ async def settings_page(
     copy_client_id = ""
     copy_has_secret = False
     copy_redirect_uri = ""
+    drive_schedule = ""
+    drive_after = False
+    copy_smb_host = ""
+    copy_smb_share = ""
+    copy_smb_path = ""
+    copy_smb_user = ""
+    copy_smb_domain = ""
+    copy_smb_has_password = False
+    smb_schedule = ""
+    smb_after = False
+    copy_can_test = False
     if is_admin:
         try:
             from ..services import backup_replicate as copies
 
-            copy_dest = copies.get_or_create(session)
-            account = copies.credential_public(copy_dest)
+            requested = (qp.get("copy_provider") or "drive").strip().lower()
+            if requested not in ("drive", "smb"):
+                requested = "drive"
+            copy_provider = requested
+            drive_row = copies.get_or_create(session, "drive")
+            smb_row = (
+                copies.get_or_create(session, "smb")
+                if copy_provider == "smb"
+                else copies.find_destination(session, "smb")
+            )
+            copy_dest = smb_row if copy_provider == "smb" and smb_row is not None else drive_row
+            if copy_dest is drive_row:
+                copy_provider = "drive"
+            account = copies.credential_public(drive_row)
             copy_has_token = bool(account.get("saved"))
             copy_account_email = account.get("email") or ""
             copy_account_kind = account.get("kind") or ""
-            copy_drive_folder = copies.drive_folder(copy_dest)
-            copy_shared = copies.shared_with_me(copy_dest)
-            copy_oauth = copies.oauth_client(copy_dest)
+            copy_drive_folder = copies.drive_folder(drive_row)
+            copy_shared = copies.shared_with_me(drive_row)
+            copy_oauth = copies.oauth_client(drive_row)
             copy_client_id = copy_oauth.get("client_id") or ""
             copy_has_secret = bool(copy_oauth.get("client_secret"))
+            drive_schedule = drive_row.schedule or ""
+            drive_after = bool(drive_row.after_host_backup)
+            if smb_row is not None:
+                smb_view = copies.smb_public(smb_row)
+                copy_smb_host = smb_view["host"]
+                copy_smb_share = smb_view["share"]
+                copy_smb_path = smb_view["path"]
+                copy_smb_user = smb_view["username"]
+                copy_smb_domain = smb_view["domain"]
+                copy_smb_has_password = bool(smb_view["password_saved"])
+                smb_schedule = smb_row.schedule or ""
+                smb_after = bool(smb_row.after_host_backup)
+            copy_can_test = (
+                copy_provider == "smb" and copy_smb_has_password
+            ) or (
+                copy_provider == "drive"
+                and copy_account_kind == "oauth"
+                and copy_has_token
+            )
             origin = public_url or ""
             if not origin:
                 parsed = urlparse(str(request.base_url))
@@ -515,6 +558,7 @@ async def settings_page(
                 copy_redirect_uri = copies.google_redirect_uri(origin)
         except Exception:
             copy_dest = None
+            copy_provider = "drive"
             copy_has_token = False
             copy_account_email = ""
             copy_account_kind = ""
@@ -522,6 +566,17 @@ async def settings_page(
             copy_shared = False
             copy_client_id = ""
             copy_has_secret = False
+            drive_schedule = ""
+            drive_after = False
+            copy_smb_host = ""
+            copy_smb_share = ""
+            copy_smb_path = ""
+            copy_smb_user = ""
+            copy_smb_domain = ""
+            copy_smb_has_password = False
+            smb_schedule = ""
+            smb_after = False
+            copy_can_test = False
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -532,7 +587,19 @@ async def settings_page(
             "backups": backups,
             "herder_backup_dir": str(hb.HERDER_BACKUP_DIR),
             "copy_dest": copy_dest,
+            "copy_provider": copy_provider,
             "copy_has_token": copy_has_token,
+            "copy_can_test": copy_can_test,
+            "drive_schedule": drive_schedule,
+            "drive_after": drive_after,
+            "copy_smb_host": copy_smb_host,
+            "copy_smb_share": copy_smb_share,
+            "copy_smb_path": copy_smb_path,
+            "copy_smb_user": copy_smb_user,
+            "copy_smb_domain": copy_smb_domain,
+            "copy_smb_has_password": copy_smb_has_password,
+            "smb_schedule": smb_schedule,
+            "smb_after": smb_after,
             "copy_account_email": copy_account_email,
             "copy_account_kind": copy_account_kind,
             "copy_drive_folder": copy_drive_folder,

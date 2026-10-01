@@ -1,4 +1,4 @@
-"""Settings actions for the fleet Drive copy of /backups."""
+"""Settings actions for the fleet copy of /backups (Drive or SMB)."""
 from __future__ import annotations
 
 import json
@@ -17,10 +17,15 @@ from ..services.input_validation import ValidationError, safe_cron
 router = APIRouter()
 
 
-def _redirect(query: str = "") -> RedirectResponse:
+def _redirect(query: str = "", provider: str = "") -> RedirectResponse:
     url = "/herder-backups?tab=backup"
+    extra = []
     if query:
-        url = f"{url}&{query}"
+        extra.append(query)
+    if provider in ("drive", "smb"):
+        extra.append("copy_provider=" + provider)
+    if extra:
+        url = url + "&" + "&".join(extra)
     return RedirectResponse(url, status_code=303)
 
 
@@ -68,14 +73,59 @@ def _apply_drive_form(
     return None
 
 
+def _apply_smb_form(
+    dest,
+    *,
+    schedule_cron: str,
+    after_host_backup: str,
+    host: str,
+    share: str,
+    smb_path: str,
+    username: str,
+    password: str,
+    domain: str,
+):
+    try:
+        cron = safe_cron(schedule_cron, field="schedule", allow_empty=True) or ""
+    except ValidationError:
+        return _redirect("copy_error=cron", "smb")
+    try:
+        copies.store_smb(
+            dest,
+            host=host,
+            share=share,
+            path=smb_path,
+            username=username,
+            password=password,
+            domain=domain,
+            schedule=cron or None,
+            after_host_backup=after_host_backup in ("1", "on", "true"),
+        )
+    except ValueError as exc:
+        code = str(exc) if str(exc) in ("host", "share", "path", "user", "password", "domain") else "password"
+        return _redirect("copy_error=" + code, "smb")
+    return None
+
+
+def _copy_row(session: Session, provider: str):
+    try:
+        key = copies.normalize_provider(provider)
+    except ValueError:
+        return None
+    return copies.get_or_create(session, key)
+
+
 @router.get("/backup-copies/list")
 async def list_copy_dir(
     p: str = "",
+    provider: str = "drive",
     user: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
     del user
-    dest = copies.get_or_create(session)
+    dest = _copy_row(session, provider)
+    if dest is None:
+        return JSONResponse({"ok": False, "error": "That service is not available yet."}, status_code=400)
     checked, skipped = copies.parse_selection(dest.selection_json)
     try:
         rows = copies.list_directory(p)
@@ -109,7 +159,9 @@ async def toggle_copy_path(
     changes = (body or {}).get("changes")
     if not isinstance(changes, list):
         changes = [{"path": (body or {}).get("path"), "on": (body or {}).get("on")}]
-    dest = copies.get_or_create(session)
+    dest = _copy_row(session, str((body or {}).get("provider") or "drive"))
+    if dest is None:
+        return JSONResponse({"ok": False, "error": "That service is not available yet."}, status_code=400)
     checked, skipped = copies.parse_selection(dest.selection_json)
     try:
         for change in changes:
@@ -152,24 +204,47 @@ async def save_copy_config(
     drive_folder: str = Form(""),
     client_id: str = Form(""),
     client_secret: str = Form(""),
+    host: str = Form(""),
+    share: str = Form(""),
+    smb_path: str = Form(""),
+    username: str = Form(""),
+    password: str = Form(""),
+    domain: str = Form(""),
     user: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
     del user
-    dest = copies.get_or_create(session)
-    failed = _apply_drive_form(
-        dest,
-        provider=provider,
-        schedule_cron=schedule_cron,
-        after_host_backup=after_host_backup,
-        drive_folder=drive_folder,
-        client_id=client_id,
-        client_secret=client_secret,
-    )
+    try:
+        key = copies.normalize_provider(provider)
+    except ValueError:
+        return _redirect("copy_error=provider")
+    dest = copies.get_or_create(session, key)
+    if key == "smb":
+        failed = _apply_smb_form(
+            dest,
+            schedule_cron=schedule_cron,
+            after_host_backup=after_host_backup,
+            host=host,
+            share=share,
+            smb_path=smb_path,
+            username=username,
+            password=password,
+            domain=domain,
+        )
+    else:
+        failed = _apply_drive_form(
+            dest,
+            provider=key,
+            schedule_cron=schedule_cron,
+            after_host_backup=after_host_backup,
+            drive_folder=drive_folder,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
     if failed:
         return failed
     _commit_drive(session, dest)
-    return _redirect("copy_saved=1")
+    return _redirect("copy_saved=1", key)
 
 
 @router.post("/backup-copies/google/start")
@@ -185,7 +260,7 @@ async def start_google_connect(
     session: Session = Depends(get_session),
 ):
     del user
-    dest = copies.get_or_create(session)
+    dest = copies.get_or_create(session, "drive")
     failed = _apply_drive_form(
         dest,
         provider=provider,
@@ -233,7 +308,7 @@ async def google_connect_go(
     if not state:
         return _redirect("copy_error=state")
     origin = _public_origin(request)
-    dest = copies.get_or_create(session)
+    dest = copies.get_or_create(session, "drive")
     client = copies.oauth_client(dest)
     if not origin:
         return _redirect("copy_error=origin")
@@ -273,7 +348,7 @@ async def google_connect_callback(
     if not saved_state or not state or saved_state != state:
         return _redirect("copy_error=state")
     origin = _public_origin(request)
-    dest = copies.get_or_create(session)
+    dest = copies.get_or_create(session, "drive")
     client = copies.oauth_client(dest)
     if not origin or not client["client_id"] or not client["client_secret"]:
         return _redirect("copy_error=client")
@@ -306,29 +381,39 @@ async def google_connect_callback(
 
 @router.post("/backup-copies/test")
 async def test_copy_account(
+    provider: str = Form("drive"),
     user: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
     del user
-    dest = copies.get_or_create(session)
+    try:
+        key = copies.normalize_provider(provider)
+    except ValueError:
+        return _redirect("copy_error=provider")
+    dest = copies.get_or_create(session, key)
     result = copies.probe(dest)
     code = result.get("code") or "rclone"
     if result.get("ok") == "1":
-        return _redirect("copy_test=ok")
-    return _redirect("copy_test=" + code)
+        return _redirect("copy_test=ok", key)
+    return _redirect("copy_test=" + code, key)
 
 
 @router.post("/backup-copies/run")
 async def run_copy_now(
+    provider: str = Form("drive"),
     user: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
-    dest = copies.get_or_create(session)
+    try:
+        key = copies.normalize_provider(provider)
+    except ValueError:
+        return _redirect("copy_error=provider")
+    dest = copies.get_or_create(session, key)
     job = copies.enqueue(session, dest, user_id=user.id)
     if job.status == "failed":
         try:
             err = json.loads(job.details or "{}").get("error") or "failed"
         except Exception:
             err = "failed"
-        return _redirect("copy_error=" + str(err)[:80])
+        return _redirect("copy_error=" + str(err)[:80], key)
     return RedirectResponse(f"/jobs?highlight={job.id}", status_code=303)

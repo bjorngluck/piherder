@@ -1,11 +1,12 @@
 """Copy checked paths from the local backup drive to a fleet destination.
 
-Path A: rclone on the herder, after the rsync mirror exists. The token stays
-Fernet-encrypted. Selection is checked paths plus skipped children, never a
-typed glob from the operator.
+Path A: rclone on the herder, after the rsync mirror exists. Drive tokens and
+the SMB username/password stay Fernet-encrypted. Selection is checked paths
+plus skipped children, never a typed glob from the operator.
 """
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
@@ -29,6 +30,14 @@ logger = logging.getLogger(__name__)
 
 JOB_TYPE = "backup_replicate"
 _REMOTE_NAME = "dest"
+_SELECTABLE = frozenset({"drive", "smb"})
+# rclone's well-known config obfuscation key (obscure.Obscure). Not a secret.
+_RCLONE_CRYPT_KEY = bytes((
+    0x9C, 0x93, 0x5B, 0x48, 0x73, 0x0A, 0x55, 0x4D,
+    0x6B, 0xFD, 0x7C, 0x63, 0xC8, 0x86, 0xA9, 0x2B,
+    0xD3, 0x90, 0x19, 0x8E, 0xB8, 0x12, 0x8A, 0xFB,
+    0xF4, 0xDE, 0x16, 0x2B, 0x8B, 0x95, 0xF6, 0x38,
+))
 DRIVE_SCOPE = "https://www.googleapis.com/auth/drive"
 _GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
@@ -234,6 +243,8 @@ def rclone_sync_cmd(
     local_dir: str,
     remote_path: str,
     excludes: list[str],
+    *,
+    use_trash: bool = True,
 ) -> list[str]:
     cmd = [
         "rclone",
@@ -242,11 +253,14 @@ def rclone_sync_cmd(
         f"{_REMOTE_NAME}:{remote_path}",
         "--config",
         config_path,
-        "--drive-use-trash",
+    ]
+    if use_trash:
+        cmd.append("--drive-use-trash")
+    cmd.extend([
         "--stats-one-line",
         "--stats",
         "0",
-    ]
+    ])
     for rel in excludes:
         pattern = rel.rstrip("/")
         if not pattern or pattern.startswith("/") or ".." in pattern.split("/"):
@@ -255,19 +269,136 @@ def rclone_sync_cmd(
     return cmd
 
 
-def rclone_copy_file_cmd(config_path: str, local_file: str, remote_path: str) -> list[str]:
-    return [
+def rclone_copy_file_cmd(
+    config_path: str,
+    local_file: str,
+    remote_path: str,
+    *,
+    use_trash: bool = True,
+) -> list[str]:
+    cmd = [
         "rclone",
         "copyto",
         local_file,
         f"{_REMOTE_NAME}:{remote_path}",
         "--config",
         config_path,
-        "--drive-use-trash",
-        "--stats-one-line",
-        "--stats",
-        "0",
     ]
+    if use_trash:
+        cmd.append("--drive-use-trash")
+    cmd.extend(["--stats-one-line", "--stats", "0"])
+    return cmd
+
+
+def normalize_provider(value: str | None) -> str:
+    provider = (value or "drive").strip().lower()
+    if provider not in _SELECTABLE:
+        raise ValueError("provider")
+    return provider
+
+
+def _rclone_crypt(data: bytes, iv: bytes) -> bytes:
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+    encryptor = Cipher(algorithms.AES(_RCLONE_CRYPT_KEY), modes.CTR(iv)).encryptor()
+    return encryptor.update(data) + encryptor.finalize()
+
+
+def _rclone_obscure(secret: str) -> str:
+    """Match ``rclone obscure`` so the temp config password is not plaintext."""
+    iv = os.urandom(16)
+    blob = iv + _rclone_crypt(secret.encode("utf-8"), iv)
+    return base64.urlsafe_b64encode(blob).decode("ascii").rstrip("=")
+
+
+def _rclone_reveal(obscured: str) -> str:
+    pad = "=" * ((4 - len(obscured) % 4) % 4)
+    raw = base64.urlsafe_b64decode(obscured + pad)
+    if len(raw) < 16:
+        raise ValueError("obscured")
+    return _rclone_crypt(raw[16:], raw[:16]).decode("utf-8")
+
+
+def _load_cfg(destination: BackupDestination) -> dict[str, Any]:
+    try:
+        cfg = json.loads(destination.config_json or "{}")
+    except Exception:
+        cfg = {}
+    return cfg if isinstance(cfg, dict) else {}
+
+
+def _single_line(value: str, *, code: str, required: bool, max_len: int) -> str:
+    text = (value or "").strip()
+    if not text:
+        if required:
+            raise ValueError(code)
+        return ""
+    if len(text) > max_len or any(ord(ch) < 32 for ch in text):
+        raise ValueError(code)
+    return text
+
+
+def _clean_smb_host(value: str) -> str:
+    text = _single_line(value, code="host", required=True, max_len=253)
+    if any(ch.isspace() for ch in text) or "/" in text or "\\" in text or "://" in text:
+        raise ValueError("host")
+    return text
+
+
+def _clean_smb_share(value: str) -> str:
+    text = _single_line(value, code="share", required=True, max_len=80)
+    if any(ch in text for ch in ("/", "\\", ":", " ")):
+        raise ValueError("share")
+    if text in (".", ".."):
+        raise ValueError("share")
+    return text
+
+
+def _clean_smb_path(value: str) -> str:
+    text = (value or "").strip()
+    if not text:
+        return ""
+    try:
+        cleaned = _clean_rel(text)
+    except ValueError:
+        raise ValueError("path") from None
+    if not cleaned or len(cleaned) > 200:
+        raise ValueError("path")
+    return cleaned
+
+
+def _clean_smb_user(value: str) -> str:
+    text = _single_line(value, code="user", required=True, max_len=128)
+    if "\\" in text or "/" in text:
+        raise ValueError("user")
+    return text
+
+
+def _clean_smb_domain(value: str) -> str:
+    text = _single_line(value, code="domain", required=False, max_len=64)
+    if text and (any(ch.isspace() for ch in text) or any(ch in text for ch in "/\\:")):
+        raise ValueError("domain")
+    return text
+
+
+def _redact(text: str, secret: str) -> str:
+    if not text or not secret:
+        return text or ""
+    return text.replace(secret, "[redacted]")
+
+
+def _config_pass(path: str) -> str:
+    """Obscured rclone password from a temp config, so stderr can be scrubbed."""
+    if not path:
+        return ""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            for line in handle:
+                if line.startswith("pass = "):
+                    return line.split(" = ", 1)[1].strip()
+    except OSError:
+        return ""
+    return ""
 
 
 def encrypt_account(email: str, private_key: str) -> str:
@@ -584,12 +715,206 @@ def shared_with_me(destination: BackupDestination) -> bool:
     return bool(isinstance(cfg, dict) and cfg.get("shared_with_me"))
 
 
+def decrypt_smb_secret(destination: BackupDestination) -> dict[str, str]:
+    raw = destination.credentials_encrypted or ""
+    if not raw:
+        raise ValueError("password")
+    try:
+        data = json.loads(decrypt_str(raw))
+    except Exception as exc:
+        raise ValueError("password") from exc
+    if not isinstance(data, dict):
+        raise ValueError("password")
+    return {
+        "username": str(data.get("username") or ""),
+        "password": str(data.get("password") or ""),
+    }
+
+
+def smb_public(destination: BackupDestination) -> dict[str, Any]:
+    """Host, share, and username for the form. Never the password."""
+    cfg = _load_cfg(destination)
+    out: dict[str, Any] = {
+        "host": str(cfg.get("host") or ""),
+        "share": str(cfg.get("share") or ""),
+        "path": str(cfg.get("remote_dir") or ""),
+        "domain": str(cfg.get("domain") or ""),
+        "username": "",
+        "password_saved": False,
+    }
+    if not (destination.credentials_encrypted or "").strip():
+        return out
+    try:
+        secret = decrypt_smb_secret(destination)
+    except ValueError:
+        return out
+    out["username"] = secret["username"]
+    out["password_saved"] = bool(secret["password"])
+    return out
+
+
+def store_smb(
+    destination: BackupDestination,
+    *,
+    host: str,
+    share: str,
+    path: str,
+    username: str,
+    password: str,
+    domain: str,
+    schedule: str | None,
+    after_host_backup: bool,
+) -> None:
+    """Save one SMB destination. A blank password keeps the saved password."""
+    if (destination.provider or "smb") not in ("smb", ""):
+        raise ValueError("provider")
+    host_clean = _clean_smb_host(host)
+    share_clean = _clean_smb_share(share)
+    path_clean = _clean_smb_path(path)
+    user_clean = _clean_smb_user(username)
+    domain_clean = _clean_smb_domain(domain)
+    existing = ""
+    if (destination.credentials_encrypted or "").strip():
+        try:
+            existing = decrypt_smb_secret(destination)["password"]
+        except ValueError:
+            existing = ""
+    if (password or "").strip():
+        secret = (password or "").strip()
+        if len(secret) > 256 or any(ord(ch) < 32 for ch in secret):
+            raise ValueError("password")
+    else:
+        secret = existing
+    if not secret:
+        raise ValueError("password")
+    cfg = _load_cfg(destination)
+    cfg["host"] = host_clean
+    cfg["share"] = share_clean
+    cfg["remote_dir"] = path_clean
+    cfg["domain"] = domain_clean
+    cfg.pop("password", None)
+    cfg.pop("username", None)
+    cfg.pop("pass", None)
+    destination.config_json = json.dumps(cfg)
+    destination.credentials_encrypted = encrypt_str(
+        json.dumps({"username": user_clean, "password": secret})
+    )
+    destination.provider = "smb"
+    if not (destination.name or "").strip() or destination.name == "Google Drive":
+        destination.name = "LAN NAS / SMB"
+    destination.schedule = schedule or None
+    destination.after_host_backup = after_host_backup
+
+
+def smb_remote_root(destination: BackupDestination) -> str:
+    cfg = _load_cfg(destination)
+    share = _clean_smb_share(str(cfg.get("share") or ""))
+    sub = _clean_smb_path(str(cfg.get("remote_dir") or ""))
+    if sub:
+        return f"{share}/{sub}"
+    return share
+
+
+def write_smb_rclone_config(destination: BackupDestination) -> str:
+    """Temp rclone config, mode 0600. Caller deletes it after the run."""
+    cfg = _load_cfg(destination)
+    host = _clean_smb_host(str(cfg.get("host") or ""))
+    secret = decrypt_smb_secret(destination)
+    user = _clean_smb_user(secret["username"])
+    password = secret["password"]
+    if not password:
+        raise ValueError("password")
+    domain = _clean_smb_domain(str(cfg.get("domain") or ""))
+    obscured = _rclone_obscure(password)
+    lines = [
+        f"[{_REMOTE_NAME}]",
+        "type = smb",
+        f"host = {host}",
+        f"user = {user}",
+        f"pass = {obscured}",
+    ]
+    if domain:
+        lines.append(f"domain = {domain}")
+    handle = tempfile.NamedTemporaryFile("w", prefix="ph-rclone-", suffix=".conf", delete=False)
+    try:
+        handle.write("\n".join(lines) + "\n")
+        handle.flush()
+        os.chmod(handle.name, 0o600)
+    except Exception:
+        discard_rclone_config(handle.name)
+        raise
+    finally:
+        handle.close()
+    return handle.name
+
+
+def _probe_smb(destination: BackupDestination) -> dict[str, str]:
+    """List the share. Does not copy."""
+    public = smb_public(destination)
+    if not (
+        public["host"]
+        and public["share"]
+        and public["username"]
+        and public["password_saved"]
+    ):
+        return {"ok": "0", "code": "account"}
+    config_path = ""
+    try:
+        root = smb_remote_root(destination)
+        config_path = write_smb_rclone_config(destination)
+        cmd = [
+            "rclone",
+            "lsd",
+            f"{_REMOTE_NAME}:{root}",
+            "--config",
+            config_path,
+            "--max-depth",
+            "1",
+            "--timeout",
+            "20s",
+            "--contimeout",
+            "15s",
+        ]
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
+        except FileNotFoundError:
+            return {"ok": "0", "code": "rclone"}
+        except subprocess.TimeoutExpired:
+            return {"ok": "0", "code": "timeout"}
+        if proc.returncode == 0:
+            return {"ok": "1", "code": "ok"}
+        err = f"{proc.stderr or ''} {proc.stdout or ''}".lower()
+        if any(
+            word in err
+            for word in ("logon", "authentication", "unauthorized", "access_denied", "permission", "auth")
+        ):
+            return {"ok": "0", "code": "auth"}
+        if any(
+            word in err
+            for word in ("bad_network_name", "not found", "object_name_not_found", "no such file")
+        ):
+            return {"ok": "0", "code": "folder"}
+        if any(
+            word in err
+            for word in ("unreachable", "connection refused", "no route", "timed out", "host is down")
+        ):
+            return {"ok": "0", "code": "host"}
+        return {"ok": "0", "code": "rclone"}
+    except Exception:
+        return {"ok": "0", "code": "account"}
+    finally:
+        if config_path:
+            discard_rclone_config(config_path)
+
+
 def probe(destination: BackupDestination) -> dict[str, str]:
-    """Check the saved key and folder. Does not copy anything."""
+    """Check the saved account. Does not copy anything."""
     from .demo import demo_mode
 
     if demo_mode():
         return {"ok": "0", "code": "demo"}
+    if destination.provider == "smb":
+        return _probe_smb(destination)
     if destination.provider != "drive":
         return {"ok": "0", "code": "provider"}
     if not (destination.credentials_encrypted or "").strip():
@@ -671,7 +996,7 @@ def paths_for_scope(
     return normalize_selection(narrowed, scoped_skip)
 
 
-def _run_rclone(cmd: list[str]) -> tuple[int, str]:
+def _run_rclone(cmd: list[str], secret: str = "") -> tuple[int, str]:
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=None)
     except FileNotFoundError:
@@ -679,7 +1004,61 @@ def _run_rclone(cmd: list[str]) -> tuple[int, str]:
     err = (proc.stderr or proc.stdout or "").strip()
     if "token" in err.lower() and "ya29" in err:
         err = "rclone failed (token redacted)"
+    err = _redact(err, secret)
     return proc.returncode, err[-2000:]
+
+
+def _finish_copy(copied: list[str], errors: list[str]) -> dict[str, Any]:
+    if errors and not copied:
+        return {"ok": False, "error": errors[0], "errors": errors}
+    if errors:
+        return {"ok": False, "error": errors[0], "copied": copied, "errors": errors}
+    return {"ok": True, "copied": copied}
+
+
+def _execute_smb(destination: BackupDestination, scope: str | None) -> dict[str, Any]:
+    secret = ""
+    config_path = ""
+    try:
+        try:
+            secret = decrypt_smb_secret(destination).get("password") or ""
+        except ValueError:
+            secret = ""
+        checked, skipped = parse_selection(destination.selection_json)
+        checked, skipped = paths_for_scope(checked, skipped, scope)
+        if not checked:
+            return {"ok": False, "error": "Nothing selected on the backup drive"}
+        config_path = write_smb_rclone_config(destination)
+        obscured = _config_pass(config_path)
+        remote_root = smb_remote_root(destination)
+        errors: list[str] = []
+        copied: list[str] = []
+        for rel, excludes, _is_dir in sync_plan(checked, skipped):
+            local = resolve_under_root(rel)
+            if not local.exists():
+                errors.append(f"{rel} is not on the backup drive")
+                continue
+            remote = f"{remote_root}/{rel}"
+            if local.is_dir():
+                cmd = rclone_sync_cmd(
+                    config_path, str(local), remote, excludes, use_trash=False
+                )
+            else:
+                cmd = rclone_copy_file_cmd(
+                    config_path, str(local), remote, use_trash=False
+                )
+            rc, err = _run_rclone(cmd, secret)
+            err = _redact(err, obscured)
+            if rc != 0:
+                errors.append(_redact(f"{rel}: {err or 'rclone failed'}"[:500], secret))
+            else:
+                copied.append(rel)
+        return _finish_copy(copied, errors)
+    except Exception as exc:
+        return {"ok": False, "error": _redact(str(exc)[:500], secret)}
+    finally:
+        if config_path:
+            discard_rclone_config(config_path)
 
 
 def execute(destination: BackupDestination, scope: str | None = None) -> dict[str, Any]:
@@ -687,6 +1066,8 @@ def execute(destination: BackupDestination, scope: str | None = None) -> dict[st
 
     if demo_mode():
         return {"ok": False, "error": "Demo does not upload"}
+    if destination.provider == "smb":
+        return _execute_smb(destination, scope)
     if destination.provider != "drive":
         return {"ok": False, "error": f"Provider {destination.provider} is not built"}
     checked, skipped = parse_selection(destination.selection_json)
@@ -717,11 +1098,7 @@ def execute(destination: BackupDestination, scope: str | None = None) -> dict[st
                 errors.append(f"{rel}: {err or 'rclone failed'}"[:500])
             else:
                 copied.append(rel)
-        if errors and not copied:
-            return {"ok": False, "error": errors[0], "errors": errors}
-        if errors:
-            return {"ok": False, "error": errors[0], "copied": copied, "errors": errors}
-        return {"ok": True, "copied": copied}
+        return _finish_copy(copied, errors)
     except Exception as exc:
         return {"ok": False, "error": str(exc)[:500]}
     finally:
@@ -729,16 +1106,24 @@ def execute(destination: BackupDestination, scope: str | None = None) -> dict[st
             discard_rclone_config(config_path)
 
 
-def get_or_create(session: Session) -> BackupDestination:
-    row = session.exec(
-        select(BackupDestination).where(BackupDestination.provider == "drive")
+def find_destination(session: Session, provider: str) -> BackupDestination | None:
+    key = (provider or "").strip().lower()
+    if key not in _SELECTABLE:
+        return None
+    return session.exec(
+        select(BackupDestination).where(BackupDestination.provider == key)
     ).first()
+
+
+def get_or_create(session: Session, provider: str = "drive") -> BackupDestination:
+    provider = normalize_provider(provider)
+    row = find_destination(session, provider)
     if row:
         return row
     now = datetime.utcnow()
     row = BackupDestination(
-        name="Google Drive",
-        provider="drive",
+        name="LAN NAS / SMB" if provider == "smb" else "Google Drive",
+        provider=provider,
         enabled=True,
         selection_json=selection_json([], []),
         created_at=now,
@@ -784,8 +1169,9 @@ def enqueue(
     if active:
         return active
     job = Job(server_id=server_id, job_type=JOB_TYPE, status="pending")
+    queued = "SMB copy queued…" if destination.provider == "smb" else "Drive copy queued…"
     job.details = _initial_job_details(
-        "Drive copy queued…",
+        queued,
         destination_id=destination.id,
         scope=scope,
         user_id=user_id,
