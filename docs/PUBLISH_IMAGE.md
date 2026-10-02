@@ -1,6 +1,6 @@
 # Publishing a PiHerder image (Docker Hub / GHCR)
 
-**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64**. Production line **v1.8.0**. Pins `1.7.0` / `1.7` stay valid.
+**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64**. Production line **v1.8.1**. Pin `1.8.0` stays the previous image. Pins `1.7.0` / `1.7` stay valid.
 **Related:** [ADMIN](https://piherder-docs.hacknow.info/operations/upgrades/) · [wiki publish page](https://piherder-docs.hacknow.info/developers/publish-image/) · live docs: https://piherder-docs.hacknow.info/
 
 Official compose pulls the published image:
@@ -60,7 +60,8 @@ echo "$GITHUB_TOKEN" | docker login ghcr.io -u bjorngluck --password-stdin
 
 | Tag | Meaning |
 |-----|---------|
-| `1.8.0` | Immutable release (match git tag `v1.8.0`) |
+| `1.8.1` | Immutable patch (match git tag `v1.8.1`) |
+| `1.8.0` | Prior 1.8 pin (still valid) |
 | `1.8` | Rolling minor |
 | `1.7.0` | Prior 1.7 pin (still valid) |
 | `1.7` | Prior rolling minor |
@@ -92,7 +93,7 @@ Arm64 matters for Raspberry Pi hosts running the herder itself.
 ```bash
 # From repo root, after docker login
 export IMAGE=bjorngluck/piherder
-export VERSION=1.8.0   # match release
+export VERSION=1.8.1   # match release
 
 docker buildx create --use --name piherder-builder --driver docker-container 2>/dev/null || true
 docker buildx use piherder-builder
@@ -174,12 +175,19 @@ Add when account + token exist and first manual push has worked once.
 
 ---
 
+## v1.8.1 publish checklist (maintainer)
+
+- [x] `APP_VERSION` / `pyproject.toml` = `1.8.1`
+- [x] [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) published with tag `v1.8.1`
+- [x] Multi-arch push: `1.8.1` / `1.8` / `latest` (amd64 + arm64) · digest `sha256:289add1ce903c9cedf1bcff6a14b9d8e865284c2db22b17a99ea399693079f9a`
+- [x] Pin `1.8.0` left in place (`sha256:8ce50bbce758e622a996cd58557b0846e03cb02613b09471405222df620c2e89`)
+
 ## v1.8.0 publish checklist (maintainer)
 
 - [x] `APP_VERSION` / `pyproject.toml` = `1.8.0`
 - [x] [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) finalized and published
 - [x] Merge `v1.8.0-dev` → `main` · git tag `v1.8.0`
-- [x] Multi-arch push: `1.8.0` / `1.8` / `latest` (amd64 + arm64) · digest `sha256:8ce50bbce758e622a996cd58557b0846e03cb02613b09471405222df620c2e89`
+- [x] Multi-arch push: `1.8.0` (amd64 + arm64) · digest `sha256:8ce50bbce758e622a996cd58557b0846e03cb02613b09471405222df620c2e89`. Rolling tags `1.8` and `latest` moved to **1.8.1**
 - [x] Pins `1.7.0` / `1.7` left in place (`sha256:174cb1313f6717d323211c8c899b30240e97f5097bd35770f7a6c4555de95270`)
 
 ### Prior: v1.7.0

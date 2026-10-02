@@ -4,7 +4,7 @@
 
 | Version | Support |
 |---------|---------|
-| **v1.8.x** | **Current release** ([RELEASE_v1.8.0.md](docs/RELEASE_v1.8.0.md) · [PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md)). Tag **v1.8.0** |
+| **v1.8.x** | **Current release** ([RELEASE_v1.8.1.md](docs/RELEASE_v1.8.1.md) · [PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md)). Tag **v1.8.1** |
 | **v1.7.x** | Prior production pin; still valid ([RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md)) |
 | **v1.6.x** | Prior production; prefer upgrade to **v1.8.x** ([RELEASE_v1.6.0.md](docs/RELEASE_v1.6.0.md) · [PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md)) |
 | **v1.5.x** | Prior production; prefer upgrade to **v1.7.x** ([RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · [PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md)) |
@@ -16,7 +16,7 @@
 | **`main`** | Development tip; security fixes land here first |
 | **v0.9.x and older** | Best-effort; prefer upgrade to latest production |
 
-Security fixes are applied on the default branch (`main`) and released as **v1.8.x** (or later) patch tags when warranted. The current Hub image is **v1.8.0**. Pins **v1.7.0** stay valid ([PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md)).
+Security fixes are applied on the default branch (`main`) and released as **v1.8.x** (or later) patch tags when warranted. The current Hub image is **v1.8.1**. Pins **v1.7.0** stay valid ([PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md)).
 
 ## Reporting a vulnerability
 
@@ -70,7 +70,7 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki ro
 | Pip export | **`requirements.lock.txt`** (runtime + `[dev]`) and **`requirements.runtime.lock.txt`** (runtime only) — generated with hashes via `scripts/refresh-lockfiles.sh` |
 | Docker image | `pip install --require-hashes -r requirements.lock.txt` then `pip install --no-deps --no-build-isolation -e .` ([Dockerfile](Dockerfile)) |
 | CI | Same locked install ([`.github/workflows/test.yml`](.github/workflows/test.yml)) |
-| JWT library | **PyJWT[crypto]** (HS256). Former `python-jose` / transitive `ecdsa` removed. **`v1.9.0-dev`** pins PyJWT **2.15.1** and urllib3 **2.8.0**. The **1.8.0** image still has the older pins |
+| JWT library | **PyJWT[crypto]** (HS256). Former `python-jose` / transitive `ecdsa` removed. **`v1.9.0-dev`** pins PyJWT **2.15.1** and urllib3 **2.8.0**. The **1.8.1** image has these pins. The **1.8.0** image still has the older pins |
 | Vulnerability scan | Run `pip-audit` periodically (and/or Dependabot); deepen in [ROADMAP quality track](docs/ROADMAP_ECOSYSTEM.md#quality--platform-post-rc--post-10-first-production) |
 | Intentional patching | Change `pyproject.toml` if needed → `./scripts/refresh-lockfiles.sh` → tests + `pip-audit` → commit **all three** lock artifacts → rebuild images |
 
