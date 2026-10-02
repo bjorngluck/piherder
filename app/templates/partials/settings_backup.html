@@ -233,15 +233,9 @@
     {% else %}
     <p class="text-sm text-muted mb-3">No external copy yet. Host backups stay on this PiHerder.</p>
     {% endif %}
-    {% if copy_dest %}
-    <div class="flex flex-wrap items-center gap-2 mb-3">
-      {% if not drive_saved %}
-      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy" data-copy-edit="drive">Add Google Drive</button>
-      {% endif %}
-      {% if not smb_saved %}
-      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy" data-copy-edit="smb">Add LAN share</button>
-      {% endif %}
-      <span class="text-xs text-muted">OneDrive is listed in the form and cannot be selected.</span>
+    {% if copy_dest and (not drive_saved or not smb_saved) %}
+    <div class="mb-3">
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy" data-copy-add>Add destination</button>
     </div>
     {% endif %}
     {% if not copy_dest %}
@@ -252,7 +246,7 @@
       <div class="modal-content settings-sheet card ph-modal-brand">
         <div class="settings-sheet-head">
           <div class="min-w-0 pr-2">
-            <h2 id="settings-drive-copy-title" class="font-semibold text-text m-0">Copy the backup drive</h2>
+            <h2 id="settings-drive-copy-title" class="font-semibold text-text m-0">{% if copy_form_error %}{% if copy_provider == 'smb' %}LAN share{% else %}Google Drive{% endif %}{% else %}Add a destination{% endif %}</h2>
             <p class="text-xs text-muted mt-1">A failed copy fails its own job. Restore still uses the local copies.</p>
           </div>
           <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
@@ -288,14 +282,16 @@
             {% elif copy_form_error and copy_error %}
             <p class="text-sm text-danger">{{ copy_error }}</p>
             {% endif %}
-            <div>
-              <label class="block text-xs text-muted mb-1" for="copy-provider">Service</label>
-              <select id="copy-provider" name="provider"
-                      class="settings-backup-control w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
-                <option value="drive" {% if copy_provider != 'smb' %}selected{% endif %}>Google Drive</option>
-                <option value="onedrive" disabled>OneDrive (more to follow)</option>
-                <option value="smb" {% if copy_provider == 'smb' %}selected{% endif %}>LAN NAS / SMB</option>
-              </select>
+            <input type="hidden" id="copy-provider" name="provider" value="{% if copy_form_error %}{{ copy_provider or 'drive' }}{% endif %}">
+            <div data-copy-pick class="space-y-2 {% if copy_form_error %}hidden{% endif %}">
+              <p class="text-xs text-muted">Choose one. Each saved destination is its own copy.</p>
+              {% if not drive_saved %}
+              <button type="button" class="btn btn-secondary w-full min-h-11 text-sm" data-copy-pick-provider="drive">Google Drive</button>
+              {% endif %}
+              {% if not smb_saved %}
+              <button type="button" class="btn btn-secondary w-full min-h-11 text-sm" data-copy-pick-provider="smb">LAN share</button>
+              {% endif %}
+              <button type="button" class="btn btn-secondary w-full min-h-11 text-sm" disabled>OneDrive. Not available yet.</button>
             </div>
             <div data-copy-help="drive" class="text-xs text-muted border border-border rounded p-3 bg-surface {% if copy_provider == 'smb' %}hidden{% endif %}">
               <p class="mb-2">Do these in order in Google Cloud, then paste the client here. Leave the app in <strong>Testing</strong>. Do not publish it. Publishing asks Google to verify the Drive scope.</p>
@@ -415,7 +411,8 @@
               </label>
             </fieldset>
           </div>
-          <div class="settings-sheet-foot flex gap-2">
+          <div class="settings-sheet-foot flex gap-2 {% if not copy_form_error %}hidden{% endif %}" data-copy-actions>
+            <button type="button" class="btn btn-secondary min-h-11 text-sm {% if copy_form_error %}hidden{% endif %}" data-copy-back>Back</button>
             <button type="submit" class="btn btn-secondary min-h-11 text-sm" data-copy-save>Save</button>
             <button type="submit" class="btn btn-accent min-h-11 text-sm {% if copy_provider == 'smb' %}hidden{% endif %}" data-copy-connect formaction="/backup-copies/google/start" formmethod="post">Connect Google</button>
           </div>
@@ -427,19 +424,27 @@
       var form = document.getElementById('drive-copy-form');
       if (!form) return;
       var provider = document.getElementById('copy-provider');
+      var pick = form.querySelector('[data-copy-pick]');
+      var actions = form.querySelector('[data-copy-actions]');
+      var back = form.querySelector('[data-copy-back]');
+      var title = document.getElementById('settings-drive-copy-title');
+      var adding = false;
       function show(name, on) {
         form.querySelectorAll('[data-copy-help="' + name + '"], [data-copy-fields="' + name + '"]').forEach(function (el) {
           el.classList.toggle('hidden', !on);
           if (el.hasAttribute('data-copy-fields')) el.disabled = !on;
         });
       }
-      function applyProvider() {
-        var value = provider ? provider.value : 'drive';
+      function applyProvider(value) {
         var drive = value === 'drive';
         var smb = value === 'smb';
+        if (provider) provider.value = drive || smb ? value : '';
+        if (pick) pick.classList.add('hidden');
+        if (actions) actions.classList.remove('hidden');
         show('drive', drive);
         show('smb', smb);
         show('later', !drive && !smb);
+        if (back) back.classList.toggle('hidden', !adding);
         var save = form.querySelector('[data-copy-save]');
         if (save) save.disabled = !drive && !smb;
         var connect = form.querySelector('[data-copy-connect]');
@@ -447,6 +452,17 @@
           connect.classList.toggle('hidden', !drive);
           connect.disabled = !drive;
         }
+        if (title) title.textContent = smb ? 'LAN share' : 'Google Drive';
+      }
+      function showPicker() {
+        adding = true;
+        if (provider) provider.value = '';
+        if (pick) pick.classList.remove('hidden');
+        if (actions) actions.classList.add('hidden');
+        show('drive', false);
+        show('smb', false);
+        show('later', false);
+        if (title) title.textContent = 'Add a destination';
       }
       function bindSchedule(root) {
         var schedule = root.querySelector('[data-copy-schedule]');
@@ -461,16 +477,24 @@
         schedule.addEventListener('change', apply);
         apply();
       }
-      if (provider) provider.addEventListener('change', applyProvider);
       form.querySelectorAll('[data-copy-fields]').forEach(bindSchedule);
-      document.querySelectorAll('[data-copy-edit]').forEach(function (btn) {
+      form.querySelectorAll('[data-copy-pick-provider]').forEach(function (btn) {
         btn.addEventListener('click', function () {
-          if (!provider) return;
-          provider.value = btn.getAttribute('data-copy-edit') || 'drive';
-          applyProvider();
+          adding = true;
+          applyProvider(btn.getAttribute('data-copy-pick-provider'));
         });
       });
-      applyProvider();
+      if (back) back.addEventListener('click', showPicker);
+      document.querySelectorAll('[data-copy-add]').forEach(function (btn) {
+        btn.addEventListener('click', showPicker);
+      });
+      document.querySelectorAll('[data-copy-edit]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          adding = false;
+          applyProvider(btn.getAttribute('data-copy-edit') || 'drive');
+        });
+      });
+      if (provider && provider.value) applyProvider(provider.value);
     })();
     </script>
 
