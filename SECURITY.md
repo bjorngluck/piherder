@@ -4,7 +4,8 @@
 
 | Version | Support |
 |---------|---------|
-| **v1.8.x** | **Current release** ([RELEASE_v1.8.1.md](docs/RELEASE_v1.8.1.md) · [PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md)). Tag **v1.8.1** |
+| **v1.9.x** | **Current release** ([RELEASE_v1.9.0.md](docs/RELEASE_v1.9.0.md) · [PLAN_v1.9.0.md](docs/PLAN_v1.9.0.md)). Tag **v1.9.0** |
+| **v1.8.x** | Prior production pin; still valid ([RELEASE_v1.8.1.md](docs/RELEASE_v1.8.1.md) · [PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md)). Tag **v1.8.1** |
 | **v1.7.x** | Prior production pin; still valid ([RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md)) |
 | **v1.6.x** | Prior production; prefer upgrade to **v1.8.x** ([RELEASE_v1.6.0.md](docs/RELEASE_v1.6.0.md) · [PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md)) |
 | **v1.5.x** | Prior production; prefer upgrade to **v1.7.x** ([RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · [PLAN_v1.5.0.md](docs/PLAN_v1.5.0.md)) |
@@ -16,7 +17,7 @@
 | **`main`** | Development tip; security fixes land here first |
 | **v0.9.x and older** | Best-effort; prefer upgrade to latest production |
 
-Security fixes are applied on the default branch (`main`) and released as **v1.8.x** (or later) patch tags when warranted. The current Hub image is **v1.8.1**. Pins **v1.7.0** stay valid ([PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md)).
+Security fixes are applied on the default branch (`main`) and released as **v1.9.x** (or later) patch tags when warranted. The current Hub image is **v1.9.0**. Pins **v1.8.1** and **v1.7.0** stay valid ([PLAN_v1.9.0.md](docs/PLAN_v1.9.0.md)).
 
 ## Reporting a vulnerability
 

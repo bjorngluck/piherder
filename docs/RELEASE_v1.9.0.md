@@ -1,10 +1,10 @@
 # PiHerder v1.9.0
 
-**2 October 2026.** Draft for the **v1.9.0** release. Not tagged yet. Until you upgrade, About still says **1.8.1**.
+**2 October 2026.** Tag **[v1.9.0](https://github.com/bjorngluck/piherder/releases/tag/v1.9.0)**. Package **1.9.0**. Shipped.
 
 Move is on unless you turn it off. Backups can copy on to a NAS share as well as Google Drive, and you can remove one of those copies without touching the other. Home Assistant plugin **0.5.0** can stop a whole project, move one, and browse files in the fleet jail. An agent can start, stop, restart, or update one container.
 
-**Image:** not on Hub yet. After the tag, [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) will be `1.9.0` · `1.9` · `latest` (amd64 + arm64). Pins `1.8.1` / `1.8` and `1.8.0` stay valid. Pins `1.7.0` / `1.7` stay valid. The public demo stays the **1.7.0** image.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.9.0` · `1.9` · `latest` (amd64 + arm64). Pin `1.8.1` / `1.8` stays the previous image. Pin `1.8.0` stays valid. Pins `1.7.0` / `1.7` stay valid. The public demo stays the **1.7.0** image.
 
 Operator how-to: [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Move a service](https://piherder-docs.hacknow.info/docker/service-migration/) · [Home Assistant](https://piherder-docs.hacknow.info/integrations/home-assistant/) · [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/). Technical record: [PLAN_v1.9.0](PLAN_v1.9.0.md). Maintainer QA: [QA_v1.9.0](QA_v1.9.0.md).
 
@@ -88,7 +88,7 @@ Buttons and forms look the same. PiHerder no longer puts click code inside the p
 There is no new database step. **1.8.0** already added the backup-destination table. **1.8.1** already updated the security libraries.
 
 1. Take a full DR self-backup. Keep `PIHERDER_MASTER_KEY`.
-2. After the **1.9.0** image is published, pull `bjorngluck/piherder:1.9.0` (or `1.9` / `latest` once those tags move).
+2. Pull `bjorngluck/piherder:1.9.0` (or `1.9` / `latest`).
 3. `docker compose pull && docker compose up -d`. Recreate **web** and **celery-worker**. The app code is not a folder on the host.
 4. Confirm About / footer says **1.9.0**.
 5. Move is **on**. If this install must not copy a project to another host, set `PIHERDER_SERVICE_MIGRATE=false` before you recreate **web**.

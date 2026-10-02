@@ -1,6 +1,6 @@
 # Publishing a PiHerder image (Docker Hub / GHCR)
 
-**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64**. Production line **v1.8.1**. Pin `1.8.0` stays the previous image. Pins `1.7.0` / `1.7` stay valid.
+**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64**. Production line **v1.9.0**. Pin `1.8.1` / `1.8` stays the previous image. Pin `1.8.0` stays valid. Pins `1.7.0` / `1.7` stay valid.
 **Related:** [ADMIN](https://piherder-docs.hacknow.info/operations/upgrades/) · [wiki publish page](https://piherder-docs.hacknow.info/developers/publish-image/) · live docs: https://piherder-docs.hacknow.info/
 
 Official compose pulls the published image:
@@ -8,7 +8,7 @@ Official compose pulls the published image:
 ```bash
 docker compose up -d
 # optional pin:
-# PIHERDER_IMAGE=bjorngluck/piherder:1.8.0 docker compose up -d
+# PIHERDER_IMAGE=bjorngluck/piherder:1.9.0 docker compose up -d
 ```
 
 **Dependency pins:** the image installs from committed `requirements.lock.txt` (`pip install --require-hashes`). Bump deps with `./scripts/refresh-lockfiles.sh` before a release build so Hub tags match the lockfile in the git tag.
@@ -60,7 +60,9 @@ echo "$GITHUB_TOKEN" | docker login ghcr.io -u bjorngluck --password-stdin
 
 | Tag | Meaning |
 |-----|---------|
-| `1.8.1` | Immutable patch (match git tag `v1.8.1`) |
+| `1.9.0` | Immutable release (match git tag `v1.9.0`) |
+| `1.9` | Rolling minor |
+| `1.8.1` | Prior patch (still valid) |
 | `1.8.0` | Prior 1.8 pin (still valid) |
 | `1.8` | Rolling minor |
 | `1.7.0` | Prior 1.7 pin (still valid) |
@@ -93,7 +95,7 @@ Arm64 matters for Raspberry Pi hosts running the herder itself.
 ```bash
 # From repo root, after docker login
 export IMAGE=bjorngluck/piherder
-export VERSION=1.8.1   # match release
+export VERSION=1.9.0   # match release
 
 docker buildx create --use --name piherder-builder --driver docker-container 2>/dev/null || true
 docker buildx use piherder-builder
@@ -104,7 +106,7 @@ docker buildx inspect --bootstrap
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t "${IMAGE}:${VERSION}" \
-  -t "${IMAGE}:1.8" \
+  -t "${IMAGE}:1.9" \
   -t "${IMAGE}:latest" \
   --push \
   .

@@ -1,11 +1,11 @@
 # PiHerder v1.9.0 — operator QA / sign-off
 
-**Branch:** `v1.9.0-dev` (includes Backup Settings UX #28) → `main` · tag **`v1.9.0`** (cut after freeze)  
-**Code freeze:** **set** 2026-10-02. Not tagged. Not a version bump.  
-**Package:** stays **`1.8.1`** until the version bump. About / footer stay **1.8.1**  
+**Branch:** `v1.9.0-dev` merged to `main` · tag **`v1.9.0`**  
+**Code freeze:** **set** 2026-10-02. **Shipped** 2026-10-02.  
+**Package:** **`1.9.0`**. About / footer **1.9.0**  
 **Operator QA:** signed 2026-10-02 by Björn: **MCP-svc**, **Remove one backup dest** (including observability), **Move default-on** (including health), **CSP Slice 2**, **HA Slice 3**, **HA Move**, **LAN NAS / SMB** (including **Test** and the password at rest), and the **1.8 regression**. **Copy now** is deferred to **v1.10**, with a full copy test that includes OneDrive, after a separate NAS is set up  
 **Screenshots:** **captured** 2026-10-02. [v1.9 pack](../wiki/assets/screenshots/README.md#v190--pack-status)  
-**Release notes:** [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) drafted at freeze. Tag not cut
+**Release notes:** [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md). Tag **v1.9.0**
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 

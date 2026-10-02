@@ -122,7 +122,7 @@ Alembic **043**, **044**, and **045** run on web start. Recreate **web** and **c
 
 ## 1.7 → 1.8 {#17--18}
 
-**v1.8.0** is tagged. Notes: [RELEASE_v1.8.0.md](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/RELEASE_v1.8.0.md). The current image is **[v1.8.1](https://github.com/bjorngluck/piherder/blob/v1.8.1/docs/RELEASE_v1.8.1.md)** (`1.8.1` / `1.8` / `latest`). Pin `1.8.0` stays the previous image. Pins `1.7.0` / `1.7` stay valid.
+**v1.8.0** is tagged. Notes: [RELEASE_v1.8.0.md](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/RELEASE_v1.8.0.md). The patch on that line is **[v1.8.1](https://github.com/bjorngluck/piherder/blob/v1.8.1/docs/RELEASE_v1.8.1.md)**. The current image is **[v1.9.0](https://github.com/bjorngluck/piherder/blob/v1.9.0/docs/RELEASE_v1.9.0.md)**. Pins `1.8.1` / `1.8` and `1.8.0` stay valid. Pins `1.7.0` / `1.7` stay valid. The next jump is [1.8 → 1.9](#18--19).
 
 **v1.8.1** refreshes PyJWT to **2.15.1** and urllib3 to **2.8.0**. No new migration. Recreate **web** and **celery-worker**. About should say **1.8.1**.
 
@@ -131,9 +131,11 @@ Alembic **047** runs on web start. Recreate **web** and **celery-worker**. HACS 
 7. Move stays **off** until `PIHERDER_SERVICE_MIGRATE=true` and you recreate **web**. Public demo stays Report-Only CSP. Do not set `PIHERDER_CSP_ENFORCE` there.
 8. Immediately run **Full DR** again. Hard-refresh the browser.
 
-## v1.9 train (not tagged)
+## 1.8 → 1.9 {#18--19}
 
-The published image is **1.8.1**. `v1.9.0-dev` is not that image. On the train, Move defaults on, LAN SMB can be saved beside Drive, Settings can remove one destination, hosted MCP accepts the four one-service jobs, and HACS plugin **0.5.0** is poll-only (Move, fleet-jail Files, stop project). OneDrive stays unselectable. About stays **1.8.1** until the v1.9 freeze. Published adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)** sends the four one-service jobs. **Code freeze** is set. The tag is not cut, and About stays **1.8.1** until the version bump. Operator walks were signed 2026-10-02, including SMB Test, the password check, and the 1.8 regression. **Copy now** and a full OneDrive copy test are **v1.10**, after a separate NAS is set up. Do not point the public demo at this branch. Notes: [PLAN_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/v1.9.0-dev/docs/PLAN_v1.9.0.md) · [RELEASE_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/v1.9.0-dev/docs/RELEASE_v1.9.0.md).
+**v1.9.0** is tagged. Notes: [RELEASE_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/v1.9.0/docs/RELEASE_v1.9.0.md). Image `1.9.0` / `1.9` / `latest`. Pin `1.8.1` / `1.8` stays the previous image.
+
+No new database revision. Recreate **web** and **celery-worker**. About should say **1.9.0**. Move is **on** unless `PIHERDER_SERVICE_MIGRATE=false`. A LAN share can be saved beside Google Drive. HACS plugin **[0.5.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.0)** with resource `?v=0.5.0`. Adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)** sends the four one-service jobs. OneDrive stays unselectable. A full NAS **Copy now** test is the next release. The public demo stays the **1.7.0** image.
 
 ## Breaking notes
 
