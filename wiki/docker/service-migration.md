@@ -64,8 +64,18 @@ Use lock for Frigate + Coral, USB gadgets, or anything you must not relocate by 
 10. **JobHold** live log stays open with **Succeeded** or **Failed** until you Close (does not vanish). Job type `service_migrate`. `Job.server_id` is the **source**; dest is in job details. Copy / dest-up fail offers **Start source stack**. A failure at **cutover**, **rebind**, or **validate** offers **Undo move** (preview, then confirm): dest is `compose stop` first (not `down -v`), then DNS/NPM and control-plane rows go back to the source, then source is `compose start`. A stop failure leaves names on dest. If names have not moved and a later step fails, dest is started again. A retry skips steps that already committed. The dest directory and volumes stay. A **successful** Move has no Undo — run a new Move the other way. After Undo itself succeeds, **Undo move** is hidden on that failed job. A failed Undo can be retried. The job runs on the **Celery worker** (same as backups). Recreating **web** mid-Move is safe. Recreating **celery-worker** (or `compose restart celery-worker`) **fails** a running Move — staging stays under `/backups/_migrate/{job_id}`. **Start source stack** is offered when the death was during stop or copy. A death during dest up offers **Inspect destination**, then stop dest and start source, and does not change DNS or NPM.
 
 <figure class="ph-figure" markdown>
+  ![Move on the project menu](../assets/screenshots/docker-move-default.png)
+  <figcaption>v1.9 train, flag unset. Project menu includes Move to another host…. Inventory 2 October 2026.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
   ![Move wizard dest picker](../assets/screenshots/docker-migrate-wizard.png)
   <figcaption>Move wizard — **From** this host/project, **To** another Docker host (HAOS excluded).</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Move wizard ready for copy](../assets/screenshots/ha-move-card.png)
+  <figcaption>v1.9 train. Stop-first cutover, dest folder, Leave stopped selected, Move service. This is the herder wizard. The Home Assistant card Move panel is a separate frame.</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>

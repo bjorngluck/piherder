@@ -68,7 +68,7 @@ Call the herder through the published HTTPS port (Caddy **8443**, or **8888** fo
 
 ## What a token can do
 
-Tool names match the public stdio adapter. Hosted `trigger_job` accepts the four one-service types below. The adapter source on `main` accepts them. Published adapter **0.2.0** does not, so `uvx` still refuses them. Tools appear only for scopes on the token. A token **without `read` fails closed**: initialize returns an error and no tools are listed.
+Tool names match the public stdio adapter. Hosted `trigger_job` accepts the four one-service types below. Published adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)** sends them. `uvx` at **0.2.0** still refuses them. Tools appear only for scopes on the token. A token **without `read` fails closed**: initialize returns an error and no tools are listed.
 
 | Scope | Tools |
 |-------|--------|
@@ -125,7 +125,7 @@ Tool names match the public stdio adapter. Hosted `trigger_job` accepts the four
 
 A second start of an exclusive job returns **409** with the job that is already running. The tool result includes `http_status` and `already_active`. Poll `get_job`. Do not start another.
 
-These four one-service jobs are on hosted `trigger_job` for **v1.9** ([DECISION_MCP_SVC.md](https://github.com/bjorngluck/piherder/blob/main/docs/DECISION_MCP_SVC.md) · [PLAN_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/v1.9.0-dev/docs/PLAN_v1.9.0.md)). There is no confirm dialog. The Home Assistant card still has one. The adapter source on [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) `main` accepts the same four. Published tag **[0.2.0](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.2.0)** does not, so `uvx` still refuses them. Tag the adapter only when the herder image agents call accepts the types. The image tag is still **1.8.0**.
+These four one-service jobs are on hosted `trigger_job` ([DECISION_MCP_SVC.md](https://github.com/bjorngluck/piherder/blob/main/docs/DECISION_MCP_SVC.md) · [PLAN_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/v1.9.0-dev/docs/PLAN_v1.9.0.md)). There is no confirm dialog. The Home Assistant card still has one. Published adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)** accepts the same four. Herder image **1.8.1** already accepts them. `uvx` at **[0.2.0](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.2.0)** still refuses them.
 
 Not accepted: `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move (`service_migrate`), undo (`service_migrate_undo`), dest-up recover (`service_migrate_dest_recover`), nmap, the console, token admin, stale-data cleanup, and removing a backup destination. Move from a token is `POST /api/v1/servers/{id}/moves` with `confirm: true`, not this tool. The Home Assistant card uses that route. This tool does not.
 
@@ -145,7 +145,7 @@ export PIHERDER_TOKEN='ph_…'
 uvx piherder-mcp
 ```
 
-`uvx piherder-mcp` installs the latest release on PyPI. That release is **[0.2.0](https://pypi.org/project/piherder-mcp/0.2.0/)**. Its `trigger_job` list is the **v1.8** list: the table above without `container_start`, `container_stop`, `container_restart`, and `container_redeploy`. Hosted `/mcp` on this tree accepts those four. Notes: [piherder-mcp 0.2.0](https://github.com/bjorngluck/piherder-mcp/blob/main/docs/RELEASE_v0.2.0.md). The companion change is a pull request on [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp), not this repository.
+`uvx piherder-mcp` installs the latest release on PyPI. That release is **[0.3.1](https://pypi.org/project/piherder-mcp/0.3.1/)**. Its `trigger_job` list matches the table above, including the four one-service types. Notes: [piherder-mcp 0.3.1](https://github.com/bjorngluck/piherder-mcp/blob/v0.3.1/docs/RELEASE_v0.3.1.md). A machine that still has **0.2.0** cached does not send those four.
 
 Git pin, when you need a commit that is not the PyPI release:
 
@@ -172,7 +172,7 @@ uvx --from git+https://github.com/bjorngluck/piherder-mcp.git piherder-mcp
 
 `${PIHERDER_TOKEN}` in older samples is a human placeholder. Many hosts do **not** expand it. Paste the real secret, or set it in the environment the host already inherits.
 
-Tool names match. Published adapter **0.2.0** does not offer the four one-service job types. The source on `main` does. A token without `read` makes the stdio process exit on stderr.
+Tool names match. Published adapter **0.3.1** offers the four one-service job types. A token without `read` makes the stdio process exit on stderr.
 
 ## Operating note
 

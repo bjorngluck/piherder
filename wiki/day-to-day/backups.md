@@ -20,11 +20,21 @@ See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 
 ### Copy to Google Drive (v1.8 train)
 
-**Settings → PiHerder backup** has a card under the self-backup cards, titled **Copy the backup drive**. It ships in **1.8.0**. The **1.7.0** image has no such card.
+**Settings → PiHerder backup** has a card under the self-backup cards, titled **Copy the backup drive**. Google Drive ships in **1.8.0**. The **1.7.0** image has no such card. On this train a LAN share can sit on the same card as its own row.
 
 <figure class="ph-figure" markdown>
   ![Copy the backup drive](../assets/screenshots/settings-drive-copy.png)
-  <figcaption>Copy the backup drive — signed in, folder Backup_PiHerder, daily at 04:30. Test checks the folder. The tree ticks what rclone copies. Copy now starts that job.</figcaption>
+  <figcaption>Copy the backup drive — signed in, folder Backup_PiHerder, daily at 04:30. Test checks the folder. The tree ticks what rclone copies. Copy now starts that job. v1.8.0.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Drive and LAN share](../assets/screenshots/settings-backup-multi-dest.png)
+  <figcaption>v1.9 train. Google Drive and LAN NAS / SMB each have Test, Folders, Edit, and Remove. The share row reads no login. The folder tree and Copy now under the rows apply to Google Drive.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Remove one destination](../assets/screenshots/settings-backup-remove-confirm.png)
+  <figcaption>Remove on the LAN share row. The saved account and schedule are deleted in PiHerder. Files already on the share stay.</figcaption>
 </figure>
 
 | | |
@@ -77,7 +87,7 @@ This is a second copy, independent of Google Drive. Host backups still rsync int
 **Remove** (admin, confirm `remove`) deletes that one provider's saved destination and its secret. The other provider stays. Files already on Drive or on the share are not deleted. The public demo refuses. This is not a job and not an agent action.
 
 1. Enter the NAS hostname or IP, the share name, and an optional path under that share.
-2. Enter a username and password. Guest access and Kerberos are not used. Leave the password blank only after one is already saved. An optional domain or workgroup can be set.
+2. Enter a username and password, or leave both empty for a share that needs no login. That row reads **no login**. A blank password on its own keeps a password that is already saved. A username without a password, or a password without a username, is refused. Kerberos is not used. An optional domain or workgroup can be set.
 3. Tick the backup folders. **Test** lists the share and does not copy. **Copy now**, the schedule, or the follow-up after a host backup runs the same **Backup copy** job as Drive.
 4. A failed copy fails that job only. The host backup time stays. The public demo does not upload. Restore still uses the local tree.
 

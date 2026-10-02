@@ -24,45 +24,33 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.6.0** | **Captured** 2026-09-25 and wired into the wiki. [§ v1.6](#v160--pack-status). [RELEASE](../../../docs/RELEASE_v1.6.0.md) · [QA](../../../docs/QA_v1.6.0.md) |
 | **v1.7.0** | **Captured** 2026-09-28 on `v1.7.0-dev`. About / footer still **1.6.0** (code freeze, package not bumped). [§ v1.7](#v170--pack-status). [QA](../../../docs/QA_v1.7.0.md) |
 | **v1.8.0** | **Captured** 2026-10-01. Home Assistant plugin **0.4.3** and the Google Drive copy card. Package **1.8.0**. [§ v1.8](#v180--pack-status). [QA](../../../docs/QA_v1.8.0.md) |
-| **v1.9.0** | **Open.** Shot list only. PNGs not in the tree. Plugin **0.5.0** frames can be shot now. HA Move waits on the herder roll. [§ v1.9](#v190--pack-status). [QA](../../../docs/QA_v1.9.0.md) |
+| **v1.9.0** | **Captured** 2026-10-02. Drive and SMB rows, Remove confirm, herder Move, plugin **0.5.0** Stop project and Plugin sensor. [§ v1.9](#v190--pack-status). [QA](../../../docs/QA_v1.9.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    **v1.9** pack is the open list. Files are not in the tree yet. [§ v1.9](#v190--pack-status).  
-    Capture now: Settings with Drive and SMB each on their own row, the Remove confirm on one row, Home Assistant **Stop project**, and the **Plugin** sensor at **0.5.0**.  
-    Herder UI Move (`docker-move-default.png`) is the train build. HA Move (`ha-move-card.png`) waits until health returns `service_migrate: true`.  
+    **v1.9** pack landed 2026-10-02. [§ v1.9](#v190--pack-status).  
     Do not photograph the public demo. Mask the token, the SMB password, and the Google client secret.  
-    **v1.8 captures** stay. About / footer on a pre-freeze herder still read **1.8.0**.
+    **v1.8 captures** stay. About / footer on this train read **1.8.1**.
 
 ---
 
 ## v1.9.0 — pack status {#v190--pack-status}
 
-**Not captured.** Maintainer walks are in [QA_v1.9.0.md](../../../docs/QA_v1.9.0.md). Drop PNGs in this directory only after the shot exists. Do not add a wiki `![…]` before the file is here.
+**Captured** 2026-10-02. Wired on [Backups](../../day-to-day/backups.md), [Home Assistant](../../integrations/home-assistant.md), and [Move a service](../../docker/service-migration.md). Maintainer walks are in [QA_v1.9.0.md](../../../docs/QA_v1.9.0.md). Signed the same day except three SMB boxes (Test, Copy now, Fernet) and the 1.8 regression.
 
-Plugin **0.5.0** is already on the test host. Settings shows one row per saved Drive or SMB destination (Edit, Folders, Remove on that row). A guest share reads **no login**. Live health does not yet expose `service_migrate`, so the card hides Move until the `v1.9.0-dev` herder roll.
+Plugin **0.5.0**. A guest share reads **no login**. Health `service_migrate` is true on the rolled herder, and the card shows Move.
 
-### Capture now
+### Captured
 
-| Pri | File | Surface | Must show |
-|-----|------|---------|-----------|
-| **P0** | `settings-backup-multi-dest.png` | Settings → PiHerder backup → **Copy the backup drive** | Google Drive and LAN NAS / SMB each on their own row, with **Test**, **Folders**, **Edit**, and **Remove**. OneDrive listed as more to follow and not selectable. A guest share, if shown, reads **no login**. No client secret, no SMB password |
-| **P0** | `settings-backup-remove-confirm.png` | **Remove** on one of those rows | Confirm dialog for that row only. Account and schedule deleted in PiHerder. Files already on Drive or the share stay. The other row stays on the card |
-| **P0** | `ha-stop-project.png` | Lovelace card, Host → **Containers**, plugin **0.5.0** | **Stop project**. Confirm in frame if it is open. Token not visible |
-| **P0** | `ha-plugin-050.png` | Home Assistant device | **Plugin** sensor reads **0.5.0** |
-
-### Train build
-
-| Pri | File | Surface | Must show |
-|-----|------|---------|-----------|
-| **P1** | `docker-move-default.png` | Docker ⋯ on a `v1.9.0-dev` herder, `PIHERDER_SERVICE_MIGRATE` unset | **Move to another host…** available, wizard or confirm visible. Footer may still say **1.8.0** |
-
-### Deferred until health `service_migrate` is true
-
-| Pri | File | Surface | Must show |
-|-----|------|---------|-----------|
-| **P0** | `ha-move-card.png` | Card **Move** panel, after the 1.9 roll | Project, destination, **Move**. Do not shoot while live health omits `service_migrate` |
+| File | What the frame shows |
+|------|----------------------|
+| `settings-backup-multi-dest.png` | Google Drive and LAN NAS / SMB, each with **Test**, **Folders**, **Edit**, and **Remove**. SMB row reads **no login**. Folder tree and **Copy now** sit under the Drive row |
+| `settings-backup-remove-confirm.png` | **Remove** on the LAN share. Account and schedule deleted in PiHerder. Files already on the share stay |
+| `ha-stop-project.png` | Plugin **0.5.0** Host tab. **Stop project**, plus the card **Move** panel |
+| `ha-plugin-050.png` | Fleet device. Plugin sensor **0.5.0**. Version sensor **1.8.1**. Device info Firmware reads **1.8.0** |
+| `docker-move-default.png` | Docker project menu. **Move to another host…** with the flag unset |
+| `ha-move-card.png` | Herder Move wizard, not the card. Stop-first, **Leave stopped**, **Move service** |
 
 ### Do not shoot for 1.9
 
