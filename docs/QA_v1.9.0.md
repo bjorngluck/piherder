@@ -1,11 +1,11 @@
 # PiHerder v1.9.0 — operator QA / sign-off
 
 **Branch:** `v1.9.0-dev` (includes Backup Settings UX #28) → `main` · tag **`v1.9.0`** (cut after freeze)  
-**Code freeze:** not set  
-**Package:** stays **`1.8.1`** until freeze. About / footer stay **1.8.1**  
-**Operator QA:** signed 2026-10-02 by Björn: **MCP-svc**, **Remove one backup dest** (including observability), **Move default-on** (including health), **CSP Slice 2**, **HA Slice 3**, **HA Move**, and **LAN NAS / SMB** (including **Test** and the password at rest). **Copy now** is deferred to **v1.10**, with a full copy test that includes OneDrive, after a separate NAS is set up. The **1.8 regression** block is not part of this sign-off  
+**Code freeze:** **set** 2026-10-02. Not tagged. Not a version bump.  
+**Package:** stays **`1.8.1`** until the version bump. About / footer stay **1.8.1**  
+**Operator QA:** signed 2026-10-02 by Björn: **MCP-svc**, **Remove one backup dest** (including observability), **Move default-on** (including health), **CSP Slice 2**, **HA Slice 3**, **HA Move**, **LAN NAS / SMB** (including **Test** and the password at rest), and the **1.8 regression**. **Copy now** is deferred to **v1.10**, with a full copy test that includes OneDrive, after a separate NAS is set up  
 **Screenshots:** **captured** 2026-10-02. [v1.9 pack](../wiki/assets/screenshots/README.md#v190--pack-status)  
-**Release notes:** not written. `RELEASE_v1.9.0.md` is freeze
+**Release notes:** [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) drafted at freeze. Tag not cut
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
@@ -142,13 +142,13 @@ The card Move panel is in `ha-stop-project.png`. `ha-move-card.png` is the herde
 
 ## 1.8 regression
 
-Not part of the 2026-10-02 sign-off. Leave these empty until that pass.
+Signed 2026-10-02.
 
-- [ ] About / footer still **1.8.1**
-- [ ] Google Drive copy still runs beside a saved LAN share. OneDrive stays unselectable. Each saved destination stays on its own row
-- [ ] Hosted `trigger_job` on the rolled herder accepts the four one-service types. Published adapter **0.3.1** sends them. `uvx` at **0.2.0** still refuses them
-- [ ] Unset `PIHERDER_SERVICE_MIGRATE` leaves Move on. Explicit `false` still hides it
-- [ ] Plugin install is still the separate HACS repo, not a file in this image
+- [x] About / footer still **1.8.1**
+- [x] Google Drive copy still runs beside a saved LAN share. OneDrive stays unselectable. Each saved destination stays on its own row
+- [x] Hosted `trigger_job` on the rolled herder accepts the four one-service types. Published adapter **0.3.1** sends them. `uvx` at **0.2.0** still refuses them
+- [x] Unset `PIHERDER_SERVICE_MIGRATE` leaves Move on. Explicit `false` still hides it
+- [x] Plugin install is still the separate HACS repo, not a file in this image
 
 ---
 
@@ -164,7 +164,7 @@ Do not tick these here. They are not walks of this train.
 | **Copy now** (SMB and Drive hop) | Deferred to **v1.10**. Test and the password-at-rest check are signed on this train. A separate NAS is required before the copy |
 | **Path C** | Discover write-up in the plan. No client. `/backups` stays the default |
 | **MCP OAuth** | Discover write-up. Bearer stays the only path |
-| Supply-chain locks | PyJWT **2.15.1** and urllib3 **2.8.0** are pinned on this branch. Not an operator screen. Dependabot alerts wait until the locks are on `main`. [PLAN §4](PLAN_v1.9.0.md#4-supply-chain-locks-must-planned) |
+| Supply-chain locks | PyJWT **2.15.1** and urllib3 **2.8.0** shipped in **v1.8.1**. Not an operator screen. [PLAN §4](PLAN_v1.9.0.md#4-supply-chain-locks-must-planned) |
 | AC-fg, Brand-3, ACME, NPM CRUD, a richer Files API, N3c, M-live | Out |
 
 ---

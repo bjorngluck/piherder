@@ -37,7 +37,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 
 ## v1.9.0 — pack status {#v190--pack-status}
 
-**Captured** 2026-10-02. Wired on [Backups](../../day-to-day/backups.md), [Home Assistant](../../integrations/home-assistant.md), and [Move a service](../../docker/service-migration.md). Maintainer walks are in [QA_v1.9.0.md](../../../docs/QA_v1.9.0.md). Signed the same day, including SMB Test and the password check. **Copy now** is **v1.10**. The 1.8 regression is still open.
+**Captured** 2026-10-02. Wired on [Backups](../../day-to-day/backups.md), [Home Assistant](../../integrations/home-assistant.md), and [Move a service](../../docker/service-migration.md). Maintainer walks are in [QA_v1.9.0.md](../../../docs/QA_v1.9.0.md). Signed the same day, including SMB Test, the password check, and the 1.8 regression. **Copy now** is **v1.10**. Code freeze is set. The tag is not cut.
 
 Plugin **0.5.0**. A guest share reads **no login**. Health `service_migrate` is true on the rolled herder, and the card shows Move.
 

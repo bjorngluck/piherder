@@ -1,16 +1,16 @@
 # PiHerder v1.9.0 — one-service MCP, LAN share, Move on by default
 
-**Status:** **Active** on `v1.9.0-dev`. Product slices below are **on this branch**. Package stays **`1.8.1`** until the v1.9 freeze. Published adapter is **`0.3.1`**. The herder **1.9.0** tag is freeze-only.  
+**Status:** **Code freeze** 2026-10-02 on `v1.9.0-dev`. Not tagged. Not a version bump. Package stays **`1.8.1`** until the bump. Published adapter is **`0.3.1`**. End-user notes: [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md).  
 **Date opened:** 2026-10-01  
 **Git branch:** `v1.9.0-dev` → `main` · tag `v1.9.0` at freeze  
 **Package / image version:** stays **`1.8.1`** until freeze. Image tags at freeze: `1.9.0` / `1.9` / `latest`. Pins `1.8.1` / `1.8` and `1.8.0` stay valid.  
 **Theme:** **MCP-svc**, a selectable LAN share, Move on by default, then the card and backup honesty that landed with them  
 **Baseline:** `v1.8.0` (tagged 2026-10-01; Hub digest `sha256:8ce50bbce758e622a996cd58557b0846e03cb02613b09471405222df620c2e89`)  
 **Mode:** Landed on this branch vs **freeze-only**. Landed: **MCP-svc** · **LAN NAS / SMB** · **Move default-on** · **Remove one backup dest** (#25) · **HA Slice 3** (plugin **0.5.0**, poll-only) · **CSP Slice 2**. Hygiene: **Supply-chain locks** (on `main` as **v1.8.1**, and on this branch). Freeze-only: herder **1.9.0** tag and image. **OneDrive** stays discovery-only. Discover (no client): **Path C** · **MCP OAuth**.  
-**QA:** [QA_v1.9.0.md](QA_v1.9.0.md) (signed 2026-10-02, including SMB **Test** and the password check. **Copy now** and a full OneDrive copy test are **v1.10**. The 1.8 regression is still open — **not** the operator wiki). Screenshot pack captured the same day.  
+**QA:** [QA_v1.9.0.md](QA_v1.9.0.md) (signed 2026-10-02, including SMB **Test**, the password check, and the 1.8 regression. **Copy now** and a full OneDrive copy test are **v1.10** — **not** the operator wiki). Screenshot pack captured the same day.  
 **Related:** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [Home Assistant](../wiki/integrations/home-assistant.md)
 
-> **Train open 2026-10-01.** The image tag stays **v1.8.1**. `main` already includes the herder allowlist (pull request #22) and the **1.8.1** patch. This branch is that `main` plus the rest of the train. The public demo stays the **1.7.0** image. The Home Assistant plugin stays a separate HACS repo (**0.5.0** on this train, not inside the image). Release notes (`RELEASE_v1.9.0.md`) are written at freeze. Do not treat this plan as a tagged release.
+> **Code freeze 2026-10-02.** The image tag stays **v1.8.1** until the version bump, tag, and Hub publish. `main` already includes the herder allowlist (pull request #22) and the **1.8.1** patch. This branch is that `main` plus the rest of the train. The public demo stays the **1.7.0** image. The Home Assistant plugin stays a separate HACS repo (**0.5.0**, not inside the image). End-user notes are [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md). Do not treat this plan as a tagged release.
 
 ---
 
@@ -110,6 +110,7 @@ main (herder allowlist landed, image 1.8.1)
 | 2026-10-01 | **Operator QA.** Walks and the shot list are in [QA_v1.9.0.md](QA_v1.9.0.md). Boxes are empty. The walks use the #28 row shape. HA Move shots wait until health exposes `service_migrate`. |
 | 2026-10-02 | **Operator QA signed** except three SMB boxes (Test, Copy now, Fernet) and the 1.8 regression. Screenshot pack landed. Published adapter is **0.3.1**. |
 | 2026-10-02 | **SMB follow-up.** Test and the password-at-rest check signed. **Copy now** deferred to **v1.10**, with a full copy test that includes OneDrive, after a separate NAS is set up. |
+| 2026-10-02 | **1.8 regression signed.** **Code freeze.** End-user notes drafted in [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md). Package stays **1.8.1**. Tag and Hub not cut. |
 
 ---
 
@@ -124,7 +125,7 @@ main (herder allowlist landed, image 1.8.1)
 | 5 | **HA Slice 3** and **CSP Slice 2** | **Signed** 2026-10-02. Plugin **0.5.0**, poll-only, including card Move. OneDrive is not in this row |
 | 5b | **Remove one backup dest** (#25) | **Signed** 2026-10-02, including the scheduler check. Remote files kept |
 | 6 | Discover write-ups | Path C · MCP OAuth. No code |
-| 7 | Freeze · version bump · tag · Hub | Only when asked |
+| 7 | Freeze · version bump · tag · Hub | **Freeze set** 2026-10-02. Version bump, tag, and Hub are not this step |
 | 8 | **Supply-chain locks**: refresh `uv.lock` and both requirements lockfiles, retest, close Dependabot alerts | Pins shipped on **v1.8.1**. Alerts still need closing. [§4](#4-supply-chain-locks-must-planned) |
 
 ---
@@ -158,4 +159,4 @@ Tag honesty: **v1.9.0** tags only with **MCP-svc** on both clients. The herder a
 
 ---
 
-*Package stays `1.8.1` until freeze. Operator walks live in [QA_v1.9.0.md](QA_v1.9.0.md).*
+*Code freeze 2026-10-02. Package stays `1.8.1` until the version bump. Operator walks live in [QA_v1.9.0.md](QA_v1.9.0.md).*
