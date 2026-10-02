@@ -372,7 +372,9 @@ def test_remove_form_uses_the_settings_confirm_bar():
     assert "Files already on Drive stay" in text
     assert "Files already on the share stay" in text
     assert "copy_form_error" in text
-    assert "OneDrive. Not available yet." in text
+    assert 'data-copy-pick-provider="onedrive"' in text
+    assert "OneDrive. Not available yet." not in text
+    assert "Files already in OneDrive stay" in text
     assert "data-copy-add" in text
     assert 'id="copy-provider"' in text
     assert 'for="copy-provider"' not in text

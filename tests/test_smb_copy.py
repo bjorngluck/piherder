@@ -89,8 +89,9 @@ def test_guest_is_both_empty_and_half_filled_is_refused():
             dest, host="nas.local", share="backups", path="../etc", username="backup",
             password="x", domain="", schedule=None, after_host_backup=False,
         )
+    assert copies.normalize_provider("onedrive") == "onedrive"
     with pytest.raises(ValueError, match="provider"):
-        copies.normalize_provider("onedrive")
+        copies.normalize_provider("s3")
 
 
 def test_both_empty_replaces_a_saved_password():
