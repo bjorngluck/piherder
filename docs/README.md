@@ -6,8 +6,8 @@ Maintainer plans and release notes. Operator wiki is `wiki/` (MkDocs).
 
 | Kind | Where |
 |------|--------|
-| Current release | [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) |
-| Next train | [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md) — hosted MCP one-service jobs. Package stays **1.8.0** until freeze |
+| Current release | [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) |
+| Active train | [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [QA_v1.9.0.md](QA_v1.9.0.md) · [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md) on `v1.9.0-dev`. Package stays **1.8.1** until the v1.9 freeze. **Code freeze** 2026-10-02. Not tagged. QA signed, including the 1.8 regression. SMB **Copy now** and a full OneDrive copy test are **v1.10**. Published adapter **0.3.1**. Plugin **0.5.0** is poll-only. OneDrive stays unselectable. PyJWT **2.15.1** and urllib3 **2.8.0** |
 | Prior production | [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md) |
 | This release | [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). Package **1.8.0**. Tag `v1.8.0`. Operator: [Backups](../wiki/day-to-day/backups.md) · [Agents (MCP)](../wiki/operations/mcp.md) · [Home Assistant](../wiki/integrations/home-assistant.md) |
 | API | [API.md](API.md) |

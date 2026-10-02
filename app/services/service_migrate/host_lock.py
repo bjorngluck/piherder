@@ -35,11 +35,11 @@ class HostLockError(Exception):
 
 
 def migrate_enabled() -> bool:
-    return bool(getattr(settings, "PIHERDER_SERVICE_MIGRATE", False))
+    return bool(getattr(settings, "PIHERDER_SERVICE_MIGRATE", True))
 
 
 def migrate_surface_allowed() -> bool:
-    """Move wizard + preflight. Demo never; kill switch default off."""
+    """Move wizard + preflight. Demo never. Explicit false turns Move off."""
     try:
         from ..demo import demo_mode
 

@@ -87,12 +87,12 @@
   {% if can_mutate %}
   <button type="button" class="btn btn-primary min-h-11 text-sm"
           data-testid="nmap-open-scan-modal"
-          onclick="document.getElementById('nmap-scan-modal')?.classList.remove('hidden');document.getElementById('nmap-scan-modal')?.classList.add('flex')">
+          data-ph-show="nmap-scan-modal">
     Scan now
   </button>
   <button type="button" class="btn btn-secondary min-h-11 text-sm"
           data-testid="nmap-open-vuln-modal"
-          onclick="document.getElementById('nmap-vuln-modal')?.classList.remove('hidden');document.getElementById('nmap-vuln-modal')?.classList.add('flex')">
+          data-ph-show="nmap-vuln-modal">
     Update vuln pack
   </button>
   {% endif %}
@@ -127,9 +127,9 @@
 <div id="nmap-scan-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
      role="dialog" aria-modal="true" aria-labelledby="nmap-scan-modal-title"
      data-testid="nmap-scan-modal"
-     onclick="if(event.target===this){this.classList.add('hidden');this.classList.remove('flex')}">
+     data-ph-backdrop>
   <div class="modal-content card p-0 w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden"
-       role="document" onclick="event.stopPropagation()">
+       role="document" data-ph-stop>
     <header class="flex items-start justify-between gap-2 p-4 border-b border-border">
       <div>
         <h3 id="nmap-scan-modal-title" class="text-base font-semibold text-text m-0">Scan now</h3>
@@ -137,7 +137,7 @@
       </div>
       <button type="button" class="btn btn-secondary text-xs min-h-9"
               data-testid="nmap-scan-modal-close"
-              onclick="document.getElementById('nmap-scan-modal').classList.add('hidden');document.getElementById('nmap-scan-modal').classList.remove('flex')">Close</button>
+              data-ph-hide="nmap-scan-modal">Close</button>
     </header>
     <div class="p-4 overflow-y-auto">
       {# Wait modal is shown only after optional heavy-scan confirm (not on Cancel). #}
@@ -238,8 +238,8 @@
 <div id="nmap-scan-confirm-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-[55] p-3"
      role="dialog" aria-modal="true" aria-labelledby="nmap-scan-confirm-title"
      data-testid="nmap-scan-confirm-modal"
-     onclick="if(event.target===this){this.classList.add('hidden');this.classList.remove('flex')}">
-  <div class="modal-content card p-5 sm:p-6 w-full max-w-md" role="document" onclick="event.stopPropagation()">
+     data-ph-backdrop>
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-md" role="document" data-ph-stop>
     <h3 id="nmap-scan-confirm-title" class="text-base font-semibold text-text m-0 mb-2">Confirm heavy scan</h3>
     <p id="nmap-scan-confirm-msg" class="text-sm text-muted mb-4 whitespace-pre-line"></p>
     <div class="flex flex-wrap gap-2 justify-end">
@@ -253,9 +253,9 @@
 <div id="nmap-vuln-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
      role="dialog" aria-modal="true" aria-labelledby="nmap-vuln-modal-title"
      data-testid="nmap-vuln-modal"
-     onclick="if(event.target===this){this.classList.add('hidden');this.classList.remove('flex')}">
+     data-ph-backdrop>
   <div class="modal-content card p-0 w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
-       role="document" onclick="event.stopPropagation()">
+       role="document" data-ph-stop>
     <header class="flex items-start justify-between gap-2 p-4 border-b border-border">
       <div>
         <h3 id="nmap-vuln-modal-title" class="text-base font-semibold text-text m-0">Update vulnerability pack</h3>
@@ -263,7 +263,7 @@
       </div>
       <button type="button" class="btn btn-secondary text-xs min-h-9"
               data-testid="nmap-vuln-modal-close"
-              onclick="document.getElementById('nmap-vuln-modal').classList.add('hidden');document.getElementById('nmap-vuln-modal').classList.remove('flex')">Close</button>
+              data-ph-hide="nmap-vuln-modal">Close</button>
     </header>
     <div class="p-4 overflow-y-auto space-y-3">
       <p class="text-xs text-muted mb-0">
@@ -468,7 +468,7 @@
              autocomplete="off" aria-label="Filter hosts"
              data-testid="nmap-devices-search">
       <select name="per_page" class="ops-f-control ops-f-narrow" aria-label="Per page"
-              onchange="this.form.submit()" data-testid="nmap-list-per-page">
+              data-ph-change-submit data-testid="nmap-list-per-page">
         {% for n in per_page_choices or [10, 20, 50, 100] %}
         <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/pg</option>
         {% endfor %}
@@ -480,7 +480,7 @@
         action="/integrations/{{ integration.id }}/nmap/devices/purge-offline"
         class="mb-3 flex flex-wrap items-center gap-2"
         data-testid="nmap-purge-offline-form"
-        onsubmit="return confirm('Permanently delete all offline devices? Future scans may re-discover them as new. This cannot be undone.');">
+        data-ph-confirm="Permanently delete all offline devices? Future scans may re-discover them as new. This cannot be undone.">
     <button type="submit" class="btn btn-secondary text-xs min-h-9 text-danger border-danger"
             data-testid="nmap-purge-offline-btn"
             title="Remove offline rows only — never automatic">
@@ -818,7 +818,7 @@
   {% if can_mutate %}
   <button type="button" class="btn btn-primary min-h-11 text-sm"
           data-testid="nmap-schedule-add"
-          onclick="window.location.href='?tab=schedules&amp;new=1'">
+          data-ph-href="?tab=schedules&amp;new=1">
     Add schedule
   </button>
   {% endif %}
@@ -829,7 +829,7 @@
   No schedules configured.
   {% if can_mutate %}
   <button type="button" class="btn btn-secondary text-xs min-h-9 ml-2 align-middle"
-          onclick="window.location.href='?tab=schedules&amp;new=1'">Add one</button>
+          data-ph-href="?tab=schedules&amp;new=1">Add one</button>
   {% endif %}
 </div>
 {% else %}
@@ -869,7 +869,7 @@
         <button class="btn btn-secondary text-xs min-h-9 px-2.5" type="submit">{% if s.enabled %}Disable{% else %}Enable{% endif %}</button>
       </form>
       <form method="post" action="/integrations/{{ integration.id }}/nmap/schedules/{{ s.id }}/delete"
-            class="inline" onsubmit="return confirm('Delete schedule {{ s.name }}?');">
+            class="inline" data-ph-confirm="Delete schedule {{ s.name }}?">
         <button class="btn btn-secondary text-xs min-h-9 px-2.5 text-danger" type="submit">Delete</button>
       </form>
     </div>
@@ -886,9 +886,9 @@
      class="{% if open_modal %}flex{% else %}hidden{% endif %} fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
      role="dialog" aria-modal="true" aria-labelledby="nmap-schedule-modal-title"
      data-testid="nmap-schedule-modal"
-     onclick="if(event.target===this){window.location.href='?tab=schedules'}">
+     data-ph-backdrop-href="?tab=schedules">
   <div class="modal-content card p-0 w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden"
-       role="document" onclick="event.stopPropagation()">
+       role="document" data-ph-stop>
     <header class="flex items-start justify-between gap-2 p-4 border-b border-border">
       <div>
         <h3 id="nmap-schedule-modal-title" class="text-base font-semibold text-text m-0">
@@ -924,7 +924,7 @@
           <div>
             <label class="block text-xs text-muted mb-1" for="sch_cron">Schedule (cron)</label>
             <select class="input w-full text-sm mb-1" aria-label="Cron preset"
-                    onchange="var el=document.getElementById('sch_cron'); if(this.value){el.value=this.value;}">
+                    data-ph-fill-id="sch_cron">
               <option value="">Custom / advanced cron…</option>
               {% for val, lab in cron_presets %}
               <option value="{{ val }}" {% if es and es.cron == val %}selected{% endif %}>{{ lab }}</option>

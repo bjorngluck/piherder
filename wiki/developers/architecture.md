@@ -32,7 +32,7 @@ flowchart TB
 | Work | Runs on | Concurrency rule |
 |------|---------|------------------|
 | Backups | Celery | Parallel across hosts; one backup per host (Redis mutex) |
-| Drive copy (`backup_replicate`) | Celery default queue | v1.8 train. One slot, like a long rsync. Up to 7 days. Acked on receive. Not the per-host backup lock. Web only enqueues |
+| Backup copy (`backup_replicate`) | Celery default queue | Google Drive, or a LAN share (v1.9 path A). One slot, like a long rsync. Up to 7 days. Acked on receive. Not the per-host backup lock. Web only enqueues |
 | Move (`service_migrate`), fail-path undo (`service_migrate_undo`), and dest-up recover (`service_migrate_dest_recover`) | Celery | Dual-host backup mutex; recycle web is safe; recycle worker fails a running Move, undo, or recover. Undo only after cutover / rebind / validate failed. Dest-up recover is only a worker death during `dest_up`: inspect, `compose stop` dest, start source, no DNS change |
 | OS/container patch, update checks, stack jobs, template jobs, `host_reboot` | Celery default queue (`exclusive_job`) | One active job of that type per host. Stack writes share one lane. Reboot is also refused while OS patch, container patch, or backup is active. No backup mutex. Host-down stays pending. Worker recycle fails a running job |
 | Bulk fleet actions | Web → same enqueue paths | Feature-flag skip + exclusive rules |
@@ -54,7 +54,7 @@ flowchart TB
 | Jobs / progress / exclusive types | `app/services/jobs/` (`service.py`; package preserves `patch.object` surface). Move: `app/services/jobs_migrate.py`. Jr-1 handoff: `app/services/jobs_exclusive.py`. Backups, **Move**, and **exclusive_job** on Celery (`app/tasks.py`) |
 | Reports layout (N3a) + Move card (N3b) | `app/services/report_layout.py` · cookie `ph_reports_layout` · `POST /reports/layout` · Move stats from `ops_reports.collect_move_history` (`service_migrate` Jobs) |
 | Service migrate pipeline | `app/services/service_migrate/` · Celery `app.tasks.service_migrate` · undo `undo.py` + `app.tasks.service_migrate_undo` · dest-up recover `dest_up_recover.py` + `app.tasks.service_migrate_dest_recover` |
-| CSP | `app/security/headers.py` — per-request script nonce; `script-src-attr 'unsafe-inline'`; demo Report-Only unless `PIHERDER_CSP_ENFORCE` |
+| CSP | `app/security/headers.py` — per-request script nonce; `script-src-attr 'none'` (Slice 2); demo Report-Only unless `PIHERDER_CSP_ENFORCE` |
 | Docker unused cleanup HTML | `app/services/docker_unused_html.py` |
 | Per-server backup lock | `app/services/server_job_lock.py` |
 | Scheduler | `app/services/scheduler.py` |
@@ -80,7 +80,7 @@ flowchart TB
 | Ops-hero pulse helpers | `app/services/ops_pulse.py` |
 | Instance name, accent, Catalog nav | `app/services/instance_brand.py` · Settings → General → Instance · `POST /herder-backups/instance`. Demo forces official chrome. |
 | Push | `app/services/push.py` |
-| API tokens | `app/services/api_tokens.py`, `app/routers/api_v1.py`. Hosted MCP is `app/routers/mcp.py` + `app/services/mcp_hosted.py` (`POST /mcp`, same Bearer token). The stdio client is [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.2.0**. Home Assistant is [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.4.4**. v1.7.0 paired with **0.3.0**. Neither repo is inside this image. Operator pages: [Agents (MCP)](../operations/mcp.md) · [Home Assistant](../integrations/home-assistant.md) |
+| API tokens | `app/services/api_tokens.py`, `app/routers/api_v1.py`. Hosted MCP is `app/routers/mcp.py` + `app/services/mcp_hosted.py` (`POST /mcp`, same Bearer token). The stdio client is [piherder-mcp](https://github.com/bjorngluck/piherder-mcp). Published adapter **0.3.1**. Home Assistant on this train is [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.5.0** (poll-only Slice 3). Tagged **v1.8.0** paired with plugin **0.4.4**. v1.7.0 paired with **0.3.0**. Neither repo is inside this image. Operator pages: [Agents (MCP)](../operations/mcp.md) · [Home Assistant](../integrations/home-assistant.md) |
 | Herder backup | `app/services/herder_backup.py` |
 | Metrics | `app/services/metrics.py` |
 | Bulk server actions | `app/routers/servers.py` (`POST /servers/bulk`) |

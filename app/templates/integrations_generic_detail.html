@@ -177,7 +177,7 @@
 {% if can_mutate %}
 <div class="card p-4 border-danger/30">
   <form method="post" action="/integrations/{{ integration.id }}/delete"
-        onsubmit="return confirm('Remove this link integration? Host bindings are deleted too.');">
+        data-ph-confirm="Remove this link integration? Host bindings are deleted too.">
     <button type="submit" class="btn btn-secondary text-danger min-h-11">Delete integration</button>
   </form>
 </div>

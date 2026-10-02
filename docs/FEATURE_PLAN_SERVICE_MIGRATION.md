@@ -41,7 +41,7 @@ PiHerder stays **SSH-first**. No agent on the Pis. The herder is the staging hop
 | 12 | Reuse primitives — do not fork compose, rsync, fabric upsert, Pi-hole `restartdns`, cert verify. NPM GET already exists; add **narrow PUT** only |
 | 13 | Cert targets: **clone** onto dest + deploy + verify; disable source target until leftover |
 | 14 | `Job.server_id` = **source**; `details.dest_server_id` = dest |
-| 15 | Kill switch `PIHERDER_SERVICE_MIGRATE=false` until GA-enough. Demo never copies |
+| 15 | `PIHERDER_SERVICE_MIGRATE` defaults **true** on the v1.9 train (set `false` to turn Move off). Demo never copies |
 | 16 | **ACME-in-herder** is out of 1.4 |
 
 ---
@@ -179,7 +179,7 @@ Matches the original verbal list (DNS before dest listen). Not built: longer hol
 
 **Start source stack** is pre-flip only. Auto-rollback is **not** Must and **not** a silent `finally`.
 
-**M-undo (landed v1.6 Undo-1, 2026-09-21):** fail-path only. After names have flipped, named job `service_migrate_undo` previews then confirms: revert DNS/NPM to source, `restartdns`, revert control-plane rows, re-enable the source cert target (dest clone stays), **compose stop dest**, **compose start source**. Dest dir + volumes stay. Never dest `down -v` / volume rm / project rm. Do **not** reverse a green Move (run a new Move B→A). Pre-flip failure is still **Start source stack**. Token API never POSTs migrate or undo. Kill switch `PIHERDER_SERVICE_MIGRATE`. Demo never. See [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
+**M-undo (landed v1.6 Undo-1, 2026-09-21):** fail-path only. After names have flipped, named job `service_migrate_undo` previews then confirms: revert DNS/NPM to source, `restartdns`, revert control-plane rows, re-enable the source cert target (dest clone stays), **compose stop dest**, **compose start source**. Dest dir + volumes stay. Never dest `down -v` / volume rm / project rm. Do **not** reverse a green Move (run a new Move B→A). Pre-flip failure is still **Start source stack**. Undo stays on the UI. There is no undo route on the token API. `POST /api/v1/servers/{id}/moves` with `confirm: true` starts a stop-first Move (v1.9, #24; the Home Assistant card uses it). `POST /jobs` with `service_migrate` stays **400**. MCP has no Move tool. Kill switch `PIHERDER_SERVICE_MIGRATE`. Demo never. See [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 **Undo-2 (v1.8, built on `v1.8.0-dev`):** only a worker death during `dest_up`. Job `service_migrate_dest_recover` inspects dest, then `compose stop` dest and `compose start` source. DNS and NPM stay. A green Move is not this helper.
 
@@ -359,7 +359,7 @@ Align with design principles: auditable privileged actions; secrets encrypted at
 | Service | `app/services/service_migrate/` (preflight, copy, pipeline, leftover) |
 | NPM write | `app/services/integrations/npm.py` PUT `/api/nginx/proxy-hosts/{id}` backend only |
 | Jobs | `app/services/jobs/service.py` type `service_migrate` |
-| Config | `PIHERDER_SERVICE_MIGRATE` default false |
+| Config | `PIHERDER_SERVICE_MIGRATE` default true (v1.9); `false` disables |
 | Router / UI | Docker project ⋯ + wizard partial + JobHold |
 | DNS / FTL | wrap `upsert_service_record` + pihole `run_action` fan-out |
 | Tests | `tests/test_service_migrate.py` |
@@ -376,7 +376,7 @@ Align with design principles: auditable privileged actions; secrets encrypted at
 | 3 | Job.server_id source or dest? | **Locked:** source |
 | 4 | Multiple fabric rows per project? | **Locked:** all matching backend+project |
 | 5 | Default pipeline order | **Locked:** `health_then_dns` |
-| 6 | Kill switch env? | **Locked:** `PIHERDER_SERVICE_MIGRATE=false` until GA-enough |
+| 6 | Kill switch env? | **v1.4–v1.8:** default false. **v1.9 train:** default **true**; `false` still disables |
 
 ---
 

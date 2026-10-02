@@ -4,9 +4,10 @@ CSP is enabled by default. Tailwind is a **compiled** stylesheet (no Play, no
 ``unsafe-eval``). Policy is **self-hosted** (no third-party script CDNs).
 
 v1.6 Slice 1: each request gets a script nonce before render. ``script-src``
-is ``'self' 'nonce-…'`` (no ``'unsafe-inline'``). ``script-src-attr`` stays
-``'unsafe-inline'`` so ``onclick`` handlers keep working. ``style-src`` stays
-``'unsafe-inline'``. ``/docs`` and ``/redoc`` keep today's ``'unsafe-inline'``.
+is ``'self' 'nonce-…'`` (no ``'unsafe-inline'``). v1.9 Slice 2 drops inline
+handlers, so ``script-src-attr`` is ``'none'``. ``style-src`` stays
+``'unsafe-inline'``. ``/docs`` and ``/redoc`` keep ``'unsafe-inline'`` on
+``script-src`` (stock Swagger/ReDoc) and do not set ``script-src-attr``.
 Public demo sends the tightened policy as Report-Only until
 ``PIHERDER_CSP_ENFORCE=true``.
 
@@ -122,7 +123,8 @@ def stamp_inline_scripts(html: str, nonce: str) -> str:
 
     External ``src`` scripts stay as they are (``'self'`` covers ``/static``).
     ``type=application/json`` (and other non-executed types) stay un-nonced.
-    Event-handler attributes are not rewritten.
+    Event-handler attributes are not rewritten here. Product pages do not
+    emit them (CSP Slice 2); ``script-src-attr 'none'`` blocks any leftover.
     """
     token = (nonce or "").strip()
     if not token or not html or "<script" not in html.lower():
@@ -146,9 +148,10 @@ def build_csp(
     nonce: str | None = None,
 ) -> str:
     """Return the Content-Security-Policy value (no header name)."""
-    # App pages: nonce drops script-src 'unsafe-inline' (CSP3). onclick stays
-    # via script-src-attr. style-src stays 'unsafe-inline'.
-    # OpenAPI /docs and /redoc keep 'unsafe-inline' (stock Swagger/ReDoc).
+    # App pages: nonce drops script-src 'unsafe-inline' (CSP3). Slice 2 sets
+    # script-src-attr 'none' (no onclick). style-src stays 'unsafe-inline'.
+    # OpenAPI /docs and /redoc keep script-src 'unsafe-inline' (stock Swagger/ReDoc)
+    # and omit script-src-attr so those pages still fall back to script-src.
     # No 'unsafe-eval' — Tailwind is compiled CSS, not Play.
     # connect-src: same origin only. Modern browsers treat 'self' as covering
     # same-origin fetch + WebSocket. Do **not** allow bare ws:/wss: (any host).
@@ -173,7 +176,7 @@ def build_csp(
         token = (nonce or "").strip()
         if token:
             script_src.append(f"'nonce-{token}'")
-        script_src_attr = "script-src-attr 'unsafe-inline'"
+        script_src_attr = "script-src-attr 'none'"
     # Cloudflare Turnstile (managed challenge loads scripts/frames/workers/images)
     worker_src = ["'self'"]
     img_src = ["'self'", "data:", "blob:"]

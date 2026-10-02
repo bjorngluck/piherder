@@ -44,7 +44,7 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | Logs | Per container / service (modal or full page). Multi-service projects: pick a service **or All services** (project-level `docker compose logs`). Live SSE requires a **signed-in** session |
 | **Stop / Start / Restart all** | Project ⋯ menu → confirm → **Job** with live log (`docker_stack_stop` / `_start` / `_restart`) — **operator+** |
 | **Lock to this host** | Project ⋯ — [Move a service](service-migration.md). Hardware / operator / infra. HAOS always locked. Operator+. |
-| **Move to another host…** | Flag `PIHERDER_SERVICE_MIGRATE` (default **off**). Preflight then **Celery** Job: stop → copy → dest up → DNS/NPM. Recycle **web** is safe; recycle **celery-worker** fails a running Move. NPM proxy-host binding is enough (no fabric row required). Optional leftover: leave stopped, `compose down`, or remove source + named volumes. [Move a service](service-migration.md). |
+| **Move to another host…** | Flag `PIHERDER_SERVICE_MIGRATE` (default **on**; set **false** to hide). Preflight then **Celery** Job: stop → copy → dest up → DNS/NPM. Recycle **web** is safe; recycle **celery-worker** fails a running Move. NPM proxy-host binding is enough (no fabric row required). Optional leftover: leave stopped, `compose down`, or remove source + named volumes. A finished Move has no Undo. [Move a service](service-migration.md). |
 | Container start / stop / restart | Row ⋯ on a single service (immediate; not a full-stack job) — **operator+**; actions allowlisted (`start`/`stop`/`restart`) |
 | Quick edit / Full editor | ⋯ menu — quick modal is compose (± Dockerfile) only; **`.env` and sidecars** are full editor — [Compose edit](compose-edit.md) |
 | Multi-file compose edit | primary compose + override + `.env` + Dockerfile + **compose sets** |
@@ -90,7 +90,7 @@ From a compose project **⋯** menu:
 3. A **Job** runs `docker compose stop|start|restart` over SSH with a live log (same JobHold pattern as Deploy).  
 4. Success refreshes inventory; **Jobs** / **Audit** record `docker_stack_stop` / `_start` / `_restart`.  
 
-Only **one** stack mutation runs at a time per host (shared lane with Deploy and template deploy/redeploy). Operator+ only. Single-container start/stop/restart stay on the **service row** ⋯ menu. Home Assistant plugin **0.4.4** can start, stop, restart, or update that same one service. It does not stop the whole project.
+Only **one** stack mutation runs at a time per host (shared lane with Deploy and template deploy/redeploy). Operator+ only. Single-container start/stop/restart stay on the **service row** ⋯ menu. Home Assistant plugin **0.5.0** can start, stop, restart, or update that same one service, and can **Stop project** (`docker compose stop`, not down or remove) after a confirm. It can also start a stop-first Move. Files on that card stay in the fleet jail.
 
 <figure class="ph-figure" markdown>
   ![Docker project lifecycle](../assets/screenshots/docker-project-lifecycle.png)

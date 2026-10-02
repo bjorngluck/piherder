@@ -117,11 +117,11 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 
 ### Journey Move — Compose project to another host {#journey-move}
 
-**Goal:** An unlocked stack (Grafana-class) runs on dest with its data, name, and maps. Requires `PIHERDER_SERVICE_MIGRATE=true` and two Docker hosts (**v1.4.0** product; **v1.5** runs the Job on Celery). Flag off by default.
+**Goal:** An unlocked stack (Grafana-class) runs on dest with its data, name, and maps. Move is on unless `PIHERDER_SERVICE_MIGRATE=false`. Needs two Docker hosts (**v1.4.0** product; **v1.5** runs the Job on Celery).
 
 | Step | Action | Why |
 |------|--------|-----|
-| 1 | Enable the flag; recreate **web** (and **celery-worker** if you rebuilt the image) | Kill switch default **off**; Move runs on the worker |
+| 1 | Leave the flag unset, or set `PIHERDER_SERVICE_MIGRATE=false` and recreate **web** to turn Move off | Default **on**; Move runs on the worker |
 | 2 | [Lock](../docker/service-migration.md) a hardware-bound stack (or HAOS) | Prove Move is refused |
 | 3 | Unlock a disposable stack; **⋯ → Move to another host…** | Wizard |
 | 4 | Pick dest (wait modal) · remap dest name/ports if needed · read preflight | Blocks before copy; dest name/port overrides clear name/port clashes |
@@ -195,7 +195,7 @@ Full page: [Move a service](../docker/service-migration.md). Do **not** pick **R
 | 2 | Optional Settings → **SSO** | BYO IdP; keep an admin password |
 | 3 | Leave `PIHERDER_SSH_CONSOLE=false` unless you need a browser shell | Default off; XSS on the herder origin is shell-equivalent when on |
 | 3b | Leave `PIHERDER_HOST_FILES=false` until you want jailed SFTP | Default off; [Host Files](../day-to-day/host-files.md) |
-| 3c | Leave `PIHERDER_SERVICE_MIGRATE=false` until you want host→host copy | Default off; [Move a service](../docker/service-migration.md) |
+| 3c | Set `PIHERDER_SERVICE_MIGRATE=false` if you do not want host→host copy | Default **on**; [Move a service](../docker/service-migration.md) |
 | 4 | If you enable it: **Settings → Console** for idle / max / slots; Security for 2FA grant | [Web SSH console](../day-to-day/web-ssh-console.md) · [Settings](../operations/settings.md#console) |
 | 5 | Then: operator + 2FA → Console → **+ Shell** | Same wiki |
 | 6 | **Test connection** pins the host key; reset only after a rebuild | TOFU — mismatch is refused |

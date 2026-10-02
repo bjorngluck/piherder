@@ -1,7 +1,7 @@
 # Decision: one-service container jobs on MCP
 
 **Document:** `docs/DECISION_MCP_SVC.md`  
-**Status:** Locked — 2026-10-01 (Björn, architecture review)  
+**Status:** Locked — 2026-10-01 (Björn, architecture review). Herder allowlist is on `main` (#22) and in image **1.8.1**. Published adapter is **0.3.1** (2026-10-02). Operator walk signed the same day.  
 **Target release:** **v1.9.0** — [PLAN_v1.9.0.md](PLAN_v1.9.0.md)  
 **Related:** [PLAN_v1.8.0.md](PLAN_v1.8.0.md) §14 · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [API.md](API.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md)
 
@@ -32,7 +32,7 @@ Token gates stay as they are: `jobs` scope, `feature:docker` when the token is f
 
 - `trigger_job` grows four `job_type` values. The tool count stays the same.
 - The **v1.9.0** train tags a new piherder-mcp release in the same turn as the herder allowlist, so `uvx` and the MCP registry pick it up.
-- Until that train ships, adapter **0.2.0** stays and these types stay refused.
+- Hosted `/mcp` on herder **1.8.1** accepts the four types. Published adapter **0.3.1** sends them. `uvx` at **0.2.0** still refuses them.
 - An agent with a `jobs` token and docker can start, stop, restart, or redeploy one service without a second click.
 
 ## Out of scope
@@ -41,4 +41,4 @@ Still off MCP: `docker_stack_down`, `docker_stack_remove`, Move (`service_migrat
 
 ## Follow-up
 
-Implement on **v1.9.0** ([PLAN_v1.9.0.md](PLAN_v1.9.0.md)). Herder allowlist and the piherder-mcp companion ship together. This note does not change `MCP_JOB_TYPES`.
+The herder allowlist is on `main` (#22) and in image **1.8.1**. Adapter **0.3.1** is published and lists the same four types. Operator walk signed 2026-10-02. [PLAN_v1.9.0.md](PLAN_v1.9.0.md).

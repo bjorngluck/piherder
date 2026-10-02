@@ -28,10 +28,10 @@
     <a href="/servers/{{ sid }}/docker/logs/{{ container }}?lines=200" class="btn btn-secondary text-xs">Last 200</a>
     <a href="/servers/{{ sid }}/docker/logs/{{ container }}?lines=500" class="btn btn-secondary text-xs">Last 500</a>
     <span class="text-muted text-xs mx-0.5">|</span>
-    <button type="button" onclick="startLiveStream()" class="btn btn-accent text-xs">▶ Live tail</button>
-    <button type="button" onclick="stopLiveStream()" class="btn btn-secondary text-xs">■ Stop</button>
-    <button type="button" onclick="clearLogs()" class="btn btn-secondary text-xs">Clear</button>
-    <button type="button" onclick="toggleAutoScroll()" id="autoscroll-btn" class="btn btn-secondary text-xs">Auto-scroll: ON</button>
+    <button type="button" data-ph-click="startLiveStream" class="btn btn-accent text-xs">▶ Live tail</button>
+    <button type="button" data-ph-click="stopLiveStream" class="btn btn-secondary text-xs">■ Stop</button>
+    <button type="button" data-ph-click="clearLogs" class="btn btn-secondary text-xs">Clear</button>
+    <button type="button" data-ph-click="toggleAutoScroll" id="autoscroll-btn" class="btn btn-secondary text-xs">Auto-scroll: ON</button>
     <a href="?lines=500" class="btn btn-secondary text-xs ml-auto">Reload static</a>
   </div>
 

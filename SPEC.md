@@ -3,7 +3,7 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** Historical phase checklist (v1.0 era). **Current release:** [v1.8.0](docs/RELEASE_v1.8.0.md) · [PLAN](docs/PLAN_v1.8.0.md). Prior Hub line: [v1.7.0](docs/RELEASE_v1.7.0.md). Prior: [v1.6.0](docs/RELEASE_v1.6.0.md).  
+> **Status:** Historical phase checklist (v1.0 era). **Current release:** [v1.8.1](docs/RELEASE_v1.8.1.md) · [PLAN](docs/PLAN_v1.8.0.md). Active train: [PLAN_v1.9.0.md](docs/PLAN_v1.9.0.md) on `v1.9.0-dev`. Prior Hub line: [v1.7.0](docs/RELEASE_v1.7.0.md). Prior: [v1.6.0](docs/RELEASE_v1.6.0.md).  
 > **Last updated:** 2026-10-01 — do not treat this file as the operator guide (use the wiki + RELEASE).
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
@@ -126,7 +126,7 @@ Related backup hardening (same phase):
 - [x] **Per-server backup path allow/deny rules** — default deny OS roots; optional allow/deny prefixes on Backups page; enforced on add-source + `run_backup`.
 
 - [x] **Built-in scheduler UI for container/OS patch apply** — Edit server → Schedules tab; opt-in, default off
-- [x] **Token REST API (v1)** — admin-managed Bearer tokens (`ph_…`); scopes `read`/`jobs`/`edit`/`files` + optional `feature:*`; IP/CIDR allowlist; `PATCH …/features`; docs in [docs/API.md](docs/API.md) + `/docs`. Hosted MCP is `POST /mcp` on this app (same Bearer token). stdio `piherder-mcp` is the optional fallback. `trigger_job` matches that jobs POST list (`host_reboot`, the stack actions on the list, template deploy and redeploy). stdio package **0.2.0**.
+- [x] **Token REST API (v1)** — admin-managed Bearer tokens (`ph_…`); scopes `read`/`jobs`/`edit`/`files` + optional `feature:*`; IP/CIDR allowlist; `PATCH …/features`; docs in [docs/API.md](docs/API.md) + `/docs`. Hosted MCP is `POST /mcp` on this app (same Bearer token). stdio `piherder-mcp` is the optional fallback. `trigger_job` matches that jobs POST list (`host_reboot`, the stack actions on the list, template deploy and redeploy). stdio package **0.3.1**.
 - [x] **Webhook / notification integration** — env `WEBHOOK_*` on new alerts + job finish; optional **Web Push** (VAPID) on new open notifications — see [PWA/push plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md)
 - [x] **Per-server OS-patch and container-patch apply cron** — APScheduler enqueues Celery `exclusive_job` (default queue); only-if-updates; skip if job active; audit as system/scheduler. A web recycle does not fail the row. A worker recycle fails a **running** apply. SSH down stays pending until the host answers or the Settings wait elapses.
 - [x] **OS update check schedule (check-only)** — apt upgradable count + reboot flag; no auto-upgrade — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
@@ -352,7 +352,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [ ] Expanded curated pack (Frigate, HA, n8n, media, …)
 - [ ] Plugin hooks / event webhooks (`job.completed`, `server.added`, …) — prefer REST + n8n over code exec
 - [ ] Ansible inventory / cloud-init bootstrap for new Pis (overlaps H2.75 P4 imaging depth)
-- [x] Home Assistant: HACS integration on HA (fleet + host devices + fleet Lovelace card; container/service/disk sensors from snapshots; details in PiHerder) — **v1.6.0 tagged**, plugin **0.2.4** ([PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7). **v1.7 HA-cards** (plugin **0.3.0**: host, updates, and resources cards, plus `host_reboot`) signed on `v1.7.0-dev` at code freeze 2026-09-28. The 24-hour chart does not draw ([RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md)). **v1.8.0** replaces that with plugin **0.4.4** (one card, history click, one-service start/stop/restart/update; walk and pictures on **0.4.3**). MCP adapter **0.2.0** does not accept those four job types.
+- [x] Home Assistant: HACS integration on HA (fleet + host devices + fleet Lovelace card; container/service/disk sensors from snapshots; details in PiHerder) — **v1.6.0 tagged**, plugin **0.2.4** ([PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md) §7). **v1.7 HA-cards** (plugin **0.3.0**: host, updates, and resources cards, plus `host_reboot`) signed on `v1.7.0-dev` at code freeze 2026-09-28. The 24-hour chart does not draw ([RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md)). **v1.8.0** replaces that with plugin **0.4.4** (one card, history click, one-service start/stop/restart/update; walk and pictures on **0.4.3**). **v1.9 train:** plugin **0.5.0** adds Move, fleet-jail Files, and stop project, poll-only. Published MCP adapter **0.3.1** accepts those four job types. Operator QA signed 2026-10-02. SMB **Copy now** is **v1.10**.
 - [ ] Optional AI (OpenAI-compatible BYO; off by default; no private keys in prompts)
 - [ ] Community: Discord + Discussions; project website / clickthrough
 

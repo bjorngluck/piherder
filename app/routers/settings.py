@@ -54,6 +54,54 @@ router = APIRouter(tags=["settings"])
 _TABS = frozenset({"general", "fleet", "backup", "status", "api", "alerts", "demo"})
 
 
+def _backup_copy_rows(
+    *,
+    drive_saved: bool,
+    smb_saved: bool,
+    drive_email: str,
+    drive_folder: str,
+    drive_schedule: str,
+    drive_kind: str,
+    drive_has_token: bool,
+    smb_host: str,
+    smb_share: str,
+    smb_path: str,
+    smb_user: str,
+    smb_guest: bool,
+    smb_has_password: bool,
+    smb_schedule: str,
+) -> list[dict]:
+    """One card row per destination that is actually saved."""
+    rows: list[dict] = []
+    if drive_saved:
+        who = drive_email or ("signed in" if drive_has_token else "not connected")
+        rows.append({
+            "provider": "drive",
+            "title": "Google Drive",
+            "who": who,
+            "where": "folder " + (drive_folder or "PiHerder"),
+            "schedule": drive_schedule,
+            "label": drive_email or drive_folder or "Google Drive",
+            "can_test": drive_kind == "oauth" and drive_has_token,
+            "can_remove": True,
+        })
+    if smb_saved:
+        where = f"{smb_host}/{smb_share}"
+        if smb_path:
+            where = f"{where}/{smb_path}"
+        rows.append({
+            "provider": "smb",
+            "title": "LAN NAS / SMB",
+            "who": "no login" if smb_guest else (smb_user or "account missing"),
+            "where": where,
+            "schedule": smb_schedule,
+            "label": where,
+            "can_test": bool(smb_guest or smb_has_password),
+            "can_remove": True,
+        })
+    return rows
+
+
 def _form_on(value: Optional[str]) -> bool:
     return value in ("1", "on", "true")
 
@@ -484,6 +532,7 @@ async def settings_page(
     brand = effective_brand()
     public_url = configured_public_origin()
     copy_dest = None
+    copy_provider = "drive"
     copy_has_token = False
     copy_account_email = ""
     copy_account_kind = ""
@@ -492,20 +541,115 @@ async def settings_page(
     copy_client_id = ""
     copy_has_secret = False
     copy_redirect_uri = ""
+    drive_schedule = ""
+    drive_after = False
+    copy_smb_host = ""
+    copy_smb_share = ""
+    copy_smb_path = ""
+    copy_smb_user = ""
+    copy_smb_domain = ""
+    copy_smb_has_password = False
+    smb_schedule = ""
+    smb_after = False
+    copy_can_test = False
+    copy_can_remove = False
+    copy_rows: list[dict] = []
+    drive_saved = False
+    smb_saved = False
+    smb_guest = False
+    folder_provider = ""
+    copy_form_error = False
+    copy_draft_password = ""
+    copy_draft_secret = ""
+    clear_copy_draft = False
     if is_admin:
         try:
+            from ..routers.backup_copies import FORM_ERRORS, read_copy_draft
             from ..services import backup_replicate as copies
 
-            copy_dest = copies.get_or_create(session)
-            account = copies.credential_public(copy_dest)
-            copy_has_token = bool(account.get("saved"))
-            copy_account_email = account.get("email") or ""
-            copy_account_kind = account.get("kind") or ""
-            copy_drive_folder = copies.drive_folder(copy_dest)
-            copy_shared = copies.shared_with_me(copy_dest)
-            copy_oauth = copies.oauth_client(copy_dest)
-            copy_client_id = copy_oauth.get("client_id") or ""
-            copy_has_secret = bool(copy_oauth.get("client_secret"))
+            requested = (qp.get("copy_provider") or "").strip().lower()
+            if requested not in ("drive", "smb"):
+                requested = ""
+            copy_provider = requested or "drive"
+            drive_row = copies.find_destination(session, "drive")
+            smb_row = copies.find_destination(session, "smb")
+            drive_saved = copies.has_saved_destination(drive_row)
+            smb_saved = copies.has_saved_destination(smb_row)
+            copy_dest = True
+            if drive_row is not None:
+                account = copies.credential_public(drive_row)
+                copy_has_token = bool(account.get("saved"))
+                copy_account_email = account.get("email") or ""
+                copy_account_kind = account.get("kind") or ""
+                copy_drive_folder = copies.drive_folder(drive_row)
+                copy_shared = copies.shared_with_me(drive_row)
+                copy_oauth = copies.oauth_client(drive_row)
+                copy_client_id = copy_oauth.get("client_id") or ""
+                copy_has_secret = bool(copy_oauth.get("client_secret"))
+                drive_schedule = drive_row.schedule or ""
+                drive_after = bool(drive_row.after_host_backup)
+            if smb_row is not None:
+                smb_view = copies.smb_public(smb_row)
+                copy_smb_host = smb_view["host"]
+                copy_smb_share = smb_view["share"]
+                copy_smb_path = smb_view["path"]
+                copy_smb_user = smb_view["username"]
+                copy_smb_domain = smb_view["domain"]
+                copy_smb_has_password = bool(smb_view["password_saved"])
+                smb_guest = bool(smb_view.get("guest"))
+                smb_schedule = smb_row.schedule or ""
+                smb_after = bool(smb_row.after_host_backup)
+            copy_rows = _backup_copy_rows(
+                drive_saved=drive_saved,
+                smb_saved=smb_saved,
+                drive_email=copy_account_email,
+                drive_folder=copy_drive_folder if drive_saved else "",
+                drive_schedule=drive_schedule if drive_saved else "",
+                drive_kind=copy_account_kind,
+                drive_has_token=copy_has_token,
+                smb_host=copy_smb_host if smb_saved else "",
+                smb_share=copy_smb_share if smb_saved else "",
+                smb_path=copy_smb_path if smb_saved else "",
+                smb_user=copy_smb_user if smb_saved else "",
+                smb_guest=smb_guest if smb_saved else False,
+                smb_has_password=copy_smb_has_password if smb_saved else False,
+                smb_schedule=smb_schedule if smb_saved else "",
+            )
+            draft = read_copy_draft(request)
+            if draft:
+                clear_copy_draft = True
+                if draft.get("provider") in ("drive", "smb"):
+                    copy_provider = draft["provider"]
+                if copy_provider == "smb":
+                    copy_smb_host = draft.get("host") or ""
+                    copy_smb_share = draft.get("share") or ""
+                    copy_smb_path = draft.get("smb_path") or ""
+                    copy_smb_user = draft.get("username") or ""
+                    copy_smb_domain = draft.get("domain") or ""
+                    smb_schedule = draft.get("schedule_cron") or ""
+                    smb_after = draft.get("after_host_backup") == "1"
+                    copy_draft_password = draft.get("password") or ""
+                else:
+                    copy_client_id = draft.get("client_id") or ""
+                    copy_drive_folder = draft.get("drive_folder") or ""
+                    drive_schedule = draft.get("schedule_cron") or ""
+                    drive_after = draft.get("after_host_backup") == "1"
+                    copy_draft_secret = draft.get("client_secret") or ""
+            copy_error_code = (qp.get("copy_error") or "").strip()
+            copy_form_error = copy_error_code in FORM_ERRORS
+            if requested == "smb" and smb_saved:
+                folder_provider = "smb"
+            elif requested == "drive" and drive_saved:
+                folder_provider = "drive"
+            elif drive_saved:
+                folder_provider = "drive"
+            elif smb_saved:
+                folder_provider = "smb"
+            folders_q = (qp.get("folders") or "").strip().lower()
+            if folders_q == "smb" and smb_saved:
+                folder_provider = "smb"
+            elif folders_q == "drive" and drive_saved:
+                folder_provider = "drive"
             origin = public_url or ""
             if not origin:
                 parsed = urlparse(str(request.base_url))
@@ -515,6 +659,7 @@ async def settings_page(
                 copy_redirect_uri = copies.google_redirect_uri(origin)
         except Exception:
             copy_dest = None
+            copy_provider = "drive"
             copy_has_token = False
             copy_account_email = ""
             copy_account_kind = ""
@@ -522,8 +667,29 @@ async def settings_page(
             copy_shared = False
             copy_client_id = ""
             copy_has_secret = False
+            drive_schedule = ""
+            drive_after = False
+            copy_smb_host = ""
+            copy_smb_share = ""
+            copy_smb_path = ""
+            copy_smb_user = ""
+            copy_smb_domain = ""
+            copy_smb_has_password = False
+            smb_schedule = ""
+            smb_after = False
+            copy_can_test = False
+            copy_can_remove = False
+            copy_rows = []
+            drive_saved = False
+            smb_saved = False
+            smb_guest = False
+            folder_provider = ""
+            copy_form_error = False
+            copy_draft_password = ""
+            copy_draft_secret = ""
+            clear_copy_draft = False
 
-    return templates_mod.templates.TemplateResponse(
+    response = templates_mod.templates.TemplateResponse(
         request=request,
         name="herder_backups.html",
         context={
@@ -532,7 +698,20 @@ async def settings_page(
             "backups": backups,
             "herder_backup_dir": str(hb.HERDER_BACKUP_DIR),
             "copy_dest": copy_dest,
+            "copy_provider": copy_provider,
             "copy_has_token": copy_has_token,
+            "copy_can_test": copy_can_test,
+            "copy_can_remove": copy_can_remove,
+            "drive_schedule": drive_schedule,
+            "drive_after": drive_after,
+            "copy_smb_host": copy_smb_host,
+            "copy_smb_share": copy_smb_share,
+            "copy_smb_path": copy_smb_path,
+            "copy_smb_user": copy_smb_user,
+            "copy_smb_domain": copy_smb_domain,
+            "copy_smb_has_password": copy_smb_has_password,
+            "smb_schedule": smb_schedule,
+            "smb_after": smb_after,
             "copy_account_email": copy_account_email,
             "copy_account_kind": copy_account_kind,
             "copy_drive_folder": copy_drive_folder,
@@ -542,7 +721,16 @@ async def settings_page(
             "copy_redirect_uri": copy_redirect_uri,
             "copy_error": qp.get("copy_error"),
             "copy_saved": qp.get("copy_saved"),
+            "copy_removed": qp.get("copy_removed"),
             "copy_test": qp.get("copy_test"),
+            "copy_rows": copy_rows,
+            "drive_saved": drive_saved,
+            "smb_saved": smb_saved,
+            "smb_guest": smb_guest,
+            "folder_provider": folder_provider,
+            "copy_form_error": copy_form_error,
+            "copy_draft_password": copy_draft_password,
+            "copy_draft_secret": copy_draft_secret,
             "herder_config": cfg,
             "tz_choices": app_cfg.get_available_timezones(),
             "schedule_status": schedule_status,
@@ -622,6 +810,12 @@ async def settings_page(
             ),
         },
     )
+    if clear_copy_draft:
+        from ..security.auth import cookie_delete_kwargs
+        from ..routers.backup_copies import COPY_DRAFT_COOKIE
+
+        response.delete_cookie(COPY_DRAFT_COOKIE, **cookie_delete_kwargs())
+    return response
 
 
 @router.post("/herder-backups/demo-restore")

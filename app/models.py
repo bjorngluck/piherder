@@ -504,7 +504,8 @@ class ApiToken(SQLModel, table=True):
 class BackupDestination(SQLModel, table=True):
     """Fleet copy of the local backup drive (path A). Not a per-host setting.
 
-    ``credentials_encrypted`` is Fernet JSON (Drive: service account email and private key).
+    ``credentials_encrypted`` is Fernet JSON (Drive: OAuth token or service account.
+    SMB: username and password).
     ``selection_json`` is {"checked": [...], "skipped": [...]} under BACKUP_ROOT.
     """
 

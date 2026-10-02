@@ -77,7 +77,7 @@
       <form method="post" action="/templates/deployments/{{ dep.id }}/adopt-host"
             data-wait-title="Accepting host files"
             data-wait-message="Reading host compose/.env/sidecars into desired state…"
-            onsubmit="return confirm('Accept live host files as desired state for this deployment? Config version will bump; drift will clear. Other hosts are not changed.');">
+            data-ph-confirm="Accept live host files as desired state for this deployment? Config version will bump; drift will clear. Other hosts are not changed.">
         <button type="submit" class="btn btn-secondary min-h-11 text-sm"
                 title="Copy host compose/.env/sidecars into PiHerder desired state (for intentional host-only edits)"
                 data-testid="adopt-host-btn">Accept host as desired</button>
@@ -283,7 +283,7 @@
         {% else %}
         <button type="button"
                 class="btn btn-secondary text-xs min-h-11 px-3 inline-flex items-center gap-2"
-                onclick="document.getElementById('secrets-unlock-panel').classList.toggle('hidden')"
+                data-ph-toggle="secrets-unlock-panel"
                 title="Re-enter 2FA to decrypt secrets">
           <span aria-hidden="true">👁</span> View secrets
         </button>

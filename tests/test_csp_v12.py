@@ -15,7 +15,7 @@ def test_build_csp_core_directives(monkeypatch):
     assert "script-src 'self'" in csp
     script = [p for p in csp.split("; ") if p.startswith("script-src ")][0]
     assert "'unsafe-inline'" not in script
-    assert "script-src-attr 'unsafe-inline'" in csp
+    assert "script-src-attr 'none'" in csp
     style = [p for p in csp.split("; ") if p.startswith("style-src ")][0]
     assert "'unsafe-inline'" in style
     assert "'unsafe-eval'" not in csp  # Tailwind is compiled CSS, not Play
@@ -44,10 +44,11 @@ def test_openapi_ui_csp_allows_jsdelivr(monkeypatch):
     docs_script = [p for p in docs.split("; ") if p.startswith("script-src ")][0]
     assert "'unsafe-inline'" in docs_script
     assert "nonce-" not in docs_script
+    assert "script-src-attr" not in docs
     app = hdr.build_csp(for_openapi_ui=False, nonce="abc")
     assert "jsdelivr" not in app
     assert "'nonce-abc'" in app
-    assert "script-src-attr 'unsafe-inline'" in app
+    assert "script-src-attr 'none'" in app
 
 
 def test_build_csp_http_lab_no_upgrade(monkeypatch):
@@ -165,12 +166,13 @@ def test_login_page_stamps_nonce_and_enforces(monkeypatch):
         app.dependency_overrides.pop(get_session, None)
     assert res.status_code == 200
     csp = res.headers.get("content-security-policy") or ""
-    assert "script-src-attr 'unsafe-inline'" in csp
+    assert "script-src-attr 'none'" in csp
     assert "'nonce-" in csp
     script = [p for p in csp.split("; ") if p.startswith("script-src ")][0]
     assert "'unsafe-inline'" not in script
     assert 'nonce="' in res.text
-    assert "onclick" in res.text
+    assert "onclick=" not in res.text
+    assert "/static/js/csp-events.js" in res.text
 
 
 def test_csp_can_disable(monkeypatch):

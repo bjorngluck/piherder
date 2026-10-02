@@ -253,11 +253,14 @@ def api_root(auth: ApiAuth = Depends(get_api_auth)):
 def api_health(auth: ApiAuth = Depends(get_api_auth)):
     auth.require(tok_svc.SCOPE_READ)
     feat = tok_svc.feature_keys_allowed(auth.scopes)
+    from ..services.service_migrate.host_lock import migrate_surface_allowed
+
     return {
         "ok": True,
         "scopes": sorted(auth.scopes),
         "allowed_features": sorted(feat) if feat is not None else None,
         "client_ip": auth.client_ip,
+        "service_migrate": bool(migrate_surface_allowed()),
     }
 
 
@@ -927,6 +930,94 @@ async def create_server_job(
             "status": job.status,
             "job_type": job.job_type,
             "job": job_service.job_public_dict(job),
+        },
+    )
+
+
+class MoveCreateBody(BaseModel):
+    """Stop-first Move. Leftover on the source is always stopped. No undo."""
+
+    dest_server_id: int
+    project: str = Field(..., description="Compose project name. Not a filesystem path.")
+    confirm: bool = False
+
+
+@router.post(
+    "/servers/{server_id}/moves",
+    status_code=202,
+    summary="Start a Move",
+    description=(
+        "Requires scope jobs, feature:docker when the token is feature-restricted, "
+        "and the docker flag on source and destination. confirm must be true. "
+        "The herder Move flag still gates this route. Not an MCP tool. No undo."
+    ),
+)
+def create_server_move(
+    server_id: int,
+    body: MoveCreateBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services.service_migrate import host_lock as host_lock_svc
+
+    if not host_lock_svc.migrate_surface_allowed():
+        raise HTTPException(status_code=404, detail="Service migration is off")
+    if body.confirm is not True:
+        raise HTTPException(status_code=400, detail="confirm must be true")
+
+    source = session.get(Server, server_id)
+    dest = session.get(Server, int(body.dest_server_id))
+    if not source or not dest:
+        raise HTTPException(status_code=404, detail="Server not found")
+
+    auth.require(tok_svc.SCOPE_JOBS)
+    auth.require_feature("docker")
+    auth.require_server_feature(source, "docker")
+    auth.require_server_feature(dest, "docker")
+    try:
+        project = host_lock_svc.compose_project_name(body.project)
+    except host_lock_svc.HostLockError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    if int(source.id) == int(dest.id):
+        raise HTTPException(status_code=400, detail="destination must differ from source")
+
+    try:
+        job = job_service.enqueue_service_migrate(
+            int(source.id),
+            int(dest.id),
+            project,
+            user_id=auth.user_id,
+            leftover="stopped",
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
+            client_ip=auth.client_ip,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)[:200]) from exc
+    except host_lock_svc.HostLockError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    except job_service.JobAlreadyActive as exc:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": "A stack or backup job is already running on source or dest",
+                "job": job_service.job_public_dict(exc.job),
+                "already_active": True,
+            },
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)[:200]) from exc
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "job_id": job.id,
+            "status": job.status,
+            "job_type": "service_migrate",
+            "project": project,
+            "leftover": "stopped",
+            "job": job_service.job_public_dict(job),
+            "already_active": False,
         },
     )
 

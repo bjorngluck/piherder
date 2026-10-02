@@ -39,13 +39,13 @@
   <div class="pt-2 border-t border-border">
     <div class="font-medium mb-2 text-sm">Auth method <span class="text-muted font-normal">(keys recommended)</span></div>
     <label class="flex items-center gap-2 text-sm min-h-11">
-      <input type="radio" name="key_mode" value="generate" checked onchange="toggleAuthFields()"> Generate new keypair (recommended)
+      <input type="radio" name="key_mode" value="generate" checked data-ph-change="toggleAuthFields"> Generate new keypair (recommended)
     </label>
     <label class="flex items-center gap-2 text-sm min-h-11">
-      <input type="radio" name="key_mode" value="upload" onchange="toggleAuthFields()"> Upload private key
+      <input type="radio" name="key_mode" value="upload" data-ph-change="toggleAuthFields"> Upload private key
     </label>
     <label class="flex items-center gap-2 text-sm min-h-11 text-warning">
-      <input type="radio" name="key_mode" value="password" onchange="toggleAuthFields()"> Use password only (discouraged)
+      <input type="radio" name="key_mode" value="password" data-ph-change="toggleAuthFields"> Use password only (discouraged)
     </label>
   </div>
 

@@ -14,7 +14,7 @@
           <label class="block text-xs text-muted mb-1">Schedule</label>
           <select class="settings-backup-control bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 mb-1"
                   aria-label="Self-backup schedule preset"
-                  onchange="var el=this.form.querySelector('[name=schedule_cron]'); if(this.value&&el){el.value=this.value;}">
+                  data-ph-fill="schedule_cron">
             <option value="">Custom / advanced cron…</option>
             {% for val, lab in cron_presets %}
             <option value="{{ val }}" {% if (cfg.schedule_cron or '0 3 * * *') == val %}selected{% endif %}>{{ lab }}</option>
@@ -150,77 +150,103 @@
   </div>
 
   <div class="card p-5 mb-4" id="drive-copy">
-    <div class="flex items-start justify-between gap-3 mb-3">
-      <div class="min-w-0">
-        <h2 class="font-semibold text-text m-0">Copy the backup drive</h2>
-        <p class="text-xs text-muted mt-1">
-          {% if copy_account_kind == 'oauth' and copy_has_token %}
-          Google Drive · {{ copy_account_email or 'signed in' }} · folder {{ copy_drive_folder or 'PiHerder' }}
-          · {% if copy_dest.schedule %}{{ copy_dest.schedule | cron_human(current_tz if current_tz is defined else get_app_timezone()) }}{% else %}manual{% endif %}
-          {% elif copy_has_token %}
-          A service-account key is saved. Connect Google so new files use your Drive space.
-          {% else %}
-          No external copy yet. Host backups stay on this PiHerder.
-          {% endif %}
-        </p>
-      </div>
-      {% if copy_dest %}
-      <div class="flex gap-2 shrink-0">
-        {% if copy_account_kind == 'oauth' and copy_has_token %}
-        <form method="post" action="/backup-copies/test">
-          <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Test</button>
-        </form>
-        {% endif %}
-        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy">
-          {% if copy_has_token %}Edit{% else %}Set up{% endif %}
-        </button>
-      </div>
-      {% endif %}
+    <div class="mb-3">
+      <h2 class="font-semibold text-text m-0">Copy the backup drive</h2>
+      <p class="text-xs text-muted mt-1">Each saved destination is its own copy. Host backups stay on this PiHerder.</p>
     </div>
     {% if copy_saved %}<p class="text-sm text-accent mb-3">Saved.</p>{% endif %}
-    {% if copy_test == 'ok' %}
-    <p class="text-sm text-accent mb-3">The folder is shared with this account. Nothing was copied.</p>
-    {% elif copy_test == 'folder' %}
-    <p class="text-sm text-danger mb-3">That folder was not found in this Google account’s My Drive. The name must match a folder you own.</p>
-    {% elif copy_test == 'auth' %}
-    <p class="text-sm text-danger mb-3">Google rejected the sign-in. Connect Google again.</p>
-    {% elif copy_test == 'account' %}
-    <p class="text-sm text-danger mb-3">Connect Google before testing.</p>
-    {% elif copy_test == 'rclone' %}
-    <p class="text-sm text-danger mb-3">rclone is not available in this container. Rebuild the image, then test again.</p>
-    {% elif copy_test == 'timeout' %}
-    <p class="text-sm text-danger mb-3">Google did not answer in time. Try the test again.</p>
-    {% elif copy_test == 'demo' %}
-    <p class="text-sm text-danger mb-3">The public demo does not contact Google Drive.</p>
-    {% elif copy_test %}
-    <p class="text-sm text-danger mb-3">The test did not succeed.</p>
+    {% if copy_removed %}
+    <p class="text-sm text-accent mb-3">
+      {% if copy_provider == 'smb' %}LAN share removed. Files already on the share were left there.{% else %}Google Drive removed. Files already in Drive were left there.{% endif %}
+    </p>
     {% endif %}
-    {% if copy_error == 'cron' %}
-    <p class="text-sm text-danger mb-3">Choose a schedule from the list, or enter a 5-field cron.</p>
-    {% elif copy_error == 'client' %}
-    <p class="text-sm text-danger mb-3">Paste the OAuth client ID and secret from Google Cloud, then connect again.</p>
-    {% elif copy_error == 'origin' %}
-    <p class="text-sm text-danger mb-3">PiHerder could not tell which address to send Google back to. Set PIHERDER_PUBLIC_URL and try again.</p>
-    {% elif copy_error == 'state' %}
-    <p class="text-sm text-danger mb-3">The Google sign-in did not match this browser. Connect again.</p>
-    {% elif copy_error == 'google' %}
-    <p class="text-sm text-danger mb-3">Google did not finish the sign-in. Check the redirect URL on the OAuth client, then connect again.</p>
-    {% elif copy_error == 'folder' %}
-    <p class="text-sm text-danger mb-3">That Drive folder name is not valid.</p>
-    {% elif copy_error == 'provider' %}
-    <p class="text-sm text-danger mb-3">That service is not available yet.</p>
-    {% elif copy_error %}
+    {% if copy_error == 'confirm' %}
+    <p class="text-sm text-danger mb-3">Confirm remove before this destination is deleted.</p>
+    {% elif copy_error == 'removed' %}
+    <p class="text-sm text-danger mb-3">That destination is not saved, so nothing was copied.</p>
+    {% elif copy_error == 'missing' %}
+    <p class="text-sm text-danger mb-3">That destination is already gone.</p>
+    {% elif copy_error and not copy_form_error %}
     <p class="text-sm text-danger mb-3">{{ copy_error }}</p>
+    {% endif %}
+    {% if copy_rows %}
+    <div class="source-list mb-3">
+      {% for row in copy_rows %}
+      <div class="source-row herder-backup-row">
+        <div class="source-row-body min-w-0">
+          <div class="source-row-path">{{ row.title }}</div>
+          <div class="source-row-when text-muted">
+            {{ row.who }}
+            <span class="text-muted">·</span>
+            {{ row.where }}
+            <span class="text-muted">·</span>
+            {% if row.schedule %}{{ row.schedule | cron_human(current_tz if current_tz is defined else get_app_timezone()) }}{% else %}manual{% endif %}
+            {% if folder_provider == row.provider %}<span class="text-muted">· folders below</span>{% endif %}
+          </div>
+          {% if copy_test and copy_provider == row.provider %}
+            {% if row.provider == 'smb' %}
+              {% if copy_test == 'ok' %}<p class="text-sm text-accent mt-1">The share listed. Nothing was copied.</p>
+              {% elif copy_test == 'folder' %}<p class="text-sm text-danger mt-1">That share or path was not found.</p>
+              {% elif copy_test == 'auth' %}<p class="text-sm text-danger mt-1">The share rejected the username or password.</p>
+              {% elif copy_test == 'account' %}<p class="text-sm text-danger mt-1">Save the host and share before testing. A login needs both a username and a password.</p>
+              {% elif copy_test == 'host' %}<p class="text-sm text-danger mt-1">Could not reach that host.</p>
+              {% elif copy_test == 'rclone' %}<p class="text-sm text-danger mt-1">rclone is not available in this container. Rebuild the image, then test again.</p>
+              {% elif copy_test == 'timeout' %}<p class="text-sm text-danger mt-1">The share did not answer in time. Try the test again.</p>
+              {% elif copy_test == 'demo' %}<p class="text-sm text-danger mt-1">The public demo does not contact this share.</p>
+              {% else %}<p class="text-sm text-danger mt-1">The test did not succeed.</p>{% endif %}
+            {% else %}
+              {% if copy_test == 'ok' %}<p class="text-sm text-accent mt-1">The folder is shared with this account. Nothing was copied.</p>
+              {% elif copy_test == 'folder' %}<p class="text-sm text-danger mt-1">That folder was not found in this Google account’s My Drive. The name must match a folder you own.</p>
+              {% elif copy_test == 'auth' %}<p class="text-sm text-danger mt-1">Google rejected the sign-in. Connect Google again.</p>
+              {% elif copy_test == 'account' %}<p class="text-sm text-danger mt-1">Connect Google before testing.</p>
+              {% elif copy_test == 'rclone' %}<p class="text-sm text-danger mt-1">rclone is not available in this container. Rebuild the image, then test again.</p>
+              {% elif copy_test == 'timeout' %}<p class="text-sm text-danger mt-1">Google did not answer in time. Try the test again.</p>
+              {% elif copy_test == 'demo' %}<p class="text-sm text-danger mt-1">The public demo does not contact Google Drive.</p>
+              {% else %}<p class="text-sm text-danger mt-1">The test did not succeed.</p>{% endif %}
+            {% endif %}
+          {% endif %}
+        </div>
+        <div class="source-row-tools herder-backup-tools">
+          {% if row.can_test %}
+          <form method="post" action="/backup-copies/test">
+            <input type="hidden" name="provider" value="{{ row.provider }}">
+            <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Test</button>
+          </form>
+          {% endif %}
+          <a href="/herder-backups?tab=backup&amp;folders={{ row.provider }}#bc-win" class="btn btn-secondary text-xs min-h-9 px-2.5">Folders</a>
+          <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy" data-copy-edit="{{ row.provider }}">Edit</button>
+          {% if row.can_remove %}
+          <form method="post" action="/backup-copies/remove"
+                data-confirm="{% if row.provider == 'smb' %}Remove LAN share {{ row.label }}? The saved account and schedule are deleted in PiHerder. Files already on the share stay.{% else %}Remove Google Drive ({{ row.label }})? The saved account and schedule are deleted in PiHerder. Files already on Drive stay.{% endif %}"
+                data-confirm-title="Remove backup destination"
+                data-confirm-label="Remove"
+                data-confirm-danger>
+            <input type="hidden" name="provider" value="{{ row.provider }}">
+            <input type="hidden" name="confirm" value="remove">
+            <button type="submit" class="btn btn-danger text-xs min-h-9 px-2.5">Remove</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-muted mb-3">No external copy yet. Host backups stay on this PiHerder.</p>
+    {% endif %}
+    {% if copy_dest and (not drive_saved or not smb_saved) %}
+    <div class="mb-3">
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy" data-copy-add>Add destination</button>
+    </div>
     {% endif %}
     {% if not copy_dest %}
     <p class="text-sm text-muted">The destination table is not ready. Run migrations, then reload.</p>
     {% else %}
-    <div id="settings-drive-copy-modal" class="{{ 'hidden' if not copy_error else '' }} fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
+    <div id="settings-drive-copy-modal" class="{% if copy_form_error %}flex{% else %}hidden{% endif %} fixed inset-0 z-50 bg-black/70 settings-sheet-overlay"
          data-settings-modal="drive-copy" role="dialog" aria-modal="true" aria-labelledby="settings-drive-copy-title">
       <div class="modal-content settings-sheet card ph-modal-brand">
         <div class="settings-sheet-head">
           <div class="min-w-0 pr-2">
-            <h2 id="settings-drive-copy-title" class="font-semibold text-text m-0">Copy the backup drive</h2>
+            <h2 id="settings-drive-copy-title" class="font-semibold text-text m-0">{% if copy_form_error %}{% if copy_provider == 'smb' %}LAN share{% else %}Google Drive{% endif %}{% else %}Add a destination{% endif %}</h2>
             <p class="text-xs text-muted mt-1">A failed copy fails its own job. Restore still uses the local copies.</p>
           </div>
           <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
@@ -241,19 +267,33 @@
             <p class="text-sm text-danger">That Drive folder name is not valid.</p>
             {% elif copy_error == 'provider' %}
             <p class="text-sm text-danger">That service is not available yet.</p>
-            {% elif copy_error %}
+            {% elif copy_error == 'host' %}
+            <p class="text-sm text-danger">Enter the NAS hostname or IP.</p>
+            {% elif copy_error == 'share' %}
+            <p class="text-sm text-danger">Enter the share name.</p>
+            {% elif copy_error == 'user' %}
+            <p class="text-sm text-danger">Enter a username and a password together, or leave both empty for a share that needs no login.</p>
+            {% elif copy_error == 'password' %}
+            <p class="text-sm text-danger">Enter a password with the username, or leave both empty. A blank password keeps a password that is already saved.</p>
+            {% elif copy_error == 'path' %}
+            <p class="text-sm text-danger">That path on the share is not valid.</p>
+            {% elif copy_error == 'domain' %}
+            <p class="text-sm text-danger">That domain or workgroup is not valid.</p>
+            {% elif copy_form_error and copy_error %}
             <p class="text-sm text-danger">{{ copy_error }}</p>
             {% endif %}
-            <div>
-              <label class="block text-xs text-muted mb-1" for="copy-provider">Service</label>
-              <select id="copy-provider" name="provider"
-                      class="settings-backup-control w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
-                <option value="drive" selected>Google Drive</option>
-                <option value="onedrive">OneDrive (more to follow)</option>
-                <option value="smb">LAN NAS / SMB (more to follow)</option>
-              </select>
+            <input type="hidden" id="copy-provider" name="provider" value="{% if copy_form_error %}{{ copy_provider or 'drive' }}{% endif %}">
+            <div data-copy-pick class="space-y-2 {% if copy_form_error %}hidden{% endif %}">
+              <p class="text-xs text-muted">Choose one. Each saved destination is its own copy.</p>
+              {% if not drive_saved %}
+              <button type="button" class="btn btn-secondary w-full min-h-11 text-sm" data-copy-pick-provider="drive">Google Drive</button>
+              {% endif %}
+              {% if not smb_saved %}
+              <button type="button" class="btn btn-secondary w-full min-h-11 text-sm" data-copy-pick-provider="smb">LAN share</button>
+              {% endif %}
+              <button type="button" class="btn btn-secondary w-full min-h-11 text-sm" disabled>OneDrive. Not available yet.</button>
             </div>
-            <div data-copy-help="drive" class="text-xs text-muted border border-border rounded p-3 bg-surface">
+            <div data-copy-help="drive" class="text-xs text-muted border border-border rounded p-3 bg-surface {% if copy_provider == 'smb' %}hidden{% endif %}">
               <p class="mb-2">Do these in order in Google Cloud, then paste the client here. Leave the app in <strong>Testing</strong>. Do not publish it. Publishing asks Google to verify the Drive scope.</p>
               <ol class="space-y-1 list-decimal pl-4">
                 <li>Open a <a href="https://console.cloud.google.com/projectcreate" class="text-accent hover:underline" target="_blank" rel="noopener">project</a>, or select the one you already use.</li>
@@ -272,8 +312,11 @@
                 <a href="{{ docs_url }}day-to-day/backups/#set-up-google-drive" class="text-accent hover:underline" target="_blank" rel="noopener">Same steps on the backup page</a>
               </p>
             </div>
-            <p data-copy-help="later" class="hidden text-sm text-muted">That service is not available yet. Google Drive is the one this page can save.</p>
-            <div data-copy-fields="drive" class="space-y-3">
+            <div data-copy-help="smb" class="text-xs text-muted border border-border rounded p-3 bg-surface {% if copy_provider != 'smb' %}hidden{% endif %}">
+              <p>rclone on this PiHerder copies the ticked folders from <span class="font-mono text-text">/backups</span> to the share. Host backups still land here first. Leave the username and password both empty when the share needs no login. Leave the password blank on its own only after one is saved. Kerberos is not used.</p>
+            </div>
+            <p data-copy-help="later" class="hidden text-sm text-muted">That service is not available yet. Google Drive and a LAN share are the ones this page can save.</p>
+            <fieldset data-copy-fields="drive" {% if copy_provider == 'smb' %}disabled{% endif %} class="space-y-3 border-0 p-0 m-0 min-w-0 {% if copy_provider == 'smb' %}hidden{% endif %}">
               <div>
                 <label class="block text-xs text-muted mb-1" for="copy-client-id">OAuth client ID</label>
                 <input id="copy-client-id" name="client_id" autocomplete="off" spellcheck="false"
@@ -284,6 +327,7 @@
               <div>
                 <label class="block text-xs text-muted mb-1" for="copy-client-secret">OAuth client secret</label>
                 <input id="copy-client-secret" name="client_secret" type="password" autocomplete="off"
+                       {% if copy_draft_secret %}value="{{ copy_draft_secret }}"{% endif %}
                        placeholder="{% if copy_has_secret %}Saved. Leave blank to keep it.{% else %}GOCSPX-… required the first time{% endif %}"
                        class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11">
               </div>
@@ -294,26 +338,83 @@
               </div>
               <div>
                 <label class="block text-xs text-muted mb-1" for="copy-schedule">Schedule</label>
-                <select id="copy-schedule" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
+                <select id="copy-schedule" data-copy-schedule class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
                         aria-label="Drive copy schedule preset">
-                  <option value="manual" {% if not copy_dest.schedule %}selected{% endif %}>Manual only</option>
-                  <option value="custom" {% if copy_dest.schedule and copy_dest.schedule not in cron_preset_values %}selected{% endif %}>Custom / advanced cron…</option>
+                  <option value="manual" {% if not drive_schedule %}selected{% endif %}>Manual only</option>
+                  <option value="custom" {% if drive_schedule and drive_schedule not in cron_preset_values %}selected{% endif %}>Custom / advanced cron…</option>
                   {% for val, lab in cron_presets %}
-                  <option value="{{ val }}" {% if copy_dest.schedule == val %}selected{% endif %}>{{ lab }}</option>
+                  <option value="{{ val }}" {% if drive_schedule == val %}selected{% endif %}>{{ lab }}</option>
                   {% endfor %}
                 </select>
-                <input id="copy-cron" type="text" name="schedule_cron" value="{{ copy_dest.schedule or '' }}" placeholder="0 3 * * *"
-                       class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11 mt-1 {% if not copy_dest.schedule or copy_dest.schedule in cron_preset_values %}hidden{% endif %}">
+                <input id="copy-cron" data-copy-cron type="text" name="schedule_cron" value="{{ drive_schedule or '' }}" placeholder="0 3 * * *"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11 mt-1 {% if not drive_schedule or drive_schedule in cron_preset_values %}hidden{% endif %}">
               </div>
               <label class="flex items-center gap-2 min-h-11">
-                <input type="checkbox" name="after_host_backup" value="1" {% if copy_dest.after_host_backup %}checked{% endif %}>
+                <input type="checkbox" name="after_host_backup" value="1" {% if drive_after %}checked{% endif %}>
                 After a host backup succeeds, copy that host’s checked folders
               </label>
-            </div>
+            </fieldset>
+            <fieldset data-copy-fields="smb" {% if copy_provider != 'smb' %}disabled{% endif %} class="space-y-3 border-0 p-0 m-0 min-w-0 {% if copy_provider != 'smb' %}hidden{% endif %}">
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-smb-host">Host</label>
+                <input id="copy-smb-host" name="host" autocomplete="off" spellcheck="false"
+                       value="{{ copy_smb_host or '' }}" placeholder="nas.local or 192.168.1.20"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-smb-share">Share</label>
+                <input id="copy-smb-share" name="share" autocomplete="off" spellcheck="false"
+                       value="{{ copy_smb_share or '' }}" placeholder="backups"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-smb-path">Path on the share</label>
+                <input id="copy-smb-path" name="smb_path" autocomplete="off" spellcheck="false"
+                       value="{{ copy_smb_path or '' }}" placeholder="Optional, for example PiHerder"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-smb-user">Username</label>
+                <input id="copy-smb-user" name="username" autocomplete="off" spellcheck="false"
+                       value="{{ copy_smb_user or '' }}"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-smb-password">Password</label>
+                <input id="copy-smb-password" name="password" type="password" autocomplete="off"
+                       {% if copy_draft_password %}value="{{ copy_draft_password }}"{% endif %}
+                       placeholder="{% if copy_smb_has_password %}Saved. Leave blank to keep it.{% else %}Leave empty, with the username, when the share needs no login{% endif %}"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11">
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-smb-domain">Domain or workgroup</label>
+                <input id="copy-smb-domain" name="domain" autocomplete="off" spellcheck="false"
+                       value="{{ copy_smb_domain or '' }}" placeholder="Optional"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="copy-smb-schedule">Schedule</label>
+                <select id="copy-smb-schedule" data-copy-schedule class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
+                        aria-label="LAN share copy schedule preset">
+                  <option value="manual" {% if not smb_schedule %}selected{% endif %}>Manual only</option>
+                  <option value="custom" {% if smb_schedule and smb_schedule not in cron_preset_values %}selected{% endif %}>Custom / advanced cron…</option>
+                  {% for val, lab in cron_presets %}
+                  <option value="{{ val }}" {% if smb_schedule == val %}selected{% endif %}>{{ lab }}</option>
+                  {% endfor %}
+                </select>
+                <input data-copy-cron type="text" name="schedule_cron" value="{{ smb_schedule or '' }}" placeholder="0 3 * * *"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11 mt-1 {% if not smb_schedule or smb_schedule in cron_preset_values %}hidden{% endif %}">
+              </div>
+              <label class="flex items-center gap-2 min-h-11">
+                <input type="checkbox" name="after_host_backup" value="1" {% if smb_after %}checked{% endif %}>
+                After a host backup succeeds, copy that host’s checked folders
+              </label>
+            </fieldset>
           </div>
-          <div class="settings-sheet-foot flex gap-2">
+          <div class="settings-sheet-foot flex gap-2 {% if not copy_form_error %}hidden{% endif %}" data-copy-actions>
+            <button type="button" class="btn btn-secondary min-h-11 text-sm {% if copy_form_error %}hidden{% endif %}" data-copy-back>Back</button>
             <button type="submit" class="btn btn-secondary min-h-11 text-sm" data-copy-save>Save</button>
-            <button type="submit" class="btn btn-accent min-h-11 text-sm" formaction="/backup-copies/google/start" formmethod="post">Connect Google</button>
+            <button type="submit" class="btn btn-accent min-h-11 text-sm {% if copy_provider == 'smb' %}hidden{% endif %}" data-copy-connect formaction="/backup-copies/google/start" formmethod="post">Connect Google</button>
           </div>
         </form>
       </div>
@@ -323,42 +424,87 @@
       var form = document.getElementById('drive-copy-form');
       if (!form) return;
       var provider = document.getElementById('copy-provider');
-      var schedule = document.getElementById('copy-schedule');
-      var cron = document.getElementById('copy-cron');
+      var pick = form.querySelector('[data-copy-pick]');
+      var actions = form.querySelector('[data-copy-actions]');
+      var back = form.querySelector('[data-copy-back]');
+      var title = document.getElementById('settings-drive-copy-title');
+      var adding = false;
       function show(name, on) {
         form.querySelectorAll('[data-copy-help="' + name + '"], [data-copy-fields="' + name + '"]').forEach(function (el) {
           el.classList.toggle('hidden', !on);
+          if (el.hasAttribute('data-copy-fields')) el.disabled = !on;
         });
       }
-      function applyProvider() {
-        var drive = !provider || provider.value === 'drive';
+      function applyProvider(value) {
+        var drive = value === 'drive';
+        var smb = value === 'smb';
+        if (provider) provider.value = drive || smb ? value : '';
+        if (pick) pick.classList.add('hidden');
+        if (actions) actions.classList.remove('hidden');
         show('drive', drive);
-        show('later', !drive);
+        show('smb', smb);
+        show('later', !drive && !smb);
+        if (back) back.classList.toggle('hidden', !adding);
         var save = form.querySelector('[data-copy-save]');
-        if (save) save.disabled = !drive;
-        form.querySelectorAll('[data-copy-fields="drive"] input, [data-copy-fields="drive"] textarea, [data-copy-fields="drive"] select').forEach(function (el) {
-          el.disabled = !drive;
-        });
+        if (save) save.disabled = !drive && !smb;
+        var connect = form.querySelector('[data-copy-connect]');
+        if (connect) {
+          connect.classList.toggle('hidden', !drive);
+          connect.disabled = !drive;
+        }
+        if (title) title.textContent = smb ? 'LAN share' : 'Google Drive';
       }
-      function applySchedule() {
+      function showPicker() {
+        adding = true;
+        if (provider) provider.value = '';
+        if (pick) pick.classList.remove('hidden');
+        if (actions) actions.classList.add('hidden');
+        show('drive', false);
+        show('smb', false);
+        show('later', false);
+        if (title) title.textContent = 'Add a destination';
+      }
+      function bindSchedule(root) {
+        var schedule = root.querySelector('[data-copy-schedule]');
+        var cron = root.querySelector('[data-copy-cron]');
         if (!schedule || !cron) return;
-        var custom = schedule.value === 'custom';
-        cron.classList.toggle('hidden', !custom);
-        if (schedule.value === 'manual') cron.value = '';
-        else if (!custom) cron.value = schedule.value;
+        function apply() {
+          var custom = schedule.value === 'custom';
+          cron.classList.toggle('hidden', !custom);
+          if (schedule.value === 'manual') cron.value = '';
+          else if (!custom) cron.value = schedule.value;
+        }
+        schedule.addEventListener('change', apply);
+        apply();
       }
-      if (provider) provider.addEventListener('change', applyProvider);
-      if (schedule) schedule.addEventListener('change', applySchedule);
-      applyProvider();
-      applySchedule();
+      form.querySelectorAll('[data-copy-fields]').forEach(bindSchedule);
+      form.querySelectorAll('[data-copy-pick-provider]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          adding = true;
+          applyProvider(btn.getAttribute('data-copy-pick-provider'));
+        });
+      });
+      if (back) back.addEventListener('click', showPicker);
+      document.querySelectorAll('[data-copy-add]').forEach(function (btn) {
+        btn.addEventListener('click', showPicker);
+      });
+      document.querySelectorAll('[data-copy-edit]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          adding = false;
+          applyProvider(btn.getAttribute('data-copy-edit') || 'drive');
+        });
+      });
+      if (provider && provider.value) applyProvider(provider.value);
     })();
     </script>
 
+    {% if folder_provider %}
     <div class="bc-win" id="bc-win">
       <div class="bc-toolbar">
         <button type="button" class="btn btn-secondary text-xs min-h-10 bc-tree-toggle" id="bc-tree-toggle">Folders</button>
         <nav class="bc-path" id="bc-path" aria-label="Backup path"></nav>
         <form method="post" action="/backup-copies/run">
+          <input type="hidden" name="provider" value="{{ folder_provider }}">
           <button type="submit" class="btn btn-accent min-h-10 text-sm">Copy now</button>
         </form>
       </div>
@@ -377,6 +523,8 @@
       </div>
       <div class="bc-status" id="bc-status"></div>
     </div>
+    <p class="text-xs text-muted mt-2">Folders and Copy now apply to {% if folder_provider == 'smb' %}the LAN share{% else %}Google Drive{% endif %} only.</p>
+    {% endif %}
     {% endif %}
   </div>
 </div>
@@ -459,7 +607,7 @@
     .bc-hide-sm { display: none; }
   }
 </style>
-{% if copy_dest %}
+{% if folder_provider %}
 <script>
 (function () {
   var current = "";
@@ -515,8 +663,12 @@
       expanded[acc] = true;
     });
   }
+  var copyProvider = "{{ folder_provider }}";
+  function listUrl(rel) {
+    return "/backup-copies/list?p=" + encodeURIComponent(rel) + "&provider=" + encodeURIComponent(copyProvider);
+  }
   function fetchListing(rel, done) {
-    fetch("/backup-copies/list?p=" + encodeURIComponent(rel), { credentials: "same-origin" })
+    fetch(listUrl(rel), { credentials: "same-origin" })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.ok) return;
@@ -653,7 +805,7 @@
   function load(next) {
     var gen = ++viewGen;
     var rel = next || "";
-    fetch("/backup-copies/list?p=" + encodeURIComponent(rel), { credentials: "same-origin" })
+    fetch(listUrl(rel), { credentials: "same-origin" })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (gen !== viewGen) return;
@@ -670,7 +822,7 @@
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: itemPath, on: !!on })
+      body: JSON.stringify({ path: itemPath, on: !!on, provider: copyProvider })
     }).then(function (r) { return r.json(); }).then(function (data) {
       if (!data.ok) { setStatus(data.error || "Could not update the selection.", true); load(current); return; }
       cache = {};
@@ -694,7 +846,7 @@
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ changes: changes })
+      body: JSON.stringify({ changes: changes, provider: copyProvider })
     }).then(function (r) { return r.json(); }).then(function (data) {
       if (!data.ok) { setStatus(data.error || "Could not update the selection.", true); }
       cache = {};

@@ -356,15 +356,20 @@ DOCKER_INVENTORY_INTERVAL_MIN = 10
 
 
 def schedule_backup_copy_job(destination_id: int):
-    """APScheduler entry: enqueue a Drive copy. The worker runs rclone."""
+    """APScheduler entry: enqueue a Drive or SMB copy. The worker runs rclone."""
     try:
         from ..database import engine
         from ..models import BackupDestination
-        from .backup_replicate import enqueue
+        from .backup_replicate import credentials_saved, enqueue
 
         with Session(engine) as db:
             dest = db.get(BackupDestination, destination_id)
-            if dest and dest.enabled and (dest.schedule or "").strip():
+            if (
+                dest
+                and dest.enabled
+                and credentials_saved(dest)
+                and (dest.schedule or "").strip()
+            ):
                 enqueue(db, dest)
     except Exception as e:
         logger.warning("[SCHEDULER] Drive copy enqueue failed for %s: %s", destination_id, e)
@@ -386,11 +391,13 @@ def sync_backup_copy_schedule(scheduler, HAS_SCHEDULER):
         from ..models import BackupDestination
         from sqlmodel import select
 
+        from .backup_replicate import credentials_saved
+
         with Session(engine) as db:
             rows = db.exec(select(BackupDestination)).all()
             for dest in rows:
                 cron = (dest.schedule or "").strip()
-                if not dest.enabled or not cron or not dest.id:
+                if not dest.enabled or not credentials_saved(dest) or not cron or not dest.id:
                     continue
                 try:
                     trigger = _cron_trigger(cron)
@@ -403,7 +410,7 @@ def sync_backup_copy_schedule(scheduler, HAS_SCHEDULER):
                     args=[dest.id],
                     id=f"backup_copy_{dest.id}",
                     replace_existing=True,
-                    name=f"Drive copy {dest.name}",
+                    name=f"Backup copy {dest.name}",
                 )
     except Exception as e:
         logger.warning("[SCHEDULER] Drive copy schedule sync failed: %s", e)

@@ -158,7 +158,7 @@
        title="Click for job details">
     <button type="button"
             class="audit-event-hit"
-            onclick="showJobDetailsModal(JOBS[{{ loop.index0 }}])">
+            data-ph-click="showJobDetailsModal" data-ph-list="JOBS" data-ph-index="{{ loop.index0 }}">
       <div class="audit-event-top">
         <span class="status-pill {{ 'status-success' if sd == 'success' else 'status-failed' if sd == 'failed' else 'status-running' if sd in ('running','pending') else 'status-cancelled' }}">
           {{ sd }}
@@ -170,7 +170,7 @@
       <div class="audit-event-meta">
         {% if j.server_id %}
         <span>Server:
-          <a href="/servers/{{ j.server_id }}" onclick="event.stopPropagation()">{{ j.server_name or ('#' ~ j.server_id) }}</a>
+          <a href="/servers/{{ j.server_id }}" data-ph-stop>{{ j.server_name or ('#' ~ j.server_id) }}</a>
         </span>
         {% else %}
         <span>Server: —</span>
@@ -249,7 +249,7 @@ const JOBS = {{ jobs | tojson | safe }};
         <button type="button" id="job-detail-cancel" class="btn btn-danger min-h-11 text-sm px-3 hidden">Cancel job</button>
         <button type="button" id="job-detail-undo" class="btn btn-secondary min-h-11 text-sm px-3 hidden">Undo move</button>
         <button type="button" id="job-detail-dest-recover" class="btn btn-secondary min-h-11 text-sm px-3 hidden">Inspect destination</button>
-        <button type="button" onclick="hideJobDetailsModal()" class="btn btn-secondary min-h-11 text-sm px-3">Close</button>
+        <button type="button" data-ph-click="hideJobDetailsModal" class="btn btn-secondary min-h-11 text-sm px-3">Close</button>
       </div>
     </div>
     <div class="ph-detail-log-label">Log / details</div>
@@ -302,7 +302,7 @@ function renderJobDetailsModal(job, opts) {
          job.status === 'failed' ? '✗ Finished with failure' :
          'Finished · ' + esc(job.status)) +
         (job.summary ? ' — ' + esc(job.summary) : '') +
-        ' · <button type="button" class="text-accent underline" onclick="window.location.reload()">Refresh list</button>' +
+        ' · <button type="button" class="text-accent underline" data-ph-reload>Refresh list</button>' +
         '</span>'
       );
     }

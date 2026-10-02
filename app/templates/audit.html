@@ -142,7 +142,7 @@
     <label class="ops-f-check">
       <input type="hidden" name="hide_noise" value="0" id="audit-hide-noise-off">
       <input type="checkbox" name="hide_noise" value="1" id="audit-hide-noise-on" {% if hide_noise %}checked{% endif %}
-             onchange="document.getElementById('audit-hide-noise-off').disabled=this.checked">
+             data-ph-disable-checked="audit-hide-noise-off">
       Hide incomplete
     </label>
     <div class="ops-f-actions">
@@ -175,7 +175,7 @@
           role="listitem"
           title="Click to open full details"
           aria-label="{{ log.action_label or log.action }} — click for details"
-          onclick="showAuditDetailsModal(AUDIT_LOGS[{{ loop.index0 }}])">
+          data-ph-click="showAuditDetailsModal" data-ph-list="AUDIT_LOGS" data-ph-index="{{ loop.index0 }}">
     <div class="audit-event-top">
       <span class="status-pill {{ 'status-success' if sd == 'success' else 'status-failed' if sd == 'failed' else 'status-running' if sd == 'running' else 'status-stopped' if sd == 'stopped' else 'status-cancelled' }}">
         {{ sd }}
@@ -188,7 +188,7 @@
     <div class="audit-event-meta">
       {% if log.server_id %}
       <span>Server:
-        <a href="/servers/{{ log.server_id }}" onclick="event.stopPropagation()">{{ log.server_name or ('#' ~ log.server_id) }}</a>
+        <a href="/servers/{{ log.server_id }}" data-ph-stop>{{ log.server_name or ('#' ~ log.server_id) }}</a>
       </span>
       {% else %}
       <span>Server: —</span>
@@ -246,7 +246,7 @@ const AUDIT_LOGS = {{ logs | tojson | safe }};
         <h3 id="audit-detail-title" class="ph-detail-title">Event details</h3>
         <div id="audit-detail-meta" class="audit-detail-meta"></div>
       </div>
-      <button type="button" onclick="hideAuditDetailsModal()" class="btn btn-secondary min-h-11 text-sm px-3 flex-shrink-0">Close</button>
+      <button type="button" data-ph-click="hideAuditDetailsModal" class="btn btn-secondary min-h-11 text-sm px-3 flex-shrink-0">Close</button>
     </div>
     <div class="ph-detail-log-label">Output / details</div>
     <pre id="audit-details-content" class="ph-detail-log">—</pre>

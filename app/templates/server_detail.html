@@ -45,8 +45,8 @@
       {% endif %}
     </p>
     <div class="ops-hero-actions">
-      <button type="button" onclick="showEditServerModal()" class="btn btn-secondary min-h-11 text-sm">Edit</button>
-      <button type="button" onclick="showSshAccessModal()" class="btn btn-secondary min-h-11 text-sm" title="Deploy key, rotate, test connection">SSH access</button>
+      <button type="button" data-ph-click="showEditServerModal" class="btn btn-secondary min-h-11 text-sm">Edit</button>
+      <button type="button" data-ph-click="showSshAccessModal" class="btn btn-secondary min-h-11 text-sm" title="Deploy key, rotate, test connection">SSH access</button>
       {% if files_enabled|default(false) %}
       <a href="/servers/{{ server.id }}/files"
          class="btn btn-secondary min-h-11 text-sm inline-flex items-center no-underline"
@@ -58,7 +58,7 @@
               class="btn btn-secondary min-h-11 text-sm inline-flex items-center"
               data-testid="open-console"
               title="{% if demo_console|default(false) %}Open demo console (simulated){% else %}Open SSH console popup{% endif %}"
-              onclick="openPiHerderConsolePopup({{ server.id }})">Console</button>
+              data-ph-click="openPiHerderConsolePopup" data-ph-args='[{{ server.id | tojson }}]'>Console</button>
       {# Floating terminal popup (the console itself — not a full-page essay). #}
       <div id="ph-console-popup" class="ph-console-popup hidden" role="dialog" aria-modal="true"
            aria-label="SSH console" data-testid="console-popup">
@@ -487,7 +487,7 @@
       })();
       </script>
       {% endif %}
-      <button type="button" onclick="showSystemInfoModal()" class="btn btn-secondary min-h-11 text-sm">System info</button>
+      <button type="button" data-ph-click="showSystemInfoModal" class="btn btn-secondary min-h-11 text-sm">System info</button>
     </div>
     {% include "partials/host_switcher.html" %}
   </div>
@@ -634,7 +634,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <span class="feature-chip status-pill status-failed">reboot pending</span>
   {% endif %}
   {% if not server.backup_enabled and not server.os_patch_enabled and not server.container_patch_enabled %}
-  <span class="feature-chip feature-off">No features enabled — use <button type="button" class="text-accent underline" onclick="showEditServerModal()">Edit</button></span>
+  <span class="feature-chip feature-off">No features enabled — use <button type="button" class="text-accent underline" data-ph-click="showEditServerModal">Edit</button></span>
   {% endif %}
   {% if nmap_discovery %}
   {% set _ndchip = nmap_discovery %}
@@ -1039,9 +1039,9 @@ document.addEventListener('DOMContentLoaded', function() {
 {# Hidden triggers for ⋯ menu (same pattern as list / Docker) #}
 <div id="server-detail-action-triggers" class="hidden" aria-hidden="true">
   {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
-  <button type="button" data-detail-act="backup-log" onclick="openBackupLog(null, {{ full_backup_job.id }})"></button>
+  <button type="button" data-detail-act="backup-log" data-ph-click="openBackupLog" data-ph-args="[null, {{ full_backup_job.id }}]"></button>
   {% if full_backup_job.status == 'running' %}
-  <button type="button" data-detail-act="backup-stop" onclick="activePollJobId={{ full_backup_job.id }}; stopCurrentBackup()"></button>
+  <button type="button" data-detail-act="backup-stop" data-ph-set='{{ {"activePollJobId": full_backup_job.id} | tojson }}' data-ph-click="stopCurrentBackup"></button>
   {% endif %}
   {% else %}
   <form method="post" action="/servers/{{ server.id }}/run/backup" class="backup-run-form" data-detail-form="backup">
@@ -1052,7 +1052,7 @@ document.addEventListener('DOMContentLoaded', function() {
         data-job-hold="Container patch" data-job-hold-close="reload">
     <button type="submit"></button>
   </form>
-  <button type="button" data-detail-act="os-patch" onclick="showOsPatchModal()"></button>
+  <button type="button" data-detail-act="os-patch" data-ph-click="showOsPatchModal"></button>
   <form method="post" action="/servers/{{ server.id }}/run/retention" data-detail-form="retention"
         data-job-hold="Retention cleanup" data-job-hold-close="reload">
     <button type="submit"></button>
