@@ -1,54 +1,70 @@
 # PiHerder v1.9.0
 
-**2 October 2026.** Code freeze. Not tagged. Package stays **1.8.1** until the version bump. Do not treat this page as a shipped release.
+**2 October 2026.** Draft for the **v1.9.0** release. Not tagged yet. Until you upgrade, About still says **1.8.1**.
 
-Move is on unless you turn it off. A LAN share can sit beside Google Drive as its own copy of `/backups`. You can remove one of those destinations without clearing the other. Home Assistant plugin **0.5.0** can stop a whole project, move one, and use the fleet-jail Files browser. Clicks in the product UI no longer use inline `onclick` handlers.
+Move is on unless you turn it off. Backups can copy on to a NAS share as well as Google Drive, and you can remove one of those copies without touching the other. Home Assistant plugin **0.5.0** can stop a whole project, move one, and browse files in the fleet jail. An agent can start, stop, restart, or update one container.
 
-The four one-service agent jobs (`container_start`, `container_stop`, `container_restart`, `container_redeploy`) are already on the **1.8.1** image and on adapter **0.3.1**. This train keeps them.
+**Image:** not on Hub yet. After the tag, [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) will be `1.9.0` · `1.9` · `latest` (amd64 + arm64). Pins `1.8.1` / `1.8` and `1.8.0` stay valid. Pins `1.7.0` / `1.7` stay valid. The public demo stays the **1.7.0** image.
 
-**Image:** not published for **1.9.0**. Current Hub tags stay `1.8.1` · `1.8` · `latest`. Pins `1.8.0` and `1.7.0` / `1.7` stay valid. The public demo stays the **1.7.0** image.
-
-Operator how-to: [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/) · [Home Assistant](https://piherder-docs.hacknow.info/integrations/home-assistant/) · [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Move a service](https://piherder-docs.hacknow.info/docker/service-migration/). Technical record: [PLAN_v1.9.0](PLAN_v1.9.0.md). Maintainer QA: [QA_v1.9.0](QA_v1.9.0.md).
+Operator how-to: [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Move a service](https://piherder-docs.hacknow.info/docker/service-migration/) · [Home Assistant](https://piherder-docs.hacknow.info/integrations/home-assistant/) · [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/). Technical record: [PLAN_v1.9.0](PLAN_v1.9.0.md). Maintainer QA: [QA_v1.9.0](QA_v1.9.0.md).
 
 ---
 
 ## What’s new
 
-### A LAN share can take a copy of the backup drive
+### A backup can also copy on to a NAS
 
-Host backups still rsync into `/backups` on this PiHerder. That directory stays the default, and restore still uses it. Settings → PiHerder backup → **Copy the backup drive** can also send the ticked folders to one SMB share. Google Drive and the share are two hops. Both can be saved. Each has its own row, with **Test**, **Folders**, **Edit**, and **Remove**.
+Host backups still land in a folder on the PiHerder machine. That folder stays the default, and restore still uses it. Settings → PiHerder backup → **Copy the backup drive** can then send the ticked folders to a share on your network, as well as to Google Drive.
 
-**Add destination** asks which kind you are adding, then opens that form. There is no service dropdown on the add sheet. OneDrive is listed as more to follow and cannot be selected.
+Drive and the share are separate. You can keep both. Each one is its own row, with **Test**, **Folders**, **Edit**, and **Remove**. **Add destination** asks whether you are adding Google Drive or a LAN share, then opens the form for that one. OneDrive is in the list as more to follow. You cannot select it yet.
 
-A share with no login saves when the username and password are both empty. That row reads **no login**. A blank password on an existing account keeps the saved password. A username without a password, or a password without a username, is refused. **Test** checks the share and does not copy the tree. The password is stored with the instance master key and is not written to the job log.
+A share that needs no login saves when you leave the username and password empty. The row then reads **no login**. If an account is already saved, leaving the password blank keeps that password. A username without a password, or a password without a username, is refused. **Test** checks that PiHerder can see the share. It does not copy files. The password is not shown again and is not written into the job log.
 
-**Remove** deletes that one saved row and its secret. The other row stays. Files already on Drive or on the share stay where they are. The public demo refuses the wipe. This is not a job, not a token route, and not an MCP tool.
+**Remove** deletes that one saved destination. The other one stays. Files already in Drive, or already on the share, stay where they are. The public demo will not remove a destination, and it will not upload.
 
-**Copy now**, the schedule, and the follow-up after a host backup are in the product. The live copy onto a dedicated NAS was not walked on this train. That walk, including OneDrive, is **v1.10**.
+**Copy now**, a schedule, and a copy after a host backup are in this release. The full copy test on a dedicated NAS is not done yet. That test, and OneDrive, are the next release.
 
 Wiki: [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/).
 
 ### Move is on unless you turn it off
 
-`PIHERDER_SERVICE_MIGRATE` defaults to on. Set it to `false` and recreate **web** to hide Move. The wizard still asks before it starts. The copy is still stop-first. A finished Move still has no Undo.
+On 1.8, Move stayed hidden until you set a switch. On 1.9 it is available as soon as you upgrade. The project menu shows **Move to another host…**. The wizard still asks before it starts. The project stops on the source, copies, and starts on the destination. A Move that finished still has no Undo. Run a new Move the other way if you need it back.
 
-`POST /api/v1/servers/{id}/moves` with `confirm: true` starts one Move. `POST /jobs` with `service_migrate` is still **400**. Hosted MCP has no Move tool. The public demo does not copy.
+To keep Move hidden, set `PIHERDER_SERVICE_MIGRATE=false` and recreate **web** before you rely on the new image. The public demo does not copy a project.
+
+The Home Assistant card can start the same Move when the herder says Move is on. It asks first. The source is left stopped. The card does not offer Undo.
+
+An agent still cannot start a Move.
 
 Wiki: [Move a service](https://piherder-docs.hacknow.info/docker/service-migration/).
 
-### Home Assistant plugin 0.5.0
+### Home Assistant can stop a project, move one, and open files
 
-Install [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **[0.5.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.0)** with HACS, then restart Home Assistant. It is not inside the PiHerder image. Set the dashboard resource to `/local/piherder-dashboard-card.js?v=0.5.0` as a JavaScript module, and hard-refresh. The **Plugin** sensor reads **0.5.0**.
+Install [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha) **[0.5.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.0)** with HACS, then restart Home Assistant. The plugin is not inside the PiHerder image. Set the dashboard resource to `/local/piherder-dashboard-card.js?v=0.5.0` as a JavaScript module, and hard-refresh. The **Plugin** sensor reads **0.5.0**. Delete an older `?v=0.4.4` resource if it is still there.
 
-The card stays poll-only. There is no herder webhook. **Stop project** asks first, then runs `docker compose stop`. It does not remove containers or volumes. **Move** shows when health `service_migrate` is true, asks first, and posts `POST /moves`. The source is left stopped. A finished Move has no Undo on the card. **Files** stays in the fleet jail. Delete asks first. The card does not open Home Assistant `/config`.
+**Stop project** asks first, then stops the containers in that compose project. It does not delete containers or volumes.
 
-One-service start, stop, restart, and update already shipped on **0.4.4**. A `read` token shows no job buttons.
+**Move** is on the Host tab when this herder has Move turned on. Pick the project and the destination. It asks first.
+
+**Files** lists the fleet jail, the same files the token is allowed to see. Delete asks first and removes one file or an empty folder. It does not open Home Assistant’s own `/config`.
+
+Start, stop, restart, and update for one container already shipped on plugin **0.4.4**. A token that can only read shows no buttons. The card still checks in on a timer. PiHerder does not call Home Assistant when a job finishes.
 
 Wiki: [Home Assistant](https://piherder-docs.hacknow.info/integrations/home-assistant/).
 
-### Clicks no longer use inline handlers
+### An agent can start, stop, restart, or update one container
 
-Product pages use `data-ph-*` and `/static/js/csp-events.js`. The app Content-Security-Policy sets `script-src-attr 'none'`. Script nonces from 1.6 stay. `/docs` and `/redoc` still allow `'unsafe-inline'` scripts. There is no new screen.
+If you already run the **1.8.1** image, hosted agents can do this today. This release keeps it. `container_start`, `container_stop`, `container_restart`, and `container_redeploy` need the compose project directory and the one service name. The rest of the project stays up. There is no confirm dialog on the agent. The Home Assistant card still asks first.
+
+The installable adapter is [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) **0.3.1** (`uvx piherder-mcp`). A machine that still has **0.2.0** will refuse those four. A client that already points at hosted `/mcp` does not install the adapter.
+
+Still refused: Move, undo, nmap, the console, `docker compose down`, and remove.
+
+Wiki: [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/).
+
+### The web UI blocks inline click scripts
+
+Buttons and forms look the same. PiHerder no longer puts click code inside the page HTML. The API documentation pages are unchanged. There is nothing new to configure.
 
 ---
 
@@ -56,28 +72,28 @@ Product pages use `data-ph-*` and `/static/js/csp-events.js`. The app Content-Se
 
 | | Default |
 |--|---------|
-| Move a service | **on** (`PIHERDER_SERVICE_MIGRATE`). Set `false` to hide it |
+| Move a service | **on**. Set `PIHERDER_SERVICE_MIGRATE=false` to hide it |
 | Console mux | **off** per host (and never on HAOS or the demo) |
-| Web SSH console | **off** (`PIHERDER_SSH_CONSOLE`) |
-| Host Files (real SFTP) | **off** (`PIHERDER_HOST_FILES`) |
+| Web SSH console | **off** |
+| Host Files | **off** |
 | Google Drive copy | off until you connect an account |
 | LAN share copy | off until you save a share |
-| MCP | off until you create a token. No second container |
+| Agents (MCP) | off until you create a token. No second container |
 | Catalog in the nav | **on** |
 
 ---
 
 ## Upgrade from 1.8.1
 
-No new database revision. **1.8.0** already applied Alembic **047** (`backup_destination`). **1.8.1** already pins PyJWT **2.15.1** and urllib3 **2.8.0**.
+There is no new database step. **1.8.0** already added the backup-destination table. **1.8.1** already updated the security libraries.
 
-1. Full DR self-backup. Keep `PIHERDER_MASTER_KEY`.
-2. After the tag exists, pull `bjorngluck/piherder:1.9.0` (or `1.9` / `latest`).
-3. `docker compose pull && docker compose up -d` — recreate **web** and **celery-worker**.
-4. Confirm About / footer says **1.9.0** after the version bump. Until that bump it still says **1.8.1**.
-5. Move is **on** unless `PIHERDER_SERVICE_MIGRATE=false`. An install that must not copy should set `false` before recreate.
-6. HACS: update [piherder-ha](https://github.com/bjorngluck/piherder-ha) to **0.5.0**, restart Home Assistant, and set the card resource query to `v=0.5.0`.
-7. If you use `uvx piherder-mcp`, install **0.3.1**. Hosted `/mcp` on **1.8.1** already accepts the four one-service jobs. **0.2.0** does not send them.
+1. Take a full DR self-backup. Keep `PIHERDER_MASTER_KEY`.
+2. After the **1.9.0** image is published, pull `bjorngluck/piherder:1.9.0` (or `1.9` / `latest` once those tags move).
+3. `docker compose pull && docker compose up -d`. Recreate **web** and **celery-worker**. The app code is not a folder on the host.
+4. Confirm About / footer says **1.9.0**.
+5. Move is **on**. If this install must not copy a project to another host, set `PIHERDER_SERVICE_MIGRATE=false` before you recreate **web**.
+6. In HACS, update [piherder-ha](https://github.com/bjorngluck/piherder-ha) to **0.5.0**, restart Home Assistant, and set the card address to `?v=0.5.0`.
+7. If you use `uvx piherder-mcp`, install **0.3.1**. **0.2.0** does not start, stop, restart, or update one container.
 
 ---
 
@@ -85,9 +101,10 @@ No new database revision. **1.8.0** already applied Alembic **047** (`backup_des
 
 | | |
 |--|--|
-| Copy now | In the product. Not walked on a dedicated NAS. That test, and OneDrive, are **v1.10**. |
-| OneDrive | Listed. Cannot be selected. No rclone hop. |
-| MCP | Bearer token only. No OAuth. Move, undo, nmap, the console, token admin, `docker compose down`, and remove stay off the tool. |
-| Home Assistant | The plugin is a separate HACS repo. No webhook. Files stay in the fleet jail. Stop project is not `docker compose down`. |
+| NAS copy | Saving a share and **Test** are signed off. A full **Copy now** onto a dedicated NAS is the next release, together with OneDrive. |
+| OneDrive | Listed under **Add destination**. You cannot select it. |
+| Google Drive | Unchanged from 1.8. A folder you created in the Drive UI needs the full Drive permission. A hard stop of the copy worker can leave the job **running**. |
 | Move | On by default. A finished Move has no Undo. The public demo does not copy. |
-| Not this release | Path C (a host writing straight to Drive or the NAS), MCP OAuth, and the **Copy now** sign-off. |
+| Home Assistant | The plugin is a separate install. Stop project does not delete containers or volumes. Files stay in the fleet jail. |
+| Agents | A token only. No separate sign-in for the agent. Move, undo, nmap, the console, down, and remove stay off the tool. |
+| Not this release | A copy that never lands on the herder first. OneDrive. The full NAS copy test. |
