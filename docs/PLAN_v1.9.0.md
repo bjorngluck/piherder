@@ -1,16 +1,16 @@
 # PiHerder v1.9.0 — one-service MCP, LAN share, Move on by default
 
-**Status:** **Active** on `v1.9.0-dev` (tip includes #25). Product slices below are **on this branch**. Package stays **`1.8.0`**. Adapter stays published **`0.2.0`**. Neither bump is this train's docs pass.  
+**Status:** **Active** on `v1.9.0-dev`. Product slices below are **on this branch**. Package stays **`1.8.1`** until the v1.9 freeze. Adapter stays published **`0.2.0`**. The **1.9.0** and **0.3.0** tags are freeze-only.  
 **Date opened:** 2026-10-01  
 **Git branch:** `v1.9.0-dev` → `main` · tag `v1.9.0` at freeze  
-**Package / image version:** stays **`1.8.0`** until freeze. Image tags at freeze: `1.9.0` / `1.9` / `latest`. Pins `1.8.0` / `1.8` stay valid.  
+**Package / image version:** stays **`1.8.1`** until freeze. Image tags at freeze: `1.9.0` / `1.9` / `latest`. Pins `1.8.1` / `1.8` and `1.8.0` stay valid.  
 **Theme:** **MCP-svc**, a selectable LAN share, Move on by default, then the card and backup honesty that landed with them  
 **Baseline:** `v1.8.0` (tagged 2026-10-01; Hub digest `sha256:8ce50bbce758e622a996cd58557b0846e03cb02613b09471405222df620c2e89`)  
 **Mode:** Landed on this branch vs **freeze-only**. Landed: **MCP-svc** · **LAN NAS / SMB** · **Move default-on** · **Remove one backup dest** (#25) · **HA Slice 3** (plugin **0.5.0**, poll-only) · **CSP Slice 2**. Hygiene: **Supply-chain locks** (refreshed on this branch). Freeze-only: herder **1.9.0**, adapter **0.3.0**, tags and images. **OneDrive** stays discovery-only. Discover (no client): **Path C** · **MCP OAuth**.  
 **QA:** [QA_v1.9.0.md](QA_v1.9.0.md) (walks written, boxes empty until signed — **not** the operator wiki). Shot list is open. PNGs are not in the tree. Walks include the #28 per-destination rows, guest SMB, and a failed Save that keeps the form.  
 **Related:** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [Home Assistant](../wiki/integrations/home-assistant.md)
 
-> **Train open 2026-10-01.** The image tag stays **v1.8.0**. `main` already includes the herder allowlist (pull request #22). This branch is that `main` plus the rest of the train, through Remove (#25). The public demo stays the **1.7.0** image. The Home Assistant plugin stays a separate HACS repo (**0.5.0** on this train, not inside the image). Release notes (`RELEASE_v1.9.0.md`) are written at freeze. Do not treat this plan as a tagged release.
+> **Train open 2026-10-01.** The image tag stays **v1.8.1**. `main` already includes the herder allowlist (pull request #22) and the **1.8.1** patch. This branch is that `main` plus the rest of the train. The public demo stays the **1.7.0** image. The Home Assistant plugin stays a separate HACS repo (**0.5.0** on this train, not inside the image). Release notes (`RELEASE_v1.9.0.md`) are written at freeze. Do not treat this plan as a tagged release.
 
 ---
 
@@ -68,7 +68,7 @@ Landed on this branch:
 | Out | **AC-fg** · Brand-3 · ACME-in-herder · NPM CRUD · richer Files API · **N3c** · **M-live** |
 | Deferred follow-on | `dependabot.yml`, Dependabot security updates, CodeQL, Actions SHA pins, `CODEOWNERS`. Sibling repos in [§4](#4-supply-chain-locks-must-planned) |
 | Not a backlog item | Home Assistant plugin stays HACS [piherder-ha](https://github.com/bjorngluck/piherder-ha). Not inside the image |
-| Version bump | Freeze only. About / footer stay **1.8.0** until then |
+| Version bump | Freeze only. About / footer stay **1.8.1** until then |
 | Demo | Stays the published **1.7.0** image. Do not redeploy this branch |
 | Move flag | Defaults **true**. `false` still disables. Finished Move has no Undo. UI wizard, HA card, and `POST /moves`. Not MCP. Not `POST /jobs` |
 | Adapter | Published **0.2.0** until freeze (**0.3.0** is freeze-only). Hosted `/mcp` already accepts the four types |
@@ -156,4 +156,4 @@ Tag honesty: **v1.9.0** tags only with **MCP-svc** on both clients. The herder a
 
 ---
 
-*Package stays `1.8.0` until freeze. Operator walks live in [QA_v1.9.0.md](QA_v1.9.0.md).*
+*Package stays `1.8.1` until freeze. Operator walks live in [QA_v1.9.0.md](QA_v1.9.0.md).*
