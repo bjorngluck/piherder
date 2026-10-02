@@ -3,7 +3,7 @@
 **Branch:** `v1.9.0-dev` (includes Backup Settings UX #28) → `main` · tag **`v1.9.0`** (cut after freeze)  
 **Code freeze:** not set  
 **Package:** stays **`1.8.1`** until freeze. About / footer stay **1.8.1**  
-**Operator QA:** signed 2026-10-02 by Björn: **MCP-svc**, **Remove one backup dest** (including observability), **Move default-on** (including health), **CSP Slice 2**, **HA Slice 3**, and **HA Move**. **LAN NAS / SMB** is signed except the last three boxes (Test, Copy now, Fernet), still in progress. The **1.8 regression** block is not part of this sign-off  
+**Operator QA:** signed 2026-10-02 by Björn: **MCP-svc**, **Remove one backup dest** (including observability), **Move default-on** (including health), **CSP Slice 2**, **HA Slice 3**, **HA Move**, and **LAN NAS / SMB** (including **Test** and the password at rest). **Copy now** is deferred to **v1.10**, with a full copy test that includes OneDrive, after a separate NAS is set up. The **1.8 regression** block is not part of this sign-off  
 **Screenshots:** **captured** 2026-10-02. [v1.9 pack](../wiki/assets/screenshots/README.md#v190--pack-status)  
 **Release notes:** not written. `RELEASE_v1.9.0.md` is freeze
 
@@ -15,7 +15,7 @@ Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-h
 
 Walk the herder slices on a roll of **`v1.9.0-dev`**. Home Assistant Stop project, Files, Move, and the Plugin line were walked on the test host with plugin **0.5.0**. Health `service_migrate` is true on that roll.
 
-Do not tick a freeze-only row. Do not tick OneDrive. Do not tick the three SMB boxes still marked open.
+Do not tick a freeze-only row. Do not tick OneDrive. Do not tick **Copy now**. That copy, and a full OneDrive copy test, wait for **v1.10**.
 
 ---
 
@@ -39,15 +39,16 @@ Each saved destination is its own row (#28). A Google Drive row and a LAN NAS / 
 
 Drive and SMB are two hops. Each has its own destination row and its own Fernet secret. Passwords and the client secret stay out of the frame and out of the job log.
 
-Signed 2026-10-02 except the last three boxes. Those three are still in progress.
+Signed 2026-10-02. **Test** and the password check were confirmed the same day. **Copy now** is not a 1.9 box.
 
 - [x] Saving **Google Drive** and **LAN NAS / SMB** leaves both rows on the card. Removing one does not clear the other
 - [x] **OneDrive (more to follow)** stays in the service list and cannot be selected. Saving Drive or SMB does not turn it into a destination
 - [x] A share with no login saves when username and password are both empty. That row reads **no login** and can be tested. A blank password on an existing account keeps the saved password. Username without a password, or a password without a username, is refused
 - [x] A failed Save stays on the edit sheet with what was typed. The sheet does not close onto fields reloaded from the database
-- [ ] SMB **Test** checks the share and does not copy the tree. Drive **Test** still checks the folder and does not copy
-- [ ] **Copy now**, the schedule, or the follow-up after a host backup copies to the selected hop. A failed copy does not change the host backup time
-- [ ] The SMB password and the Drive token are Fernet ciphertext. Neither is written to the job log
+- [x] SMB **Test** checks the share and does not copy the tree. Drive **Test** still checks the folder and does not copy
+- [x] The SMB password and the Drive token are Fernet ciphertext. Neither is written to the job log
+
+**Copy now** (the schedule, or the follow-up after a host backup) is deferred to **v1.10**. A separate NAS is required before that copy. The same pass includes OneDrive. Do not treat an unticked copy as a 1.9 failure.
 
 Picture: `settings-backup-multi-dest.png` (captured 2026-10-02). See [Screenshot pack](#screenshot-pack).
 
@@ -159,7 +160,8 @@ Do not tick these here. They are not walks of this train.
 |------|-----------------|
 | Herder tag **1.9.0**, image tags, Hub publish | Freeze-only. Package stays **1.8.1** |
 | Adapter tag **0.3.1** | Published 2026-10-02. Not a 1.9.0 herder tag |
-| **OneDrive** | Discovery only. Listed, unselectable. No rclone hop |
+| **OneDrive** | Discovery only on this train. Listed, unselectable. No rclone hop. A real copy test is **v1.10**, with **Copy now**, after a separate NAS is set up |
+| **Copy now** (SMB and Drive hop) | Deferred to **v1.10**. Test and the password-at-rest check are signed on this train. A separate NAS is required before the copy |
 | **Path C** | Discover write-up in the plan. No client. `/backups` stays the default |
 | **MCP OAuth** | Discover write-up. Bearer stays the only path |
 | Supply-chain locks | PyJWT **2.15.1** and urllib3 **2.8.0** are pinned on this branch. Not an operator screen. Dependabot alerts wait until the locks are on `main`. [PLAN §4](PLAN_v1.9.0.md#4-supply-chain-locks-must-planned) |
