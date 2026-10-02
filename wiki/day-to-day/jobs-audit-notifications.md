@@ -42,7 +42,7 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 | Type | Typical trigger | Runner |
 |------|-----------------|--------|
 | `backup` | Manual or backup cron | **Celery** |
-| `backup_replicate` | Settings → PiHerder backup → **Copy now**, its schedule, or the follow-up after a host backup (v1.8 train, not in the 1.7.0 image) | **Celery** (default queue). Label **Backup copy** (Google Drive or a LAN share). May run for 7 days. A task failure marks the row failed so **Copy now** can run again. A hard kill of the worker can leave the row **running** and block a new copy. Does not take the per-host backup lock. Not on the token or MCP job list |
+| `backup_replicate` | Settings → PiHerder backup → **Copy now**, its schedule, or the follow-up after a host backup (v1.8 train, not in the 1.7.0 image) | **Celery** (default queue). Label **Backup copy** (Google Drive, OneDrive, or a LAN share). May run for 7 days. A task failure marks the row failed so **Copy now** can run again. A hard kill of the worker can leave the row **running** and block a new copy. Does not take the per-host backup lock. Not on the token or MCP job list |
 | `os_patch` / `container_patch` | Manual or apply schedule | **Celery** (default queue). SSH down: stays pending and retries. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job |
 | `host_reboot` | Server **Reboot** or the Home Assistant host card | **Celery** (default queue). Refused while an OS patch, container patch, or backup is active on that host. SSH down: stays pending. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job |
 | `os_update_check` / `container_update_check` | Manual or check schedule | **Celery** (default queue) |

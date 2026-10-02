@@ -181,3 +181,79 @@ def test_demo_refuses_without_rclone(monkeypatch):
     assert result["ok"] is False
     assert result["error"] == "Demo does not upload"
     assert called["n"] == 0
+
+
+def test_onedrive_auth_url_uses_the_microsoft_callback():
+    url = copies.microsoft_auth_url(
+        "app-id",
+        copies.onedrive_redirect_uri("https://herder.example"),
+        "state-1",
+    )
+    assert url.startswith("https://login.microsoftonline.com/common/oauth2/v2.0/authorize?")
+    assert "client_id=app-id" in url
+    assert "prompt=consent" in url
+    assert "offline_access" in url
+    assert "redirect_uri=https%3A%2F%2Fherder.example%2Fbackup-copies%2Fonedrive%2Fcallback" in url
+
+
+def test_onedrive_rclone_config_is_the_default_drive():
+    raw = copies.pack_oauth_token(
+        client_id="app-id",
+        client_secret="secret-value",
+        refresh_token="refresh-value",
+        access_token="access",
+        email="bjorn@outlook.com",
+        expires_in=3600,
+    )
+    path = copies.write_onedrive_rclone_config(raw)
+    try:
+        text = open(path, encoding="utf-8").read()
+        mode = os.stat(path).st_mode & 0o777
+    finally:
+        copies.discard_rclone_config(path)
+    assert "type = onedrive" in text
+    assert "client_id = app-id" in text
+    assert "client_secret = secret-value" in text
+    assert "refresh-value" in text
+    assert "drive-use-trash" not in text
+    assert mode == 0o600
+
+
+def test_onedrive_copy_does_not_use_drive_trash(monkeypatch, tmp_path):
+    local = tmp_path / "pi"
+    local.mkdir()
+    monkeypatch.setattr(copies, "backup_root", lambda: tmp_path)
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+    dest = BackupDestination(
+        provider="onedrive",
+        selection_json='{"checked":["pi"],"skipped":[]}',
+        credentials_encrypted="x",
+        config_json='{"remote_dir":"PiHerder"}',
+    )
+    monkeypatch.setattr(copies, "decrypt_token", lambda _d: copies.pack_oauth_token(
+        client_id="app-id",
+        client_secret="secret-value",
+        refresh_token="refresh-value",
+        access_token="access",
+        email="bjorn@outlook.com",
+        expires_in=None,
+    ))
+    seen = {}
+
+    class Proc:
+        returncode = 0
+        stderr = ""
+        stdout = ""
+
+    def run(cmd, **_k):
+        seen["cmd"] = cmd
+        config = cmd[cmd.index("--config") + 1]
+        seen["config"] = open(config, encoding="utf-8").read()
+        return Proc()
+
+    monkeypatch.setattr(copies.subprocess, "run", run)
+    result = copies.execute(dest)
+    assert result["ok"] is True
+    assert "--drive-use-trash" not in seen["cmd"]
+    assert "type = onedrive" in seen["config"]
+    assert "secret-value" not in (result.get("error") or "")

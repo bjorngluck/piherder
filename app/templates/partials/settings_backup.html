@@ -157,7 +157,7 @@
     {% if copy_saved %}<p class="text-sm text-accent mb-3">Saved.</p>{% endif %}
     {% if copy_removed %}
     <p class="text-sm text-accent mb-3">
-      {% if copy_provider == 'smb' %}LAN share removed. Files already on the share were left there.{% else %}Google Drive removed. Files already in Drive were left there.{% endif %}
+      {% if copy_provider == 'smb' %}LAN share removed. Files already on the share were left there.{% elif copy_provider == 'onedrive' %}OneDrive removed. Files already in OneDrive were left there.{% else %}Google Drive removed. Files already in Drive were left there.{% endif %}
     </p>
     {% endif %}
     {% if copy_error == 'confirm' %}
@@ -194,6 +194,15 @@
               {% elif copy_test == 'timeout' %}<p class="text-sm text-danger mt-1">The share did not answer in time. Try the test again.</p>
               {% elif copy_test == 'demo' %}<p class="text-sm text-danger mt-1">The public demo does not contact this share.</p>
               {% else %}<p class="text-sm text-danger mt-1">The test did not succeed.</p>{% endif %}
+            {% elif row.provider == 'onedrive' %}
+              {% if copy_test == 'ok' %}<p class="text-sm text-accent mt-1">The folder listed. Nothing was copied.</p>
+              {% elif copy_test == 'folder' %}<p class="text-sm text-danger mt-1">That folder was not found in this OneDrive.</p>
+              {% elif copy_test == 'auth' %}<p class="text-sm text-danger mt-1">Microsoft rejected the sign-in. Connect Microsoft again.</p>
+              {% elif copy_test == 'account' %}<p class="text-sm text-danger mt-1">Connect Microsoft before testing.</p>
+              {% elif copy_test == 'rclone' %}<p class="text-sm text-danger mt-1">rclone is not available in this container. Rebuild the image, then test again.</p>
+              {% elif copy_test == 'timeout' %}<p class="text-sm text-danger mt-1">Microsoft did not answer in time. Try the test again.</p>
+              {% elif copy_test == 'demo' %}<p class="text-sm text-danger mt-1">The public demo does not contact OneDrive.</p>
+              {% else %}<p class="text-sm text-danger mt-1">The test did not succeed.</p>{% endif %}
             {% else %}
               {% if copy_test == 'ok' %}<p class="text-sm text-accent mt-1">The folder is shared with this account. Nothing was copied.</p>
               {% elif copy_test == 'folder' %}<p class="text-sm text-danger mt-1">That folder was not found in this Google account’s My Drive. The name must match a folder you own.</p>
@@ -217,7 +226,7 @@
           <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy" data-copy-edit="{{ row.provider }}">Edit</button>
           {% if row.can_remove %}
           <form method="post" action="/backup-copies/remove"
-                data-confirm="{% if row.provider == 'smb' %}Remove LAN share {{ row.label }}? The saved account and schedule are deleted in PiHerder. Files already on the share stay.{% else %}Remove Google Drive ({{ row.label }})? The saved account and schedule are deleted in PiHerder. Files already on Drive stay.{% endif %}"
+                data-confirm="{% if row.provider == 'smb' %}Remove LAN share {{ row.label }}? The saved account and schedule are deleted in PiHerder. Files already on the share stay.{% elif row.provider == 'onedrive' %}Remove OneDrive ({{ row.label }})? The saved account and schedule are deleted in PiHerder. Files already in OneDrive stay.{% else %}Remove Google Drive ({{ row.label }})? The saved account and schedule are deleted in PiHerder. Files already on Drive stay.{% endif %}"
                 data-confirm-title="Remove backup destination"
                 data-confirm-label="Remove"
                 data-confirm-danger>
@@ -233,7 +242,7 @@
     {% else %}
     <p class="text-sm text-muted mb-3">No external copy yet. Host backups stay on this PiHerder.</p>
     {% endif %}
-    {% if copy_dest and (not drive_saved or not smb_saved) %}
+    {% if copy_dest and (not drive_saved or not smb_saved or not onedrive_saved) %}
     <div class="mb-3">
       <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5" data-open-settings-modal="drive-copy" data-copy-add>Add destination</button>
     </div>
@@ -246,7 +255,7 @@
       <div class="modal-content settings-sheet card ph-modal-brand">
         <div class="settings-sheet-head">
           <div class="min-w-0 pr-2">
-            <h2 id="settings-drive-copy-title" class="font-semibold text-text m-0">{% if copy_form_error %}{% if copy_provider == 'smb' %}LAN share{% else %}Google Drive{% endif %}{% else %}Add a destination{% endif %}</h2>
+            <h2 id="settings-drive-copy-title" class="font-semibold text-text m-0">{% if copy_form_error %}{% if copy_provider == 'smb' %}LAN share{% elif copy_provider == 'onedrive' %}OneDrive{% else %}Google Drive{% endif %}{% else %}Add a destination{% endif %}</h2>
             <p class="text-xs text-muted mt-1">A failed copy fails its own job. Restore still uses the local copies.</p>
           </div>
           <button type="button" class="ph-icon-close shrink-0" data-close-settings-modal aria-label="Close">✕</button>
@@ -261,6 +270,8 @@
             <p class="text-sm text-danger">The Google sign-in did not match this browser. Connect again.</p>
             {% elif copy_error == 'google' %}
             <p class="text-sm text-danger">Google did not finish the sign-in. Check the redirect URL on the OAuth client, then connect again.</p>
+            {% elif copy_error == 'microsoft' %}
+            <p class="text-sm text-danger">Microsoft did not finish the sign-in. Check the redirect URL on the app registration, then connect again.</p>
             {% elif copy_error == 'cron' %}
             <p class="text-sm text-danger">Choose a schedule from the list, or enter a 5-field cron.</p>
             {% elif copy_error == 'folder' %}
@@ -291,7 +302,9 @@
               {% if not smb_saved %}
               <button type="button" class="btn btn-secondary w-full min-h-11 text-sm" data-copy-pick-provider="smb">LAN share</button>
               {% endif %}
-              <button type="button" class="btn btn-secondary w-full min-h-11 text-sm" disabled>OneDrive. Not available yet.</button>
+              {% if not onedrive_saved %}
+              <button type="button" class="btn btn-secondary w-full min-h-11 text-sm" data-copy-pick-provider="onedrive">OneDrive</button>
+              {% endif %}
             </div>
             <div data-copy-help="drive" class="text-xs text-muted border border-border rounded p-3 bg-surface {% if copy_provider == 'smb' %}hidden{% endif %}">
               <p class="mb-2">Do these in order in Google Cloud, then paste the client here. Leave the app in <strong>Testing</strong>. Do not publish it. Publishing asks Google to verify the Drive scope.</p>
@@ -315,8 +328,20 @@
             <div data-copy-help="smb" class="text-xs text-muted border border-border rounded p-3 bg-surface {% if copy_provider != 'smb' %}hidden{% endif %}">
               <p>rclone on this PiHerder copies the ticked folders from <span class="font-mono text-text">/backups</span> to the share. Host backups still land here first. Leave the username and password both empty when the share needs no login. Leave the password blank on its own only after one is saved. Kerberos is not used.</p>
             </div>
-            <p data-copy-help="later" class="hidden text-sm text-muted">That service is not available yet. Google Drive and a LAN share are the ones this page can save.</p>
-            <fieldset data-copy-fields="drive" {% if copy_provider == 'smb' %}disabled{% endif %} class="space-y-3 border-0 p-0 m-0 min-w-0 {% if copy_provider == 'smb' %}hidden{% endif %}">
+            <p data-copy-help="later" class="hidden text-sm text-muted">Choose Google Drive, OneDrive, or a LAN share.</p>
+            <div data-copy-help="onedrive" class="text-xs text-muted border border-border rounded p-3 bg-surface {% if copy_provider != 'onedrive' %}hidden{% endif %}">
+              <p class="mb-2">Register an app in Microsoft Entra, then paste the client here. This copies into the default drive of the account you sign in with.</p>
+              <ol class="space-y-1 list-decimal pl-4">
+                <li>Open <a href="https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" class="text-accent hover:underline" target="_blank" rel="noopener">App registrations</a> and choose <span class="text-text">New registration</span>. Name it <span class="text-text">PiHerder</span>. Accounts in any organizational directory and personal Microsoft accounts. Redirect URI: <span class="text-text">Web</span>, and this URL exactly:</li>
+              </ol>
+              <p class="mt-2 font-mono break-all text-text">{{ od_redirect_uri or 'Set PIHERDER_PUBLIC_URL, then reload. The redirect URL must be the address you use in the browser.' }}</p>
+              <ol class="space-y-1 list-decimal pl-4 mt-2" start="2">
+                <li>Under <span class="text-text">API permissions</span>, add Microsoft Graph delegated <span class="font-mono text-text">Files.Read</span>, <span class="font-mono text-text">Files.ReadWrite</span>, <span class="font-mono text-text">Files.Read.All</span>, <span class="font-mono text-text">Files.ReadWrite.All</span>, <span class="font-mono text-text">Sites.Read.All</span>, and <span class="font-mono text-text">offline_access</span>.</li>
+                <li>Under <span class="text-text">Certificates &amp; secrets</span>, create a client secret. Paste the application (client) ID and that secret below. Leave the secret blank only after one is already saved.</li>
+                <li><strong>Connect Microsoft</strong> and sign in as the account that owns the drive. The folder name is a folder in that drive.</li>
+              </ol>
+            </div>
+            <fieldset data-copy-fields="drive" {% if copy_provider != 'drive' %}disabled{% endif %} class="space-y-3 border-0 p-0 m-0 min-w-0 {% if copy_provider != 'drive' %}hidden{% endif %}">
               <div>
                 <label class="block text-xs text-muted mb-1" for="copy-client-id">OAuth client ID</label>
                 <input id="copy-client-id" name="client_id" autocomplete="off" spellcheck="false"
@@ -351,6 +376,44 @@
               </div>
               <label class="flex items-center gap-2 min-h-11">
                 <input type="checkbox" name="after_host_backup" value="1" {% if drive_after %}checked{% endif %}>
+                After a host backup succeeds, copy that host’s checked folders
+              </label>
+            </fieldset>
+            <fieldset data-copy-fields="onedrive" {% if copy_provider != 'onedrive' %}disabled{% endif %} class="space-y-3 border-0 p-0 m-0 min-w-0 {% if copy_provider != 'onedrive' %}hidden{% endif %}">
+              <div>
+                <label class="block text-xs text-muted mb-1" for="od-client-id">Application (client) ID</label>
+                <input id="od-client-id" name="client_id" autocomplete="off" spellcheck="false"
+                       value="{{ od_client_id or '' }}"
+                       placeholder="00000000-0000-0000-0000-000000000000"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11">
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="od-client-secret">Client secret</label>
+                <input id="od-client-secret" name="client_secret" type="password" autocomplete="off"
+                       {% if copy_provider == 'onedrive' and copy_draft_secret %}value="{{ copy_draft_secret }}"{% endif %}
+                       placeholder="{% if od_has_secret %}Saved. Leave blank to keep it.{% else %}Required the first time{% endif %}"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11">
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="od-folder">Folder on OneDrive</label>
+                <input id="od-folder" name="drive_folder" value="{{ od_folder or 'PiHerder' }}"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1" for="od-schedule">Schedule</label>
+                <select id="od-schedule" data-copy-schedule class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
+                        aria-label="OneDrive copy schedule preset">
+                  <option value="manual" {% if not od_schedule %}selected{% endif %}>Manual only</option>
+                  <option value="custom" {% if od_schedule and od_schedule not in cron_preset_values %}selected{% endif %}>Custom / advanced cron…</option>
+                  {% for val, lab in cron_presets %}
+                  <option value="{{ val }}" {% if od_schedule == val %}selected{% endif %}>{{ lab }}</option>
+                  {% endfor %}
+                </select>
+                <input id="od-cron" data-copy-cron type="text" name="schedule_cron" value="{{ od_schedule or '' }}" placeholder="0 3 * * *"
+                       class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11 mt-1 {% if not od_schedule or od_schedule in cron_preset_values %}hidden{% endif %}">
+              </div>
+              <label class="flex items-center gap-2 min-h-11">
+                <input type="checkbox" name="after_host_backup" value="1" {% if od_after %}checked{% endif %}>
                 After a host backup succeeds, copy that host’s checked folders
               </label>
             </fieldset>
@@ -414,7 +477,8 @@
           <div class="settings-sheet-foot flex gap-2 {% if not copy_form_error %}hidden{% endif %}" data-copy-actions>
             <button type="button" class="btn btn-secondary min-h-11 text-sm {% if copy_form_error %}hidden{% endif %}" data-copy-back>Back</button>
             <button type="submit" class="btn btn-secondary min-h-11 text-sm" data-copy-save>Save</button>
-            <button type="submit" class="btn btn-accent min-h-11 text-sm {% if copy_provider == 'smb' %}hidden{% endif %}" data-copy-connect formaction="/backup-copies/google/start" formmethod="post">Connect Google</button>
+            <button type="submit" class="btn btn-accent min-h-11 text-sm {% if copy_provider != 'drive' %}hidden{% endif %}" data-copy-connect formaction="/backup-copies/google/start" formmethod="post">Connect Google</button>
+            <button type="submit" class="btn btn-accent min-h-11 text-sm {% if copy_provider != 'onedrive' %}hidden{% endif %}" data-copy-connect-od formaction="/backup-copies/onedrive/start" formmethod="post">Connect Microsoft</button>
           </div>
         </form>
       </div>
@@ -438,21 +502,28 @@
       function applyProvider(value) {
         var drive = value === 'drive';
         var smb = value === 'smb';
-        if (provider) provider.value = drive || smb ? value : '';
+        var onedrive = value === 'onedrive';
+        if (provider) provider.value = drive || smb || onedrive ? value : '';
         if (pick) pick.classList.add('hidden');
         if (actions) actions.classList.remove('hidden');
         show('drive', drive);
+        show('onedrive', onedrive);
         show('smb', smb);
-        show('later', !drive && !smb);
+        show('later', !drive && !smb && !onedrive);
         if (back) back.classList.toggle('hidden', !adding);
         var save = form.querySelector('[data-copy-save]');
-        if (save) save.disabled = !drive && !smb;
+        if (save) save.disabled = !drive && !smb && !onedrive;
         var connect = form.querySelector('[data-copy-connect]');
         if (connect) {
           connect.classList.toggle('hidden', !drive);
           connect.disabled = !drive;
         }
-        if (title) title.textContent = smb ? 'LAN share' : 'Google Drive';
+        var connectOd = form.querySelector('[data-copy-connect-od]');
+        if (connectOd) {
+          connectOd.classList.toggle('hidden', !onedrive);
+          connectOd.disabled = !onedrive;
+        }
+        if (title) title.textContent = smb ? 'LAN share' : (onedrive ? 'OneDrive' : 'Google Drive');
       }
       function showPicker() {
         adding = true;
@@ -460,6 +531,7 @@
         if (pick) pick.classList.remove('hidden');
         if (actions) actions.classList.add('hidden');
         show('drive', false);
+        show('onedrive', false);
         show('smb', false);
         show('later', false);
         if (title) title.textContent = 'Add a destination';

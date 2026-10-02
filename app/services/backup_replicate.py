@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 JOB_TYPE = "backup_replicate"
 _REMOTE_NAME = "dest"
-_SELECTABLE = frozenset({"drive", "smb"})
+_SELECTABLE = frozenset({"drive", "smb", "onedrive"})
 # rclone's well-known config obfuscation key (obscure.Obscure). Not a secret.
 _RCLONE_CRYPT_KEY = bytes((
     0x9C, 0x93, 0x5B, 0x48, 0x73, 0x0A, 0x55, 0x4D,
@@ -43,6 +43,14 @@ _GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
 _GOOGLE_USERINFO = "https://www.googleapis.com/oauth2/v2/userinfo"
 OAUTH_STATE_COOKIE = "ph_drive_oauth"
+ONEDRIVE_OAUTH_STATE_COOKIE = "ph_onedrive_oauth"
+ONEDRIVE_SCOPE = (
+    "offline_access Files.Read Files.ReadWrite Files.Read.All "
+    "Files.ReadWrite.All Sites.Read.All"
+)
+_MICROSOFT_AUTH = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+_MICROSOFT_TOKEN = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+_MICROSOFT_ME = "https://graph.microsoft.com/v1.0/me"
 
 
 def backup_root() -> Path:
@@ -290,6 +298,14 @@ def rclone_copy_file_cmd(
     return cmd
 
 
+def destination_name(provider: str) -> str:
+    if provider == "smb":
+        return "LAN NAS / SMB"
+    if provider == "onedrive":
+        return "OneDrive"
+    return "Google Drive"
+
+
 def normalize_provider(value: str | None) -> str:
     provider = (value or "drive").strip().lower()
     if provider not in _SELECTABLE:
@@ -442,6 +458,10 @@ def google_redirect_uri(origin: str) -> str:
     return origin.rstrip("/") + "/backup-copies/google/callback"
 
 
+def onedrive_redirect_uri(origin: str) -> str:
+    return origin.rstrip("/") + "/backup-copies/onedrive/callback"
+
+
 def google_auth_url(client_id: str, redirect_uri: str, state: str) -> str:
     query = urllib.parse.urlencode(
         {
@@ -548,6 +568,68 @@ def exchange_google_code(
     if not isinstance(payload, dict) or not payload.get("refresh_token"):
         raise ValueError("google")
     return payload
+
+
+def microsoft_auth_url(client_id: str, redirect_uri: str, state: str) -> str:
+    query = urllib.parse.urlencode(
+        {
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "response_mode": "query",
+            "scope": ONEDRIVE_SCOPE,
+            "prompt": "consent",
+            "state": state,
+        }
+    )
+    return _MICROSOFT_AUTH + "?" + query
+
+
+def exchange_microsoft_code(
+    *,
+    client_id: str,
+    client_secret: str,
+    code: str,
+    redirect_uri: str,
+) -> dict[str, Any]:
+    body = urllib.parse.urlencode(
+        {
+            "code": code,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
+            "scope": ONEDRIVE_SCOPE,
+        }
+    ).encode()
+    request = urllib.request.Request(_MICROSOFT_TOKEN, data=body, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode())
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode(errors="replace")[:300]
+        logger.warning("Microsoft token exchange failed: %s", detail)
+        raise ValueError("microsoft") from exc
+    except Exception as exc:
+        raise ValueError("microsoft") from exc
+    if not isinstance(payload, dict) or not payload.get("refresh_token"):
+        raise ValueError("microsoft")
+    return payload
+
+
+def microsoft_account_email(access_token: str) -> str:
+    request = urllib.request.Request(
+        _MICROSOFT_ME,
+        headers={"Authorization": "Bearer " + access_token},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode())
+    except Exception:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("mail") or payload.get("userPrincipalName") or "").strip()
 
 
 def google_account_email(access_token: str) -> str:
@@ -659,6 +741,38 @@ def write_rclone_config(token_json: str, *, shared_with_me: bool = False) -> str
     return handle.name
 
 
+def write_onedrive_rclone_config(token_json: str) -> str:
+    """Temp rclone config for the signed-in account's default drive."""
+    payload = json.loads(token_json)
+    if not isinstance(payload, dict) or not (
+        payload.get("refresh_token") or payload.get("access_token")
+    ):
+        raise ValueError("Microsoft account details are missing")
+    token = {
+        "access_token": payload.get("access_token") or "",
+        "token_type": payload.get("token_type") or "Bearer",
+        "refresh_token": payload.get("refresh_token") or "",
+        "expiry": payload.get("expiry") or "2000-01-01T00:00:00Z",
+    }
+    lines = [f"[{_REMOTE_NAME}]", "type = onedrive"]
+    lines.append("token = " + json.dumps(token, separators=(",", ":")))
+    if payload.get("client_id"):
+        lines.append("client_id = " + str(payload["client_id"]))
+    if payload.get("client_secret"):
+        lines.append("client_secret = " + str(payload["client_secret"]))
+    handle = tempfile.NamedTemporaryFile("w", prefix="ph-rclone-", suffix=".conf", delete=False)
+    try:
+        handle.write("\n".join(lines) + "\n")
+        handle.flush()
+        os.chmod(handle.name, 0o600)
+    except Exception:
+        discard_rclone_config(handle.name)
+        raise
+    finally:
+        handle.close()
+    return handle.name
+
+
 def encrypt_token(token_json: str) -> str:
     payload = json.loads(token_json)
     if not isinstance(payload, dict):
@@ -671,7 +785,7 @@ def encrypt_token(token_json: str) -> str:
 def decrypt_token(destination: BackupDestination) -> str:
     raw = destination.credentials_encrypted or ""
     if not raw:
-        raise ValueError("No Google account saved")
+        raise ValueError("No account saved")
     return decrypt_str(raw)
 
 
@@ -930,17 +1044,21 @@ def probe(destination: BackupDestination) -> dict[str, str]:
         return {"ok": "0", "code": "demo"}
     if destination.provider == "smb":
         return _probe_smb(destination)
-    if destination.provider != "drive":
+    if destination.provider not in ("drive", "onedrive"):
         return {"ok": "0", "code": "provider"}
     if not (destination.credentials_encrypted or "").strip():
         return {"ok": "0", "code": "account"}
     folder = _remote_dir(destination)
     config_path = ""
     try:
-        config_path = write_rclone_config(
-            decrypt_token(destination),
-            shared_with_me=shared_with_me(destination),
-        )
+        token_json = decrypt_token(destination)
+        if destination.provider == "onedrive":
+            config_path = write_onedrive_rclone_config(token_json)
+        else:
+            config_path = write_rclone_config(
+                token_json,
+                shared_with_me=shared_with_me(destination),
+            )
         cmd = [
             "rclone",
             "lsd",
@@ -1083,18 +1201,29 @@ def execute(destination: BackupDestination, scope: str | None = None) -> dict[st
         return {"ok": False, "error": "Demo does not upload"}
     if destination.provider == "smb":
         return _execute_smb(destination, scope)
-    if destination.provider != "drive":
+    if destination.provider not in ("drive", "onedrive"):
         return {"ok": False, "error": f"Provider {destination.provider} is not built"}
     checked, skipped = parse_selection(destination.selection_json)
     checked, skipped = paths_for_scope(checked, skipped, scope)
     if not checked:
         return {"ok": False, "error": "Nothing selected on the backup drive"}
     config_path = ""
+    use_trash = destination.provider == "drive"
+    client_secret = ""
+    refresh = ""
     try:
-        config_path = write_rclone_config(
-            decrypt_token(destination),
-            shared_with_me=shared_with_me(destination),
-        )
+        token_json = decrypt_token(destination)
+        token_payload = json.loads(token_json)
+        if isinstance(token_payload, dict):
+            client_secret = str(token_payload.get("client_secret") or "")
+            refresh = str(token_payload.get("refresh_token") or "")
+        if destination.provider == "onedrive":
+            config_path = write_onedrive_rclone_config(token_json)
+        else:
+            config_path = write_rclone_config(
+                token_json,
+                shared_with_me=shared_with_me(destination),
+            )
         remote_root = _remote_dir(destination)
         errors: list[str] = []
         copied: list[str] = []
@@ -1105,17 +1234,22 @@ def execute(destination: BackupDestination, scope: str | None = None) -> dict[st
                 continue
             remote = f"{remote_root}/{rel}"
             if local.is_dir():
-                cmd = rclone_sync_cmd(config_path, str(local), remote, excludes)
+                cmd = rclone_sync_cmd(
+                    config_path, str(local), remote, excludes, use_trash=use_trash
+                )
             else:
-                cmd = rclone_copy_file_cmd(config_path, str(local), remote)
-            rc, err = _run_rclone(cmd)
+                cmd = rclone_copy_file_cmd(
+                    config_path, str(local), remote, use_trash=use_trash
+                )
+            rc, err = _run_rclone(cmd, client_secret)
+            err = _redact(err, refresh)
             if rc != 0:
                 errors.append(f"{rel}: {err or 'rclone failed'}"[:500])
             else:
                 copied.append(rel)
         return _finish_copy(copied, errors)
     except Exception as exc:
-        return {"ok": False, "error": str(exc)[:500]}
+        return {"ok": False, "error": _redact(_redact(str(exc)[:500], client_secret), refresh)}
     finally:
         if config_path:
             discard_rclone_config(config_path)
@@ -1209,7 +1343,7 @@ def get_or_create(session: Session, provider: str = "drive") -> BackupDestinatio
         return row
     now = datetime.utcnow()
     row = BackupDestination(
-        name="LAN NAS / SMB" if provider == "smb" else "Google Drive",
+        name=destination_name(provider),
         provider=provider,
         enabled=True,
         selection_json=selection_json([], []),
@@ -1275,7 +1409,12 @@ def enqueue(
     if active:
         return active
     job = Job(server_id=server_id, job_type=JOB_TYPE, status="pending")
-    queued = "SMB copy queued…" if destination.provider == "smb" else "Drive copy queued…"
+    if destination.provider == "smb":
+        queued = "SMB copy queued…"
+    elif destination.provider == "onedrive":
+        queued = "OneDrive copy queued…"
+    else:
+        queued = "Drive copy queued…"
     job.details = _initial_job_details(
         queued,
         destination_id=destination.id,
