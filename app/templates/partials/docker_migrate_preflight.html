@@ -35,7 +35,7 @@
         data-testid="migrate-start-form"
         {% else %}
         data-testid="migrate-blocked-form"
-        onsubmit="return false;"
+        data-ph-nosubmit
         {% endif %}>
     <input type="hidden" name="project" value="{{ result.project }}">
     <input type="hidden" name="dest" value="{{ result.dest.id }}">
@@ -344,7 +344,7 @@
             class="btn btn-accent min-h-11 text-sm"
             data-testid="migrate-blocked-move"
             title="Fix preflight blocks first"
-            onclick="var b=document.querySelector('[data-testid=migrate-blocks]'); if(b){ b.scrollIntoView({behavior:'smooth',block:'center'}); }">
+            data-ph-scroll="[data-testid=migrate-blocks]">
       Move service
     </button>
     <p class="text-xs text-danger mt-2 break-all">Still blocked — fix the items under Blocks (full paths), then Recheck.</p>

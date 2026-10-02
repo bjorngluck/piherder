@@ -84,7 +84,7 @@
             class="fabric-stack-nav-link text-left"
             data-fabric-stack-open
             data-stack-url="{{ p.host_ports_url }}"
-            onclick="event.preventDefault();if(window.PiHerderStackPanel){PiHerderStackPanel.open(this.getAttribute('data-stack-url'));}return false;">
+            data-ph-stack>
       <span class="fabric-stack-nav-k">Host ports</span>
       <span class="fabric-stack-nav-v">all · sticky</span>
     </button>
@@ -424,7 +424,7 @@
             <input type="hidden" name="clear_category" value="{% if c.category_key %}0{% else %}1{% endif %}">
             <label class="block text-[10px] text-muted font-medium">Category
               <select name="category_key" class="input text-xs min-h-9 w-full mt-0.5"
-                      onchange="var h=this.form.querySelector('[name=clear_category]'); if(h) h.value=this.value?'0':'1';">
+                      data-ph-clear-flag="clear_category">
                 <option value="" {% if not c.category_key %}selected{% endif %}>— auto (heuristic) —</option>
                 {% for cat in p.categories or [] %}
                 <option value="{{ cat.key }}" {% if c.category_key == cat.key %}selected{% endif %}>{{ cat.label }}</option>

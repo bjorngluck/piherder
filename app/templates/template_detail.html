@@ -22,7 +22,7 @@
       <a href="/templates/{{ slug }}/edit" class="btn btn-secondary min-h-11 px-4 text-sm">Edit</a>
       <a href="/templates/{{ slug }}/deploy" class="btn btn-accent min-h-11 px-4 text-sm">Deploy…</a>
       <form method="post" action="/templates/{{ slug }}/delete"
-            onsubmit="return confirm('Delete template {{ slug }}? Deployments already on hosts are not removed.');">
+            data-ph-confirm="Delete template {{ slug }}? Deployments already on hosts are not removed.">
         <button type="submit" class="btn btn-secondary min-h-11 px-4 text-sm text-red-600">Delete</button>
       </form>
     </div>
@@ -48,7 +48,7 @@
         {% else %}
         <button type="button"
                 class="btn btn-secondary text-xs min-h-11 px-3 inline-flex items-center gap-2"
-                onclick="document.getElementById('secrets-unlock-panel').classList.toggle('hidden')"
+                data-ph-toggle="secrets-unlock-panel"
                 title="Re-enter 2FA to view secret defaults">
           <span aria-hidden="true">👁</span> View secrets
         </button>

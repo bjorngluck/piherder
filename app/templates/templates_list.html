@@ -68,7 +68,7 @@
       <a href="/templates/{{ t.slug }}/edit" class="btn btn-secondary text-sm min-h-11 px-3">Edit</a>
       <a href="/templates/{{ t.slug }}/deploy" class="btn btn-accent text-sm min-h-11 px-4">Deploy…</a>
       <form method="post" action="/templates/{{ t.slug }}/delete" class="inline"
-            onsubmit="return confirm('Delete template {{ t.slug }}? Deployments already on hosts are not removed.');">
+            data-ph-confirm="Delete template {{ t.slug }}? Deployments already on hosts are not removed.">
         <button type="submit" class="btn btn-secondary text-sm min-h-11 px-3 text-red-600">Delete</button>
       </form>
       {% endif %}

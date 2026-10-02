@@ -20,7 +20,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 1. **General** → set app **timezone** (Audit/Jobs clocks). Optional **Instance**: a name in the header, one accent, and whether Catalog stays in the nav. See [Appearance](../getting-started/appearance.md).  
 2. **General** → **Security policy**: password rules, who must enrol 2FA (optional grace 0–60 days), step-up windows.  
-3. **General** → **Console**: idle / max session, concurrency, ticket, park hold, bind, scrollback (kill switch stays `PIHERDER_SSH_CONSOLE`). **General** → **Files**: transfer cap (default 512 MiB, ceiling 32 GiB). Kill switch stays env `PIHERDER_HOST_FILES` ([Host Files](../day-to-day/host-files.md)). Privileged Files uses the same “who may elevate” knob as the console.  
+3. **General** → **Console**: idle / max session, concurrency, ticket, park hold, bind, scrollback (kill switch stays `PIHERDER_SSH_CONSOLE`). **General** → **Files**: transfer cap (default 512 MiB, ceiling 32 GiB). Kill switch stays env `PIHERDER_HOST_FILES` ([Host Files](../day-to-day/host-files.md)). Privileged Files uses the same “who may elevate” knob as the console. **Move** is not a Settings checkbox. It is on unless `PIHERDER_SERVICE_MIGRATE=false` ([env reference](env-reference.md) · [Move a service](../docker/service-migration.md)).  
 4. Optional **General → SSO / OpenID Connect** when you have a BYO IdP — [SSO guide](../account-security/sso-oidc.md).  
 5. **PiHerder backup** → run once + schedule; store archive + master key offline.  
 6. **Status** → Check now until green.  
@@ -36,7 +36,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 | **General** | Timezone (inline) plus a **hub** of summary cards — **Instance** (name, accent, Catalog in the nav), **Jobs** (max wait for the host), Security, Console, **Files** (transfer cap), SSO, Cleanup. **Edit** opens the full form in a modal |
 | **Alerts** | **Alert policy** (per-category severity / mute / debounce) + outbound **webhook** + **SMTP** — [details](alerts-email-webhooks.md) |
 | **Fleet defaults** | Global OS / container update-check defaults (optional apply to all hosts) |
-| **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)). On the v1.8 train, the card under that is **Copy the backup drive** ([Backups](../day-to-day/backups.md#copy-to-google-drive-v18-train)) |
+| **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)). The card under that is **Copy the backup drive** — Google Drive or a LAN share ([Backups](../day-to-day/backups.md#copy-to-google-drive-v18-train)) |
 | **Status** | Stack health: web, DB, Redis, Celery, scheduler, disk ([Status](status.md)) — admin |
 | **API** | Create / rotate / revoke instance Bearer tokens; **Try a token** smoke checks; OpenAPI `/docs` + ReDoc ([API tokens](api-tokens.md)) — admin |
 
@@ -48,6 +48,11 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 <figure class="ph-figure" markdown>
   ![Copy the backup drive](../assets/screenshots/settings-drive-copy.png)
   <figcaption>Settings → PiHerder backup — Copy the backup drive, under the self-backup cards. v1.8.0.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Drive and LAN share](../assets/screenshots/settings-backup-multi-dest.png)
+  <figcaption>v1.9 train. Google Drive and a LAN share each have their own row. Remove confirms that one row. See [Backups](../day-to-day/backups.md#set-up-a-lan-share-smb).</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>

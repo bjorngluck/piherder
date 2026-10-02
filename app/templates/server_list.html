@@ -25,7 +25,7 @@
               {% if (filter and filter != 'all') or q or list_paged %}title="Reorder uses the full server list"{% endif %}>
         Reorder
       </button>
-      <button type="button" onclick="location.reload()"
+      <button type="button" data-ph-reload
               class="btn btn-secondary text-xs min-h-9 px-2.5"
               title="Refresh list (no auto-reload)">
         ↻ Refresh
@@ -126,7 +126,7 @@
            placeholder="Search name, host, IP…"
            autocomplete="off" data-testid="server-list-search">
     <select name="per_page" class="ops-f-control ops-f-narrow" aria-label="Per page"
-            onchange="this.form.submit()" data-testid="server-list-per-page">
+            data-ph-change-submit data-testid="server-list-per-page">
       {% for n in per_page_choices or [10, 20, 50, 100] %}
       <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/pg</option>
       {% endfor %}

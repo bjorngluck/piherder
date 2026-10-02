@@ -3,7 +3,7 @@
   <div class="modal-content card p-5 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-auto">
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-semibold text-lg">Edit Server</h3>
-      <button type="button" onclick="hideEditServerModal()" class="ph-icon-close" aria-label="Close">✕</button>
+      <button type="button" data-ph-click="hideEditServerModal" class="ph-icon-close" aria-label="Close">✕</button>
     </div>
 
     <div class="flex flex-wrap gap-1 mb-4 border-b border-border pb-2" role="tablist" aria-label="Edit server sections">
@@ -129,7 +129,7 @@
 
         <div class="border-t border-border pt-3 text-xs">
           <button type="button"
-                  onclick="hideEditServerModal(); showSshAccessModal();"
+                  data-ph-seq='[{"fn":"hideEditServerModal"},{"fn":"showSshAccessModal"}]'
                   class="btn btn-secondary text-sm min-h-11">
             SSH access (deploy / rotate / scripts)
           </button>
@@ -137,7 +137,7 @@
 
         <div class="flex gap-2 pt-2">
           <button type="submit" class="btn btn-accent text-sm min-h-11">Save Changes</button>
-          <button type="button" onclick="hideEditServerModal()" class="btn btn-secondary text-sm min-h-11 ml-auto">Cancel</button>
+          <button type="button" data-ph-click="hideEditServerModal" class="btn btn-secondary text-sm min-h-11 ml-auto">Cancel</button>
         </div>
       </form>
     </div>
@@ -199,7 +199,7 @@
         </div>
         <div class="flex gap-2 pt-2">
           <button type="submit" class="btn btn-accent text-sm min-h-11">Save Features</button>
-          <button type="button" onclick="hideEditServerModal()" class="btn btn-secondary text-sm min-h-11 ml-auto">Cancel</button>
+          <button type="button" data-ph-click="hideEditServerModal" class="btn btn-secondary text-sm min-h-11 ml-auto">Cancel</button>
         </div>
       </form>
     </div>
@@ -234,7 +234,7 @@
             </label>
             <select class="w-full bg-surface border border-border px-2 py-2 rounded text-xs min-h-11 mb-1"
                     aria-label="OS check preset"
-                    onchange="var el=this.form.querySelector('[name=os_check_schedule]'); if(this.value&&el){el.value=this.value;}">
+                    data-ph-fill="os_check_schedule">
               <option value="">Custom / advanced…</option>
               {% for val, lab in cron_presets %}
               <option value="{{ val }}" {% if (server.os_check_schedule or '0 0 * * *') == val %}selected{% endif %}>{{ lab }}</option>
@@ -269,7 +269,7 @@
             {% endif %}
             <select class="w-full bg-surface border border-border px-2 py-2 rounded text-xs min-h-11 mb-1"
                     aria-label="OS apply preset"
-                    onchange="var el=this.form.querySelector('[name=os_apply_schedule]'); if(this.value&&el){el.value=this.value;}">
+                    data-ph-fill="os_apply_schedule">
               <option value="">Custom / advanced…</option>
               {% for val, lab in cron_presets %}
               <option value="{{ val }}" {% if (server.os_apply_schedule or '30 3 * * 0') == val %}selected{% endif %}>{{ lab }}</option>
@@ -299,7 +299,7 @@
             </label>
             <select class="w-full bg-surface border border-border px-2 py-2 rounded text-xs min-h-11 mb-1"
                     aria-label="Container check preset"
-                    onchange="var el=this.form.querySelector('[name=container_check_schedule]'); if(this.value&&el){el.value=this.value;}">
+                    data-ph-fill="container_check_schedule">
               <option value="">Custom / advanced…</option>
               {% for val, lab in cron_presets %}
               <option value="{{ val }}" {% if (server.container_check_schedule or '0 0 * * *') == val %}selected{% endif %}>{{ lab }}</option>
@@ -326,7 +326,7 @@
             </label>
             <select class="w-full bg-surface border border-border px-2 py-2 rounded text-xs min-h-11 mb-1"
                     aria-label="Container apply preset"
-                    onchange="var el=this.form.querySelector('[name=container_apply_schedule]'); if(this.value&&el){el.value=this.value;}">
+                    data-ph-fill="container_apply_schedule">
               <option value="">Custom / advanced…</option>
               {% for val, lab in cron_presets %}
               <option value="{{ val }}" {% if (server.container_apply_schedule or '0 4 * * 0') == val %}selected{% endif %}>{{ lab }}</option>
@@ -343,7 +343,7 @@
       </div>
 
       <div class="flex gap-2 pt-4">
-        <button type="button" onclick="hideEditServerModal()" class="btn btn-secondary text-sm min-h-11 ml-auto">Close</button>
+        <button type="button" data-ph-click="hideEditServerModal" class="btn btn-secondary text-sm min-h-11 ml-auto">Close</button>
       </div>
     </div>
 
@@ -374,7 +374,7 @@
           <textarea id="host-cleanup-script-danger" readonly
                     class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-24 resize-y">{{ host_cleanup_script }}</textarea>
           <div class="flex flex-wrap gap-2 mt-2">
-            <button type="button" onclick="copyTextFrom('host-cleanup-script-danger', this)" class="btn btn-secondary text-sm min-h-11">
+            <button type="button" data-ph-click="copyTextFrom" data-ph-args='["host-cleanup-script-danger","$el"]' class="btn btn-secondary text-sm min-h-11">
               Copy script
             </button>
             <a href="/servers/{{ server.id }}/ssh/cleanup-script"
@@ -391,7 +391,7 @@
         </button>
       </div>
       <div class="flex gap-2 pt-4">
-        <button type="button" onclick="hideEditServerModal()" class="btn btn-secondary text-sm min-h-11 ml-auto">Close</button>
+        <button type="button" data-ph-click="hideEditServerModal" class="btn btn-secondary text-sm min-h-11 ml-auto">Close</button>
       </div>
     </div>
   </div>
