@@ -133,7 +133,7 @@ Alembic **047** runs on web start. Recreate **web** and **celery-worker**. HACS 
 
 ## v1.9 train (not tagged)
 
-The published image is **1.8.1**. `v1.9.0-dev` is not that image. On the train, Move defaults on, LAN SMB can be saved beside Drive, Settings can remove one destination, hosted MCP accepts the four one-service jobs, and HACS plugin **0.5.0** is poll-only (Move, fleet-jail Files, stop project). OneDrive stays unselectable. About stays **1.8.1** until the v1.9 freeze. Published adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)** sends the four one-service jobs. Operator walks for this train were signed 2026-10-02 except three SMB checks (Test, Copy now, Fernet). Do not point the public demo at this branch. Notes: [PLAN_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/v1.9.0-dev/docs/PLAN_v1.9.0.md).
+The published image is **1.8.1**. `v1.9.0-dev` is not that image. On the train, Move defaults on, LAN SMB can be saved beside Drive, Settings can remove one destination, hosted MCP accepts the four one-service jobs, and HACS plugin **0.5.0** is poll-only (Move, fleet-jail Files, stop project). OneDrive stays unselectable. About stays **1.8.1** until the v1.9 freeze. Published adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)** sends the four one-service jobs. Operator walks for this train were signed 2026-10-02, including SMB Test and the password check. **Copy now** and a full OneDrive copy test are **v1.10**, after a separate NAS is set up. Do not point the public demo at this branch. Notes: [PLAN_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/v1.9.0-dev/docs/PLAN_v1.9.0.md).
 
 ## Breaking notes
 

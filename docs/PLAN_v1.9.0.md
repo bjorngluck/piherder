@@ -7,7 +7,7 @@
 **Theme:** **MCP-svc**, a selectable LAN share, Move on by default, then the card and backup honesty that landed with them  
 **Baseline:** `v1.8.0` (tagged 2026-10-01; Hub digest `sha256:8ce50bbce758e622a996cd58557b0846e03cb02613b09471405222df620c2e89`)  
 **Mode:** Landed on this branch vs **freeze-only**. Landed: **MCP-svc** · **LAN NAS / SMB** · **Move default-on** · **Remove one backup dest** (#25) · **HA Slice 3** (plugin **0.5.0**, poll-only) · **CSP Slice 2**. Hygiene: **Supply-chain locks** (on `main` as **v1.8.1**, and on this branch). Freeze-only: herder **1.9.0** tag and image. **OneDrive** stays discovery-only. Discover (no client): **Path C** · **MCP OAuth**.  
-**QA:** [QA_v1.9.0.md](QA_v1.9.0.md) (signed 2026-10-02 except three SMB boxes and the 1.8 regression — **not** the operator wiki). Screenshot pack captured the same day. Walks include the #28 per-destination rows, guest SMB, and a failed Save that keeps the form.  
+**QA:** [QA_v1.9.0.md](QA_v1.9.0.md) (signed 2026-10-02, including SMB **Test** and the password check. **Copy now** and a full OneDrive copy test are **v1.10**. The 1.8 regression is still open — **not** the operator wiki). Screenshot pack captured the same day.  
 **Related:** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [Home Assistant](../wiki/integrations/home-assistant.md)
 
 > **Train open 2026-10-01.** The image tag stays **v1.8.1**. `main` already includes the herder allowlist (pull request #22) and the **1.8.1** patch. This branch is that `main` plus the rest of the train. The public demo stays the **1.7.0** image. The Home Assistant plugin stays a separate HACS repo (**0.5.0** on this train, not inside the image). Release notes (`RELEASE_v1.9.0.md`) are written at freeze. Do not treat this plan as a tagged release.
@@ -34,7 +34,7 @@ Landed on this branch:
 
 **Discovery only. Not selectable. Not a slip of something that shipped:**
 
-- **OneDrive.** Listed in Settings. Cannot be selected. No rclone hop.
+- **OneDrive.** Listed in Settings. Cannot be selected. No rclone hop on this train. A real copy test, with **Copy now**, is **v1.10** after a separate NAS is set up.
 
 **Discover only. Write the note. No client until a later promotion:**
 
@@ -109,6 +109,7 @@ main (herder allowlist landed, image 1.8.1)
 | 2026-10-01 | **Backup Settings UX (#28).** Each saved Drive or SMB destination is its own row, with Edit, Folders, and Remove on that row. Empty SMB username and password together is guest access. A failed Save keeps the edit form. |
 | 2026-10-01 | **Operator QA.** Walks and the shot list are in [QA_v1.9.0.md](QA_v1.9.0.md). Boxes are empty. The walks use the #28 row shape. HA Move shots wait until health exposes `service_migrate`. |
 | 2026-10-02 | **Operator QA signed** except three SMB boxes (Test, Copy now, Fernet) and the 1.8 regression. Screenshot pack landed. Published adapter is **0.3.1**. |
+| 2026-10-02 | **SMB follow-up.** Test and the password-at-rest check signed. **Copy now** deferred to **v1.10**, with a full copy test that includes OneDrive, after a separate NAS is set up. |
 
 ---
 
@@ -118,7 +119,7 @@ main (herder allowlist landed, image 1.8.1)
 |---|------|--------|
 | 1 | Open **`v1.9.0-dev`** | **Done** 2026-10-01 |
 | 2 | **MCP-svc** — four job types on hosted MCP and the adapter, then one adapter tag | **Signed** 2026-10-02. Herder on `main` (#22) and image **1.8.1**. Published adapter **0.3.1** |
-| 3 | **LAN NAS / SMB** — selectable path A (`rclone smb`). Drive and SMB can both be live | **Partial.** Rows, OneDrive, guest share, and failed Save signed 2026-10-02. Test, Copy now, and Fernet still open. Path B mount stays out |
+| 3 | **LAN NAS / SMB** — selectable path A (`rclone smb`). Drive and SMB can both be live | **Signed** 2026-10-02, including Test and the password check. **Copy now** is **v1.10**. Path B mount stays out |
 | 4 | **Move default-on** — flag defaults true. UI, HA card, `POST /moves` | **Signed** 2026-10-02, including health `service_migrate`. MCP and `POST /jobs` still refuse `service_migrate` |
 | 5 | **HA Slice 3** and **CSP Slice 2** | **Signed** 2026-10-02. Plugin **0.5.0**, poll-only, including card Move. OneDrive is not in this row |
 | 5b | **Remove one backup dest** (#25) | **Signed** 2026-10-02, including the scheduler check. Remote files kept |
