@@ -111,6 +111,7 @@ main (herder allowlist landed, image 1.8.1)
 | 2026-10-02 | **Operator QA signed** except three SMB boxes (Test, Copy now, Fernet) and the 1.8 regression. Screenshot pack landed. Published adapter is **0.3.1**. |
 | 2026-10-02 | **SMB follow-up.** Test and the password-at-rest check signed. **Copy now** deferred to **v1.10**, with a full copy test that includes OneDrive, after a separate NAS is set up. |
 | 2026-10-02 | **1.8 regression signed.** **Code freeze.** End-user notes drafted in [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md). Package stays **1.8.1**. Tag and Hub not cut. |
+| 2026-10-02 | **v1.10.0 train opened** on `v1.10.0-dev` after this tag shipped. [PLAN_v1.10.0.md](PLAN_v1.10.0.md). |
 
 ---
 
