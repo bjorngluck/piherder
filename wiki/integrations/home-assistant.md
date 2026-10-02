@@ -9,7 +9,7 @@ A **HACS integration that runs on Home Assistant** and **observes** your PiHerde
 | Path 1 | This PiHerder image | SSH + `ha` CLI on an HAOS **server** |
 | Path 2 (this page) | Separate HACS repo | HA polls PiHerder snapshots; **Visit** opens the herder |
 
-The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). This branch documents plugin **0.5.0**. 0.4.0 was the one-card pass. 0.4.1 adds Start and Stop for one compose service. 0.4.2 keeps the tab, the selected host, and open sections when the card redraws. 0.4.3 writes the update counts in full, colors a container name when an image update is due, and adds Restart and Update for that one service. 0.4.4 is that same card, with the resource query bumped. **0.5.0** adds Move, fleet-jail Files, and stop project. The card stays poll-only. It does not call a herder webhook. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from PiHerder `main` and still describes **0.3.0** until this train merges. The card pictures below were captured 2026-10-01 on plugin **0.4.3**. They do not show Move, Files, or Stop project. The Google Drive copy is a separate herder screen: [Backups](../day-to-day/backups.md#copy-to-google-drive-v18-train).
+The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). This branch documents plugin **0.5.0**. 0.4.0 was the one-card pass. 0.4.1 adds Start and Stop for one compose service. 0.4.2 keeps the tab, the selected host, and open sections when the card redraws. 0.4.3 writes the update counts in full, colors a container name when an image update is due, and adds Restart and Update for that one service. 0.4.4 is that same card, with the resource query bumped. **0.5.0** adds Move, fleet-jail Files, and stop project. The card stays poll-only. It does not call a herder webhook. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from PiHerder `main` and still describes **0.3.0** until this train merges. The 0.4.3 card pictures below were captured 2026-10-01. They do not show Move, Files, or Stop project. The 0.5.0 frames (Stop project, Move, and the Plugin sensor) were captured 2026-10-02. The Google Drive copy is a separate herder screen: [Backups](../day-to-day/backups.md#copy-to-google-drive-v18-train).
 
 Agent tools (Cursor, Grok, Claude, Codex) are a different client of the same token API: hosted **`/mcp`** on the herder. [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) is the optional stdio fallback. [Agents (MCP)](../operations/mcp.md).
 
@@ -149,7 +149,17 @@ A token with only `read` keeps the fleet card and the sensors and shows no butto
 
 **Stop project** asks first. It runs `docker compose stop` for that compose directory (`docker_stack_stop`). It does not remove containers or volumes.
 
-**Move** asks first, then stops the project on this host, copies it, and starts it on the destination. The source is left stopped. A finished Move has no Undo on the card. The card does not remove the source project.
+<figure class="ph-figure" markdown>
+  ![Stop project and Move](../assets/screenshots/ha-stop-project.png)
+  <figcaption>Host tab on plugin 0.5.0. Containers lists Stop project for a compose project, and Stop or Restart for one service. Move is open under that: pick a project and a destination, then Move. A finished Move has no Undo.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Plugin 0.5.0](../assets/screenshots/ha-plugin-050.png)
+  <figcaption>Fleet device on 2 October 2026. The Plugin sensor reads 0.5.0. The Version sensor reads 1.8.1. Device info Firmware on this frame reads 1.8.0.</figcaption>
+</figure>
+
+**Move** asks first, then stops the project on this host, copies it, and starts it on the destination. The source is left stopped. A finished Move has no Undo on the card. The card does not remove the source project. The panel is in the frame above. The herder wizard is on [Move a service](../docker/service-migration.md).
 
 **Files** is the fleet jail only. The same token scope as the Files API. Delete asks first and removes one file or an empty directory. It does not install Home Assistant `/config`, and it does not open a privileged path.
 

@@ -51,6 +51,11 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 </figure>
 
 <figure class="ph-figure" markdown>
+  ![Drive and LAN share](../assets/screenshots/settings-backup-multi-dest.png)
+  <figcaption>v1.9 train. Google Drive and a LAN share each have their own row. Remove confirms that one row. See [Backups](../day-to-day/backups.md#set-up-a-lan-share-smb).</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
   ![Settings Alerts](../assets/screenshots/settings-alerts.png)
   <figcaption>Settings → Alerts — webhook + SMTP (test send, password recovery).</figcaption>
 </figure>

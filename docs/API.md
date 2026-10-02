@@ -249,7 +249,7 @@ Gates: `jobs`, `feature:docker` when the token is feature-restricted, the docker
 
 `POST /api/v1/servers/{id}/jobs` with `service_migrate` stays **400**. Hosted MCP `trigger_job` does not grow a Move tool.
 
-Hosted MCP `trigger_job` uses this same list, including `container_start`, `container_stop`, `container_restart`, and `container_redeploy` (**v1.9** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md)). Those four require `service` and `source_filter`, the same body as this POST. It does not add `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move, undo, nmap, the console, token admin, or stale-data cleanup. For a `docker_stack_*` job, `source_filter` is the compose project path. Feature flags and `feature:*` scopes still apply. Token gates stay `jobs`, `feature:docker` when the token is feature-restricted, and the server docker flag. Adapter source on piherder-mcp `main` lists the four one-service types. Published adapter **0.2.0** does not.
+Hosted MCP `trigger_job` uses this same list, including `container_start`, `container_stop`, `container_restart`, and `container_redeploy` (**v1.9** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md)). Those four require `service` and `source_filter`, the same body as this POST. It does not add `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move, undo, nmap, the console, token admin, or stale-data cleanup. For a `docker_stack_*` job, `source_filter` is the compose project path. Feature flags and `feature:*` scopes still apply. Token gates stay `jobs`, `feature:docker` when the token is feature-restricted, and the server docker flag. Published adapter **0.3.1** lists the four one-service types. `uvx` at **0.2.0** does not.
 
 ### Stale data cleanup
 
