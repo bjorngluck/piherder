@@ -4,7 +4,7 @@
 
 Move is on unless you turn it off. Backups can copy on to a NAS share as well as Google Drive, and you can remove one of those copies without touching the other. Home Assistant plugin **0.5.0** can stop a whole project, move one, and browse files in the fleet jail. An agent can start, stop, restart, or update one container.
 
-**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.9.0` · `1.9` · `latest` (amd64 + arm64). Pin `1.8.1` / `1.8` stays the previous image. Pin `1.8.0` stays valid. Pins `1.7.0` / `1.7` stay valid. The public demo stays the **1.7.0** image.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.9.0` · `1.9` · `latest` (amd64 + arm64). Manifest `sha256:8519ad53e7d0ad0636164966bb876c4774f76b10101bb3c1a74dc6b2d0945472`. Pin `1.8.1` / `1.8` stays the previous image. Pin `1.8.0` stays valid. Pins `1.7.0` / `1.7` stay valid. The public demo stays the **1.7.0** image.
 
 Operator how-to: [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Move a service](https://piherder-docs.hacknow.info/docker/service-migration/) · [Home Assistant](https://piherder-docs.hacknow.info/integrations/home-assistant/) · [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/). Technical record: [PLAN_v1.9.0](PLAN_v1.9.0.md). Maintainer QA: [QA_v1.9.0](QA_v1.9.0.md).
 
