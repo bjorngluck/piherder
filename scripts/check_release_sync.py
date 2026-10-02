@@ -49,7 +49,7 @@ def version_of(kind: str, text: str) -> str:
 
 def quoted_block(text: str, name: str) -> list[str]:
     """Resolve a tuple of quoted names, including one `*OTHER` spread."""
-    match = re.search(rf"{name} = \((.*?)\)", text, re.S)
+    match = re.search(rf"(?m)^{re.escape(name)} = \((.*?)\n\)", text, re.S)
     if not match:
         raise SystemExit(f"missing {name}")
     body = match.group(1)
