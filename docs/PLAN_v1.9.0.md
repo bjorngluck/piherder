@@ -1,6 +1,6 @@
 # PiHerder v1.9.0 — one-service MCP, LAN share, Move on by default
 
-**Status:** **Code freeze** 2026-10-02 on `v1.9.0-dev`. Not tagged. Not a version bump. Package stays **`1.8.1`** until the bump. Published adapter is **`0.3.1`**. End-user notes: [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md).  
+**Status:** **Shipped** 2026-10-02. Tag **v1.9.0**. Package **1.9.0**. Published adapter is **`0.3.1`**. Plugin **0.5.0**. End-user notes: [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md).  
 **Date opened:** 2026-10-01  
 **Git branch:** `v1.9.0-dev` → `main` · tag `v1.9.0` at freeze  
 **Package / image version:** stays **`1.8.1`** until freeze. Image tags at freeze: `1.9.0` / `1.9` / `latest`. Pins `1.8.1` / `1.8` and `1.8.0` stay valid.  
@@ -10,7 +10,7 @@
 **QA:** [QA_v1.9.0.md](QA_v1.9.0.md) (signed 2026-10-02, including SMB **Test**, the password check, and the 1.8 regression. **Copy now** and a full OneDrive copy test are **v1.10** — **not** the operator wiki). Screenshot pack captured the same day.  
 **Related:** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [Home Assistant](../wiki/integrations/home-assistant.md)
 
-> **Code freeze 2026-10-02.** The image tag stays **v1.8.1** until the version bump, tag, and Hub publish. `main` already includes the herder allowlist (pull request #22) and the **1.8.1** patch. This branch is that `main` plus the rest of the train. The public demo stays the **1.7.0** image. The Home Assistant plugin stays a separate HACS repo (**0.5.0**, not inside the image). End-user notes are [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md). Do not treat this plan as a tagged release.
+> **Shipped 2026-10-02.** Tag **v1.9.0**. Package **1.9.0**. Image `1.9.0` / `1.9` / `latest`. The public demo stays the **1.7.0** image. The Home Assistant plugin stays a separate HACS repo (**0.5.0**, not inside the image). End-user notes are [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md).
 
 ---
 
