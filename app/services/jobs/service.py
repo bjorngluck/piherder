@@ -2028,7 +2028,12 @@ async def _run_retention_job(job_id: int, server_id: int, audit_id: int):
     await run_in_threadpool(_execute_retention, job_id, server_id, audit_id)
 
 
-def _notify_herder_backup_failed(message: str) -> None:
+# A pending self-backup blocks the next one. 30 minutes is long enough for a
+# worker to claim the row. After that the row is an outage, not a queue.
+HERDER_BACKUP_PENDING_SEC = 30 * 60
+
+
+def _notify_herder_backup_failed(message: str, *, link_url: str = "/herder-backups") -> None:
     try:
         from .notifications import upsert_notification
 
@@ -2039,7 +2044,7 @@ def _notify_herder_backup_failed(message: str) -> None:
                 type="herder_backup_failed",
                 title="PiHerder self-backup failed",
                 body=(message or "PiHerder self-backup failed")[:300],
-                link_url="/herder-backups",
+                link_url=link_url or "/herder-backups",
                 severity="critical",
             )
     except Exception:
@@ -2217,6 +2222,60 @@ def run_housekeeping_job(task, job_id: int, server_id: int, audit_id: int, job_t
         return {"status": "error", "job_id": job_id}
 
 
+def _open_herder_audit_id(session: Session, job_id: int) -> int:
+    needle = f"Job #{job_id}"
+    rows = session.exec(
+        select(AuditLog)
+        .where(AuditLog.action == "herder_backup")
+        .where(AuditLog.status == "running")
+        .order_by(AuditLog.id.desc())
+    ).all()
+    for row in rows:
+        if needle in (row.details or ""):
+            return int(row.id or 0)
+    return 0
+
+
+def expire_stale_pending_herder_backups(
+    session: Session, *, now: datetime | None = None
+) -> list[int]:
+    """Fail a self-backup that is still pending after 30 minutes.
+
+    A running archive is left alone. Each timed-out row raises the critical
+    self-backup alert and stops blocking the next run.
+    """
+    moment = now or datetime.utcnow()
+    rows = list(
+        session.exec(
+            select(Job)
+            .where(Job.job_type == "herder_backup")
+            .where(Job.status == "pending")
+        ).all()
+    )
+    failed: list[int] = []
+    for job in rows:
+        created = job.created_at or moment
+        age = (moment - created).total_seconds()
+        if age < HERDER_BACKUP_PENDING_SEC:
+            continue
+        job_id = int(job.id or 0)
+        minutes = max(1, int(age // 60))
+        message = (
+            f"PiHerder self-backup #{job_id} stayed pending for {minutes} minutes. "
+            "No worker started it. The job was stopped so the next backup can run."
+        )
+        audit_id = _open_herder_audit_id(session, job_id)
+        _fail_housekeeping_open(job_id, audit_id, "herder_backup", message)
+        session.expire(job)
+        session.refresh(job)
+        _merge_job_details(job, error=message, current="failed")
+        session.add(job)
+        session.commit()
+        _notify_herder_backup_failed(message, link_url=f"/jobs?highlight={job_id}")
+        failed.append(job_id)
+    return failed
+
+
 def _active_herder_backup(session: Session) -> Job | None:
     """One PiHerder backup at a time. This is not a per-host exclusive slot."""
     return session.exec(
@@ -2236,6 +2295,7 @@ def enqueue_herder_backup_job(
     background_tasks: BackgroundTasks | None = None,
 ) -> Job:
     """Queue a self-backup. server_id stays empty. A second call returns the active row."""
+    expire_stale_pending_herder_backups(session)
     active = _active_herder_backup(session)
     if active:
         logger.info("[Jobs] PiHerder backup skip — job #%s already active", active.id)

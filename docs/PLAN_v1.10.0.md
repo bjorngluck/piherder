@@ -82,6 +82,7 @@ main (image 1.9.0)
 | 2026-10-02 | Train opened from `main` after **v1.9.0** shipped. Must is the NAS **Copy now** walk, a selectable OneDrive hop, MCP OAuth, a copy of the herder self-backup, `dependabot.yml`, and closing the matching Dependabot alerts. Package stays `1.9.0`. |
 | 2026-10-02 | **OneDrive.** Selectable rclone hop on the same card. Own row, Fernet client secret and refresh token. Default drive of the signed-in account. Not a version bump. The NAS **Copy now** walk is still open. |
 | 2026-10-03 | **DR copy.** A saved destination can copy the herder self-backup when **Also copy each new self-backup** is on. The file goes to `herder/` on Drive, OneDrive, or the NAS. A failed copy leaves the local archive. Not a version bump. The NAS **Copy now** walk is still open. |
+| 2026-10-03 | A self-backup that is still **pending** after **30 minutes** is failed. That raises the critical **PiHerder self-backup failed** alert and lets the next run start. A running archive is not timed out this way. |
 
 ---
 
