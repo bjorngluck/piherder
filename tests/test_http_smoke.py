@@ -363,6 +363,9 @@ def test_reports_layout_hide_and_pin_viewer(smoke_client, monkeypatch):
     assert 'data-testid="reports-lan"' not in page.text
     assert 'data-testid="reports-backups"' in page.text
     assert 'data-testid="reports-hidden"' in page.text
+    assert 'data-testid="reports-catalog"' in page.text
+    assert 'data-testid="reports-catalog-lan"' in page.text
+    assert "LAN live · hidden" in page.text or "LAN live" in page.text
     assert 'data-testid="reports-layout-reset"' in page.text
     ids = re.findall(
         r'data-testid="reports-(backups|os-patch|lan|docker|console|move)"',

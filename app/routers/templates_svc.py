@@ -694,6 +694,13 @@ async def template_detail(
         reveal=bool(reveal),
     )
     file_details = file_details_for_ui(file_bodies)
+    from ..services.service_templates.deploy import fleet_rows_for_template
+
+    fleet = fleet_rows_for_template(
+        session,
+        template_id=row.id if row else None,
+        slug=slug,
+    )
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="template_detail.html",
@@ -712,6 +719,7 @@ async def template_detail(
             "source_cls": badge["cls"],
             "can_mutate": role_at_least(user, ROLE_OPERATOR),
             "slug": slug,
+            "fleet": fleet,
             "has_secret_vars": has_secret_vars,
             "unlock_error": request.query_params.get("unlock_error"),
             **_secrets_ui_context(request, session, user),

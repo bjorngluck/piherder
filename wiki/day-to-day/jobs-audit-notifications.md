@@ -42,7 +42,7 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 | Type | Typical trigger | Runner |
 |------|-----------------|--------|
 | `backup` | Manual or backup cron | **Celery** |
-| `backup_replicate` | Settings → PiHerder backup → **Copy now**, its schedule, or the follow-up after a host backup (v1.8 train, not in the 1.7.0 image) | **Celery** (default queue). Label **Backup copy** (Google Drive or a LAN share). May run for 7 days. A task failure marks the row failed so **Copy now** can run again. A hard kill of the worker can leave the row **running** and block a new copy. Does not take the per-host backup lock. Not on the token or MCP job list |
+| `backup_replicate` | Settings → PiHerder backup → **Copy now**, its schedule, the follow-up after a host backup, or a self-backup archive when that destination is set to copy it (v1.8 train, not in the 1.7.0 image) | **Celery** (default queue). Label **Backup copy** for a host-folder hop, or **Self-backup copy** when the row is one herder archive. A running archive hop does not block **Copy now**. A running folder hop does not block the archive hop. A second **Copy now** on the same destination still returns the active folder row. May run for 7 days. A task failure marks the row failed so **Copy now** can run again. A failed self-backup copy leaves the local archive in place. A hard kill of the worker can leave that row **running**. Does not take the per-host backup lock. Not on the token or MCP job list |
 | `os_patch` / `container_patch` | Manual or apply schedule | **Celery** (default queue). SSH down: stays pending and retries. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job |
 | `host_reboot` | Server **Reboot** or the Home Assistant host card | **Celery** (default queue). Refused while an OS patch, container patch, or backup is active on that host. SSH down: stays pending. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job |
 | `os_update_check` / `container_update_check` | Manual or check schedule | **Celery** (default queue) |
@@ -57,7 +57,7 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 | `stale_data_cleanup` | Opt-in Jobs / Audit / nmap-run purge | Scheduler or Settings → Run now |
 | `nmap_discover` / `nmap_inventory` / `nmap_detailed` / `nmap_host_deep` | LAN Discovery scans | **celery-worker-nmap** (`-Q nmap`) |
 | `nmap_vuln_db_update` | Download / refresh vuln pack | nmap worker |
-| `herder_backup` | PiHerder self-backup | **Celery** (default queue). No host. One at a time. Settings → Run opens the job. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job |
+| `herder_backup` | PiHerder self-backup | **Celery** (default queue). No host. One at a time. Settings → Run opens the job. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job. A row still **pending** after **30 minutes** is failed and raises a **critical** alert |
 
 Statuses: `pending` → `running` → `success` / `failed`.
 

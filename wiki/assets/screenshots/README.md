@@ -25,13 +25,42 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.7.0** | **Captured** 2026-09-28 on `v1.7.0-dev`. About / footer still **1.6.0** (code freeze, package not bumped). [§ v1.7](#v170--pack-status). [QA](../../../docs/QA_v1.7.0.md) |
 | **v1.8.0** | **Captured** 2026-10-01. Home Assistant plugin **0.4.3** and the Google Drive copy card. Package **1.8.0**. [§ v1.8](#v180--pack-status). [QA](../../../docs/QA_v1.8.0.md) |
 | **v1.9.0** | **Captured** 2026-10-02. Drive and SMB rows, Remove confirm, herder Move, plugin **0.5.0** Stop project and Plugin sensor. [§ v1.9](#v190--pack-status). [QA](../../../docs/QA_v1.9.0.md) |
+| **v1.10.0** | **Not captured.** About / footer still **1.9.0**. Shoot list: [§ v1.10](#v110--pack-status). [QA](../../../docs/QA_v1.10.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    **v1.9** pack landed 2026-10-02. [§ v1.9](#v190--pack-status).  
-    Do not photograph the public demo. Mask the token, the SMB password, and the Google client secret.  
-    **v1.8 captures** stay. About / footer on this train read **1.8.1**.
+    **v1.10** pack is not captured. [§ v1.10](#v110--pack-status). About / footer still read **1.9.0**.  
+    Do not photograph the public demo. Mask tokens, the SMB password, the Google client secret, and the Microsoft client secret.  
+    **v1.9 captures** stay. Do not retake them for OneDrive.
+
+---
+
+## v1.10.0 — pack status {#v110--pack-status}
+
+**Not captured.** The branch is `v1.10.0-dev`. Package stays **1.9.0**, so About and the footer still say **1.9.0**. Maintainer walks are [QA_v1.10.0.md](../../../docs/QA_v1.10.0.md). None of those boxes are signed. Do not photograph [the public demo](https://piherder-demo.hacknow.info).
+
+Mask every token, the SMB password, and the Google and Microsoft client secrets. A browser sign-in frame must not show the redirect URL’s `code`.
+
+### Shoot when you walk
+
+| Frame | What to show |
+|-------|----------------|
+| OneDrive row | **Copy the backup drive** with OneDrive selected, beside Drive and SMB if those rows exist. **Test**, **Folders**, **Edit**, **Remove**. No secret |
+| Self-backup copy | **Also copy each new self-backup** on a destination form, and **Copy off this host** on one archive row |
+| Reports cards | `/reports` **Cards** row, one card hidden so the name reads hidden |
+| Template fleet | A template page **On the fleet**, with at least one host and stack. Empty state is a second frame only if you have no deployment |
+| Agent sign-in | The **Allow this agent** page. Scopes visible. No auth code |
+
+### Do not shoot for 1.10
+
+| Slice | Why |
+|-------|-----|
+| Path C | No screen. Decision is **v1.11.0** |
+| NAS **Copy now** | Walk only, until you want a frame of a real share. Do not use the demo |
+| Dependabot | A YAML file and GitHub settings. No product screen |
+| Pending self-backup | A job row and a critical alert. Capture only if you are already in that failure |
+| v1.9 Drive and SMB pack | `settings-backup-multi-dest.png` and `settings-backup-remove-confirm.png` stay |
 
 ---
 
@@ -58,7 +87,7 @@ Plugin **0.5.0**. A guest share reads **no login**. Health `service_migrate` is 
 |-------|-----|
 | CSP Slice 2 | No new screen |
 | Failed Save | Walk only. The edit sheet stays open with what was typed |
-| OneDrive | Still unselectable |
+| OneDrive | Unselectable on the **1.9.0** tag. Selectable on `v1.10.0-dev`. Do not retake the 1.9 pack for it |
 | HAOS `/config` via Files | The card does not open it. Files stay in the fleet jail |
 | 1.8 Drive setup frames | `settings-drive-copy.png` and `settings-drive-setup.png` stay. The new frame is both dests on their own rows, not a replacement of the Drive card |
 

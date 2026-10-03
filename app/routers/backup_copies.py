@@ -39,6 +39,7 @@ FORM_ERRORS = frozenset({
     "origin",
     "state",
     "google",
+    "microsoft",
 })
 
 
@@ -47,11 +48,15 @@ def _redirect(query: str = "", provider: str = "") -> RedirectResponse:
     extra = []
     if query:
         extra.append(query)
-    if provider in ("drive", "smb"):
+    if provider in ("drive", "smb", "onedrive"):
         extra.append("copy_provider=" + provider)
     if extra:
         url = url + "&" + "&".join(extra)
     return RedirectResponse(url, status_code=303)
+
+
+def _form_on(value: str) -> bool:
+    return value in ("1", "on", "true")
 
 
 def _draft_fields(
@@ -59,6 +64,7 @@ def _draft_fields(
     provider: str,
     schedule_cron: str,
     after_host_backup: str,
+    copy_herder_backup: str = "",
     drive_folder: str = "",
     client_id: str = "",
     client_secret: str = "",
@@ -72,9 +78,10 @@ def _draft_fields(
     """Submitted edit fields. Secrets stay out of the redirect URL."""
     return {
         "cd": "1",
-        "provider": provider if provider in ("drive", "smb") else "drive",
+        "provider": provider if provider in ("drive", "smb", "onedrive") else "drive",
         "schedule_cron": schedule_cron or "",
-        "after_host_backup": "1" if after_host_backup in ("1", "on", "true") else "",
+        "after_host_backup": "1" if _form_on(after_host_backup) else "",
+        "copy_herder_backup": "1" if _form_on(copy_herder_backup) else "",
         "drive_folder": drive_folder or "",
         "client_id": client_id or "",
         "client_secret": client_secret or "",
@@ -113,7 +120,7 @@ def read_copy_draft(request: Request) -> dict[str, str] | None:
 def _blank_destination(provider: str) -> BackupDestination:
     now = datetime.utcnow()
     return BackupDestination(
-        name="LAN NAS / SMB" if provider == "smb" else "Google Drive",
+        name=copies.destination_name(provider),
         provider=provider,
         enabled=True,
         selection_json=copies.selection_json([], []),
@@ -140,11 +147,12 @@ def _apply_drive_form(
     provider: str,
     schedule_cron: str,
     after_host_backup: str,
+    copy_herder_backup: str,
     drive_folder: str,
     client_id: str,
     client_secret: str,
 ):
-    if (provider or "drive").strip() != "drive":
+    if (provider or "drive").strip() not in ("drive", "onedrive"):
         return "provider"
     try:
         cron = safe_cron(schedule_cron, field="schedule", allow_empty=True) or ""
@@ -158,7 +166,8 @@ def _apply_drive_form(
             client_secret=client_secret,
             folder=folder,
             schedule=cron or None,
-            after_host_backup=after_host_backup in ("1", "on", "true"),
+            after_host_backup=_form_on(after_host_backup),
+            copy_herder_backup=_form_on(copy_herder_backup),
         )
     except ValueError as exc:
         return str(exc) if str(exc) in ("folder", "client") else "client"
@@ -170,6 +179,7 @@ def _apply_smb_form(
     *,
     schedule_cron: str,
     after_host_backup: str,
+    copy_herder_backup: str,
     host: str,
     share: str,
     smb_path: str,
@@ -191,7 +201,8 @@ def _apply_smb_form(
             password=password,
             domain=domain,
             schedule=cron or None,
-            after_host_backup=after_host_backup in ("1", "on", "true"),
+            after_host_backup=_form_on(after_host_backup),
+            copy_herder_backup=_form_on(copy_herder_backup),
         )
     except ValueError as exc:
         return (
@@ -300,6 +311,7 @@ async def save_copy_config(
     provider: str = Form("drive"),
     schedule_cron: str = Form(""),
     after_host_backup: str = Form(""),
+    copy_herder_backup: str = Form(""),
     drive_folder: str = Form(""),
     client_id: str = Form(""),
     client_secret: str = Form(""),
@@ -317,6 +329,7 @@ async def save_copy_config(
         provider=provider,
         schedule_cron=schedule_cron,
         after_host_backup=after_host_backup,
+        copy_herder_backup=copy_herder_backup,
         drive_folder=drive_folder,
         client_id=client_id,
         client_secret=client_secret,
@@ -338,6 +351,7 @@ async def save_copy_config(
             dest,
             schedule_cron=schedule_cron,
             after_host_backup=after_host_backup,
+            copy_herder_backup=copy_herder_backup,
             host=host,
             share=share,
             smb_path=smb_path,
@@ -351,6 +365,7 @@ async def save_copy_config(
             provider=key,
             schedule_cron=schedule_cron,
             after_host_backup=after_host_backup,
+            copy_herder_backup=copy_herder_backup,
             drive_folder=drive_folder,
             client_id=client_id,
             client_secret=client_secret,
@@ -370,6 +385,7 @@ async def start_google_connect(
     provider: str = Form("drive"),
     schedule_cron: str = Form(""),
     after_host_backup: str = Form(""),
+    copy_herder_backup: str = Form(""),
     drive_folder: str = Form(""),
     client_id: str = Form(""),
     client_secret: str = Form(""),
@@ -381,6 +397,7 @@ async def start_google_connect(
         provider="drive",
         schedule_cron=schedule_cron,
         after_host_backup=after_host_backup,
+        copy_herder_backup=copy_herder_backup,
         drive_folder=drive_folder,
         client_id=client_id,
         client_secret=client_secret,
@@ -391,6 +408,7 @@ async def start_google_connect(
         provider=provider,
         schedule_cron=schedule_cron,
         after_host_backup=after_host_backup,
+        copy_herder_backup=copy_herder_backup,
         drive_folder=drive_folder,
         client_id=client_id,
         client_secret=client_secret,
@@ -504,6 +522,149 @@ async def google_connect_callback(
     _commit_drive(session, dest)
     response = _redirect("copy_saved=1")
     response.delete_cookie(copies.OAUTH_STATE_COOKIE, path="/")
+    return response
+
+
+@router.post("/backup-copies/onedrive/start")
+async def start_onedrive_connect(
+    request: Request,
+    provider: str = Form("onedrive"),
+    schedule_cron: str = Form(""),
+    after_host_backup: str = Form(""),
+    copy_herder_backup: str = Form(""),
+    drive_folder: str = Form(""),
+    client_id: str = Form(""),
+    client_secret: str = Form(""),
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    del user, provider
+    draft = _draft_fields(
+        provider="onedrive",
+        schedule_cron=schedule_cron,
+        after_host_backup=after_host_backup,
+        copy_herder_backup=copy_herder_backup,
+        drive_folder=drive_folder,
+        client_id=client_id,
+        client_secret=client_secret,
+    )
+    dest = copies.find_destination(session, "onedrive") or _blank_destination("onedrive")
+    failed = _apply_drive_form(
+        dest,
+        provider="onedrive",
+        schedule_cron=schedule_cron,
+        after_host_backup=after_host_backup,
+        copy_herder_backup=copy_herder_backup,
+        drive_folder=drive_folder,
+        client_id=client_id,
+        client_secret=client_secret,
+    )
+    if failed:
+        session.rollback()
+        return _redirect_keeping_draft(failed, draft)
+    if dest.id is None:
+        session.add(dest)
+    _commit_drive(session, dest)
+    session.refresh(dest)
+    client = copies.oauth_client(dest)
+    if not client["client_id"] or not client["client_secret"]:
+        return _redirect("copy_error=client", "onedrive")
+    origin = _public_origin(request)
+    if not origin:
+        return _redirect("copy_error=origin", "onedrive")
+    state = copies.new_oauth_state()
+    response = RedirectResponse("/backup-copies/onedrive/go", status_code=303)
+    response.set_cookie(
+        copies.ONEDRIVE_OAUTH_STATE_COOKIE,
+        state,
+        max_age=600,
+        httponly=True,
+        samesite="lax",
+        secure=origin.startswith("https"),
+        path="/",
+    )
+    return response
+
+
+@router.get("/backup-copies/onedrive/go")
+async def onedrive_connect_go(
+    request: Request,
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    del user
+    state = request.cookies.get(copies.ONEDRIVE_OAUTH_STATE_COOKIE) or ""
+    if not state:
+        return _redirect("copy_error=state", "onedrive")
+    origin = _public_origin(request)
+    dest = copies.get_or_create(session, "onedrive")
+    client = copies.oauth_client(dest)
+    if not origin:
+        return _redirect("copy_error=origin", "onedrive")
+    if not client["client_id"] or not client["client_secret"]:
+        return _redirect("copy_error=client", "onedrive")
+    target = copies.microsoft_auth_url(
+        client["client_id"],
+        copies.onedrive_redirect_uri(origin),
+        state,
+    )
+    from html import escape
+
+    safe = escape(target, quote=True)
+    page = (
+        "<!DOCTYPE html><html><head><meta charset=\"utf-8\">"
+        f"<meta http-equiv=\"refresh\" content=\"0;url={safe}\">"
+        "<title>Continue to Microsoft</title></head><body>"
+        f"<p><a href=\"{safe}\">Continue to Microsoft</a></p>"
+        "</body></html>"
+    )
+    return HTMLResponse(page)
+
+
+@router.get("/backup-copies/onedrive/callback")
+async def onedrive_connect_callback(
+    request: Request,
+    code: str = "",
+    state: str = "",
+    error: str = "",
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    del user
+    if error or not code:
+        return _redirect("copy_error=microsoft", "onedrive")
+    saved_state = request.cookies.get(copies.ONEDRIVE_OAUTH_STATE_COOKIE) or ""
+    if not saved_state or not state or saved_state != state:
+        return _redirect("copy_error=state", "onedrive")
+    origin = _public_origin(request)
+    dest = copies.get_or_create(session, "onedrive")
+    client = copies.oauth_client(dest)
+    if not origin or not client["client_id"] or not client["client_secret"]:
+        return _redirect("copy_error=client", "onedrive")
+    try:
+        token = copies.exchange_microsoft_code(
+            client_id=client["client_id"],
+            client_secret=client["client_secret"],
+            code=code,
+            redirect_uri=copies.onedrive_redirect_uri(origin),
+        )
+    except ValueError:
+        return _redirect("copy_error=microsoft", "onedrive")
+    email = copies.microsoft_account_email(str(token.get("access_token") or ""))
+    from ..security.encryption import encrypt_str
+
+    plain = copies.pack_oauth_token(
+        client_id=client["client_id"],
+        client_secret=client["client_secret"],
+        refresh_token=str(token.get("refresh_token") or ""),
+        access_token=str(token.get("access_token") or ""),
+        email=email,
+        expires_in=int(token["expires_in"]) if str(token.get("expires_in") or "").isdigit() else None,
+    )
+    dest.credentials_encrypted = encrypt_str(plain)
+    _commit_drive(session, dest)
+    response = _redirect("copy_saved=1", "onedrive")
+    response.delete_cookie(copies.ONEDRIVE_OAUTH_STATE_COOKIE, path="/")
     return response
 
 

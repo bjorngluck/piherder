@@ -1,0 +1,61 @@
+# Security updates for this repository.
+# Version-update pull requests stay off (limit 0). Security-update pull
+# requests are not subject to that limit. The setting takes effect on the
+# default branch. A security pull request for Python still needs the exported
+# requirements lockfiles refreshed with uv export before the image changes.
+version: 2
+updates:
+  - package-ecosystem: uv
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      uv-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      pip-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      actions-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      docker-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: docker-compose
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      compose-security:
+        applies-to: security-updates
+        patterns:
+          - "*"

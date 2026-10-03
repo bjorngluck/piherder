@@ -26,6 +26,14 @@ Journey: [Operator scenarios — Journey F](../getting-started/operator-scenario
   <figcaption>Same tab, under the self-backup cards — Copy the backup drive. This copies checked folders from /backups. It is not the Full DR archive above. Setup: [Backups](../day-to-day/backups.md#set-up-google-drive).</figcaption>
 </figure>
 
+## Copy the archive off this host
+
+The `.tar.gz` stays under `/herder_backups` first. A saved Google Drive, OneDrive, or LAN share can also receive that file.
+
+On **Copy the backup drive**, turn on **Also copy each new self-backup** for the destination, then save. The next successful self-backup queues a copy of that one archive. **Copy** on an archive row sends a file that is already on disk. The copy lands in a `herder/` folder on that destination, beside the host backup folders. Jobs labels that row **Self-backup copy**. It does not block **Copy now** of the host folders, and a host-folder copy does not block it.
+
+A failed copy fails the copy job. It does not delete the local archive. The public demo does not upload. Restore still reads the local file, not Drive, OneDrive, or the share.
+
 ---
 
 ## Version matrix (read this before trusting an archive)
@@ -125,7 +133,7 @@ JSON + gzip of **selected** tables (often dominated by capped audit + logos) typ
 ## End-to-end: first DR pack (v1.2+)
 
 1. Store **`PIHERDER_MASTER_KEY` offline**.  
-2. Settings → **PiHerder backup** → **Full DR** → Run (or schedule **Full**). Run queues a job and opens Jobs. It does not block the page, and a web restart does not stop the archive.  
+2. Settings → **PiHerder backup** → **Full DR** → Run (or schedule **Full**). Run queues a job and opens Jobs. It does not block the page, and a web restart does not stop the archive. Only one self-backup is active at a time. If that row is still **pending** after **30 minutes**, PiHerder stops it and raises a **critical** alert (**PiHerder self-backup failed**). The next run can then start. A backup that is already **running** is left to finish.  
 3. Copy the archive **off** the herder host.  
 4. Lab restore with the **same** master key; smoke test.  
 
