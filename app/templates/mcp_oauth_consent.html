@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Allow this agent</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f4f5f7; color: #1c1c1c; }
+    main { max-width: 32rem; margin: 3rem auto; background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 1.5rem; }
+    h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
+    p, li { font-size: 0.95rem; line-height: 1.4; }
+    .muted { color: #555; font-size: 0.85rem; }
+    code { font-family: ui-monospace, monospace; font-size: 0.85rem; }
+    label { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0.4rem 0; }
+    .actions { display: flex; gap: 0.5rem; margin-top: 1.25rem; }
+    button { font: inherit; padding: 0.55rem 1rem; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; }
+    button.primary { background: #c51d34; color: #fff; border-color: #c51d34; }
+    .error { background: #fde8e8; border: 1px solid #e7b3b3; padding: 0.6rem 0.75rem; border-radius: 8px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Allow this agent</h1>
+  <p><strong>{{ client_name }}</strong> wants to call PiHerder at <code>/mcp</code>.</p>
+  <p class="muted">After you allow it, the browser returns to <code>{{ redirect_host }}</code>. You can revoke the token later under Settings → API management.</p>
+  {% if error %}
+  <p class="error" role="alert">{{ error }}</p>
+  {% endif %}
+  <form method="post" action="/mcp/oauth/consent">
+    <p class="muted">Scopes</p>
+    <input type="hidden" name="scope" value="read">
+    <label>
+      <input type="checkbox" checked disabled>
+      <span><strong>read</strong> — look at the fleet. Required.</span>
+    </label>
+    {% for scope in optional_scopes %}
+    <label>
+      <input type="checkbox" name="scope" value="{{ scope.name }}" {% if scope.checked %}checked{% endif %}>
+      <span><strong>{{ scope.name }}</strong> — {{ scope.help }}</span>
+    </label>
+    {% endfor %}
+    <div class="actions">
+      <button class="primary" type="submit" name="decision" value="allow">Allow</button>
+      <button type="submit" name="decision" value="deny">Deny</button>
+    </div>
+  </form>
+</main>
+</body>
+</html>

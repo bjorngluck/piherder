@@ -501,6 +501,52 @@ class ApiToken(SQLModel, table=True):
     expires_at: Optional[datetime] = None
 
 
+class McpOAuthClient(SQLModel, table=True):
+    """Public OAuth client registered by an MCP agent (no client secret)."""
+
+    __tablename__ = "mcp_oauth_client"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    client_id: str = Field(index=True, unique=True)
+    client_name: str = ""
+    redirect_uris_json: str = "[]"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    revoked_at: Optional[datetime] = None
+
+
+class McpOAuthCode(SQLModel, table=True):
+    """One-time authorization code. The plaintext is not stored."""
+
+    __tablename__ = "mcp_oauth_code"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    code_hash: str = Field(index=True, unique=True)
+    client_id: str = Field(index=True)
+    user_id: int = Field(foreign_key="user.id")
+    redirect_uri: str
+    code_challenge: str
+    scopes: str = "read"
+    resource: str = ""
+    expires_at: datetime
+    used_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class McpOAuthRefresh(SQLModel, table=True):
+    """Refresh token for one MCP OAuth grant. Bound to an API token row."""
+
+    __tablename__ = "mcp_oauth_refresh"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    token_hash: str = Field(index=True, unique=True)
+    api_token_id: int = Field(foreign_key="apitoken.id", index=True)
+    client_id: str = Field(index=True)
+    scopes: str = "read"
+    expires_at: datetime
+    revoked_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class BackupDestination(SQLModel, table=True):
     """Fleet copy of the local backup drive (path A). Not a per-host setting.
 

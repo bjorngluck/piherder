@@ -2,7 +2,7 @@
 
 ## What this is
 
-PiHerder speaks [MCP](https://modelcontextprotocol.io) on the **same host and port** as the web app. The path is **`/mcp`**. Mint a `ph_` API token, paste the URL and a Bearer header into Cursor, Claude Code, Codex, or Grok. There is no second process to run.
+PiHerder speaks [MCP](https://modelcontextprotocol.io) on the **same host and port** as the web app. The path is **`/mcp`**. Paste a `ph_` Bearer token, or sign in in the browser and approve the agent's scopes. There is no second process to run.
 
 The older stdio program [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) is still there for an air-gapped laptop that cannot open HTTP to the herder. It is optional. It is not in the PiHerder image.
 
@@ -12,9 +12,11 @@ Operators were starting `uvx` on every agent machine and keeping `PIHERDER_URL` 
 
 **Transport:** [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports) (the remote MCP transport Cursor, Claude Code, VS Code, and Codex use in 2026). The server is **stateless**. Each call is one `POST` and a JSON body. `GET /mcp` returns **405** — there is no long-lived SSE listen channel. A client that only speaks the old HTTP+SSE transport should use the stdio fallback.
 
-**Auth:** the same `Authorization: Bearer ph_…` token as `/api/v1`. Same scopes, same IP allowlist, same expiry. The token is a header. It is not a query parameter. There is **no MCP OAuth** in this cut. Clients that ignore a static Bearer header and only complete an OAuth login should use stdio.
+**Auth:** paste an `Authorization: Bearer ph_…` token, or let the agent sign in in the browser. Same scopes, same IP allowlist, same expiry. The token is a header. It is not a query parameter.
 
-PiHerder does not advertise an OAuth discovery document. A `401` is `WWW-Authenticate: Bearer` with no `resource_metadata` URL, so Cursor keeps the header you pasted instead of opening a browser login.
+A call with no token gets `401` and a `resource_metadata` URL. The agent registers itself, opens a browser, and you approve the scopes while logged in as an admin. PiHerder then issues an access token for one hour and a refresh token for 30 days. That access token is an API token. It is listed under Settings → API management, and revoke there stops the agent. A rejected pasted `ph_` token does not include the discovery URL, so Cursor keeps the header you configured.
+
+The public demo does not complete this sign-in. Clients that still cannot reach the herder use the stdio fallback below.
 
 ## Mint
 
@@ -50,7 +52,7 @@ Replace the host. Keep the secret in the client’s secret store. Do not commit 
 
 `type` is `http` so Claude Code accepts the same block. Cursor uses `url` and sends the header.
 
-**Claude Code** — project `.mcp.json` or the user `mcpServers` entry, same JSON. Claude Desktop’s remote connector UI often wants OAuth; if it will not take a Bearer header, use the stdio fallback below.
+**Claude Code** — project `.mcp.json` or the user `mcpServers` entry, same JSON. Claude Desktop’s remote connector can use the browser sign-in above instead of a pasted Bearer header. Leave the URL as `https://your-herder/mcp` and do not set a header.
 
 **Codex** — `~/.codex/config.toml`. The env var is the **raw** `ph_…` secret. Codex adds `Bearer` itself.
 

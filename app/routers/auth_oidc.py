@@ -19,7 +19,7 @@ from ..security.auth import (
     decode_token_payload,
     find_valid_trusted_device,
     get_current_user,
-    post_login_path,
+    login_success_redirect,
     read_trusted_device_token,
     rate_limit_auth,
     LOGIN_RATE_MAX,
@@ -146,9 +146,7 @@ def _finish_login(
             _audit(session, user.id, "sso_login", f"{audit_detail} (IdP MFA satisfied login 2FA)")
             _audit(session, user.id, "user_login", "Login (SSO, IdP MFA)")
             token = create_user_access_token(user)
-            response = RedirectResponse(
-                url=post_login_path(user, session, request), status_code=303
-            )
+            response = login_success_redirect(user, session, request)
             _set_auth_cookie(response, token)
             return response
         raw_trusted = read_trusted_device_token(request.cookies, user.id)
@@ -160,9 +158,7 @@ def _finish_login(
             _audit(session, user.id, "sso_login", f"{audit_detail} (trusted device, 2FA skipped)")
             _audit(session, user.id, "user_login", "Login (SSO, trusted device)")
             token = create_user_access_token(user)
-            response = RedirectResponse(
-                url=post_login_path(user, session), status_code=303
-            )
+            response = login_success_redirect(user, session, request)
             _set_auth_cookie(response, token)
             return response
 
@@ -179,7 +175,7 @@ def _finish_login(
     _audit(session, user.id, "sso_login", audit_detail)
     _audit(session, user.id, "user_login", "Login (SSO)")
     token = create_user_access_token(user)
-    response = RedirectResponse(url=post_login_path(user, session), status_code=303)
+    response = login_success_redirect(user, session, request)
     _set_auth_cookie(response, token)
     return response
 
