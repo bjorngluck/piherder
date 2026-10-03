@@ -5,7 +5,7 @@
 **Package:** stays **`1.9.0`** until freeze. About / footer **1.9.0**  
 **Operator QA:** not signed. Every box below stays empty until you walk it.  
 **Screenshots:** not captured. Shoot list: [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status).  
-**Pull request:** draft, opened with this sweep. Number is filled in after GitHub returns it.
+**Pull request:** draft [#30](https://github.com/bjorngluck/piherder/pull/30). Not ready for review. QA boxes stay empty.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
