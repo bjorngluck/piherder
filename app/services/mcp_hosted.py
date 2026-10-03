@@ -10,8 +10,9 @@ not list those four until the companion release.
 Transport choice: MCP Streamable HTTP (spec 2025-03-26 and later), stateless,
 preferring a single ``application/json`` response. That is what Cursor, Claude
 Code, and VS Code use for a remote ``url`` in 2026. A long-lived SSE session
-and OAuth discovery are not required for this cut. Legacy SSE-only clients
-use the stdio ``uvx`` fallback.
+Legacy SSE-only clients use the stdio ``uvx`` fallback. A missing token
+advertises MCP OAuth (``ph_oa_`` access tokens). A rejected pasted ``ph_``
+token does not, so a configured Bearer header stays in place.
 
 The token is never logged and is not accepted in the query string.
 """
@@ -1047,13 +1048,17 @@ async def handle_mcp_http(request: Request, session: Session) -> Response:
         )
 
     from ..routers.api_v1 import get_api_auth
+    from .mcp_oauth import www_authenticate
 
+    presented = request.headers.get("authorization")
     try:
-        auth = get_api_auth(request, session, request.headers.get("authorization"))
+        auth = get_api_auth(request, session, presented)
     except HTTPException as exc:
         headers = {}
         if exc.headers:
             headers.update(dict(exc.headers))
+        if exc.status_code == 401:
+            headers["WWW-Authenticate"] = www_authenticate(request, presented)
         detail = exc.detail if isinstance(exc.detail, str) else "Unauthorized"
         return JSONResponse(status_code=exc.status_code, content={"detail": detail}, headers=headers)
 

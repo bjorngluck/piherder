@@ -79,6 +79,8 @@ curl -sS "{{ public_url|default('') }}/openapi.json" | head -c 200</pre>
         <strong>Admin-managed</strong>, instance-wide tokens for n8n, Home Assistant, scripts,
         and agents (<code class="font-mono">/api/v1/*</code> and hosted MCP at
         <code class="font-mono">/mcp</code>) — not personal logins.
+        An agent can also sign in in the browser. You approve its scopes, and the
+        token it receives shows up in this list.
         Secrets are hashed; copy once at create or rotate.
         Revoke keeps the token record for traceability (audit by id/name).
         Review the full spec under <button type="button" class="text-primary underline" data-api-panel="docs">API reference</button>.

@@ -47,6 +47,8 @@ from ..security.auth import (
     user_role,
     is_sole_admin,
     count_active_admins,
+    clear_mcp_oauth_return,
+    login_success_redirect,
     post_login_path,
     force_2fa_required,
     cookie_auth_kwargs,
@@ -442,9 +444,7 @@ async def login(
             _touch_last_login(session, user)
             _audit(session, user.id, "user_login", "Login (trusted device, 2FA skipped)")
             token = create_user_access_token(user)
-            response = RedirectResponse(
-                url=post_login_path(user, session), status_code=303
-            )
+            response = login_success_redirect(user, session, request)
             _set_auth_cookie(response, token)
             # Refresh browser cookie lifetime (and migrate legacy → per-user name)
             _set_trusted_device_cookie(response, user.id, raw_trusted)
@@ -462,7 +462,7 @@ async def login(
     _touch_last_login(session, user)
     _audit(session, user.id, "user_login", "Login")
     token = create_user_access_token(user)
-    response = RedirectResponse(url=post_login_path(user, session), status_code=303)
+    response = login_success_redirect(user, session, request)
     _set_auth_cookie(response, token)
     return response
 
@@ -566,7 +566,7 @@ async def two_factor_submit(
     _touch_last_login(session, user)
     _audit(session, user.id, "user_login", "Login (2FA verified)")
     token = create_user_access_token(user)
-    response = RedirectResponse(url=post_login_path(user, session), status_code=303)
+    response = login_success_redirect(user, session, request)
     _set_auth_cookie(response, token)
     response.delete_cookie(PENDING_COOKIE, **cookie_delete_kwargs())
 
@@ -672,8 +672,9 @@ async def two_factor_webauthn_verify(
     _touch_last_login(session, user)
     _audit(session, user.id, "user_login", "Login (passkey 2FA verified)")
     token = create_user_access_token(user)
-    redirect = post_login_path(user, session)
+    redirect = post_login_path(user, session, request)
     resp = JSONResponse({"ok": True, "redirect": redirect})
+    clear_mcp_oauth_return(resp, redirect)
     _set_auth_cookie(resp, token)
     resp.delete_cookie(PENDING_COOKIE, **cookie_delete_kwargs())
     resp.delete_cookie(wa_svc.CHALLENGE_COOKIE_AUTH, **cookie_delete_kwargs())
@@ -1639,7 +1640,7 @@ async def force_password_page(
     from ..services import password_policy as pwpol
 
     if not getattr(user, "must_change_password", False):
-        return RedirectResponse(post_login_path(user, session), status_code=303)
+        return login_success_redirect(user, session, request)
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="force_password.html",
@@ -1654,6 +1655,7 @@ async def force_password_page(
 
 @router.post("/force-password")
 async def force_password_submit(
+    request: Request,
     new_password: str = Form(...),
     confirm_password: str = Form(...),
     user: User = Depends(get_current_user),
@@ -1662,7 +1664,7 @@ async def force_password_submit(
     from ..services import password_policy as pwpol
 
     if not getattr(user, "must_change_password", False):
-        return RedirectResponse(post_login_path(user, session), status_code=303)
+        return login_success_redirect(user, session, request)
     if new_password != confirm_password:
         return RedirectResponse("/auth/force-password?error=mismatch", status_code=303)
     ok, _err = pwpol.validate_password(new_password or "")
@@ -1680,7 +1682,7 @@ async def force_password_submit(
     revoke_all_trusted_devices(session, user.id)
     _audit(session, user.id, "user_password_changed", "First-login password set")
     # Re-issue cookie with current session_version (admin recovery may have bumped it)
-    response = RedirectResponse(post_login_path(user, session), status_code=303)
+    response = login_success_redirect(user, session, request)
     _set_auth_cookie(response, create_user_access_token(user))
     _clear_trusted_device_cookie(response, user.id)
     return response
