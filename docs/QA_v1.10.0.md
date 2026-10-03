@@ -48,7 +48,7 @@ The DR archive (`/herder_backups`), not the host rsync tree.
 
 ## MCP OAuth (Must)
 
-Hosted `POST /mcp`. Token masked when a bearer is still used.
+Hosted `POST /mcp` only. `uvx piherder-mcp` still uses `PIHERDER_TOKEN` and does not open a browser. Token masked when a bearer is still used.
 
 - [ ] An agent can sign in without only a `ph_` bearer token
 - [ ] A token without the scope still cannot call the tool
