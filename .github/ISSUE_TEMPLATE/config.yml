@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a vulnerability
+    url: https://github.com/bjorngluck/piherder/security/policy
+    about: Do not open a public issue for a vulnerability. Use the security policy.
