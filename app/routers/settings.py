@@ -583,7 +583,11 @@ async def settings_page(
     od_has_token = False
     od_schedule = ""
     od_after = False
+    od_herder = False
     od_redirect_uri = ""
+    drive_herder = False
+    smb_herder = False
+    herder_copy_ready = False
     smb_guest = False
     folder_provider = ""
     copy_form_error = False
@@ -618,6 +622,7 @@ async def settings_page(
                 copy_has_secret = bool(copy_oauth.get("client_secret"))
                 drive_schedule = drive_row.schedule or ""
                 drive_after = bool(drive_row.after_host_backup)
+                drive_herder = copies.copies_herder_backup(drive_row)
             if smb_row is not None:
                 smb_view = copies.smb_public(smb_row)
                 copy_smb_host = smb_view["host"]
@@ -629,6 +634,7 @@ async def settings_page(
                 smb_guest = bool(smb_view.get("guest"))
                 smb_schedule = smb_row.schedule or ""
                 smb_after = bool(smb_row.after_host_backup)
+                smb_herder = copies.copies_herder_backup(smb_row)
             if od_row is not None:
                 od_account = copies.credential_public(od_row)
                 od_has_token = bool(od_account.get("saved"))
@@ -640,6 +646,7 @@ async def settings_page(
                 od_has_secret = bool(od_oauth.get("client_secret"))
                 od_schedule = od_row.schedule or ""
                 od_after = bool(od_row.after_host_backup)
+                od_herder = copies.copies_herder_backup(od_row)
             copy_rows = _backup_copy_rows(
                 drive_saved=drive_saved,
                 smb_saved=smb_saved,
@@ -675,19 +682,27 @@ async def settings_page(
                     copy_smb_domain = draft.get("domain") or ""
                     smb_schedule = draft.get("schedule_cron") or ""
                     smb_after = draft.get("after_host_backup") == "1"
+                    smb_herder = draft.get("copy_herder_backup") == "1"
                     copy_draft_password = draft.get("password") or ""
                 elif copy_provider == "drive":
                     copy_client_id = draft.get("client_id") or ""
                     copy_drive_folder = draft.get("drive_folder") or ""
                     drive_schedule = draft.get("schedule_cron") or ""
                     drive_after = draft.get("after_host_backup") == "1"
+                    drive_herder = draft.get("copy_herder_backup") == "1"
                     copy_draft_secret = draft.get("client_secret") or ""
                 if copy_provider == "onedrive":
                     od_client_id = draft.get("client_id") or ""
                     od_folder = draft.get("drive_folder") or ""
                     od_schedule = draft.get("schedule_cron") or ""
                     od_after = draft.get("after_host_backup") == "1"
+                    od_herder = draft.get("copy_herder_backup") == "1"
                     copy_draft_secret = draft.get("client_secret") or ""
+            herder_copy_ready = bool(
+                (drive_saved and drive_herder and copies.credentials_saved(drive_row))
+                or (smb_saved and smb_herder and copies.credentials_saved(smb_row))
+                or (onedrive_saved and od_herder and copies.credentials_saved(od_row))
+            )
             copy_error_code = (qp.get("copy_error") or "").strip()
             copy_form_error = copy_error_code in FORM_ERRORS
             if requested == "smb" and smb_saved:
@@ -751,7 +766,11 @@ async def settings_page(
             od_has_token = False
             od_schedule = ""
             od_after = False
+            od_herder = False
             od_redirect_uri = ""
+            drive_herder = False
+            smb_herder = False
+            herder_copy_ready = False
             smb_guest = False
             folder_provider = ""
             copy_form_error = False
@@ -774,6 +793,10 @@ async def settings_page(
             "copy_can_remove": copy_can_remove,
             "drive_schedule": drive_schedule,
             "drive_after": drive_after,
+            "drive_herder": drive_herder,
+            "smb_herder": smb_herder,
+            "herder_copy_ready": herder_copy_ready,
+            "herder_copy": qp.get("herder_copy"),
             "copy_smb_host": copy_smb_host,
             "copy_smb_share": copy_smb_share,
             "copy_smb_path": copy_smb_path,
@@ -803,6 +826,7 @@ async def settings_page(
             "od_has_secret": od_has_secret,
             "od_schedule": od_schedule,
             "od_after": od_after,
+            "od_herder": od_herder,
             "od_redirect_uri": od_redirect_uri,
             "smb_guest": smb_guest,
             "folder_provider": folder_provider,
@@ -1305,6 +1329,31 @@ async def trigger_herder_backup(
         return RedirectResponse(
             _settings_url("backup", error=str(e)[:120]), status_code=303
         )
+
+
+@router.post("/herder-backups/copy")
+async def copy_herder_archive(
+    name: str = Form(""),
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    """Send one local self-backup to destinations that opted in."""
+    from ..services import backup_replicate as copies
+    from ..services.demo import http_403_if_demo
+    from ..services.herder_backup import is_safe_archive_basename, resolve_archive_in_roots
+
+    http_403_if_demo("settings_write")
+    filename = (name or "").strip()
+    if not is_safe_archive_basename(filename) or resolve_archive_in_roots(name=filename) is None:
+        return RedirectResponse(_settings_url("backup", herder_copy="missing"), status_code=303)
+    jobs = copies.enqueue_after_herder_backup(session, filename)
+    if not jobs:
+        return RedirectResponse(_settings_url("backup", herder_copy="none"), status_code=303)
+    failed = [job for job in jobs if job.status == "failed"]
+    if len(failed) == len(jobs):
+        return RedirectResponse(_settings_url("backup", herder_copy="failed"), status_code=303)
+    del user
+    return RedirectResponse(f"/jobs?highlight={jobs[0].id}", status_code=303)
 
 
 @router.post("/herder-backups/restore")

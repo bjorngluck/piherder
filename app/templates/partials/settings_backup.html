@@ -60,6 +60,13 @@
         </p>
       </div>
     </div>
+    {% if herder_copy == 'none' %}
+    <p class="text-sm text-danger mb-3">Turn on “Also copy each new self-backup” on a saved destination first.</p>
+    {% elif herder_copy == 'missing' %}
+    <p class="text-sm text-danger mb-3">That archive is not on this PiHerder.</p>
+    {% elif herder_copy == 'failed' %}
+    <p class="text-sm text-danger mb-3">The copy did not start. The local archive is still here.</p>
+    {% endif %}
 
     <form method="post" action="/herder-backups/run" class="settings-backup-run text-sm">
       <div class="settings-backup-run-mode">
@@ -96,6 +103,15 @@
           </form>
           <a href="/herder-backups/download?name={{ b.name | urlencode }}"
              class="source-icon-btn" title="Download" aria-label="Download">⬇</a>
+          {% if herder_copy_ready %}
+          <form method="post" action="/herder-backups/copy"
+                data-confirm="Copy this archive to the destinations that receive self-backups? The local file stays."
+                data-confirm-title="Copy self-backup"
+                data-confirm-label="Copy">
+            <input type="hidden" name="name" value="{{ b.name }}">
+            <button type="submit" class="source-icon-btn" title="Copy off this host" aria-label="Copy off this host">↗</button>
+          </form>
+          {% endif %}
           <form method="post" action="/herder-backups/delete"
                 data-confirm="Delete this backup permanently?"
                 data-confirm-title="Delete backup"
@@ -378,6 +394,10 @@
                 <input type="checkbox" name="after_host_backup" value="1" {% if drive_after %}checked{% endif %}>
                 After a host backup succeeds, copy that host’s checked folders
               </label>
+              <label class="flex items-center gap-2 min-h-11">
+                <input type="checkbox" name="copy_herder_backup" value="1" {% if drive_herder %}checked{% endif %}>
+                Also copy each new self-backup
+              </label>
             </fieldset>
             <fieldset data-copy-fields="onedrive" {% if copy_provider != 'onedrive' %}disabled{% endif %} class="space-y-3 border-0 p-0 m-0 min-w-0 {% if copy_provider != 'onedrive' %}hidden{% endif %}">
               <div>
@@ -415,6 +435,10 @@
               <label class="flex items-center gap-2 min-h-11">
                 <input type="checkbox" name="after_host_backup" value="1" {% if od_after %}checked{% endif %}>
                 After a host backup succeeds, copy that host’s checked folders
+              </label>
+              <label class="flex items-center gap-2 min-h-11">
+                <input type="checkbox" name="copy_herder_backup" value="1" {% if od_herder %}checked{% endif %}>
+                Also copy each new self-backup
               </label>
             </fieldset>
             <fieldset data-copy-fields="smb" {% if copy_provider != 'smb' %}disabled{% endif %} class="space-y-3 border-0 p-0 m-0 min-w-0 {% if copy_provider != 'smb' %}hidden{% endif %}">
@@ -471,6 +495,10 @@
               <label class="flex items-center gap-2 min-h-11">
                 <input type="checkbox" name="after_host_backup" value="1" {% if smb_after %}checked{% endif %}>
                 After a host backup succeeds, copy that host’s checked folders
+              </label>
+              <label class="flex items-center gap-2 min-h-11">
+                <input type="checkbox" name="copy_herder_backup" value="1" {% if smb_herder %}checked{% endif %}>
+                Also copy each new self-backup
               </label>
             </fieldset>
           </div>

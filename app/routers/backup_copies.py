@@ -55,11 +55,16 @@ def _redirect(query: str = "", provider: str = "") -> RedirectResponse:
     return RedirectResponse(url, status_code=303)
 
 
+def _form_on(value: str) -> bool:
+    return value in ("1", "on", "true")
+
+
 def _draft_fields(
     *,
     provider: str,
     schedule_cron: str,
     after_host_backup: str,
+    copy_herder_backup: str = "",
     drive_folder: str = "",
     client_id: str = "",
     client_secret: str = "",
@@ -75,7 +80,8 @@ def _draft_fields(
         "cd": "1",
         "provider": provider if provider in ("drive", "smb", "onedrive") else "drive",
         "schedule_cron": schedule_cron or "",
-        "after_host_backup": "1" if after_host_backup in ("1", "on", "true") else "",
+        "after_host_backup": "1" if _form_on(after_host_backup) else "",
+        "copy_herder_backup": "1" if _form_on(copy_herder_backup) else "",
         "drive_folder": drive_folder or "",
         "client_id": client_id or "",
         "client_secret": client_secret or "",
@@ -141,6 +147,7 @@ def _apply_drive_form(
     provider: str,
     schedule_cron: str,
     after_host_backup: str,
+    copy_herder_backup: str,
     drive_folder: str,
     client_id: str,
     client_secret: str,
@@ -159,7 +166,8 @@ def _apply_drive_form(
             client_secret=client_secret,
             folder=folder,
             schedule=cron or None,
-            after_host_backup=after_host_backup in ("1", "on", "true"),
+            after_host_backup=_form_on(after_host_backup),
+            copy_herder_backup=_form_on(copy_herder_backup),
         )
     except ValueError as exc:
         return str(exc) if str(exc) in ("folder", "client") else "client"
@@ -171,6 +179,7 @@ def _apply_smb_form(
     *,
     schedule_cron: str,
     after_host_backup: str,
+    copy_herder_backup: str,
     host: str,
     share: str,
     smb_path: str,
@@ -192,7 +201,8 @@ def _apply_smb_form(
             password=password,
             domain=domain,
             schedule=cron or None,
-            after_host_backup=after_host_backup in ("1", "on", "true"),
+            after_host_backup=_form_on(after_host_backup),
+            copy_herder_backup=_form_on(copy_herder_backup),
         )
     except ValueError as exc:
         return (
@@ -301,6 +311,7 @@ async def save_copy_config(
     provider: str = Form("drive"),
     schedule_cron: str = Form(""),
     after_host_backup: str = Form(""),
+    copy_herder_backup: str = Form(""),
     drive_folder: str = Form(""),
     client_id: str = Form(""),
     client_secret: str = Form(""),
@@ -318,6 +329,7 @@ async def save_copy_config(
         provider=provider,
         schedule_cron=schedule_cron,
         after_host_backup=after_host_backup,
+        copy_herder_backup=copy_herder_backup,
         drive_folder=drive_folder,
         client_id=client_id,
         client_secret=client_secret,
@@ -339,6 +351,7 @@ async def save_copy_config(
             dest,
             schedule_cron=schedule_cron,
             after_host_backup=after_host_backup,
+            copy_herder_backup=copy_herder_backup,
             host=host,
             share=share,
             smb_path=smb_path,
@@ -352,6 +365,7 @@ async def save_copy_config(
             provider=key,
             schedule_cron=schedule_cron,
             after_host_backup=after_host_backup,
+            copy_herder_backup=copy_herder_backup,
             drive_folder=drive_folder,
             client_id=client_id,
             client_secret=client_secret,
@@ -371,6 +385,7 @@ async def start_google_connect(
     provider: str = Form("drive"),
     schedule_cron: str = Form(""),
     after_host_backup: str = Form(""),
+    copy_herder_backup: str = Form(""),
     drive_folder: str = Form(""),
     client_id: str = Form(""),
     client_secret: str = Form(""),
@@ -382,6 +397,7 @@ async def start_google_connect(
         provider="drive",
         schedule_cron=schedule_cron,
         after_host_backup=after_host_backup,
+        copy_herder_backup=copy_herder_backup,
         drive_folder=drive_folder,
         client_id=client_id,
         client_secret=client_secret,
@@ -392,6 +408,7 @@ async def start_google_connect(
         provider=provider,
         schedule_cron=schedule_cron,
         after_host_backup=after_host_backup,
+        copy_herder_backup=copy_herder_backup,
         drive_folder=drive_folder,
         client_id=client_id,
         client_secret=client_secret,
@@ -514,6 +531,7 @@ async def start_onedrive_connect(
     provider: str = Form("onedrive"),
     schedule_cron: str = Form(""),
     after_host_backup: str = Form(""),
+    copy_herder_backup: str = Form(""),
     drive_folder: str = Form(""),
     client_id: str = Form(""),
     client_secret: str = Form(""),
@@ -525,6 +543,7 @@ async def start_onedrive_connect(
         provider="onedrive",
         schedule_cron=schedule_cron,
         after_host_backup=after_host_backup,
+        copy_herder_backup=copy_herder_backup,
         drive_folder=drive_folder,
         client_id=client_id,
         client_secret=client_secret,
@@ -535,6 +554,7 @@ async def start_onedrive_connect(
         provider="onedrive",
         schedule_cron=schedule_cron,
         after_host_backup=after_host_backup,
+        copy_herder_backup=copy_herder_backup,
         drive_folder=drive_folder,
         client_id=client_id,
         client_secret=client_secret,

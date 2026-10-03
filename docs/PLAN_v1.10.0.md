@@ -81,6 +81,7 @@ main (image 1.9.0)
 |------|------|
 | 2026-10-02 | Train opened from `main` after **v1.9.0** shipped. Must is the NAS **Copy now** walk, a selectable OneDrive hop, MCP OAuth, a copy of the herder self-backup, `dependabot.yml`, and closing the matching Dependabot alerts. Package stays `1.9.0`. |
 | 2026-10-02 | **OneDrive.** Selectable rclone hop on the same card. Own row, Fernet client secret and refresh token. Default drive of the signed-in account. Not a version bump. The NAS **Copy now** walk is still open. |
+| 2026-10-03 | **DR copy.** A saved destination can copy the herder self-backup when **Also copy each new self-backup** is on. The file goes to `herder/` on Drive, OneDrive, or the NAS. A failed copy leaves the local archive. Not a version bump. The NAS **Copy now** walk is still open. |
 
 ---
 
@@ -89,8 +90,8 @@ main (image 1.9.0)
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.10.0-dev`** | **Done** 2026-10-02 |
-| 2 | **Copy now** on a dedicated NAS, then **OneDrive**, then the **DR copy** | **OneDrive** is selectable on this branch. The NAS walk is not started |
-| 3 | **MCP OAuth** | Not started |
+| 2 | **Copy now** on a dedicated NAS, then **OneDrive**, then the **DR copy** | **OneDrive** is selectable. **DR copy** is opt-in per destination. The NAS walk is not started |
+| 3 | **MCP OAuth** | Next |
 | 4 | **dependabot.yml** and close the matching alerts | Not started |
 | 5 | Should, if it fits | **N3c** first slice · demo image · sibling repos |
 | 6 | Discover write-ups | Path C · template fleet overview. No code |
