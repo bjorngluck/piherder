@@ -93,6 +93,7 @@ main (image 1.9.0)
 | 2026-10-03 | **Template fleet.** A template page lists every host and stack recorded from it. The catalog card shows the stack count. The badge on one Docker stack stays that host only. Not a version bump. |
 | 2026-10-03 | **Doc sweep.** Living plan, QA header, wiki index, upgrade note, and admin backup paragraph match the branch. Path C is written as a note in §4. It is not built. |
 | 2026-10-03 | **Path C discovery.** How a host backup works today, how Drive / OneDrive / SMB sit on that mirror, and what a direct copy would need on the host. No decision. Decision and any build are **v1.11.0**. Not this train. |
+| 2026-10-03 | **QA and screenshot list.** [QA_v1.10.0.md](QA_v1.10.0.md) names the unsigned walks, including the 30-minute pending self-backup. [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status) is the shoot list. Nothing is captured. Nothing is ticked. |
 
 ---
 

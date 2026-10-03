@@ -3,9 +3,9 @@
 **Branch:** `v1.10.0-dev` → `main` · tag **`v1.10.0`** (cut after merge)  
 **Code freeze:** not set  
 **Package:** stays **`1.9.0`** until freeze. About / footer **1.9.0**  
-**Operator QA:** not started  
-**Screenshots:** none yet  
-**Pull request:** none. Open a draft only when asked
+**Operator QA:** not signed. Every box below stays empty until you walk it.  
+**Screenshots:** not captured. Shoot list: [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status).  
+**Pull request:** draft, opened with this sweep. Number is filled in after GitHub returns it.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
@@ -42,9 +42,20 @@ Same card. OneDrive can be selected. It is its own row.
 
 The DR archive (`/herder_backups`), not the host rsync tree.
 
-- [ ] A destination can receive the self-backup archive
-- [ ] A failed copy of that archive does not delete the local DR file
+- [ ] **Also copy each new self-backup** is on the Drive, OneDrive, and SMB forms. It is off until checked
+- [ ] After a successful self-backup, only a destination with that box and saved credentials is queued
+- [ ] **Copy off this host** on an archive row sends that existing file. The local `.tar.gz` stays
+- [ ] A failed copy of that archive does not delete the local DR file and does not fail the local self-backup
 - [ ] The public demo does not upload it
+
+## Self-backup left pending (landed with the DR copy)
+
+One self-backup at a time. A row that stays **pending** is not a running archive.
+
+- [ ] A `herder_backup` still **pending** after 30 minutes is marked failed
+- [ ] That raises the critical **PiHerder self-backup failed** alert, linked to the job
+- [ ] A **running** self-backup is not failed by that watch
+- [ ] The next **Run backup** can start after the pending row is failed
 
 ## MCP OAuth (Must)
 
@@ -55,6 +66,8 @@ Hosted `POST /mcp` only. `uvx piherder-mcp` still uses `PIHERDER_TOKEN` and does
 - [ ] Move, undo, nmap, the console, token admin, down, and remove stay refused
 
 ## dependabot.yml (Must)
+
+The file is on this branch. Security updates are enabled on the GitHub repo. Version-update pull requests stay off. Checked 2026-10-03: PyJWT **2.15.1** and urllib3 **2.8.0** are in `uv.lock`, and GitHub showed **0** open Dependabot alerts. The boxes stay empty until you sign them.
 
 - [ ] `.github/dependabot.yml` is on this branch and turns on Dependabot security updates for this repository
 - [ ] The GitHub alerts that match PyJWT **2.15.1** and urllib3 **2.8.0** are closed. The pins are already on `main`
@@ -71,6 +84,8 @@ First slice is the **Cards** catalog on `/reports`: the same six history cards, 
 - [ ] [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) runs the latest release. Checked 2026-10-03: the container reports **1.9.0** from `main` `cc950c6`. Not this branch. Walk still unsigned.
 
 ## Sibling repos (Should)
+
+Checked on those repos, not in this tree: `piherder-ha` `4082131`, `piherder-mcp` `ccd80f0`. Each `main` asks for one review plus the CI that already runs. The box stays empty until you sign it.
 
 - [ ] [piherder-ha](https://github.com/bjorngluck/piherder-ha) and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) have Dependabot, a `SECURITY.md`, and `main` branch protection
 
