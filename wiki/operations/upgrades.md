@@ -135,7 +135,7 @@ Alembic **047** runs on web start. Recreate **web** and **celery-worker**. HACS 
 
 **v1.9.0** is tagged. Notes: [RELEASE_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/v1.9.0/docs/RELEASE_v1.9.0.md). Image `1.9.0` / `1.9` / `latest`. Pin `1.8.1` / `1.8` stays the previous image.
 
-No new database revision. Recreate **web** and **celery-worker**. About should say **1.9.0**. Move is **on** unless `PIHERDER_SERVICE_MIGRATE=false`. A LAN share can be saved beside Google Drive. HACS plugin **[0.5.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.0)** with resource `?v=0.5.0`. Adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)** sends the four one-service jobs. OneDrive stays unselectable until the next train. Next train: [PLAN_v1.10.0.md](https://github.com/bjorngluck/piherder/blob/v1.10.0-dev/docs/PLAN_v1.10.0.md) (NAS **Copy now**, OneDrive, agent sign-in). The public demo stays the **1.7.0** image.
+No new database revision. Recreate **web** and **celery-worker**. About should say **1.9.0**. Move is **on** unless `PIHERDER_SERVICE_MIGRATE=false`. A LAN share can be saved beside Google Drive. HACS plugin **[0.5.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.0)** with resource `?v=0.5.0`. Adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)** sends the four one-service jobs. OneDrive stays unselectable until the next train. Next train: [PLAN_v1.10.0.md](https://github.com/bjorngluck/piherder/blob/v1.10.0-dev/docs/PLAN_v1.10.0.md) (NAS **Copy now**, OneDrive, agent sign-in). The public demo was rebuilt from `main` on 2026-10-03 and reports **1.9.0**.
 
 ## Breaking notes
 
