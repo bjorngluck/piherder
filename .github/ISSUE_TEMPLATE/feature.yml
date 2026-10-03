@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest a change. Requests are considered against the roadmap.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is missing or hard today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should PiHerder do?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The PiHerder version you are on.
+      placeholder: "1.8.0"
+    validations:
+      required: true

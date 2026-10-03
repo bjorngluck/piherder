@@ -1,0 +1,50 @@
+name: Bug report
+description: Report something that does not work as expected.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security issues go to the [security policy](https://github.com/bjorngluck/piherder/security/policy). Do not open a public issue for a vulnerability.
+
+        Strip secrets before you paste anything (master key, tokens, private keys, passwords).
+  - type: input
+    id: version
+    attributes:
+      label: PiHerder version
+      description: Release, image tag, or commit.
+      placeholder: "1.8.0"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What was expected
+      description: What you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Enough detail for someone else to try the same thing.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or other context
+      description: Logs, screenshots, or environment notes. Strip secrets (master key, tokens, private keys, passwords).
+      render: text
+    validations:
+      required: false
