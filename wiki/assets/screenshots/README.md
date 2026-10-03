@@ -58,7 +58,7 @@ Plugin **0.5.0**. A guest share reads **no login**. Health `service_migrate` is 
 |-------|-----|
 | CSP Slice 2 | No new screen |
 | Failed Save | Walk only. The edit sheet stays open with what was typed |
-| OneDrive | Still unselectable |
+| OneDrive | Unselectable on the **1.9.0** tag. Selectable on `v1.10.0-dev`. Do not retake the 1.9 pack for it |
 | HAOS `/config` via Files | The card does not open it. Files stay in the fleet jail |
 | 1.8 Drive setup frames | `settings-drive-copy.png` and `settings-drive-setup.png` stay. The new frame is both dests on their own rows, not a replacement of the Drive card |
 
