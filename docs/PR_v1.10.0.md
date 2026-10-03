@@ -4,7 +4,7 @@
 
 **Base:** `main` · **Head:** `v1.10.0-dev` · **Draft** until [QA_v1.10.0.md](QA_v1.10.0.md) is signed
 
-**State:** No code freeze. Package stays **1.9.0**. Tag not cut. End-user notes are not written yet.
+**State:** Draft [#30](https://github.com/bjorngluck/piherder/pull/30). No code freeze. Package stays **1.9.0**. Tag not cut. End-user notes are not written yet.
 
 ---
 
