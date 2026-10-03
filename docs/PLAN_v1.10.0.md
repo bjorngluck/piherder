@@ -85,6 +85,7 @@ main (image 1.9.0)
 | 2026-10-03 | A self-backup that is still **pending** after **30 minutes** is failed. That raises the critical **PiHerder self-backup failed** alert and lets the next run start. A running archive is not timed out this way. |
 | 2026-10-03 | **MCP OAuth.** An agent can sign in to `POST /mcp` in the browser (PKCE, admin consent). A pasted `ph_` token still works. The access token is an API token with the approved scopes. Move, undo, nmap, the console, token admin, down, and remove stay off the tool. `uvx piherder-mcp` does not use this sign-in. It still calls `/api/v1` with `PIHERDER_TOKEN`. Not a version bump. |
 | 2026-10-03 | **dependabot.yml.** Security updates for uv, pip, GitHub Actions, Docker, and Compose. Version-update pull requests stay off. The PyJWT **2.15.1** and urllib3 **2.8.0** alerts are already **fixed** on GitHub (0 open). Not a version bump. |
+| 2026-10-03 | **N3c first slice.** `/reports` has a **Cards** catalog of the six history cards. Show and hide from that row. Pin, ↑ / ↓, and the per-card Hide stay. Out of this slice: new card types, Grafana, PromQL, iframes, SQL, and a Home marketplace. Not a version bump. |
 
 ---
 
@@ -96,7 +97,7 @@ main (image 1.9.0)
 | 2 | **Copy now** on a dedicated NAS, then **OneDrive**, then the **DR copy** | **OneDrive** is selectable. **DR copy** is opt-in per destination. The NAS walk is not started |
 | 3 | **MCP OAuth** | Browser sign-in for `POST /mcp`. A pasted `ph_` token still works |
 | 4 | **dependabot.yml** and close the matching alerts | File is on this branch. Alerts for PyJWT **2.15.1** and urllib3 **2.8.0** are already **fixed** (0 open). The file applies on `main` after merge |
-| 5 | Should, if it fits | **N3c** first slice · demo image · sibling repos |
+| 5 | Should, if it fits | **N3c** first slice is the six-card catalog on `/reports`. Demo image and sibling repos follow |
 | 6 | Discover write-ups | Path C · template fleet overview. No code |
 | 7 | Freeze · version bump · tag · Hub | Only when asked |
 

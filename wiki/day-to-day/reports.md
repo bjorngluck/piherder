@@ -29,6 +29,8 @@ Header **Reports** (after **Catalog**). Phone: hamburger. **Viewer+**. History t
 
 **Layout (v1.5):** each card has **pin** (★, moves to top), **↑ / ↓**, and **Hide**. Hidden cards sit in a **Hidden:** row — click the name to show again. **Reset layout** in the hero restores the default order (Backups → OS patches → LAN live → Docker → Console → **Move jobs**). The choice is remembered in your browser (`ph_reports_layout`) — not a fleet setting. Old cookies pick up **Move jobs** at the end.
 
+**Cards (v1.10 first slice):** the **Cards:** row above the grid is the whole catalog. It is the same six cards. Click a name to hide it, or click a hidden name to show it again. Pin and ↑ / ↓ stay on the card. There is no extra chart, no Grafana panel, and no way to drop a card onto Home.
+
 Windows: **7 / 30 / 90** days in the [app timezone](../operations/settings.md). Some averages still scan up to 365 days of leftover rows.
 
 <figure class="ph-figure" markdown>

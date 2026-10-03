@@ -191,9 +191,16 @@ def cards_for_template(layout: dict[str, list[str]]) -> dict[str, Any]:
     for i, row in enumerate(visible):
         row["first"] = i == 0
         row["last"] = i == len(visible) - 1
+    catalog = []
+    for cid in n["order"]:
+        row = _row(cid)
+        row["shown"] = cid not in set(hid)
+        row["can_hide"] = row["shown"] and len(vis) > 1
+        catalog.append(row)
     return {
         "visible": visible,
         "hidden": [_row(c) for c in hid],
+        "catalog": catalog,
         "is_default": is_default(n),
         "layout": n,
     }
