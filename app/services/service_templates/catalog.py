@@ -176,6 +176,9 @@ def list_catalog(session: Session, *, include_disabled: bool = False) -> List[Di
     ensure_builtin_templates_in_db(session)
     q = select(ServiceTemplate).order_by(ServiceTemplate.category, ServiceTemplate.name)
     rows = session.exec(q).all()
+    from .deploy import fleet_counts
+
+    counts = fleet_counts(session)
     items = []
     for r in rows:
         if not include_disabled and not r.enabled:
@@ -207,6 +210,7 @@ def list_catalog(session: Session, *, include_disabled: bool = False) -> List[Di
                 "checksum": r.checksum or "",
                 "var_count": var_count,
                 "secret_count": secret_count,
+                "fleet_count": int(counts["id"].get(r.id) or counts["slug"].get(r.slug) or 0),
             }
         )
     # OOTB first, then operator-owned; keep category/name as secondary keys

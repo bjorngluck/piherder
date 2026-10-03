@@ -13,7 +13,7 @@ Plan: [PLAN_v1.10.0.md](PLAN_v1.10.0.md). 1.9 sign-off stays [QA_v1.9.0.md](QA_v
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch. The demo stays the **1.7.0** image until that Should is asked for.
 
-Boxes stay empty until the slice has landed and you walk it. A Should that slips the tag stays unchecked and is noted as slipped. Do not tick a Discover row (Path C, template fleet overview). Do not tick an Out row.
+Boxes stay empty until the slice has landed and you walk it. A Should that slips the tag stays unchecked and is noted as slipped. Do not tick a Discover row (Path C). Do not tick an Out row.
 
 ---
 
@@ -73,6 +73,14 @@ First slice is the **Cards** catalog on `/reports`: the same six history cards, 
 ## Sibling repos (Should)
 
 - [ ] [piherder-ha](https://github.com/bjorngluck/piherder-ha) and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) have Dependabot, a `SECURITY.md`, and `main` branch protection
+
+## Template fleet
+
+Pulled in from Discover. The template page, not a new client.
+
+- [ ] A template page lists the hosts and stacks recorded from that template
+- [ ] A stack from a different template is not on that list
+- [ ] The catalog card shows how many stacks use the template
 
 ## 1.9 regression
 

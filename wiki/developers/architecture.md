@@ -70,7 +70,7 @@ flowchart TB
 | Integrations (HTTP) | `integrations.py` + `integrations_common` / `_kuma` / `_grafana` / `_pihole` / `_npm` / `_nmap` |
 | LAN nmap (scan/parse/schedules/vuln) | `app/services/nmap/` (`worker_guard`, `scan`, `device_ops`, `fabric_projection`, …) · router `integrations_nmap.py` · image `Dockerfile.nmap` |
 | Stale data cleanup | `app/services/stale_data_cleanup.py` · Settings General |
-| Templates (HTTP) | `templates_common` + `templates_svc` (catalog) + `templates_deploy` |
+| Templates (HTTP) | `templates_common` + `templates_svc` (catalog) + `templates_deploy`. **On the fleet** reads `StackDeployment` for that template id or slug. |
 | Auth (HTTP) | `auth.py` + `auth_users.py` (admin users) |
 | Network maps | `app/services/dns_fabric/` (`core`, `mesh_physical`, `mesh_logical`, `ports`, `stack_panel`) · `app/routers/dns.py` |
 | Published port chips | `app/services/dns_fabric/ports.py` — host→container parse for stack panel |

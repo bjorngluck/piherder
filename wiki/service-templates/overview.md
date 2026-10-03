@@ -32,6 +32,8 @@ Copy-pasting `docker-compose.yml` across Pis drifts immediately. Templates give 
 5. Optional: connect the matching [integration](../integrations/overview.md).  
 6. Later: open the **deployment** page for redeploy, drift, **Accept host as desired**, import host `.env`, or the host file editor.
 
+**On the fleet** is on the template page, under the description. It lists every host and stack recorded from that template. The catalog card shows the stack count. The badge on one Docker stack is the same record, for that host only. A stack that was never deployed from a template does not appear.
+
 Full journey: [Operator scenarios — Journey D](../getting-started/operator-scenarios.md#journey-d).
 
 ---
