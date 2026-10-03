@@ -13,7 +13,7 @@ Plan: [PLAN_v1.10.0.md](PLAN_v1.10.0.md). 1.9 sign-off stays [QA_v1.9.0.md](QA_v
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch. The demo reports **1.9.0** from `main`.
 
-Boxes stay empty until the slice has landed and you walk it. A Should that slips the tag stays unchecked and is noted as slipped. Do not tick a Discover row (Path C). Do not tick an Out row.
+Boxes stay empty until the slice has landed and you walk it. A Should that slips the tag stays unchecked and is noted as slipped. Do not tick a Discover row. Path C is not a walk on this train. The decision is **v1.11.0**. Do not tick an Out row.
 
 ---
 

@@ -37,7 +37,7 @@
 
 **Discover. A note only. No client and no page:**
 
-- **Path C.** Each host would write straight to Drive, OneDrive, or the NAS. Nothing would land on `/backups` first. The note is below. It is not built.
+- **Path C.** Discovery is written below. No build on this train. The decision, and a build if that decision says yes, wait for **v1.11.0**. That train is not opened.
 - **Template fleet** was pulled onto this train. The template page lists the hosts and stacks. It is not a Discover row anymore.
 
 **Out.** Path B (CIFS mount as the dest root). AC-fg. Brand-3. ACME-in-herder. NPM CRUD. A richer Files token API. M-live. A herder→Home Assistant webhook. Undo of a finished Move. MCP Move, undo, nmap, the console, token admin, `docker_stack_down`, and `docker_stack_remove`. restic, borg, kopia, and rclone crypt. Restore from Drive, SMB, or OneDrive. SMB Kerberos. Selectable hero stats. A templates catalog redesign. Git-rich onboard. Optional AI. Ansible / cloud-init. Discord / Discussions. Swarm / Kubernetes. A higher coverage fail-under (stays **80**). The console mobile Tab issue. Stricter command-audit redaction. CodeQL. Actions pinned to commit SHAs. `CODEOWNERS`.
@@ -92,6 +92,7 @@ main (image 1.9.0)
 | 2026-10-03 | **Sibling repos.** [piherder-ha](https://github.com/bjorngluck/piherder-ha) `4082131` and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) `ccd80f0` add `dependabot.yml` and `SECURITY.md`. Security updates are on. `main` requires one review plus the existing CI checks. No file in this repository for those repos. |
 | 2026-10-03 | **Template fleet.** A template page lists every host and stack recorded from it. The catalog card shows the stack count. The badge on one Docker stack stays that host only. Not a version bump. |
 | 2026-10-03 | **Doc sweep.** Living plan, QA header, wiki index, upgrade note, and admin backup paragraph match the branch. Path C is written as a note in §4. It is not built. |
+| 2026-10-03 | **Path C discovery.** How a host backup works today, how Drive / OneDrive / SMB sit on that mirror, and what a direct copy would need on the host. No decision. Decision and any build are **v1.11.0**. Not this train. |
 
 ---
 
@@ -104,28 +105,79 @@ main (image 1.9.0)
 | 3 | **MCP OAuth** | Browser sign-in for `POST /mcp`. A pasted `ph_` token still works |
 | 4 | **dependabot.yml** and close the matching alerts | File is on this branch. Alerts for PyJWT **2.15.1** and urllib3 **2.8.0** are already **fixed** (0 open). The file applies on `main` after merge |
 | 5 | Should, if it fits | **N3c** catalog is on this branch. The demo reports **1.9.0**. Sibling `dependabot.yml`, `SECURITY.md`, and `main` protection are on those repos |
-| 6 | Discover write-ups | **Path C** only. Template fleet is on the template page |
+| 6 | Discover write-ups | **Path C** discovery is in §4. Decision and any build are **v1.11.0**. Template fleet is on the template page |
 | 7 | Freeze · version bump · tag · Hub | Only when asked |
 
 ---
 
-## 4. Path C (Discover note)
+## 4. Path C discovery — a host copies straight out
 
-No client. No page. No schema.
+**Parked for v1.11.0.** This section is the discovery. It does not choose a design. It does not build one. v1.11.0 is not opened. The NAS **Copy now** walk on this train stays the pull onto `/backups`, then the herder copy.
 
-Today a host backup rsyncs onto this herder under `/backups`. A saved Google Drive, OneDrive, or LAN share then copies from that tree. That is Path A. The herder holds the bytes first.
+### What is true today
 
-Path C would skip that landing. Each host would write its backup straight to Drive, OneDrive, or the NAS. The herder would not store the tree on `/backups` first.
+Enabling **Backups** on a server does not send that host to Drive, OneDrive, or a NAS. It lets the herder **pull**.
 
-That stays a note on this train:
+1. The operator turns **Backups** on and adds source paths that exist on that host.
+2. A manual run, the host cron, or a bulk Backup starts one job. The herder opens SSH and **rsyncs** those paths into `/backups/{host}/{dest}` on the herder.
+3. The host needs an SSH login and `rsync`. A least-privilege user runs `sudo -n rsync`. Root and HAOS are probed and use plain `rsync` when sudo is not there. The host does not get rclone, a cloud token, or an SMB password.
+4. Success sets `last_backup_at`. Failure does not. One host does not run two backups at once. Path allow/deny is checked on the herder. A busy tree can be retried (rsync code 24). Retention deletes old trees **on the herder**.
+5. Restore is the reverse: rsync from that herder tree back to the host. It does not read Drive or a share.
 
-- The copy secret would have to live on every host, not only in the herder's Fernet store.
-- **Copy now**, the schedule, and the follow-up after a host backup are herder jobs. They would not be the same job.
-- A failed host would have nothing on the herder to copy later.
-- Restore still reads the local self-backup. Path C does not change that archive.
-- Path B, a CIFS mount as the dest root, stays out.
+The alternate copy is a **second hop, and it runs on the herder**. rclone **1.68.2** is in the herder image only. After a tree exists under `/backups`, a saved destination can send the ticked folders to Google Drive, OneDrive, or one SMB share. That is job `backup_replicate`. It starts from **Copy now**, from that destination’s schedule, or as a follow-up after a **successful** host backup. A failed copy does not change `last_backup_at`. The herder self-backup (`/herder_backups`, optional copy into `herder/` on the same destination) is not a server backup.
 
-The NAS **Copy now** walk still uses Path A.
+The alternate destination never sees the host. It sees the mirror the herder already pulled. If Backups is off, or the rsync failed, Copy now has nothing new from that host.
+
+### What Path C would mean
+
+The host’s own files would go straight to Drive, OneDrive, or the NAS. `/backups` would not hold that tree first.
+
+Path B (mount the share as the herder’s dest root) stays out. restic, borg, kopia, rclone crypt, and restore-from-remote stay out. The shapes below are not a choice.
+
+### Shapes that stay inside the current architecture
+
+The herder still decides, the worker still runs the transfer, secrets still start in Fernet, the web process still does not upload, and the demo still does not upload. MCP still does not start a backup copy.
+
+1. **Keep the pull.** Enabling Backups keeps meaning “rsync onto the herder”. Drive, OneDrive, and SMB stay a copy of that mirror. This is the product that exists.
+2. **Herder SSH, rclone on the host, secret only for the run.** The worker still opens SSH. It runs rclone **on the host** against the source paths. The herder writes a temp rclone config over SSH, mode `0600`, and deletes it when the run ends. The Fernet secret does not stay on the host. The job row, the mutex, and the schedule still live on the herder.
+3. **Same as 2, but only for hosts that opt in.** Other hosts keep the rsync mirror. Copy now and the follow-up still copy whatever is under `/backups`. A direct host would not fill `/backups`, so those controls would not move its files unless **Copy now** is redefined to mean “start the host push”.
+4. **A standing rclone config on the Pi.** The secret lives on the host. That breaks the rule that copy secrets stay in the herder database.
+
+Shape 4 is the weak fit. Shapes 2 and 3 can use the same job, Fernet, and demo refusal as today. Shape 1 is what is shipped.
+
+### What the host would need
+
+| | Today (pull) | Direct copy |
+|---|---|---|
+| On the host | `sshd`, `rsync`, and sudo for rsync unless root or HAOS | Those, plus **rclone**, plus a route to Google, Microsoft, or the NAS |
+| On the herder | SSH client, rsync, rclone 1.68.2, `/backups` disk | SSH client. rclone on the herder does not help if the bytes never arrive |
+| Network | The herder must reach the host on SSH. The host need not reach the cloud | The **host** must reach the cloud or the share. A Pi that can only be reached by the herder cannot do Path C |
+| Secret | Stays in Fernet. Never written to the host | A temp config for one run, or a file that stays on the host |
+| Disk | The mirror sits on the herder | The herder can stay small. A sync that deletes on the remote deletes the only copy |
+| HAOS | Plain `rsync` is already the special case | No apt. A static rclone copied in for the run is the plausible install |
+
+The least-privilege sudoers today allow `rsync`, not rclone. A direct copy would extend that allowlist, or run rclone as the SSH user without sudo. Without sudo it cannot read root-owned trees the rsync path can read.
+
+### How the current backup and the alternate copy meet
+
+- **Backups on, no destination saved.** The host is pulled to `/backups`. Nothing is uploaded. Restore uses that tree.
+- **Backups on, Drive / OneDrive / SMB saved.** The pull still happens. The alternate copy is a later job on the herder. Copy now can upload an old mirror when the host is down, because the bytes are already on the herder.
+- **Backups off.** There is no mirror. Copy now can still upload other hosts’ folders already under `/backups`. It cannot invent this host’s files.
+- **Direct copy instead of the pull.** Enabling Backups would no longer fill `/backups`. Copy now, the destination schedule, and the follow-up would have no tree to send. Those controls either start the host push, or they do not apply to that host. Restore’s reverse rsync has no local tree.
+- **Pull and direct together.** The host sends the files twice. The herder copy and the direct copy can disagree. Retention on the herder would not age the remote files.
+- **Herder self-backup.** Unchanged. It is not a server source path. A destination that opts in can still receive `herder/<archive>`.
+
+### Pros and cons, not a decision
+
+Direct copy helps when the herder disk is the bottleneck, the herder should not hold the files, or the NAS and the host share a LAN and the herder is elsewhere.
+
+It costs the local restore tree, retention on the herder, and Copy now from a powered-off host. Every host needs outbound reach the pull design does not need. HAOS and the current sudoers do not have rclone. A remote sync delete can remove the only copy. Two modes double the walk.
+
+The pull plus the herder copy helps when one machine holds the credentials and rclone, a host only speaks SSH, Copy now must work from the mirror, and restore stays a reverse rsync. It costs herder disk and a second transfer after the pull.
+
+### Not decided
+
+Whether Path C is built. Whether it replaces **Backups** or sits beside it. Whether rclone is installed by the operator or copied for one run. Whether `/backups` remains for some hosts. Those questions are for **v1.11.0**. Restore from Drive, SMB, or OneDrive stays out.
 
 ---
 

@@ -18,6 +18,8 @@ Homelab hosts hold compose data, configs, and media that are painful to rebuild.
 
 See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 
+A host does not upload to Drive, OneDrive, or a NAS by itself. **Backups** pulls the chosen paths onto this herder. **Copy the backup drive** then sends that mirror. A direct copy from the host, with nothing landing on `/backups` first, is not in this release. The discovery is parked for a later decision ([PLAN_v1.10.0.md](https://github.com/bjorngluck/piherder/blob/v1.10.0-dev/docs/PLAN_v1.10.0.md) §4, target **v1.11.0**).
+
 ### Copy to Google Drive (v1.8 train)
 
 **Settings → PiHerder backup** has a card under the self-backup cards, titled **Copy the backup drive**. Google Drive ships in **1.8.0**. The **1.7.0** image has no such card. On this train a LAN share can sit on the same card as its own row.
