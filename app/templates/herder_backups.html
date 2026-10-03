@@ -229,6 +229,7 @@
       <p class="text-[10px] text-muted mt-2 mb-2">
         Optional stdio process on the agent machine (<code class="font-mono">uvx piherder-mcp</code>).
         Use this when the agent cannot reach <code class="font-mono">/mcp</code>.
+        It does not open the browser sign-in. It sends <code class="font-mono">PIHERDER_TOKEN</code> to <code class="font-mono">/api/v1</code>.
       </p>
       <pre id="api-token-mcp-local-snippet-value"
            class="text-[11px] font-mono p-2 bg-surface border border-border rounded overflow-x-auto whitespace-pre-wrap break-all mb-2">{{ new_api_token_mcp_local_snippet }}</pre>

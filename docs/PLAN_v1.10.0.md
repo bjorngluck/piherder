@@ -83,7 +83,7 @@ main (image 1.9.0)
 | 2026-10-02 | **OneDrive.** Selectable rclone hop on the same card. Own row, Fernet client secret and refresh token. Default drive of the signed-in account. Not a version bump. The NAS **Copy now** walk is still open. |
 | 2026-10-03 | **DR copy.** A saved destination can copy the herder self-backup when **Also copy each new self-backup** is on. The file goes to `herder/` on Drive, OneDrive, or the NAS. A failed copy leaves the local archive. Not a version bump. The NAS **Copy now** walk is still open. |
 | 2026-10-03 | A self-backup that is still **pending** after **30 minutes** is failed. That raises the critical **PiHerder self-backup failed** alert and lets the next run start. A running archive is not timed out this way. |
-| 2026-10-03 | **MCP OAuth.** An agent can sign in to `POST /mcp` in the browser (PKCE, admin consent). A pasted `ph_` token still works. The access token is an API token with the approved scopes. Move, undo, nmap, the console, token admin, down, and remove stay off the tool. Not a version bump. |
+| 2026-10-03 | **MCP OAuth.** An agent can sign in to `POST /mcp` in the browser (PKCE, admin consent). A pasted `ph_` token still works. The access token is an API token with the approved scopes. Move, undo, nmap, the console, token admin, down, and remove stay off the tool. `uvx piherder-mcp` does not use this sign-in. It still calls `/api/v1` with `PIHERDER_TOKEN`. Not a version bump. |
 
 ---
 

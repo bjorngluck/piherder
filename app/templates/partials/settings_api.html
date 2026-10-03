@@ -79,8 +79,10 @@ curl -sS "{{ public_url|default('') }}/openapi.json" | head -c 200</pre>
         <strong>Admin-managed</strong>, instance-wide tokens for n8n, Home Assistant, scripts,
         and agents (<code class="font-mono">/api/v1/*</code> and hosted MCP at
         <code class="font-mono">/mcp</code>) — not personal logins.
-        An agent can also sign in in the browser. You approve its scopes, and the
-        token it receives shows up in this list.
+        An agent pointed at <code class="font-mono">/mcp</code> can also sign in in the browser.
+        You approve its scopes, and the token it receives shows up in this list.
+        <code class="font-mono">uvx piherder-mcp</code> does not use that sign-in. It needs a
+        <code class="font-mono">ph_</code> token in <code class="font-mono">PIHERDER_TOKEN</code>.
         Secrets are hashed; copy once at create or rotate.
         Revoke keeps the token record for traceability (audit by id/name).
         Review the full spec under <button type="button" class="text-primary underline" data-api-panel="docs">API reference</button>.
