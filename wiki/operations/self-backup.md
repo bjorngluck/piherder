@@ -30,7 +30,7 @@ Journey: [Operator scenarios — Journey F](../getting-started/operator-scenario
 
 The `.tar.gz` stays under `/herder_backups` first. A saved Google Drive, OneDrive, or LAN share can also receive that file.
 
-On **Copy the backup drive**, turn on **Also copy each new self-backup** for the destination, then save. The next successful self-backup queues a copy of that one archive. **Copy** on an archive row sends a file that is already on disk. The copy lands in a `herder/` folder on that destination, beside the host backup folders.
+On **Copy the backup drive**, turn on **Also copy each new self-backup** for the destination, then save. The next successful self-backup queues a copy of that one archive. **Copy** on an archive row sends a file that is already on disk. The copy lands in a `herder/` folder on that destination, beside the host backup folders. Jobs labels that row **Self-backup copy**. It does not block **Copy now** of the host folders, and a host-folder copy does not block it.
 
 A failed copy fails the copy job. It does not delete the local archive. The public demo does not upload. Restore still reads the local file, not Drive, OneDrive, or the share.
 

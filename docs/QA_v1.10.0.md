@@ -5,7 +5,7 @@
 **Package:** stays **`1.9.0`** until freeze. About / footer **1.9.0**  
 **Operator QA:** not signed. Every box below stays empty until you walk it.  
 **Screenshots:** not captured. Shoot list: [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status).  
-**Pull request:** draft [#30](https://github.com/bjorngluck/piherder/pull/30). Not ready for review. QA boxes stay empty.
+**Pull request:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. It is not ready to merge. QA boxes stay empty.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
@@ -45,6 +45,7 @@ The DR archive (`/herder_backups`), not the host rsync tree.
 - [ ] **Also copy each new self-backup** is on the Drive, OneDrive, and SMB forms. It is off until checked
 - [ ] After a successful self-backup, only a destination with that box and saved credentials is queued
 - [ ] **Copy off this host** on an archive row sends that existing file. The local `.tar.gz` stays
+- [ ] A running self-backup copy does not stop **Copy now** on that destination. A running host-folder copy does not stop **Copy off this host**. Jobs shows **Self-backup copy** for the archive and **Backup copy** for the folders
 - [ ] A failed copy of that archive does not delete the local DR file and does not fail the local self-backup
 - [ ] The public demo does not upload it
 

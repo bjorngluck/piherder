@@ -15,6 +15,7 @@ from app.services.jobs import (
     _mark_job_cancelled,
     _merge_job_details,
     cancel_job,
+    job_display_label,
     job_public_dict,
     job_type_label,
 )
@@ -85,6 +86,31 @@ def test_job_public_dict_summary_and_tails():
     short = job_public_dict(job, detail=False)
     assert short["id"] == 42
     assert short["job_type_label"] == "OS patch"
+    folder = SimpleNamespace(
+        id=1,
+        server_id=None,
+        job_type="backup_replicate",
+        status="running",
+        created_at=datetime(2026, 10, 3, 12, 0, 0),
+        started_at=None,
+        finished_at=None,
+        details=json.dumps({"destination_id": 4, "current": "queued"}),
+    )
+    archive = SimpleNamespace(
+        id=2,
+        server_id=None,
+        job_type="backup_replicate",
+        status="pending",
+        created_at=datetime(2026, 10, 3, 12, 1, 0),
+        started_at=None,
+        finished_at=None,
+        details=json.dumps(
+            {"destination_id": 4, "herder_archive": "piherder-20261003-120000-full.tar.gz"}
+        ),
+    )
+    assert job_public_dict(folder)["job_type_label"] == "Backup copy"
+    assert job_public_dict(archive)["job_type_label"] == "Self-backup copy"
+    assert job_display_label("backup_replicate", {}) == "Backup copy"
     assert short["current"] == "patching"
     assert short["scheduled"] is True
     assert short["done"] is False
