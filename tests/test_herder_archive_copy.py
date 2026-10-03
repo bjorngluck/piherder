@@ -183,6 +183,37 @@ def test_follow_up_queues_only_opted_in_destinations(tmp_path, monkeypatch):
     assert queued == [jobs[0].id]
 
 
+def test_host_copy_and_herder_copy_do_not_share_a_slot(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+    queued: list[int] = []
+
+    def delay(job_id):
+        queued.append(job_id)
+
+        class Result:
+            id = f"task-{job_id}"
+
+        return Result()
+
+    monkeypatch.setattr("app.tasks.replicate_backup.delay", delay)
+    engine = _engine(tmp_path)
+    name = "piherder-20261003-120000-full.tar.gz"
+    with Session(engine) as session:
+        drive = _oauth("drive", copy=True)
+        session.add(drive)
+        session.commit()
+        session.refresh(drive)
+        herder = copies.enqueue_herder_archive(session, drive, name)
+        host = copies.enqueue(session, drive, scope="pi")
+        assert host.id != herder.id
+        assert json.loads(host.details or "{}").get("herder_archive") in (None, "")
+        again = copies.enqueue(session, drive, scope="pi")
+        assert again.id == host.id
+        same_archive = copies.enqueue_herder_archive(session, drive, name)
+        assert same_archive.id == herder.id
+    assert queued == [herder.id, host.id]
+
+
 def test_demo_enqueue_does_not_start_rclone(tmp_path, monkeypatch):
     monkeypatch.setattr("app.services.demo.demo_mode", lambda: True)
     called = {"n": 0}

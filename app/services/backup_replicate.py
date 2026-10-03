@@ -1444,6 +1444,11 @@ def get_or_create(session: Session, provider: str = "drive") -> BackupDestinatio
 
 
 def _active_replicate(session: Session, destination_id: int) -> Job | None:
+    """Pending or running host-folder copy for this destination.
+
+    A self-backup hop on the same destination is a different rclone call
+    (one archive under ``herder/``). It does not take this slot.
+    """
     rows = session.exec(
         select(Job)
         .where(
@@ -1457,6 +1462,8 @@ def _active_replicate(session: Session, destination_id: int) -> Job | None:
             data = json.loads(job.details or "{}")
         except Exception:
             data = {}
+        if str(data.get("herder_archive") or "").strip():
+            continue
         if int(data.get("destination_id") or 0) == int(destination_id):
             return job
     return None
@@ -1492,6 +1499,7 @@ def enqueue(
 
     if not credentials_saved(destination):
         return _refused_copy_job(destination, server_id)
+    # Host-folder copies share one slot. A self-backup copy does not use it.
     active = _active_replicate(session, int(destination.id or 0))
     if active:
         return active

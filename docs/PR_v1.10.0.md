@@ -4,7 +4,7 @@
 
 **Base:** `main` · **Head:** `v1.10.0-dev` · **Draft** until [QA_v1.10.0.md](QA_v1.10.0.md) is signed
 
-**State:** Draft [#30](https://github.com/bjorngluck/piherder/pull/30). No code freeze. Package stays **1.9.0**. Tag not cut. End-user notes are not written yet.
+**State:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. It is not ready to merge until [QA_v1.10.0.md](QA_v1.10.0.md) is signed. No code freeze. Package stays **1.9.0**. Tag not cut. End-user notes are not written yet.
 
 ---
 
@@ -19,9 +19,9 @@ Design: [PLAN_v1.10.0.md](PLAN_v1.10.0.md). Maintainer ticks: [QA_v1.10.0.md](QA
 | Stream | Highlights |
 |--------|------------|
 | **OneDrive** | Own row, Fernet client secret and refresh token, Microsoft sign-in. **Test** does not copy. **Copy now**, the schedule, and the host-backup follow-up can use the row |
-| **DR copy** | Opt-in **Also copy each new self-backup**. One `.tar.gz` goes to `herder/<filename>`. The local archive stays. The demo does not upload |
+| **DR copy** | Opt-in **Also copy each new self-backup**. One `.tar.gz` goes to `herder/<filename>`. The local archive stays. Jobs labels that hop **Self-backup copy**. It does not share the **Copy now** slot. The demo does not upload |
 | **Pending self-backup** | A `herder_backup` still pending after 30 minutes is failed and raises the critical alert. A running archive is left alone |
-| **MCP OAuth** | Browser sign-in for `POST /mcp` only. `uvx piherder-mcp` still uses `PIHERDER_TOKEN`. Move, undo, nmap, the console, token admin, down, and remove stay refused |
+| **MCP OAuth** | Browser sign-in for hosted `POST /mcp`. `uvx piherder-mcp` still uses `PIHERDER_TOKEN`. The tool list still refuses Move, undo, nmap, the console, token admin, down, and remove. The access token is a normal API token, so `/api/v1` still accepts it. Audience: [#31](https://github.com/bjorngluck/piherder/issues/31). OneDrive Graph scopes: [#32](https://github.com/bjorngluck/piherder/issues/32). Neither is fixed here |
 | **Dependabot** | `.github/dependabot.yml`. Security updates on. Version-update pull requests stay off. PyJWT **2.15.1** and urllib3 **2.8.0** alerts were already fixed |
 | **Reports** | **Cards** row on `/reports` for the six history cards |
 | **Template fleet** | A template page lists hosts and stacks recorded from it |
@@ -38,6 +38,7 @@ Walk [QA_v1.10.0.md](QA_v1.10.0.md). Boxes are empty. Do not retick the 1.9 SMB 
 
 - [ ] OneDrive row beside Drive and SMB. **Test** does not copy. **Remove** deletes that row only
 - [ ] Self-backup copy is opt-in. A failed copy leaves the local archive. The demo does not upload
+- [ ] A running self-backup copy does not block **Copy now**. Jobs labels that hop **Self-backup copy**
 - [ ] A self-backup pending 30 minutes fails and raises the critical alert. A running one does not
 - [ ] Hosted MCP browser sign-in. A pasted `ph_` token still works. Stdio still uses `PIHERDER_TOKEN`
 - [ ] Refused MCP tools stay refused

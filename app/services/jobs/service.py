@@ -347,6 +347,13 @@ def job_type_label(job_type: str | None) -> str:
     return JOB_TYPE_LABELS.get(job_type, job_type.replace("_", " ").title())
 
 
+def job_display_label(job_type: str | None, details: dict | None = None) -> str:
+    """Row label. A self-backup hop is the same job type as a folder copy."""
+    if job_type == "backup_replicate" and str((details or {}).get("herder_archive") or "").strip():
+        return "Self-backup copy"
+    return job_type_label(job_type)
+
+
 def list_jobs_for_server(
     session: Session,
     server_id: int,
@@ -469,7 +476,7 @@ def job_public_dict(job: Job, *, detail: bool = False) -> dict:
         "id": job.id,
         "server_id": job.server_id,
         "job_type": job.job_type,
-        "job_type_label": job_type_label(job.job_type),
+        "job_type_label": job_display_label(job.job_type, details),
         "status": job.status,
         "created_at": utc_isoformat(job.created_at),
         "started_at": utc_isoformat(job.started_at),
