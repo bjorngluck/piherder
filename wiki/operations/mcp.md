@@ -14,9 +14,9 @@ Operators were starting `uvx` on every agent machine and keeping `PIHERDER_URL` 
 
 **Auth (hosted `/mcp` only):** paste an `Authorization: Bearer ph_…` token, or let the agent sign in in the browser. Same scopes, same IP allowlist, same expiry. The token is a header. It is not a query parameter.
 
-A call to `/mcp` with no token gets `401` and a `resource_metadata` URL. The agent registers itself, opens a browser, and you approve the scopes while logged in as an admin. PiHerder then issues an access token for one hour and a refresh token for 30 days. That access token is an API token. It is listed under Settings → API management, and revoke there stops the agent. A rejected pasted `ph_` token does not include the discovery URL, so Cursor keeps the header you configured.
+A call to `/mcp` with no token gets `401` and a `resource_metadata` URL. The agent registers itself, opens a browser, and you approve the scopes while logged in as an admin. PiHerder then issues an access token for one hour and a refresh token for 30 days. That access token is stored as an API token so you can revoke it under Settings → API management. It works on `POST /mcp` only. `/api/v1` returns `401` for it, including Move and the files routes. A rejected pasted `ph_` token does not include the discovery URL, so Cursor keeps the header you configured.
 
-This browser sign-in is only for a client whose URL is `https://your-herder/mcp`. `uvx piherder-mcp` never calls that path. It calls `/api/v1` with `PIHERDER_TOKEN` and does not open a browser or refresh a token. Mint a long-lived `ph_` token for it. The one-hour access token from a browser sign-in will stop working in the stdio program, and the refresh token is not a secret you can put in `PIHERDER_TOKEN`.
+This browser sign-in is only for a client whose URL is `https://your-herder/mcp`. `uvx piherder-mcp` never calls that path. It calls `/api/v1` with `PIHERDER_TOKEN` and does not open a browser or refresh a token. Mint a long-lived `ph_` token for it. The one-hour `ph_oa_` access token is rejected on `/api/v1`, and the refresh token is not a secret you can put in `PIHERDER_TOKEN`.
 
 The public demo does not complete the hosted sign-in. Clients that still cannot reach the herder use the stdio fallback below.
 

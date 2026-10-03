@@ -1051,6 +1051,7 @@ async def handle_mcp_http(request: Request, session: Session) -> Response:
     from .mcp_oauth import www_authenticate
 
     presented = request.headers.get("authorization")
+    request.state.allow_mcp_oauth_token = True
     try:
         auth = get_api_auth(request, session, presented)
     except HTTPException as exc:

@@ -352,7 +352,7 @@
               </ol>
               <p class="mt-2 font-mono break-all text-text">{{ od_redirect_uri or 'Set PIHERDER_PUBLIC_URL, then reload. The redirect URL must be the address you use in the browser.' }}</p>
               <ol class="space-y-1 list-decimal pl-4 mt-2" start="2">
-                <li>Under <span class="text-text">API permissions</span>, add Microsoft Graph delegated <span class="font-mono text-text">Files.Read</span>, <span class="font-mono text-text">Files.ReadWrite</span>, <span class="font-mono text-text">Files.Read.All</span>, <span class="font-mono text-text">Files.ReadWrite.All</span>, <span class="font-mono text-text">Sites.Read.All</span>, and <span class="font-mono text-text">offline_access</span>.</li>
+                <li>Under <span class="text-text">API permissions</span>, add Microsoft Graph delegated <span class="font-mono text-text">User.Read</span>, <span class="font-mono text-text">Files.ReadWrite</span>, and <span class="font-mono text-text">offline_access</span>. That is the signed-in account’s own files, plus the address shown after sign-in. Do not add the <span class="font-mono text-text">.All</span> or SharePoint site permissions.</li>
                 <li>Under <span class="text-text">Certificates &amp; secrets</span>, create a client secret. Paste the application (client) ID and that secret below. Leave the secret blank only after one is already saved.</li>
                 <li><strong>Connect Microsoft</strong> and sign in as the account that owns the drive. The folder name is a folder in that drive.</li>
               </ol>

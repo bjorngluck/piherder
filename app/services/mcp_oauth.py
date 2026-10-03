@@ -2,9 +2,9 @@
 
 An agent that does not have a pasted ``ph_`` token can register, send the
 admin through a browser consent, and call ``/mcp`` with the issued access
-token. That token is a normal API token (scopes, expiry, revoke). Its
-plaintext starts with ``ph_oa_`` so a rejected pasted ``ph_`` token can
-stay on the old challenge.
+token. That token is stored as an API token (scopes, expiry, revoke) so it
+can be revoked in Settings. Its plaintext starts with ``ph_oa_``. ``/api/v1``
+rejects it. A rejected pasted ``ph_`` token can stay on the old challenge.
 A rejected ``ph_`` token does not advertise this flow, so a configured
 Bearer header stays in place.
 

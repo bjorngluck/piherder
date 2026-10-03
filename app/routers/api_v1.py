@@ -115,6 +115,16 @@ def get_api_auth(
         )
     peer = request.client.host if request.client else None
     client_ip = tok_svc.extract_client_ip(dict(request.headers), peer)
+    from ..services.mcp_oauth import ACCESS_PREFIX
+
+    # Browser sign-in tokens are for POST /mcp. Hosted MCP sets this flag
+    # on the request before calling here. A query parameter cannot set it.
+    if plain.startswith(ACCESS_PREFIX) and not getattr(request.state, "allow_mcp_oauth_token", False):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This sign-in token is only valid for POST /mcp",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     token = tok_svc.lookup_active_token(session, plain)
     if not token:
         raise HTTPException(

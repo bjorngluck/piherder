@@ -1,6 +1,7 @@
 """Selection and rclone argv for the fleet Drive copy. No live rclone or Google."""
 import json
 import os
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -192,8 +193,9 @@ def test_onedrive_auth_url_uses_the_microsoft_callback():
     assert url.startswith("https://login.microsoftonline.com/common/oauth2/v2.0/authorize?")
     assert "client_id=app-id" in url
     assert "prompt=consent" in url
-    assert "offline_access" in url
     assert "redirect_uri=https%3A%2F%2Fherder.example%2Fbackup-copies%2Fonedrive%2Fcallback" in url
+    scope = parse_qs(urlparse(url).query)["scope"][0].split()
+    assert scope == ["offline_access", "User.Read", "Files.ReadWrite"]
 
 
 def test_onedrive_rclone_config_is_the_default_drive():

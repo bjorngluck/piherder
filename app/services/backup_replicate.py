@@ -44,10 +44,11 @@ _GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
 _GOOGLE_USERINFO = "https://www.googleapis.com/oauth2/v2/userinfo"
 OAUTH_STATE_COOKIE = "ph_drive_oauth"
 ONEDRIVE_OAUTH_STATE_COOKIE = "ph_onedrive_oauth"
-ONEDRIVE_SCOPE = (
-    "offline_access Files.Read Files.ReadWrite Files.Read.All "
-    "Files.ReadWrite.All Sites.Read.All"
-)
+# The copy writes one folder on the signed-in account's default drive.
+# Files.ReadWrite is that user's own files. User.Read is only for the
+# account address shown after sign-in. Shared libraries and SharePoint
+# sites are not requested.
+ONEDRIVE_SCOPE = "offline_access User.Read Files.ReadWrite"
 _MICROSOFT_AUTH = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 _MICROSOFT_TOKEN = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 _MICROSOFT_ME = "https://graph.microsoft.com/v1.0/me"
