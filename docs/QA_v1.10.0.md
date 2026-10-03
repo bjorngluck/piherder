@@ -35,6 +35,7 @@ Same card. OneDrive can be selected. It is its own row.
 - [ ] Saving OneDrive leaves the Drive row and the SMB row in place
 - [ ] The secret is Fernet. It is not written to the job log
 - [ ] **Test** checks the folder and does not copy
+- [ ] Entra permissions are `User.Read`, `Files.ReadWrite`, and `offline_access`. An account that connected before this change is signed in again
 - [ ] **Copy now** copies the ticked folders. The schedule and the host-backup follow-up can use this row
 - [ ] **Remove** deletes that row only. Files already in OneDrive stay there
 
@@ -63,6 +64,7 @@ One self-backup at a time. A row that stays **pending** is not a running archive
 Hosted `POST /mcp` only. `uvx piherder-mcp` still uses `PIHERDER_TOKEN` and does not open a browser. Token masked when a bearer is still used.
 
 - [ ] An agent can sign in without only a `ph_` bearer token
+- [ ] That `ph_oa_` token is rejected on `/api/v1`. A pasted `ph_` token still works there
 - [ ] A token without the scope still cannot call the tool
 - [ ] Move, undo, nmap, the console, token admin, down, and remove stay refused
 

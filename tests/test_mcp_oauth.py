@@ -290,6 +290,18 @@ def test_agent_signs_in_and_a_read_token_cannot_trigger_jobs(tmp_path, monkeypat
             headers=headers,
         )
         assert listed.status_code == 200, listed.text
+        rest = client.get(
+            "/api/v1/health",
+            headers={"Authorization": f"Bearer {token['access_token']}"},
+        )
+        assert rest.status_code == 401
+        assert "POST /mcp" in rest.text
+        moved = client.post(
+            "/api/v1/servers/1/moves",
+            headers={"Authorization": f"Bearer {token['access_token']}"},
+            json={"dest_server_id": 2, "project": "stack", "confirm": True},
+        )
+        assert moved.status_code == 401
         names = {tool["name"] for tool in listed.json()["result"]["tools"]}
         assert "summary" in names
         assert "trigger_job" not in names

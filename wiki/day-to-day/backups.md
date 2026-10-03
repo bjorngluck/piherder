@@ -104,7 +104,7 @@ The password is stored with the instance master key and is not written to the jo
 This is another copy, independent of Google Drive and the LAN share. rclone sends the ticked folders to a folder in the default drive of the Microsoft account you sign in with. Host backups still land on this PiHerder first.
 
 1. In Microsoft Entra, register an app named PiHerder. Accounts: any organizational directory and personal Microsoft accounts. Redirect URI: **Web**, and the URL shown in the PiHerder dialog. It ends with `/backup-copies/onedrive/callback`.
-2. Add Microsoft Graph delegated permissions `Files.Read`, `Files.ReadWrite`, `Files.Read.All`, `Files.ReadWrite.All`, `Sites.Read.All`, and `offline_access`.
+2. Add Microsoft Graph delegated permissions `User.Read`, `Files.ReadWrite`, and `offline_access`. That is the signed-in account’s own files, plus the address shown after sign-in. Do not add `Files.Read.All`, `Files.ReadWrite.All`, or `Sites.Read.All`. An account that already connected keeps its previous grant until you use **Connect Microsoft** again.
 3. Create a client secret. Paste the application (client) ID and the secret into PiHerder. Leave the secret blank only after one is already saved. Set the folder name, for example `PiHerder`.
 4. **Connect Microsoft** and sign in as the account that owns the drive. **Test** lists the folder and does not copy. **Copy now**, the schedule, or the follow-up after a host backup runs the same **Backup copy** job.
 

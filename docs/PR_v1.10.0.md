@@ -21,7 +21,7 @@ Design: [PLAN_v1.10.0.md](PLAN_v1.10.0.md). Maintainer ticks: [QA_v1.10.0.md](QA
 | **OneDrive** | Own row, Fernet client secret and refresh token, Microsoft sign-in. **Test** does not copy. **Copy now**, the schedule, and the host-backup follow-up can use the row |
 | **DR copy** | Opt-in **Also copy each new self-backup**. One `.tar.gz` goes to `herder/<filename>`. The local archive stays. Jobs labels that hop **Self-backup copy**. It does not share the **Copy now** slot. The demo does not upload |
 | **Pending self-backup** | A `herder_backup` still pending after 30 minutes is failed and raises the critical alert. A running archive is left alone |
-| **MCP OAuth** | Browser sign-in for hosted `POST /mcp`. `uvx piherder-mcp` still uses `PIHERDER_TOKEN`. The tool list still refuses Move, undo, nmap, the console, token admin, down, and remove. The access token is a normal API token, so `/api/v1` still accepts it. Audience: [#31](https://github.com/bjorngluck/piherder/issues/31). OneDrive Graph scopes: [#32](https://github.com/bjorngluck/piherder/issues/32). Neither is fixed here |
+| **MCP OAuth** | Browser sign-in for hosted `POST /mcp`. A `ph_oa_` token is rejected on `/api/v1`. `uvx piherder-mcp` still uses `PIHERDER_TOKEN`. The tool list still refuses Move, undo, nmap, the console, token admin, down, and remove. OneDrive consent is `User.Read`, `Files.ReadWrite`, and `offline_access` |
 | **Dependabot** | `.github/dependabot.yml`. Security updates on. Version-update pull requests stay off. PyJWT **2.15.1** and urllib3 **2.8.0** alerts were already fixed |
 | **Reports** | **Cards** row on `/reports` for the six history cards |
 | **Template fleet** | A template page lists hosts and stacks recorded from it |
