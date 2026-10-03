@@ -1,6 +1,6 @@
 # Backup destinations — Google Drive copy
 
-**Status:** Google Drive copy **shipped** in **v1.8.0** (2026-10-01). LAN NAS / SMB is selectable beside Drive as of **v1.9.0**, and Settings can remove one provider. **OneDrive** is selectable on `v1.10.0-dev` (not a version bump). **Copy now** on a dedicated NAS and a copy of the herder self-backup are still Must on that train. Package stays **1.9.0** until freeze.  
+**Status:** Google Drive copy **shipped** in **v1.8.0** (2026-10-01). LAN NAS / SMB is selectable beside Drive as of **v1.9.0**, and Settings can remove one provider. **OneDrive** is selectable on `v1.10.0-dev` (not a version bump). A saved destination can also copy the herder self-backup archive when **Also copy each new self-backup** is on. **Copy now** on a dedicated NAS is still Must on that train. Package stays **1.9.0** until freeze.  
 **Train:** [PLAN_v1.8.0.md](PLAN_v1.8.0.md) §3 (path A) · [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md).  
 **Not this product:** the instance self-backup (pg_dump / `/herder_backups` archives). The copy section sits under that same Settings tab. Restore stays the local tree.
 
@@ -37,7 +37,7 @@ The copy signs in as the operator’s Google account. PiHerder runs the redirect
 
 ## Out
 
-Path C (a client on each Pi), restic, borg, kopia, rclone crypt, and restoring from Drive, OneDrive, or SMB stay out. Copying the herder self-backup is Must on [PLAN_v1.10.0.md](PLAN_v1.10.0.md) and is not built yet. Removing a destination does not delete remote files.
+Path C (a client on each Pi), restic, borg, kopia, rclone crypt, and restoring from Drive, OneDrive, or SMB stay out. Copying the herder self-backup is opt-in per destination on [PLAN_v1.10.0.md](PLAN_v1.10.0.md): one `.tar.gz` is copied to `herder/` on that destination. A failed copy does not delete the local archive. Removing a destination does not delete remote files.
 
 ## LAN NAS / SMB (v1.9 path A)
 

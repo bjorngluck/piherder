@@ -110,6 +110,8 @@ The secret and the sign-in are stored with the instance master key and are not w
 
 **Done when:** the OneDrive copy job succeeds, and the ticked trees are in that account’s folder.
 
+**Also copy each new self-backup** on a saved destination sends the herder archive (`/herder_backups`, one `.tar.gz`) into a `herder/` folder on that destination. That is separate from the ticked host folders. The local archive stays if the copy fails. See [Self-backup & DR](../operations/self-backup.md#copy-the-archive-off-this-host).
+
 ---
 
 ## End-to-end: first backup you trust

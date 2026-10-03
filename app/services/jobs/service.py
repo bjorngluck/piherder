@@ -2046,6 +2046,21 @@ def _notify_herder_backup_failed(message: str) -> None:
         logger.debug("herder backup failure notification skipped", exc_info=True)
 
 
+def _enqueue_herder_archive_copies(archive_path) -> None:
+    """Offer the new archive to destinations that opted in.
+
+    A copy failure is its own job. It does not fail the local self-backup,
+    and this function does not delete the archive.
+    """
+    try:
+        from ..backup_replicate import enqueue_after_herder_backup
+
+        with _get_fresh_session() as session:
+            enqueue_after_herder_backup(session, archive_path)
+    except Exception:
+        logger.warning("Self-backup copy was not queued", exc_info=True)
+
+
 def _resolve_herder_backup_failed() -> None:
     try:
         from .notifications import resolve_by_fingerprint
@@ -2073,6 +2088,7 @@ def _execute_herder_backup(job_id: int, audit_id: int) -> None:
         summary = json.dumps({"path": str(res)})
         _finish(audit_id, job_id, "success", summary, hostname, "herder_backup")
         _resolve_herder_backup_failed()
+        _enqueue_herder_archive_copies(res)
     except Exception as e:
         _finish(audit_id, job_id, "failed", str(e), hostname, "herder_backup")
         _notify_herder_backup_failed(str(e))

@@ -507,6 +507,7 @@ def store_oauth_client(
     folder: str,
     schedule: str | None,
     after_host_backup: bool,
+    copy_herder_backup: bool = False,
 ) -> None:
     try:
         cfg = json.loads(destination.config_json or "{}")
@@ -519,6 +520,7 @@ def store_oauth_client(
         raise ValueError("client")
     cfg["remote_dir"] = folder
     cfg["shared_with_me"] = False
+    cfg["copy_herder_backup"] = bool(copy_herder_backup)
     cfg["oauth_client_id"] = client_id
     secret = (client_secret or "").strip()
     if secret:
@@ -881,6 +883,7 @@ def store_smb(
     domain: str,
     schedule: str | None,
     after_host_backup: bool,
+    copy_herder_backup: bool = False,
 ) -> None:
     """Save one SMB destination.
 
@@ -921,6 +924,7 @@ def store_smb(
     cfg["share"] = share_clean
     cfg["remote_dir"] = path_clean
     cfg["domain"] = domain_clean
+    cfg["copy_herder_backup"] = bool(copy_herder_backup)
     cfg.pop("password", None)
     cfg.pop("username", None)
     cfg.pop("pass", None)
@@ -1255,6 +1259,89 @@ def execute(destination: BackupDestination, scope: str | None = None) -> dict[st
             discard_rclone_config(config_path)
 
 
+def copies_herder_backup(destination: BackupDestination | None) -> bool:
+    """True when this destination should receive the self-backup archive."""
+    if destination is None:
+        return False
+    return bool(_load_cfg(destination).get("copy_herder_backup"))
+
+
+def herder_archive_remote(destination: BackupDestination, filename: str) -> str:
+    """Remote path for one self-backup file. Beside the host-backup folders."""
+    name = Path(filename).name
+    sub = f"herder/{name}"
+    if destination.provider == "smb":
+        return f"{smb_remote_root(destination)}/{sub}"
+    return f"{_remote_dir(destination)}/{sub}"
+
+
+def _open_destination_rclone(destination: BackupDestination) -> tuple[str, str, str, bool]:
+    """Temp rclone config plus secrets to redact. Caller deletes the config.
+
+    The last flag is Drive trash. OneDrive and SMB do not use it.
+    """
+    if destination.provider == "smb":
+        secret = ""
+        try:
+            secret = decrypt_smb_secret(destination).get("password") or ""
+        except ValueError:
+            secret = ""
+        return write_smb_rclone_config(destination), secret, "", False
+    token_json = decrypt_token(destination)
+    secret = ""
+    refresh = ""
+    try:
+        payload = json.loads(token_json)
+    except Exception:
+        payload = None
+    if isinstance(payload, dict):
+        secret = str(payload.get("client_secret") or "")
+        refresh = str(payload.get("refresh_token") or "")
+    if destination.provider == "onedrive":
+        config_path = write_onedrive_rclone_config(token_json)
+    else:
+        config_path = write_rclone_config(
+            token_json,
+            shared_with_me=shared_with_me(destination),
+        )
+    return config_path, secret, refresh, destination.provider == "drive"
+
+
+def execute_herder_archive(destination: BackupDestination, name: str) -> dict[str, Any]:
+    """Copy one local self-backup archive. Never deletes that local file."""
+    from .demo import demo_mode
+    from .herder_backup import resolve_archive_in_roots
+
+    if demo_mode():
+        return {"ok": False, "error": "Demo does not upload"}
+    if destination.provider not in _SELECTABLE:
+        return {"ok": False, "error": f"Provider {destination.provider} is not built"}
+    archive = resolve_archive_in_roots(name=Path(name or "").name)
+    if archive is None:
+        return {"ok": False, "error": "That self-backup archive is not on this PiHerder"}
+    config_path = ""
+    secret = ""
+    refresh = ""
+    try:
+        config_path, secret, refresh, use_trash = _open_destination_rclone(destination)
+        remote = herder_archive_remote(destination, archive.name)
+        cmd = rclone_copy_file_cmd(
+            config_path, str(archive), remote, use_trash=use_trash
+        )
+        rc, err = _run_rclone(cmd, secret)
+        err = _redact(err, refresh)
+        if destination.provider == "smb":
+            err = _redact(err, _config_pass(config_path))
+        if rc != 0:
+            return {"ok": False, "error": (err or "rclone failed")[:500]}
+        return {"ok": True, "copied": [f"herder/{archive.name}"]}
+    except Exception as exc:
+        return {"ok": False, "error": _redact(_redact(str(exc)[:500], secret), refresh)}
+    finally:
+        if config_path:
+            discard_rclone_config(config_path)
+
+
 def credentials_saved(destination: BackupDestination | None) -> bool:
     if destination is None:
         return False
@@ -1448,6 +1535,116 @@ def enqueue(
         session.add(job)
         session.commit()
     return job
+
+
+def _active_herder_copy(session: Session, destination_id: int, archive_name: str) -> Job | None:
+    rows = session.exec(
+        select(Job)
+        .where(
+            Job.job_type == JOB_TYPE,
+            Job.status.in_(["pending", "running"]),
+        )
+        .order_by(Job.created_at.desc())
+    ).all()
+    for job in rows:
+        try:
+            data = json.loads(job.details or "{}")
+        except Exception:
+            data = {}
+        if int(data.get("destination_id") or 0) != int(destination_id):
+            continue
+        if str(data.get("herder_archive") or "") == archive_name:
+            return job
+    return None
+
+
+def enqueue_herder_archive(
+    session: Session,
+    destination: BackupDestination,
+    archive_name: str,
+    *,
+    user_id: int | None = None,
+) -> Job:
+    """Queue one self-backup file. A host-folder copy on this destination does not block it."""
+    from .demo import demo_mode
+    from .herder_backup import is_safe_archive_basename
+    from .jobs.service import _initial_job_details
+
+    name = Path(archive_name or "").name
+    if not credentials_saved(destination) or not is_safe_archive_basename(name):
+        return _refused_copy_job(destination, None)
+    active = _active_herder_copy(session, int(destination.id or 0), name)
+    if active:
+        return active
+    if destination.provider == "smb":
+        queued = "Self-backup copy to the LAN share queued…"
+    elif destination.provider == "onedrive":
+        queued = "Self-backup copy to OneDrive queued…"
+    else:
+        queued = "Self-backup copy to Drive queued…"
+    job = Job(server_id=None, job_type=JOB_TYPE, status="pending")
+    job.details = _initial_job_details(
+        queued,
+        destination_id=destination.id,
+        herder_archive=name,
+        user_id=user_id,
+        queued_at=datetime.utcnow().isoformat(),
+    )
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    if demo_mode():
+        job.status = "failed"
+        job.finished_at = datetime.utcnow()
+        job.details = json.dumps(
+            {
+                "error": "Demo does not upload",
+                "destination_id": destination.id,
+                "herder_archive": name,
+                "done": True,
+            }
+        )
+        session.add(job)
+        session.commit()
+        return job
+    from ..tasks import replicate_backup
+
+    try:
+        async_result = replicate_backup.delay(job.id)
+        job.celery_task_id = async_result.id
+        session.add(job)
+        session.commit()
+    except Exception as exc:
+        job.status = "failed"
+        job.finished_at = datetime.utcnow()
+        job.details = json.dumps(
+            {
+                "error": str(exc)[:500],
+                "destination_id": destination.id,
+                "herder_archive": name,
+            }
+        )
+        session.add(job)
+        session.commit()
+    return job
+
+
+def enqueue_after_herder_backup(session: Session, archive_path: str | Path) -> list[Job]:
+    """Queue the new archive for destinations that opted in. Others are left alone."""
+    from .herder_backup import is_safe_archive_basename
+
+    name = Path(str(archive_path or "")).name
+    if not is_safe_archive_basename(name):
+        return []
+    rows = session.exec(
+        select(BackupDestination).where(BackupDestination.enabled == True)  # noqa: E712
+    ).all()
+    queued: list[Job] = []
+    for dest in rows:
+        if not credentials_saved(dest) or not copies_herder_backup(dest):
+            continue
+        queued.append(enqueue_herder_archive(session, dest, name))
+    return queued
 
 
 def enqueue_after_host_backup(session: Session, server: Server) -> None:

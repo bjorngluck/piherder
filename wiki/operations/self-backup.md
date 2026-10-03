@@ -26,6 +26,14 @@ Journey: [Operator scenarios — Journey F](../getting-started/operator-scenario
   <figcaption>Same tab, under the self-backup cards — Copy the backup drive. This copies checked folders from /backups. It is not the Full DR archive above. Setup: [Backups](../day-to-day/backups.md#set-up-google-drive).</figcaption>
 </figure>
 
+## Copy the archive off this host
+
+The `.tar.gz` stays under `/herder_backups` first. A saved Google Drive, OneDrive, or LAN share can also receive that file.
+
+On **Copy the backup drive**, turn on **Also copy each new self-backup** for the destination, then save. The next successful self-backup queues a copy of that one archive. **Copy** on an archive row sends a file that is already on disk. The copy lands in a `herder/` folder on that destination, beside the host backup folders.
+
+A failed copy fails the copy job. It does not delete the local archive. The public demo does not upload. Restore still reads the local file, not Drive, OneDrive, or the share.
+
 ---
 
 ## Version matrix (read this before trusting an archive)
