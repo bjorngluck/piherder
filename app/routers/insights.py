@@ -46,6 +46,7 @@ async def reports_page(
             "console": data["console"],
             "layout_visible": cards["visible"],
             "layout_hidden": cards["hidden"],
+            "layout_catalog": cards["catalog"],
             "layout_is_default": cards["is_default"],
         },
     )

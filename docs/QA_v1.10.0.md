@@ -61,7 +61,7 @@ Hosted `POST /mcp` only. `uvx piherder-mcp` still uses `PIHERDER_TOKEN` and does
 
 ## N3c (Should)
 
-Discovery plus a first slice. The slice boundary is named when the work starts. Do not tick the full picker.
+First slice is the **Cards** catalog on `/reports`: the same six history cards, show or hide from that row. Pin, ↑ / ↓, and per-card Hide stay. Out of this slice: new card types, Grafana, PromQL, iframes, SQL, and a Home marketplace. Do not tick the full picker.
 
 - [ ] The write-up names the first slice and leaves the rest of the picker out
 - [ ] The first slice is walked on `/reports`. Pin, hide, and reorder still work

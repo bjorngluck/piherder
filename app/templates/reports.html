@@ -10,6 +10,7 @@
 {% set health = 'hot' if (b.fail or o.fail or n.scans_fail or dk.deploy_fail or dk.patch_fail or m.fail or con.denied) else 'ok' %}
 {% set layout_visible = layout_visible|default([]) %}
 {% set layout_hidden = layout_hidden|default([]) %}
+{% set layout_catalog = layout_catalog|default([]) %}
 {% set layout_is_default = layout_is_default if layout_is_default is defined else true %}
 <style>
   .rpt-windows { display: flex; flex-wrap: wrap; gap: 0.4rem; }
@@ -170,6 +171,21 @@
       {% endif %}
     </div>
   </div>
+</section>
+
+<section class="rpt-hidden mb-4" data-testid="reports-catalog">
+  <span>Cards:</span>
+  {% for spec in layout_catalog %}
+  <form method="post" action="/reports/layout" class="rpt-layout-form">
+    <input type="hidden" name="card" value="{{ spec.id }}">
+    <input type="hidden" name="days" value="{{ days }}">
+    {% if spec.shown %}
+    <button type="submit" name="action" value="hide" class="rpt-layout-btn" {% if not spec.can_hide %}disabled{% endif %} data-testid="reports-catalog-{{ spec.id }}" title="Hide {{ spec.title }}">{{ spec.title }}</button>
+    {% else %}
+    <button type="submit" name="action" value="show" class="rpt-layout-btn" data-testid="reports-catalog-{{ spec.id }}" title="Show {{ spec.title }}">{{ spec.title }} · hidden</button>
+    {% endif %}
+  </form>
+  {% endfor %}
 </section>
 
 <div class="rpt-grid">
