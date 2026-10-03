@@ -192,6 +192,64 @@ def get_deployment(session: Session, deployment_id: int) -> Optional[StackDeploy
     return session.get(StackDeployment, deployment_id)
 
 
+def fleet_rows_for_template(
+    session: Session,
+    *,
+    template_id: Optional[int] = None,
+    slug: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Hosts and stacks recorded as coming from this template.
+
+    Matches ``template_id`` or ``template_slug``. One deployment is one row.
+    """
+    from sqlalchemy import or_
+
+    clauses = []
+    if template_id is not None:
+        clauses.append(StackDeployment.template_id == template_id)
+    text = (slug or "").strip()
+    if text:
+        clauses.append(StackDeployment.template_slug == text)
+    if not clauses:
+        return []
+    deps = list(
+        session.exec(select(StackDeployment).where(or_(*clauses))).all()
+    )
+    seen: set[int] = set()
+    rows: List[Dict[str, Any]] = []
+    for dep in deps:
+        if dep.id is None or dep.id in seen:
+            continue
+        seen.add(dep.id)
+        server = session.get(Server, dep.server_id)
+        rows.append(
+            {
+                "id": dep.id,
+                "project_name": dep.project_name or "",
+                "server_id": dep.server_id,
+                "server_name": (server.name if server and server.name else f"Host {dep.server_id}"),
+                "template_version": dep.template_version or "",
+                "config_version": dep.config_version or 1,
+                "drift_status": dep.drift_status or "unknown",
+            }
+        )
+    rows.sort(key=lambda row: (row["server_name"].lower(), row["project_name"].lower()))
+    return rows
+
+
+def fleet_counts(session: Session) -> Dict[tuple, int]:
+    """Count stacks per template id, and per slug when the id is missing."""
+    by_id: Dict[int, int] = {}
+    by_slug: Dict[str, int] = {}
+    for dep in session.exec(select(StackDeployment)).all():
+        if dep.template_id is not None:
+            by_id[int(dep.template_id)] = by_id.get(int(dep.template_id), 0) + 1
+        elif (dep.template_slug or "").strip():
+            key = dep.template_slug.strip()
+            by_slug[key] = by_slug.get(key, 0) + 1
+    return {"id": by_id, "slug": by_slug}
+
+
 def list_deployments_for_server(session: Session, server_id: int) -> List[StackDeployment]:
     return list(
         session.exec(

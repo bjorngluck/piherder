@@ -36,7 +36,7 @@ v1.9.0 shipped a LAN share beside Google Drive, Move on by default, plugin **0.5
 **Discover. A note only. No client and no page:**
 
 - **Path C.** Each host writes straight to Drive, OneDrive, or the NAS. Nothing lands on `/backups` first.
-- **Template fleet overview.** Which hosts and services came from a given template, beyond the badge on one stack.
+- **Path C** stays a note only. The template fleet overview was pulled onto this train.
 
 **Out.** Path B (CIFS mount as the dest root). AC-fg. Brand-3. ACME-in-herder. NPM CRUD. A richer Files token API. M-live. A herder→Home Assistant webhook. Undo of a finished Move. MCP Move, undo, nmap, the console, token admin, `docker_stack_down`, and `docker_stack_remove`. restic, borg, kopia, and rclone crypt. Restore from Drive, SMB, or OneDrive. SMB Kerberos. Selectable hero stats. A templates catalog redesign. Git-rich onboard. Optional AI. Ansible / cloud-init. Discord / Discussions. Swarm / Kubernetes. A higher coverage fail-under (stays **80**). The console mobile Tab issue. Stricter command-audit redaction. CodeQL. Actions pinned to commit SHAs. `CODEOWNERS`.
 
@@ -54,7 +54,7 @@ The Home Assistant card stays the separate HACS repo. Putting the plugin inside 
 | Image tags (freeze) | `1.10.0` · `1.10` · `latest` (multi-arch); keep `1.9` / `1.9.x` pins valid |
 | Must | **Copy now** · **OneDrive** · **MCP OAuth** · **DR copy** · **dependabot.yml** · close matching Dependabot alerts |
 | Should (may slip) | **N3c** first slice · public demo on the latest release image · sibling-repo Dependabot and branch protection |
-| Discover (no code) | **Path C** · template fleet overview |
+| Discover (no code) | **Path C** |
 | Version bump | Freeze only. About / footer stay **1.9.0** until then |
 | Demo | Stays the published **1.7.0** image until the Should is asked for |
 | Adapter / plugin | Stay **0.3.1** and **0.5.0** until a slice needs a new tag |
@@ -70,7 +70,7 @@ main (image 1.9.0)
 |------|----------|
 | Must → then freeze | **Copy now** before OneDrive. Do not start an Out item |
 | OneDrive does not stay listed-only | It is Must on this train. Do not describe it as shipped before the walk |
-| Discover is a write-up | Path C and the template fleet overview get a section here. No schema, no client, no page |
+| Discover is a write-up | Path C stays a note. Template fleet is the host and stack list on the template page |
 | Demo | Do not point the public demo at this branch as part of opening the train |
 
 ---
@@ -88,6 +88,7 @@ main (image 1.9.0)
 | 2026-10-03 | **N3c first slice.** `/reports` has a **Cards** catalog of the six history cards. Show and hide from that row. Pin, ↑ / ↓, and the per-card Hide stay. Out of this slice: new card types, Grafana, PromQL, iframes, SQL, and a Home marketplace. Not a version bump. |
 | 2026-10-03 | **Public demo.** [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) already reports **1.9.0**. The 05:15 UTC cron rebuilt `piherder:demo` from `main` `cc950c6`. Login returns 200. Not a Hub pull, and not this dev branch. |
 | 2026-10-03 | **Sibling repos.** [piherder-ha](https://github.com/bjorngluck/piherder-ha) `4082131` and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) `ccd80f0` add `dependabot.yml` and `SECURITY.md`. Security updates are on. `main` requires one review plus the existing CI checks. No file in this repository for those repos. |
+| 2026-10-03 | **Template fleet.** A template page lists every host and stack recorded from it. The catalog card shows the stack count. The badge on one Docker stack stays that host only. Not a version bump. |
 
 ---
 
@@ -100,7 +101,7 @@ main (image 1.9.0)
 | 3 | **MCP OAuth** | Browser sign-in for `POST /mcp`. A pasted `ph_` token still works |
 | 4 | **dependabot.yml** and close the matching alerts | File is on this branch. Alerts for PyJWT **2.15.1** and urllib3 **2.8.0** are already **fixed** (0 open). The file applies on `main` after merge |
 | 5 | Should, if it fits | **N3c** catalog is on this branch. The demo reports **1.9.0**. Sibling `dependabot.yml`, `SECURITY.md`, and `main` protection are on those repos |
-| 6 | Discover write-ups | Path C · template fleet overview. No code |
+| 6 | Discover write-ups | **Path C** only. Template fleet is on the template page |
 | 7 | Freeze · version bump · tag · Hub | Only when asked |
 
 ---

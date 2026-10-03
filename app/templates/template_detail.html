@@ -31,6 +31,34 @@
 
   <p class="text-sm mt-3">{{ definition.description or '—' }}</p>
 
+  <section class="card p-4 mt-4" data-testid="template-fleet">
+    <h2 class="font-semibold text-sm mb-1">On the fleet</h2>
+    <p class="text-xs text-muted mb-3">
+      Hosts and stacks recorded from this template. A stack badge on one host is the same record.
+    </p>
+    {% if fleet %}
+    <div class="ph-dense-list">
+      {% for row in fleet %}
+      <article class="ph-dense-row" data-testid="template-fleet-row">
+        <div class="ph-dense-row-main min-w-0">
+          <div class="ph-dense-row-title">
+            <a href="/templates/deployments/{{ row.id }}">{{ row.project_name }}</a>
+          </div>
+          <div class="ph-dense-row-meta">
+            <a href="/servers/{{ row.server_id }}">{{ row.server_name }}</a>
+            <span class="ph-dense-mono">V{{ row.config_version }}</span>
+            {% if row.template_version %}<span>template v{{ row.template_version }}</span>{% endif %}
+            <span class="status-pill feature-off">{{ row.drift_status }}</span>
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-muted mb-0" data-testid="template-fleet-empty">Not deployed on any host yet.</p>
+    {% endif %}
+  </section>
+
   {% if unlock_error %}
   <div class="banner-error border rounded p-3 text-sm mt-3">{{ unlock_error }}</div>
   {% endif %}
