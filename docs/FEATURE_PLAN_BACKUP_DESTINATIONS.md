@@ -37,7 +37,7 @@ The copy signs in as the operator’s Google account. PiHerder runs the redirect
 
 ## Out
 
-Path C (a client on each Pi), restic, borg, kopia, rclone crypt, and restoring from Drive, OneDrive, or SMB stay out. Copying the herder self-backup is opt-in per destination on [PLAN_v1.10.0.md](PLAN_v1.10.0.md): one `.tar.gz` is copied to `herder/` on that destination. A failed copy does not delete the local archive. Removing a destination does not delete remote files.
+Path C (each host writes straight to Drive, OneDrive, or the NAS, with nothing on `/backups` first) is a note on [PLAN_v1.10.0.md](PLAN_v1.10.0.md). It is not built. restic, borg, kopia, rclone crypt, and restoring from Drive, OneDrive, or SMB stay out. Copying the herder self-backup is opt-in per destination on [PLAN_v1.10.0.md](PLAN_v1.10.0.md): one `.tar.gz` is copied to `herder/` on that destination. A failed copy does not delete the local archive. Removing a destination does not delete remote files.
 
 ## LAN NAS / SMB (v1.9 path A)
 

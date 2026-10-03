@@ -10,13 +10,15 @@
 **QA:** [QA_v1.10.0.md](QA_v1.10.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md)
 
-> **Train open 2026-10-02.** Production stays **v1.9.0** on `main`. Package stays **`1.9.0`** until freeze. The public demo stays the **1.7.0** image until the Should below is asked for. Do not redeploy the demo onto this branch.
+> **Train open 2026-10-02.** Production stays **v1.9.0** on `main`. Package stays **`1.9.0`** until freeze. The public demo reports **1.9.0** from `main`. Do not redeploy the demo onto this branch.
 
 ---
 
 ## 0. Intent
 
-v1.9.0 shipped a LAN share beside Google Drive, Move on by default, plugin **0.5.0**, and one-service jobs on hosted MCP. **Copy now**, the schedule, and the follow-up after a host backup are already in that release. The dedicated-NAS walk was not done. OneDrive is listed and cannot be selected. An agent still signs in with only a `ph_` bearer token. The herder self-backup stays on its own local path.
+**At open (2026-10-02).** v1.9.0 had shipped a LAN share beside Google Drive, Move on by default, plugin **0.5.0**, and one-service jobs on hosted MCP. **Copy now**, the schedule, and the follow-up after a host backup were already in that release. The dedicated-NAS walk was not done. OneDrive was listed and could not be selected. An agent signed in with only a `ph_` bearer token. The herder self-backup stayed on its own local path.
+
+**On this branch now.** OneDrive is selectable. A saved destination can copy the self-backup. Hosted `POST /mcp` can use browser sign-in. Dependabot security updates are configured. `/reports` has the six-card catalog. A template page lists its fleet. The public demo reports **1.9.0**. The NAS **Copy now** walk is still open. Package stays **1.9.0**.
 
 **Must:**
 
@@ -27,16 +29,16 @@ v1.9.0 shipped a LAN share beside Google Drive, Move on by default, plugin **0.5
 5. **dependabot.yml.** Dependabot security updates for this repository.
 6. **Close Dependabot alerts.** Close the alerts that match PyJWT **2.15.1** and urllib3 **2.8.0**. Those pins are already on `main`.
 
-**Should. The tag can ship if one slips:**
+**Should. The tag can ship if one slips. Landed on this branch:**
 
-- **N3c.** Discovery plus a first slice of a Reports picker. Not the full picker. Not Grafana. The slice boundary is named when that work starts.
-- **Public demo.** Align [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) with the latest release image. It stays **1.7.0** until that work is asked for.
-- **Sibling repos.** Dependabot, `SECURITY.md`, and `main` branch protection on [piherder-ha](https://github.com/bjorngluck/piherder-ha) and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp). No file in this repository for those repos.
+- **N3c.** The first slice is the **Cards** row on `/reports`: the same six history cards. Pin, ↑ / ↓, and per-card Hide stay. Not the full picker. Not Grafana.
+- **Public demo.** [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) reports **1.9.0**. That is a local build of `main`, not this branch.
+- **Sibling repos.** Dependabot, `SECURITY.md`, and `main` branch protection are on [piherder-ha](https://github.com/bjorngluck/piherder-ha) and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp). No file in this repository for those repos.
 
 **Discover. A note only. No client and no page:**
 
-- **Path C.** Each host writes straight to Drive, OneDrive, or the NAS. Nothing lands on `/backups` first.
-- **Path C** stays a note only. The template fleet overview was pulled onto this train.
+- **Path C.** Each host would write straight to Drive, OneDrive, or the NAS. Nothing would land on `/backups` first. The note is below. It is not built.
+- **Template fleet** was pulled onto this train. The template page lists the hosts and stacks. It is not a Discover row anymore.
 
 **Out.** Path B (CIFS mount as the dest root). AC-fg. Brand-3. ACME-in-herder. NPM CRUD. A richer Files token API. M-live. A herder→Home Assistant webhook. Undo of a finished Move. MCP Move, undo, nmap, the console, token admin, `docker_stack_down`, and `docker_stack_remove`. restic, borg, kopia, and rclone crypt. Restore from Drive, SMB, or OneDrive. SMB Kerberos. Selectable hero stats. A templates catalog redesign. Git-rich onboard. Optional AI. Ansible / cloud-init. Discord / Discussions. Swarm / Kubernetes. A higher coverage fail-under (stays **80**). The console mobile Tab issue. Stricter command-audit redaction. CodeQL. Actions pinned to commit SHAs. `CODEOWNERS`.
 
@@ -56,7 +58,7 @@ The Home Assistant card stays the separate HACS repo. Putting the plugin inside 
 | Should (may slip) | **N3c** first slice · public demo on the latest release image · sibling-repo Dependabot and branch protection |
 | Discover (no code) | **Path C** |
 | Version bump | Freeze only. About / footer stay **1.9.0** until then |
-| Demo | Stays the published **1.7.0** image until the Should is asked for |
+| Demo | Reports **1.9.0** from `main` `cc950c6`. Do not point it at this branch |
 | Adapter / plugin | Stay **0.3.1** and **0.5.0** until a slice needs a new tag |
 | Coverage | Fail-under stays **80**. Do not lower it or raise it |
 | Schema | None at open. A new Alembic revision only if a Must needs one |
@@ -68,7 +70,7 @@ main (image 1.9.0)
 
 | Rule | Practice |
 |------|----------|
-| Must → then freeze | **Copy now** before OneDrive. Do not start an Out item |
+| Must → then freeze | OneDrive, DR copy, MCP OAuth, and Dependabot are on this branch. The NAS **Copy now** walk is still open. Do not start an Out item |
 | OneDrive does not stay listed-only | It is Must on this train. Do not describe it as shipped before the walk |
 | Discover is a write-up | Path C stays a note. Template fleet is the host and stack list on the template page |
 | Demo | Do not point the public demo at this branch as part of opening the train |
@@ -89,6 +91,7 @@ main (image 1.9.0)
 | 2026-10-03 | **Public demo.** [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) already reports **1.9.0**. The 05:15 UTC cron rebuilt `piherder:demo` from `main` `cc950c6`. Login returns 200. Not a Hub pull, and not this dev branch. |
 | 2026-10-03 | **Sibling repos.** [piherder-ha](https://github.com/bjorngluck/piherder-ha) `4082131` and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) `ccd80f0` add `dependabot.yml` and `SECURITY.md`. Security updates are on. `main` requires one review plus the existing CI checks. No file in this repository for those repos. |
 | 2026-10-03 | **Template fleet.** A template page lists every host and stack recorded from it. The catalog card shows the stack count. The badge on one Docker stack stays that host only. Not a version bump. |
+| 2026-10-03 | **Doc sweep.** Living plan, QA header, wiki index, upgrade note, and admin backup paragraph match the branch. Path C is written as a note in §4. It is not built. |
 
 ---
 
@@ -103,6 +106,26 @@ main (image 1.9.0)
 | 5 | Should, if it fits | **N3c** catalog is on this branch. The demo reports **1.9.0**. Sibling `dependabot.yml`, `SECURITY.md`, and `main` protection are on those repos |
 | 6 | Discover write-ups | **Path C** only. Template fleet is on the template page |
 | 7 | Freeze · version bump · tag · Hub | Only when asked |
+
+---
+
+## 4. Path C (Discover note)
+
+No client. No page. No schema.
+
+Today a host backup rsyncs onto this herder under `/backups`. A saved Google Drive, OneDrive, or LAN share then copies from that tree. That is Path A. The herder holds the bytes first.
+
+Path C would skip that landing. Each host would write its backup straight to Drive, OneDrive, or the NAS. The herder would not store the tree on `/backups` first.
+
+That stays a note on this train:
+
+- The copy secret would have to live on every host, not only in the herder's Fernet store.
+- **Copy now**, the schedule, and the follow-up after a host backup are herder jobs. They would not be the same job.
+- A failed host would have nothing on the herder to copy later.
+- Restore still reads the local self-backup. Path C does not change that archive.
+- Path B, a CIFS mount as the dest root, stays out.
+
+The NAS **Copy now** walk still uses Path A.
 
 ---
 

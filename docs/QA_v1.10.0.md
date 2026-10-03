@@ -11,7 +11,7 @@ This file is **maintainer-only** (repo `docs/`). It is **not** published on the 
 
 Plan: [PLAN_v1.10.0.md](PLAN_v1.10.0.md). 1.9 sign-off stays [QA_v1.9.0.md](QA_v1.9.0.md). Do not re-open those boxes here. Do not retick SMB **Test** or the password-at-rest check.
 
-Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch. The demo stays the **1.7.0** image until that Should is asked for.
+Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch. The demo reports **1.9.0** from `main`.
 
 Boxes stay empty until the slice has landed and you walk it. A Should that slips the tag stays unchecked and is noted as slipped. Do not tick a Discover row (Path C). Do not tick an Out row.
 
@@ -68,7 +68,7 @@ First slice is the **Cards** catalog on `/reports`: the same six history cards, 
 
 ## Public demo (Should)
 
-- [ ] [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) runs the latest release image. Until this is asked for, it stays **1.7.0**
+- [ ] [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) runs the latest release. Checked 2026-10-03: the container reports **1.9.0** from `main` `cc950c6`. Not this branch. Walk still unsigned.
 
 ## Sibling repos (Should)
 
