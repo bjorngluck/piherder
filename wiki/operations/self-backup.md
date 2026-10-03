@@ -133,7 +133,7 @@ JSON + gzip of **selected** tables (often dominated by capped audit + logos) typ
 ## End-to-end: first DR pack (v1.2+)
 
 1. Store **`PIHERDER_MASTER_KEY` offline**.  
-2. Settings → **PiHerder backup** → **Full DR** → Run (or schedule **Full**). Run queues a job and opens Jobs. It does not block the page, and a web restart does not stop the archive.  
+2. Settings → **PiHerder backup** → **Full DR** → Run (or schedule **Full**). Run queues a job and opens Jobs. It does not block the page, and a web restart does not stop the archive. Only one self-backup is active at a time. If that row is still **pending** after **30 minutes**, PiHerder stops it and raises a **critical** alert (**PiHerder self-backup failed**). The next run can then start. A backup that is already **running** is left to finish.  
 3. Copy the archive **off** the herder host.  
 4. Lab restore with the **same** master key; smoke test.  
 

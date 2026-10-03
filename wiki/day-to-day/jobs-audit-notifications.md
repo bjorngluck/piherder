@@ -57,7 +57,7 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 | `stale_data_cleanup` | Opt-in Jobs / Audit / nmap-run purge | Scheduler or Settings → Run now |
 | `nmap_discover` / `nmap_inventory` / `nmap_detailed` / `nmap_host_deep` | LAN Discovery scans | **celery-worker-nmap** (`-Q nmap`) |
 | `nmap_vuln_db_update` | Download / refresh vuln pack | nmap worker |
-| `herder_backup` | PiHerder self-backup | **Celery** (default queue). No host. One at a time. Settings → Run opens the job. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job |
+| `herder_backup` | PiHerder self-backup | **Celery** (default queue). No host. One at a time. Settings → Run opens the job. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job. A row still **pending** after **30 minutes** is failed and raises a **critical** alert |
 
 Statuses: `pending` → `running` → `success` / `failed`.
 
