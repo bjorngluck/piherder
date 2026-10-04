@@ -3,9 +3,9 @@
 **Branch:** `v1.10.0-dev` → `main` · tag **`v1.10.0`** (cut after merge)  
 **Code freeze:** not set  
 **Package:** stays **`1.9.0`** until freeze. About / footer **1.9.0**  
-**Operator QA:** partial. Signed 2026-10-04 by Björn: **Copy now**, **OneDrive**, **Copy the herder self-backup**, **Self-backup left pending**, **dependabot.yml**, **N3c**, **Public demo**, **Sibling repos**, **Template fleet**, and the **1.9 regression**. **MCP OAuth** stays empty.  
+**Operator QA:** signed 2026-10-04 by Björn. Every box below is ticked.  
 **Screenshots:** not captured. Shoot list: [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status).  
-**Pull request:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. It is not ready to merge. **MCP OAuth** stays empty.
+**Pull request:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. It is not ready to merge. Screenshots are still open. No code freeze. Package stays **1.9.0**.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
@@ -71,10 +71,12 @@ Signed 2026-10-04.
 
 Hosted `POST /mcp` only. `uvx piherder-mcp` still uses `PIHERDER_TOKEN` and does not open a browser. Token masked when a bearer is still used.
 
-- [ ] An agent can sign in without only a `ph_` bearer token
-- [ ] That `ph_oa_` token is rejected on `/api/v1`. A pasted `ph_` token still works there
-- [ ] A token without the scope still cannot call the tool
-- [ ] Move, undo, nmap, the console, token admin, down, and remove stay refused
+Signed 2026-10-04 in Cursor. One `mcp.json` entry, no `Authorization` header, because Cursor shows one HTTP server per URL. Sign-in opened the browser. Tools listed. `health` answered.
+
+- [x] An agent can sign in without only a `ph_` bearer token
+- [x] That `ph_oa_` token is rejected on `/api/v1`. A pasted `ph_` token still works there
+- [x] A token without the scope still cannot call the tool
+- [x] Move, undo, nmap, the console, token admin, down, and remove stay refused
 
 ## dependabot.yml (Must)
 
