@@ -52,6 +52,9 @@ ONEDRIVE_SCOPE = "offline_access User.Read Files.ReadWrite"
 _MICROSOFT_AUTH = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 _MICROSOFT_TOKEN = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 _MICROSOFT_ME = "https://graph.microsoft.com/v1.0/me"
+_GRAPH_DEFAULT_DRIVE = "https://graph.microsoft.com/v1.0/me/drive"
+# rclone 1.68 refuses to open the remote without both of these.
+_ONEDRIVE_DRIVE_TYPES = frozenset({"personal", "business", "documentLibrary"})
 
 
 def backup_root() -> Path:
@@ -744,7 +747,44 @@ def write_rclone_config(token_json: str, *, shared_with_me: bool = False) -> str
     return handle.name
 
 
-def write_onedrive_rclone_config(token_json: str) -> str:
+def onedrive_default_drive(access_token: str) -> tuple[str, str]:
+    """Graph id and type for the signed-in account's default drive.
+
+    rclone 1.68 will not open the remote until both are in the config.
+    """
+    token = (access_token or "").strip()
+    if not token:
+        raise ValueError("OneDrive did not return the default drive")
+    request = urllib.request.Request(
+        _GRAPH_DEFAULT_DRIVE,
+        headers={"Authorization": "Bearer " + token},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode())
+    except Exception as exc:
+        logger.warning("OneDrive drive lookup failed: %s", exc)
+        raise ValueError("OneDrive did not return the default drive") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("OneDrive did not return the default drive")
+    drive_id = str(payload.get("id") or "").strip()
+    drive_type = str(payload.get("driveType") or "").strip()
+    if (
+        not drive_id
+        or any(ch.isspace() for ch in drive_id)
+        or len(drive_id) > 512
+        or drive_type not in _ONEDRIVE_DRIVE_TYPES
+    ):
+        raise ValueError("OneDrive did not return the default drive")
+    return drive_id, drive_type
+
+
+def write_onedrive_rclone_config(
+    token_json: str,
+    *,
+    drive_id: str = "",
+    drive_type: str = "",
+) -> str:
     """Temp rclone config for the signed-in account's default drive."""
     payload = json.loads(token_json)
     if not isinstance(payload, dict) or not (
@@ -757,8 +797,21 @@ def write_onedrive_rclone_config(token_json: str) -> str:
         "refresh_token": payload.get("refresh_token") or "",
         "expiry": payload.get("expiry") or "2000-01-01T00:00:00Z",
     }
+    if not drive_id or not drive_type:
+        drive_id, drive_type = onedrive_default_drive(str(token["access_token"]))
+    drive_id = str(drive_id).strip()
+    drive_type = str(drive_type).strip()
+    if (
+        not drive_id
+        or any(ch.isspace() for ch in drive_id)
+        or len(drive_id) > 512
+        or drive_type not in _ONEDRIVE_DRIVE_TYPES
+    ):
+        raise ValueError("OneDrive did not return the default drive")
     lines = [f"[{_REMOTE_NAME}]", "type = onedrive"]
     lines.append("token = " + json.dumps(token, separators=(",", ":")))
+    lines.append("drive_id = " + drive_id)
+    lines.append("drive_type = " + drive_type)
     if payload.get("client_id"):
         lines.append("client_id = " + str(payload["client_id"]))
     if payload.get("client_secret"):

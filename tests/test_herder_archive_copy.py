@@ -94,6 +94,9 @@ def test_failed_copy_keeps_the_local_archive(tmp_path, monkeypatch):
         return Proc()
 
     monkeypatch.setattr(copies.subprocess, "run", run)
+    monkeypatch.setattr(
+        copies, "onedrive_default_drive", lambda _token: ("drive-1", "personal")
+    )
     result = copies.execute_herder_archive(dest, name)
     assert result["ok"] is False
     assert archive.read_bytes() == b"keep-me"
