@@ -100,6 +100,7 @@ main (image 1.9.0)
 | 2026-10-04 | **QA.** **dependabot.yml**, **N3c**, the public demo, the sibling repos, template fleet, and the 1.9 regression are signed. **OneDrive** and **MCP OAuth** stay empty. Screenshots stay uncaptured. |
 | 2026-10-04 | **QA.** **OneDrive** is signed, including **Test**, **Copy now**, the schedule, and the host-backup follow-up. rclone receives the default drive id. **MCP OAuth** stays empty. Screenshots stay uncaptured. |
 | 2026-10-04 | **QA.** **MCP OAuth** is signed in Cursor. One server entry, no pasted bearer, because Cursor keeps one HTTP server per URL. Tools listed. `health` answered. Operator QA is complete. Screenshots stay uncaptured. |
+| 2026-10-04 | **Release notes drafted** in [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md). Tag not cut. Package stays **1.9.0**. Screenshots stay uncaptured. |
 
 ---
 
