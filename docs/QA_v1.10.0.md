@@ -3,9 +3,9 @@
 **Branch:** `v1.10.0-dev` → `main` · tag **`v1.10.0`** (cut after merge)  
 **Code freeze:** not set  
 **Package:** stays **`1.9.0`** until freeze. About / footer **1.9.0**  
-**Operator QA:** partial. Signed 2026-10-04 by Björn: **Copy now**, **Copy the herder self-backup**, **Self-backup left pending**, **dependabot.yml**, **N3c**, **Public demo**, **Sibling repos**, **Template fleet**, and the **1.9 regression**. **OneDrive** and **MCP OAuth** stay empty.  
+**Operator QA:** partial. Signed 2026-10-04 by Björn: **Copy now**, **OneDrive**, **Copy the herder self-backup**, **Self-backup left pending**, **dependabot.yml**, **N3c**, **Public demo**, **Sibling repos**, **Template fleet**, and the **1.9 regression**. **MCP OAuth** stays empty.  
 **Screenshots:** not captured. Shoot list: [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status).  
-**Pull request:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. It is not ready to merge. **OneDrive** and **MCP OAuth** stay empty.
+**Pull request:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. It is not ready to merge. **MCP OAuth** stays empty.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
@@ -34,12 +34,14 @@ Signed 2026-10-04. SMB **Test** and the password-at-rest check stay signed on 1.
 
 Same card. OneDrive can be selected. It is its own row.
 
-- [ ] Saving OneDrive leaves the Drive row and the SMB row in place
-- [ ] The secret is Fernet. It is not written to the job log
-- [ ] **Test** checks the folder and does not copy
-- [ ] Entra permissions are `User.Read`, `Files.ReadWrite`, and `offline_access`. An account that connected before this change is signed in again
-- [ ] **Copy now** copies the ticked folders. The schedule and the host-backup follow-up can use this row
-- [ ] **Remove** deletes that row only. Files already in OneDrive stay there
+Signed 2026-10-04. A personal Microsoft 365 account uses a free Entra directory for the app. The copy goes to that account’s default drive.
+
+- [x] Saving OneDrive leaves the Drive row and the SMB row in place
+- [x] The secret is Fernet. It is not written to the job log
+- [x] **Test** checks the folder and does not copy
+- [x] Entra permissions are `User.Read`, `Files.ReadWrite`, and `offline_access`. An account that connected before this change is signed in again
+- [x] **Copy now** copies the ticked folders. The schedule and the host-backup follow-up can use this row
+- [x] **Remove** deletes that row only. Files already in OneDrive stay there
 
 ## Copy the herder self-backup (Must)
 

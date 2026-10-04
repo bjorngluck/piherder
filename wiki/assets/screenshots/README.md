@@ -38,7 +38,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 
 ## v1.10.0 — pack status {#v110--pack-status}
 
-**Not captured.** The branch is `v1.10.0-dev`. Package stays **1.9.0**, so About and the footer still say **1.9.0**. Maintainer walks are [QA_v1.10.0.md](../../../docs/QA_v1.10.0.md). Signed 2026-10-04 except **OneDrive** and **MCP OAuth**. Do not photograph [the public demo](https://piherder-demo.hacknow.info).
+**Not captured.** The branch is `v1.10.0-dev`. Package stays **1.9.0**, so About and the footer still say **1.9.0**. Maintainer walks are [QA_v1.10.0.md](../../../docs/QA_v1.10.0.md). Signed 2026-10-04 except **MCP OAuth**. Do not photograph [the public demo](https://piherder-demo.hacknow.info).
 
 Mask every token, the SMB password, and the Google and Microsoft client secrets. A browser sign-in frame must not show the redirect URL’s `code`.
 
