@@ -3,9 +3,9 @@
 **Branch:** `v1.10.0-dev` → `main` · tag **`v1.10.0`** (cut after merge)  
 **Code freeze:** not set  
 **Package:** stays **`1.9.0`** until freeze. About / footer **1.9.0**  
-**Operator QA:** partial. Signed 2026-10-04 by Björn: **Copy now**, **Copy the herder self-backup**, and **Self-backup left pending**. Every other box stays empty.  
+**Operator QA:** partial. Signed 2026-10-04 by Björn: **Copy now**, **Copy the herder self-backup**, **Self-backup left pending**, **dependabot.yml**, **N3c**, **Public demo**, **Sibling repos**, **Template fleet**, and the **1.9 regression**. **OneDrive** and **MCP OAuth** stay empty.  
 **Screenshots:** not captured. Shoot list: [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status).  
-**Pull request:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. It is not ready to merge. The three walks above are signed. The other boxes stay empty.
+**Pull request:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. It is not ready to merge. **OneDrive** and **MCP OAuth** stay empty.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
@@ -76,39 +76,51 @@ Hosted `POST /mcp` only. `uvx piherder-mcp` still uses `PIHERDER_TOKEN` and does
 
 ## dependabot.yml (Must)
 
-The file is on this branch. Security updates are enabled on the GitHub repo. Version-update pull requests stay off. Checked 2026-10-03: PyJWT **2.15.1** and urllib3 **2.8.0** are in `uv.lock`, and GitHub showed **0** open Dependabot alerts. The boxes stay empty until you sign them.
+The file is on this branch. Security updates are enabled on the GitHub repo. Version-update pull requests stay off. Checked 2026-10-03: PyJWT **2.15.1** and urllib3 **2.8.0** are in `uv.lock`, and GitHub showed **0** open Dependabot alerts.
 
-- [ ] `.github/dependabot.yml` is on this branch and turns on Dependabot security updates for this repository
-- [ ] The GitHub alerts that match PyJWT **2.15.1** and urllib3 **2.8.0** are closed. The pins are already on `main`
+Signed 2026-10-04.
+
+- [x] `.github/dependabot.yml` is on this branch and turns on Dependabot security updates for this repository
+- [x] The GitHub alerts that match PyJWT **2.15.1** and urllib3 **2.8.0** are closed. The pins are already on `main`
 
 ## N3c (Should)
 
 First slice is the **Cards** catalog on `/reports`: the same six history cards, show or hide from that row. Pin, ↑ / ↓, and per-card Hide stay. Out of this slice: new card types, Grafana, PromQL, iframes, SQL, and a Home marketplace. Do not tick the full picker.
 
-- [ ] The write-up names the first slice and leaves the rest of the picker out
-- [ ] The first slice is walked on `/reports`. Pin, hide, and reorder still work
+Signed 2026-10-04.
+
+- [x] The write-up names the first slice and leaves the rest of the picker out
+- [x] The first slice is walked on `/reports`. Pin, hide, and reorder still work
 
 ## Public demo (Should)
 
-- [ ] [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) runs the latest release. Checked 2026-10-03: the container reports **1.9.0** from `main` `cc950c6`. Not this branch. Walk still unsigned.
+Signed 2026-10-04.
+
+- [x] [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) runs the latest release. Checked 2026-10-03: the container reports **1.9.0** from `main` `cc950c6`. Not this branch.
 
 ## Sibling repos (Should)
 
-Checked on those repos, not in this tree: `piherder-ha` `4082131`, `piherder-mcp` `ccd80f0`. Each `main` asks for one review plus the CI that already runs. The box stays empty until you sign it.
+Checked on those repos, not in this tree: `piherder-ha` `4082131`, `piherder-mcp` `ccd80f0`. Each `main` asks for one review plus the CI that already runs.
 
-- [ ] [piherder-ha](https://github.com/bjorngluck/piherder-ha) and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) have Dependabot, a `SECURITY.md`, and `main` branch protection
+Signed 2026-10-04.
+
+- [x] [piherder-ha](https://github.com/bjorngluck/piherder-ha) and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) have Dependabot, a `SECURITY.md`, and `main` branch protection
 
 ## Template fleet
 
 Pulled in from Discover. The template page, not a new client.
 
-- [ ] A template page lists the hosts and stacks recorded from that template
-- [ ] A stack from a different template is not on that list
-- [ ] The catalog card shows how many stacks use the template
+Signed 2026-10-04.
+
+- [x] A template page lists the hosts and stacks recorded from that template
+- [x] A stack from a different template is not on that list
+- [x] The catalog card shows how many stacks use the template
 
 ## 1.9 regression
 
-- [ ] About / footer still **1.9.0** until the version bump
-- [ ] Move stays on unless `PIHERDER_SERVICE_MIGRATE=false`
-- [ ] A LAN share and Google Drive can both be saved. **Test** still does not copy
-- [ ] Hosted `POST /mcp` still accepts the four one-service jobs and still refuses Move
+Signed 2026-10-04.
+
+- [x] About / footer still **1.9.0** until the version bump
+- [x] Move stays on unless `PIHERDER_SERVICE_MIGRATE=false`
+- [x] A LAN share and Google Drive can both be saved. **Test** still does not copy
+- [x] Hosted `POST /mcp` still accepts the four one-service jobs and still refuses Move

@@ -18,7 +18,7 @@
 
 **At open (2026-10-02).** v1.9.0 had shipped a LAN share beside Google Drive, Move on by default, plugin **0.5.0**, and one-service jobs on hosted MCP. **Copy now**, the schedule, and the follow-up after a host backup were already in that release. The dedicated-NAS walk was not done. OneDrive was listed and could not be selected. An agent signed in with only a `ph_` bearer token. The herder self-backup stayed on its own local path.
 
-**On this branch now.** OneDrive is selectable. A saved destination can copy the self-backup. Hosted `POST /mcp` can use browser sign-in. Dependabot security updates are configured. `/reports` has the six-card catalog. A template page lists its fleet. The public demo reports **1.9.0**. **Copy now**, the herder self-backup copy, and the 30-minute pending self-backup are signed 2026-10-04. OneDrive, MCP OAuth, and Dependabot are not signed. Package stays **1.9.0**.
+**On this branch now.** OneDrive is selectable. A saved destination can copy the self-backup. Hosted `POST /mcp` can use browser sign-in. Dependabot security updates are configured. `/reports` has the six-card catalog. A template page lists its fleet. The public demo reports **1.9.0**. Signed 2026-10-04: **Copy now**, the herder self-backup copy, the 30-minute pending self-backup, **dependabot.yml**, **N3c**, the public demo, the sibling repos, template fleet, and the 1.9 regression. **OneDrive** and **MCP OAuth** are not signed. Package stays **1.9.0**.
 
 **Must:**
 
@@ -26,19 +26,19 @@
 2. **OneDrive.** Same card, selectable rclone hop, its own row, Fernet secret, then the same copy test.
 3. **MCP OAuth.** An agent can sign in to `POST /mcp` without only a `ph_` bearer token.
 4. **DR copy.** The herder self-backup archive can go to Drive, the NAS, or OneDrive. It is not only the separate local path. **Signed 2026-10-04**, including the 30-minute pending watch that landed with this copy.
-5. **dependabot.yml.** Dependabot security updates for this repository.
-6. **Close Dependabot alerts.** Close the alerts that match PyJWT **2.15.1** and urllib3 **2.8.0**. Those pins are already on `main`.
+5. **dependabot.yml.** Dependabot security updates for this repository. **Signed 2026-10-04.**
+6. **Close Dependabot alerts.** Close the alerts that match PyJWT **2.15.1** and urllib3 **2.8.0**. Those pins are already on `main`. **Signed 2026-10-04.**
 
 **Should. The tag can ship if one slips. Landed on this branch:**
 
-- **N3c.** The first slice is the **Cards** row on `/reports`: the same six history cards. Pin, ↑ / ↓, and per-card Hide stay. Not the full picker. Not Grafana.
-- **Public demo.** [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) reports **1.9.0**. That is a local build of `main`, not this branch.
-- **Sibling repos.** Dependabot, `SECURITY.md`, and `main` branch protection are on [piherder-ha](https://github.com/bjorngluck/piherder-ha) and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp). No file in this repository for those repos.
+- **N3c.** The first slice is the **Cards** row on `/reports`: the same six history cards. Pin, ↑ / ↓, and per-card Hide stay. Not the full picker. Not Grafana. **Signed 2026-10-04.**
+- **Public demo.** [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) reports **1.9.0**. That is a local build of `main`, not this branch. **Signed 2026-10-04.**
+- **Sibling repos.** Dependabot, `SECURITY.md`, and `main` branch protection are on [piherder-ha](https://github.com/bjorngluck/piherder-ha) and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp). No file in this repository for those repos. **Signed 2026-10-04.**
 
 **Discover. A note only. No client and no page:**
 
 - **Path C.** Discovery is written below. No build on this train. The decision, and a build if that decision says yes, wait for **v1.11.0**. That train is not opened.
-- **Template fleet** was pulled onto this train. The template page lists the hosts and stacks. It is not a Discover row anymore.
+- **Template fleet** was pulled onto this train. The template page lists the hosts and stacks. It is not a Discover row anymore. **Signed 2026-10-04.**
 
 **Out.** Path B (CIFS mount as the dest root). AC-fg. Brand-3. ACME-in-herder. NPM CRUD. A richer Files token API. M-live. A herder→Home Assistant webhook. Undo of a finished Move. MCP Move, undo, nmap, the console, token admin, `docker_stack_down`, and `docker_stack_remove`. restic, borg, kopia, and rclone crypt. Restore from Drive, SMB, or OneDrive. SMB Kerberos. Selectable hero stats. A templates catalog redesign. Git-rich onboard. Optional AI. Ansible / cloud-init. Discord / Discussions. Swarm / Kubernetes. A higher coverage fail-under (stays **80**). The console mobile Tab issue. Stricter command-audit redaction. CodeQL. Actions pinned to commit SHAs. `CODEOWNERS`.
 
@@ -70,7 +70,7 @@ main (image 1.9.0)
 
 | Rule | Practice |
 |------|----------|
-| Must → then freeze | **Copy now**, the herder self-backup copy, and the 30-minute pending watch are signed 2026-10-04. OneDrive, MCP OAuth, and Dependabot are on this branch and are not signed. Do not start an Out item |
+| Must → then freeze | Signed 2026-10-04 except **OneDrive** and **MCP OAuth**. Do not start an Out item |
 | OneDrive does not stay listed-only | It is Must on this train. Do not describe it as shipped before the walk |
 | Discover is a write-up | Path C stays a note. Template fleet is the host and stack list on the template page |
 | Demo | Do not point the public demo at this branch as part of opening the train |
@@ -97,6 +97,7 @@ main (image 1.9.0)
 | 2026-10-03 | **Copy hops.** A self-backup copy and **Copy now** on the same destination no longer share one active slot. Jobs labels the archive hop **Self-backup copy**. OAuth audience is [#31](https://github.com/bjorngluck/piherder/issues/31). OneDrive Graph scopes are [#32](https://github.com/bjorngluck/piherder/issues/32). Neither is changed here. |
 | 2026-10-03 | **Audience and OneDrive scopes.** A `ph_oa_` token is accepted on `POST /mcp` and rejected on `/api/v1`. OneDrive consent is `User.Read`, `Files.ReadWrite`, and `offline_access`. An already connected account keeps the previous grant until **Connect Microsoft** is used again. |
 | 2026-10-04 | **QA.** **Copy now** (SMB and Google Drive), **Copy the herder self-backup**, and **Self-backup left pending** are signed. OneDrive, MCP OAuth, Dependabot, the Should rows, template fleet, and the 1.9 regression stay empty. Screenshots stay uncaptured. |
+| 2026-10-04 | **QA.** **dependabot.yml**, **N3c**, the public demo, the sibling repos, template fleet, and the 1.9 regression are signed. **OneDrive** and **MCP OAuth** stay empty. Screenshots stay uncaptured. |
 
 ---
 
@@ -107,9 +108,9 @@ main (image 1.9.0)
 | 1 | Open **`v1.10.0-dev`** | **Done** 2026-10-02 |
 | 2 | **Copy now** on a dedicated NAS, then **OneDrive**, then the **DR copy** | **Copy now**, the herder self-backup copy, and the 30-minute pending watch are signed 2026-10-04. **OneDrive** is selectable and is not signed |
 | 3 | **MCP OAuth** | Browser sign-in for `POST /mcp`. A pasted `ph_` token still works |
-| 4 | **dependabot.yml** and close the matching alerts | File is on this branch. Alerts for PyJWT **2.15.1** and urllib3 **2.8.0** are already **fixed** (0 open). The file applies on `main` after merge |
-| 5 | Should, if it fits | **N3c** catalog is on this branch. The demo reports **1.9.0**. Sibling `dependabot.yml`, `SECURITY.md`, and `main` protection are on those repos |
-| 6 | Discover write-ups | **Path C** discovery is in §4. Decision and any build are **v1.11.0**. Template fleet is on the template page |
+| 4 | **dependabot.yml** and close the matching alerts | **Signed 2026-10-04.** The file applies on `main` after merge |
+| 5 | Should, if it fits | **N3c**, the public demo, and the sibling repos are signed 2026-10-04 |
+| 6 | Discover write-ups | **Path C** discovery is in §4. Decision and any build are **v1.11.0**. Template fleet is signed 2026-10-04 |
 | 7 | Freeze · version bump · tag · Hub | Only when asked |
 
 ---

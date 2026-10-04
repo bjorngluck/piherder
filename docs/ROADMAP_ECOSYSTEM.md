@@ -144,7 +144,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-10-02):** **v1.10.0 train opened** on **`v1.10.0-dev`**. Must: NAS **Copy now**, selectable **OneDrive**, **MCP OAuth**, copy the herder self-backup, `dependabot.yml`, and close the matching Dependabot alerts. Should: **N3c** first slice, the public demo on the latest release image, sibling-repo Dependabot. Discover: **Path C**. Template fleet overview is on the template page. Package stays `1.9.0` until freeze. The public demo reports **1.9.0** from `main`, not from this branch. Putting the Home Assistant plugin inside the image is not a backlog row. See [PLAN_v1.10.0.md](PLAN_v1.10.0.md).
 
-**Progress (2026-10-04):** **Copy now**, the herder self-backup copy, and the 30-minute pending self-backup are signed in [QA_v1.10.0.md](QA_v1.10.0.md). OneDrive, MCP OAuth, Dependabot, and the Should rows are not signed. Package stays `1.9.0`.
+**Progress (2026-10-04):** [QA_v1.10.0.md](QA_v1.10.0.md) is signed except **OneDrive** and **MCP OAuth**. That includes **Copy now**, the herder self-backup copy, the 30-minute pending watch, **dependabot.yml**, **N3c**, the public demo, the sibling repos, template fleet, and the 1.9 regression. Package stays `1.9.0`.
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Release line **v1.9.0**: `1.9.0` / `1.9` / `latest` (`1.8.1` / `1.8` stays the previous image. `1.8.0` and `1.7.0` / `1.7` remain valid). Next development is **v1.10.0** on `v1.10.0-dev` (package stays `1.9.0` until freeze).
 
