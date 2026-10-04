@@ -18,14 +18,14 @@
 
 **At open (2026-10-02).** v1.9.0 had shipped a LAN share beside Google Drive, Move on by default, plugin **0.5.0**, and one-service jobs on hosted MCP. **Copy now**, the schedule, and the follow-up after a host backup were already in that release. The dedicated-NAS walk was not done. OneDrive was listed and could not be selected. An agent signed in with only a `ph_` bearer token. The herder self-backup stayed on its own local path.
 
-**On this branch now.** OneDrive is selectable. A saved destination can copy the self-backup. Hosted `POST /mcp` can use browser sign-in. Dependabot security updates are configured. `/reports` has the six-card catalog. A template page lists its fleet. The public demo reports **1.9.0**. The NAS **Copy now** walk is still open. Package stays **1.9.0**.
+**On this branch now.** OneDrive is selectable. A saved destination can copy the self-backup. Hosted `POST /mcp` can use browser sign-in. Dependabot security updates are configured. `/reports` has the six-card catalog. A template page lists its fleet. The public demo reports **1.9.0**. **Copy now**, the herder self-backup copy, and the 30-minute pending self-backup are signed 2026-10-04. OneDrive, MCP OAuth, and Dependabot are not signed. Package stays **1.9.0**.
 
 **Must:**
 
-1. **Copy now.** Walk on-demand, the schedule, and the follow-up after a host backup on a dedicated NAS. That covers the SMB share and the existing Google Drive hop. Fix what the walk breaks. SMB **Test** and the password-at-rest check stay signed on 1.9 and are not reopened. A separate NAS is required before the walk.
+1. **Copy now.** Walk on-demand, the schedule, and the follow-up after a host backup on a dedicated NAS. That covers the SMB share and the existing Google Drive hop. Fix what the walk breaks. SMB **Test** and the password-at-rest check stay signed on 1.9 and are not reopened. **Signed 2026-10-04.**
 2. **OneDrive.** Same card, selectable rclone hop, its own row, Fernet secret, then the same copy test.
 3. **MCP OAuth.** An agent can sign in to `POST /mcp` without only a `ph_` bearer token.
-4. **DR copy.** The herder self-backup archive can go to Drive, the NAS, or OneDrive. It is not only the separate local path.
+4. **DR copy.** The herder self-backup archive can go to Drive, the NAS, or OneDrive. It is not only the separate local path. **Signed 2026-10-04**, including the 30-minute pending watch that landed with this copy.
 5. **dependabot.yml.** Dependabot security updates for this repository.
 6. **Close Dependabot alerts.** Close the alerts that match PyJWT **2.15.1** and urllib3 **2.8.0**. Those pins are already on `main`.
 
@@ -70,7 +70,7 @@ main (image 1.9.0)
 
 | Rule | Practice |
 |------|----------|
-| Must → then freeze | OneDrive, DR copy, MCP OAuth, and Dependabot are on this branch. The NAS **Copy now** walk is still open. Do not start an Out item |
+| Must → then freeze | **Copy now**, the herder self-backup copy, and the 30-minute pending watch are signed 2026-10-04. OneDrive, MCP OAuth, and Dependabot are on this branch and are not signed. Do not start an Out item |
 | OneDrive does not stay listed-only | It is Must on this train. Do not describe it as shipped before the walk |
 | Discover is a write-up | Path C stays a note. Template fleet is the host and stack list on the template page |
 | Demo | Do not point the public demo at this branch as part of opening the train |
@@ -96,6 +96,7 @@ main (image 1.9.0)
 | 2026-10-03 | **QA and screenshot list.** [QA_v1.10.0.md](QA_v1.10.0.md) names the unsigned walks, including the 30-minute pending self-backup. [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status) is the shoot list. Nothing is captured. Nothing is ticked. |
 | 2026-10-03 | **Copy hops.** A self-backup copy and **Copy now** on the same destination no longer share one active slot. Jobs labels the archive hop **Self-backup copy**. OAuth audience is [#31](https://github.com/bjorngluck/piherder/issues/31). OneDrive Graph scopes are [#32](https://github.com/bjorngluck/piherder/issues/32). Neither is changed here. |
 | 2026-10-03 | **Audience and OneDrive scopes.** A `ph_oa_` token is accepted on `POST /mcp` and rejected on `/api/v1`. OneDrive consent is `User.Read`, `Files.ReadWrite`, and `offline_access`. An already connected account keeps the previous grant until **Connect Microsoft** is used again. |
+| 2026-10-04 | **QA.** **Copy now** (SMB and Google Drive), **Copy the herder self-backup**, and **Self-backup left pending** are signed. OneDrive, MCP OAuth, Dependabot, the Should rows, template fleet, and the 1.9 regression stay empty. Screenshots stay uncaptured. |
 
 ---
 
@@ -104,7 +105,7 @@ main (image 1.9.0)
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.10.0-dev`** | **Done** 2026-10-02 |
-| 2 | **Copy now** on a dedicated NAS, then **OneDrive**, then the **DR copy** | **OneDrive** is selectable. **DR copy** is opt-in per destination. The NAS walk is not started |
+| 2 | **Copy now** on a dedicated NAS, then **OneDrive**, then the **DR copy** | **Copy now**, the herder self-backup copy, and the 30-minute pending watch are signed 2026-10-04. **OneDrive** is selectable and is not signed |
 | 3 | **MCP OAuth** | Browser sign-in for `POST /mcp`. A pasted `ph_` token still works |
 | 4 | **dependabot.yml** and close the matching alerts | File is on this branch. Alerts for PyJWT **2.15.1** and urllib3 **2.8.0** are already **fixed** (0 open). The file applies on `main` after merge |
 | 5 | Should, if it fits | **N3c** catalog is on this branch. The demo reports **1.9.0**. Sibling `dependabot.yml`, `SECURITY.md`, and `main` protection are on those repos |

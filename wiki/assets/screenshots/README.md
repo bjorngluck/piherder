@@ -38,7 +38,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 
 ## v1.10.0 — pack status {#v110--pack-status}
 
-**Not captured.** The branch is `v1.10.0-dev`. Package stays **1.9.0**, so About and the footer still say **1.9.0**. Maintainer walks are [QA_v1.10.0.md](../../../docs/QA_v1.10.0.md). None of those boxes are signed. Do not photograph [the public demo](https://piherder-demo.hacknow.info).
+**Not captured.** The branch is `v1.10.0-dev`. Package stays **1.9.0**, so About and the footer still say **1.9.0**. Maintainer walks are [QA_v1.10.0.md](../../../docs/QA_v1.10.0.md). **Copy now**, the herder self-backup copy, and the pending self-backup watch were signed 2026-10-04. The other boxes are empty. Do not photograph [the public demo](https://piherder-demo.hacknow.info).
 
 Mask every token, the SMB password, and the Google and Microsoft client secrets. A browser sign-in frame must not show the redirect URL’s `code`.
 
@@ -57,7 +57,7 @@ Mask every token, the SMB password, and the Google and Microsoft client secrets.
 | Slice | Why |
 |-------|-----|
 | Path C | No screen. Decision is **v1.11.0** |
-| NAS **Copy now** | Walk only, until you want a frame of a real share. Do not use the demo |
+| NAS **Copy now** | Walk signed 2026-10-04. A frame is optional. Do not use the demo |
 | Dependabot | A YAML file and GitHub settings. No product screen |
 | Pending self-backup | A job row and a critical alert. Capture only if you are already in that failure |
 | v1.9 Drive and SMB pack | `settings-backup-multi-dest.png` and `settings-backup-remove-confirm.png` stay |
