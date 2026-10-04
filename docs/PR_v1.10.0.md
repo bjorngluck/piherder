@@ -12,7 +12,7 @@
 
 Tenth minor after production **v1.9.0**. OneDrive is a selectable copy destination beside Google Drive and a LAN share. A saved destination can also receive the herder self-backup. An agent can sign in to hosted `POST /mcp` in the browser. A pasted `ph_` token still works.
 
-**Copy now**, the herder self-backup copy, and the 30-minute pending self-backup are signed 2026-10-04. OneDrive, MCP OAuth, and the other walks are not signed. Path C is discovered and parked for **v1.11.0**.
+Signed 2026-10-04 except **OneDrive** and **MCP OAuth**. Path C is discovered and parked for **v1.11.0**.
 
 Design: [PLAN_v1.10.0.md](PLAN_v1.10.0.md). Maintainer ticks: [QA_v1.10.0.md](QA_v1.10.0.md). Screenshot list: [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status).
 
@@ -34,7 +34,7 @@ Alembic **048** (`mcp_oauth`). Recreate **web** and **celery-worker** after merg
 
 ## Test plan
 
-Walk [QA_v1.10.0.md](QA_v1.10.0.md). **Copy now**, the herder self-backup copy, and the 30-minute pending watch are signed 2026-10-04. The other boxes are empty. Do not retick the 1.9 SMB **Test** or password-at-rest checks.
+Walk [QA_v1.10.0.md](QA_v1.10.0.md). Signed 2026-10-04 except **OneDrive** and **MCP OAuth**. Screenshots are not captured. Do not retick the 1.9 SMB **Test** or password-at-rest checks.
 
 - [ ] OneDrive row beside Drive and SMB. **Test** does not copy. **Remove** deletes that row only
 - [x] Self-backup copy is opt-in. A failed copy leaves the local archive. The demo does not upload
@@ -42,11 +42,11 @@ Walk [QA_v1.10.0.md](QA_v1.10.0.md). **Copy now**, the herder self-backup copy, 
 - [x] A self-backup pending 30 minutes fails and raises the critical alert. A running one does not
 - [ ] Hosted MCP browser sign-in. A pasted `ph_` token still works. Stdio still uses `PIHERDER_TOKEN`
 - [ ] Refused MCP tools stay refused
-- [ ] Reports **Cards** row. Pin, hide, and reorder still work
-- [ ] Template **On the fleet** lists only that template’s stacks
+- [x] Reports **Cards** row. Pin, hide, and reorder still work
+- [x] Template **On the fleet** lists only that template’s stacks
 - [ ] `.venv-docs/bin/mkdocs build --strict`
 - [ ] Screenshot pack in [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status)
-- [x] NAS **Copy now** walk. Signed 2026-10-04. The rest of QA is still open, so this does not mark the pull request ready
+- [x] NAS **Copy now** walk. Signed 2026-10-04. **OneDrive** and **MCP OAuth** are still open, so this does not mark the pull request ready
 
 ## Out of scope
 
