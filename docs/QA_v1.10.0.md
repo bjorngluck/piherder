@@ -3,9 +3,9 @@
 **Branch:** `v1.10.0-dev` → `main` · tag **`v1.10.0`** (cut after merge)  
 **Code freeze:** not set  
 **Package:** stays **`1.9.0`** until freeze. About / footer **1.9.0**  
-**Operator QA:** not signed. Every box below stays empty until you walk it.  
+**Operator QA:** partial. Signed 2026-10-04 by Björn: **Copy now**, **Copy the herder self-backup**, and **Self-backup left pending**. Every other box stays empty.  
 **Screenshots:** not captured. Shoot list: [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status).  
-**Pull request:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. It is not ready to merge. QA boxes stay empty.
+**Pull request:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. It is not ready to merge. The three walks above are signed. The other boxes stay empty.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
@@ -13,7 +13,7 @@ Plan: [PLAN_v1.10.0.md](PLAN_v1.10.0.md). 1.9 sign-off stays [QA_v1.9.0.md](QA_v
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch. The demo reports **1.9.0** from `main`.
 
-Boxes stay empty until the slice has landed and you walk it. A Should that slips the tag stays unchecked and is noted as slipped. Do not tick a Discover row. Path C is not a walk on this train. The decision is **v1.11.0**. Do not tick an Out row.
+A box stays empty until you walk that slice. A Should that slips the tag stays unchecked and is noted as slipped. Do not tick a Discover row. Path C is not a walk on this train. The decision is **v1.11.0**. Do not tick an Out row.
 
 ---
 
@@ -21,12 +21,14 @@ Boxes stay empty until the slice has landed and you walk it. A Should that slips
 
 Settings → PiHerder backup → **Copy the backup drive**. A separate NAS is required. This walk is the copy, not **Test**. Drive and SMB are both in the walk. Demo is not the target.
 
-- [ ] **Copy now** on the SMB row copies the ticked folders onto the share and does not change the local rsync job
-- [ ] **Copy now** on the Google Drive row still copies the ticked folders
-- [ ] A saved schedule runs the copy. Removing the destination removes that schedule
-- [ ] The follow-up after one host backup copies only the checked paths under that host folder
-- [ ] A failed copy fails that copy job. `last_backup_at` on the host backup stays as it was
-- [ ] The SMB password and the Drive token stay out of the job log
+Signed 2026-10-04. SMB **Test** and the password-at-rest check stay signed on 1.9 and are not reopened.
+
+- [x] **Copy now** on the SMB row copies the ticked folders onto the share and does not change the local rsync job
+- [x] **Copy now** on the Google Drive row still copies the ticked folders
+- [x] A saved schedule runs the copy. Removing the destination removes that schedule
+- [x] The follow-up after one host backup copies only the checked paths under that host folder
+- [x] A failed copy fails that copy job. `last_backup_at` on the host backup stays as it was
+- [x] The SMB password and the Drive token stay out of the job log
 
 ## OneDrive (Must)
 
@@ -43,21 +45,25 @@ Same card. OneDrive can be selected. It is its own row.
 
 The DR archive (`/herder_backups`), not the host rsync tree.
 
-- [ ] **Also copy each new self-backup** is on the Drive, OneDrive, and SMB forms. It is off until checked
-- [ ] After a successful self-backup, only a destination with that box and saved credentials is queued
-- [ ] **Copy off this host** on an archive row sends that existing file. The local `.tar.gz` stays
-- [ ] A running self-backup copy does not stop **Copy now** on that destination. A running host-folder copy does not stop **Copy off this host**. Jobs shows **Self-backup copy** for the archive and **Backup copy** for the folders
-- [ ] A failed copy of that archive does not delete the local DR file and does not fail the local self-backup
-- [ ] The public demo does not upload it
+Signed 2026-10-04.
+
+- [x] **Also copy each new self-backup** is on the Drive, OneDrive, and SMB forms. It is off until checked
+- [x] After a successful self-backup, only a destination with that box and saved credentials is queued
+- [x] **Copy off this host** on an archive row sends that existing file. The local `.tar.gz` stays
+- [x] A running self-backup copy does not stop **Copy now** on that destination. A running host-folder copy does not stop **Copy off this host**. Jobs shows **Self-backup copy** for the archive and **Backup copy** for the folders
+- [x] A failed copy of that archive does not delete the local DR file and does not fail the local self-backup
+- [x] The public demo does not upload it
 
 ## Self-backup left pending (landed with the DR copy)
 
 One self-backup at a time. A row that stays **pending** is not a running archive.
 
-- [ ] A `herder_backup` still **pending** after 30 minutes is marked failed
-- [ ] That raises the critical **PiHerder self-backup failed** alert, linked to the job
-- [ ] A **running** self-backup is not failed by that watch
-- [ ] The next **Run backup** can start after the pending row is failed
+Signed 2026-10-04.
+
+- [x] A `herder_backup` still **pending** after 30 minutes is marked failed
+- [x] That raises the critical **PiHerder self-backup failed** alert, linked to the job
+- [x] A **running** self-backup is not failed by that watch
+- [x] The next **Run backup** can start after the pending row is failed
 
 ## MCP OAuth (Must)
 

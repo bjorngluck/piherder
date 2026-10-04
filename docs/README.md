@@ -7,7 +7,7 @@ Maintainer plans and release notes. Operator wiki is `wiki/` (MkDocs).
 | Kind | Where |
 |------|--------|
 | Current release | [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [QA_v1.9.0.md](QA_v1.9.0.md). Tag **v1.9.0**. Image `1.9.0` / `1.9` / `latest`. Adapter **0.3.1**. Plugin **0.5.0** |
-| Active train | [PLAN_v1.10.0.md](PLAN_v1.10.0.md) · [QA_v1.10.0.md](QA_v1.10.0.md) on `v1.10.0-dev`. NAS **Copy now**, OneDrive, agent sign-in. Package stays **1.9.0** until freeze |
+| Active train | [PLAN_v1.10.0.md](PLAN_v1.10.0.md) · [QA_v1.10.0.md](QA_v1.10.0.md) on `v1.10.0-dev`. **Copy now**, the self-backup copy, and the pending watch signed 2026-10-04. OneDrive and agent sign-in are not signed. Package stays **1.9.0** until freeze |
 | Prior release | [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) |
 | Prior production | [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md) |
 | Backup destinations | [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md). Drive shipped in **1.8.0**. SMB shipped in **1.9.0**. Copy now and OneDrive are the active train. Operator: [Backups](../wiki/day-to-day/backups.md) · [Agents (MCP)](../wiki/operations/mcp.md) · [Home Assistant](../wiki/integrations/home-assistant.md) |
