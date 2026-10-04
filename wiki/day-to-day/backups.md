@@ -101,12 +101,18 @@ The password is stored with the instance master key and is not written to the jo
 
 **Where in PiHerder:** Settings → **PiHerder backup** → **Copy the backup drive**. Pick **OneDrive**.
 
-This is another copy, independent of Google Drive and the LAN share. rclone sends the ticked folders to a folder in the default drive of the Microsoft account you sign in with. Host backups still land on this PiHerder first.
+This is another copy, independent of Google Drive and the LAN share. rclone sends the ticked folders to a folder in the default drive of the Microsoft account you sign in with. Host backups still land on this PiHerder first. A Microsoft 365 personal plan already includes that OneDrive storage. The plan does not include a directory for the app registration below.
 
-1. In Microsoft Entra, register an app named PiHerder. Accounts: any organizational directory and personal Microsoft accounts. Redirect URI: **Web**, and the URL shown in the PiHerder dialog. It ends with `/backup-copies/onedrive/callback`.
-2. Add Microsoft Graph delegated permissions `User.Read`, `Files.ReadWrite`, and `offline_access`. That is the signed-in account’s own files, plus the address shown after sign-in. Do not add `Files.Read.All`, `Files.ReadWrite.All`, or `Sites.Read.All`. An account that already connected keeps its previous grant until you use **Connect Microsoft** again.
-3. Create a client secret. Paste the application (client) ID and the secret into PiHerder. Leave the secret blank only after one is already saved. Set the folder name, for example `PiHerder`.
-4. **Connect Microsoft** and sign in as the account that owns the drive. **Test** lists the folder and does not copy. **Copy now**, the schedule, or the follow-up after a host backup runs the same **Backup copy** job.
+A personal Microsoft account that has never had Azure lands in a tenant named **Microsoft Services**. App registrations refuse that tenant. The message names identity provider `live.com` and application `74658136-14ec-4630-ad9b-26e160ff0fc6`. Signing in again does not create a directory.
+
+1. In a private window, open [https://azure.microsoft.com/free](https://azure.microsoft.com/free) and choose **Start free**. Use the same Microsoft account that owns the OneDrive. Finish until Azure says the subscription is ready. That creates **Default Directory** and makes this account its administrator. Microsoft may ask for a card. Registering the app does not start a charge.
+2. Open [https://portal.azure.com](https://portal.azure.com). The directory in the top bar must be **Default Directory**. While it still says **Microsoft Services**, the signup is not finished.
+3. In that directory, register an app named PiHerder. Accounts: **any organizational directory and personal Microsoft accounts**. PiHerder signs in through Microsoft’s common endpoint, so leave **Personal Microsoft accounts only** unselected. Redirect URI: **Web**, and the URL shown in the PiHerder dialog. It ends with `/backup-copies/onedrive/callback`.
+4. Add Microsoft Graph delegated permissions `User.Read`, `Files.ReadWrite`, and `offline_access`. That is the signed-in account’s own files, plus the address shown after sign-in. Do not add `Files.Read.All`, `Files.ReadWrite.All`, or `Sites.Read.All`. An account that already connected keeps its previous grant until you use **Connect Microsoft** again.
+5. Create a client secret. Paste the application (client) ID and the secret into PiHerder. Leave the secret blank only after one is already saved. Set the folder name, for example `PiHerder`.
+6. **Connect Microsoft** and sign in as the account that owns the drive. The directory only holds the app. The files go to that account’s OneDrive. **Test** lists the folder and does not copy. **Copy now**, the schedule, or the follow-up after a host backup runs the same **Backup copy** job.
+
+A work or school account that already has a directory skips the free Azure signup. Register the app in that directory, with the same account type.
 
 The secret and the sign-in are stored with the instance master key and are not written to the job log. The public demo does not upload.
 
