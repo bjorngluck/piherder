@@ -4,7 +4,7 @@
 
 **Base:** `main` · **Head:** `v1.10.0-dev` · [QA_v1.10.0.md](QA_v1.10.0.md) signed 2026-10-04. Screenshots are not captured.
 
-**State:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. [QA_v1.10.0.md](QA_v1.10.0.md) is signed 2026-10-04. Screenshots are not captured. No code freeze. It is not ready to merge. Package stays **1.9.0**. Tag not cut. End-user notes are not written yet.
+**State:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. [QA_v1.10.0.md](QA_v1.10.0.md) is signed 2026-10-04. Draft notes are [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md). Screenshots are not captured. No code freeze. It is not ready to merge. Package stays **1.9.0**. Tag not cut.
 
 ---
 
@@ -50,7 +50,7 @@ Walk [QA_v1.10.0.md](QA_v1.10.0.md). Operator QA is signed 2026-10-04. Screensho
 
 ## Out of scope
 
-- Version bump, tag **v1.10.0**, Hub publish, and `RELEASE_v1.10.0.md`. Those follow a signed QA
+- Version bump, tag **v1.10.0**, and Hub publish. The draft notes exist. They wait for freeze
 - Path C. Decision and any build are **v1.11.0**
 - Public demo pointed at this branch
 - Restore from Drive, SMB, or OneDrive
@@ -58,7 +58,7 @@ Walk [QA_v1.10.0.md](QA_v1.10.0.md). Operator QA is signed 2026-10-04. Screensho
 ## Merge checklist
 
 - [x] Operator walks signed ([QA_v1.10.0.md](QA_v1.10.0.md))
-- [ ] End-user notes drafted (`RELEASE_v1.10.0.md`)
+- [x] End-user notes drafted (`RELEASE_v1.10.0.md`). Tag not cut. Package stays **1.9.0**
 - [ ] Screenshot pack captured
 - [ ] Version bump `app/version_info.py` + `pyproject.toml` → **1.10.0**
 - [ ] Wiki banner and current-release row point at **1.10.0**
