@@ -54,6 +54,25 @@ Replace the host. Keep the secret in the client’s secret store. Do not commit 
 
 `type` is `http` so Claude Code accepts the same block. Cursor uses `url` and sends the header.
 
+**Browser sign-in in Cursor.** Cursor shows one HTTP server for each URL. A second entry that points at the same `/mcp` address does not appear. For the browser path, keep one entry and leave `Authorization` off:
+
+```json
+{
+  "mcpServers": {
+    "piherder": {
+      "type": "http",
+      "url": "https://piherder.example.com/mcp"
+    }
+  }
+}
+```
+
+Reload the window. Cursor opens the browser. Sign in as an admin and approve the scopes. The tools then list. `health` is the first check. A pasted `ph_` header skips this sign-in, and Cursor keeps that header.
+
+**Browser sign-in in Grok.** In `~/.grok/config.toml`, set `url` and do not set a header. Open `/mcps`, press `r`, then `i` on that server. Grok opens the same consent page. An imported Cursor server that still has a header skips the browser.
+
+The access token starts with `ph_oa_`. It works on `POST /mcp` only. Revoke it under Settings → API management. This walk was signed 2026-10-04 in Cursor.
+
 **Claude Code** — project `.mcp.json` or the user `mcpServers` entry, same JSON. Claude Desktop’s remote connector can use the browser sign-in above instead of a pasted Bearer header. Leave the URL as `https://your-herder/mcp` and do not set a header.
 
 **Codex** — `~/.codex/config.toml`. The env var is the **raw** `ph_…` secret. Codex adds `Bearer` itself.

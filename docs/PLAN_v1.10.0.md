@@ -18,13 +18,13 @@
 
 **At open (2026-10-02).** v1.9.0 had shipped a LAN share beside Google Drive, Move on by default, plugin **0.5.0**, and one-service jobs on hosted MCP. **Copy now**, the schedule, and the follow-up after a host backup were already in that release. The dedicated-NAS walk was not done. OneDrive was listed and could not be selected. An agent signed in with only a `ph_` bearer token. The herder self-backup stayed on its own local path.
 
-**On this branch now.** OneDrive is selectable. A saved destination can copy the self-backup. Hosted `POST /mcp` can use browser sign-in. Dependabot security updates are configured. `/reports` has the six-card catalog. A template page lists its fleet. The public demo reports **1.9.0**. Signed 2026-10-04: **Copy now**, **OneDrive**, the herder self-backup copy, the 30-minute pending self-backup, **dependabot.yml**, **N3c**, the public demo, the sibling repos, template fleet, and the 1.9 regression. **MCP OAuth** is not signed. Package stays **1.9.0**.
+**On this branch now.** OneDrive is selectable. A saved destination can copy the self-backup. Hosted `POST /mcp` can use browser sign-in. Dependabot security updates are configured. `/reports` has the six-card catalog. A template page lists its fleet. The public demo reports **1.9.0**. Operator QA is signed 2026-10-04, including **MCP OAuth**. Screenshots are not captured. Package stays **1.9.0**.
 
 **Must:**
 
 1. **Copy now.** Walk on-demand, the schedule, and the follow-up after a host backup on a dedicated NAS. That covers the SMB share and the existing Google Drive hop. Fix what the walk breaks. SMB **Test** and the password-at-rest check stay signed on 1.9 and are not reopened. **Signed 2026-10-04.**
 2. **OneDrive.** Same card, selectable rclone hop, its own row, Fernet secret, then the same copy test. **Signed 2026-10-04.**
-3. **MCP OAuth.** An agent can sign in to `POST /mcp` without only a `ph_` bearer token.
+3. **MCP OAuth.** An agent can sign in to `POST /mcp` without only a `ph_` bearer token. **Signed 2026-10-04.** Cursor shows one HTTP server per URL, so the walk used one entry and no `Authorization` header. Tools listed. `health` answered.
 4. **DR copy.** The herder self-backup archive can go to Drive, the NAS, or OneDrive. It is not only the separate local path. **Signed 2026-10-04**, including the 30-minute pending watch that landed with this copy.
 5. **dependabot.yml.** Dependabot security updates for this repository. **Signed 2026-10-04.**
 6. **Close Dependabot alerts.** Close the alerts that match PyJWT **2.15.1** and urllib3 **2.8.0**. Those pins are already on `main`. **Signed 2026-10-04.**
@@ -70,7 +70,7 @@ main (image 1.9.0)
 
 | Rule | Practice |
 |------|----------|
-| Must → then freeze | Signed 2026-10-04 except **MCP OAuth**. Do not start an Out item |
+| Must → then freeze | Operator QA signed 2026-10-04. Screenshots are not captured. Do not start an Out item |
 | OneDrive does not stay listed-only | It is Must on this train. Do not describe it as shipped before the walk |
 | Discover is a write-up | Path C stays a note. Template fleet is the host and stack list on the template page |
 | Demo | Do not point the public demo at this branch as part of opening the train |
@@ -99,6 +99,7 @@ main (image 1.9.0)
 | 2026-10-04 | **QA.** **Copy now** (SMB and Google Drive), **Copy the herder self-backup**, and **Self-backup left pending** are signed. OneDrive, MCP OAuth, Dependabot, the Should rows, template fleet, and the 1.9 regression stay empty. Screenshots stay uncaptured. |
 | 2026-10-04 | **QA.** **dependabot.yml**, **N3c**, the public demo, the sibling repos, template fleet, and the 1.9 regression are signed. **OneDrive** and **MCP OAuth** stay empty. Screenshots stay uncaptured. |
 | 2026-10-04 | **QA.** **OneDrive** is signed, including **Test**, **Copy now**, the schedule, and the host-backup follow-up. rclone receives the default drive id. **MCP OAuth** stays empty. Screenshots stay uncaptured. |
+| 2026-10-04 | **QA.** **MCP OAuth** is signed in Cursor. One server entry, no pasted bearer, because Cursor keeps one HTTP server per URL. Tools listed. `health` answered. Operator QA is complete. Screenshots stay uncaptured. |
 
 ---
 
@@ -108,7 +109,7 @@ main (image 1.9.0)
 |---|------|--------|
 | 1 | Open **`v1.10.0-dev`** | **Done** 2026-10-02 |
 | 2 | **Copy now** on a dedicated NAS, then **OneDrive**, then the **DR copy** | **Copy now**, **OneDrive**, the herder self-backup copy, and the 30-minute pending watch are signed 2026-10-04 |
-| 3 | **MCP OAuth** | Browser sign-in for `POST /mcp`. A pasted `ph_` token still works |
+| 3 | **MCP OAuth** | **Signed 2026-10-04.** Browser sign-in for `POST /mcp`. A pasted `ph_` token still works. Cursor shows one server per URL |
 | 4 | **dependabot.yml** and close the matching alerts | **Signed 2026-10-04.** The file applies on `main` after merge |
 | 5 | Should, if it fits | **N3c**, the public demo, and the sibling repos are signed 2026-10-04 |
 | 6 | Discover write-ups | **Path C** discovery is in §4. Decision and any build are **v1.11.0**. Template fleet is signed 2026-10-04 |

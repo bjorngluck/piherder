@@ -2,9 +2,9 @@
 
 **Title:** `v1.10.0: OneDrive, self-backup copy, MCP sign-in`
 
-**Base:** `main` · **Head:** `v1.10.0-dev` · **Draft** until [QA_v1.10.0.md](QA_v1.10.0.md) is signed
+**Base:** `main` · **Head:** `v1.10.0-dev` · [QA_v1.10.0.md](QA_v1.10.0.md) signed 2026-10-04. Screenshots are not captured.
 
-**State:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. It is not ready to merge until [QA_v1.10.0.md](QA_v1.10.0.md) is signed. No code freeze. Package stays **1.9.0**. Tag not cut. End-user notes are not written yet.
+**State:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. [QA_v1.10.0.md](QA_v1.10.0.md) is signed 2026-10-04. Screenshots are not captured. No code freeze. It is not ready to merge. Package stays **1.9.0**. Tag not cut. End-user notes are not written yet.
 
 ---
 
@@ -12,7 +12,7 @@
 
 Tenth minor after production **v1.9.0**. OneDrive is a selectable copy destination beside Google Drive and a LAN share. A saved destination can also receive the herder self-backup. An agent can sign in to hosted `POST /mcp` in the browser. A pasted `ph_` token still works.
 
-Signed 2026-10-04 except **MCP OAuth**. Path C is discovered and parked for **v1.11.0**.
+Operator QA signed 2026-10-04. Screenshots are not captured. Path C is discovered and parked for **v1.11.0**.
 
 Design: [PLAN_v1.10.0.md](PLAN_v1.10.0.md). Maintainer ticks: [QA_v1.10.0.md](QA_v1.10.0.md). Screenshot list: [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status).
 
@@ -34,19 +34,19 @@ Alembic **048** (`mcp_oauth`). Recreate **web** and **celery-worker** after merg
 
 ## Test plan
 
-Walk [QA_v1.10.0.md](QA_v1.10.0.md). Signed 2026-10-04 except **MCP OAuth**. Screenshots are not captured. Do not retick the 1.9 SMB **Test** or password-at-rest checks.
+Walk [QA_v1.10.0.md](QA_v1.10.0.md). Operator QA is signed 2026-10-04. Screenshots are not captured. Do not retick the 1.9 SMB **Test** or password-at-rest checks.
 
 - [x] OneDrive row beside Drive and SMB. **Test** does not copy. **Remove** deletes that row only
 - [x] Self-backup copy is opt-in. A failed copy leaves the local archive. The demo does not upload
 - [x] A running self-backup copy does not block **Copy now**. Jobs labels that hop **Self-backup copy**
 - [x] A self-backup pending 30 minutes fails and raises the critical alert. A running one does not
-- [ ] Hosted MCP browser sign-in. A pasted `ph_` token still works. Stdio still uses `PIHERDER_TOKEN`
-- [ ] Refused MCP tools stay refused
+- [x] Hosted MCP browser sign-in. A pasted `ph_` token still works. Stdio still uses `PIHERDER_TOKEN`. Cursor shows one server per URL, so the walk used one entry and no header
+- [x] Refused MCP tools stay refused
 - [x] Reports **Cards** row. Pin, hide, and reorder still work
 - [x] Template **On the fleet** lists only that template’s stacks
 - [ ] `.venv-docs/bin/mkdocs build --strict`
 - [ ] Screenshot pack in [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status)
-- [x] NAS **Copy now** walk. Signed 2026-10-04. **MCP OAuth** is still open, so this does not mark the pull request ready
+- [x] NAS **Copy now** walk. Signed 2026-10-04. Screenshots are still open, so this does not mark the pull request ready
 
 ## Out of scope
 
@@ -57,7 +57,7 @@ Walk [QA_v1.10.0.md](QA_v1.10.0.md). Signed 2026-10-04 except **MCP OAuth**. Scr
 
 ## Merge checklist
 
-- [ ] Operator walks signed ([QA_v1.10.0.md](QA_v1.10.0.md))
+- [x] Operator walks signed ([QA_v1.10.0.md](QA_v1.10.0.md))
 - [ ] End-user notes drafted (`RELEASE_v1.10.0.md`)
 - [ ] Screenshot pack captured
 - [ ] Version bump `app/version_info.py` + `pyproject.toml` → **1.10.0**
