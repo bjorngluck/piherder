@@ -1,6 +1,6 @@
 # Backup destinations — Google Drive copy
 
-**Status:** Google Drive copy **shipped** in **v1.8.0** (2026-10-01). LAN NAS / SMB is selectable beside Drive as of **v1.9.0**, and Settings can remove one provider. **OneDrive** is selectable on `v1.10.0-dev` (not a version bump). A saved destination can also copy the herder self-backup archive when **Also copy each new self-backup** is on. **Copy now**, **OneDrive**, and that self-backup copy were signed 2026-10-04. Package stays **1.9.0** until freeze.  
+**Status:** Google Drive copy **shipped** in **v1.8.0** (2026-10-01). LAN NAS / SMB is selectable beside Drive as of **v1.9.0**, and Settings can remove one provider. **OneDrive** is selectable in **1.10.0**. A saved destination can also copy the herder self-backup archive when **Also copy each new self-backup** is on. **Copy now**, **OneDrive**, and that self-backup copy were signed 2026-10-04. Package **1.10.0**. Tag not cut.  
 **Train:** [PLAN_v1.8.0.md](PLAN_v1.8.0.md) §3 (path A) · [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md).  
 **Not this product:** the instance self-backup (pg_dump / `/herder_backups` archives). The copy section sits under that same Settings tab. Restore stays the local tree.
 
@@ -14,7 +14,7 @@ A **backup destination** is its own row, aimed at the whole backup drive (`BACKU
 
 | Piece | Lock |
 |-------|------|
-| Provider | Google Drive (shipped **1.8.0**), **LAN NAS / SMB** (shipped **1.9.0**), and **OneDrive** (selectable on `v1.10.0-dev`) are each their own second hop. All three can be saved and live at once. No plugin framework. |
+| Provider | Google Drive (shipped **1.8.0**), **LAN NAS / SMB** (shipped **1.9.0**), and **OneDrive** (**1.10.0**) are each their own second hop. All three can be saved and live at once. No plugin framework. |
 | Secret | Fernet (`PIHERDER_MASTER_KEY`). The operator creates a Google web OAuth client and pastes its ID and secret. **Connect Google** stores a refresh token. A blank secret keeps a saved one. The sign-in is not shown again. A service account is not the upload account. |
 | When | The same schedule presets as the rest of Settings, an on-demand button, and an optional follow-up after one host backup finishes. The follow-up copies only checked paths under that host folder. |
 | Failure | The copy job fails. `last_backup_at` and the rsync job stay as they were. |

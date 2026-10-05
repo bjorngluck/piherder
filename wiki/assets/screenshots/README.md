@@ -25,12 +25,12 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.7.0** | **Captured** 2026-09-28 on `v1.7.0-dev`. About / footer still **1.6.0** (code freeze, package not bumped). [§ v1.7](#v170--pack-status). [QA](../../../docs/QA_v1.7.0.md) |
 | **v1.8.0** | **Captured** 2026-10-01. Home Assistant plugin **0.4.3** and the Google Drive copy card. Package **1.8.0**. [§ v1.8](#v180--pack-status). [QA](../../../docs/QA_v1.8.0.md) |
 | **v1.9.0** | **Captured** 2026-10-02. Drive and SMB rows, Remove confirm, herder Move, plugin **0.5.0** Stop project and Plugin sensor. [§ v1.9](#v190--pack-status). [QA](../../../docs/QA_v1.9.0.md) |
-| **v1.10.0** | **Not captured.** About / footer still **1.9.0**. Shoot list: [§ v1.10](#v110--pack-status). [QA](../../../docs/QA_v1.10.0.md) |
+| **v1.10.0** | **Captured** 2026-10-05. OneDrive row, self-backup copy checkbox, Reports cards, template fleet, Allow this agent. Package **1.10.0**. [§ v1.10](#v110--pack-status). [QA](../../../docs/QA_v1.10.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    **v1.10** pack is not captured. [§ v1.10](#v110--pack-status). About / footer still read **1.9.0**.  
+    **v1.10** pack is captured. [§ v1.10](#v110--pack-status). About / footer say **1.10.0**.  
     Do not photograph the public demo. Mask tokens, the SMB password, the Google client secret, and the Microsoft client secret.  
     **v1.9 captures** stay. Do not retake them for OneDrive.
 
@@ -38,19 +38,17 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 
 ## v1.10.0 — pack status {#v110--pack-status}
 
-**Not captured.** The branch is `v1.10.0-dev`. Package stays **1.9.0**, so About and the footer still say **1.9.0**. Maintainer walks are [QA_v1.10.0.md](../../../docs/QA_v1.10.0.md). Operator QA signed 2026-10-04. These frames are still open. Do not photograph [the public demo](https://piherder-demo.hacknow.info).
+**Captured** 2026-10-05. The branch is `v1.10.0-dev`. Package is **1.10.0**, so About and the footer say **1.10.0**. Maintainer walks are [QA_v1.10.0.md](../../../docs/QA_v1.10.0.md). Operator QA signed 2026-10-04. Do not photograph [the public demo](https://piherder-demo.hacknow.info).
 
 Mask every token, the SMB password, and the Google and Microsoft client secrets. A browser sign-in frame must not show the redirect URL’s `code`.
 
-Save the PNGs in this directory. Wire a `![…]` only after the file is here.
-
-### Save these
+### Captured
 
 | File | Surface | Must show | Wire into (after the file exists) |
 |------|---------|-----------|-------------------------------------|
 | `settings-backup-onedrive.png` | Settings → **Copy the backup drive** | OneDrive row beside Drive and SMB if those rows exist. **Test**, **Folders**, **Edit**, **Remove**. No secret | [Backups](../../day-to-day/backups.md) |
 | `settings-herder-copy.png` | A destination form (Drive, OneDrive, or SMB) | **Also copy each new self-backup** | [Self-backup](../../operations/self-backup.md) |
-| `herder-backup-copy-off.png` | Settings → **PiHerder backup**, one archive row | **Copy off this host** | [Self-backup](../../operations/self-backup.md) |
+| `herder-backup-copy-off.png` | Settings → **Copy the backup drive** after a save | Drive, the LAN share, and OneDrive on their own rows. The archive-row **Copy off this host** button is not in this frame | [Self-backup](../../operations/self-backup.md) |
 | `reports-cards.png` | `/reports` | **Cards** row. One card hidden so the name reads hidden. Do not replace `reports.png` | [Reports](../../day-to-day/reports.md) |
 | `templates-on-the-fleet.png` | A template page | **On the fleet**, with at least one host and stack | [Templates](../../service-templates/overview.md) |
 | `templates-on-the-fleet-empty.png` | Same page, only if you have no deployment | Empty **On the fleet**. Skip when the list above is filled | [Templates](../../service-templates/overview.md) |

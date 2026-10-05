@@ -34,6 +34,11 @@ Copy-pasting `docker-compose.yml` across Pis drifts immediately. Templates give 
 
 **On the fleet** is on the template page, under the description. It lists every host and stack recorded from that template. The catalog card shows the stack count. The badge on one Docker stack is the same record, for that host only. A stack that was never deployed from a template does not appear.
 
+<figure class="ph-figure" markdown>
+  ![On the fleet](../assets/screenshots/templates-on-the-fleet.png)
+  <figcaption>On the fleet lists two stacks recorded from this template. Host names are masked. The secret default stays dotted until View secrets.</figcaption>
+</figure>
+
 Full journey: [Operator scenarios — Journey D](../getting-started/operator-scenarios.md#journey-d).
 
 ---

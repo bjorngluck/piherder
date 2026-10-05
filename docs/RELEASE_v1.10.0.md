@@ -1,10 +1,10 @@
 # PiHerder v1.10.0
 
-**Draft, 4 October 2026.** Tag not cut. Image not published. Package on this branch is still **1.9.0** until freeze. Operator QA is signed. Screenshots are not captured.
+**5 October 2026.** Code freeze. Package **1.10.0**. Operator QA signed 2026-10-04. Screenshot pack wired 2026-10-05. Tag not cut. Image not published. Hub `latest` stays **1.9.0** until that publish.
 
 A backup copy can go to OneDrive as well as Google Drive and a NAS share. The herder’s own self-backup archive can follow that copy. An agent can sign in to hosted `/mcp` in the browser. Reports can hide the six history cards from one row, and a template page lists the hosts that use it.
 
-**Image, when the tag is cut:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.10.0` · `1.10` · `latest` (amd64 + arm64). Pin `1.9.0` / `1.9` stays the previous image. Pins `1.8.1` / `1.8`, `1.8.0`, and `1.7.0` / `1.7` stay valid. Home Assistant plugin stays **0.5.0**. The installable agent adapter stays **0.3.1**. The public demo stays the **1.9.0** image built from `main`.
+**Image, when the tag is cut:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.10.0` · `1.10` · `latest` (amd64 + arm64). Pin `1.9.0` / `1.9` stays the previous image. Pins `1.8.1` / `1.8`, `1.8.0`, and `1.7.0` / `1.7` stay valid. Home Assistant plugin stays **0.5.0**. The installable agent adapter stays **0.3.1**. The public demo stays the **1.9.0** image built from `main`. About on this branch says **1.10.0**.
 
 Operator how-to: [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Self-backup](https://piherder-docs.hacknow.info/operations/self-backup/) · [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/). Technical record: [PLAN_v1.10.0](PLAN_v1.10.0.md). Maintainer QA: [QA_v1.10.0](QA_v1.10.0.md).
 

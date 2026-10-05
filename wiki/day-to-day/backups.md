@@ -22,7 +22,7 @@ A host does not upload to Drive, OneDrive, or a NAS by itself. **Backups** pulls
 
 ### Copy to Google Drive (v1.8 train)
 
-**Settings → PiHerder backup** has a card under the self-backup cards, titled **Copy the backup drive**. Google Drive ships in **1.8.0**. The **1.7.0** image has no such card. On this train a LAN share can sit on the same card as its own row.
+**Settings → PiHerder backup** has a card under the self-backup cards, titled **Copy the backup drive**. Google Drive ships in **1.8.0**. The **1.7.0** image has no such card. A LAN share has its own row as of **1.9.0**. OneDrive is a third row as of **1.10.0**.
 
 <figure class="ph-figure" markdown>
   ![Copy the backup drive](../assets/screenshots/settings-drive-copy.png)
@@ -32,6 +32,11 @@ A host does not upload to Drive, OneDrive, or a NAS by itself. **Backups** pulls
 <figure class="ph-figure" markdown>
   ![Drive and LAN share](../assets/screenshots/settings-backup-multi-dest.png)
   <figcaption>v1.9 train. Google Drive and LAN NAS / SMB each have Test, Folders, Edit, and Remove. The share row reads no login. The folder tree and Copy now under the rows apply to Google Drive.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![OneDrive beside Drive and SMB](../assets/screenshots/settings-backup-onedrive.png)
+  <figcaption>v1.10. Google Drive, LAN NAS / SMB, and OneDrive each have Test, Folders, Edit, and Remove. The folder tree and Copy now under the rows apply to Google Drive. Names in the tree are masked.</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>

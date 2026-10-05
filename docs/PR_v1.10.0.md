@@ -2,9 +2,9 @@
 
 **Title:** `v1.10.0: OneDrive, self-backup copy, MCP sign-in`
 
-**Base:** `main` · **Head:** `v1.10.0-dev` · [QA_v1.10.0.md](QA_v1.10.0.md) signed 2026-10-04. Screenshots are not captured.
+**Base:** `main` · **Head:** `v1.10.0-dev` · [QA_v1.10.0.md](QA_v1.10.0.md) signed 2026-10-04. Screenshots wired 2026-10-05.
 
-**State:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. [QA_v1.10.0.md](QA_v1.10.0.md) is signed 2026-10-04. Draft notes are [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md). Screenshots are not captured. No code freeze. It is not ready to merge. Package stays **1.9.0**. Tag not cut.
+**State:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. Code freeze 2026-10-05. Notes are [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md). Package **1.10.0**. Tag not cut. Image not published. Not marked ready.
 
 ---
 
@@ -12,7 +12,7 @@
 
 Tenth minor after production **v1.9.0**. OneDrive is a selectable copy destination beside Google Drive and a LAN share. A saved destination can also receive the herder self-backup. An agent can sign in to hosted `POST /mcp` in the browser. A pasted `ph_` token still works.
 
-Operator QA signed 2026-10-04. Screenshots are not captured. Path C is discovered and parked for **v1.11.0**.
+Operator QA signed 2026-10-04. Screenshots wired 2026-10-05. Path C is discovered and parked for **v1.11.0**. Package **1.10.0**. Tag not cut.
 
 Design: [PLAN_v1.10.0.md](PLAN_v1.10.0.md). Maintainer ticks: [QA_v1.10.0.md](QA_v1.10.0.md). Screenshot list: [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status).
 
@@ -34,7 +34,7 @@ Alembic **048** (`mcp_oauth`). Recreate **web** and **celery-worker** after merg
 
 ## Test plan
 
-Walk [QA_v1.10.0.md](QA_v1.10.0.md). Operator QA is signed 2026-10-04. Screenshots are not captured. Do not retick the 1.9 SMB **Test** or password-at-rest checks.
+Walk [QA_v1.10.0.md](QA_v1.10.0.md). Operator QA is signed 2026-10-04. Screenshots are wired. Do not retick the 1.9 SMB **Test** or password-at-rest checks.
 
 - [x] OneDrive row beside Drive and SMB. **Test** does not copy. **Remove** deletes that row only
 - [x] Self-backup copy is opt-in. A failed copy leaves the local archive. The demo does not upload
@@ -44,13 +44,13 @@ Walk [QA_v1.10.0.md](QA_v1.10.0.md). Operator QA is signed 2026-10-04. Screensho
 - [x] Refused MCP tools stay refused
 - [x] Reports **Cards** row. Pin, hide, and reorder still work
 - [x] Template **On the fleet** lists only that template’s stacks
-- [ ] `.venv-docs/bin/mkdocs build --strict`
-- [ ] Screenshot pack in [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status)
-- [x] NAS **Copy now** walk. Signed 2026-10-04. Screenshots are still open, so this does not mark the pull request ready
+- [x] `.venv-docs/bin/mkdocs build --strict`
+- [x] Screenshot pack in [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status)
+- [x] NAS **Copy now** walk. Signed 2026-10-04
 
 ## Out of scope
 
-- Version bump, tag **v1.10.0**, and Hub publish. The draft notes exist. They wait for freeze
+- Tag **v1.10.0** and Hub publish. Package is **1.10.0**. The image is not published
 - Path C. Decision and any build are **v1.11.0**
 - Public demo pointed at this branch
 - Restore from Drive, SMB, or OneDrive
@@ -58,10 +58,10 @@ Walk [QA_v1.10.0.md](QA_v1.10.0.md). Operator QA is signed 2026-10-04. Screensho
 ## Merge checklist
 
 - [x] Operator walks signed ([QA_v1.10.0.md](QA_v1.10.0.md))
-- [x] End-user notes drafted (`RELEASE_v1.10.0.md`). Tag not cut. Package stays **1.9.0**
-- [ ] Screenshot pack captured
-- [ ] Version bump `app/version_info.py` + `pyproject.toml` → **1.10.0**
-- [ ] Wiki banner and current-release row point at **1.10.0**
+- [x] End-user notes (`RELEASE_v1.10.0.md`). Tag not cut. Package **1.10.0**
+- [x] Screenshot pack captured and wired
+- [x] Version bump `app/version_info.py` + `pyproject.toml` → **1.10.0**
+- [x] Wiki banner and current-release row point at **1.10.0**
 - [ ] Pull request marked ready for review
 - [ ] Merge `v1.10.0-dev` → `main`
 - [ ] Tag **`v1.10.0`** · Hub `1.10.0` / `1.10` / `latest`
