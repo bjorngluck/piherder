@@ -1,10 +1,10 @@
 # PiHerder v1.10.0
 
-**5 October 2026.** Code freeze. Package **1.10.0**. Operator QA signed 2026-10-04. Screenshot pack wired 2026-10-05. Tag not cut. Image not published. Hub `latest` stays **1.9.0** until that publish.
+**5 October 2026.** Package **1.10.0**. Released.
 
 A backup copy can go to OneDrive as well as Google Drive and a NAS share. The herder’s own self-backup archive can follow that copy. An agent can sign in to hosted `/mcp` in the browser. Reports can hide the six history cards from one row, and a template page lists the hosts that use it.
 
-**Image, when the tag is cut:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.10.0` · `1.10` · `latest` (amd64 + arm64). Pin `1.9.0` / `1.9` stays the previous image. Pins `1.8.1` / `1.8`, `1.8.0`, and `1.7.0` / `1.7` stay valid. Home Assistant plugin stays **0.5.0**. The installable agent adapter stays **0.3.1**. The public demo stays the **1.9.0** image built from `main`. About on this branch says **1.10.0**.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.10.0` · `1.10` · `latest` (amd64 + arm64). Pin `1.9.0` / `1.9` stays the previous image. Pins `1.8.1` / `1.8`, `1.8.0`, and `1.7.0` / `1.7` stay valid. Home Assistant plugin stays **0.5.0**. The installable agent adapter stays **0.3.1**. The public demo stays the **1.9.0** image.
 
 Operator how-to: [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Self-backup](https://piherder-docs.hacknow.info/operations/self-backup/) · [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/). Technical record: [PLAN_v1.10.0](PLAN_v1.10.0.md). Maintainer QA: [QA_v1.10.0](QA_v1.10.0.md).
 
@@ -75,7 +75,7 @@ Open a template. **On the fleet** lists the hosts and stacks recorded from that 
 There is one new database revision, for the agent sign-in tables. The image applies it on startup.
 
 1. Take a full DR self-backup. Keep `PIHERDER_MASTER_KEY`.
-2. Pull `bjorngluck/piherder:1.10.0` (or `1.10` / `latest`) after the tag is published.
+2. Pull `bjorngluck/piherder:1.10.0` (or `1.10` / `latest`).
 3. `docker compose pull && docker compose up -d`. Recreate **web** and **celery-worker**. The app code is not a folder on the host.
 4. Confirm About / footer says **1.10.0**.
 5. Move stays **on** unless `PIHERDER_SERVICE_MIGRATE=false`.
@@ -89,7 +89,7 @@ There is one new database revision, for the agent sign-in tables. The image appl
 | | |
 |--|--|
 | OneDrive | The directory only holds the app. Files go to that account’s default drive. Personal accounts need the account type that includes personal Microsoft accounts, and token version `2`. |
-| NAS and Drive copies | Signed on this train. A second **Copy now** for the same destination still returns the copy that is already running. |
+| NAS and Drive copies | A second **Copy now** for the same destination still returns the copy that is already running. |
 | Self-backup copy | Opt-in. The local `.tar.gz` stays. Restore still reads the local file, not Drive, OneDrive, or the share. |
 | Agents | Browser sign-in is hosted `POST /mcp` only. `ph_oa_` is rejected on `/api/v1`. Stdio still uses a long-lived `ph_` token. |
 | Reports | The six history cards only. No new card types. |
@@ -100,6 +100,6 @@ There is one new database revision, for the agent sign-in tables. The image appl
 
 ## For the repository
 
-`.github/dependabot.yml` turns on Dependabot security updates. Version-update pull requests stay off. The alerts that match PyJWT **2.15.1** and urllib3 **2.8.0** were already closed on `main`. The file applies on `main` after this branch merges.
+`.github/dependabot.yml` turns on Dependabot security updates. Version-update pull requests stay off. The alerts that match PyJWT **2.15.1** and urllib3 **2.8.0** are closed.
 
 [piherder-ha](https://github.com/bjorngluck/piherder-ha) and [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) have Dependabot, a `SECURITY.md`, and `main` branch protection. Those files are not in this image.
