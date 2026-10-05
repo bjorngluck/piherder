@@ -42,24 +42,28 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 
 Mask every token, the SMB password, and the Google and Microsoft client secrets. A browser sign-in frame must not show the redirect URL’s `code`.
 
-### Shoot when you walk
+Save the PNGs in this directory. Wire a `![…]` only after the file is here.
 
-| Frame | What to show |
-|-------|----------------|
-| OneDrive row | **Copy the backup drive** with OneDrive selected, beside Drive and SMB if those rows exist. **Test**, **Folders**, **Edit**, **Remove**. No secret |
-| Self-backup copy | **Also copy each new self-backup** on a destination form, and **Copy off this host** on one archive row |
-| Reports cards | `/reports` **Cards** row, one card hidden so the name reads hidden |
-| Template fleet | A template page **On the fleet**, with at least one host and stack. Empty state is a second frame only if you have no deployment |
-| Agent sign-in | The **Allow this agent** page. Scopes visible. No auth code |
+### Save these
+
+| File | Surface | Must show | Wire into (after the file exists) |
+|------|---------|-----------|-------------------------------------|
+| `settings-backup-onedrive.png` | Settings → **Copy the backup drive** | OneDrive row beside Drive and SMB if those rows exist. **Test**, **Folders**, **Edit**, **Remove**. No secret | [Backups](../../day-to-day/backups.md) |
+| `settings-herder-copy.png` | A destination form (Drive, OneDrive, or SMB) | **Also copy each new self-backup** | [Self-backup](../../operations/self-backup.md) |
+| `herder-backup-copy-off.png` | Settings → **PiHerder backup**, one archive row | **Copy off this host** | [Self-backup](../../operations/self-backup.md) |
+| `reports-cards.png` | `/reports` | **Cards** row. One card hidden so the name reads hidden. Do not replace `reports.png` | [Reports](../../day-to-day/reports.md) |
+| `templates-on-the-fleet.png` | A template page | **On the fleet**, with at least one host and stack | [Templates](../../service-templates/overview.md) |
+| `templates-on-the-fleet-empty.png` | Same page, only if you have no deployment | Empty **On the fleet**. Skip when the list above is filled | [Templates](../../service-templates/overview.md) |
+| `mcp-allow-agent.png` | Browser consent during agent sign-in | **Allow this agent**. Scopes visible. No auth code in the address bar | [Agents (MCP)](../../operations/mcp.md) |
 
 ### Do not shoot for 1.10
 
 | Slice | Why |
 |-------|-----|
 | Path C | No screen. Decision is **v1.11.0** |
-| NAS **Copy now** | Walk signed 2026-10-04. A frame is optional. Do not use the demo |
+| NAS **Copy now** | Walk signed 2026-10-04. Optional file `settings-backup-copy-now.png` only. Do not use the demo |
 | Dependabot | A YAML file and GitHub settings. No product screen |
-| Pending self-backup | A job row and a critical alert. Capture only if you are already in that failure |
+| Pending self-backup | A job row and a critical alert. Capture only if you are already in that failure. Optional file `herder-backup-pending.png` |
 | v1.9 Drive and SMB pack | `settings-backup-multi-dest.png` and `settings-backup-remove-confirm.png` stay |
 
 ---
