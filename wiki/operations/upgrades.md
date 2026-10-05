@@ -133,13 +133,13 @@ Alembic **047** runs on web start. Recreate **web** and **celery-worker**. HACS 
 
 ## 1.8 → 1.9 {#18--19}
 
-**v1.9.0** is tagged. Notes: [RELEASE_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/v1.9.0/docs/RELEASE_v1.9.0.md). Image `1.9.0` / `1.9` / `latest` until the 1.10.0 image is published. Pin `1.8.1` / `1.8` stays the previous image for that line. The next jump is [1.9 → 1.10](#19--110).
+**v1.9.0** is tagged. Notes: [RELEASE_v1.9.0.md](https://github.com/bjorngluck/piherder/blob/v1.9.0/docs/RELEASE_v1.9.0.md). Pin `1.8.1` / `1.8` stays the previous image for that line. The next jump is [1.9 → 1.10](#19--110).
 
 No new database revision. Recreate **web** and **celery-worker**. About should say **1.9.0**. Move is **on** unless `PIHERDER_SERVICE_MIGRATE=false`. A LAN share can be saved beside Google Drive. HACS plugin **[0.5.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.0)** with resource `?v=0.5.0`. Adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)** sends the four one-service jobs. OneDrive is unselectable on this **1.9.0** tag.
 
 ## 1.9 → 1.10 {#19--110}
 
-**v1.10.0** is the release on this branch. Notes: [RELEASE_v1.10.0.md](https://github.com/bjorngluck/piherder/blob/v1.10.0-dev/docs/RELEASE_v1.10.0.md). Package **1.10.0**. Tag not cut. Hub `latest` stays **1.9.0** until the image is published. Pin `1.9.0` / `1.9` stays the previous image.
+**v1.10.0** is tagged. Notes: [RELEASE_v1.10.0.md](https://github.com/bjorngluck/piherder/blob/v1.10.0/docs/RELEASE_v1.10.0.md). Image `1.10.0` / `1.10` / `latest`. Pin `1.9.0` / `1.9` stays the previous image.
 
 Alembic **048** runs on web start. Recreate **web** and **celery-worker**. About should say **1.10.0**. OneDrive is a third row on **Copy the backup drive**. A destination can copy each new self-backup. Hosted `/mcp` can sign an agent in through the browser. Plugin **0.5.0** and adapter **0.3.1** stay. The public demo still reports **1.9.0**.
 

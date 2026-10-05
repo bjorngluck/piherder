@@ -5,7 +5,7 @@
 **Package:** **`1.10.0`**. About / footer say **1.10.0** after this bump. During the walk they still said **1.9.0**.  
 **Operator QA:** signed 2026-10-04 by Björn. Every box below is ticked.  
 **Screenshots:** captured and wired 2026-10-05. [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status).  
-**Pull request:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. Tag not cut. Image not published. Not marked ready.
+**Pull request:** [#30](https://github.com/bjorngluck/piherder/pull/30) merged 2026-10-05. Tag **v1.10.0**. Image published.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 

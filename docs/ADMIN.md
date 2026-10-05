@@ -608,7 +608,7 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
 | **Image pin** | Hub **`1.9.0`** / `1.9` / `latest` (`1.8.1` / `1.8` stays the previous image. Pin `1.8.0` stays valid. Pins `1.7.0` / `1.7` stay valid) |
 
-Current release: [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [QA_v1.10.0.md](QA_v1.10.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md). Package **1.10.0**. Tag not cut. Hub `latest` stays **1.9.0** until publish. Prior: [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current release: [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [QA_v1.10.0.md](QA_v1.10.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md). Package **1.10.0**. Image `1.10.0` / `1.10` / `latest`. Pin `1.9.0` / `1.9` stays the previous image. Prior: [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 
@@ -909,7 +909,7 @@ Set `METRICS_TOKEN` whenever `/metrics` is not on a fully private network. Serie
 
 ### Image publish (when ready)
 
-Multi-arch image on Docker Hub: **`bjorngluck/piherder`**. Hub `latest` is still **1.9.0** (`1.9.0` / `1.9` / `latest`, linux/amd64 + linux/arm64) until the 1.10.0 image is published. Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current release: **v1.10.0** — [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md). Package **1.10.0**. Tag not cut. Pin `1.9.0` / `1.9` stays the previous image. Hosted MCP is `POST /mcp` on **web**. stdio `uvx` is the air-gapped fallback, not a second Compose service.
+Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`1.10.0` / `1.10` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v1.10.0** — [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md). Pin `1.9.0` / `1.9` stays the previous image. Hosted MCP is `POST /mcp` on **web**. stdio `uvx` is the air-gapped fallback, not a second Compose service.
 
 **Supported deploy path:** Docker Compose (this repo). Platform reliability (host dependency checks, Settings → **Status**, multi-worker Celery) is live — see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 0.5. Kubernetes and bare/local install are under consideration only, not supported install paths today.
 

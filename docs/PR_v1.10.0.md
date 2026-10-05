@@ -4,7 +4,7 @@
 
 **Base:** `main` · **Head:** `v1.10.0-dev` · [QA_v1.10.0.md](QA_v1.10.0.md) signed 2026-10-04. Screenshots wired 2026-10-05.
 
-**State:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. Code freeze 2026-10-05. Notes are [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md). Package **1.10.0**. Tag not cut. Image not published. Not marked ready.
+**State:** [#30](https://github.com/bjorngluck/piherder/pull/30) merged 2026-10-05. Notes are [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md). Package **1.10.0**. Tag **v1.10.0**. Image `1.10.0` / `1.10` / `latest`.
 
 ---
 
@@ -12,7 +12,7 @@
 
 Tenth minor after production **v1.9.0**. OneDrive is a selectable copy destination beside Google Drive and a LAN share. A saved destination can also receive the herder self-backup. An agent can sign in to hosted `POST /mcp` in the browser. A pasted `ph_` token still works.
 
-Operator QA signed 2026-10-04. Screenshots wired 2026-10-05. Path C is discovered and parked for **v1.11.0**. Package **1.10.0**. Tag not cut.
+Operator QA signed 2026-10-04. Screenshots wired 2026-10-05. Path C is discovered and parked for **v1.11.0**. Package **1.10.0**. Tag **v1.10.0**.
 
 Design: [PLAN_v1.10.0.md](PLAN_v1.10.0.md). Maintainer ticks: [QA_v1.10.0.md](QA_v1.10.0.md). Screenshot list: [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status).
 
@@ -50,7 +50,6 @@ Walk [QA_v1.10.0.md](QA_v1.10.0.md). Operator QA is signed 2026-10-04. Screensho
 
 ## Out of scope
 
-- Tag **v1.10.0** and Hub publish. Package is **1.10.0**. The image is not published
 - Path C. Decision and any build are **v1.11.0**
 - Public demo pointed at this branch
 - Restore from Drive, SMB, or OneDrive
@@ -58,11 +57,11 @@ Walk [QA_v1.10.0.md](QA_v1.10.0.md). Operator QA is signed 2026-10-04. Screensho
 ## Merge checklist
 
 - [x] Operator walks signed ([QA_v1.10.0.md](QA_v1.10.0.md))
-- [x] End-user notes (`RELEASE_v1.10.0.md`). Tag not cut. Package **1.10.0**
+- [x] End-user notes (`RELEASE_v1.10.0.md`). Tag **v1.10.0**. Package **1.10.0**
 - [x] Screenshot pack captured and wired
 - [x] Version bump `app/version_info.py` + `pyproject.toml` → **1.10.0**
 - [x] Wiki banner and current-release row point at **1.10.0**
 - [ ] Pull request marked ready for review
-- [ ] Merge `v1.10.0-dev` → `main`
-- [ ] Tag **`v1.10.0`** · Hub `1.10.0` / `1.10` / `latest`
-- [ ] Keep `1.9.0` / `1.9` pins valid
+- [x] Merge `v1.10.0-dev` → `main`
+- [x] Tag **`v1.10.0`** · Hub `1.10.0` / `1.10` / `latest`
+- [x] Keep `1.9.0` / `1.9` pins valid

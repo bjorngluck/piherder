@@ -1,6 +1,6 @@
 # Backup destinations — Google Drive copy
 
-**Status:** Google Drive copy **shipped** in **v1.8.0** (2026-10-01). LAN NAS / SMB is selectable beside Drive as of **v1.9.0**, and Settings can remove one provider. **OneDrive** is selectable in **1.10.0**. A saved destination can also copy the herder self-backup archive when **Also copy each new self-backup** is on. **Copy now**, **OneDrive**, and that self-backup copy were signed 2026-10-04. Package **1.10.0**. Tag not cut.  
+**Status:** Google Drive copy **shipped** in **v1.8.0** (2026-10-01). LAN NAS / SMB is selectable beside Drive as of **v1.9.0**, and Settings can remove one provider. **OneDrive** is selectable in **1.10.0**. A saved destination can also copy the herder self-backup archive when **Also copy each new self-backup** is on. **Copy now**, **OneDrive**, and that self-backup copy were signed 2026-10-04. Package **1.10.0**. Tag **v1.10.0**.  
 **Train:** [PLAN_v1.8.0.md](PLAN_v1.8.0.md) §3 (path A) · [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md).  
 **Not this product:** the instance self-backup (pg_dump / `/herder_backups` archives). The copy section sits under that same Settings tab. Restore stays the local tree.
 

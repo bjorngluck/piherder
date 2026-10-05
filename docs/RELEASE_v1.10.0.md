@@ -1,10 +1,10 @@
 # PiHerder v1.10.0
 
-**5 October 2026.** Package **1.10.0**. Released.
+**5 October 2026.** Tag **[v1.10.0](https://github.com/bjorngluck/piherder/releases/tag/v1.10.0)**. Package **1.10.0**. Released.
 
 A backup copy can go to OneDrive as well as Google Drive and a NAS share. The herder’s own self-backup archive can follow that copy. An agent can sign in to hosted `/mcp` in the browser. Reports can hide the six history cards from one row, and a template page lists the hosts that use it.
 
-**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.10.0` · `1.10` · `latest` (amd64 + arm64). Pin `1.9.0` / `1.9` stays the previous image. Pins `1.8.1` / `1.8`, `1.8.0`, and `1.7.0` / `1.7` stay valid. Home Assistant plugin stays **0.5.0**. The installable agent adapter stays **0.3.1**. The public demo stays the **1.9.0** image.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.10.0` · `1.10` · `latest` (amd64 + arm64). Manifest `sha256:0a1286cb0864e153ea1af6ba8b458175da051c8a54fc98d701539c08dcd99d04`. Pin `1.9.0` / `1.9` stays the previous image. Pins `1.8.1` / `1.8`, `1.8.0`, and `1.7.0` / `1.7` stay valid. Home Assistant plugin stays **0.5.0**. The installable agent adapter stays **0.3.1**. The public demo stays the **1.9.0** image.
 
 Operator how-to: [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Self-backup](https://piherder-docs.hacknow.info/operations/self-backup/) · [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/). Technical record: [PLAN_v1.10.0](PLAN_v1.10.0.md). Maintainer QA: [QA_v1.10.0](QA_v1.10.0.md).
 
