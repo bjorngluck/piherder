@@ -1,16 +1,16 @@
 # PiHerder v1.10.0 — NAS copy, OneDrive, agent sign-in
 
-**Status:** **Code freeze** (2026-10-05). Package **1.10.0**. Tag not cut. Image not published.  
+**Status:** **Released** 2026-10-05. Package **1.10.0**. Tag **v1.10.0**. Image `1.10.0` / `1.10` / `latest`.  
 **Date opened:** 2026-10-02  
 **Git branch:** `v1.10.0-dev` → `main` · tag `v1.10.0` after merge  
-**Package / image version:** **`1.10.0`**. Image tags at publish: `1.10.0` / `1.10` / `latest`. Hub `latest` stays **1.9.0** until then. Pins `1.9.0` / `1.9` stay valid.  
+**Package / image version:** **`1.10.0`**. Image tags `1.10.0` / `1.10` / `latest`. Manifest `sha256:0a1286cb0864e153ea1af6ba8b458175da051c8a54fc98d701539c08dcd99d04`. Pins `1.9.0` / `1.9` stay valid.  
 **Theme:** walk the NAS copy, make OneDrive selectable, then agent sign-in and the DR archive copy  
 **Baseline:** `v1.9.0` (tagged 2026-10-02; Hub digest `sha256:8519ad53e7d0ad0636164966bb876c4774f76b10101bb3c1a74dc6b2d0945472`)  
 **Mode:** **Must → Should → Discover.** Must **Copy now** · **OneDrive** · **MCP OAuth** · **DR copy** · **dependabot.yml** · close the matching Dependabot alerts.  
 **QA:** [QA_v1.10.0.md](QA_v1.10.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md)
 
-> **Code freeze 2026-10-05.** Package is **1.10.0**. Tag not cut. Hub `latest` stays **v1.9.0** until publish. The public demo reports **1.9.0** from `main`. Do not redeploy the demo onto this branch.
+> **Released 2026-10-05.** Tag **v1.10.0**. Package **1.10.0**. Hub `1.10.0` / `1.10` / `latest`. The public demo still reports **1.9.0** from the earlier `main` build.
 
 ---
 
@@ -18,7 +18,7 @@
 
 **At open (2026-10-02).** v1.9.0 had shipped a LAN share beside Google Drive, Move on by default, plugin **0.5.0**, and one-service jobs on hosted MCP. **Copy now**, the schedule, and the follow-up after a host backup were already in that release. The dedicated-NAS walk was not done. OneDrive was listed and could not be selected. An agent signed in with only a `ph_` bearer token. The herder self-backup stayed on its own local path.
 
-**On this branch now.** OneDrive is selectable. A saved destination can copy the self-backup. Hosted `POST /mcp` can use browser sign-in. Dependabot security updates are configured. `/reports` has the six-card catalog. A template page lists its fleet. The public demo reports **1.9.0**. Operator QA is signed 2026-10-04, including **MCP OAuth**. Screenshots are wired. Package is **1.10.0**. Tag not cut.
+**On this branch now.** OneDrive is selectable. A saved destination can copy the self-backup. Hosted `POST /mcp` can use browser sign-in. Dependabot security updates are configured. `/reports` has the six-card catalog. A template page lists its fleet. The public demo reports **1.9.0**. Operator QA is signed 2026-10-04, including **MCP OAuth**. Screenshots are wired. Package is **1.10.0**. Tag **v1.10.0** is cut. Image is published.
 
 **Must:**
 
@@ -57,7 +57,7 @@ The Home Assistant card stays the separate HACS repo. Putting the plugin inside 
 | Must | **Copy now** · **OneDrive** · **MCP OAuth** · **DR copy** · **dependabot.yml** · close matching Dependabot alerts |
 | Should (may slip) | **N3c** first slice · public demo on the latest release image · sibling-repo Dependabot and branch protection |
 | Discover (no code) | **Path C** |
-| Version bump | **Done** 2026-10-05. Package **1.10.0**. Tag not cut |
+| Version bump | **Done** 2026-10-05. Package **1.10.0**. Tag **v1.10.0** |
 | Demo | Reports **1.9.0** from `main` `cc950c6`. Do not point it at this branch |
 | Adapter / plugin | Stay **0.3.1** and **0.5.0** until a slice needs a new tag |
 | Coverage | Fail-under stays **80**. Do not lower it or raise it |
@@ -70,7 +70,7 @@ main (image 1.9.0)
 
 | Rule | Practice |
 |------|----------|
-| Must → then freeze | **Code freeze** 2026-10-05. Operator QA signed 2026-10-04. Screenshots wired. Tag not cut. Do not start an Out item |
+| Must → then freeze | **Released** 2026-10-05. Operator QA signed 2026-10-04. Screenshots wired. Tag **v1.10.0**. Do not start an Out item |
 | OneDrive does not stay listed-only | It is Must on this train. Do not describe it as shipped before the walk |
 | Discover is a write-up | Path C stays a note. Template fleet is the host and stack list on the template page |
 | Demo | Do not point the public demo at this branch as part of opening the train |
@@ -102,6 +102,7 @@ main (image 1.9.0)
 | 2026-10-04 | **QA.** **MCP OAuth** is signed in Cursor. One server entry, no pasted bearer, because Cursor keeps one HTTP server per URL. Tools listed. `health` answered. Operator QA is complete. Screenshots stay uncaptured. |
 | 2026-10-04 | **Release notes drafted** in [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md). Tag not cut. Package stays **1.9.0**. Screenshots stay uncaptured. |
 | 2026-10-05 | **Code freeze.** Screenshot pack wired. Package **1.10.0**. Wiki banner and release badge point at **1.10.0**. Tag not cut. Image not published. |
+| 2026-10-05 | **Released.** Tag **v1.10.0**. Hub `1.10.0` / `1.10` / `latest`, manifest `sha256:0a1286cb0864e153ea1af6ba8b458175da051c8a54fc98d701539c08dcd99d04`. Pin `1.9.0` left in place. |
 
 ---
 
@@ -190,4 +191,4 @@ Whether Path C is built. Whether it replaces **Backups** or sits beside it. Whet
 
 ---
 
-*Code freeze 2026-10-05. Package `1.10.0`. Tag not cut. Operator walks live in [QA_v1.10.0.md](QA_v1.10.0.md).*
+*Released 2026-10-05. Package `1.10.0`. Tag `v1.10.0`. Operator walks live in [QA_v1.10.0.md](QA_v1.10.0.md).*

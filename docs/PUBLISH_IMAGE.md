@@ -1,6 +1,6 @@
 # Publishing a PiHerder image (Docker Hub / GHCR)
 
-**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64**. Hub line is still **v1.9.0** (`1.9.0` / `1.9` / `latest`). Package on `v1.10.0-dev` is **1.10.0**. That image is not published. Pin `1.9.0` / `1.9` stays the previous image once 1.10.0 publishes. Pin `1.8.1` / `1.8` stays valid. Pin `1.8.0` stays valid. Pins `1.7.0` / `1.7` stay valid.
+**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64**. Production line **v1.10.0**. Pin `1.9.0` / `1.9` stays the previous image. Pin `1.8.1` / `1.8` stays valid. Pin `1.8.0` stays valid. Pins `1.7.0` / `1.7` stay valid.
 **Related:** [ADMIN](https://piherder-docs.hacknow.info/operations/upgrades/) · [wiki publish page](https://piherder-docs.hacknow.info/developers/publish-image/) · live docs: https://piherder-docs.hacknow.info/
 
 Official compose pulls the published image:
@@ -8,7 +8,7 @@ Official compose pulls the published image:
 ```bash
 docker compose up -d
 # optional pin:
-# PIHERDER_IMAGE=bjorngluck/piherder:1.9.0 docker compose up -d
+# PIHERDER_IMAGE=bjorngluck/piherder:1.10.0 docker compose up -d
 ```
 
 **Dependency pins:** the image installs from committed `requirements.lock.txt` (`pip install --require-hashes`). Bump deps with `./scripts/refresh-lockfiles.sh` before a release build so Hub tags match the lockfile in the git tag.
@@ -180,10 +180,10 @@ Add when account + token exist and first manual push has worked once.
 ## v1.10.0 publish checklist (maintainer)
 
 - [x] `APP_VERSION` / `pyproject.toml` = `1.10.0`
-- [ ] [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) published with tag `v1.10.0`
-- [ ] Merge `v1.10.0-dev` → `main` · git tag `v1.10.0`
-- [ ] Multi-arch push: `1.10.0` / `1.10` / `latest` (amd64 + arm64)
-- [ ] Pin `1.9.0` / `1.9` left on the previous image (`sha256:8519ad53e7d0ad0636164966bb876c4774f76b10101bb3c1a74dc6b2d0945472`)
+- [x] [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) published with tag `v1.10.0`
+- [x] Merge `v1.10.0-dev` → `main` · git tag `v1.10.0`
+- [x] Multi-arch push: `1.10.0` / `1.10` / `latest` (amd64 + arm64) · digest `sha256:0a1286cb0864e153ea1af6ba8b458175da051c8a54fc98d701539c08dcd99d04`
+- [x] Pin `1.9.0` / `1.9` left on the previous image (`sha256:8519ad53e7d0ad0636164966bb876c4774f76b10101bb3c1a74dc6b2d0945472`)
 
 ## v1.8.1 publish checklist (maintainer)
 
