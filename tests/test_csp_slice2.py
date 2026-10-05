@@ -74,6 +74,20 @@ def test_backup_stop_payload_is_json():
     assert json.loads(out) == {"activePollJobId": 7, "activePollSource": "proj/a"}
 
 
+def test_detail_lists_are_not_read_from_window():
+    """const JOBS / AUDIT_LOGS are not window properties, so the click path must name them."""
+    raw = JS.read_text(encoding="utf-8")
+    assert "window[listName]" not in raw
+    assert 'name === "JOBS"' in raw
+    assert 'name === "AUDIT_LOGS"' in raw
+    jobs = (TEMPLATES / "jobs.html").read_text(encoding="utf-8")
+    audit = (TEMPLATES / "audit.html").read_text(encoding="utf-8")
+    assert "const JOBS" in jobs
+    assert "const AUDIT_LOGS" in audit
+    assert 'data-ph-list="JOBS"' in jobs
+    assert 'data-ph-list="AUDIT_LOGS"' in audit
+
+
 def test_static_csp_events_is_served():
     from fastapi.testclient import TestClient
 

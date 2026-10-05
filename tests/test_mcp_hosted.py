@@ -84,14 +84,17 @@ def test_unauthenticated_and_bad_token_fail_clean(tmp_path, monkeypatch, caplog)
     try:
         missing = _rpc(client, None, "initialize", {"protocolVersion": "2025-03-26"})
         assert missing.status_code == 401
-        assert "Bearer" in (missing.headers.get("www-authenticate") or "")
-        assert "resource_metadata" not in (missing.headers.get("www-authenticate") or "").lower()
+        challenge = missing.headers.get("www-authenticate") or ""
+        assert "Bearer" in challenge
+        assert "resource_metadata" in challenge.lower()
+        assert "oauth-protected-resource" in challenge
         assert missing.json()["detail"]
         assert "ph_notareal" not in missing.text
 
         bogus = "ph_notarealtokenvalue000000000000000"
         bad = _rpc(client, bogus, "initialize", {"protocolVersion": "2025-03-26"})
         assert bad.status_code == 401
+        assert "resource_metadata" not in (bad.headers.get("www-authenticate") or "").lower()
         assert bogus not in bad.text
         assert bogus not in caplog.text
 

@@ -73,4 +73,4 @@ Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backu
 
 ## Agents (MCP)
 
-Cursor, Grok Build, Claude Code, and Codex call this same token API through **hosted MCP** at `POST /mcp` (Streamable HTTP, Bearer header). Scopes above are the tool list: `read` always, and `jobs` / `edit` / `files` only when the token has them. `uvx piherder-mcp` is the optional air-gapped client. Operator page: [Agents (MCP)](mcp.md).
+Cursor, Grok Build, Claude Code, and Codex call this same token API through **hosted MCP** at `POST /mcp` (Streamable HTTP). They can paste a Bearer header, or sign in in the browser against that URL. Scopes above are the tool list: `read` always, and `jobs` / `edit` / `files` only when the token has them. `uvx piherder-mcp` is the optional air-gapped client. It does not sign in in the browser. It needs `PIHERDER_TOKEN` set to a `ph_` secret you mint here. Operator page: [Agents (MCP)](mcp.md).

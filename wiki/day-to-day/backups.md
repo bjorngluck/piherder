@@ -18,9 +18,11 @@ Homelab hosts hold compose data, configs, and media that are painful to rebuild.
 
 See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 
+A host does not upload to Drive, OneDrive, or a NAS by itself. **Backups** pulls the chosen paths onto this herder. **Copy the backup drive** then sends that mirror. A direct copy from the host, with nothing landing on `/backups` first, is not in this release. The discovery is parked for a later decision ([PLAN_v1.10.0.md](https://github.com/bjorngluck/piherder/blob/v1.10.0-dev/docs/PLAN_v1.10.0.md) §4, target **v1.11.0**).
+
 ### Copy to Google Drive (v1.8 train)
 
-**Settings → PiHerder backup** has a card under the self-backup cards, titled **Copy the backup drive**. Google Drive ships in **1.8.0**. The **1.7.0** image has no such card. On this train a LAN share can sit on the same card as its own row.
+**Settings → PiHerder backup** has a card under the self-backup cards, titled **Copy the backup drive**. Google Drive ships in **1.8.0**. The **1.7.0** image has no such card. A LAN share has its own row as of **1.9.0**. OneDrive is a third row as of **1.10.0**.
 
 <figure class="ph-figure" markdown>
   ![Copy the backup drive](../assets/screenshots/settings-drive-copy.png)
@@ -33,6 +35,11 @@ See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 </figure>
 
 <figure class="ph-figure" markdown>
+  ![OneDrive beside Drive and SMB](../assets/screenshots/settings-backup-onedrive.png)
+  <figcaption>v1.10. Google Drive, LAN NAS / SMB, and OneDrive each have Test, Folders, Edit, and Remove. The folder tree and Copy now under the rows apply to Google Drive. Names in the tree are masked.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
   ![Remove one destination](../assets/screenshots/settings-backup-remove-confirm.png)
   <figcaption>Remove on the LAN share row. The saved account and schedule are deleted in PiHerder. Files already on the share stay.</figcaption>
 </figure>
@@ -40,18 +47,18 @@ See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 | | |
 |--|--|
 | What it copies | Checked folders on the herder backup drive (`/backups`), not one host’s source list |
-| Service | **Google Drive** and **LAN NAS / SMB** can both be saved and live at once. **OneDrive** is in the list and cannot be selected. **Remove** wipes one provider's saved row. The other stays. Files already copied stay on Drive or the share |
+| Service | **Google Drive**, **OneDrive**, and **LAN NAS / SMB** can each be saved and live at once. **Remove** wipes one provider's saved row. The others stay. Files already copied stay on Drive, OneDrive, or the share |
 | Account | A Google sign-in from this PiHerder. New files are owned by that Google account. A service account cannot store them on a personal Drive |
 | Schedule | The same presets as other schedules, **Copy now**, and an optional copy after a host backup succeeds |
 | Browser | Folder tree on the left, the open folder on the right. A ticked folder stays ticked inside. Untick a child to leave it behind |
-| Job | **Backup copy** (`backup_replicate`) on the existing Celery worker. It may run for up to 7 days. Host backups stay on the 2-hour worker limit. A task failure, including the 7-day limit, marks the row failed so **Copy now** can run again. A hard kill of the worker process can leave the row **running**, and **Copy now** then returns that row until it is marked failed. Files already copied stay. A failure fails that job only. The host backup time stays |
+| Job | **Backup copy** (`backup_replicate`) on the existing Celery worker. It may run for up to 7 days. Host backups stay on the 2-hour worker limit. A task failure, including the 7-day limit, marks the row failed so **Copy now** can run again. A hard kill of the worker process can leave the row **running**, and **Copy now** then returns that folder-copy row until it is marked failed. A self-backup copy on the same destination does not take that slot. Files already copied stay. A failure fails that job only. The host backup time stays |
 | Restore | Still the local tree. The demo does not upload |
 
 Pull `bjorngluck/piherder:1.8.0` before a real copy. rclone is in that image. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/FEATURE_PLAN_BACKUP_DESTINATIONS.md).
 
 ## Set up Google Drive
 
-**Where in PiHerder:** Settings → **PiHerder backup** → **Copy the backup drive**. Pick **Google Drive**. OneDrive is listed and cannot be selected. A LAN share is a separate choice on the same card.
+**Where in PiHerder:** Settings → **PiHerder backup** → **Copy the backup drive**. Pick **Google Drive**. OneDrive and a LAN share are separate choices on the same card.
 
 PiHerder opens Google, you approve access, and PiHerder stores that sign-in. Each new archive is created by your Google account inside a folder you own. rclone still uploads only files that are new or changed.
 
@@ -82,9 +89,9 @@ A service account cannot store these files on a personal Gmail Drive. It has no 
 
 **Where in PiHerder:** Settings → **PiHerder backup** → **Copy the backup drive**. Pick **LAN NAS / SMB**.
 
-This is a second copy, independent of Google Drive. Host backups still rsync into `/backups` on this PiHerder. rclone then sends the ticked folders to one SMB share. The share does not replace that local directory. A saved Drive copy keeps running if you also save SMB. OneDrive cannot be selected.
+This is a second copy, independent of Google Drive and OneDrive. Host backups still rsync into `/backups` on this PiHerder. rclone then sends the ticked folders to one SMB share. The share does not replace that local directory. A saved Drive or OneDrive copy keeps running if you also save SMB.
 
-**Remove** (admin, confirm `remove`) deletes that one provider's saved destination and its secret. The other provider stays. Files already on Drive or on the share are not deleted. The public demo refuses. This is not a job and not an agent action.
+**Remove** (admin, confirm `remove`) deletes that one provider's saved destination and its secret. The other providers stay. Files already on Drive, OneDrive, or the share are not deleted. The public demo refuses. This is not a job and not an agent action.
 
 1. Enter the NAS hostname or IP, the share name, and an optional path under that share.
 2. Enter a username and password, or leave both empty for a share that needs no login. That row reads **no login**. A blank password on its own keeps a password that is already saved. A username without a password, or a password without a username, is refused. Kerberos is not used. An optional domain or workgroup can be set.
@@ -94,6 +101,29 @@ This is a second copy, independent of Google Drive. Host backups still rsync int
 The password is stored with the instance master key and is not written to the job log.
 
 **Done when:** Test lists the share, and a copy job puts the ticked trees on that share.
+
+## Set up OneDrive
+
+**Where in PiHerder:** Settings → **PiHerder backup** → **Copy the backup drive**. Pick **OneDrive**.
+
+This is another copy, independent of Google Drive and the LAN share. rclone sends the ticked folders to a folder in the default drive of the Microsoft account you sign in with. Host backups still land on this PiHerder first. A Microsoft 365 personal plan already includes that OneDrive storage. The plan does not include a directory for the app registration below.
+
+A personal Microsoft account that has never had Azure lands in a tenant named **Microsoft Services**. App registrations refuse that tenant. The message names identity provider `live.com` and application `74658136-14ec-4630-ad9b-26e160ff0fc6`. Signing in again does not create a directory.
+
+1. In a private window, open [https://azure.microsoft.com/free](https://azure.microsoft.com/free) and choose **Start free**. Use the same Microsoft account that owns the OneDrive. Finish until Azure says the subscription is ready. That creates **Default Directory** and makes this account its administrator. Microsoft may ask for a card. Registering the app does not start a charge.
+2. Open [https://portal.azure.com](https://portal.azure.com). The directory in the top bar must be **Default Directory**. While it still says **Microsoft Services**, the signup is not finished.
+3. In that directory, register an app named PiHerder. Accounts: **any organizational directory and personal Microsoft accounts**. PiHerder signs in through Microsoft’s common endpoint, so leave **Personal Microsoft accounts only** unselected. Redirect URI: **Web**, and the URL shown in the PiHerder dialog. It ends with `/backup-copies/onedrive/callback`.
+4. Add Microsoft Graph delegated permissions `User.Read`, `Files.ReadWrite`, and `offline_access`. That is the signed-in account’s own files, plus the address shown after sign-in. Do not add `Files.Read.All`, `Files.ReadWrite.All`, or `Sites.Read.All`. An account that already connected keeps its previous grant until you use **Connect Microsoft** again.
+5. Create a client secret. On the Overview, copy **Application (client) ID**. On **Certificates & secrets**, copy the secret **Value** while it is on screen. The **Secret ID** is not the secret. Paste those two into PiHerder. Leave the secret blank only after one is already saved. Set the folder name, for example `PiHerder`. If **Connect Microsoft** says the client is not enabled for consumers, the account type in step 3 is still single-directory. On **Manifest**, set `requestedAccessTokenVersion` under `api` from `null` to `2` and save. Then set the account type to any organizational directory and personal Microsoft accounts. The Authentication page refuses that change while the value is still `null`.
+6. **Connect Microsoft** and sign in as the account that owns the drive. The directory only holds the app. The files go to that account’s OneDrive. **Test** lists the folder and does not copy. **Copy now**, the schedule, or the follow-up after a host backup runs the same **Backup copy** job.
+
+A work or school account that already has a directory skips the free Azure signup. Register the app in that directory, with the same account type.
+
+The secret and the sign-in are stored with the instance master key and are not written to the job log. The public demo does not upload.
+
+**Done when:** the OneDrive copy job succeeds, and the ticked trees are in that account’s folder.
+
+**Also copy each new self-backup** on a saved destination sends the herder archive (`/herder_backups`, one `.tar.gz`) into a `herder/` folder on that destination. That is separate from the ticked host folders. The local archive stays if the copy fails. See [Self-backup & DR](../operations/self-backup.md#copy-the-archive-off-this-host).
 
 ---
 

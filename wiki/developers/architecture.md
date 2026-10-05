@@ -52,7 +52,7 @@ flowchart TB
 | Account / 2FA step-up policy | `app/services/account_stepup.py` · Settings Security |
 | Web SSH console | `app/services/ssh_console.py` · `app/routers/server_console.py` · Settings Console (timeouts) / Security (factors). Mux-1: `Server.console_mux_enabled` + probe tmux/screen. Mux-2: SSH access lists and kills leftover `ph-u*` for that host (`POST /servers/{id}/ssh/mux-sessions`) |
 | Jobs / progress / exclusive types | `app/services/jobs/` (`service.py`; package preserves `patch.object` surface). Move: `app/services/jobs_migrate.py`. Jr-1 handoff: `app/services/jobs_exclusive.py`. Backups, **Move**, and **exclusive_job** on Celery (`app/tasks.py`) |
-| Reports layout (N3a) + Move card (N3b) | `app/services/report_layout.py` · cookie `ph_reports_layout` · `POST /reports/layout` · Move stats from `ops_reports.collect_move_history` (`service_migrate` Jobs) |
+| Reports layout (N3a) + Move card (N3b) + card catalog (N3c first slice) | `app/services/report_layout.py` · cookie `ph_reports_layout` · `POST /reports/layout` · the **Cards** row is the same six ids. Move stats from `ops_reports.collect_move_history` (`service_migrate` Jobs) |
 | Service migrate pipeline | `app/services/service_migrate/` · Celery `app.tasks.service_migrate` · undo `undo.py` + `app.tasks.service_migrate_undo` · dest-up recover `dest_up_recover.py` + `app.tasks.service_migrate_dest_recover` |
 | CSP | `app/security/headers.py` — per-request script nonce; `script-src-attr 'none'` (Slice 2); demo Report-Only unless `PIHERDER_CSP_ENFORCE` |
 | Docker unused cleanup HTML | `app/services/docker_unused_html.py` |
@@ -70,7 +70,7 @@ flowchart TB
 | Integrations (HTTP) | `integrations.py` + `integrations_common` / `_kuma` / `_grafana` / `_pihole` / `_npm` / `_nmap` |
 | LAN nmap (scan/parse/schedules/vuln) | `app/services/nmap/` (`worker_guard`, `scan`, `device_ops`, `fabric_projection`, …) · router `integrations_nmap.py` · image `Dockerfile.nmap` |
 | Stale data cleanup | `app/services/stale_data_cleanup.py` · Settings General |
-| Templates (HTTP) | `templates_common` + `templates_svc` (catalog) + `templates_deploy` |
+| Templates (HTTP) | `templates_common` + `templates_svc` (catalog) + `templates_deploy`. **On the fleet** reads `StackDeployment` for that template id or slug. |
 | Auth (HTTP) | `auth.py` + `auth_users.py` (admin users) |
 | Network maps | `app/services/dns_fabric/` (`core`, `mesh_physical`, `mesh_logical`, `ports`, `stack_panel`) · `app/routers/dns.py` |
 | Published port chips | `app/services/dns_fabric/ports.py` — host→container parse for stack panel |
@@ -80,7 +80,7 @@ flowchart TB
 | Ops-hero pulse helpers | `app/services/ops_pulse.py` |
 | Instance name, accent, Catalog nav | `app/services/instance_brand.py` · Settings → General → Instance · `POST /herder-backups/instance`. Demo forces official chrome. |
 | Push | `app/services/push.py` |
-| API tokens | `app/services/api_tokens.py`, `app/routers/api_v1.py`. Hosted MCP is `app/routers/mcp.py` + `app/services/mcp_hosted.py` (`POST /mcp`, same Bearer token). The stdio client is [piherder-mcp](https://github.com/bjorngluck/piherder-mcp). Published adapter **0.3.1**. Home Assistant on this train is [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.5.0** (poll-only Slice 3). Tagged **v1.8.0** paired with plugin **0.4.4**. v1.7.0 paired with **0.3.0**. Neither repo is inside this image. Operator pages: [Agents (MCP)](../operations/mcp.md) · [Home Assistant](../integrations/home-assistant.md) |
+| API tokens | `app/services/api_tokens.py`, `app/routers/api_v1.py`. Hosted MCP is `app/routers/mcp.py` + `app/services/mcp_hosted.py` (`POST /mcp`). A pasted Bearer token still works. Browser sign-in is `app/services/mcp_oauth.py` (Alembic **048**) and only applies to that hosted URL. The stdio client [piherder-mcp](https://github.com/bjorngluck/piherder-mcp) calls `/api/v1` with `PIHERDER_TOKEN` and does not run the OAuth flow. Published adapter **0.3.1**. Home Assistant on this train is [piherder-ha](https://github.com/bjorngluck/piherder-ha) **0.5.0** (poll-only Slice 3). Tagged **v1.8.0** paired with plugin **0.4.4**. v1.7.0 paired with **0.3.0**. Neither repo is inside this image. Operator pages: [Agents (MCP)](../operations/mcp.md) · [Home Assistant](../integrations/home-assistant.md) |
 | Herder backup | `app/services/herder_backup.py` |
 | Metrics | `app/services/metrics.py` |
 | Bulk server actions | `app/routers/servers.py` (`POST /servers/bulk`) |

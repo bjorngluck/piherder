@@ -889,7 +889,13 @@ def replicate_backup(self, job_id: int):
         if not dest:
             _update_job_status(job_id, "failed", {"error": "Destination missing", "current": "failed"})
             return {"status": "failed", "job_id": job_id}
-        result = execute(dest, details.get("scope"))
+        archive = str(details.get("herder_archive") or "").strip()
+        if archive:
+            from app.services.backup_replicate import execute_herder_archive
+
+            result = execute_herder_archive(dest, archive)
+        else:
+            result = execute(dest, details.get("scope"))
         if result.get("ok"):
             _update_job_status(
                 job_id,

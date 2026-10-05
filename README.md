@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Release](https://img.shields.io/badge/release-v1.9.0-green.svg)](docs/RELEASE_v1.9.0.md)
+[![Release](https://img.shields.io/badge/release-v1.10.0-green.svg)](docs/RELEASE_v1.10.0.md)
 [![HA plugin](https://img.shields.io/badge/HA%20plugin-v0.5.0-green.svg)](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.0)
 [![MCP](https://img.shields.io/badge/MCP-v0.3.1-blue.svg)](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)
 [![Docker Hub](https://img.shields.io/badge/docker-bjorngluck%2Fpiherder-blue.svg)](https://hub.docker.com/r/bjorngluck/piherder)
@@ -67,8 +67,9 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Full docs & wiki: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
-- **Current production:** [docs/RELEASE_v1.9.0.md](docs/RELEASE_v1.9.0.md). A LAN share beside Google Drive, Move on by default, and plugin **[0.5.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.0)**. Image `bjorngluck/piherder:1.9.0` · `1.9` · `latest`. Pin `1.8.1` / `1.8` stays the previous image. Pin `1.8.0` stays valid. Pins `1.7.0` / `1.7` stay valid. MCP adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)**. Wiki: [Backups](wiki/day-to-day/backups.md) · [Move a service](wiki/docker/service-migration.md) · [Home Assistant](wiki/integrations/home-assistant.md) · [Agents (MCP)](wiki/operations/mcp.md).
-- **Prior:** [docs/RELEASE_v1.8.1.md](docs/RELEASE_v1.8.1.md) · [docs/RELEASE_v1.8.0.md](docs/RELEASE_v1.8.0.md). OneDrive and a full NAS **Copy now** test are the next release. Sync rule: [docs/RELEASE_SYNC.md](docs/RELEASE_SYNC.md).
+- **Current release:** [docs/RELEASE_v1.10.0.md](docs/RELEASE_v1.10.0.md). OneDrive beside Google Drive and a LAN share, a copy of the herder self-backup, and browser sign-in for hosted `/mcp`. Package **1.10.0**. Code freeze 2026-10-05. Tag not cut. Hub `latest` stays `1.9.0` until the image is published. Pin `1.9.0` / `1.9` stays the previous image. Plugin **[0.5.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.0)**. MCP adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)**. Wiki: [Backups](wiki/day-to-day/backups.md) · [Self-backup](wiki/operations/self-backup.md) · [Agents (MCP)](wiki/operations/mcp.md) · [Home Assistant](wiki/integrations/home-assistant.md).
+- **Next train:** v1.11.0 is not opened. Path C (a host writes straight to Drive, OneDrive, or the NAS) stays parked in [docs/PLAN_v1.10.0.md](docs/PLAN_v1.10.0.md) §4.
+- **Prior:** [docs/RELEASE_v1.9.0.md](docs/RELEASE_v1.9.0.md) · [docs/RELEASE_v1.8.1.md](docs/RELEASE_v1.8.1.md) · [docs/RELEASE_v1.8.0.md](docs/RELEASE_v1.8.0.md). Sync rule: [docs/RELEASE_SYNC.md](docs/RELEASE_SYNC.md).
 - Prior: [docs/RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · [docs/RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [docs/RELEASE_v1.3.0.md](docs/RELEASE_v1.3.0.md) · [docs/RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
 - API reference: [docs/API.md](docs/API.md)
 

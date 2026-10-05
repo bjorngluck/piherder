@@ -1,6 +1,7 @@
 """Selection and rclone argv for the fleet Drive copy. No live rclone or Google."""
 import json
 import os
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -181,3 +182,110 @@ def test_demo_refuses_without_rclone(monkeypatch):
     assert result["ok"] is False
     assert result["error"] == "Demo does not upload"
     assert called["n"] == 0
+
+
+def test_onedrive_auth_url_uses_the_microsoft_callback():
+    url = copies.microsoft_auth_url(
+        "app-id",
+        copies.onedrive_redirect_uri("https://herder.example"),
+        "state-1",
+    )
+    assert url.startswith("https://login.microsoftonline.com/common/oauth2/v2.0/authorize?")
+    assert "client_id=app-id" in url
+    assert "prompt=consent" in url
+    assert "redirect_uri=https%3A%2F%2Fherder.example%2Fbackup-copies%2Fonedrive%2Fcallback" in url
+    scope = parse_qs(urlparse(url).query)["scope"][0].split()
+    assert scope == ["offline_access", "User.Read", "Files.ReadWrite"]
+
+
+def test_onedrive_default_drive_reads_graph(monkeypatch):
+    class _Body:
+        def read(self):
+            return b'{"id":"drive-1","driveType":"personal"}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    def _open(request, timeout=20):
+        assert request.full_url.endswith("/me/drive")
+        assert request.headers["Authorization"] == "Bearer access"
+        assert timeout == 20
+        return _Body()
+
+    monkeypatch.setattr(copies.urllib.request, "urlopen", _open)
+    assert copies.onedrive_default_drive("access") == ("drive-1", "personal")
+
+
+def test_onedrive_rclone_config_is_the_default_drive():
+    raw = copies.pack_oauth_token(
+        client_id="app-id",
+        client_secret="secret-value",
+        refresh_token="refresh-value",
+        access_token="access",
+        email="bjorn@outlook.com",
+        expires_in=3600,
+    )
+    path = copies.write_onedrive_rclone_config(
+        raw, drive_id="drive-1", drive_type="personal"
+    )
+    try:
+        text = open(path, encoding="utf-8").read()
+        mode = os.stat(path).st_mode & 0o777
+    finally:
+        copies.discard_rclone_config(path)
+    assert "type = onedrive" in text
+    assert "client_id = app-id" in text
+    assert "client_secret = secret-value" in text
+    assert "refresh-value" in text
+    assert "drive_id = drive-1" in text
+    assert "drive_type = personal" in text
+    assert "drive-use-trash" not in text
+    assert mode == 0o600
+
+
+def test_onedrive_copy_does_not_use_drive_trash(monkeypatch, tmp_path):
+    local = tmp_path / "pi"
+    local.mkdir()
+    monkeypatch.setattr(copies, "backup_root", lambda: tmp_path)
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+    dest = BackupDestination(
+        provider="onedrive",
+        selection_json='{"checked":["pi"],"skipped":[]}',
+        credentials_encrypted="x",
+        config_json='{"remote_dir":"PiHerder"}',
+    )
+    monkeypatch.setattr(
+        copies, "onedrive_default_drive", lambda _token: ("drive-1", "personal")
+    )
+    monkeypatch.setattr(copies, "decrypt_token", lambda _d: copies.pack_oauth_token(
+        client_id="app-id",
+        client_secret="secret-value",
+        refresh_token="refresh-value",
+        access_token="access",
+        email="bjorn@outlook.com",
+        expires_in=None,
+    ))
+    seen = {}
+
+    class Proc:
+        returncode = 0
+        stderr = ""
+        stdout = ""
+
+    def run(cmd, **_k):
+        seen["cmd"] = cmd
+        config = cmd[cmd.index("--config") + 1]
+        seen["config"] = open(config, encoding="utf-8").read()
+        return Proc()
+
+    monkeypatch.setattr(copies.subprocess, "run", run)
+    result = copies.execute(dest)
+    assert result["ok"] is True
+    assert "--drive-use-trash" not in seen["cmd"]
+    assert "type = onedrive" in seen["config"]
+    assert "drive_id = drive-1" in seen["config"]
+    assert "drive_type = personal" in seen["config"]
+    assert "secret-value" not in (result.get("error") or "")

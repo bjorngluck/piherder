@@ -20,6 +20,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 HERDER_SCHEDULE_JOB_ID = "herder_self_backup"
+HERDER_PENDING_WATCH_JOB_ID = "herder_backup_pending_watch"
+HERDER_PENDING_WATCH_MINUTES = 5
 STALE_DATA_CLEANUP_JOB_ID = "stale_data_cleanup"
 
 
@@ -785,6 +787,49 @@ def schedule_stale_data_cleanup_job():
             logger.info("[SCHEDULER] Stale data cleanup job #%s queued", job.id)
     except Exception as e:
         logger.error("[SCHEDULER] Stale data cleanup enqueue failed: %s", e)
+
+
+def watch_pending_herder_backups():
+    """Fail a self-backup that is still pending after 30 minutes and alert."""
+    from ..database import engine
+    from . import jobs as js
+
+    try:
+        with Session(engine) as session:
+            timed_out = js.expire_stale_pending_herder_backups(session)
+        if timed_out:
+            logger.warning(
+                "[SCHEDULER] Timed out pending PiHerder self-backup job(s): %s",
+                timed_out,
+            )
+    except Exception:
+        logger.exception("[SCHEDULER] Pending self-backup watch failed")
+
+
+def sync_herder_backup_pending_watch(scheduler, HAS_SCHEDULER):
+    """Check every few minutes. Runs even when the self-backup cron is off."""
+    if not HAS_SCHEDULER or not scheduler:
+        return
+    try:
+        scheduler.remove_job(HERDER_PENDING_WATCH_JOB_ID)
+    except Exception:
+        pass
+    try:
+        from apscheduler.triggers.interval import IntervalTrigger
+
+        scheduler.add_job(
+            func=watch_pending_herder_backups,
+            trigger=IntervalTrigger(minutes=HERDER_PENDING_WATCH_MINUTES),
+            id=HERDER_PENDING_WATCH_JOB_ID,
+            replace_existing=True,
+            name="PiHerder self-backup pending watch",
+        )
+        logger.info(
+            "[SCHEDULER] Pending self-backup watch every %sm",
+            HERDER_PENDING_WATCH_MINUTES,
+        )
+    except Exception as e:
+        logger.warning("[SCHEDULER] Could not register pending self-backup watch: %s", e)
 
 
 def schedule_herder_backup_job():
