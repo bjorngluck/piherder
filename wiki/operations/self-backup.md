@@ -34,6 +34,16 @@ On **Copy the backup drive**, turn on **Also copy each new self-backup** for the
 
 A failed copy fails the copy job. It does not delete the local archive. The public demo does not upload. Restore still reads the local file, not Drive, OneDrive, or the share.
 
+<figure class="ph-figure" markdown>
+  ![Also copy each new self-backup](../assets/screenshots/settings-herder-copy.png)
+  <figcaption>On the destination form, Also copy each new self-backup is checked. Connect Microsoft keeps the OneDrive sign-in.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Saved copy destinations](../assets/screenshots/herder-backup-copy-off.png)
+  <figcaption>Copy the backup drive after a save. Google Drive, the LAN share, and OneDrive are separate rows. The self-backup copy uses the destination that has Also copy each new self-backup checked.</figcaption>
+</figure>
+
 ---
 
 ## Version matrix (read this before trusting an archive)

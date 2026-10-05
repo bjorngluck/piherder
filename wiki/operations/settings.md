@@ -56,6 +56,11 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 </figure>
 
 <figure class="ph-figure" markdown>
+  ![OneDrive beside Drive and SMB](../assets/screenshots/settings-backup-onedrive.png)
+  <figcaption>v1.10. OneDrive is a third row, with Test, Folders, Edit, and Remove. See [Backups](../day-to-day/backups.md#set-up-onedrive).</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
   ![Settings Alerts](../assets/screenshots/settings-alerts.png)
   <figcaption>Settings → Alerts — webhook + SMTP (test send, password recovery).</figcaption>
 </figure>

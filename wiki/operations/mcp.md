@@ -69,6 +69,11 @@ Replace the host. Keep the secret in the client’s secret store. Do not commit 
 
 Reload the window. Cursor opens the browser. Sign in as an admin and approve the scopes. The tools then list. `health` is the first check. A pasted `ph_` header skips this sign-in, and Cursor keeps that header.
 
+<figure class="ph-figure" markdown>
+  ![Allow this agent](../assets/screenshots/mcp-allow-agent.png)
+  <figcaption>Allow this agent. Cursor wants to call /mcp. read is required. jobs, edit, and files are checked. The auth code is not in the frame.</figcaption>
+</figure>
+
 **Browser sign-in in Grok.** In `~/.grok/config.toml`, set `url` and do not set a header. Open `/mcps`, press `r`, then `i` on that server. Grok opens the same consent page. An imported Cursor server that still has a header skips the browser.
 
 The access token starts with `ph_oa_`. It works on `POST /mcp` only. Revoke it under Settings → API management. This walk was signed 2026-10-04 in Cursor.

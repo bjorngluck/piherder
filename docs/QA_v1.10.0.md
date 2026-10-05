@@ -1,11 +1,11 @@
 # PiHerder v1.10.0 — operator QA / sign-off
 
 **Branch:** `v1.10.0-dev` → `main` · tag **`v1.10.0`** (cut after merge)  
-**Code freeze:** not set  
-**Package:** stays **`1.9.0`** until freeze. About / footer **1.9.0**  
+**Code freeze:** set 2026-10-05  
+**Package:** **`1.10.0`**. About / footer say **1.10.0** after this bump. During the walk they still said **1.9.0**.  
 **Operator QA:** signed 2026-10-04 by Björn. Every box below is ticked.  
-**Screenshots:** not captured. Shoot list: [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status).  
-**Pull request:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. It is not ready to merge. Screenshots are still open. No code freeze. Package stays **1.9.0**.
+**Screenshots:** captured and wired 2026-10-05. [v1.10 pack](../wiki/assets/screenshots/README.md#v110--pack-status).  
+**Pull request:** [#30](https://github.com/bjorngluck/piherder/pull/30) is open and not a draft. Tag not cut. Image not published. Not marked ready.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
