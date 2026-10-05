@@ -70,6 +70,12 @@ def _backup_copy_rows(
     smb_guest: bool,
     smb_has_password: bool,
     smb_schedule: str,
+    onedrive_saved: bool = False,
+    onedrive_email: str = "",
+    onedrive_folder: str = "",
+    onedrive_schedule: str = "",
+    onedrive_kind: str = "",
+    onedrive_has_token: bool = False,
 ) -> list[dict]:
     """One card row per destination that is actually saved."""
     rows: list[dict] = []
@@ -97,6 +103,18 @@ def _backup_copy_rows(
             "schedule": smb_schedule,
             "label": where,
             "can_test": bool(smb_guest or smb_has_password),
+            "can_remove": True,
+        })
+    if onedrive_saved:
+        who = onedrive_email or ("signed in" if onedrive_has_token else "not connected")
+        rows.append({
+            "provider": "onedrive",
+            "title": "OneDrive",
+            "who": who,
+            "where": "folder " + (onedrive_folder or "PiHerder"),
+            "schedule": onedrive_schedule,
+            "label": onedrive_email or onedrive_folder or "OneDrive",
+            "can_test": onedrive_kind == "oauth" and onedrive_has_token,
             "can_remove": True,
         })
     return rows
@@ -556,6 +574,20 @@ async def settings_page(
     copy_rows: list[dict] = []
     drive_saved = False
     smb_saved = False
+    onedrive_saved = False
+    od_email = ""
+    od_kind = ""
+    od_folder = "PiHerder"
+    od_client_id = ""
+    od_has_secret = False
+    od_has_token = False
+    od_schedule = ""
+    od_after = False
+    od_herder = False
+    od_redirect_uri = ""
+    drive_herder = False
+    smb_herder = False
+    herder_copy_ready = False
     smb_guest = False
     folder_provider = ""
     copy_form_error = False
@@ -568,13 +600,15 @@ async def settings_page(
             from ..services import backup_replicate as copies
 
             requested = (qp.get("copy_provider") or "").strip().lower()
-            if requested not in ("drive", "smb"):
+            if requested not in ("drive", "smb", "onedrive"):
                 requested = ""
             copy_provider = requested or "drive"
             drive_row = copies.find_destination(session, "drive")
             smb_row = copies.find_destination(session, "smb")
+            od_row = copies.find_destination(session, "onedrive")
             drive_saved = copies.has_saved_destination(drive_row)
             smb_saved = copies.has_saved_destination(smb_row)
+            onedrive_saved = copies.has_saved_destination(od_row)
             copy_dest = True
             if drive_row is not None:
                 account = copies.credential_public(drive_row)
@@ -588,6 +622,7 @@ async def settings_page(
                 copy_has_secret = bool(copy_oauth.get("client_secret"))
                 drive_schedule = drive_row.schedule or ""
                 drive_after = bool(drive_row.after_host_backup)
+                drive_herder = copies.copies_herder_backup(drive_row)
             if smb_row is not None:
                 smb_view = copies.smb_public(smb_row)
                 copy_smb_host = smb_view["host"]
@@ -599,6 +634,19 @@ async def settings_page(
                 smb_guest = bool(smb_view.get("guest"))
                 smb_schedule = smb_row.schedule or ""
                 smb_after = bool(smb_row.after_host_backup)
+                smb_herder = copies.copies_herder_backup(smb_row)
+            if od_row is not None:
+                od_account = copies.credential_public(od_row)
+                od_has_token = bool(od_account.get("saved"))
+                od_email = od_account.get("email") or ""
+                od_kind = od_account.get("kind") or ""
+                od_folder = copies.drive_folder(od_row)
+                od_oauth = copies.oauth_client(od_row)
+                od_client_id = od_oauth.get("client_id") or ""
+                od_has_secret = bool(od_oauth.get("client_secret"))
+                od_schedule = od_row.schedule or ""
+                od_after = bool(od_row.after_host_backup)
+                od_herder = copies.copies_herder_backup(od_row)
             copy_rows = _backup_copy_rows(
                 drive_saved=drive_saved,
                 smb_saved=smb_saved,
@@ -614,11 +662,17 @@ async def settings_page(
                 smb_guest=smb_guest if smb_saved else False,
                 smb_has_password=copy_smb_has_password if smb_saved else False,
                 smb_schedule=smb_schedule if smb_saved else "",
+                onedrive_saved=onedrive_saved,
+                onedrive_email=od_email,
+                onedrive_folder=od_folder if onedrive_saved else "",
+                onedrive_schedule=od_schedule if onedrive_saved else "",
+                onedrive_kind=od_kind,
+                onedrive_has_token=od_has_token,
             )
             draft = read_copy_draft(request)
             if draft:
                 clear_copy_draft = True
-                if draft.get("provider") in ("drive", "smb"):
+                if draft.get("provider") in ("drive", "smb", "onedrive"):
                     copy_provider = draft["provider"]
                 if copy_provider == "smb":
                     copy_smb_host = draft.get("host") or ""
@@ -628,28 +682,48 @@ async def settings_page(
                     copy_smb_domain = draft.get("domain") or ""
                     smb_schedule = draft.get("schedule_cron") or ""
                     smb_after = draft.get("after_host_backup") == "1"
+                    smb_herder = draft.get("copy_herder_backup") == "1"
                     copy_draft_password = draft.get("password") or ""
-                else:
+                elif copy_provider == "drive":
                     copy_client_id = draft.get("client_id") or ""
                     copy_drive_folder = draft.get("drive_folder") or ""
                     drive_schedule = draft.get("schedule_cron") or ""
                     drive_after = draft.get("after_host_backup") == "1"
+                    drive_herder = draft.get("copy_herder_backup") == "1"
                     copy_draft_secret = draft.get("client_secret") or ""
+                if copy_provider == "onedrive":
+                    od_client_id = draft.get("client_id") or ""
+                    od_folder = draft.get("drive_folder") or ""
+                    od_schedule = draft.get("schedule_cron") or ""
+                    od_after = draft.get("after_host_backup") == "1"
+                    od_herder = draft.get("copy_herder_backup") == "1"
+                    copy_draft_secret = draft.get("client_secret") or ""
+            herder_copy_ready = bool(
+                (drive_saved and drive_herder and copies.credentials_saved(drive_row))
+                or (smb_saved and smb_herder and copies.credentials_saved(smb_row))
+                or (onedrive_saved and od_herder and copies.credentials_saved(od_row))
+            )
             copy_error_code = (qp.get("copy_error") or "").strip()
             copy_form_error = copy_error_code in FORM_ERRORS
             if requested == "smb" and smb_saved:
                 folder_provider = "smb"
             elif requested == "drive" and drive_saved:
                 folder_provider = "drive"
+            elif requested == "onedrive" and onedrive_saved:
+                folder_provider = "onedrive"
             elif drive_saved:
                 folder_provider = "drive"
             elif smb_saved:
                 folder_provider = "smb"
+            elif onedrive_saved:
+                folder_provider = "onedrive"
             folders_q = (qp.get("folders") or "").strip().lower()
             if folders_q == "smb" and smb_saved:
                 folder_provider = "smb"
             elif folders_q == "drive" and drive_saved:
                 folder_provider = "drive"
+            elif folders_q == "onedrive" and onedrive_saved:
+                folder_provider = "onedrive"
             origin = public_url or ""
             if not origin:
                 parsed = urlparse(str(request.base_url))
@@ -657,6 +731,7 @@ async def settings_page(
                     origin = f"{parsed.scheme}://{parsed.netloc}"
             if origin:
                 copy_redirect_uri = copies.google_redirect_uri(origin)
+                od_redirect_uri = copies.onedrive_redirect_uri(origin)
         except Exception:
             copy_dest = None
             copy_provider = "drive"
@@ -682,6 +757,20 @@ async def settings_page(
             copy_rows = []
             drive_saved = False
             smb_saved = False
+            onedrive_saved = False
+            od_email = ""
+            od_kind = ""
+            od_folder = "PiHerder"
+            od_client_id = ""
+            od_has_secret = False
+            od_has_token = False
+            od_schedule = ""
+            od_after = False
+            od_herder = False
+            od_redirect_uri = ""
+            drive_herder = False
+            smb_herder = False
+            herder_copy_ready = False
             smb_guest = False
             folder_provider = ""
             copy_form_error = False
@@ -704,6 +793,10 @@ async def settings_page(
             "copy_can_remove": copy_can_remove,
             "drive_schedule": drive_schedule,
             "drive_after": drive_after,
+            "drive_herder": drive_herder,
+            "smb_herder": smb_herder,
+            "herder_copy_ready": herder_copy_ready,
+            "herder_copy": qp.get("herder_copy"),
             "copy_smb_host": copy_smb_host,
             "copy_smb_share": copy_smb_share,
             "copy_smb_path": copy_smb_path,
@@ -726,6 +819,15 @@ async def settings_page(
             "copy_rows": copy_rows,
             "drive_saved": drive_saved,
             "smb_saved": smb_saved,
+            "onedrive_saved": onedrive_saved,
+            "od_email": od_email,
+            "od_folder": od_folder,
+            "od_client_id": od_client_id,
+            "od_has_secret": od_has_secret,
+            "od_schedule": od_schedule,
+            "od_after": od_after,
+            "od_herder": od_herder,
+            "od_redirect_uri": od_redirect_uri,
             "smb_guest": smb_guest,
             "folder_provider": folder_provider,
             "copy_form_error": copy_form_error,
@@ -1227,6 +1329,31 @@ async def trigger_herder_backup(
         return RedirectResponse(
             _settings_url("backup", error=str(e)[:120]), status_code=303
         )
+
+
+@router.post("/herder-backups/copy")
+async def copy_herder_archive(
+    name: str = Form(""),
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    """Send one local self-backup to destinations that opted in."""
+    from ..services import backup_replicate as copies
+    from ..services.demo import http_403_if_demo
+    from ..services.herder_backup import is_safe_archive_basename, resolve_archive_in_roots
+
+    http_403_if_demo("settings_write")
+    filename = (name or "").strip()
+    if not is_safe_archive_basename(filename) or resolve_archive_in_roots(name=filename) is None:
+        return RedirectResponse(_settings_url("backup", herder_copy="missing"), status_code=303)
+    jobs = copies.enqueue_after_herder_backup(session, filename)
+    if not jobs:
+        return RedirectResponse(_settings_url("backup", herder_copy="none"), status_code=303)
+    failed = [job for job in jobs if job.status == "failed"]
+    if len(failed) == len(jobs):
+        return RedirectResponse(_settings_url("backup", herder_copy="failed"), status_code=303)
+    del user
+    return RedirectResponse(f"/jobs?highlight={jobs[0].id}", status_code=303)
 
 
 @router.post("/herder-backups/restore")

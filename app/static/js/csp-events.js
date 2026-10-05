@@ -165,6 +165,15 @@
     } catch (e) {}
   }
 
+  function readList(name) {
+    // Top-level const is not a property of window. These two pages declare
+    // JOBS and AUDIT_LOGS that way. Name them here. No eval.
+    if (!LISTS[name]) return null;
+    if (name === "JOBS") return typeof JOBS !== "undefined" ? JOBS : null;
+    if (name === "AUDIT_LOGS") return typeof AUDIT_LOGS !== "undefined" ? AUDIT_LOGS : null;
+    return null;
+  }
+
   function runClick(el, ev) {
     if (el.hasAttribute("data-ph-click")) {
       var name = el.getAttribute("data-ph-click");
@@ -174,7 +183,7 @@
       else if (el.hasAttribute("data-ph-list")) {
         var listName = el.getAttribute("data-ph-list");
         var idx = parseInt(el.getAttribute("data-ph-index") || "", 10);
-        var list = LISTS[listName] ? window[listName] : null;
+        var list = readList(listName);
         if (!list || !isFinite(idx) || idx < 0 || idx >= list.length) return;
         args = [list[idx]];
       } else args = readArgs(el, ev);

@@ -5,9 +5,11 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from datetime import datetime, timedelta
+
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from app.models import Job, Server
+from app.models import AuditLog, Job, Server
 from app.services import host_facts as facts
 from app.services import jobs as js
 from app.tasks import housekeeping_job
@@ -108,6 +110,102 @@ def test_enqueue_herder_backup_has_no_host_and_reuses_the_active_row(monkeypatch
         assert len(n) == 1
     assert seen["args"][1] == 0
     assert seen["args"][3] == "herder_backup"
+
+
+def test_stale_pending_self_backup_fails_and_raises_the_critical_alert(monkeypatch):
+    engine = _engine()
+    _bind(monkeypatch, engine)
+    notes: list[tuple[str, str]] = []
+
+    def _alert(message, link_url="/herder-backups"):
+        notes.append((message, link_url))
+
+    monkeypatch.setattr(js, "_notify_herder_backup_failed", _alert)
+    old = datetime.utcnow() - timedelta(minutes=31)
+    with Session(engine) as session:
+        fresh = Job(job_type="herder_backup", status="pending", details="{}")
+        running = Job(
+            job_type="herder_backup",
+            status="running",
+            created_at=old,
+            worker_hostname="celery@lab-a",
+            details="{}",
+        )
+        stuck = Job(
+            job_type="herder_backup",
+            status="pending",
+            created_at=old,
+            details='{"current": "queued"}',
+        )
+        session.add(fresh)
+        session.add(running)
+        session.add(stuck)
+        session.commit()
+        session.refresh(stuck)
+        stuck_id = stuck.id
+        session.add(
+            AuditLog(
+                action="herder_backup",
+                status="running",
+                details=f"Job #{stuck_id} started · config_only",
+            )
+        )
+        session.commit()
+        timed_out = js.expire_stale_pending_herder_backups(session)
+        assert timed_out == [stuck_id]
+        assert session.get(Job, fresh.id).status == "pending"
+        assert session.get(Job, running.id).status == "running"
+        failed = session.get(Job, stuck_id)
+        assert failed.status == "failed"
+        assert failed.finished_at is not None
+        assert "stayed pending" in (failed.details or "")
+        assert '"error"' in (failed.details or "")
+        audit = session.exec(select(AuditLog)).one()
+        assert audit.status == "failed"
+    assert len(notes) == 1
+    assert f"#{stuck_id}" in notes[0][0]
+    assert "pending" in notes[0][0]
+    assert notes[0][1] == f"/jobs?highlight={stuck_id}"
+    with Session(engine) as session:
+        again = js.expire_stale_pending_herder_backups(session)
+        assert again == []
+    assert len(notes) == 1
+
+
+def test_enqueue_replaces_a_self_backup_that_timed_out(monkeypatch):
+    engine = _engine()
+    _bind(monkeypatch, engine)
+    notes: list[str] = []
+    monkeypatch.setattr(
+        js, "_notify_herder_backup_failed", lambda message, link_url="/herder-backups": notes.append(message)
+    )
+    monkeypatch.setattr("app.services.jobs_exclusive.exclusive_runs_inline", lambda: False)
+    monkeypatch.setattr(
+        js.housekeeping_job_task,
+        "delay",
+        lambda *args: SimpleNamespace(id="celery-hb-new"),
+    )
+    old = datetime.utcnow() - timedelta(minutes=45)
+    with Session(engine) as session:
+        session.add(
+            Job(
+                job_type="herder_backup",
+                status="pending",
+                created_at=old,
+                details="{}",
+            )
+        )
+        session.commit()
+        queued = js.enqueue_herder_backup_job(
+            session, 1, include_audit=False, config_only=True
+        )
+        session.refresh(queued)
+        rows = session.exec(select(Job).where(Job.job_type == "herder_backup")).all()
+        assert len(rows) == 2
+        assert queued.status == "pending"
+        assert queued.celery_task_id == "celery-hb-new"
+        assert any(row.status == "failed" for row in rows)
+    assert len(notes) == 1
 
 
 def test_request_refresh_queues_one_host_facts_job(monkeypatch):

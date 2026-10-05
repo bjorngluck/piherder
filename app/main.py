@@ -163,6 +163,7 @@ async def lifespan(app: FastAPI):
                 sync_docker_inventory_schedule,
                 sync_host_facts_schedule,
                 sync_herder_backup_schedule,
+                sync_herder_backup_pending_watch,
                 sync_stale_data_cleanup_schedule,
                 sync_stack_health_schedule,
                 sync_integrations_poll_schedule,
@@ -172,6 +173,7 @@ async def lifespan(app: FastAPI):
             )
             sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER)
             sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
+            sync_herder_backup_pending_watch(scheduler, HAS_SCHEDULER)
             sync_stale_data_cleanup_schedule(scheduler, HAS_SCHEDULER)
             sync_docker_inventory_schedule(scheduler, HAS_SCHEDULER)
             sync_host_facts_schedule(scheduler, HAS_SCHEDULER)
@@ -478,6 +480,7 @@ async def web_manifest():
 
 from .routers import jobs_page as jobs_page_router
 from .routers import mcp as mcp_router
+from .routers import mcp_oauth as mcp_oauth_router
 from .routers import settings as settings_router
 from .services import scheduler as sched
 
@@ -493,6 +496,7 @@ app.include_router(jobs_page_router.router, prefix="", tags=["jobs"])
 app.include_router(metrics_router.router, prefix="", tags=["metrics"])
 app.include_router(api_v1_router.router, prefix="/api/v1", tags=["api-v1"])
 app.include_router(mcp_router.router, tags=["mcp"])
+app.include_router(mcp_oauth_router.router, tags=["mcp"])
 app.include_router(settings_router.router, prefix="", tags=["settings"])
 from .routers import backup_copies as backup_copies_router
 

@@ -4,7 +4,8 @@
 
 | Version | Support |
 |---------|---------|
-| **v1.9.x** | **Current release** ([RELEASE_v1.9.0.md](docs/RELEASE_v1.9.0.md) · [PLAN_v1.9.0.md](docs/PLAN_v1.9.0.md)). Tag **v1.9.0** |
+| **v1.10.x** | **Current release** on `v1.10.0-dev` ([RELEASE_v1.10.0.md](docs/RELEASE_v1.10.0.md) · [PLAN_v1.10.0.md](docs/PLAN_v1.10.0.md)). Package **1.10.0**. Tag not cut. Hub image remains **v1.9.0** until publish |
+| **v1.9.x** | Previous production image ([RELEASE_v1.9.0.md](docs/RELEASE_v1.9.0.md) · [PLAN_v1.9.0.md](docs/PLAN_v1.9.0.md)). Tag **v1.9.0**. Hub `1.9.0` / `1.9` / `latest` until the 1.10.0 publish |
 | **v1.8.x** | Prior production pin; still valid ([RELEASE_v1.8.1.md](docs/RELEASE_v1.8.1.md) · [PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md)). Tag **v1.8.1** |
 | **v1.7.x** | Prior production pin; still valid ([RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md)) |
 | **v1.6.x** | Prior production; prefer upgrade to **v1.8.x** ([RELEASE_v1.6.0.md](docs/RELEASE_v1.6.0.md) · [PLAN_v1.6.0.md](docs/PLAN_v1.6.0.md)) |
@@ -17,7 +18,7 @@
 | **`main`** | Development tip; security fixes land here first |
 | **v0.9.x and older** | Best-effort; prefer upgrade to latest production |
 
-Security fixes are applied on the default branch (`main`) and released as **v1.9.x** (or later) patch tags when warranted. The current Hub image is **v1.9.0**. Pins **v1.8.1** and **v1.7.0** stay valid ([PLAN_v1.9.0.md](docs/PLAN_v1.9.0.md)).
+Security fixes are applied on the default branch (`main`) and released as patch tags when warranted. The current Hub image is **v1.9.0**. This branch is package **1.10.0**. Pins **v1.9.0**, **v1.8.1**, and **v1.7.0** stay valid ([PLAN_v1.10.0.md](docs/PLAN_v1.10.0.md)). The tag is not cut, so Hub `latest` stays **v1.9.0** until publish.
 
 ## Reporting a vulnerability
 
@@ -48,7 +49,7 @@ We aim to acknowledge reports within a few days and will work with you on a fix 
 | OIDC client secret | Fernet-encrypted in `appsetting` (v1.2+ Stream S); no IdP tokens stored at rest |
 | OIDC identity links | `(issuer, subject)` → user; email soft-match for auto-link only |
 | API tokens (`ph_…`) | Stored as hashes only; shown once at create/rotate; scopes + optional IP allowlist |
-| Agent MCP (v1.7) | Primary path is `POST /mcp` on the web process (Streamable HTTP, stateless JSON). Same `ph_` Bearer token, scopes, and IP allowlist as `/api/v1`. No MCP OAuth. Writes stay inside `jobs`, `edit`, and `files`. Optional stdio `uvx piherder-mcp` is the air-gapped fallback. [wiki/operations/mcp.md](wiki/operations/mcp.md) |
+| Agent MCP (v1.7, OAuth on the v1.10 train) | Primary path is `POST /mcp` on the web process (Streamable HTTP, stateless JSON). A pasted `ph_` Bearer token still works, with the same scopes and IP allowlist as `/api/v1`. An agent pointed at hosted `POST /mcp` can also sign in with OAuth (PKCE, browser consent by an admin). That access token can be revoked. It is accepted on `POST /mcp` only. `/api/v1` rejects it. Tool writes stay inside `jobs`, `edit`, and `files`. Optional stdio `uvx piherder-mcp` does not use that sign-in. It calls `/api/v1` with `PIHERDER_TOKEN`. [wiki/operations/mcp.md](wiki/operations/mcp.md) |
 | Sessions | JWT cookie (HS256 via **PyJWT** + cryptography); **HttpOnly**, **SameSite=Lax**, `path=/`, **Secure** when public URL is HTTPS |
 | Cross-origin browser POSTs | Same-origin middleware (Origin/Referer host match when present); Bearer `/api/v1` skipped |
 | **Content-Security-Policy (v1.2+)** | Default **on** (`PIHERDER_CSP=true`): `default-src 'self'`, `object-src 'none'`, `frame-ancestors 'self'` (same-origin console modal only), `frame-src 'self'`, form-action self, **connect-src `'self'` + public origin / its `wss:` only** (no wildcard `ws:`/`wss:`). **No `unsafe-eval`** (Tailwind is compiled CSS). **v1.6 CSP-n Slice 1:** each response gets a script nonce. `script-src` is `'self' 'nonce-…'` (no `'unsafe-inline'`). **v1.9 CSP Slice 2:** `script-src-attr 'none'` (inline `onclick` / `onchange` / `onsubmit` / `onerror` are gone; clicks use `data-ph-*` in `/static/js/csp-events.js`). `style-src` stays `'unsafe-inline'`. `/docs` and `/redoc` still allow `'unsafe-inline'`. Home installs **enforce**. Demo mode sends **Report-Only** unless `PIHERDER_CSP_ENFORCE=true`. Also: `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy` (incl. `publickey-credentials-get=(self)` for passkeys in console iframe). |

@@ -131,7 +131,7 @@ docker compose --profile nmap up -d celery-worker-nmap
 
 ## Agents (MCP)
 
-The herder has **no MCP env var and no MCP port**. `PIHERDER_URL` and `PIHERDER_TOKEN` belong on the computer that runs Cursor, Grok, Claude, or Codex. See [Agents (MCP)](mcp.md).
+The herder has **no MCP env var and no MCP port**. `PIHERDER_URL` and `PIHERDER_TOKEN` belong on the computer that runs `uvx piherder-mcp`. That program does not use the hosted browser sign-in. A client pointed at `https://your-herder/mcp` can paste a bearer or sign in in the browser, and it does not need these two variables. See [Agents (MCP)](mcp.md).
 
 ## Auth / sessions / cookies
 

@@ -418,6 +418,38 @@ def _path_allowed(path: str, prefixes: tuple[str, ...]) -> bool:
     return any(path == p or path.startswith(p.rstrip("/") + "/") or path.startswith(p) for p in prefixes)
 
 
+MCP_OAUTH_RETURN_COOKIE = "ph_mcp_oauth_return"
+
+
+def mcp_oauth_return_target(request: Optional[Request]) -> Optional[str]:
+    """Safe return path set while an MCP agent waits for an admin sign-in."""
+    if request is None:
+        return None
+    raw = (request.cookies.get(MCP_OAUTH_RETURN_COOKIE) or "").strip()
+    if not raw.startswith("/mcp/oauth/authorize?"):
+        return None
+    if len(raw) > 2000 or "\\" in raw or "://" in raw or raw.startswith("//"):
+        return None
+    return raw
+
+
+def clear_mcp_oauth_return(response: Response, dest: str) -> None:
+    if dest.startswith("/mcp/oauth/authorize"):
+        response.delete_cookie(MCP_OAUTH_RETURN_COOKIE, path="/")
+
+
+def login_success_redirect(
+    user: User,
+    session: Optional[Session],
+    request: Optional[Request],
+) -> RedirectResponse:
+    """Redirect after login. An in-progress MCP consent is resumed once."""
+    dest = post_login_path(user, session, request)
+    response = RedirectResponse(url=dest, status_code=303)
+    clear_mcp_oauth_return(response, dest)
+    return response
+
+
 def post_login_path(
     user: User,
     session: Optional[Session] = None,
@@ -438,6 +470,9 @@ def post_login_path(
                 return "/auth/force-2fa"
         elif not getattr(user, "totp_enabled", False):
             return "/auth/force-2fa"
+    nxt = mcp_oauth_return_target(request)
+    if nxt:
+        return nxt
     return "/"
 
 
