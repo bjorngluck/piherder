@@ -37,7 +37,7 @@
 
 **Discover. A note only. No client and no page:**
 
-- **Path C.** Discovery is written below. No build on this train. The decision and the build are Must on [PLAN_v1.11.0.md](PLAN_v1.11.0.md) (`v1.11.0-dev`). No shape is chosen there yet.
+- **Path C.** Discovery is written below. No build on this train. The decision and the build are Must on [PLAN_v1.11.0.md](PLAN_v1.11.0.md) (`v1.11.0-dev`). The choice recorded there is opt-in beside the pull.
 - **Template fleet** was pulled onto this train. The template page lists the hosts and stacks. It is not a Discover row anymore. **Signed 2026-10-04.**
 
 **Out.** Path B (CIFS mount as the dest root). AC-fg. Brand-3. ACME-in-herder. NPM CRUD. A richer Files token API. M-live. A herder→Home Assistant webhook. Undo of a finished Move. MCP Move, undo, nmap, the console, token admin, `docker_stack_down`, and `docker_stack_remove`. restic, borg, kopia, and rclone crypt. Restore from Drive, SMB, or OneDrive. SMB Kerberos. Selectable hero stats. A templates catalog redesign. Git-rich onboard. Optional AI. Ansible / cloud-init. Discord / Discussions. Swarm / Kubernetes. A higher coverage fail-under (stays **80**). The console mobile Tab issue. Stricter command-audit redaction. CodeQL. Actions pinned to commit SHAs. `CODEOWNERS`.
@@ -123,7 +123,7 @@ main (image 1.9.0)
 
 ## 4. Path C discovery — a host copies straight out
 
-**Parked for v1.11.0.** This section is the discovery. It does not choose a design. It does not build one. v1.11.0 is opened on `v1.11.0-dev` ([PLAN_v1.11.0.md](PLAN_v1.11.0.md)). The NAS **Copy now** walk on this train stays the pull onto `/backups`, then the herder copy.
+**Parked for v1.11.0.** This section is the discovery. It does not choose a design. The choice, opt in beside the pull, is recorded in [PLAN_v1.11.0.md](PLAN_v1.11.0.md). The NAS **Copy now** walk on this train stays the pull onto `/backups`, then the herder copy.
 
 ### What is true today
 
@@ -186,9 +186,9 @@ It costs the local restore tree, retention on the herder, and Copy now from a po
 
 The pull plus the herder copy helps when one machine holds the credentials and rclone, a host only speaks SSH, Copy now must work from the mirror, and restore stays a reverse rsync. It costs herder disk and a second transfer after the pull.
 
-### Not decided
+### Answered on v1.11.0
 
-Whether Path C is built. Whether it replaces **Backups** or sits beside it. Whether rclone is installed by the operator or copied for one run. Whether `/backups` remains for some hosts. Those questions are for **v1.11.0** ([PLAN_v1.11.0.md](PLAN_v1.11.0.md)). Restore from Drive, SMB, or OneDrive is a Discover note on that train. It is not built here.
+Whether Path C is built, whether it replaces **Backups** or sits beside it, whether rclone is installed by the operator or copied for one run, and whether `/backups` remains for some hosts. Those questions are answered on **v1.11.0** ([PLAN_v1.11.0.md](PLAN_v1.11.0.md)): opt in, beside the pull, rclone copied for the run. Restore from Drive, SMB, or OneDrive is a Discover note on that train. It is not built here.
 
 ---
 

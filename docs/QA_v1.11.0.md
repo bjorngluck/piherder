@@ -27,13 +27,13 @@ Force 2FA is on. A passkey has to count as the second factor. App-based 2FA stay
 
 ## Path C decision (Must)
 
-The write-up is in [PLAN_v1.11.0.md](PLAN_v1.11.0.md). Input is [PLAN_v1.10.0.md](PLAN_v1.10.0.md) §4. No shape is chosen at open.
+Opt in, beside the pull. The write-up is in [PLAN_v1.11.0.md](PLAN_v1.11.0.md). This box stays empty until you read it.
 
 - [ ] The plan names whether a host copies straight out, whether that replaces **Backups** or sits beside the pull, how rclone gets onto the host, and whether `/backups` stays for some hosts
 
 ## Path C build (Must)
 
-Build the choice from the decision. There is no walk until that choice is written.
+The build is on this branch. A host can opt in. Other hosts still rsync onto `/backups`. Copy now on a direct host starts the push. This box stays empty until you walk a real destination.
 
 - [ ] The chosen copy is walked on a real destination
 

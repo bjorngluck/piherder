@@ -148,7 +148,7 @@ Design principles stay the same as SPEC:
 
 **Progress (2026-10-05):** Released. Tag **v1.10.0**. Hub `1.10.0` / `1.10` / `latest`. Package **1.10.0**. [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md).
 
-**Decision (2026-10-06):** **v1.11.0 train opened** on **`v1.11.0-dev`**. Must: a passkey counts as 2FA when Force 2FA is on, the Path C decision, and the Path C build. Should: MCP Move, MCP nmap. Discover: NPM CRUD, remote restore, git-rich onboard. borg, kopia, rclone crypt, and optional AI are not planned. Package stays `1.10.0` until freeze. The public demo is not pointed at this branch. Putting the Home Assistant plugin inside the image is not a backlog row. See [PLAN_v1.11.0.md](PLAN_v1.11.0.md).
+**Decision (2026-10-06):** **v1.11.0 train opened** on **`v1.11.0-dev`**. Must: a passkey counts as 2FA when Force 2FA is on, the Path C decision, and the Path C build. Path C is opt-in beside the pull: a direct host pushes with rclone copied for the run, and other hosts still rsync onto `/backups`. Should: MCP Move, MCP nmap. Discover: NPM CRUD, remote restore, git-rich onboard. borg, kopia, rclone crypt, and optional AI are not planned. Package stays `1.10.0` until freeze. The public demo is not pointed at this branch. Putting the Home Assistant plugin inside the image is not a backlog row. See [PLAN_v1.11.0.md](PLAN_v1.11.0.md).
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Release line **v1.10.0**: `1.10.0` / `1.10` / `latest` (`1.9.0` / `1.9` stays the previous image. `1.8.1` / `1.8`, `1.8.0`, and `1.7.0` / `1.7` remain valid). Next development target is **v1.11.0** on `v1.11.0-dev`. Package stays **1.10.0** until freeze.
 

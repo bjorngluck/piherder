@@ -10,15 +10,15 @@
 **QA:** [QA_v1.11.0.md](QA_v1.11.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [PLAN_v1.10.0.md](PLAN_v1.10.0.md) · [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md)
 
-> Opened 2026-10-06 from `main` after **v1.10.0** shipped. This file records ranks. It does not choose a Path C shape. It does not design the passkey fix. Production stays **v1.10.0**. The public demo is not pointed at this branch.
+> Opened 2026-10-06 from `main` after **v1.10.0** shipped. The passkey fix has landed. Path C is opt-in beside the pull. Production stays **v1.10.0**. The public demo is not pointed at this branch.
 
 ---
 
 ## 0. Intent
 
-v1.10.0 shipped OneDrive beside Google Drive and a LAN share, a copy of the herder self-backup, and browser sign-in for hosted `/mcp`. A passkey is still not treated as 2FA when Force 2FA is on. A host backup is still a pull onto `/backups`, then a herder copy. Path C was discovered in [PLAN_v1.10.0.md](PLAN_v1.10.0.md) §4 and not chosen.
+v1.10.0 shipped OneDrive beside Google Drive and a LAN share, a copy of the herder self-backup, and browser sign-in for hosted `/mcp`. A passkey now counts as 2FA when Force 2FA is on. A host backup is still a pull onto `/backups` unless that host opts in. Path C was discovered in [PLAN_v1.10.0.md](PLAN_v1.10.0.md) §4.
 
-This train fixes the passkey gate, writes the Path C choice, and builds that choice. An agent may start a Move, and may start or read a LAN Discovery scan, if those fit before the tag.
+This train fixes the passkey gate and builds the Path C choice below. An agent may start a Move, and may start or read a LAN Discovery scan, if those fit before the tag.
 
 ---
 
@@ -27,8 +27,8 @@ This train fixes the passkey gate, writes the Path C choice, and builds that cho
 | Topic | Lock |
 |-------|------|
 | Must, first | **Passkey versus Force 2FA.** On signup, with 2FA enforced, a passkey cannot be registered. A passkey already in place still forces app-based 2FA. A passkey is not treated as 2FA on the account. The tag waits on this |
-| Must | **Path C discovery.** Choose whether a host copies straight to Drive, OneDrive, or the NAS, whether that replaces **Backups** or sits beside the pull, how rclone gets onto the host, and whether `/backups` stays for some hosts. Input is [PLAN_v1.10.0.md](PLAN_v1.10.0.md) §4. No shape is chosen in the open |
-| Must | **Path C build.** Build the choice. The tag waits on it |
+| Must | **Path C discovery.** A host can opt in to send its files straight to Drive, OneDrive, or the NAS. Nothing of that host lands on `/backups` first. Hosts that do not opt in still rsync onto `/backups`, and the herder copy of that mirror stays. Copy now on a direct host starts the host push. rclone is copied to the host for that run and the temp config is deleted when the run ends. Input was [PLAN_v1.10.0.md](PLAN_v1.10.0.md) §4 |
+| Must | **Path C build.** Build that choice. The tag waits on it. Restore from Drive, OneDrive, or the NAS stays a Discover note |
 | Should | **MCP Move.** An agent can start a Move. The tag can ship if it slips |
 | Should | **MCP nmap.** An agent can start or read a LAN Discovery scan. The tag can ship if it slips |
 | Discover | **NPM CRUD.** A note only. Move can still retarget a backend |
@@ -50,6 +50,8 @@ This train fixes the passkey gate, writes the Path C choice, and builds that cho
 |------|------|
 | 2026-10-06 | Train opened from `main` after **v1.10.0** shipped. Must is the passkey gate, the Path C decision, and the Path C build. Should is MCP Move and MCP nmap. Discover is NPM CRUD, remote restore, and git-rich onboard. Package stays `1.10.0`. |
 | 2026-10-06 | **Passkey versus Force 2FA.** Signup can add a passkey. A passkey satisfies the enroll wall. The account, the Users list, and `recover_admin list` treat a passkey as 2FA. The authenticator app stays optional. Not a version bump. |
+| 2026-10-06 | **Path C.** Opt in, beside the pull. A direct host pushes with rclone copied for the run. The temp config is deleted when the run ends. Other hosts still rsync onto `/backups`. Copy now on a direct host starts that push. Restore from the remote copy is not built. Not a version bump. |
+| 2026-10-06 | **Path C targets.** Backup now and the host schedule can send to one saved destination or to all of them. Copy now stays the destination that is open. Not a version bump. |
 
 ---
 
@@ -59,7 +61,7 @@ This train fixes the passkey gate, writes the Path C choice, and builds that cho
 |---|------|--------|
 | 1 | Open **`v1.11.0-dev`** | **Done** 2026-10-06 |
 | 2 | **Passkey versus Force 2FA** | **Landed.** Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
-| 3 | **Path C** decision, then the build | Not started. §4 of the 1.10 plan is the input. No shape chosen |
+| 3 | **Path C** decision, then the build | **Choice written. Build landed.** Opt in, beside the pull. Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
 | 4 | Should, if it fits | **MCP Move**, **MCP nmap** |
 | 5 | Discover write-ups | **NPM CRUD**, remote restore, git-rich onboard. Notes only |
 | 6 | Freeze · version bump · tag · Hub | Only when asked |

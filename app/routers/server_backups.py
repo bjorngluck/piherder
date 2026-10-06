@@ -128,8 +128,16 @@ async def server_backups(
     except Exception as e:
         logger.debug(f"restore candidates: {e}")
 
+    from ..services.backup_direct import (
+        configured_destination_choices,
+        direct_where_label,
+        parse_direct_targets,
+    )
     from ..services.nav_shortcuts import host_feature_context
 
+    direct_choices = configured_destination_choices(session)
+    direct_picked = parse_direct_targets(getattr(server, "backup_direct_targets", None))
+    direct_all = direct_picked is None
     _nav = host_feature_context(session, int(user.id) if user else None, server, "backups")
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -153,6 +161,13 @@ async def server_backups(
             **_nav,
             "restore_candidates": restore_candidates,
             "restore_result": None,
+            "direct_choices": direct_choices,
+            "direct_all": direct_all,
+            "direct_picked": direct_picked or [],
+            "direct_where": direct_where_label(
+                getattr(server, "backup_direct_targets", None),
+                direct_choices,
+            ),
         }
     )
 
@@ -318,6 +333,7 @@ async def stream_backup_logs(
 
 @router.post("/{server_id}/backup-config")
 async def update_backup_config(
+    request: Request,
     server_id: int,
     backup_paths: str = Form(""),
     retention_days: int = Form(None),
@@ -325,6 +341,8 @@ async def update_backup_config(
     dest_root: str = Form(""),
     folder_name: str = Form(""),
     scope: str = Form("this_host"),
+    backup_direct_set: str = Form(""),
+    backup_direct: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -398,6 +416,25 @@ async def update_backup_config(
         server.backup_schedule = backup_schedule
         if backup_schedule:
             server.backup_enabled = True
+        session.add(server)
+        session.commit()
+
+    # The retention form does not send this. Only Configure does.
+    if backup_direct_set == "1":
+        server.backup_direct = backup_direct == "1"
+        if server.backup_direct:
+            form = await request.form()
+            # No choice on the form means all. That is also the state before
+            # any destination has been saved.
+            if form.get("backup_direct_targets_set") != "1" or form.get("backup_direct_all") == "1":
+                server.backup_direct_targets = None
+            else:
+                seen: list[str] = []
+                for item in form.getlist("backup_direct_target"):
+                    provider = str(item or "").strip().lower()
+                    if provider in ("drive", "onedrive", "smb") and provider not in seen:
+                        seen.append(provider)
+                server.backup_direct_targets = json.dumps(seen)
         session.add(server)
         session.commit()
 

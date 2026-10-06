@@ -20,6 +20,7 @@ from .app_settings import format_datetime_in_app_tz
 logger = logging.getLogger(__name__)
 
 _active_backup_procs: dict[str, subprocess.Popen] = {}
+_active_backup_channels: dict[str, object] = {}
 _backup_locks: dict[int, threading.Lock] = {}
 
 # Progress tracking extracted to backup_progress.py for maintainability.
@@ -97,6 +98,13 @@ def stop_backup(hostname: str):
             _set_progress(hostname, log_line="[STOPPED by user]")
         except Exception:
             pass
+    chan = _active_backup_channels.get(hostname)
+    if chan is not None:
+        try:
+            chan.close()
+        except Exception:
+            pass
+        _set_progress(hostname, log_line="[STOPPED by user]")
 
 
 # (progress functions moved to backup_progress.py; re-exported at top of this file)
@@ -383,7 +391,18 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
 
     sources_override: if provided, use this list instead of server.get_backup_sources()
     (used for per-source backup runs without mutating the persisted Server.backup_paths).
+
+    A host with backup_direct sends those paths straight to a saved copy.
+    Nothing is written under /backups for that host.
     """
+    if getattr(server, "backup_direct", False):
+        from .backup_direct import run_direct_backup
+
+        return run_direct_backup(
+            server,
+            sources_override=sources_override,
+            job_id=job_id,
+        )
     hostname = server.hostname
     if job_id:
         _active_job_id[hostname] = job_id

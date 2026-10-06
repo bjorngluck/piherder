@@ -18,7 +18,7 @@ Homelab hosts hold compose data, configs, and media that are painful to rebuild.
 
 See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 
-A host does not upload to Drive, OneDrive, or a NAS by itself. **Backups** pulls the chosen paths onto this herder. **Copy the backup drive** then sends that mirror. A direct copy from the host, with nothing landing on `/backups` first, is not in this release. The discovery is parked for a later decision ([PLAN_v1.10.0.md](https://github.com/bjorngluck/piherder/blob/v1.10.0-dev/docs/PLAN_v1.10.0.md) §4, target **v1.11.0**).
+**Backups** pulls the chosen paths onto this herder unless that host is set to send files straight out. **Copy the backup drive** then sends the mirror. On the host’s **Backups** page, **Configure** can opt that host in and choose Google Drive, OneDrive, the LAN share, or all of the saved ones. **Backup now** and the schedule use that choice. **Copy now** still sends only the destination that is open. A direct host sends its files to those copies. Nothing of that host lands on `/backups` first. rclone is copied to the host for the run and removed when the run ends. The sign-in stays on this PiHerder. Hosts that do not opt in still rsync onto `/backups`. **Copy now** on a direct host starts that push. Restore of a direct host from Drive, OneDrive, or the NAS is not available. Restore still reads a tree on this PiHerder.
 
 ### Copy to Google Drive (v1.8 train)
 
