@@ -21,13 +21,19 @@
       <strong class="text-text">passkey</strong>. Open Account to finish setup; other pages stay locked until then.
     </p>
     <ol class="text-sm text-muted list-decimal pl-5 space-y-1.5 mb-6">
-      <li>Open <strong class="text-text">Account</strong> (button below)</li>
-      <li>Add a <strong class="text-text">passkey</strong>, or enable <strong class="text-text">app-based 2FA</strong> (scan QR, confirm, save backup codes)</li>
+      <li>Add a <strong class="text-text">passkey</strong>, or enable an <strong class="text-text">authenticator app</strong></li>
+      <li>Either one is enough. You do not need both</li>
       <li>Return to the dashboard — fleet access unlocks automatically</li>
     </ol>
+    <a href="/auth/account#account-passkeys"
+       class="btn btn-accent w-full min-h-11 inline-flex items-center justify-center"
+       data-testid="force-2fa-passkey">
+      Add a passkey
+    </a>
     <a href="/auth/account#account-2fa"
-       class="btn btn-accent w-full min-h-11 inline-flex items-center justify-center">
-      Set up 2FA on Account
+       class="btn btn-secondary w-full min-h-11 inline-flex items-center justify-center mt-2"
+       data-testid="force-2fa-totp">
+      Set up an authenticator app
     </a>
     <p class="mt-3 text-center text-xs text-muted">
       Prefer a different account?

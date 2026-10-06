@@ -228,6 +228,8 @@ def test_post_login_path_force_2fa_passkey(monkeypatch):
         assert auth_mod.post_login_path(user, session) == "/"
     with patch.object(auth_mod, "user_has_second_factor", return_value=False):
         assert auth_mod.post_login_path(user, session) == "/auth/force-2fa"
+    # No session: do not treat a missing authenticator app as "no 2FA".
+    assert auth_mod.post_login_path(user, None) == "/"
 
 
 def test_audit_labels_for_passkeys():
