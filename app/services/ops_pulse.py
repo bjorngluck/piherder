@@ -60,11 +60,17 @@ def users_pulse(
     role_admin: str = "admin",
     role_operator: str = "operator",
     role_viewer: str = "viewer",
+    second_factor_ids: Optional[set] = None,
 ) -> Dict[str, Any]:
-    """Build Users admin hero pulse from a user list."""
+    """Build Users admin hero pulse from a user list.
+
+    ``second_factor_ids`` are user ids that have a passkey. TOTP or a passkey
+    counts as 2FA.
+    """
     sole = sole_admin_ids or set()
+    factors = {int(i) for i in (second_factor_ids or set())}
     by_role = {role_admin: 0, role_operator: 0, role_viewer: 0}
-    totp_on = 0
+    with_2fa = 0
     total = 0
     for u in users:
         total += 1
@@ -75,8 +81,9 @@ def users_pulse(
             if r not in by_role:
                 by_role[r] = 0
         by_role[r] = by_role.get(r, 0) + 1
-        if getattr(u, "totp_enabled", False):
-            totp_on += 1
+        uid = int(getattr(u, "id", 0) or 0)
+        if getattr(u, "totp_enabled", False) or uid in factors:
+            with_2fa += 1
     n_admins = by_role.get(role_admin, 0)
     n_ops = by_role.get(role_operator, 0)
     n_view = by_role.get(role_viewer, 0)
@@ -93,12 +100,12 @@ def users_pulse(
             stat(n_admins, "admin", "text-accent"),
             stat(n_ops, "operator", "text-info"),
             stat(n_view, "viewer"),
-            stat(totp_on, "2fa on", "text-accent" if totp_on else ""),
+            stat(with_2fa, "2fa on", "text-accent" if with_2fa else ""),
         ],
         line2=[
             stat(total, "total"),
             stat(len(sole), "sole adm", "text-warning" if sole else ""),
-            stat(total - totp_on, "no 2fa", "text-warning" if totp_on < total else ""),
+            stat(total - with_2fa, "no 2fa", "text-warning" if with_2fa < total else ""),
         ],
         caption="Roles · 2FA coverage",
     )

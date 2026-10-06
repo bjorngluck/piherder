@@ -115,8 +115,8 @@
       {% if u.display_name %}<div class="text-xs text-muted break-all">{{ u.email }}</div>{% endif %}
       <div class="user-card-meta">
         <span class="status-pill status-running text-[10px]">{{ u.role or 'admin' }}</span>
-        {% if u.totp_enabled %}<span class="status-pill status-success text-[10px]">2fa</span>
-        {% else %}<span class="status-pill feature-off text-[10px]">no 2fa</span>{% endif %}
+        {% if u.totp_enabled or (u.id in passkey_user_ids) %}<span class="status-pill status-success text-[10px]" data-testid="user-2fa">2fa</span>
+        {% else %}<span class="status-pill feature-off text-[10px]" data-testid="user-2fa">no 2fa</span>{% endif %}
         {% if u.id == user.id %}<span class="text-[10px] text-accent font-medium">you</span>{% endif %}
         {% if is_sole %}<span class="text-[10px] text-warning font-medium">sole admin</span>{% endif %}
       </div>
@@ -167,7 +167,7 @@
                   data-user-id="{{ u.id }}"
                   data-user-email="{{ u.email | e }}"
                   data-user-label="{{ (u.display_name or u.email) | e }}"
-                  {% if not u.totp_enabled and not u.totp_secret_encrypted %}title="2FA already off — still revokes sessions/devices"{% endif %}>
+                  {% if not u.totp_enabled and not u.totp_secret_encrypted and u.id not in passkey_user_ids %}title="2FA already off — still revokes sessions/devices"{% endif %}>
             Clear 2FA
           </button>
           <form method="post" action="/auth/users/{{ u.id }}/sign-out-sessions" class="w-full">

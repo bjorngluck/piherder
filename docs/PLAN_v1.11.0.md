@@ -49,6 +49,7 @@ This train fixes the passkey gate, writes the Path C choice, and builds that cho
 | Date | Note |
 |------|------|
 | 2026-10-06 | Train opened from `main` after **v1.10.0** shipped. Must is the passkey gate, the Path C decision, and the Path C build. Should is MCP Move and MCP nmap. Discover is NPM CRUD, remote restore, and git-rich onboard. Package stays `1.10.0`. |
+| 2026-10-06 | **Passkey versus Force 2FA.** Signup can add a passkey. A passkey satisfies the enroll wall. The account, the Users list, and `recover_admin list` treat a passkey as 2FA. The authenticator app stays optional. Not a version bump. |
 
 ---
 
@@ -57,7 +58,7 @@ This train fixes the passkey gate, writes the Path C choice, and builds that cho
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.11.0-dev`** | **Done** 2026-10-06 |
-| 2 | **Passkey versus Force 2FA** | Not started. No design in the open |
+| 2 | **Passkey versus Force 2FA** | **Landed.** Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
 | 3 | **Path C** decision, then the build | Not started. §4 of the 1.10 plan is the input. No shape chosen |
 | 4 | Should, if it fits | **MCP Move**, **MCP nmap** |
 | 5 | Discover write-ups | **NPM CRUD**, remote restore, git-rich onboard. Notes only |
