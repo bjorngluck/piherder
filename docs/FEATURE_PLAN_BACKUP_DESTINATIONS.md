@@ -37,7 +37,7 @@ The copy signs in as the operator’s Google account. PiHerder runs the redirect
 
 ## Out
 
-Path C (each host writes straight to Drive, OneDrive, or the NAS, with nothing on `/backups` first) is discovered in [PLAN_v1.10.0.md](PLAN_v1.10.0.md) §4. It is not built. The decision, and a build if that decision says yes, wait for **v1.11.0**. That train is not opened. Enabling **Backups** still means the herder rsyncs the host onto `/backups`. Drive, OneDrive, and SMB still copy that mirror. restic, borg, kopia, rclone crypt, and restoring from Drive, OneDrive, or SMB stay out. Copying the herder self-backup is opt-in per destination on [PLAN_v1.10.0.md](PLAN_v1.10.0.md): one `.tar.gz` is copied to `herder/` on that destination. A failed copy does not delete the local archive. Removing a destination does not delete remote files.
+Path C (each host writes straight to Drive, OneDrive, or the NAS, with nothing on `/backups` first) is discovered in [PLAN_v1.10.0.md](PLAN_v1.10.0.md) §4. The decision and the build are Must on [PLAN_v1.11.0.md](PLAN_v1.11.0.md) (`v1.11.0-dev`). No shape is chosen. It is not built. Enabling **Backups** still means the herder rsyncs the host onto `/backups`. Drive, OneDrive, and SMB still copy that mirror. restic stays out. borg, kopia, and rclone crypt are not planned. Restore from Drive, OneDrive, or SMB is a Discover note on that train, not built. Copying the herder self-backup is opt-in per destination on [PLAN_v1.10.0.md](PLAN_v1.10.0.md): one `.tar.gz` is copied to `herder/` on that destination. A failed copy does not delete the local archive. Removing a destination does not delete remote files.
 
 ## LAN NAS / SMB (v1.9 path A)
 
