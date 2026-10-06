@@ -116,7 +116,7 @@ SSH access shows **two labeled public keys** when privileged exists: **Fleet pub
 
 - Creates e.g. `piherder` with key-only login  
 - Optional `docker` group  
-- Sudoers for rsync/test and optional apt/reboot (`visudo -cf` before install)  
+- Sudoers for rsync/test, `/var/lib/piherder/rclone` for a host that sends files straight out, and optional apt/reboot (`visudo -cf` before install). A host set up before that rclone path existed needs the script copied again from **SSH access** and applied again  
 - **Run on host** re-points `ssh_username` after verify  
 - **HAOS / specialised:** instructions only — not automated  
 

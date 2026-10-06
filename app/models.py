@@ -180,8 +180,8 @@ class Server(SQLModel, table=True):
     # Hosts left off still rsync onto /backups. Nothing of a direct host
     # is written under /backups first.
     backup_direct: bool = False
-    # Empty means every saved destination. A JSON list such as ["drive"]
-    # limits Backup now and the host schedule to those providers.
+    # A JSON list such as ["drive"]. Empty or missing means none.
+    # Backup now and the host schedule send only to the listed providers.
     backup_direct_targets: Optional[str] = None
     os_patch_enabled: bool = False
     container_patch_enabled: bool = False

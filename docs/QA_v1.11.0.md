@@ -27,15 +27,24 @@ Force 2FA is on. A passkey has to count as the second factor. App-based 2FA stay
 
 ## Path C decision (Must)
 
-Opt in, beside the pull. The write-up is in [PLAN_v1.11.0.md](PLAN_v1.11.0.md). This box stays empty until you read it.
+Opt in, beside the pull. The write-up is in [PLAN_v1.11.0.md](PLAN_v1.11.0.md). These boxes stay empty until you read it.
 
-- [ ] The plan names whether a host copies straight out, whether that replaces **Backups** or sits beside the pull, how rclone gets onto the host, and whether `/backups` stays for some hosts
+- [ ] A host can opt in. Hosts that do not opt in still rsync onto `/backups`
+- [ ] The operator picks one or more saved destinations. None start selected. Save refuses the opt-in with no destination
+- [ ] rclone reads the original files in place. The host does not store a second copy of the tree
+- [ ] The least-privilege script allows `/var/lib/piherder/rclone` for that run, and the temp config is deleted when the run ends
 
 ## Path C build (Must)
 
-The build is on this branch. A host can opt in. Other hosts still rsync onto `/backups`. Copy now on a direct host starts the push. This box stays empty until you walk a real destination.
+The build is on this branch. These boxes stay empty until you walk a real destination.
 
-- [ ] The chosen copy is walked on a real destination
+- [ ] With no destination saved, the straight-out tick is unavailable
+- [ ] With a destination saved, Save refuses the tick when no destination is selected
+- [ ] **Backup now** sends the original files to each ticked destination. Nothing new from that host appears under `/backups`
+- [ ] **Copy now** on one destination starts that push only
+- [ ] A least-privilege host can read root-owned files (MySQL data, `/var/lib/docker/volumes`) after the sudoers script is applied again
+- [ ] The original files keep their mode, owner, and modification time
+- [ ] Restore of that host from Drive, OneDrive, or the NAS is not offered. Restore still reads a tree on this PiHerder
 
 ## MCP Move (Should)
 

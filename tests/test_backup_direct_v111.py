@@ -16,7 +16,6 @@ from app.services import backup as backup_mod
 from app.services import backup_replicate as copies
 from app.services.backup_direct import (
     NO_DEST_MSG,
-    SUDO_RCLONE,
     followup_destinations,
     merge_directory,
     parse_direct_targets,
@@ -26,10 +25,22 @@ from app.services.backup_direct import (
     remote_sync_command,
     rewrite_service_account,
     run_direct_backup,
+    SUDO_RCLONE,
+    root_read_required_message,
     sudo_rclone_cleanup_command,
+    sudo_rclone_install_command,
 )
 from app.services.backup_replicate import enqueue_after_host_backup
 from app.services.ssh_onboarding import build_sudoers_content
+
+
+def _input_tag(html: str, testid: str) -> str:
+    marker = f'data-testid="{testid}"'
+    idx = html.find(marker)
+    assert idx != -1, testid
+    open_at = html.rfind("<input", 0, idx)
+    close_at = html.find(">", idx)
+    return html[open_at:close_at]
 
 
 def _host(**kwargs) -> Server:
@@ -45,11 +56,22 @@ def _host(**kwargs) -> Server:
     return Server(**data)
 
 
-def test_sudoers_allows_the_staged_rclone():
+def test_sudoers_allows_the_root_rclone():
     text = build_sudoers_content("ph", backup=True)
     assert "/usr/bin/rsync" in text
     assert SUDO_RCLONE in text
-    assert "/var/lib/piherder/rclone" in text
+
+
+def test_rclone_is_installed_root_owned_and_reads_in_place():
+    command = sudo_rclone_install_command("/tmp/piherder-rclone-abc")
+    assert "--chown=root:root" in command
+    assert command.endswith(" /var/lib/piherder/rclone")
+    assert "/tmp/ph-stage" not in command
+    assert "--chmod=D700" not in command
+    message = root_read_required_message()
+    assert "second copy" in message
+    assert SUDO_RCLONE in message
+    assert len(message) < 220
 
 
 def test_cleanup_deletes_only_the_staged_binary():
@@ -159,11 +181,11 @@ def test_backup_now_uses_the_ticked_destinations():
 
     only_nas = _host(backup_direct_targets='["smb"]')
     assert [row.provider for row in followup_destinations(Fake(), only_nas)] == ["smb"]
-    every = _host(backup_direct_targets=None)
-    assert [row.provider for row in followup_destinations(Fake(), every)] == ["drive", "smb"]
+    unset = _host(backup_direct_targets=None)
+    assert followup_destinations(Fake(), unset) == []
     none = _host(backup_direct_targets="[]")
     assert followup_destinations(Fake(), none) == []
-    assert parse_direct_targets("") is None
+    assert parse_direct_targets("") == []
     assert parse_direct_targets('["drive","nope","drive"]') == ["drive"]
 
 
@@ -343,10 +365,33 @@ def test_configure_opts_the_host_in_and_retention_leaves_it(client):
     page = test_client.get(f"/servers/{server_id}/backups")
     assert page.status_code == 200
     assert 'data-testid="backup-direct"' in page.text
-    assert 'data-testid="backup-direct-all"' in page.text
+    assert 'data-testid="backup-direct-all"' not in page.text
     assert 'data-testid="backup-direct-target-drive"' in page.text
     assert 'data-testid="backup-direct-target-smb"' in page.text
     assert 'data-testid="backup-direct-target-onedrive"' not in page.text
+    assert "disabled" not in _input_tag(page.text, "backup-direct")
+    assert "checked" not in _input_tag(page.text, "backup-direct-target-drive")
+    assert "checked" not in _input_tag(page.text, "backup-direct-target-smb")
+    refused = test_client.post(
+        f"/servers/{server_id}/backup-config",
+        data={
+            "backup_paths": "/tmp/should-not-save",
+            "retention_days": "7",
+            "backup_schedule": "",
+            "dest_root": "/backups",
+            "folder_name": "pi.local",
+            "scope": "this_host",
+            "backup_direct_set": "1",
+            "backup_direct": "1",
+        },
+        follow_redirects=False,
+    )
+    assert refused.status_code == 400
+    assert "Select a destination" in refused.text
+    with Session(engine) as session:
+        row = session.get(Server, server_id)
+        assert row.backup_direct is False
+        assert "/tmp/should-not-save" not in (row.backup_paths or "")
     saved = test_client.post(
         f"/servers/{server_id}/backup-config",
         data={
@@ -378,5 +423,47 @@ def test_configure_opts_the_host_in_and_retention_leaves_it(client):
     again = test_client.get(f"/servers/{server_id}/backups")
     assert again.status_code == 200
     assert "straight to Google Drive" in again.text
-    assert 'data-testid="backup-direct"' in again.text
-    assert "checked" in again.text
+    assert "checked" in _input_tag(again.text, "backup-direct")
+    assert "checked" in _input_tag(again.text, "backup-direct-target-drive")
+    assert "checked" not in _input_tag(again.text, "backup-direct-target-smb")
+
+
+def test_opt_in_stays_unavailable_until_a_destination_is_saved(client):
+    test_client, engine = client
+    with Session(engine) as session:
+        user = User(
+            email="empty@test.local",
+            hashed_password=get_password_hash("SmokeTest1ok!"),
+            role="admin",
+            is_active=True,
+            must_change_password=False,
+            totp_enabled=True,
+        )
+        server = Server(name="Pi", hostname="pi.local", backup_enabled=True, backup_direct=False)
+        session.add(user)
+        session.add(server)
+        session.commit()
+        session.refresh(user)
+        session.refresh(server)
+        server_id = server.id
+    test_client.cookies.set("access_token", create_user_access_token(user))
+    page = test_client.get(f"/servers/{server_id}/backups")
+    assert page.status_code == 200
+    assert "disabled" in _input_tag(page.text, "backup-direct")
+    assert 'data-testid="backup-direct-none"' in page.text
+    assert 'data-testid="backup-direct-target-drive"' not in page.text
+    refused = test_client.post(
+        f"/servers/{server_id}/backup-config",
+        data={
+            "scope": "this_host",
+            "backup_direct_set": "1",
+            "backup_direct": "1",
+            "backup_direct_target": "drive",
+        },
+        follow_redirects=False,
+    )
+    assert refused.status_code == 400
+    assert "Select a destination" in refused.text
+    with Session(engine) as session:
+        row = session.get(Server, server_id)
+        assert row.backup_direct is False

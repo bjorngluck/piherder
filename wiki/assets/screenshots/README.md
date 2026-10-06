@@ -58,7 +58,7 @@ Mask every token, the SMB password, and the Google and Microsoft client secrets.
 
 | Slice | Why |
 |-------|-----|
-| Path C | Host **Backups → Configure**: send files straight to the copy. No frame yet |
+| Path C | Host **Backups → Configure**: send files straight to the copy, with one or more saved destinations ticked. No frame yet |
 | NAS **Copy now** | Walk signed 2026-10-04. Optional file `settings-backup-copy-now.png` only. Do not use the demo |
 | Dependabot | A YAML file and GitHub settings. No product screen |
 | Pending self-backup | A job row and a critical alert. Capture only if you are already in that failure. Optional file `herder-backup-pending.png` |
