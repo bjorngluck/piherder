@@ -137,7 +137,6 @@ async def server_backups(
 
     direct_choices = configured_destination_choices(session)
     direct_picked = parse_direct_targets(getattr(server, "backup_direct_targets", None))
-    direct_all = direct_picked is None
     _nav = host_feature_context(session, int(user.id) if user else None, server, "backups")
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -162,8 +161,7 @@ async def server_backups(
             "restore_candidates": restore_candidates,
             "restore_result": None,
             "direct_choices": direct_choices,
-            "direct_all": direct_all,
-            "direct_picked": direct_picked or [],
+            "direct_picked": direct_picked,
             "direct_where": direct_where_label(
                 getattr(server, "backup_direct_targets", None),
                 direct_choices,
@@ -350,6 +348,26 @@ async def update_backup_config(
     if not server:
         raise HTTPException(404)
 
+    # Refuse before any other field is written. A direct host needs a pick.
+    pending_targets: str | None = None
+    if backup_direct_set == "1" and backup_direct == "1":
+        from ..services.backup_direct import (
+            SELECT_DEST_MSG,
+            configured_destinations,
+            selected_direct_providers,
+        )
+
+        form = await request.form()
+        saved = {row.provider for row in configured_destinations(session)}
+        chosen = [
+            provider
+            for provider in selected_direct_providers(form.getlist("backup_direct_target"))
+            if provider in saved
+        ]
+        if not chosen:
+            raise HTTPException(400, SELECT_DEST_MSG)
+        pending_targets = json.dumps(chosen)
+
     if backup_schedule is not None:
         cron = backup_schedule.strip() or None
         if cron and pycron:
@@ -423,18 +441,7 @@ async def update_backup_config(
     if backup_direct_set == "1":
         server.backup_direct = backup_direct == "1"
         if server.backup_direct:
-            form = await request.form()
-            # No choice on the form means all. That is also the state before
-            # any destination has been saved.
-            if form.get("backup_direct_targets_set") != "1" or form.get("backup_direct_all") == "1":
-                server.backup_direct_targets = None
-            else:
-                seen: list[str] = []
-                for item in form.getlist("backup_direct_target"):
-                    provider = str(item or "").strip().lower()
-                    if provider in ("drive", "onedrive", "smb") and provider not in seen:
-                        seen.append(provider)
-                server.backup_direct_targets = json.dumps(seen)
+            server.backup_direct_targets = pending_targets
         session.add(server)
         session.commit()
 

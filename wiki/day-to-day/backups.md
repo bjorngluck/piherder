@@ -18,7 +18,19 @@ Homelab hosts hold compose data, configs, and media that are painful to rebuild.
 
 See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 
-**Backups** pulls the chosen paths onto this herder unless that host is set to send files straight out. **Copy the backup drive** then sends the mirror. On the host’s **Backups** page, **Configure** can opt that host in and choose Google Drive, OneDrive, the LAN share, or all of the saved ones. **Backup now** and the schedule use that choice. **Copy now** still sends only the destination that is open. A direct host sends its files to those copies. Nothing of that host lands on `/backups` first. rclone is copied to the host for the run and removed when the run ends. The sign-in stays on this PiHerder. Hosts that do not opt in still rsync onto `/backups`. **Copy now** on a direct host starts that push. Restore of a direct host from Drive, OneDrive, or the NAS is not available. Restore still reads a tree on this PiHerder.
+**Backups** pulls the chosen paths onto this herder unless that host is set to send files straight out. **Copy the backup drive** then sends the mirror. Hosts that do not opt in still rsync onto `/backups`.
+
+### Send a host straight out
+
+On the host’s **Backups** page, **Configure** can opt that host in. The tick stays unavailable until Google Drive, OneDrive, or a LAN share is saved under **Settings → PiHerder backup**.
+
+When the tick is on, choose one or more of those saved destinations. None are selected until you pick. **Save configuration** asks for a destination when the tick is on and nothing is selected. **Backup now** and the schedule send to the destinations you ticked. **Copy now** still sends only the destination that is open, and on this host it starts that push.
+
+Nothing of that host is stored under `/backups` first. rclone reads the original files in place and sends them straight on. It does not write a second copy of the tree on the Pi. The binary is copied for the run to `/var/lib/piherder/rclone`, owned by root, and removed when the run ends. The sign-in stays on this PiHerder. The temp config is deleted with the binary.
+
+A least-privilege host needs that path in the script from **SSH access**. Copy the script again and apply it on a host that was set up before this option existed. Root and Home Assistant OS run the copy as that login. The host must be able to reach Google, Microsoft, or the NAS.
+
+The original files stay as they are. The copy keeps each file’s modification time. A share or Drive does not store a Unix owner the way the herder disk does. Retention days do not age the remote files. Restore of a direct host from Drive, OneDrive, or the NAS is not available. Restore still reads a tree on this PiHerder.
 
 ### Copy to Google Drive (v1.8 train)
 
@@ -89,7 +101,7 @@ A service account cannot store these files on a personal Gmail Drive. It has no 
 
 **Where in PiHerder:** Settings → **PiHerder backup** → **Copy the backup drive**. Pick **LAN NAS / SMB**.
 
-This is a second copy, independent of Google Drive and OneDrive. Host backups still rsync into `/backups` on this PiHerder. rclone then sends the ticked folders to one SMB share. The share does not replace that local directory. A saved Drive or OneDrive copy keeps running if you also save SMB.
+This is a second copy, independent of Google Drive and OneDrive. Hosts that have not opted to send files straight out still rsync into `/backups` on this PiHerder. rclone then sends the ticked folders to one SMB share. The share does not replace that local directory. A host that has opted in is listed even with no folder on `/backups`, and **Copy now** starts that host’s push to this share. A saved Drive or OneDrive copy keeps running if you also save SMB.
 
 **Remove** (admin, confirm `remove`) deletes that one provider's saved destination and its secret. The other providers stay. Files already on Drive, OneDrive, or the share are not deleted. The public demo refuses. This is not a job and not an agent action.
 
@@ -106,7 +118,7 @@ The password is stored with the instance master key and is not written to the jo
 
 **Where in PiHerder:** Settings → **PiHerder backup** → **Copy the backup drive**. Pick **OneDrive**.
 
-This is another copy, independent of Google Drive and the LAN share. rclone sends the ticked folders to a folder in the default drive of the Microsoft account you sign in with. Host backups still land on this PiHerder first. A Microsoft 365 personal plan already includes that OneDrive storage. The plan does not include a directory for the app registration below.
+This is another copy, independent of Google Drive and the LAN share. rclone sends the ticked folders to a folder in the default drive of the Microsoft account you sign in with. Hosts that have not opted to send files straight out still land on this PiHerder first. A host that has opted in sends straight to this drive when OneDrive is one of its ticked destinations. A Microsoft 365 personal plan already includes that OneDrive storage. The plan does not include a directory for the app registration below.
 
 A personal Microsoft account that has never had Azure lands in a tenant named **Microsoft Services**. App registrations refuse that tenant. The message names identity provider `live.com` and application `74658136-14ec-4630-ad9b-26e160ff0fc6`. Signing in again does not create a directory.
 
@@ -174,6 +186,7 @@ On Frigate/NVR-style trees, rsync may hit **code 24** (vanished files). From **v
 
 - Default: `--rsync-path "sudo -n rsync"` (or local sudo) so a least-priv user can still read protected trees.  
 - **Root user / HAOS:** plain `rsync` is auto-probed and used when sudo is not available.
+- A host set to send files straight out does not use this rsync pull. rclone reads the original files in place. See [Send a host straight out](#send-a-host-straight-out).
 
 ## Schedules
 

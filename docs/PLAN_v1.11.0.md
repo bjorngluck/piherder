@@ -27,8 +27,8 @@ This train fixes the passkey gate and builds the Path C choice below. An agent m
 | Topic | Lock |
 |-------|------|
 | Must, first | **Passkey versus Force 2FA.** On signup, with 2FA enforced, a passkey cannot be registered. A passkey already in place still forces app-based 2FA. A passkey is not treated as 2FA on the account. The tag waits on this |
-| Must | **Path C discovery.** A host can opt in to send its files straight to Drive, OneDrive, or the NAS. Nothing of that host lands on `/backups` first. Hosts that do not opt in still rsync onto `/backups`, and the herder copy of that mirror stays. Copy now on a direct host starts the host push. rclone is copied to the host for that run and the temp config is deleted when the run ends. Input was [PLAN_v1.10.0.md](PLAN_v1.10.0.md) §4 |
-| Must | **Path C build.** Build that choice. The tag waits on it. Restore from Drive, OneDrive, or the NAS stays a Discover note |
+| Must | **Path C discovery.** A host can opt in and pick one or more saved destinations. None start selected. Save refuses the opt-in with no destination. The host sends its files straight to those destinations. Nothing of that host lands on `/backups` first, and the host does not store a second copy. Hosts that do not opt in still rsync onto `/backups`, and the herder copy of that mirror stays. Copy now on a direct host starts that destination's push. rclone reads the original files in place for that run, as root when the backup user is not root, using /var/lib/piherder/rclone. The temp config is deleted when the run ends. Input was [PLAN_v1.10.0.md](PLAN_v1.10.0.md) §4 |
+| Must | **Path C build.** That choice is on this branch. The tag waits on the operator walk. Restore from Drive, OneDrive, or the NAS stays a Discover note |
 | Should | **MCP Move.** An agent can start a Move. The tag can ship if it slips |
 | Should | **MCP nmap.** An agent can start or read a LAN Discovery scan. The tag can ship if it slips |
 | Discover | **NPM CRUD.** A note only. Move can still retarget a backend |
@@ -52,6 +52,9 @@ This train fixes the passkey gate and builds the Path C choice below. An agent m
 | 2026-10-06 | **Passkey versus Force 2FA.** Signup can add a passkey. A passkey satisfies the enroll wall. The account, the Users list, and `recover_admin list` treat a passkey as 2FA. The authenticator app stays optional. Not a version bump. |
 | 2026-10-06 | **Path C.** Opt in, beside the pull. A direct host pushes with rclone copied for the run. The temp config is deleted when the run ends. Other hosts still rsync onto `/backups`. Copy now on a direct host starts that push. Restore from the remote copy is not built. Not a version bump. |
 | 2026-10-06 | **Path C targets.** Backup now and the host schedule can send to one saved destination or to all of them. Copy now stays the destination that is open. Not a version bump. |
+| 2026-10-06 | **Path C targets, again.** All configured is gone. None are selected until the operator picks. Save refuses a direct host with no destination. The opt-in stays unavailable until a destination is saved under Settings. Copy now stays the destination that is open. |
+| 2026-10-06 | **Path C read.** A direct host reads the original files in place as root. No second copy on the host. The least-privilege script allows `/var/lib/piherder/rclone` for that run. |
+| 2026-10-07 | **Docs.** Wiki and the living plans describe the in-place read, the required destination pick, and the sudoers path. QA boxes stay empty. Not a version bump. |
 
 ---
 

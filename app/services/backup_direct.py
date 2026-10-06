@@ -1,9 +1,9 @@
 """Opt-in direct backup. The host sends its own files to a saved copy.
 
-rclone from this image is copied to the host for the run. The rclone config
-is a temp file on the host and is removed when the run ends. Hosts that do
-not opt in still rsync onto /backups, and the herder copy of that mirror is
-unchanged. Restore from Drive, OneDrive, or the NAS is not built here.
+rclone reads the original files in place. For a non-root backup user it
+runs as root, from a binary installed for that run only. Nothing is copied
+on the host first. Hosts that do not opt in still rsync onto /backups.
+Restore from Drive, OneDrive, or the NAS is not built here.
 """
 from __future__ import annotations
 
@@ -34,13 +34,16 @@ from .ssh import get_ssh_client, run_command
 
 logger = logging.getLogger(__name__)
 
-# Fixed path so least-privilege sudoers can allow it. The binary is copied
-# for the run and removed at the end. It is not a standing install.
+# Fixed path so least-privilege sudoers can allow it. Root-owned, copied
+# for the run, and removed at the end. Not a standing install.
 SUDO_RCLONE = "/var/lib/piherder/rclone"
 
 NO_DEST_MSG = (
-    "Choose a saved destination for this host, or All. Add Google Drive, "
-    "OneDrive, or a LAN share under Settings → PiHerder backup first."
+    "Select a destination for this host. Add Google Drive, OneDrive, "
+    "or a LAN share under Settings → PiHerder backup first."
+)
+SELECT_DEST_MSG = (
+    "Select a destination. Choose Google Drive, OneDrive, or a LAN share."
 )
 
 DIRECT_PROVIDERS = ("drive", "onedrive", "smb")
@@ -107,6 +110,27 @@ def remote_sync_command(
             continue
         argv.extend(["--exclude", pattern if "." in Path(pattern).name else f"{pattern}/**"])
     return " ".join(shlex.quote(part) for part in argv)
+
+
+def sudo_rclone_install_command(user_bin: str) -> str:
+    """Install the binary root-owned so sudo can read the original files.
+
+    The backup user cannot rewrite it. The directory stays root-owned.
+    """
+    return (
+        "sudo -n rsync -a --chown=root:root --chmod=755 --mkpath "
+        + shlex.quote(user_bin)
+        + " "
+        + shlex.quote(SUDO_RCLONE)
+    )
+
+
+def root_read_required_message() -> str:
+    """Shown when sudo rsync works but sudo cannot run the staged rclone."""
+    return (
+        "A direct copy reads the original files as root and does not make a second copy. "
+        f"Allow {SUDO_RCLONE} in the least-privilege script from SSH access, then apply it on the host."
+    )
 
 
 def sudo_rclone_cleanup_command(empty_dir: str) -> str:
@@ -315,26 +339,28 @@ def _direct_entry(name: str, path: str) -> dict:
     }
 
 
-def parse_direct_targets(raw: str | None) -> list[str] | None:
-    """None means every saved destination. A list is the chosen providers.
-
-    An empty list means the operator turned them all off.
-    """
-    text = (raw or "").strip()
-    if not text:
-        return None
-    try:
-        data = json.loads(text)
-    except Exception:
-        return None
-    if not isinstance(data, list):
-        return None
+def selected_direct_providers(values) -> list[str]:
+    """Keep Drive, OneDrive, and SMB, in the order they were posted."""
     chosen: list[str] = []
-    for item in data:
+    for item in values or []:
         provider = str(item or "").strip().lower()
         if provider in DIRECT_PROVIDERS and provider not in chosen:
             chosen.append(provider)
     return chosen
+
+
+def parse_direct_targets(raw: str | None) -> list[str]:
+    """Providers this host sends to. Empty or missing means none."""
+    text = (raw or "").strip()
+    if not text:
+        return []
+    try:
+        data = json.loads(text)
+    except Exception:
+        return []
+    if not isinstance(data, list):
+        return []
+    return selected_direct_providers(data)
 
 
 def configured_destinations(session: Session) -> list[BackupDestination]:
@@ -359,23 +385,16 @@ def configured_destination_choices(session: Session) -> list[dict[str, str]]:
 def direct_where_label(raw: str | None, choices: list[dict[str, str]]) -> str:
     wanted = parse_direct_targets(raw)
     labels = {item["provider"]: item["label"] for item in choices}
-    if wanted is None:
-        return "every saved copy"
     names = [labels.get(provider) or destination_name(provider) for provider in wanted]
     return ", ".join(names) if names else "no destination chosen"
 
 
 def followup_destinations(session: Session, server: Server) -> list[BackupDestination]:
     """Saved destinations this direct host pushes to on Backup now."""
-    wanted = parse_direct_targets(getattr(server, "backup_direct_targets", None))
-    if wanted is not None and not wanted:
+    wanted = set(parse_direct_targets(getattr(server, "backup_direct_targets", None)))
+    if not wanted:
         return []
-    picked: list[BackupDestination] = []
-    for dest in configured_destinations(session):
-        if wanted is not None and dest.provider not in wanted:
-            continue
-        picked.append(dest)
-    return picked
+    return [dest for dest in configured_destinations(session) if dest.provider in wanted]
 
 
 def rels_for_push(destination: BackupDestination, server: Server) -> tuple[list[str], list[str]]:
@@ -579,7 +598,7 @@ def _push_unlocked(
     config_remote = f"/tmp/ph-rclone-{token}.conf"
     sa_remote = f"/tmp/ph-rclone-{token}.sa.json"
     empty_dir = f"/tmp/ph-empty-{token}"
-    sudo_installed = False
+    staged_as_root = False
     use_sudo = False
     binary = user_bin
     secret = ""
@@ -607,23 +626,27 @@ def _push_unlocked(
             else:
                 message = "rclone copied to the host did not start"
             return [{"source": folder, "rel": folder, "error": message}]
-        user = (server.ssh_username or "").strip().lower()
-        if user and user != "root":
-            install = (
-                "sudo -n rsync -a --chmod=755 --mkpath "
-                + shlex.quote(user_bin)
-                + " "
-                + shlex.quote(SUDO_RCLONE)
+        user = (server.ssh_username or "").strip()
+        if user and user.lower() != "root":
+            rc, _out, err = run_command(
+                client, sudo_rclone_install_command(user_bin), timeout=30
             )
-            rc, _out, _err = run_command(client, install, timeout=30)
-            if rc == 0:
-                rc2, _, _ = run_command(
-                    client, "sudo -n " + shlex.quote(SUDO_RCLONE) + " version", timeout=30
-                )
-                if rc2 == 0:
-                    use_sudo = True
-                    binary = SUDO_RCLONE
-                    sudo_installed = True
+            if rc != 0:
+                return [
+                    {
+                        "source": folder,
+                        "rel": folder,
+                        "error": (err or "Could not install rclone for a root read")[:500],
+                    }
+                ]
+            staged_as_root = True
+            rc, _out, err = run_command(
+                client, "sudo -n " + shlex.quote(SUDO_RCLONE) + " version", timeout=30
+            )
+            if rc != 0:
+                return [{"source": folder, "rel": folder, "error": root_read_required_message()}]
+            use_sudo = True
+            binary = SUDO_RCLONE
         local_config, secret, refresh, use_trash = _open_destination_rclone(destination)
         with open(local_config, encoding="utf-8") as handle:
             rewritten, local_sa = rewrite_service_account(handle.read(), sa_remote)
@@ -671,12 +694,6 @@ def _push_unlocked(
                 [secret, refresh],
                 heartbeat=f"Still sending {src}…",
             )
-            if rc != 0 and not use_sudo and "permission" in err.lower():
-                err = (
-                    f"{err} — the backup user can sudo rsync, and a direct copy "
-                    f"uses sudo only after the least-privilege script allows {SUDO_RCLONE}. "
-                    "Copy that script from SSH access and apply it on the host."
-                )
             if rc != 0:
                 results.append(
                     {
@@ -702,7 +719,7 @@ def _push_unlocked(
                     config_remote=config_remote,
                     sa_remote=sa_remote,
                     empty_dir=empty_dir,
-                    sudo_installed=sudo_installed,
+                    sudo_installed=staged_as_root,
                 )
             except Exception:
                 logger.warning("direct backup cleanup failed for %s", hostname, exc_info=True)

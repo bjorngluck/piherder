@@ -372,34 +372,29 @@
       <div class="ph-config-section">
         <div class="ph-config-section-title">Where the files go</div>
         <input type="hidden" name="backup_direct_set" value="1">
-        <label class="flex gap-2 text-sm items-start min-h-11">
+        <label class="flex gap-2 text-sm items-start min-h-11{% if not direct_choices %} opacity-50{% endif %}">
           <input type="checkbox" name="backup_direct" value="1" class="mt-1"
                  data-testid="backup-direct"
-                 {% if server.backup_direct %}checked{% endif %}>
+                 {% if not direct_choices %}disabled title="Add a destination under Settings → PiHerder backup first"{% endif %}
+                 {% if server.backup_direct and direct_choices %}checked{% endif %}>
           <span>Send this host’s files straight to a saved copy. Nothing is stored under the backup drive first. Other hosts still copy onto this PiHerder.</span>
         </label>
+        {% if direct_choices %}
         <div id="backup-direct-targets" class="mt-2 mb-3{% if not server.backup_direct %} hidden{% endif %}" data-testid="backup-direct-targets">
           <p class="text-xs text-muted mb-1">Backup now and the schedule send to</p>
-          {% if direct_choices %}
-          <input type="hidden" name="backup_direct_targets_set" value="1">
-          <label class="flex gap-2 text-sm items-center min-h-11">
-            <input type="checkbox" name="backup_direct_all" value="1" data-testid="backup-direct-all"
-                   {% if direct_all %}checked{% endif %}>
-            All configured
-          </label>
           {% for choice in direct_choices %}
           <label class="flex gap-2 text-sm items-center min-h-11">
             <input type="checkbox" name="backup_direct_target" value="{{ choice.provider }}"
                    data-direct-target data-testid="backup-direct-target-{{ choice.provider }}"
-                   {% if direct_all or choice.provider in direct_picked %}checked{% endif %}>
+                   {% if choice.provider in direct_picked %}checked{% endif %}>
             {{ choice.label }}
           </label>
           {% endfor %}
-          {% else %}
-          <p class="text-xs text-muted" data-testid="backup-direct-none">No destination is saved yet. Add Google Drive, OneDrive, or a LAN share under Settings → PiHerder backup.</p>
-          {% endif %}
         </div>
-        <p class="text-xs text-muted mt-1 mb-3">Copy now on one destination still starts that push only. rclone is copied to the host for the run and removed when it ends. The sign-in stays here. Root-owned files need the least-privilege script from SSH access to allow <span class="font-mono">/var/lib/piherder/rclone</span>. Restore from the remote copy is not available.</p>
+        {% else %}
+        <p class="text-xs text-muted mt-1 mb-3" data-testid="backup-direct-none">No destination is saved yet. Add Google Drive, OneDrive, or a LAN share under Settings → PiHerder backup.</p>
+        {% endif %}
+        <p class="text-xs text-muted mt-1 mb-3">Copy now on one destination still starts that push only. rclone is copied to the host for the run and removed when it ends. The sign-in stays here. Files are read in place and sent straight on. The least-privilege script must allow <span class="font-mono">/var/lib/piherder/rclone</span>. Restore from the remote copy is not available.</p>
         <div class="ph-config-section-title">Destination</div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
@@ -495,25 +490,10 @@ function confirmRemoveBackupSource() {
 document.addEventListener('DOMContentLoaded', () => {
   const directBox = document.querySelector('[data-testid="backup-direct"]');
   const directPick = document.getElementById('backup-direct-targets');
-  const directAll = document.querySelector('[data-testid="backup-direct-all"]');
-  const directTargets = Array.from(document.querySelectorAll('[data-direct-target]'));
   function syncDirectPick() {
     if (directPick && directBox) directPick.classList.toggle('hidden', !directBox.checked);
   }
   if (directBox) directBox.addEventListener('change', syncDirectPick);
-  if (directAll) {
-    directAll.addEventListener('change', function () {
-      if (!directAll.checked) return;
-      directTargets.forEach(function (box) { box.checked = true; });
-    });
-  }
-  directTargets.forEach(function (box) {
-    box.addEventListener('change', function () {
-      if (!directAll) return;
-      if (!box.checked) directAll.checked = false;
-      else if (directTargets.every(function (item) { return item.checked; })) directAll.checked = true;
-    });
-  });
   syncDirectPick();
 
   const addForm = document.querySelector('form[action$="/backup/add"]');
