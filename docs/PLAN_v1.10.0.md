@@ -37,7 +37,7 @@
 
 **Discover. A note only. No client and no page:**
 
-- **Path C.** Discovery is written below. No build on this train. The decision, and a build if that decision says yes, wait for **v1.11.0**. That train is not opened.
+- **Path C.** Discovery is written below. No build on this train. The decision and the build are Must on [PLAN_v1.11.0.md](PLAN_v1.11.0.md) (`v1.11.0-dev`). No shape is chosen there yet.
 - **Template fleet** was pulled onto this train. The template page lists the hosts and stacks. It is not a Discover row anymore. **Signed 2026-10-04.**
 
 **Out.** Path B (CIFS mount as the dest root). AC-fg. Brand-3. ACME-in-herder. NPM CRUD. A richer Files token API. M-live. A herder→Home Assistant webhook. Undo of a finished Move. MCP Move, undo, nmap, the console, token admin, `docker_stack_down`, and `docker_stack_remove`. restic, borg, kopia, and rclone crypt. Restore from Drive, SMB, or OneDrive. SMB Kerberos. Selectable hero stats. A templates catalog redesign. Git-rich onboard. Optional AI. Ansible / cloud-init. Discord / Discussions. Swarm / Kubernetes. A higher coverage fail-under (stays **80**). The console mobile Tab issue. Stricter command-audit redaction. CodeQL. Actions pinned to commit SHAs. `CODEOWNERS`.
@@ -103,6 +103,7 @@ main (image 1.9.0)
 | 2026-10-04 | **Release notes drafted** in [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md). Tag not cut. Package stays **1.9.0**. Screenshots stay uncaptured. |
 | 2026-10-05 | **Code freeze.** Screenshot pack wired. Package **1.10.0**. Wiki banner and release badge point at **1.10.0**. Tag not cut. Image not published. |
 | 2026-10-05 | **Released.** Tag **v1.10.0**. Hub `1.10.0` / `1.10` / `latest`, manifest `sha256:0a1286cb0864e153ea1af6ba8b458175da051c8a54fc98d701539c08dcd99d04`. Pin `1.9.0` left in place. |
+| 2026-10-06 | **v1.11.0 train opened** on `v1.11.0-dev`. [PLAN_v1.11.0.md](PLAN_v1.11.0.md). |
 
 ---
 
@@ -122,7 +123,7 @@ main (image 1.9.0)
 
 ## 4. Path C discovery — a host copies straight out
 
-**Parked for v1.11.0.** This section is the discovery. It does not choose a design. It does not build one. v1.11.0 is not opened. The NAS **Copy now** walk on this train stays the pull onto `/backups`, then the herder copy.
+**Parked for v1.11.0.** This section is the discovery. It does not choose a design. It does not build one. v1.11.0 is opened on `v1.11.0-dev` ([PLAN_v1.11.0.md](PLAN_v1.11.0.md)). The NAS **Copy now** walk on this train stays the pull onto `/backups`, then the herder copy.
 
 ### What is true today
 
@@ -187,7 +188,7 @@ The pull plus the herder copy helps when one machine holds the credentials and r
 
 ### Not decided
 
-Whether Path C is built. Whether it replaces **Backups** or sits beside it. Whether rclone is installed by the operator or copied for one run. Whether `/backups` remains for some hosts. Those questions are for **v1.11.0**. Restore from Drive, SMB, or OneDrive stays out.
+Whether Path C is built. Whether it replaces **Backups** or sits beside it. Whether rclone is installed by the operator or copied for one run. Whether `/backups` remains for some hosts. Those questions are for **v1.11.0** ([PLAN_v1.11.0.md](PLAN_v1.11.0.md)). Restore from Drive, SMB, or OneDrive is a Discover note on that train. It is not built here.
 
 ---
 
