@@ -96,6 +96,7 @@ def test_remote_command_points_at_the_temp_config():
     assert "sudo -n /var/lib/piherder/rclone" in command
     assert "/tmp/ph-rclone-abc.conf" in command
     assert "sync /home/pi/docker dest:PiHerder/pi.local/docker" in command
+    assert "--local-no-check-updated" in command
     assert "--drive-use-trash" in command
     assert "secret-value" not in command
 

@@ -55,6 +55,7 @@ This train fixes the passkey gate and builds the Path C choice below. An agent m
 | 2026-10-06 | **Path C targets, again.** All configured is gone. None are selected until the operator picks. Save refuses a direct host with no destination. The opt-in stays unavailable until a destination is saved under Settings. Copy now stays the destination that is open. |
 | 2026-10-06 | **Path C read.** A direct host reads the original files in place as root. No second copy on the host. The least-privilege script allows `/var/lib/piherder/rclone` for that run. |
 | 2026-10-07 | **Docs.** Wiki and the living plans describe the in-place read, the required destination pick, and the sudoers path. QA boxes stay empty. Not a version bump. |
+| 2026-10-07 | **Path C live files.** A file that grows during the copy, such as a live log, is sent at the size first seen. That does not fail the run. Not a version bump. |
 
 ---
 
