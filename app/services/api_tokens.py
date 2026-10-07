@@ -842,6 +842,63 @@ def api_meta_dict() -> dict:
                     "Hosted MCP start_discovery calls this route. No caller targets."
                 ),
             },
+            {
+                "method": "GET",
+                "path": "/api/v1/discovery/{id}/devices",
+                "scope": "read",
+                "summary": "Paged LAN Discovery devices. Optional state, limit, and offset.",
+            },
+            {
+                "method": "PATCH",
+                "path": "/api/v1/discovery/{id}/devices/{device_id}",
+                "scope": "edit",
+                "summary": "Rename a device or set known, new, or ignored",
+            },
+            {
+                "method": "POST",
+                "path": "/api/v1/discovery/{id}/devices/{device_id}/ignore",
+                "scope": "edit",
+                "summary": "Hide a LAN Discovery device",
+            },
+            {
+                "method": "POST",
+                "path": "/api/v1/discovery/{id}/devices/{device_id}/unignore",
+                "scope": "edit",
+                "summary": "Show a LAN Discovery device again",
+            },
+            {
+                "method": "POST",
+                "path": "/api/v1/discovery/{id}/devices/{device_id}/link",
+                "scope": "edit",
+                "summary": "Link a device to a fleet server",
+            },
+            {
+                "method": "POST",
+                "path": "/api/v1/discovery/{id}/devices/{device_id}/unlink",
+                "scope": "edit",
+                "summary": "Unlink a device. It becomes known.",
+            },
+            {
+                "method": "DELETE",
+                "path": "/api/v1/discovery/{id}/devices/{device_id}",
+                "scope": "edit",
+                "summary": "Purge one device. A linked device is refused. No undo.",
+            },
+            {
+                "method": "POST",
+                "path": "/api/v1/discovery/{id}/devices/purge-stale",
+                "scope": "edit",
+                "summary": "Purge offline devices. Linked devices stay. No undo.",
+            },
+            {
+                "method": "POST",
+                "path": "/api/v1/discovery/{id}/devices/{device_id}/scans",
+                "scope": "jobs",
+                "summary": (
+                    "Scan one device inside the saved ranges. confirm must be true. "
+                    "Hosted MCP scan_discovery_device calls this route."
+                ),
+            },
             {"method": "GET", "path": "/api/v1/jobs", "scope": "read", "summary": "List jobs"},
             {"method": "GET", "path": "/api/v1/jobs/{id}", "scope": "read", "summary": "Job detail"},
             {

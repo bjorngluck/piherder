@@ -19,7 +19,7 @@ Devices are **not** managed fleet servers until you **link** or **promote** them
 
 PiHerder already manages hosts you onboarded. Discovery answers: *what else is on my LAN, and which of those do I want to manage?* Scans never run silently: you configure CIDRs and start work manually, via **schedules you enable**, or from hosted `/mcp`.
 
-An agent with `read` can read the saved ranges and recent scans (`read_discovery`). An agent with `jobs` can start a scan of those ranges (`start_discovery`, `confirm` true). The agent does not choose the ranges. Vulnerability scripts stay off. Schedules and the console stay on this page. Adapter **0.4.0** lists these tools. Adapter **0.3.1** does not. See [Agents (MCP)](../operations/mcp.md).
+An agent with `read` can read the saved ranges and recent scans (`read_discovery`). An agent with `jobs` can start a scan of those ranges (`start_discovery`, `confirm` true). The agent does not choose the ranges. Vulnerability scripts stay off. Schedules and the console stay on this page. An agent with `edit` can rename a device, mark it known, new, or ignored, link it to a fleet server, and purge one device or the offline rows. A linked device cannot be purged. An agent with `jobs` can scan one device that already sits inside the saved ranges (`scan_discovery_device`). Vulnerability scripts stay off. Adapter **0.4.1** lists these device tools. `uvx piherder-mcp` installs **0.4.1**. A cached **0.4.0** does not send the device tools. See [Agents (MCP)](../operations/mcp.md).
 
 ---
 

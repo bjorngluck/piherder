@@ -259,12 +259,21 @@ Hosted MCP `trigger_job` uses this same list, including `container_start`, `cont
 | `GET` | `/api/v1/discovery/{id}` | `read` | Recent scans and a short device list |
 | `GET` | `/api/v1/discovery/{id}/runs/{run_id}` | `read` | One scan |
 | `POST` | `/api/v1/discovery/{id}/scans` | `jobs` | Start a scan of the saved ranges (HTTP **202**) |
+| `GET` | `/api/v1/discovery/{id}/devices` | `read` | Paged devices. `state`, `limit`, `offset` |
+| `PATCH` | `/api/v1/discovery/{id}/devices/{device_id}` | `edit` | `display_name` and/or `state` (`known`, `new`, `ignored`) |
+| `POST` | `/api/v1/discovery/{id}/devices/{device_id}/ignore` | `edit` | Hide the device |
+| `POST` | `/api/v1/discovery/{id}/devices/{device_id}/unignore` | `edit` | Mark known. A linked device stays linked |
+| `POST` | `/api/v1/discovery/{id}/devices/{device_id}/link` | `edit` | Body `server_id` |
+| `POST` | `/api/v1/discovery/{id}/devices/{device_id}/unlink` | `edit` | Device becomes known |
+| `DELETE` | `/api/v1/discovery/{id}/devices/{device_id}` | `edit` | Purge one device. A linked device is **400** |
+| `POST` | `/api/v1/discovery/{id}/devices/purge-stale` | `edit` | Purge offline devices. Linked devices stay |
+| `POST` | `/api/v1/discovery/{id}/devices/{device_id}/scans` | `jobs` | Scan one device inside the saved ranges (HTTP **202**) |
 
 ```json
 { "confirm": true, "intensity": "discovery" }
 ```
 
-`confirm` must be `true`. `intensity` is `discovery` (the default), `inventory`, `detailed`, or `deep`. The body cannot set targets or vulnerability scripts. The scan uses the CIDRs saved on that integration. **400** when Discovery is off, when no ranges are saved, or when `confirm` is not true. The response names the ranges. It does not include credentials, script output, or the scan file path. Hosted MCP `read_discovery` and `start_discovery` call these routes. Adapter **0.4.0** lists them. Adapter **0.3.1** does not. Demo does not start a scan.
+`confirm` must be `true`. `intensity` is `discovery` (the default), `inventory`, `detailed`, or `deep`. The body cannot set targets or vulnerability scripts. The scan uses the CIDRs saved on that integration. **400** when Discovery is off, when no ranges are saved, or when `confirm` is not true. The response names the ranges. It does not include credentials, script output, or the scan file path. Hosted MCP `read_discovery` and `start_discovery` call the scan routes. Hosted `list_discovery_devices`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices`, and `scan_discovery_device` call the device routes. A rename leaves kind and map role alone. A new or offline device becomes known when it is named. A linked device cannot be marked new and cannot be purged. Purge has no undo. A one-device scan defaults to `deep`, must sit inside the saved ranges, and keeps vulnerability scripts off. The device payload is id, ip, hostname, display name, state, linked server, and last seen. No MAC, notes, or script output. Each write stores this token and the client IP. Adapter **0.4.1** lists the device tools. Adapter **0.4.0** lists the scan tools and does not list the device tools. Demo does not start a scan.
 
 ### Stale data cleanup
 

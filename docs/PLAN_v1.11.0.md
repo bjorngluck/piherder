@@ -6,11 +6,11 @@
 **Package / image version:** stays **`1.10.0`** until freeze. About / footer still say **1.10.0**. Image on Hub stays `1.10.0` / `1.10` / `latest`.  
 **Theme:** a passkey counts as 2FA, then a host copies straight to Drive, OneDrive, or the NAS  
 **Baseline:** `v1.10.0` (tagged 2026-10-05; Hub digest `sha256:0a1286cb0864e153ea1af6ba8b458175da051c8a54fc98d701539c08dcd99d04`)  
-**Mode:** **Must → Should → Discover.** Must **passkey versus Force 2FA** · **Path C discovery** · **Path C build**. Should **MCP Move** and **MCP nmap** have landed. Walks are still empty.  
+**Mode:** **Must → Should → Discover.** Must **passkey versus Force 2FA** · **Path C discovery** · **Path C build**. Should **MCP Move**, **MCP nmap**, and **discovery devices** have landed. Walks are still empty.  
 **QA:** [QA_v1.11.0.md](QA_v1.11.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [PLAN_v1.10.0.md](PLAN_v1.10.0.md) · [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md)
 
-> Opened 2026-10-06 from `main` after **v1.10.0** shipped. The passkey fix has landed. Path C is opt-in beside the pull. Hosted `/mcp` can start a stop-first Move and can read or start a LAN Discovery scan of the saved ranges. Adapter **0.4.0** lists those tools. That adapter tag is not cut. PyPI stays **0.3.1**. Production stays **v1.10.0**. The public demo is not pointed at this branch.
+> Opened 2026-10-06 from `main` after **v1.10.0** shipped. The passkey fix has landed. Path C is opt-in beside the pull. Hosted `/mcp` can start a stop-first Move and can read or start a LAN Discovery scan of the saved ranges. Adapter **[0.4.0](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.0)** is on PyPI. `uvx piherder-mcp` installs it. A cached **0.3.1** does not send those three tools. Adapter **[0.4.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.1)** adds the device tools from issue [#34](https://github.com/bjorngluck/piherder/issues/34). `uvx piherder-mcp` installs **0.4.1**. A cached **0.4.0** does not send those device tools. Production stays **v1.10.0**. The public demo is not pointed at this branch.
 
 ---
 
@@ -31,6 +31,7 @@ This train fixes the passkey gate and builds the Path C choice below. An agent c
 | Must | **Path C build.** That choice is on this branch. The tag waits on the operator walk. A finished **Backup** job and its audit row name the destination. The sign-in stays out. Restore from Drive, OneDrive, or the NAS stays a Discover note |
 | Should | **MCP Move.** Hosted `/mcp` `start_move` starts a stop-first Move. `confirm` must be true. The source is left stopped. Undo stays out. `trigger_job` still refuses `service_migrate`. The tag can ship if the operator walk slips |
 | Should | **MCP nmap.** Hosted `/mcp` can read a LAN Discovery scan and can start one of the saved ranges. The agent does not choose the ranges. Vulnerability scripts stay off. The tag can ship if the operator walk slips |
+| Should | **Discovery devices.** Issue [#34](https://github.com/bjorngluck/piherder/issues/34). An agent can rename a device, mark it known, new, or ignored, link it to a server, and purge one device or the offline rows. A linked device cannot be purged. A one-device scan stays inside the saved ranges and keeps vulnerability scripts off. Kind and map role stay on the rename. Adapter **0.4.1** is on PyPI. A cached **0.4.0** does not send the device tools |
 | Discover | **NPM CRUD.** A note only. Move can still retarget a backend |
 | Discover | **Remote restore.** A note only. Restore stays a reverse rsync from `/backups` |
 | Discover | **Git-rich onboard.** A note only. A stack still comes from a compose file or a template |
@@ -59,7 +60,9 @@ This train fixes the passkey gate and builds the Path C choice below. An agent c
 | 2026-10-07 | **Path C jobs.** **Copy now** and the destination schedule for a direct host stay `backup_replicate` and show **Direct copy**. A herder-folder hop stays **Backup copy**. **Backup now** on the host stays a **Backup** job. The two copy hops share one destination slot. Not a version bump. |
 | 2026-10-07 | **Path C where.** A finished direct **Backup** job and its audit row name the destination. The sign-in stays out. Not a version bump. |
 | 2026-10-07 | **Docs.** The jobs table, the audit summary, and the backup notes describe that destination. QA stays empty. Not a version bump. |
-| 2026-10-07 | **MCP Move and MCP nmap.** Hosted `/mcp` can start a stop-first Move and can read or start a LAN Discovery scan of the saved ranges. Undo stays out. `trigger_job` still refuses `service_migrate`. The agent does not choose scan ranges. Vulnerability scripts stay off. Adapter **0.4.0** lists `start_move`, `read_discovery`, and `start_discovery`. Adapter **0.3.1** does not. The adapter tag is not cut. PyPI stays **0.3.1**. QA stays empty. Herder package stays `1.10.0`. |
+| 2026-10-07 | **MCP Move and MCP nmap.** Hosted `/mcp` can start a stop-first Move and can read or start a LAN Discovery scan of the saved ranges. Undo stays out. `trigger_job` still refuses `service_migrate`. The agent does not choose scan ranges. Vulnerability scripts stay off. Adapter **0.4.0** lists `start_move`, `read_discovery`, and `start_discovery`. Adapter **0.3.1** does not. QA stays empty. Herder package stays `1.10.0`. |
+| 2026-10-07 | **Adapter tag.** [v0.4.0](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.0) is on PyPI. `uvx piherder-mcp` installs **0.4.0**. A cached **0.3.1** does not send the three tools. Herder package stays `1.10.0`. |
+| 2026-10-07 | **Discovery devices.** Issue [#34](https://github.com/bjorngluck/piherder/issues/34). The token API and hosted `/mcp` can rename, mark, link, and purge LAN Discovery devices. A linked device cannot be purged. A one-device scan stays inside the saved ranges. Tag **[v0.4.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.1)**. `uvx piherder-mcp` installs **0.4.1**. A cached **0.4.0** does not send the device tools. QA stays empty. Herder package stays `1.10.0`. |
 
 ---
 
@@ -70,7 +73,7 @@ This train fixes the passkey gate and builds the Path C choice below. An agent c
 | 1 | Open **`v1.11.0-dev`** | **Done** 2026-10-06 |
 | 2 | **Passkey versus Force 2FA** | **Landed.** Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
 | 3 | **Path C** decision, then the build | **Choice written. Build landed.** Opt in, beside the pull. Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
-| 4 | Should, if it fits | **MCP Move**, **MCP nmap**. **Landed.** Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
+| 4 | Should, if it fits | **MCP Move**, **MCP nmap**, **discovery devices** ([#34](https://github.com/bjorngluck/piherder/issues/34)). **Landed.** Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
 | 5 | Discover write-ups | **NPM CRUD**, remote restore, git-rich onboard. Notes only |
 | 6 | Freeze · version bump · tag · Hub | Only when asked |
 
