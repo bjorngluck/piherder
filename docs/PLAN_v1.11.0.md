@@ -57,6 +57,7 @@ This train fixes the passkey gate and builds the Path C choice below. An agent m
 | 2026-10-07 | **Docs.** Wiki and the living plans describe the in-place read, the required destination pick, and the sudoers path. QA boxes stay empty. Not a version bump. |
 | 2026-10-07 | **Path C live files.** A file that grows during the copy, such as a live log, is sent at the size first seen. That does not fail the run. Not a version bump. |
 | 2026-10-07 | **Path C jobs.** **Copy now** and the destination schedule for a direct host stay `backup_replicate` and show **Direct copy**. A herder-folder hop stays **Backup copy**. **Backup now** on the host stays a **Backup** job. The two copy hops share one destination slot. Not a version bump. |
+| 2026-10-07 | **Path C where.** A finished direct **Backup** job and its audit row name the destination. The sign-in stays out. Not a version bump. |
 
 ---
 

@@ -200,6 +200,19 @@ def _backup_summary(data: dict) -> str:
             if r.get("size_human"):
                 parts.append(str(r["size_human"]))
                 break
+    where = str(data.get("where") or "").strip()
+    if not where:
+        seen: list[str] = []
+        for row in results:
+            if not isinstance(row, dict):
+                continue
+            # The row where includes the source folder. The summary names the place.
+            item = str(row.get("destination") or "").strip()
+            if item and item not in seen:
+                seen.append(item)
+        where = ", ".join(seen)
+    if where:
+        parts.append(where[:160])
     return " · ".join(parts)
 
 

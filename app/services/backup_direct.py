@@ -26,6 +26,7 @@ from .backup_replicate import (
     _redact,
     credentials_saved,
     destination_name,
+    destination_place,
     discard_rclone_config,
     host_folder_name,
     parse_selection,
@@ -393,6 +394,20 @@ def direct_where_label(raw: str | None, choices: list[dict[str, str]]) -> str:
     return ", ".join(names) if names else "no destination chosen"
 
 
+def _stamp_place(destination: BackupDestination, row: dict) -> dict:
+    """Name the destination on a result row. The sign-in stays out."""
+    stamped = dict(row)
+    root = destination_place(destination)
+    rel = str(row.get("rel") or "").strip().strip("/")
+    stamped["destination"] = destination_name(destination.provider)
+    stamped["where"] = f"{root}/{rel}" if rel else root
+    return stamped
+
+
+def _stamp_rows(destination: BackupDestination, rows: list[dict]) -> list[dict]:
+    return [_stamp_place(destination, row) for row in rows]
+
+
 def followup_destinations(session: Session, server: Server) -> list[BackupDestination]:
     """Saved destinations this direct host pushes to on Backup now."""
     wanted = set(parse_direct_targets(getattr(server, "backup_direct_targets", None)))
@@ -465,7 +480,12 @@ def run_direct_backup(
         backup_mod._active_job_id.pop(hostname, None)
         return {"server": hostname, "direct": True, "error": NO_DEST_MSG, "results": results}
 
-    backup_mod._set_progress(hostname, current="preparing", log_line="Sending files straight to the copy")
+    where = "; ".join(destination_place(dest) for dest in dests)
+    backup_mod._set_progress(
+        hostname,
+        current="preparing",
+        log_line=f"Sending files to {where}"[:500],
+    )
     lock = backup_mod._get_backup_lock(int(server.id or 0))
     with lock:
         for dest in dests:
@@ -481,7 +501,7 @@ def run_direct_backup(
             results.extend(batch)
     backup_mod._clear_progress(hostname)
     backup_mod._active_job_id.pop(hostname, None)
-    return {"server": hostname, "direct": True, "results": results}
+    return {"server": hostname, "direct": True, "where": where, "results": results}
 
 
 def push_groups(
@@ -523,24 +543,31 @@ def push_server(
 
     folder = host_folder_name(server) or server.hostname
     if demo_mode():
-        return [{"source": folder, "rel": folder, "error": "Demo does not upload"}]
+        return _stamp_rows(
+            destination, [{"source": folder, "rel": folder, "error": "Demo does not upload"}]
+        )
     token = None
     if own_lock:
         if not getattr(server, "id", None):
-            return [{"source": folder, "rel": folder, "error": "Host is missing an id"}]
+            return _stamp_rows(
+                destination, [{"source": folder, "rel": folder, "error": "Host is missing an id"}]
+            )
         token = try_acquire_server_lock(
             "backup",
             int(server.id),
             holder=f"direct-{getattr(destination, 'id', None) or 'copy'}",
         )
         if not token:
-            return [
-                {
-                    "source": folder,
-                    "rel": folder,
-                    "error": "Another backup is running on this host",
-                }
-            ]
+            return _stamp_rows(
+                destination,
+                [
+                    {
+                        "source": folder,
+                        "rel": folder,
+                        "error": "Another backup is running on this host",
+                    }
+                ],
+            )
     try:
         if own_lock:
             from . import backup as backup_mod
@@ -586,13 +613,16 @@ def _push_unlocked(
     use_sources = sources if sources is not None else server.get_backup_sources()
     plans = planned_syncs(server, use_sources, rels, skipped)
     if not plans:
-        return [
-            {
-                "source": folder,
-                "rel": folder,
-                "error": "Nothing on this host matches the ticked folder",
-            }
-        ]
+        return _stamp_rows(
+            destination,
+            [
+                {
+                    "source": folder,
+                    "rel": folder,
+                    "error": "Nothing on this host matches the ticked folder",
+                }
+            ],
+        )
     label = destination_name(destination.provider)
     remote_root = _remote_root(destination)
     client = None
@@ -611,7 +641,7 @@ def _push_unlocked(
     try:
         herder_bin = herder_rclone_bin()
     except FileNotFoundError as exc:
-        return [{"source": folder, "rel": folder, "error": str(exc)}]
+        return _stamp_rows(destination, [{"source": folder, "rel": folder, "error": str(exc)}])
     try:
         client = get_ssh_client(server)
         sftp = client.open_sftp()
@@ -630,26 +660,32 @@ def _push_unlocked(
                 )
             else:
                 message = "rclone copied to the host did not start"
-            return [{"source": folder, "rel": folder, "error": message}]
+            return _stamp_rows(destination, [{"source": folder, "rel": folder, "error": message}])
         user = (server.ssh_username or "").strip()
         if user and user.lower() != "root":
             rc, _out, err = run_command(
                 client, sudo_rclone_install_command(user_bin), timeout=30
             )
             if rc != 0:
-                return [
-                    {
-                        "source": folder,
-                        "rel": folder,
-                        "error": (err or "Could not install rclone for a root read")[:500],
-                    }
-                ]
+                return _stamp_rows(
+                    destination,
+                    [
+                        {
+                            "source": folder,
+                            "rel": folder,
+                            "error": (err or "Could not install rclone for a root read")[:500],
+                        }
+                    ],
+                )
             staged_as_root = True
             rc, _out, err = run_command(
                 client, "sudo -n " + shlex.quote(SUDO_RCLONE) + " version", timeout=30
             )
             if rc != 0:
-                return [{"source": folder, "rel": folder, "error": root_read_required_message()}]
+                return _stamp_rows(
+                    destination,
+                    [{"source": folder, "rel": folder, "error": root_read_required_message()}],
+                )
             use_sudo = True
             binary = SUDO_RCLONE
         local_config, secret, refresh, use_trash = _open_destination_rclone(destination)
@@ -673,7 +709,12 @@ def _push_unlocked(
             src = plan["source"]
             if not _folder_exists_via_ssh(client, plan["local"], server.ssh_username or ""):
                 backup_mod._set_progress(hostname, log_line=f"Skipped {src}: directory does not exist")
-                results.append({"source": src, "rel": plan["rel"], "skipped": True, "reason": "missing"})
+                results.append(
+                    _stamp_place(
+                        destination,
+                        {"source": src, "rel": plan["rel"], "skipped": True, "reason": "missing"},
+                    )
+                )
                 continue
             remote_path = f"{remote_root}/{plan['rel']}"
             command = remote_sync_command(
@@ -702,22 +743,33 @@ def _push_unlocked(
             )
             if rc != 0:
                 results.append(
-                    {
-                        "source": src,
-                        "rel": plan["rel"],
-                        "rc": rc,
-                        "error": (err or "rclone failed")[:500],
-                    }
+                    _stamp_place(
+                        destination,
+                        {
+                            "source": src,
+                            "rel": plan["rel"],
+                            "rc": rc,
+                            "error": (err or "rclone failed")[:500],
+                        },
+                    )
                 )
             else:
-                results.append({"source": src, "rel": plan["rel"], "rc": 0, "direct": True})
+                results.append(
+                    _stamp_place(
+                        destination,
+                        {"source": src, "rel": plan["rel"], "rc": 0, "direct": True},
+                    )
+                )
         return results
     except Exception as exc:
         logger.warning("direct backup failed for %s: %s", hostname, exc)
         message = scrub_job_text(
             _redact(_redact(_redact(str(exc)[:500], secret), refresh), obscured)
         )
-        return [{"source": folder, "rel": folder, "error": message or "direct backup failed"}]
+        return _stamp_rows(
+            destination,
+            [{"source": folder, "rel": folder, "error": message or "direct backup failed"}],
+        )
     finally:
         if client is not None:
             try:
