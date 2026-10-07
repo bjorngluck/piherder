@@ -19,6 +19,7 @@ A host that sends files straight to Drive, OneDrive, or the NAS reads the origin
 - **Permission denied** on a MySQL or Docker data directory — rclone ran as the backup user. The sudoers line above is missing, so the copy could not read as root. The pull still works, because that pull is `sudo rsync`.
 - **The host cannot reach the destination** — the Pi itself needs a route to Google, Microsoft, or the NAS. The herder reaching the Pi is not enough.
 - **Select a destination** — **Configure** has the straight-out tick on and no saved destination is ticked. Pick Google Drive, OneDrive, or the LAN share, then save.
+- **sizes differ** on a live log, including a `.partial` log — the file grew while it was being sent. The copy sends the size it had when the transfer started and continues. A size mismatch on a file that is not changing is still a failed copy.
 - Restore of that host from Drive, OneDrive, or the NAS is not available. Restore still reads a tree already on this PiHerder.
 
 ## Vanished files / busy sources

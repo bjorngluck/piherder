@@ -30,7 +30,7 @@ Nothing of that host is stored under `/backups` first. rclone reads the original
 
 A least-privilege host needs that path in the script from **SSH access**. Copy the script again and apply it on a host that was set up before this option existed. Root and Home Assistant OS run the copy as that login. The host must be able to reach Google, Microsoft, or the NAS.
 
-The original files stay as they are. The copy keeps each file’s modification time. A share or Drive does not store a Unix owner the way the herder disk does. Retention days do not age the remote files. Restore of a direct host from Drive, OneDrive, or the NAS is not available. Restore still reads a tree on this PiHerder.
+The original files stay as they are. A file that grows during the copy, such as a live log, is sent at the size it had when the copy started. The copy keeps that file’s modification time. A share or Drive does not store a Unix owner the way the herder disk does. Retention days do not age the remote files. Restore of a direct host from Drive, OneDrive, or the NAS is not available. Restore still reads a tree on this PiHerder.
 
 ### Copy to Google Drive (v1.8 train)
 

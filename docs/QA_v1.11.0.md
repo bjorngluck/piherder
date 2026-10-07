@@ -44,6 +44,7 @@ The build is on this branch. These boxes stay empty until you walk a real destin
 - [ ] **Copy now** on one destination starts that push only
 - [ ] A least-privilege host can read root-owned files (MySQL data, `/var/lib/docker/volumes`) after the sudoers script is applied again
 - [ ] The original files keep their mode, owner, and modification time
+- [ ] A follow-up copy succeeds while a log is still being written. That log is sent at the size it had when the copy started
 - [ ] Restore of that host from Drive, OneDrive, or the NAS is not offered. Restore still reads a tree on this PiHerder
 
 ## MCP Move (Should)

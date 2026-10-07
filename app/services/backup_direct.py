@@ -89,6 +89,7 @@ def remote_sync_command(
     use_trash: bool,
     use_sudo: bool,
 ) -> str:
+    # A live log can grow while it is read. Keep the size first seen.
     argv = ["sudo", "-n", binary] if use_sudo else [binary]
     argv.extend(
         [
@@ -97,6 +98,7 @@ def remote_sync_command(
             f"dest:{remote_path}",
             "--config",
             config_path,
+            "--local-no-check-updated",
             "--stats-one-line",
             "--stats",
             "0",
