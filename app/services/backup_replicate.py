@@ -311,6 +311,21 @@ def destination_name(provider: str) -> str:
     return "Google Drive"
 
 
+def destination_place(destination: BackupDestination) -> str:
+    """Where a copy lands. Folder, or SMB host/share/path. No sign-in."""
+    label = destination_name(getattr(destination, "provider", None) or "")
+    provider = (getattr(destination, "provider", None) or "").strip().lower()
+    cfg = _load_cfg(destination)
+    if provider == "smb":
+        host = str(cfg.get("host") or "").strip()
+        share = str(cfg.get("share") or "").strip().strip("/")
+        path = str(cfg.get("remote_dir") or "").strip().strip("/")
+        tail = "/".join(bit for bit in (host, share, path) if bit)
+        return f"{label} · {tail}" if tail else label
+    folder = str(cfg.get("remote_dir") or "PiHerder").strip().strip("/") or "PiHerder"
+    return f"{label} · {folder}"
+
+
 def normalize_provider(value: str | None) -> str:
     provider = (value or "drive").strip().lower()
     if provider not in _SELECTABLE:

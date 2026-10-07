@@ -31,7 +31,7 @@ from app.services.backup_direct import (
     sudo_rclone_cleanup_command,
     sudo_rclone_install_command,
 )
-from app.services.backup_replicate import enqueue_after_host_backup
+from app.services.backup_replicate import destination_place, enqueue_after_host_backup
 from app.services.ssh_onboarding import build_sudoers_content
 
 
@@ -55,6 +55,72 @@ def _host(**kwargs) -> Server:
     )
     data.update(kwargs)
     return Server(**data)
+
+
+def test_destination_place_names_the_share_and_hides_the_sign_in():
+    smb = BackupDestination(
+        provider="smb",
+        config_json=json.dumps(
+            {
+                "host": "192.168.86.42",
+                "share": "piherder-test",
+                "remote_dir": "PiHerder",
+                "username": "piherder",
+                "password": "smb-secret-9f3c1a",
+            }
+        ),
+    )
+    place = destination_place(smb)
+    assert place == "LAN NAS / SMB · 192.168.86.42/piherder-test/PiHerder"
+    assert "smb-secret" not in place
+    assert "piherder@" not in place
+    drive = BackupDestination(
+        provider="drive",
+        config_json=json.dumps(
+            {
+                "remote_dir": "Backup_PiHerder",
+                "oauth_client_id": "client-id.apps.googleusercontent.com",
+                "oauth_client_secret_encrypted": "enc-secret",
+            }
+        ),
+    )
+    drive_place = destination_place(drive)
+    assert drive_place == "Google Drive · Backup_PiHerder"
+    assert "client-id" not in drive_place
+    assert "enc-secret" not in drive_place
+
+
+def test_audit_names_the_direct_destination():
+    from app.services.audit_format import _backup_summary
+    from app.services.backup_audit import compact_backup_snippet
+
+    summary = {
+        "server": "rpi5-3.hacknow.info",
+        "direct": True,
+        "where": "LAN NAS / SMB · 192.168.86.42/piherder-test/PiHerder",
+        "results": [
+            {
+                "source": "/home/bjorn/docker/",
+                "rel": "rpi5-3.hacknow.info/docker",
+                "rc": 0,
+                "direct": True,
+                "destination": "LAN NAS / SMB",
+                "where": (
+                    "LAN NAS / SMB · 192.168.86.42/piherder-test/PiHerder/"
+                    "rpi5-3.hacknow.info/docker"
+                ),
+            }
+        ],
+    }
+    snip = compact_backup_snippet(summary, ok=True)
+    assert snip["where"] == summary["where"]
+    assert snip["direct"] is True
+    assert snip["results"][0]["destination"] == "LAN NAS / SMB"
+    assert "rpi5-3.hacknow.info/docker" in snip["results"][0]["where"]
+    line = _backup_summary(snip)
+    assert "LAN NAS / SMB" in line
+    assert "192.168.86.42/piherder-test/PiHerder" in line
+    assert "smb-secret" not in line
 
 
 def test_sudoers_allows_the_root_rclone():
