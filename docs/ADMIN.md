@@ -344,7 +344,7 @@ Opt-in Catalog integration — see user wiki [LAN Discovery](../wiki/integration
 | Soft embed | Linked device → server list LAN chip + server detail card |
 | Discovery ≠ Server | Link / promote / dismiss are operator-driven |
 | Worker fence | Compose hard-codes `PIHERDER_NMAP_WORKER=0` (web/main celery) and `=1` (`celery-worker-nmap` + `Dockerfile.nmap`); tasks refuse without nmap binary or when marker is 0 (`worker_guard`). Documented in [`.env.example`](../.env.example) (usually **not** set in `.env` — compose owns it). |
-| Agents | Hosted `/mcp` `read_discovery` (scope `read`) and `start_discovery` (scope `jobs`, `confirm` true). The scan uses the saved CIDRs. The agent does not choose ranges. Vulnerability scripts stay off. Adapter **0.4.0** lists these tools. Adapter **0.3.1** does not |
+| Agents | Hosted `/mcp` `read_discovery` (scope `read`) and `start_discovery` (scope `jobs`, `confirm` true). The scan uses the saved CIDRs. The agent does not choose ranges. Vulnerability scripts stay off. Adapter **0.4.1** also lists rename, mark, link, and purge. A linked device cannot be purged. Adapter **0.4.0** lists the scan tools and does not list the device tools |
 | Migration | `030_nmap_kind_map_role` — `kind_override`, `map_role` |
 
 ### Optional host cleanup (piherder user)
@@ -609,7 +609,7 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
 | **Image pin** | Hub **`1.9.0`** / `1.9` / `latest` (`1.8.1` / `1.8` stays the previous image. Pin `1.8.0` stays valid. Pins `1.7.0` / `1.7` stay valid) |
 
-Current release: [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [QA_v1.10.0.md](QA_v1.10.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md). Package **1.10.0**. Image `1.10.0` / `1.10` / `latest`. Pin `1.9.0` / `1.9` stays the previous image. Active train: [PLAN_v1.11.0.md](PLAN_v1.11.0.md) on `v1.11.0-dev`. Passkey, Path C, MCP Move, and MCP nmap have landed. Walks are still empty. Adapter **0.4.0** is not tagged. Package stays **1.10.0** until freeze. Prior: [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current release: [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [QA_v1.10.0.md](QA_v1.10.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md). Package **1.10.0**. Image `1.10.0` / `1.10` / `latest`. Pin `1.9.0` / `1.9` stays the previous image. Active train: [PLAN_v1.11.0.md](PLAN_v1.11.0.md) on `v1.11.0-dev`. Passkey, Path C, MCP Move, and MCP nmap have landed. Walks are still empty. Adapter **[0.4.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.1)** is on PyPI. Package stays **1.10.0** until freeze. Prior: [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 

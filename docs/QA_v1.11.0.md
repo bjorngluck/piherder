@@ -63,6 +63,15 @@ Hosted `/mcp` can read a LAN Discovery scan and can start one of the saved range
 - [ ] An agent can read a LAN Discovery scan through hosted `/mcp`
 - [ ] An agent can start a scan of the saved ranges through hosted `/mcp`
 
+## Discovery devices (Should)
+
+Issue [#34](https://github.com/bjorngluck/piherder/issues/34). Same actions as the device page. A linked device cannot be purged. A one-device scan stays inside the saved ranges. Vulnerability scripts stay off.
+
+- [ ] An agent can rename a device and mark it known
+- [ ] An agent can link a device to a fleet server
+- [ ] Purge of a linked device is refused, and purge of offline devices removes only those rows
+- [ ] A one-device scan uses an address inside the saved ranges and does not run vulnerability scripts
+
 ## Discover (notes, not walks)
 
 - **NPM CRUD.** Creating and editing proxy hosts stays a note. Move can still retarget a backend.

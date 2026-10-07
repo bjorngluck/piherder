@@ -96,13 +96,13 @@ Call the herder through the published HTTPS port (Caddy **8443**, or **8888** fo
 
 ## What a token can do
 
-Tool names match adapter **[0.4.0](https://github.com/bjorngluck/piherder-mcp/blob/main/docs/RELEASE_v0.4.0.md)**, including `start_move`, `read_discovery`, and `start_discovery`. Adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)** does not list those three. Hosted `trigger_job` accepts the four one-service types below. Adapter **0.3.1** and **0.4.0** both send those four. `uvx` at **0.2.0** still refuses them. Tools appear only for scopes on the token. A token **without `read` fails closed**: initialize returns an error and no tools are listed.
+Tool names match adapter **[0.4.1](https://github.com/bjorngluck/piherder-mcp/blob/v0.4.1/docs/RELEASE_v0.4.1.md)**, including `start_move`, `read_discovery`, and `start_discovery`. Adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)** does not list those three. Hosted `trigger_job` accepts the four one-service types below. Adapter **0.3.1** and **0.4.0** both send those four. `uvx` at **0.2.0** still refuses them. Tools appear only for scopes on the token. A token **without `read` fails closed**: initialize returns an error and no tools are listed.
 
 | Scope | Tools |
 |-------|--------|
-| `read` | `health`, `summary`, `list_servers`, `get_server`, `inventory`, `services`, `list_jobs`, `get_job`, `read_discovery` |
-| `jobs` | `trigger_job`, `start_move`, `start_discovery` |
-| `edit` | `set_features` |
+| `read` | `health`, `summary`, `list_servers`, `get_server`, `inventory`, `services`, `list_jobs`, `get_job`, `read_discovery`, `list_discovery_devices` |
+| `jobs` | `trigger_job`, `start_move`, `start_discovery`, `scan_discovery_device` |
+| `edit` | `set_features`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices` |
 | `files` | `list_files`, `read_file`, `write_file`, `mkdir`, `rename_file`, `delete_file` |
 
 ### Tools
@@ -121,6 +121,14 @@ Tool names match adapter **[0.4.0](https://github.com/bjorngluck/piherder-mcp/bl
 | `start_move` | `jobs` | Start a stop-first Move. `confirm` must be true. The source stack is left stopped. There is no undo. |
 | `read_discovery` | `read` | Read saved LAN Discovery ranges and recent scans. |
 | `start_discovery` | `jobs` | Start a scan of those saved ranges. `confirm` must be true. |
+| `list_discovery_devices` | `read` | Page devices. Optional `state`, `limit`, and `offset`. |
+| `scan_discovery_device` | `jobs` | Scan one device inside those ranges. `confirm` must be true. |
+| `rename_discovery_device` | `edit` | Set the operator name. Kind and map role stay. |
+| `set_discovery_device_state` | `edit` | Set `known`, `new`, or `ignored`. |
+| `link_discovery_device` | `edit` | Link a device to a fleet server. |
+| `unlink_discovery_device` | `edit` | Unlink a device. It becomes known. |
+| `purge_discovery_device` | `edit` | Delete one device. `confirm` must be true. A linked device is refused. |
+| `purge_stale_discovery_devices` | `edit` | Delete offline devices. `confirm` must be true. Linked devices stay. |
 | `set_features` | `edit` | Toggle `backup`, `os_patch`, or `docker`. Omit a field to leave it unchanged. |
 | `list_files` | `files` | List a fleet-jail directory. `p` is jail-relative. `""` is the jail root. |
 | `read_file` | `files` | Download one fleet-jail file. Capped around 256 KiB. The result says when it was cut. |
@@ -168,13 +176,17 @@ Not accepted on `trigger_job`: `docker_stack_down`, `docker_stack_remove`, `temp
 
 `read_discovery` lists saved ranges and the latest scan. Pass `integration_id` for recent scans and a short device list, or `integration_id` and `run_id` for one scan. Credentials, script output, and the scan file path stay out.
 
-`start_discovery` takes `integration_id` and `confirm: true`. Optional `intensity` is `discovery`, `inventory`, `detailed`, or `deep`. The scan uses the ranges saved on that integration. The agent does not choose the ranges. Vulnerability scripts stay off. Schedules, the vuln pack, and the console stay in the PiHerder UI. Adapter **0.4.0** lists `read_discovery` and `start_discovery`. Adapter **0.3.1** does not.
+`start_discovery` takes `integration_id` and `confirm: true`. Optional `intensity` is `discovery`, `inventory`, `detailed`, or `deep`. The scan uses the ranges saved on that integration. The agent does not choose the ranges. Vulnerability scripts stay off. Schedules, the vuln pack, and the console stay in the PiHerder UI.
 
-Read tools set `readOnlyHint`. `set_features`, `trigger_job`, `start_move`, `start_discovery`, `write_file`, `mkdir`, `rename_file`, and `delete_file` set `destructiveHint`.
+`list_discovery_devices` pages devices. `state` is `new`, `known`, `linked`, `ignored`, or `stale`. `rename_discovery_device` sets the operator name and leaves kind and map role alone. A new or offline device becomes known when it is named. `set_discovery_device_state` sets `known`, `new`, or `ignored`. A linked device cannot be marked new. `link_discovery_device` takes `server_id`. `unlink_discovery_device` makes the device known. `purge_discovery_device` and `purge_stale_discovery_devices` need `confirm: true`. A linked device cannot be purged. Offline purge removes only `stale` rows. There is no undo. `scan_discovery_device` scans one device whose address sits inside the saved ranges. Default intensity is `deep`. Vulnerability scripts stay off. The audit row stores the token and the client IP.
+
+Adapter **0.4.1** lists these device tools. Adapter **0.4.0** lists `read_discovery` and `start_discovery` and does not list the device tools. Adapter **0.3.1** does not list the scan tools either. `uvx piherder-mcp` installs **0.4.1**. A cached **0.4.0** does not send the device tools.
+
+Read tools set `readOnlyHint`. `set_features`, `trigger_job`, `start_move`, `start_discovery`, `scan_discovery_device`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices`, `write_file`, `mkdir`, `rename_file`, and `delete_file` set `destructiveHint`.
 
 ## What stays out
 
-SSH, the web console, Move undo, DNS, certificates, Settings, token create/revoke, stale data cleanup, and removing a Drive or SMB destination. `docker_stack_down`, `docker_stack_remove`, and `template_drift_check` stay off `trigger_job`. Privileged Files, zip, chmod, and recursive delete stay in the browser. Fleet-jail Files tools stay. The public demo is not a target (API tokens are off there, so `/mcp` is too). The PiHerder UI still owns the console, the full Move wizard (port maps, source remove, undo), privileged Files, token admin, LAN Discovery schedules, and vulnerability scripts. Hosted `/mcp` and adapter **0.4.0** can start the stop-first Move and can read or start a scan of the saved ranges. Adapter **0.3.1** does not list `start_move`, `read_discovery`, or `start_discovery`.
+SSH, the web console, Move undo, DNS, certificates, Settings, token create/revoke, stale data cleanup, and removing a Drive or SMB destination. `docker_stack_down`, `docker_stack_remove`, and `template_drift_check` stay off `trigger_job`. Privileged Files, zip, chmod, and recursive delete stay in the browser. Fleet-jail Files tools stay. The public demo is not a target (API tokens are off there, so `/mcp` is too). The PiHerder UI still owns the console, the full Move wizard (port maps, source remove, undo), privileged Files, token admin, LAN Discovery schedules, and vulnerability scripts. Hosted `/mcp` and adapter **0.4.1** can start the stop-first Move, read or start a scan of the saved ranges, and rename, mark, link, or purge a device. Adapter **0.4.0** does not list the device tools. Adapter **0.3.1** does not list `start_move`, `read_discovery`, or `start_discovery`.
 
 ## Local / air-gapped fallback
 
@@ -188,7 +200,7 @@ export PIHERDER_TOKEN='ph_…'
 uvx piherder-mcp
 ```
 
-`uvx piherder-mcp` installs the latest release on PyPI. Adapter **[0.4.0](https://github.com/bjorngluck/piherder-mcp/blob/main/docs/RELEASE_v0.4.0.md)** adds `start_move`, `read_discovery`, and `start_discovery` on top of the **[0.3.1](https://pypi.org/project/piherder-mcp/0.3.1/)** job list. Its `trigger_job` list matches the table above, including the four one-service types. A machine that still has **0.3.1** does not send those three. A machine that still has **0.2.0** cached does not send those four.
+`uvx piherder-mcp` installs the latest release on PyPI, adapter **[0.4.1](https://pypi.org/project/piherder-mcp/0.4.1/)** (tag **[v0.4.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.1)**). It adds the device tools on top of **[0.4.0](https://pypi.org/project/piherder-mcp/0.4.0/)**. A machine that still has **0.4.0** cached does not send those device tools. Run `uvx --refresh piherder-mcp` to pick up **0.4.1**. A machine that still has **0.3.1** cached does not send `start_move`, `read_discovery`, or `start_discovery`. A machine that still has **0.2.0** cached does not send the four one-service types.
 
 Git pin, when you need a commit that is not the PyPI release:
 
