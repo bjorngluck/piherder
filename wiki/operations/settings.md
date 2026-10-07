@@ -36,7 +36,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 | **General** | Timezone (inline) plus a **hub** of summary cards — **Instance** (name, accent, Catalog in the nav), **Jobs** (max wait for the host), Security, Console, **Files** (transfer cap), SSO, Cleanup. **Edit** opens the full form in a modal |
 | **Alerts** | **Alert policy** (per-category severity / mute / debounce) + outbound **webhook** + **SMTP** — [details](alerts-email-webhooks.md) |
 | **Fleet defaults** | Global OS / container update-check defaults (optional apply to all hosts) |
-| **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)). The card under that is **Copy the backup drive** — Google Drive, OneDrive, or a LAN share ([Backups](../day-to-day/backups.md#copy-to-google-drive-v18-train)). A host can opt in on its Backups page to send files straight to one or more of those |
+| **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)). The card under that is **Copy the backup drive** — Google Drive, OneDrive, or a LAN share ([Backups](../day-to-day/backups.md#copy-to-google-drive-v18-train)). A host can opt in on its Backups page to send files straight to one or more of those destinations. The finished backup and its audit row name the place. The sign-in is not stored |
 | **Status** | Stack health: web, DB, Redis, Celery, scheduler, disk ([Status](status.md)) — admin |
 | **API** | Create / rotate / revoke instance Bearer tokens; **Try a token** smoke checks; OpenAPI `/docs` + ReDoc ([API tokens](api-tokens.md)) — admin |
 

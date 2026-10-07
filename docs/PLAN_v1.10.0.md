@@ -188,7 +188,7 @@ The pull plus the herder copy helps when one machine holds the credentials and r
 
 ### Answered on v1.11.0
 
-Whether Path C is built, whether it replaces **Backups** or sits beside it, whether rclone is installed by the operator or copied for one run, and whether `/backups` remains for some hosts. Those questions are answered on **v1.11.0** ([PLAN_v1.11.0.md](PLAN_v1.11.0.md)). A host opts in beside the pull and picks one or more saved destinations. rclone is copied for the run, reads the original files in place, and does not leave a second copy on the host. The least-privilege script allows `/var/lib/piherder/rclone`. Hosts that do not opt in still rsync onto `/backups`. Restore from Drive, SMB, or OneDrive is a Discover note on that train. It is not built here.
+Whether Path C is built, whether it replaces **Backups** or sits beside it, whether rclone is installed by the operator or copied for one run, and whether `/backups` remains for some hosts. Those questions are answered on **v1.11.0** ([PLAN_v1.11.0.md](PLAN_v1.11.0.md)). A host opts in beside the pull and picks one or more saved destinations. rclone is copied for the run, reads the original files in place, and does not leave a second copy on the host. The least-privilege script allows `/var/lib/piherder/rclone`. A finished Backup job and its audit row name the destination. The sign-in stays out. Hosts that do not opt in still rsync onto `/backups`. Restore from Drive, SMB, or OneDrive is a Discover note on that train. It is not built here.
 
 ---
 
