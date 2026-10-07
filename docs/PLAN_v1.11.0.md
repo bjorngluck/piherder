@@ -6,11 +6,11 @@
 **Package / image version:** stays **`1.10.0`** until freeze. About / footer still say **1.10.0**. Image on Hub stays `1.10.0` / `1.10` / `latest`.  
 **Theme:** a passkey counts as 2FA, then a host copies straight to Drive, OneDrive, or the NAS  
 **Baseline:** `v1.10.0` (tagged 2026-10-05; Hub digest `sha256:0a1286cb0864e153ea1af6ba8b458175da051c8a54fc98d701539c08dcd99d04`)  
-**Mode:** **Must → Should → Discover.** Must **passkey versus Force 2FA** · **Path C discovery** · **Path C build**.  
+**Mode:** **Must → Should → Discover.** Must **passkey versus Force 2FA** · **Path C discovery** · **Path C build**. Should **MCP Move** and **MCP nmap** have landed. Walks are still empty.  
 **QA:** [QA_v1.11.0.md](QA_v1.11.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [PLAN_v1.10.0.md](PLAN_v1.10.0.md) · [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md)
 
-> Opened 2026-10-06 from `main` after **v1.10.0** shipped. The passkey fix has landed. Path C is opt-in beside the pull. Production stays **v1.10.0**. The public demo is not pointed at this branch.
+> Opened 2026-10-06 from `main` after **v1.10.0** shipped. The passkey fix has landed. Path C is opt-in beside the pull. Hosted `/mcp` can start a stop-first Move and can read or start a LAN Discovery scan of the saved ranges. Adapter **0.4.0** lists those tools. That adapter tag is not cut. PyPI stays **0.3.1**. Production stays **v1.10.0**. The public demo is not pointed at this branch.
 
 ---
 
@@ -18,7 +18,7 @@
 
 v1.10.0 shipped OneDrive beside Google Drive and a LAN share, a copy of the herder self-backup, and browser sign-in for hosted `/mcp`. A passkey now counts as 2FA when Force 2FA is on. A host backup is still a pull onto `/backups` unless that host opts in. Path C was discovered in [PLAN_v1.10.0.md](PLAN_v1.10.0.md) §4.
 
-This train fixes the passkey gate and builds the Path C choice below. An agent may start a Move, and may start or read a LAN Discovery scan, if those fit before the tag.
+This train fixes the passkey gate and builds the Path C choice below. An agent can start a Move, and can start or read a LAN Discovery scan. The operator walk is still empty.
 
 ---
 
@@ -29,8 +29,8 @@ This train fixes the passkey gate and builds the Path C choice below. An agent m
 | Must, first | **Passkey versus Force 2FA.** On signup, with 2FA enforced, a passkey cannot be registered. A passkey already in place still forces app-based 2FA. A passkey is not treated as 2FA on the account. The tag waits on this |
 | Must | **Path C discovery.** A host can opt in and pick one or more saved destinations. None start selected. Save refuses the opt-in with no destination. The host sends its files straight to those destinations. Nothing of that host lands on `/backups` first, and the host does not store a second copy. Hosts that do not opt in still rsync onto `/backups`, and the herder copy of that mirror stays. Copy now on a direct host starts that destination's push. rclone reads the original files in place for that run, as root when the backup user is not root, using /var/lib/piherder/rclone. The temp config is deleted when the run ends. Input was [PLAN_v1.10.0.md](PLAN_v1.10.0.md) §4 |
 | Must | **Path C build.** That choice is on this branch. The tag waits on the operator walk. A finished **Backup** job and its audit row name the destination. The sign-in stays out. Restore from Drive, OneDrive, or the NAS stays a Discover note |
-| Should | **MCP Move.** An agent can start a Move. The tag can ship if it slips |
-| Should | **MCP nmap.** An agent can start or read a LAN Discovery scan. The tag can ship if it slips |
+| Should | **MCP Move.** Hosted `/mcp` `start_move` starts a stop-first Move. `confirm` must be true. The source is left stopped. Undo stays out. `trigger_job` still refuses `service_migrate`. The tag can ship if the operator walk slips |
+| Should | **MCP nmap.** Hosted `/mcp` can read a LAN Discovery scan and can start one of the saved ranges. The agent does not choose the ranges. Vulnerability scripts stay off. The tag can ship if the operator walk slips |
 | Discover | **NPM CRUD.** A note only. Move can still retarget a backend |
 | Discover | **Remote restore.** A note only. Restore stays a reverse rsync from `/backups` |
 | Discover | **Git-rich onboard.** A note only. A stack still comes from a compose file or a template |
@@ -59,6 +59,7 @@ This train fixes the passkey gate and builds the Path C choice below. An agent m
 | 2026-10-07 | **Path C jobs.** **Copy now** and the destination schedule for a direct host stay `backup_replicate` and show **Direct copy**. A herder-folder hop stays **Backup copy**. **Backup now** on the host stays a **Backup** job. The two copy hops share one destination slot. Not a version bump. |
 | 2026-10-07 | **Path C where.** A finished direct **Backup** job and its audit row name the destination. The sign-in stays out. Not a version bump. |
 | 2026-10-07 | **Docs.** The jobs table, the audit summary, and the backup notes describe that destination. QA stays empty. Not a version bump. |
+| 2026-10-07 | **MCP Move and MCP nmap.** Hosted `/mcp` can start a stop-first Move and can read or start a LAN Discovery scan of the saved ranges. Undo stays out. `trigger_job` still refuses `service_migrate`. The agent does not choose scan ranges. Vulnerability scripts stay off. Adapter **0.4.0** lists `start_move`, `read_discovery`, and `start_discovery`. Adapter **0.3.1** does not. The adapter tag is not cut. PyPI stays **0.3.1**. QA stays empty. Herder package stays `1.10.0`. |
 
 ---
 
@@ -69,7 +70,7 @@ This train fixes the passkey gate and builds the Path C choice below. An agent m
 | 1 | Open **`v1.11.0-dev`** | **Done** 2026-10-06 |
 | 2 | **Passkey versus Force 2FA** | **Landed.** Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
 | 3 | **Path C** decision, then the build | **Choice written. Build landed.** Opt in, beside the pull. Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
-| 4 | Should, if it fits | **MCP Move**, **MCP nmap** |
+| 4 | Should, if it fits | **MCP Move**, **MCP nmap**. **Landed.** Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
 | 5 | Discover write-ups | **NPM CRUD**, remote restore, git-rich onboard. Notes only |
 | 6 | Freeze · version bump · tag · Hub | Only when asked |
 

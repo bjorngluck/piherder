@@ -51,15 +51,17 @@ The build is on this branch. These boxes stay empty until you walk a real destin
 
 ## MCP Move (Should)
 
-Hosted `/mcp` can start a Move. Undo of a finished Move stays out. MCP undo stays out.
+Hosted `/mcp` `start_move` starts a stop-first Move. `confirm` must be true. The source is left stopped. Undo stays out. `trigger_job` still refuses `service_migrate`.
 
 - [ ] An agent can start a Move through hosted `/mcp`
+- [ ] Undo is not a tool, and `trigger_job` still refuses `service_migrate`
 
 ## MCP nmap (Should)
 
-Hosted `/mcp` can start or read a LAN Discovery scan. The console stays off the tool.
+Hosted `/mcp` can read a LAN Discovery scan and can start one of the saved ranges. The agent does not choose the ranges. Vulnerability scripts stay off. The console stays off the tool.
 
-- [ ] An agent can start or read a LAN Discovery scan through hosted `/mcp`
+- [ ] An agent can read a LAN Discovery scan through hosted `/mcp`
+- [ ] An agent can start a scan of the saved ranges through hosted `/mcp`
 
 ## Discover (notes, not walks)
 

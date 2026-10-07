@@ -247,9 +247,24 @@ That table is the allowlist (`JOB_FEATURE_KEY`). Anything else, including `docke
 
 Gates: `jobs`, `feature:docker` when the token is feature-restricted, the docker flag on **both** hosts, and the herder Move surface (`PIHERDER_SERVICE_MIGRATE`, off in demo). Health field `service_migrate` is that surface. **404** when it is off. **400** when `confirm` is not true or the project name is a path. **409** when source or dest already has a stack, Move, or backup job — poll that job. The audit row stores this token and the client IP.
 
-`POST /api/v1/servers/{id}/jobs` with `service_migrate` stays **400**. Hosted MCP `trigger_job` does not grow a Move tool.
+`POST /api/v1/servers/{id}/jobs` with `service_migrate` stays **400**. Hosted MCP `trigger_job` does not start a Move. Hosted `start_move` calls this route. There is no undo tool. Adapter **0.4.0** lists `start_move`. Adapter **0.3.1** does not.
 
-Hosted MCP `trigger_job` uses this same list, including `container_start`, `container_stop`, `container_restart`, and `container_redeploy` (**v1.9** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md)). Those four require `service` and `source_filter`, the same body as this POST. It does not add `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move, undo, nmap, the console, token admin, or stale-data cleanup. For a `docker_stack_*` job, `source_filter` is the compose project path. Feature flags and `feature:*` scopes still apply. Token gates stay `jobs`, `feature:docker` when the token is feature-restricted, and the server docker flag. Published adapter **0.3.1** lists the four one-service types. `uvx` at **0.2.0** does not.
+Hosted MCP `trigger_job` uses this same list, including `container_start`, `container_stop`, `container_restart`, and `container_redeploy` (**v1.9** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md)). Those four require `service` and `source_filter`, the same body as this POST. It does not add `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move, undo, nmap, the console, token admin, or stale-data cleanup. Move is `start_move`. A LAN Discovery scan is `read_discovery` and `start_discovery`. For a `docker_stack_*` job, `source_filter` is the compose project path. Feature flags and `feature:*` scopes still apply. Token gates stay `jobs`, `feature:docker` when the token is feature-restricted, and the server docker flag. Adapter **0.4.0** lists the four one-service types plus `start_move`, `read_discovery`, and `start_discovery`. Adapter **0.3.1** lists the four and does not list those three. `uvx` at **0.2.0** does not list the four one-service types.
+
+### LAN Discovery
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| `GET` | `/api/v1/discovery` | `read` | Saved ranges and the latest scan |
+| `GET` | `/api/v1/discovery/{id}` | `read` | Recent scans and a short device list |
+| `GET` | `/api/v1/discovery/{id}/runs/{run_id}` | `read` | One scan |
+| `POST` | `/api/v1/discovery/{id}/scans` | `jobs` | Start a scan of the saved ranges (HTTP **202**) |
+
+```json
+{ "confirm": true, "intensity": "discovery" }
+```
+
+`confirm` must be `true`. `intensity` is `discovery` (the default), `inventory`, `detailed`, or `deep`. The body cannot set targets or vulnerability scripts. The scan uses the CIDRs saved on that integration. **400** when Discovery is off, when no ranges are saved, or when `confirm` is not true. The response names the ranges. It does not include credentials, script output, or the scan file path. Hosted MCP `read_discovery` and `start_discovery` call these routes. Adapter **0.4.0** lists them. Adapter **0.3.1** does not. Demo does not start a scan.
 
 ### Stale data cleanup
 

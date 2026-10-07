@@ -5,7 +5,9 @@ Same process as the web app. Clients send ``POST /mcp`` with
 stdio adapter and call the existing ``/api/v1`` route functions in-process.
 Hosted ``trigger_job`` also accepts ``container_start``, ``container_stop``,
 ``container_restart``, and ``container_redeploy`` (v1.9). Adapter 0.2.0 does
-not list those four until the companion release.
+not list those four until the companion release. Hosted ``start_move``,
+``read_discovery``, and ``start_discovery`` call the token routes. Adapter
+0.4.0 lists those three. Adapter 0.3.1 does not.
 
 Transport choice: MCP Streamable HTTP (spec 2025-03-26 and later), stateless,
 preferring a single ``application/json`` response. That is what Cursor, Claude
@@ -82,8 +84,13 @@ _SERVER_INSTRUCTIONS = (
     "container_start, container_stop, container_restart, and container_redeploy "
     "require service (one compose service) and source_filter (the compose project directory). "
     "On HTTP 409 poll get_job and do not start another. "
+    "start_move starts a stop-first Move. confirm must be true. "
+    "The source stack is left stopped. There is no undo. "
+    "read_discovery reads saved LAN Discovery ranges and recent scans. "
+    "start_discovery scans those saved ranges. confirm must be true. "
+    "The agent does not choose targets, and vulnerability scripts stay off. "
     "Files stay in the fleet jail. "
-    "Do not invent SSH, Move, undo, a console, nmap, token admin, "
+    "Do not invent SSH, undo, a console, token admin, "
     "docker_stack_down, docker_stack_remove, or stale-data cleanup. "
     "Tools appear only for scopes on this token. A token without read has no tools."
 )
@@ -270,6 +277,73 @@ def tool_catalog() -> list[dict[str, Any]]:
             ),
             "scope": tok_svc.SCOPE_JOBS,
             "inputSchema": _trigger_job_schema(sid),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "start_move",
+            "description": (
+                "Start a stop-first Move of one compose project. "
+                "server_id is the source. dest_server_id is the destination. "
+                "project is the compose project name, not a directory. "
+                "confirm must be true. The source stack is left stopped. "
+                "There is no undo. HTTP 202 means accepted. HTTP 409 means "
+                "a stack, Move, or backup is already running: poll get_job."
+            ),
+            "scope": tok_svc.SCOPE_JOBS,
+            "inputSchema": _obj_schema(
+                {
+                    "server_id": sid,
+                    "dest_server_id": _int_prop("Destination server id"),
+                    "project": _str_prop("Compose project name. Not a filesystem path."),
+                    "confirm": {
+                        "type": "boolean",
+                        "description": "Must be true. The source stack is left stopped.",
+                    },
+                },
+                ["server_id", "dest_server_id", "project", "confirm"],
+            ),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "read_discovery",
+            "description": (
+                "Read LAN Discovery. Omit integration_id to list saved ranges "
+                "and the latest scan. Pass integration_id for recent scans and "
+                "a short device list. Pass run_id with integration_id for one scan. "
+                "No credentials and no script output."
+            ),
+            "scope": tok_svc.SCOPE_READ,
+            "inputSchema": _obj_schema(
+                {
+                    "integration_id": _int_prop("LAN Discovery integration id"),
+                    "run_id": _int_prop("Scan id. Requires integration_id."),
+                },
+                [],
+            ),
+            "annotations": _READ_ANN,
+        },
+        {
+            "name": "start_discovery",
+            "description": (
+                "Start a LAN Discovery scan of the ranges saved on that integration. "
+                "confirm must be true. intensity is discovery, inventory, detailed, "
+                "or deep. The agent does not choose targets. Vulnerability scripts "
+                "stay off. HTTP 202 means accepted."
+            ),
+            "scope": tok_svc.SCOPE_JOBS,
+            "inputSchema": _obj_schema(
+                {
+                    "integration_id": _int_prop("LAN Discovery integration id"),
+                    "confirm": {
+                        "type": "boolean",
+                        "description": "Must be true.",
+                    },
+                    "intensity": _str_prop(
+                        "discovery, inventory, detailed, or deep. Default discovery."
+                    ),
+                },
+                ["integration_id", "confirm"],
+            ),
             "annotations": _WRITE_ANN,
         },
         {
@@ -778,6 +852,59 @@ async def call_tool(
                 if status_code == 409:
                     payload["already_active"] = True
             await _drain_background(background)
+        elif name == "start_move":
+            if _opt_bool(args, "confirm") is not True:
+                return tool_text_result(
+                    {"ok": False, "detail": "confirm must be true"},
+                    is_error=True,
+                )
+            project = _opt_str(args, "project").strip()
+            if not project:
+                raise ToolArgError("Missing project")
+            raw = api_v1.create_server_move(
+                _require_int(args, "server_id"),
+                api_v1.MoveCreateBody(
+                    dest_server_id=_require_int(args, "dest_server_id"),
+                    project=project,
+                    confirm=True,
+                ),
+                session,
+                auth,
+            )
+            status_code, payload = _unwrap_json(raw)
+            if isinstance(payload, dict) and status_code in (202, 409):
+                payload = dict(payload)
+                payload["http_status"] = status_code
+                if status_code == 409:
+                    payload["already_active"] = True
+        elif name == "read_discovery":
+            integration_id = _opt_int(args, "integration_id")
+            run_id = _opt_int(args, "run_id")
+            if run_id is not None and integration_id is None:
+                raise ToolArgError("Missing integration_id")
+            if run_id is not None:
+                payload = api_v1.get_discovery_run(integration_id, run_id, session, auth)
+            elif integration_id is not None:
+                payload = api_v1.get_discovery(integration_id, session, auth)
+            else:
+                payload = api_v1.list_discovery(session, auth)
+        elif name == "start_discovery":
+            if _opt_bool(args, "confirm") is not True:
+                return tool_text_result(
+                    {"ok": False, "detail": "confirm must be true"},
+                    is_error=True,
+                )
+            intensity = _opt_str(args, "intensity").strip() or "discovery"
+            raw = api_v1.create_discovery_scan(
+                _require_int(args, "integration_id"),
+                api_v1.DiscoveryScanBody(confirm=True, intensity=intensity),
+                session,
+                auth,
+            )
+            status_code, payload = _unwrap_json(raw)
+            if isinstance(payload, dict) and status_code == 202:
+                payload = dict(payload)
+                payload["http_status"] = status_code
         elif name == "list_files":
             payload = api_v1.api_files_list(
                 _require_int(args, "server_id"),

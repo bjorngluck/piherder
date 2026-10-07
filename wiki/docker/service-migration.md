@@ -20,7 +20,7 @@ Move is **on** when `PIHERDER_SERVICE_MIGRATE` is unset. To hide it:
 1. Set `PIHERDER_SERVICE_MIGRATE=false` in `.env`.  
 2. Recreate **web** (`docker compose up -d web`).  
 
-**Operator+** only. Viewer **403**. Demo never opens the wizard. The same flag gates the Home Assistant card and `POST /api/v1/servers/{id}/moves` (`confirm: true`, leftover stopped). Health field `service_migrate`. `POST /jobs` with `service_migrate` is refused. There is no MCP Move tool. The card does not offer Undo or source remove.
+**Operator+** only. Viewer **403**. Demo never opens the wizard. The same flag gates the Home Assistant card, `POST /api/v1/servers/{id}/moves`, and hosted `/mcp` `start_move` (`confirm: true`, leftover stopped). Health field `service_migrate`. `POST /jobs` with `service_migrate` is refused. `trigger_job` does not start a Move. There is no MCP undo. The card does not offer Undo or source remove. Adapter **0.4.0** lists `start_move`. Adapter **0.3.1** does not.
 
 Lock / unlock does **not** need this flag.
 
