@@ -28,7 +28,7 @@ This train fixes the passkey gate and builds the Path C choice below. An agent m
 |-------|------|
 | Must, first | **Passkey versus Force 2FA.** On signup, with 2FA enforced, a passkey cannot be registered. A passkey already in place still forces app-based 2FA. A passkey is not treated as 2FA on the account. The tag waits on this |
 | Must | **Path C discovery.** A host can opt in and pick one or more saved destinations. None start selected. Save refuses the opt-in with no destination. The host sends its files straight to those destinations. Nothing of that host lands on `/backups` first, and the host does not store a second copy. Hosts that do not opt in still rsync onto `/backups`, and the herder copy of that mirror stays. Copy now on a direct host starts that destination's push. rclone reads the original files in place for that run, as root when the backup user is not root, using /var/lib/piherder/rclone. The temp config is deleted when the run ends. Input was [PLAN_v1.10.0.md](PLAN_v1.10.0.md) §4 |
-| Must | **Path C build.** That choice is on this branch. The tag waits on the operator walk. Restore from Drive, OneDrive, or the NAS stays a Discover note |
+| Must | **Path C build.** That choice is on this branch. The tag waits on the operator walk. A finished **Backup** job and its audit row name the destination. The sign-in stays out. Restore from Drive, OneDrive, or the NAS stays a Discover note |
 | Should | **MCP Move.** An agent can start a Move. The tag can ship if it slips |
 | Should | **MCP nmap.** An agent can start or read a LAN Discovery scan. The tag can ship if it slips |
 | Discover | **NPM CRUD.** A note only. Move can still retarget a backend |
@@ -58,6 +58,7 @@ This train fixes the passkey gate and builds the Path C choice below. An agent m
 | 2026-10-07 | **Path C live files.** A file that grows during the copy, such as a live log, is sent at the size first seen. That does not fail the run. Not a version bump. |
 | 2026-10-07 | **Path C jobs.** **Copy now** and the destination schedule for a direct host stay `backup_replicate` and show **Direct copy**. A herder-folder hop stays **Backup copy**. **Backup now** on the host stays a **Backup** job. The two copy hops share one destination slot. Not a version bump. |
 | 2026-10-07 | **Path C where.** A finished direct **Backup** job and its audit row name the destination. The sign-in stays out. Not a version bump. |
+| 2026-10-07 | **Docs.** The jobs table, the audit summary, and the backup notes describe that destination. QA stays empty. Not a version bump. |
 
 ---
 

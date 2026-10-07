@@ -21,8 +21,8 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 ## End-to-end: follow one backup through all three
 
 1. Start a backup from a server Backups page.  
-2. **Jobs** → row goes `pending` → `running` → `success` / `failed`; open detail for log tail.  
-3. **Audit** → filter that server / backup actions; see request → queued → running → complete phases and client IP.  
+2. **Jobs** → row goes `pending` → `running` → `success` / `failed`; open detail for the log tail. A host that sends files straight out names the destination in that detail: Google Drive or OneDrive and the folder, or the LAN host, share, and path, plus each source folder on that destination. The sign-in is not in the row.  
+3. **Audit** → filter that server / backup actions; see request → queued → running → complete phases and client IP. The completed row for a straight-out host names the same destination.  
 4. If it failed earlier, a **notification** may open; on success, related open alerts can auto-resolve (optional push: `Resolved: …`).  
 5. Dismiss the inbox item when you have acted.
 
@@ -41,7 +41,7 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 
 | Type | Typical trigger | Runner |
 |------|-----------------|--------|
-| `backup` | Manual or backup cron | **Celery** |
+| `backup` | Manual or backup cron. A host that sends files straight out uses this same type for **Backup now** and its schedule | **Celery**. The finished detail names the destination: **Google Drive** or **OneDrive** and the folder, or **LAN NAS / SMB** with the host, share, and path. Each source row adds the folder on that destination. The sign-in is not stored. The audit row for that run names the same place |
 | `backup_replicate` | Settings → PiHerder backup → **Copy now**, its schedule, the follow-up after a host backup, or a self-backup archive when that destination is set to copy it (v1.8 train, not in the 1.7.0 image). **Copy now** or the schedule for a host that sends files straight out uses this same type | **Celery** (default queue). Label **Backup copy** for a host-folder hop, **Direct copy** when the row sends a host's files straight out, or **Self-backup copy** when the row is one herder archive. **Backup now** on the host stays the **Backup** job. A running archive hop does not block **Copy now**. A running folder hop and a running direct hop share one slot on that destination, so a second **Copy now** returns the active row. A running folder hop does not block the archive hop. When the ticked list has both a folder on `/backups` and a direct host, the folder hop runs, then the direct hop starts. The row does not store the destination sign-in or the temp rclone config. May run for 7 days. A task failure marks the row failed so **Copy now** can run again. A failed self-backup copy leaves the local archive in place. A hard kill of the worker can leave that row **running**. Does not take the per-host backup lock. Not on the token or MCP job list |
 | `os_patch` / `container_patch` | Manual or apply schedule | **Celery** (default queue). SSH down: stays pending and retries. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job |
 | `host_reboot` | Server **Reboot** or the Home Assistant host card | **Celery** (default queue). Refused while an OS patch, container patch, or backup is active on that host. SSH down: stays pending. Recycle **web** is safe. Recycle **worker** while it is running **fails** the job |
@@ -143,7 +143,7 @@ Each backup job writes append-only phases:
 | running | `backup_running` | Worker started rsync (snapshot, `info`) |
 | complete | `backup` | Terminal success or failure |
 
-**Completed backups** show a summary line with source count and total size (e.g. `2 sources · 1.5 MB`), duration, and a detail modal with per-source sizes. Queued and running phase rows are noise: **Hide incomplete runs** hides them, and they are left out of the Audit **active** pulse. Older rows that still say `running` are treated the same way.
+**Completed backups** show a summary line with source count and total size (e.g. `2 sources · 1.5 MB`), duration, and a detail modal with per-source sizes. A host that sends files straight out adds the destination on that line, for example `2 sources · LAN NAS / SMB · 192.168.86.42/piherder-test/PiHerder`. The detail keeps the same place on each source. The sign-in is not in the row. Queued and running phase rows are noise: **Hide incomplete runs** hides them, and they are left out of the Audit **active** pulse. Older rows that still say `running` are treated the same way.
 
 ### Timezone display
 

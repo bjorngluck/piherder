@@ -13,7 +13,7 @@ Diagnosis when a **server backup** job fails, stays pending, or never updates `l
 
 ## Direct copy
 
-A host that sends files straight to Drive, OneDrive, or the NAS reads the original files in place. It does not make a second copy on the Pi.
+A host that sends files straight to Drive, OneDrive, or the NAS reads the original files in place. It does not make a second copy on the Pi. The finished job and the audit row name that destination: Google Drive or OneDrive and the folder, or the LAN host, share, and path. Each source row adds the folder on that destination. The sign-in is not in either row.
 
 - **Allow `/var/lib/piherder/rclone`** — the least-privilege script from **SSH access** does not yet include that path. Copy the script and apply it again. Root and Home Assistant OS do not need that line.
 - **Permission denied** on a MySQL or Docker data directory — rclone ran as the backup user. The sudoers line above is missing, so the copy could not read as root. The pull still works, because that pull is `sudo rsync`.
