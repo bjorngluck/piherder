@@ -1,4 +1,4 @@
-"""Token Move route. Not the jobs allowlist and not an MCP tool."""
+"""Token Move route. Not the jobs allowlist. Hosted start_move calls this route."""
 from __future__ import annotations
 
 from types import SimpleNamespace

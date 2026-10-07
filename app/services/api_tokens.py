@@ -812,7 +812,34 @@ def api_meta_dict() -> dict:
                 "scope": "jobs",
                 "summary": (
                     "Start a stop-first Move. Requires confirm, jobs, and docker. "
-                    "Not an MCP tool. No undo."
+                    "Hosted MCP start_move calls this route. No undo."
+                ),
+            },
+            {
+                "method": "GET",
+                "path": "/api/v1/discovery",
+                "scope": "read",
+                "summary": "List LAN Discovery integrations and the latest scan",
+            },
+            {
+                "method": "GET",
+                "path": "/api/v1/discovery/{id}",
+                "scope": "read",
+                "summary": "Recent LAN Discovery scans and a short device list",
+            },
+            {
+                "method": "GET",
+                "path": "/api/v1/discovery/{id}/runs/{run_id}",
+                "scope": "read",
+                "summary": "One LAN Discovery scan",
+            },
+            {
+                "method": "POST",
+                "path": "/api/v1/discovery/{id}/scans",
+                "scope": "jobs",
+                "summary": (
+                    "Start a scan of the saved ranges. confirm must be true. "
+                    "Hosted MCP start_discovery calls this route. No caller targets."
                 ),
             },
             {"method": "GET", "path": "/api/v1/jobs", "scope": "read", "summary": "List jobs"},

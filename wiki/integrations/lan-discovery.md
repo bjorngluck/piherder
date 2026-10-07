@@ -17,7 +17,9 @@ Devices are **not** managed fleet servers until you **link** or **promote** them
 
 ## Why it exists
 
-PiHerder already manages hosts you onboarded. Discovery answers: *what else is on my LAN, and which of those do I want to manage?* Scans never run silently: you configure CIDRs and start work manually or via **schedules you enable**.
+PiHerder already manages hosts you onboarded. Discovery answers: *what else is on my LAN, and which of those do I want to manage?* Scans never run silently: you configure CIDRs and start work manually, via **schedules you enable**, or from hosted `/mcp`.
+
+An agent with `read` can read the saved ranges and recent scans (`read_discovery`). An agent with `jobs` can start a scan of those ranges (`start_discovery`, `confirm` true). The agent does not choose the ranges. Vulnerability scripts stay off. Schedules and the console stay on this page. Adapter **0.4.0** lists these tools. Adapter **0.3.1** does not. See [Agents (MCP)](../operations/mcp.md).
 
 ---
 
