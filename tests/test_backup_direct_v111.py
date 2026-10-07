@@ -1,16 +1,17 @@
 """v1.11 Path C — a host can opt in to send files straight to the copy."""
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.database import get_session
 from app.main import app
-from app.models import BackupDestination, Server, User
+from app.models import BackupDestination, Job, Server, User
 from app.security.auth import create_user_access_token, get_password_hash
 from app.services import backup as backup_mod
 from app.services import backup_replicate as copies
@@ -257,7 +258,32 @@ def test_follow_up_copy_skips_a_direct_host():
     session.exec.assert_not_called()
 
 
-def test_copy_now_starts_the_host_push(monkeypatch):
+def test_folder_copy_leaves_a_direct_host_alone(monkeypatch):
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+    server = _host()
+
+    def partition(checked, hosts=None):
+        return [], [(server, list(checked))]
+
+    def boom(*_args, **_kwargs):
+        raise AssertionError("herder rclone")
+
+    monkeypatch.setattr("app.services.backup_direct.partition_checked", partition)
+    monkeypatch.setattr("app.services.backup_direct.push_groups", boom)
+    monkeypatch.setattr(copies.subprocess, "run", boom)
+    dest = BackupDestination(
+        id=8,
+        provider="drive",
+        selection_json='{"checked":["pi.local"],"skipped":[]}',
+        credentials_encrypted="x",
+        config_json='{"remote_dir":"PiHerder"}',
+    )
+    result = copies.execute(dest)
+    assert result["ok"] is False
+    assert result["error"] == "Nothing selected on the backup drive"
+
+
+def test_direct_job_starts_the_host_push(monkeypatch):
     monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
     server = _host()
     dest = BackupDestination(
@@ -269,7 +295,7 @@ def test_copy_now_starts_the_host_push(monkeypatch):
     )
 
     def partition(checked, hosts=None):
-        return [], [(server, checked)]
+        return [], [(server, list(checked))]
 
     def push(destination, groups, skipped):
         assert destination is dest
@@ -283,9 +309,210 @@ def test_copy_now_starts_the_host_push(monkeypatch):
     monkeypatch.setattr("app.services.backup_direct.partition_checked", partition)
     monkeypatch.setattr("app.services.backup_direct.push_groups", push)
     monkeypatch.setattr(copies.subprocess, "run", boom)
-    result = copies.execute(dest)
+    result = copies.execute_direct(dest)
     assert result["ok"] is True
     assert result["copied"] == ["pi.local/docker"]
+    assert "ya29." not in json.dumps(result)
+
+
+def _delay_recorder(monkeypatch):
+    queued: list[int] = []
+
+    def delay(job_id):
+        queued.append(job_id)
+
+        class Result:
+            id = f"task-{job_id}"
+
+        return Result()
+
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+    monkeypatch.setattr("app.tasks.replicate_backup.delay", delay)
+    return queued
+
+
+def _sqlite(tmp_path, name):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / name}",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    return engine
+
+
+def test_copy_now_of_a_direct_host_is_its_own_row(tmp_path, monkeypatch):
+    queued = _delay_recorder(monkeypatch)
+    server = _host()
+    secret = "smb-secret-9f3c1a"
+    token = "ya29.SUPERSECRETACCESSTOKEN"
+
+    def partition(checked, hosts=None):
+        return [], [(server, list(checked))]
+
+    monkeypatch.setattr("app.services.backup_direct.partition_checked", partition)
+    engine = _sqlite(tmp_path, "direct-job.db")
+    with Session(engine) as session:
+        dest = BackupDestination(
+            provider="smb",
+            name="LAN",
+            enabled=True,
+            credentials_encrypted=secret,
+            selection_json='{"checked":["pi.local"],"skipped":[]}',
+            config_json='{"password":"plain-pass"}',
+        )
+        session.add(dest)
+        session.commit()
+        session.refresh(dest)
+        job = copies.enqueue(session, dest, user_id=3)
+        details = json.loads(job.details or "{}")
+        assert job.job_type == "backup_replicate"
+        assert details["direct_host"] is True
+        assert "direct_after" not in details
+        assert details["log_lines"] == ["Direct copy to the LAN share queued…"]
+        assert secret not in (job.details or "")
+        assert "plain-pass" not in (job.details or "")
+        assert token not in (job.details or "")
+        again = copies.enqueue(session, dest)
+        assert again.id == job.id
+        folder = copies.enqueue(session, dest, scope="other.local")
+        assert folder.id == job.id
+    assert queued == [job.id]
+
+
+def test_mixed_copy_keeps_the_folder_row_and_queues_direct_after(tmp_path, monkeypatch):
+    queued = _delay_recorder(monkeypatch)
+    server = _host()
+
+    def partition(checked, hosts=None):
+        local = [path for path in checked if path != "pi.local"]
+        groups = [(server, ["pi.local"])] if "pi.local" in checked else []
+        return local, groups
+
+    monkeypatch.setattr("app.services.backup_direct.partition_checked", partition)
+    engine = _sqlite(tmp_path, "mixed-job.db")
+    monkeypatch.setattr("app.tasks.engine", engine)
+
+    def folder_only(destination, scope=None):
+        assert scope is None
+        return {"ok": True, "copied": ["other.local"]}
+
+    def no_push(*_args, **_kwargs):
+        raise AssertionError("direct push stays out of the folder hop")
+
+    monkeypatch.setattr("app.services.backup_replicate.execute", folder_only)
+    monkeypatch.setattr("app.services.backup_direct.push_groups", no_push)
+    with Session(engine) as session:
+        dest = BackupDestination(
+            provider="drive",
+            name="Drive",
+            enabled=True,
+            credentials_encrypted="tok-value",
+            selection_json='{"checked":["other.local","pi.local"],"skipped":[]}',
+        )
+        session.add(dest)
+        session.commit()
+        session.refresh(dest)
+        folder = copies.enqueue(session, dest)
+        folder_id = folder.id
+        details = json.loads(folder.details or "{}")
+        assert details["direct_after"] is True
+        assert details.get("direct_host") is not True
+        assert details["log_lines"] == ["Drive copy queued…"]
+        assert "tok-value" not in (folder.details or "")
+
+    from app.tasks import replicate_backup
+
+    out = replicate_backup.run(folder_id)
+    assert out["status"] == "success"
+    with Session(engine) as session:
+        rows = list(session.exec(select(Job).where(Job.job_type == "backup_replicate")).all())
+        assert len(rows) == 2
+        direct = next(row for row in rows if row.id != folder_id)
+        direct_details = json.loads(direct.details or "{}")
+        folder_details = json.loads(session.get(Job, folder_id).details or "{}")
+        assert direct_details["direct_host"] is True
+        assert direct_details.get("direct_after") is not True
+        assert "Direct copy to Drive queued" in direct_details["log_lines"][0]
+        assert folder_details.get("direct_host") is not True
+        assert "tok-value" not in (direct.details or "")
+        assert "ya29." not in (direct.details or "")
+        direct_id = direct.id
+    assert queued == [folder_id, direct_id]
+
+
+def test_direct_worker_stores_a_scrubbed_error(tmp_path, monkeypatch):
+    engine = _sqlite(tmp_path, "direct-err.db")
+    monkeypatch.setattr("app.tasks.engine", engine)
+    with Session(engine) as session:
+        dest = BackupDestination(
+            provider="drive",
+            name="Drive",
+            enabled=True,
+            credentials_encrypted="tok-value",
+        )
+        session.add(dest)
+        session.commit()
+        session.refresh(dest)
+        job = Job(
+            job_type="backup_replicate",
+            status="pending",
+            details=json.dumps(
+                {
+                    "destination_id": dest.id,
+                    "direct_host": True,
+                    "log_lines": ["Direct copy to Drive queued…"],
+                }
+            ),
+        )
+        session.add(job)
+        session.commit()
+        job_id = job.id
+
+    def failed(_destination, scope=None):
+        return {"ok": False, "error": "rclone said ya29.SUPERSECRETACCESSTOKEN"}
+
+    def boom(*_args, **_kwargs):
+        raise AssertionError("folder hop")
+
+    monkeypatch.setattr("app.services.backup_replicate.execute_direct", failed)
+    monkeypatch.setattr("app.services.backup_replicate.execute", boom)
+    from app.tasks import replicate_backup
+
+    out = replicate_backup.run(job_id)
+    assert out["status"] == "failed"
+    assert "ya29." not in out["error"]
+    assert "[redacted]" in out["error"]
+    with Session(engine) as session:
+        stored = session.get(Job, job_id)
+        assert "ya29." not in (stored.details or "")
+        assert json.loads(stored.details)["direct_host"] is True
+
+
+def test_worker_death_line_names_a_direct_copy(tmp_path, monkeypatch):
+    engine = _sqlite(tmp_path, "direct-stop.db")
+    monkeypatch.setattr("app.tasks.engine", engine)
+    with Session(engine) as session:
+        job = Job(
+            job_type="backup_replicate",
+            status="running",
+            details=json.dumps(
+                {"direct_host": True, "current": "copying", "log_lines": ["Direct copy to Drive queued…"]}
+            ),
+        )
+        session.add(job)
+        session.commit()
+        job_id = job.id
+    from app.tasks import fail_replicate_job
+
+    assert fail_replicate_job(
+        job_id, "Backup copy hit the worker time limit and was stopped."
+    )
+    with Session(engine) as session:
+        details = json.loads(session.get(Job, job_id).details or "{}")
+    assert details["error"].startswith("Direct copy hit")
+    assert "Backup copy" not in details["error"]
+    assert details["log_lines"][-1] == details["error"]
 
 
 def test_normal_host_still_errors_when_the_mirror_is_missing(monkeypatch, tmp_path):

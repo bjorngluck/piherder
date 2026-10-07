@@ -24,7 +24,7 @@ See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 
 On the host’s **Backups** page, **Configure** can opt that host in. The tick stays unavailable until Google Drive, OneDrive, or a LAN share is saved under **Settings → PiHerder backup**.
 
-When the tick is on, choose one or more of those saved destinations. None are selected until you pick. **Save configuration** asks for a destination when the tick is on and nothing is selected. **Backup now** and the schedule send to the destinations you ticked. **Copy now** still sends only the destination that is open, and on this host it starts that push.
+When the tick is on, choose one or more of those saved destinations. None are selected until you pick. **Save configuration** asks for a destination when the tick is on and nothing is selected. **Backup now** and the schedule send to the destinations you ticked. That **Backup now** stays a **Backup** job. **Copy now** still sends only the destination that is open, and on this host it starts that push. Jobs labels that push **Direct copy**. A folder already on this herder stays **Backup copy**. When both are ticked, the folder hop runs, then the direct hop starts. They share one slot on that destination.
 
 Nothing of that host is stored under `/backups` first. rclone reads the original files in place and sends them straight on. It does not write a second copy of the tree on the Pi. The binary is copied for the run to `/var/lib/piherder/rclone`, owned by root, and removed when the run ends. The sign-in stays on this PiHerder. The temp config is deleted with the binary.
 
@@ -63,7 +63,7 @@ The original files stay as they are. A file that grows during the copy, such as 
 | Account | A Google sign-in from this PiHerder. New files are owned by that Google account. A service account cannot store them on a personal Drive |
 | Schedule | The same presets as other schedules, **Copy now**, and an optional copy after a host backup succeeds |
 | Browser | Folder tree on the left, the open folder on the right. A ticked folder stays ticked inside. Untick a child to leave it behind |
-| Job | **Backup copy** (`backup_replicate`) on the existing Celery worker. It may run for up to 7 days. Host backups stay on the 2-hour worker limit. A task failure, including the 7-day limit, marks the row failed so **Copy now** can run again. A hard kill of the worker process can leave the row **running**, and **Copy now** then returns that folder-copy row until it is marked failed. A self-backup copy on the same destination does not take that slot. Files already copied stay. A failure fails that job only. The host backup time stays |
+| Job | **Backup copy** (`backup_replicate`) on the existing Celery worker. It may run for up to 7 days. Host backups stay on the 2-hour worker limit. A task failure, including the 7-day limit, marks the row failed so **Copy now** can run again. A hard kill of the worker process can leave the row **running**, and **Copy now** then returns that row until it is marked failed. A **Direct copy** from **Copy now** or the schedule shares that slot. A self-backup copy on the same destination does not take it. Files already copied stay. A failure fails that job only. The host backup time stays |
 | Restore | Still the local tree. The demo does not upload |
 
 Pull `bjorngluck/piherder:1.8.0` before a real copy. rclone is in that image. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/FEATURE_PLAN_BACKUP_DESTINATIONS.md).
@@ -107,7 +107,7 @@ This is a second copy, independent of Google Drive and OneDrive. Hosts that have
 
 1. Enter the NAS hostname or IP, the share name, and an optional path under that share.
 2. Enter a username and password, or leave both empty for a share that needs no login. That row reads **no login**. A blank password on its own keeps a password that is already saved. A username without a password, or a password without a username, is refused. Kerberos is not used. An optional domain or workgroup can be set.
-3. Tick the backup folders. **Test** lists the share and does not copy. **Copy now**, the schedule, or the follow-up after a host backup runs the same **Backup copy** job as Drive.
+3. Tick the backup folders. **Test** lists the share and does not copy. **Copy now**, the schedule, or the follow-up after a host backup runs the same **Backup copy** job as Drive. A host that sends files straight out is a **Direct copy** on that same destination.
 4. A failed copy fails that job only. The host backup time stays. The public demo does not upload. Restore still uses the local tree.
 
 The password is stored with the instance master key and is not written to the job log.
@@ -127,7 +127,7 @@ A personal Microsoft account that has never had Azure lands in a tenant named **
 3. In that directory, register an app named PiHerder. Accounts: **any organizational directory and personal Microsoft accounts**. PiHerder signs in through Microsoft’s common endpoint, so leave **Personal Microsoft accounts only** unselected. Redirect URI: **Web**, and the URL shown in the PiHerder dialog. It ends with `/backup-copies/onedrive/callback`.
 4. Add Microsoft Graph delegated permissions `User.Read`, `Files.ReadWrite`, and `offline_access`. That is the signed-in account’s own files, plus the address shown after sign-in. Do not add `Files.Read.All`, `Files.ReadWrite.All`, or `Sites.Read.All`. An account that already connected keeps its previous grant until you use **Connect Microsoft** again.
 5. Create a client secret. On the Overview, copy **Application (client) ID**. On **Certificates & secrets**, copy the secret **Value** while it is on screen. The **Secret ID** is not the secret. Paste those two into PiHerder. Leave the secret blank only after one is already saved. Set the folder name, for example `PiHerder`. If **Connect Microsoft** says the client is not enabled for consumers, the account type in step 3 is still single-directory. On **Manifest**, set `requestedAccessTokenVersion` under `api` from `null` to `2` and save. Then set the account type to any organizational directory and personal Microsoft accounts. The Authentication page refuses that change while the value is still `null`.
-6. **Connect Microsoft** and sign in as the account that owns the drive. The directory only holds the app. The files go to that account’s OneDrive. **Test** lists the folder and does not copy. **Copy now**, the schedule, or the follow-up after a host backup runs the same **Backup copy** job.
+6. **Connect Microsoft** and sign in as the account that owns the drive. The directory only holds the app. The files go to that account’s OneDrive. **Test** lists the folder and does not copy. **Copy now**, the schedule, or the follow-up after a host backup runs the same **Backup copy** job. A host that sends files straight out is a **Direct copy** on that same destination.
 
 A work or school account that already has a directory skips the free Azure signup. Register the app in that directory, with the same account type.
 

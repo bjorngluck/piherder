@@ -108,9 +108,39 @@ def test_job_public_dict_summary_and_tails():
             {"destination_id": 4, "herder_archive": "piherder-20261003-120000-full.tar.gz"}
         ),
     )
+    direct = SimpleNamespace(
+        id=3,
+        server_id=None,
+        job_type="backup_replicate",
+        status="pending",
+        created_at=datetime(2026, 10, 7, 12, 2, 0),
+        started_at=None,
+        finished_at=None,
+        details=json.dumps(
+            {
+                "destination_id": 4,
+                "direct_host": True,
+                "log_lines": ["Direct copy to Drive queued…"],
+            }
+        ),
+    )
+    waiting = SimpleNamespace(
+        id=4,
+        server_id=None,
+        job_type="backup_replicate",
+        status="pending",
+        created_at=datetime(2026, 10, 7, 12, 3, 0),
+        started_at=None,
+        finished_at=None,
+        details=json.dumps({"destination_id": 4, "direct_after": True}),
+    )
     assert job_public_dict(folder)["job_type_label"] == "Backup copy"
     assert job_public_dict(archive)["job_type_label"] == "Self-backup copy"
+    assert job_public_dict(direct)["job_type_label"] == "Direct copy"
+    assert job_public_dict(waiting)["job_type_label"] == "Backup copy"
+    assert "ya29." not in json.dumps(job_public_dict(direct, detail=True))
     assert job_display_label("backup_replicate", {}) == "Backup copy"
+    assert job_display_label("backup_replicate", {"direct_host": True}) == "Direct copy"
     assert short["current"] == "patching"
     assert short["scheduled"] is True
     assert short["done"] is False

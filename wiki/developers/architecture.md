@@ -32,7 +32,7 @@ flowchart TB
 | Work | Runs on | Concurrency rule |
 |------|---------|------------------|
 | Backups | Celery | Parallel across hosts; one backup per host (Redis mutex) |
-| Backup copy (`backup_replicate`) | Celery default queue | Google Drive, or a LAN share (v1.9 path A). One slot, like a long rsync. Up to 7 days. Acked on receive. Not the per-host backup lock. Web only enqueues |
+| Backup copy (`backup_replicate`) | Celery default queue | Google Drive, OneDrive, or a LAN share. **Backup copy** is the herder-folder hop. **Direct copy** is **Copy now** or the schedule for a host that sends files straight out, and it shares that one slot. **Backup now** on the host stays job type `backup`. A self-backup archive is **Self-backup copy** and does not take the slot. Up to 7 days. Acked on receive. Not the per-host backup lock. Web only enqueues |
 | Move (`service_migrate`), fail-path undo (`service_migrate_undo`), and dest-up recover (`service_migrate_dest_recover`) | Celery | Dual-host backup mutex; recycle web is safe; recycle worker fails a running Move, undo, or recover. Undo only after cutover / rebind / validate failed. Dest-up recover is only a worker death during `dest_up`: inspect, `compose stop` dest, start source, no DNS change |
 | OS/container patch, update checks, stack jobs, template jobs, `host_reboot` | Celery default queue (`exclusive_job`) | One active job of that type per host. Stack writes share one lane. Reboot is also refused while OS patch, container patch, or backup is active. No backup mutex. Host-down stays pending. Worker recycle fails a running job |
 | Bulk fleet actions | Web → same enqueue paths | Feature-flag skip + exclusive rules |
