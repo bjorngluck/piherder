@@ -21,6 +21,7 @@ from sqlmodel import Session, select
 
 from ..models import BackupDestination, Server
 from .backup_replicate import (
+    _config_pass,
     _open_destination_rclone,
     _redact,
     credentials_saved,
@@ -29,6 +30,7 @@ from .backup_replicate import (
     host_folder_name,
     parse_selection,
     paths_for_scope,
+    scrub_job_text,
 )
 from .ssh import get_ssh_client, run_command
 
@@ -605,6 +607,7 @@ def _push_unlocked(
     binary = user_bin
     secret = ""
     refresh = ""
+    obscured = ""
     try:
         herder_bin = herder_rclone_bin()
     except FileNotFoundError as exc:
@@ -650,6 +653,7 @@ def _push_unlocked(
             use_sudo = True
             binary = SUDO_RCLONE
         local_config, secret, refresh, use_trash = _open_destination_rclone(destination)
+        obscured = _config_pass(local_config)
         with open(local_config, encoding="utf-8") as handle:
             rewritten, local_sa = rewrite_service_account(handle.read(), sa_remote)
         sftp = client.open_sftp()
@@ -693,7 +697,7 @@ def _push_unlocked(
                 hostname,
                 int(server.id or 0),
                 lock_token,
-                [secret, refresh],
+                [secret, refresh, obscured],
                 heartbeat=f"Still sending {src}…",
             )
             if rc != 0:
@@ -710,7 +714,9 @@ def _push_unlocked(
         return results
     except Exception as exc:
         logger.warning("direct backup failed for %s: %s", hostname, exc)
-        message = _redact(_redact(str(exc)[:500], secret), refresh)
+        message = scrub_job_text(
+            _redact(_redact(_redact(str(exc)[:500], secret), refresh), obscured)
+        )
         return [{"source": folder, "rel": folder, "error": message or "direct backup failed"}]
     finally:
         if client is not None:
@@ -788,7 +794,7 @@ def _run_remote(
     err = b"".join(chunks).decode(errors="replace")
     for secret in redact_secrets:
         err = _redact(err, secret)
-    return rc, err[-2000:]
+    return rc, scrub_job_text(err)[-2000:]
 
 
 def _cleanup_remote(

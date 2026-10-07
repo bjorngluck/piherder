@@ -861,6 +861,26 @@ except Exception:
 _DRIVE_COPY_TIME_LIMIT = 7 * 24 * 3600
 
 
+def _start_direct_followup(destination_id: int, scope, user_id, folder_job_id: int) -> None:
+    """Start the direct-host row after the folder hop has a terminal status."""
+    from app.models import BackupDestination
+    from app.services.backup_replicate import enqueue_direct_followup
+
+    with Session(engine) as session:
+        job = session.get(Job, folder_job_id)
+        if not job or job.status not in ("success", "failed"):
+            return
+        dest = session.get(BackupDestination, destination_id)
+        if dest is None:
+            return
+        enqueue_direct_followup(
+            session,
+            dest,
+            scope=scope if isinstance(scope, str) else None,
+            user_id=user_id if isinstance(user_id, int) else None,
+        )
+
+
 @celery.task(
     bind=True,
     name="app.tasks.replicate_backup",
@@ -868,8 +888,12 @@ _DRIVE_COPY_TIME_LIMIT = 7 * 24 * 3600
     time_limit=_DRIVE_COPY_TIME_LIMIT,
 )
 def replicate_backup(self, job_id: int):
-    """Copy checked /backups paths to a fleet destination. Default Celery queue."""
+    """Copy checked /backups paths, or push a direct host, to one destination."""
     db = Session(engine)
+    follow_direct = False
+    follow_dest_id = None
+    follow_scope = None
+    follow_user = None
     try:
         job = db.get(Job, job_id)
         if not job or job.status not in ("pending", "running"):
@@ -882,7 +906,7 @@ def replicate_backup(self, job_id: int):
         except Exception:
             details = {}
         from app.models import BackupDestination
-        from app.services.backup_replicate import execute
+        from app.services.backup_replicate import execute, execute_direct, scrub_job_text
 
         dest = db.get(BackupDestination, details.get("destination_id"))
         _update_job_status(job_id, "running", {"current": "copying"})
@@ -890,10 +914,18 @@ def replicate_backup(self, job_id: int):
             _update_job_status(job_id, "failed", {"error": "Destination missing", "current": "failed"})
             return {"status": "failed", "job_id": job_id}
         archive = str(details.get("herder_archive") or "").strip()
+        direct = details.get("direct_host") is True
+        if details.get("direct_after") is True and not archive and not direct:
+            follow_direct = True
+            follow_dest_id = int(dest.id or 0)
+            follow_scope = details.get("scope")
+            follow_user = details.get("user_id")
         if archive:
             from app.services.backup_replicate import execute_herder_archive
 
             result = execute_herder_archive(dest, archive)
+        elif direct:
+            result = execute_direct(dest, details.get("scope"))
         else:
             result = execute(dest, details.get("scope"))
         if result.get("ok"):
@@ -903,23 +935,45 @@ def replicate_backup(self, job_id: int):
                 {"current": "completed", "copied": result.get("copied") or []},
             )
             return {"status": "success", "job_id": job_id}
+        stored_error = scrub_job_text(str(result.get("error") or "copy failed"))[:500]
         _update_job_status(
             job_id,
             "failed",
-            {"error": result.get("error") or "copy failed", "current": "failed"},
+            {"error": stored_error, "current": "failed"},
         )
-        return {"status": "failed", "job_id": job_id, "error": result.get("error")}
+        return {"status": "failed", "job_id": job_id, "error": stored_error}
     except Exception as exc:
-        logger.error("Backup copy job %s failed: %s", job_id, exc)
-        _update_job_status(job_id, "failed", {"error": str(exc)[:500], "current": "failed"})
-        return {"status": "failed", "job_id": job_id, "error": str(exc)[:500]}
+        from app.services.backup_replicate import scrub_job_text
+
+        stored = scrub_job_text(str(exc))[:500]
+        logger.error("Backup copy job %s failed: %s", job_id, stored)
+        _update_job_status(job_id, "failed", {"error": stored, "current": "failed"})
+        return {"status": "failed", "job_id": job_id, "error": stored}
     finally:
+        if follow_direct and follow_dest_id:
+            try:
+                _start_direct_followup(follow_dest_id, follow_scope, follow_user, job_id)
+            except Exception:
+                logger.warning(
+                    "Direct copy was not queued after job %s", job_id, exc_info=True
+                )
         db.close()
 
 
+def _replicate_stopped_text(details: dict, message: str) -> str:
+    """Worker-death line. A direct host push does not read as a folder copy."""
+    text = (message or "").strip()
+    if details.get("direct_host") is True:
+        if not text:
+            text = "Direct copy stopped"
+        else:
+            text = text.replace("Backup copy", "Direct copy").replace("backup copy", "direct copy")
+        return text[:500]
+    return (text or "Backup copy stopped")[:500]
+
+
 def fail_replicate_job(job_id: int, message: str) -> bool:
-    """Mark a Drive copy failed when the worker process dies outside execute()."""
-    text = (message or "Backup copy stopped").strip()[:500]
+    """Mark a copy failed when the worker process dies outside execute()."""
     try:
         with Session(engine) as s:
             job = s.get(Job, job_id)
@@ -933,6 +987,9 @@ def fail_replicate_job(job_id: int, message: str) -> bool:
                     existing = json.loads(job.details)
             except Exception:
                 existing = {}
+            from app.services.backup_replicate import scrub_job_text
+
+            text = scrub_job_text(_replicate_stopped_text(existing, message))[:500]
             lines = list(existing.get("log_lines") or [])
             if not lines or lines[-1] != text:
                 lines.append(text)

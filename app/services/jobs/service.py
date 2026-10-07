@@ -348,9 +348,12 @@ def job_type_label(job_type: str | None) -> str:
 
 
 def job_display_label(job_type: str | None, details: dict | None = None) -> str:
-    """Row label. A self-backup hop is the same job type as a folder copy."""
-    if job_type == "backup_replicate" and str((details or {}).get("herder_archive") or "").strip():
+    """Row label. Folder copy, a direct host push, and a self-backup share one job type."""
+    data = details or {}
+    if job_type == "backup_replicate" and str(data.get("herder_archive") or "").strip():
         return "Self-backup copy"
+    if job_type == "backup_replicate" and data.get("direct_host") is True:
+        return "Direct copy"
     return job_type_label(job_type)
 
 

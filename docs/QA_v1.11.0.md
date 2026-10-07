@@ -42,6 +42,7 @@ The build is on this branch. These boxes stay empty until you walk a real destin
 - [ ] With a destination saved, Save refuses the tick when no destination is selected
 - [ ] **Backup now** sends the original files to each ticked destination. Nothing new from that host appears under `/backups`
 - [ ] **Copy now** on one destination starts that push only
+- [ ] Jobs labels that **Copy now** or schedule **Direct copy**. A folder on `/backups` stays **Backup copy**. **Backup now** on the host stays **Backup**
 - [ ] A least-privilege host can read root-owned files (MySQL data, `/var/lib/docker/volumes`) after the sudoers script is applied again
 - [ ] The original files keep their mode, owner, and modification time
 - [ ] A follow-up copy succeeds while a log is still being written. That log is sent at the size it had when the copy started
