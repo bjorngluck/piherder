@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <a href="/servers/{{ server.id }}/docker?nocache=1" class="text-xs text-accent hover:underline">← Docker</a>
+  <h1 class="text-2xl font-semibold mt-2">Repository</h1>
+  <p class="text-sm text-muted mb-4">{{ project }} · {{ report.path or server.docker_base_dir }}</p>
+
+  {% if error %}
+  <div class="card rounded-xl p-3 mb-4 text-sm status-failed">{{ error }}</div>
+  {% endif %}
+  {% if report.result == 'updated' %}
+  <div class="card rounded-xl p-3 mb-4 text-sm status-success">Checkout updated. The stack was not deployed.</div>
+  {% elif report.result == 'conflict' %}
+  <div class="card rounded-xl p-3 mb-4 text-sm">Tracked files differ. Choose keep or take, then update again.</div>
+  {% elif report.result == 'local-commits' %}
+  <div class="card rounded-xl p-3 mb-4 text-sm">This checkout has commits the remote does not. Take the remote copies to drop them, or keep them and stay here.</div>
+  {% elif report.result == 'stash-conflict' %}
+  <div class="card rounded-xl p-3 mb-4 text-sm">The checkout moved, and putting the local edits back hit a conflict. The files are left in the project folder.</div>
+  {% elif report.result == 'fetch-fail' %}
+  <div class="card rounded-xl p-3 mb-4 text-sm">The remote could not be fetched.</div>
+  {% elif report.result == 'attached' %}
+  <div class="card rounded-xl p-3 mb-4 text-sm status-success">Remote saved. Pick a branch or a tag to update.</div>
+  {% endif %}
+
+  {% if not report.repo %}
+  <form method="post" action="/servers/{{ server.id }}/docker/compose/{{ project }}/repository/attach" class="space-y-3 card rounded-xl p-4">
+    <label class="text-xs block">Remote URL</label>
+    <input name="git_url" required class="w-full bg-surface border border-border p-2 rounded text-sm" placeholder="https://github.com/you/app.git">
+    <button type="submit" class="px-4 py-2 btn btn-accent rounded">Attach remote</button>
+    <p class="text-xs text-muted">The folder stays as it is. Nothing is deployed.</p>
+  </form>
+  {% else %}
+  <div class="card rounded-xl p-4 mb-4 text-sm space-y-1">
+    <div>Remote <span class="font-mono text-xs">{{ report.url or 'none' }}</span></div>
+    <div>Branch {{ report.branch or 'detached' }}{% if report.default_branch %} · remote default {{ report.default_branch }}{% endif %}</div>
+    <div>Checkout <span class="font-mono text-xs">{{ report.head }}</span> {{ report.subject }}</div>
+    {% set newer_tags = report.tags | selectattr('newer') | map(attribute='name') | list %}
+    {% if report.behind or newer_tags %}
+    <div class="pt-2 font-medium">Update available</div>
+    {% endif %}
+    {% if report.behind %}
+    <div>{{ report.branch or 'The remote branch' }} has {{ report.behind }} commit{{ 's' if report.behind != 1 else '' }} that this checkout does not.</div>
+    {% elif report.repo %}
+    <div>This checkout matches the remote branch.</div>
+    {% endif %}
+    {% if newer_tags %}
+    <div>Newer tag{{ 's' if newer_tags|length != 1 else '' }}: {{ newer_tags | join(', ') }}</div>
+    {% elif report.repo %}
+    <div>No newer tag than this checkout.</div>
+    {% endif %}
+    {% if report.ahead %}
+    <div>{{ report.ahead }} local commit{{ 's' if report.ahead != 1 else '' }} {{ 'are' if report.ahead != 1 else 'is' }} not on the remote branch.</div>
+    {% endif %}
+    {% if not report.fetch_ok %}
+    <div>The remote could not be fetched. The lists below are from the last fetch.</div>
+    {% endif %}
+  </div>
+
+  {% if not report.url %}
+  <form method="post" action="/servers/{{ server.id }}/docker/compose/{{ project }}/repository/attach" class="space-y-3 card rounded-xl p-4 mb-4">
+    <label class="text-xs block">Remote URL</label>
+    <input name="git_url" required class="w-full bg-surface border border-border p-2 rounded text-sm" placeholder="https://github.com/you/app.git">
+    <button type="submit" class="px-4 py-2 btn btn-accent rounded">Attach remote</button>
+  </form>
+  {% endif %}
+
+  {% if report.dirty %}
+  <div class="card rounded-xl p-4 mb-4">
+    <h2 class="text-sm font-semibold mb-2">Local tracked changes</h2>
+    <ul class="text-xs font-mono space-y-1">
+      {% for name in report.dirty %}
+      <li>{{ name }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/servers/{{ server.id }}/docker/compose/{{ project }}/repository/update" class="space-y-4 card rounded-xl p-4">
+    <div>
+      <label class="text-xs block mb-1">Branch</label>
+      <select name="branch" class="w-full bg-surface border border-border p-2 rounded text-sm">
+        <option value="">Do not follow a branch</option>
+        {% for name in report.branches %}
+        <option value="{{ name }}" {% if name == (report.branch if report.branch != 'HEAD' else report.default_branch) %}selected{% endif %}>{{ name }}{% if name == report.default_branch %} · default{% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-xs block mb-1">Tag</label>
+      <select name="tag" class="w-full bg-surface border border-border p-2 rounded text-sm">
+        <option value="">Do not check out a tag</option>
+        {% for row in report.tags %}
+        <option value="{{ row.name }}">{{ row.name }}{% if row.newer %} · newer{% endif %}</option>
+        {% endfor %}
+      </select>
+      <p class="text-xs text-muted mt-1">A tag marked newer is ahead of this checkout. Choosing a tag checks out that tag.</p>
+    </div>
+    {% if report.dirty or report.ahead %}
+    <fieldset class="text-sm space-y-2">
+      <legend class="text-xs mb-1">Local changes</legend>
+      <label class="block"><input type="radio" name="choice" value="keep"> Keep the local files</label>
+      <label class="block"><input type="radio" name="choice" value="take"> Take the remote copies</label>
+    </fieldset>
+    {% endif %}
+    <button type="submit" class="px-4 py-2 btn btn-accent rounded">Update checkout</button>
+    <p class="text-xs text-muted">Untracked files stay. This does not deploy the stack.</p>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

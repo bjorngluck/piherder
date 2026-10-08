@@ -212,6 +212,12 @@
           </a>
           {% endif %}
           {% endif %}
+          <a href="/servers/{{ server.id }}/docker/compose/{{ proj.name | urlencode }}/repository"
+             data-sec-btn="repository"
+             class="no-underline"
+             title="Branch, tags, and update this checkout">
+            Repository…
+          </a>
           <form method="post" action="/servers/{{ server.id }}/docker/redeploy" data-sec="deploy">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
             <input type="hidden" name="pull" value="true">
