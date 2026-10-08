@@ -68,7 +68,7 @@ Two database revisions add the straight-out tick and the chosen destinations. Th
 1. Take a full DR self-backup. Keep `PIHERDER_MASTER_KEY`.
 2. Pull the image for this train when it is published. Hub tags today are `1.10.0` · `1.10` · `latest`.
 3. `docker compose pull && docker compose up -d`. Recreate **web** and **celery-worker**. The app code is not a folder on the host.
-4. On a least-privilege host that will send files straight out, copy the sudoers script from SSH access and apply it again.
+4. On a least-privilege host that will send files straight out, copy the sudoers script from SSH access and apply it again. It lets the backup user run `/var/lib/piherder/rclone`. No destination sign-in is stored on the host. The temp config lives only for the run.
 5. `uvx --refresh piherder-mcp` if an agent should see the device tools.
 
 The public demo is not this train.
