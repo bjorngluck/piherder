@@ -54,6 +54,7 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | Check updates vs Deploy | Pull-only vs pull+up as **Jobs** — [Updates](../day-to-day/updates-and-patching.md) |
 | Cleanup unused | List dangling images / exited containers (escaped HTML); optional prune |
 | New project wizard | Create a stack on the host |
+| **Repository…** | Project ⋯ menu. Attach a git remote to a project that is already on the host, pick a branch or a tag, and update the checkout. A tag ahead of the checkout is marked newer. A tracked local edit stops the update until you keep those files or take the remote copies. Untracked files stay. This does not deploy |
 | Template-managed stacks | Badge + gated full editor — [Templates](../service-templates/overview.md) |
 
 !!! note "Browser Back on Docker"

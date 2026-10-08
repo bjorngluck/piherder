@@ -535,6 +535,122 @@ async def create_docker_project(
     return RedirectResponse(f"/servers/{server_id}/docker?new_project={project_name}", status_code=303)
 
 
+def _git_page(request, server, user, project: str, report: dict, error: str = ""):
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="docker_repository.html",
+        context={
+            "title": f"Repository · {project}",
+            "server": server,
+            "user": user,
+            "project": project,
+            "report": report,
+            "error": error,
+        },
+    )
+
+
+@router.get("/{server_id}/docker/compose/{project}/repository", response_class=HTMLResponse)
+async def docker_repository(
+    request: Request,
+    server_id: int,
+    project: str,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    from ..services.git_project import GitProjectError, inspect_project
+
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        report = inspect_project(server, project)
+    except GitProjectError as exc:
+        report = {"repo": False, "project": project, "dirty": [], "tags": [], "branches": []}
+        return _git_page(request, server, user, project, report, error=str(exc))
+    return _git_page(request, server, user, project, report)
+
+
+@router.post("/{server_id}/docker/compose/{project}/repository/attach")
+async def docker_repository_attach(
+    request: Request,
+    server_id: int,
+    project: str,
+    git_url: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    from ..services.demo import http_403_if_demo
+    from ..services.git_project import GitProjectError, attach_remote, inspect_project
+
+    http_403_if_demo("onboard")
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        attached = attach_remote(server, project, git_url)
+        session.add(
+            make_audit_log(
+                action="git_project_attach",
+                user_id=user.id if user else None,
+                server_id=server_id,
+                details=f"project={project}",
+            )
+        )
+        session.commit()
+        report = inspect_project(server, project)
+        report["result"] = attached.get("result") or "attached"
+    except GitProjectError as exc:
+        report = {"repo": False, "project": project, "dirty": [], "tags": [], "branches": []}
+        return _git_page(request, server, user, project, report, error=str(exc))
+    return _git_page(request, server, user, project, report)
+
+
+@router.post("/{server_id}/docker/compose/{project}/repository/update")
+async def docker_repository_update(
+    request: Request,
+    server_id: int,
+    project: str,
+    branch: str = Form(""),
+    tag: str = Form(""),
+    choice: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    from ..services.demo import http_403_if_demo
+    from ..services.git_project import GitProjectError, inspect_project, update_project
+
+    http_403_if_demo("onboard")
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        updated = update_project(server, project, branch=branch, tag=tag, choice=choice)
+        if updated.get("result") == "updated":
+            session.add(
+                make_audit_log(
+                    action="git_project_update",
+                    user_id=user.id if user else None,
+                    server_id=server_id,
+                    details=f"project={project} {updated.get('kind')}={updated.get('chosen')}",
+                )
+            )
+            session.commit()
+        report = inspect_project(server, project)
+        report["result"] = updated.get("result")
+        report["detail"] = updated.get("detail") or ""
+        if updated.get("result") == "conflict":
+            report["dirty"] = updated.get("dirty") or report.get("dirty") or []
+            report["ahead"] = updated.get("ahead") or 0
+    except GitProjectError as exc:
+        try:
+            report = inspect_project(server, project)
+        except GitProjectError:
+            report = {"repo": False, "project": project, "dirty": [], "tags": [], "branches": []}
+        return _git_page(request, server, user, project, report, error=str(exc))
+    return _git_page(request, server, user, project, report)
+
+
 @router.post("/{server_id}/docker/compose/{project}/save-draft")
 async def save_draft(
     server_id: int,
