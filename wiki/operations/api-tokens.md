@@ -46,6 +46,8 @@ If **no** `feature:*` scopes are set, any job type allowed by `jobs` may run (st
 
 **409 / exclusive jobs:** a second start of the same exclusive type on a host returns **HTTP 409** with the existing `job_id` (same rule as the UI).
 
+A `read` call does not write an audit row. An optional flag for API and hosted `/mcp` reads is a note on the v1.12 plan. Writes stay audited either way.
+
 ## IP allowlist
 
 Optional IPs/CIDRs per token. Enforced using Caddy-forwarded client IP — call via ports **8888/8443**.

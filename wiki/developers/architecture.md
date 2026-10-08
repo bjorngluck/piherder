@@ -38,7 +38,7 @@ flowchart TB
 | Bulk fleet actions | Web → same enqueue paths | Feature-flag skip + exclusive rules |
 | LAN nmap scans / vuln pack update | **celery-worker-nmap** (`-Q nmap`, concurrency 1) | Opt-in profile; host network; `PIHERDER_NMAP_WORKER=1` only here |
 | Stale Jobs/Audit/nmap-run purge | Celery (default queue) | Opt-in Settings schedule |
-| `host_facts` | Celery default queue (`exclusive_job`) | One active snapshot per host. SSH down stays pending. A web recycle does not fail it |
+| `host_facts` | Celery default queue (`exclusive_job`) | One active snapshot per host, about every 15 minutes. SSH down stays pending. A web recycle does not fail it. Each run writes a Jobs row and an Audit row. Leaving those out of the default lists is a v1.12 note, not built |
 | `retention`, `herder_backup` | Celery default queue (`housekeeping_job`) | No host exclusive slot. One self-backup at a time. A web recycle does not fail them. Worker cap is 2 hours |
 
 **Nmap privilege boundary:** web + main celery set `PIHERDER_NMAP_WORKER=0` in compose; tasks call `worker_guard` and refuse if marker is off or `nmap` is missing. Never put queue `nmap` on the main worker. See [env reference](../operations/env-reference.md#lan-discovery-nmap--opt-in) · [`.env.example`](https://github.com/bjorngluck/piherder/blob/main/.env.example).

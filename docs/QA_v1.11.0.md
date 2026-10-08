@@ -1,11 +1,11 @@
 # PiHerder v1.11.0 — operator QA / sign-off
 
 **Branch:** `v1.11.0-dev` → `main` · tag **`v1.11.0`** (cut after merge, only when asked)  
-**Code freeze:** not set  
-**Package:** stays **`1.10.0`** until the version bump. About / footer say **1.10.0**.  
-**Operator QA:** not started  
-**Screenshots:** none for this train yet  
-**Pull request:** not opened
+**Code freeze:** set 2026-10-08  
+**Package:** stays **`1.10.0`**. About / footer say **1.10.0**.  
+**Operator QA:** not started. Boxes below stay empty until you walk them.  
+**Screenshots:** names are in the [v1.11 pack](../wiki/assets/screenshots/README.md#v111--pack-status). The files are not in the tree yet: `account-passkey-2fa.png`, `host-backup-direct.png`, `jobs-direct-copy.png`, `docker-repository.png`.  
+**Pull request:** body is [PR_v1.11.0.md](PR_v1.11.0.md). Draft from `v1.11.0-dev` to `main`.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
@@ -72,11 +72,18 @@ Issue [#34](https://github.com/bjorngluck/piherder/issues/34). Same actions as t
 - [ ] Purge of a linked device is refused, and purge of offline devices removes only those rows
 - [ ] A one-device scan uses an address inside the saved ranges and does not run vulnerability scripts
 
-## Discover (notes, not walks)
+## Git-rich onboard (Should)
 
-- **NPM CRUD.** Creating and editing proxy hosts stays a note. Move can still retarget a backend.
-- **Remote restore.** Restore from Drive, SMB, or OneDrive stays a note. Restore stays a reverse rsync from `/backups`.
-- **Git-rich onboard.** Bringing a stack in from a git repo stays a note.
+Docker → **Repository…** on an existing project. A tracked local edit stops the update. Untracked files stay. The stack is not deployed.
+
+- [ ] Attach a remote to an existing project and see its branches, with the remote default selected
+- [ ] A tag ahead of the checkout is marked newer, and choosing it updates the checkout to that tag
+- [ ] A tracked local edit stops the update until Keep the local files or Take the remote copies
+- [ ] After the checkout moves, the stack is still the running one until Deploy
+
+## Discover
+
+NPM CRUD and remote restore moved to [PLAN_v1.12.0.md](PLAN_v1.12.0.md). They are not walks on this train.
 
 ## 1.10 regression
 
