@@ -33,7 +33,7 @@ The page matches the host file manager and is read-only: folder tree on the left
 
 `rclone sync` uses `--drive-use-trash`. A checked file is copied on its own.
 
-The copy signs in as the operator’s Google account. PiHerder runs the redirect and stores the refresh token. New files are owned by that account and use its Drive quota. A service account is not the upload account: it has no Drive quota, so a personal My Drive folder rejects the file bytes. **Test** lists the folder and does not copy. Restore does not read Drive.
+The copy signs in as the operator’s Google account. PiHerder runs the redirect and stores the refresh token. New files are owned by that account and use its Drive quota. A service account is not the upload account: it has no Drive quota, so a personal My Drive folder rejects the file bytes. **Test** lists the folder and does not copy. Restore does not read Drive. A restore from Drive, OneDrive, or the NAS is a note on [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
 
 ## Out
 
