@@ -20,7 +20,7 @@ Design: [PLAN_v1.11.0.md](PLAN_v1.11.0.md). Maintainer ticks: [QA_v1.11.0.md](QA
 |--------|------------|
 | **Passkey** | Signup with Force 2FA can register a passkey. That passkey satisfies the enroll wall. The account and the Users list treat it as 2FA |
 | **Path C** | Opt in per host. None of the destinations start selected. Save refuses an empty tick. Original files go straight out. Nothing new under `/backups`. Jobs label **Direct copy**. The finished backup names the destination |
-| **MCP** | `start_move`, `read_discovery`, `start_discovery`, and the device tools. Undo stays out. `trigger_job` still refuses `service_migrate`. Adapter **0.4.1** |
+| **MCP** | `start_move`, `read_discovery`, `start_discovery`, and the device tools. Undo stays out. `trigger_job` still refuses `service_migrate`. Adapter **0.4.2** |
 | **Repository** | Existing project. Branch or tag. **Update available** names a newer tag. A local tracked edit stops the update. No deploy |
 | **Demo** | Stays the production image. Not this branch |
 

@@ -265,8 +265,8 @@ Hosted MCP `trigger_job` uses this same list, including `container_start`, `cont
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/unignore` | `edit` | Mark known. A linked device stays linked |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/link` | `edit` | Body `server_id` |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/unlink` | `edit` | Device becomes known |
-| `DELETE` | `/api/v1/discovery/{id}/devices/{device_id}` | `edit` | Purge one device. A linked device is **400** |
-| `POST` | `/api/v1/discovery/{id}/devices/purge-stale` | `edit` | Purge offline devices. Linked devices stay |
+| `DELETE` | `/api/v1/discovery/{id}/devices/{device_id}?confirm=true` | `edit` | Purge one device. `confirm=true` is required. A linked device is **400** |
+| `POST` | `/api/v1/discovery/{id}/devices/purge-stale?confirm=true` | `edit` | Purge offline devices. `confirm=true` is required. Linked devices stay |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/scans` | `jobs` | Scan one device inside the saved ranges (HTTP **202**) |
 
 ```json
