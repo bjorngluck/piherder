@@ -581,6 +581,60 @@ def test_worker_death_line_names_a_direct_copy(tmp_path, monkeypatch):
     assert details["log_lines"][-1] == details["error"]
 
 
+def test_worker_death_still_queues_the_direct_hop(tmp_path, monkeypatch):
+    queued = _delay_recorder(monkeypatch)
+    engine = _sqlite(tmp_path, "direct-after-kill.db")
+    monkeypatch.setattr("app.tasks.engine", engine)
+    server = _host()
+
+    def partition(checked, hosts=None):
+        return ["other.local"], [(server, ["pi.local"])]
+
+    monkeypatch.setattr("app.services.backup_direct.partition_checked", partition)
+    with Session(engine) as session:
+        dest = BackupDestination(
+            provider="drive",
+            name="Drive",
+            enabled=True,
+            credentials_encrypted="tok-value",
+            selection_json='{"checked":["other.local","pi.local"],"skipped":[]}',
+        )
+        session.add(dest)
+        session.commit()
+        session.refresh(dest)
+        job = Job(
+            job_type="backup_replicate",
+            status="running",
+            details=json.dumps(
+                {
+                    "destination_id": dest.id,
+                    "direct_after": True,
+                    "current": "copying",
+                    "log_lines": ["Drive copy queued…"],
+                }
+            ),
+        )
+        session.add(job)
+        session.commit()
+        job_id = job.id
+        dest_id = dest.id
+    from app.tasks import fail_replicate_job
+
+    assert fail_replicate_job(job_id, "The worker stopped during the backup copy.")
+    with Session(engine) as session:
+        folder = session.get(Job, job_id)
+        assert folder.status == "failed"
+        rows = list(session.exec(select(Job).where(Job.job_type == "backup_replicate")).all())
+        assert len(rows) == 2
+        direct = next(row for row in rows if row.id != job_id)
+        details = json.loads(direct.details or "{}")
+        assert details["direct_host"] is True
+        assert details["destination_id"] == dest_id
+        assert "tok-value" not in (direct.details or "")
+        direct_id = direct.id
+    assert queued == [direct_id]
+
+
 def test_normal_host_still_errors_when_the_mirror_is_missing(monkeypatch, tmp_path):
     monkeypatch.setattr(copies, "backup_root", lambda: tmp_path)
     monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)

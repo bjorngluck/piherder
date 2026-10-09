@@ -972,6 +972,47 @@ def _replicate_stopped_text(details: dict, message: str) -> str:
     return (text or "Backup copy stopped")[:500]
 
 
+def _queue_direct_after_folder_failure(session, details: dict) -> None:
+    """A failed folder hop still starts the direct hop for that tick.
+
+    The task ``finally`` does this on a normal failure. A worker kill that
+    only reaches ``fail_replicate_job`` uses this path. A kill that leaves
+    the row running does not.
+    """
+    if details.get("direct_after") is not True:
+        return
+    if details.get("direct_host") is True:
+        return
+    if str(details.get("herder_archive") or "").strip():
+        return
+    try:
+        dest_id = int(details.get("destination_id") or 0)
+    except (TypeError, ValueError):
+        return
+    if not dest_id:
+        return
+    from app.models import BackupDestination
+    from app.services.backup_replicate import enqueue_direct_followup
+
+    dest = session.get(BackupDestination, dest_id)
+    if dest is None:
+        return
+    scope = details.get("scope")
+    user_id = details.get("user_id")
+    try:
+        enqueue_direct_followup(
+            session,
+            dest,
+            scope=scope if isinstance(scope, str) else None,
+            user_id=user_id if isinstance(user_id, int) else None,
+        )
+    except Exception:
+        logger.warning(
+            "Direct copy was not queued after a failed folder hop",
+            exc_info=True,
+        )
+
+
 def fail_replicate_job(job_id: int, message: str) -> bool:
     """Mark a copy failed when the worker process dies outside execute()."""
     try:
@@ -1002,6 +1043,7 @@ def fail_replicate_job(job_id: int, message: str) -> bool:
             job.finished_at = datetime.utcnow()
             s.add(job)
             s.commit()
+            _queue_direct_after_folder_failure(s, existing)
             return True
     except Exception as exc:
         logger.error("Backup copy job %s could not be marked failed: %s", job_id, exc)

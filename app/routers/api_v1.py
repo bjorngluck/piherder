@@ -53,6 +53,15 @@ class ApiAuth:
                 detail=tok_svc.missing_scope_message(scope),
             )
 
+    def require_unrestricted_jobs(self, detail: str) -> None:
+        """Jobs scope, and no feature:* allowlist. Used for work that is not one feature."""
+        self.require(tok_svc.SCOPE_JOBS)
+        if tok_svc.feature_keys_allowed(self.scopes) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=detail,
+            )
+
     def require_feature(self, feature_key: str) -> None:
         """Enforce optional feature:* allowlist on the token."""
         if feature_key not in tok_svc.FEATURE_SCOPE_BY_KEY:
@@ -1135,7 +1144,9 @@ def create_discovery_scan(
     from ..services.nmap.public_api import queue_saved_scan, run_public
 
     http_403_if_demo("nmap")
-    auth.require(tok_svc.SCOPE_JOBS)
+    auth.require_unrestricted_jobs(
+        "LAN Discovery scans need a jobs token with no feature:* limit."
+    )
     if body.confirm is not True:
         raise HTTPException(status_code=400, detail="confirm must be true")
     row = _discovery_or_404(session, integration_id)
@@ -1422,17 +1433,23 @@ def unlink_discovery_device(
 @router.delete(
     "/discovery/{integration_id}/devices/{device_id}",
     summary="Purge one LAN Discovery device",
-    description="Scope edit. A linked device is refused. There is no undo.",
+    description=(
+        "Scope edit. confirm=true is required. A linked device is refused. "
+        "There is no undo."
+    ),
 )
 def delete_discovery_device(
     integration_id: int,
     device_id: int,
     session: Session = Depends(get_session),
     auth: ApiAuth = Depends(get_api_auth),
+    confirm: bool = False,
 ):
     from ..services.nmap.public_api import purge_one_device
 
     auth.require(tok_svc.SCOPE_EDIT)
+    if confirm is not True:
+        raise HTTPException(status_code=400, detail="confirm must be true")
     row = _discovery_or_404(session, integration_id)
     try:
         return purge_one_device(session, row, device_id, **_device_caller(auth))
@@ -1444,18 +1461,21 @@ def delete_discovery_device(
     "/discovery/{integration_id}/devices/purge-stale",
     summary="Purge offline LAN Discovery devices",
     description=(
-        "Scope edit. Removes devices in the stale state. Linked devices stay. "
-        "There is no undo."
+        "Scope edit. confirm=true is required. Removes devices in the stale "
+        "state. Linked devices stay. There is no undo."
     ),
 )
 def purge_stale_discovery_devices(
     integration_id: int,
     session: Session = Depends(get_session),
     auth: ApiAuth = Depends(get_api_auth),
+    confirm: bool = False,
 ):
     from ..services.nmap.public_api import purge_stale_devices
 
     auth.require(tok_svc.SCOPE_EDIT)
+    if confirm is not True:
+        raise HTTPException(status_code=400, detail="confirm must be true")
     row = _discovery_or_404(session, integration_id)
     try:
         return purge_stale_devices(session, row, **_device_caller(auth))
@@ -1485,7 +1505,9 @@ def create_discovery_device_scan(
     from ..services.nmap.public_api import queue_device_scan, run_public
 
     http_403_if_demo("nmap")
-    auth.require(tok_svc.SCOPE_JOBS)
+    auth.require_unrestricted_jobs(
+        "LAN Discovery scans need a jobs token with no feature:* limit."
+    )
     if body.confirm is not True:
         raise HTTPException(status_code=400, detail="confirm must be true")
     row = _discovery_or_404(session, integration_id)

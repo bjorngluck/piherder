@@ -321,7 +321,9 @@ def tool_catalog() -> list[dict[str, Any]]:
             "description": (
                 "Read LAN Discovery. Omit integration_id to list saved ranges "
                 "and the latest scan. Pass integration_id for recent scans and "
-                "a short device list. Pass run_id with integration_id for one scan. "
+                "a short device list. That list stops at 50 and includes total. "
+                "Page the rest with list_discovery_devices. "
+                "Pass run_id with integration_id for one scan. "
                 "No credentials and no script output."
             ),
             "scope": tok_svc.SCOPE_READ,
@@ -1119,6 +1121,7 @@ async def call_tool(
                 _require_int(args, "device_id"),
                 session,
                 auth,
+                confirm=True,
             )
         elif name == "purge_stale_discovery_devices":
             if _opt_bool(args, "confirm") is not True:
@@ -1130,6 +1133,7 @@ async def call_tool(
                 _require_int(args, "integration_id"),
                 session,
                 auth,
+                confirm=True,
             )
         elif name == "scan_discovery_device":
             if _opt_bool(args, "confirm") is not True:

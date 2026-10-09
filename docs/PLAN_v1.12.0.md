@@ -18,6 +18,7 @@
 | Note | **Host facts clutter.** The 15-minute `host_facts` snapshot writes a Jobs row and an Audit row for every host. Both views are messy. The default Jobs list and the default Audit list leave that routine snapshot out. A failed snapshot stays visible |
 | Discover, moved from v1.11 | **NPM CRUD.** A note only. Proxy hosts stay read-only. Move can still retarget a backend |
 | Discover, moved from v1.11 | **Remote restore.** A note only. Restore stays a reverse rsync from `/backups`. Drive, OneDrive, and the NAS are not a restore source |
+| Note | **Direct copy on a different CPU.** Grey out the straight-out tick when host facts say the host architecture is not the herder's. Until then the run fails and names the mismatch, and that host keeps the `/backups` path |
 | Version bump | Not this file. v1.11 freezes to `1.11.0` only when asked. v1.12 stays unopened |
 | Demo | Do not point the public demo at a branch that does not exist |
 
@@ -28,6 +29,7 @@
 | Date | What changed |
 |------|----------------|
 | 2026-10-08 | **Notes opened.** NPM CRUD and remote restore move here from v1.11. Two new notes: an optional flag for API and MCP read audit, and `host_facts` kept out of the default Jobs and Audit lists. Nothing is built. |
+| 2026-10-09 | **Direct copy arch.** Grey out the straight-out tick when the host CPU does not match the herder. Not built. v1.11 names the mismatch in the job and tells the operator to keep `/backups` for that host. |
 
 ---
 

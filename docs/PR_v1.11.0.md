@@ -4,7 +4,7 @@
 
 **Base:** `main` · **Head:** `v1.11.0-dev` · [QA_v1.11.0.md](QA_v1.11.0.md) boxes are empty. Screenshot names are reserved. Frames are not in the tree.
 
-**State:** draft. Notes are [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md). Package stays **1.10.0**. Tag and Hub publish stay for the ship step.
+**State:** open as [#35](https://github.com/bjorngluck/piherder/pull/35). Notes are [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md). Package stays **1.10.0**. Tag and Hub publish stay for the ship step.
 
 ---
 
@@ -33,7 +33,7 @@ Alembic **049** (`049_backup_direct`) and **050** (`050_backup_direct_targets`).
 Walk [QA_v1.11.0.md](QA_v1.11.0.md). Do not retick the 1.10 boxes.
 
 - [ ] Passkey versus Force 2FA
-- [ ] Direct backup on a real destination, including **Direct copy** and the named destination
+- [ ] Direct backup on LAN NAS, Google Drive, and OneDrive. Each finished Backup row and audit row names the place, with no sign-in, and **Copy now** shows **Direct copy**
 - [ ] MCP Move, a LAN Discovery read, a saved-range scan, and device rename, link, and purge
 - [ ] Repository on an existing checkout: newer tag visible, local edit stops the update, no deploy
 - [ ] `.venv-docs/bin/mkdocs build --strict`
