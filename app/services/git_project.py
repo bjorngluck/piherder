@@ -17,6 +17,7 @@ from .ssh import get_ssh_client, run_command
 _REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 _URL = re.compile(r"^(https://|ssh://|git@)[^\s'\"]+$")
 _PROJECT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$")
+_USERINFO = re.compile(r"(https://|ssh://)([^/\s@]+)@")
 
 
 class GitProjectError(ValueError):
@@ -30,10 +31,37 @@ def validate_project(name: str) -> str:
     return text
 
 
+def _authority(url: str) -> str:
+    if url.startswith("https://"):
+        rest = url[len("https://"):]
+    elif url.startswith("ssh://"):
+        rest = url[len("ssh://"):]
+    else:
+        return ""
+    return rest.split("/", 1)[0]
+
+
+def redact_git_url(text: str) -> str:
+    """Hide a token embedded in an https or ssh URL. A plain git@ user stays."""
+
+    def repl(match: re.Match[str]) -> str:
+        scheme, userinfo = match.group(1), match.group(2)
+        if ":" in userinfo:
+            return scheme
+        return match.group(0)
+
+    return _USERINFO.sub(repl, text or "")
+
+
 def validate_url(url: str) -> str:
     text = (url or "").strip()
     if not _URL.match(text):
         raise GitProjectError("Use an https, ssh, or git@ URL")
+    if text.startswith("https://") and "@" in _authority(text):
+        raise GitProjectError(
+            "Do not put a user or token in the https URL. "
+            "Use a deploy key or a credential helper."
+        )
     return text
 
 
@@ -70,7 +98,7 @@ def parse_git_report(text: str) -> dict[str, Any]:
         if key == "repo":
             report["repo"] = value == "1"
         elif key == "url":
-            report["url"] = value
+            report["url"] = redact_git_url(value)
         elif key == "branch":
             report["branch"] = value
         elif key == "head":
@@ -95,7 +123,7 @@ def parse_git_report(text: str) -> dict[str, Any]:
         elif key == "result":
             report["result"] = value
         elif key == "detail":
-            report["detail"] = value[:500]
+            report["detail"] = redact_git_url(value)[:500]
     return report
 
 
@@ -106,16 +134,21 @@ def _run(server: Server, script: str, timeout: int = 180) -> str:
     finally:
         client.close()
     if status not in (0,):
-        tail = (err or out or "git failed").strip()
+        tail = redact_git_url((err or out or "git failed").strip())
         raise GitProjectError(tail[-300:] or "git failed")
     return out
 
 
 def _enter(path: str) -> str:
-    """cd into the project and read a checkout owned by another user."""
+    """cd into the project and read that one checkout.
+
+    The ownership override is this folder only. Repo hooks, fsmonitor, and
+    a repo sshCommand are not used.
+    """
+    quoted = shlex.quote(path)
     return f"""
-cd {shlex.quote(path)} || {{ echo result=missing; exit 0; }}
-git() {{ command git -c safe.directory='*' "$@"; }}
+cd {quoted} || {{ echo result=missing; exit 0; }}
+git() {{ command git -c safe.directory={quoted} -c core.fsmonitor= -c core.hooksPath=/dev/null -c core.sshCommand=ssh "$@"; }}
 """
 
 
@@ -148,13 +181,13 @@ if [ -n "$url" ]; then
   fi
 fi
 default=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)
-default=${{default#origin/}}
+default=${default#origin/}
 printf 'default=%s\\n' "$default"
 git for-each-ref --format='refbranch=%(refname:strip=3)' refs/remotes/origin
 headfull=$(git rev-parse HEAD)
 git for-each-ref --format='%(refname:strip=2)' refs/tags | while IFS= read -r name; do
   [ -n "$name" ] || continue
-  sha=$(git rev-parse "$name^{{commit}}" 2>/dev/null || true)
+  sha=$(git rev-parse "$name^{commit}" 2>/dev/null || true)
   [ -n "$sha" ] || continue
   if git merge-base --is-ancestor "$headfull" "$sha" && [ "$sha" != "$headfull" ]; then
     printf 'tag=%s newer\\n' "$name"

@@ -343,6 +343,15 @@ def test_agent_can_rename_link_and_purge(tmp_path, monkeypatch):
         with Session(engine) as session:
             assert session.get(NmapDevice, fresh_id) is not None
 
+        denied = client.delete(
+            f"/api/v1/discovery/{integration_id}/devices/{fresh_id}",
+            headers=headers,
+        )
+        assert denied.status_code == 400
+        assert denied.json()["detail"] == "confirm must be true"
+        with Session(engine) as session:
+            assert session.get(NmapDevice, fresh_id) is not None
+
         gone = _rpc(
             client,
             plain,
@@ -371,6 +380,13 @@ def test_agent_can_rename_link_and_purge(tmp_path, monkeypatch):
         )
         body, text = _tool_payload(bulk_held)
         assert text["detail"] == "confirm must be true"
+
+        bulk_http = client.post(
+            f"/api/v1/discovery/{integration_id}/devices/purge-stale",
+            headers=headers,
+        )
+        assert bulk_http.status_code == 400
+        assert bulk_http.json()["detail"] == "confirm must be true"
 
         bulk = _rpc(
             client,

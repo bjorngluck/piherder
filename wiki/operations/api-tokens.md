@@ -42,7 +42,7 @@ After create or rotate, copy the secret **and** the one-time **hosted MCP** bloc
 | `feature:os` | OS patch / OS update-check jobs (apt **or** HAOS `ha` CLI when `os_type=haos`) |
 | `feature:docker` | Container patch, container update-check, compose stack check/deploy/stop/start/restart, and template deploy/redeploy jobs |
 
-If **no** `feature:*` scopes are set, any job type allowed by `jobs` may run (still subject to server feature flags). Prefer least privilege: e.g. n8n backups = `read` + `jobs` + `feature:backup`.
+If **no** `feature:*` scopes are set, any job type allowed by `jobs` may run (still subject to server feature flags). Prefer least privilege: e.g. n8n backups = `read` + `jobs` + `feature:backup`. A token that sets any `feature:*` scope cannot start a LAN Discovery scan. A `jobs` token with no `feature:*` scope can.
 
 **409 / exclusive jobs:** a second start of the same exclusive type on a host returns **HTTP 409** with the existing `job_id` (same rule as the UI).
 

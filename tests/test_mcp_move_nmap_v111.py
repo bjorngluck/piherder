@@ -348,6 +348,8 @@ def test_discovery_read_hides_secrets_and_start_uses_saved_ranges(tmp_path, monk
         detail = client.get(f"/api/v1/discovery/{integration_id}", headers=headers)
         assert detail.status_code == 200
         device = detail.json()["devices"][0]
+        assert detail.json()["total"] == 1
+        assert "list_discovery_devices" in detail.json()["devices_hint"]
         assert device["ip"] == "192.168.86.35"
         assert device["hostname"] == "rpi5-3"
         assert "mac" not in device
@@ -426,6 +428,40 @@ def test_discovery_read_hides_secrets_and_start_uses_saved_ranges(tmp_path, monk
         body, text = _tool_payload(hidden)
         assert body["isError"] is True
         assert "Unknown tool" in text["detail"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_feature_restricted_token_cannot_start_a_scan(tmp_path, monkeypatch):
+    engine = _engine(tmp_path)
+    client = _client(engine)
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+
+    def fake(*_args, **_kwargs):
+        raise AssertionError("scan was queued")
+
+    monkeypatch.setattr("app.services.nmap.public_api.enqueue_nmap_scan", fake)
+    with Session(engine) as session:
+        user = _user(session)
+        plain = _token(session, user, "read,jobs,feature:backup")
+        row = create_nmap(session, name="LAN", cidrs=["192.168.86.0/24"])
+        integration_id = row.id
+    headers = {"Authorization": f"Bearer {plain}"}
+    try:
+        started = client.post(
+            f"/api/v1/discovery/{integration_id}/scans",
+            headers=headers,
+            json={"confirm": True},
+        )
+        assert started.status_code == 403
+        assert "feature:*" in started.json()["detail"]
+        device = client.post(
+            f"/api/v1/discovery/{integration_id}/devices/1/scans",
+            headers=headers,
+            json={"confirm": True, "intensity": "deep"},
+        )
+        assert device.status_code == 403
+        assert "feature:*" in device.json()["detail"]
     finally:
         app.dependency_overrides.clear()
 

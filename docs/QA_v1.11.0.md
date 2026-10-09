@@ -5,7 +5,7 @@
 **Package:** stays **`1.10.0`**. About / footer say **1.10.0**.  
 **Operator QA:** not started. Boxes below stay empty until you walk them.  
 **Screenshots:** names are in the [v1.11 pack](../wiki/assets/screenshots/README.md#v111--pack-status). The files are not in the tree yet: `account-passkey-2fa.png`, `host-backup-direct.png`, `jobs-direct-copy.png`, `docker-repository.png`.  
-**Pull request:** body is [PR_v1.11.0.md](PR_v1.11.0.md). Draft from `v1.11.0-dev` to `main`.
+**Pull request:** [#35](https://github.com/bjorngluck/piherder/pull/35). Body is [PR_v1.11.0.md](PR_v1.11.0.md).
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
@@ -41,8 +41,10 @@ The build is on this branch. These boxes stay empty until you walk a real destin
 - [ ] With no destination saved, the straight-out tick is unavailable
 - [ ] With a destination saved, Save refuses the tick when no destination is selected
 - [ ] **Backup now** sends the original files to each ticked destination. Nothing new from that host appears under `/backups`
-- [ ] The finished job and its audit row name that destination. The sign-in is not in either row
 - [ ] **Copy now** on one destination starts that push only
+- [ ] LAN NAS: the finished Backup row and its audit row name the place. The sign-in is not in either row. **Copy now** shows **Direct copy**
+- [ ] Google Drive: the finished Backup row and its audit row name the place. The sign-in is not in either row. **Copy now** shows **Direct copy**
+- [ ] OneDrive: the finished Backup row and its audit row name the place. The sign-in is not in either row. **Copy now** shows **Direct copy**
 - [ ] Jobs labels that **Copy now** or schedule **Direct copy**. A folder on `/backups` stays **Backup copy**. **Backup now** on the host stays **Backup**
 - [ ] A least-privilege host can read root-owned files (MySQL data, `/var/lib/docker/volumes`) after the sudoers script is applied again
 - [ ] The original files keep their mode, owner, and modification time

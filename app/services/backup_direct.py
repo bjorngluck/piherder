@@ -460,7 +460,7 @@ def run_direct_backup(
         )
         backup_mod._set_progress(
             hostname,
-            log_line=f"Denied by policy: {bad.get('source')} — {bad.get('error')}",
+            log_line=f"Denied by policy: {bad.get('source')}: {bad.get('error')}",
         )
     enabled = [item for item in sources if item.get("enabled", True)]
     if not enabled and not results:

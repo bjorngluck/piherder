@@ -102,6 +102,20 @@ def list_payload(session: Session) -> dict[str, Any]:
     return {"integrations": items}
 
 
+def _device_total(session: Session, integration_id: int) -> int:
+    from sqlalchemy import func
+    from sqlmodel import select
+
+    total_raw = session.exec(
+        select(func.count())
+        .select_from(NmapDevice)
+        .where(NmapDevice.integration_id == int(integration_id))
+    ).one()
+    if isinstance(total_raw, tuple):
+        total_raw = total_raw[0]
+    return int(total_raw or 0)
+
+
 def detail_payload(session: Session, integration: Integration) -> dict[str, Any]:
     runs = list_runs(session, int(integration.id), limit=_RUN_LIMIT)
     latest = runs[0] if runs else None
@@ -115,6 +129,10 @@ def detail_payload(session: Session, integration: Integration) -> dict[str, Any]
         "integration": integration_public(integration, latest=latest),
         "runs": [run_public(run) for run in runs],
         "devices": [device_public(device) for device in devices],
+        "total": _device_total(session, int(integration.id)),
+        "devices_hint": (
+            "This list stops at 50. Page the rest with list_discovery_devices."
+        ),
     }
 
 
