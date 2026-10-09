@@ -7,7 +7,8 @@ Hosted ``trigger_job`` also accepts ``container_start``, ``container_stop``,
 ``container_restart``, and ``container_redeploy`` (v1.9). Adapter 0.2.0 does
 not list those four until the companion release. Hosted ``start_move``,
 ``read_discovery``, and ``start_discovery`` call the token routes. Adapter
-0.4.0 lists those three. Adapter 0.4.1 also lists the device tools
+0.4.0 lists those three. Adapter 0.4.2 sends ``confirm=true`` on the two
+purge HTTP calls. 0.4.1 lists the device tools and omits that query
 (``list_discovery_devices``, ``rename_discovery_device``,
 ``set_discovery_device_state``, ``link_discovery_device``,
 ``unlink_discovery_device``, ``purge_discovery_device``,

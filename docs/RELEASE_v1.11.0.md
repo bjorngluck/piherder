@@ -6,7 +6,7 @@ A passkey counts as a second factor when Force 2FA is on. A host can send its ow
 
 About and `/api/v1` still report package **1.10.0**. The straight-out tick and **Repository…** are how you tell this train is running.
 
-**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.10.0` · `1.10` · `latest` (amd64 + arm64). Pin `1.9.0` / `1.9` stays the previous image. Home Assistant plugin stays **0.5.0**. Adapter **[0.4.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.1)** is on PyPI. `uvx piherder-mcp` installs it. The public demo stays the production image.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.10.0` · `1.10` · `latest` (amd64 + arm64). Pin `1.9.0` / `1.9` stays the previous image. Home Assistant plugin stays **0.5.0**. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** is on PyPI. `uvx piherder-mcp` installs it. The public demo stays the production image.
 
 Operator how-to: [Account security](https://piherder-docs.hacknow.info/account-security/two-factor/) · [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/) · [Docker](https://piherder-docs.hacknow.info/docker/overview/) · [LAN Discovery](https://piherder-docs.hacknow.info/integrations/lan-discovery/). Technical record: [PLAN_v1.11.0](PLAN_v1.11.0.md). Maintainer QA: [QA_v1.11.0](QA_v1.11.0.md).
 
@@ -40,7 +40,7 @@ Hosted `POST /mcp` can start a stop-first Move with `start_move`. `confirm` must
 
 `list_discovery_devices` pages devices. An agent with `edit` can rename a device, mark it known, new, or ignored, link it to a fleet server, and purge one device or the offline rows. A linked device cannot be purged. `scan_discovery_device` scans one device that already sits inside the saved ranges. Vulnerability scripts stay off.
 
-Adapter **0.4.1** lists these tools. A machine still on **0.4.0** does not send the device tools. Run `uvx --refresh piherder-mcp`, then restart the MCP client so it lists 27 tools. A client that is still running keeps the old tool list. If uv does not see **0.4.1** yet, run `uvx --no-cache --refresh piherder-mcp` and restart the client again. `read_discovery`, `start_discovery`, and the device tools need this train's herder. `start_move` also works on a 1.10.0 herder.
+Adapter **0.4.2** lists these tools and sends `confirm=true` on the two purge calls. **0.4.1** lists the tools and omits that query, so purge returns 400 on this train. A machine on **0.4.0** does not send the device tools. Run `uvx --refresh piherder-mcp`, then restart the MCP client so it lists 27 tools. A client that is still running keeps the old tool list. If uv does not see **0.4.2** yet, run `uvx --no-cache --refresh piherder-mcp` and restart the client again. `read_discovery`, `start_discovery`, and the device tools need this train's herder. `start_move` also works on a 1.10.0 herder.
 
 ### Docker can see a newer git tag
 
@@ -73,7 +73,7 @@ Two database revisions add the straight-out tick and the chosen destinations. Th
 2. Pull the image for this train when it is published. Hub tags today are `1.10.0` · `1.10` · `latest`.
 3. `docker compose pull && docker compose up -d`. Recreate **web** and **celery-worker**. The app code is not a folder on the host.
 4. On any host whose SSH user is not root and that will send files straight out, copy the sudoers script from SSH access and apply it again. It lets the backup user run `/var/lib/piherder/rclone`. No destination sign-in is stored on the host. The temp config lives only for the run.
-5. `uvx --refresh piherder-mcp` if an agent should see the device tools, then restart the MCP client so it lists 27 tools. If uv does not see **0.4.1** yet, run `uvx --no-cache --refresh piherder-mcp` and restart the client again.
+5. `uvx --refresh piherder-mcp` if an agent should see the device tools, then restart the MCP client so it lists 27 tools. **0.4.2** sends `confirm=true` on purge. If uv does not see **0.4.2** yet, run `uvx --no-cache --refresh piherder-mcp` and restart the client again.
 
 Rolling back means restoring the DR self-backup from step 1. Pinning the image at `1.10.0` does not undo the two database revisions.
 
