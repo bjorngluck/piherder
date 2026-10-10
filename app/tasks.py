@@ -906,7 +906,13 @@ def replicate_backup(self, job_id: int):
         except Exception:
             details = {}
         from app.models import BackupDestination
-        from app.services.backup_replicate import execute, execute_direct, scrub_job_text
+        from app.services.backup_replicate import (
+            execute,
+            execute_direct,
+            note_copy_auth_failure,
+            resolve_copy_auth_failure,
+            scrub_job_text,
+        )
 
         dest = db.get(BackupDestination, details.get("destination_id"))
         _update_job_status(job_id, "running", {"current": "copying"})
@@ -934,6 +940,10 @@ def replicate_backup(self, job_id: int):
                 "success",
                 {"current": "completed", "copied": result.get("copied") or []},
             )
+            try:
+                resolve_copy_auth_failure(db, int(dest.id or 0))
+            except Exception:
+                logger.debug("copy auth resolve skipped", exc_info=True)
             return {"status": "success", "job_id": job_id}
         stored_error = scrub_job_text(str(result.get("error") or "copy failed"))[:500]
         _update_job_status(
@@ -941,6 +951,10 @@ def replicate_backup(self, job_id: int):
             "failed",
             {"error": stored_error, "current": "failed"},
         )
+        try:
+            note_copy_auth_failure(db, dest, stored_error)
+        except Exception:
+            logger.debug("copy auth alert skipped", exc_info=True)
         return {"status": "failed", "job_id": job_id, "error": stored_error}
     except Exception as exc:
         from app.services.backup_replicate import scrub_job_text

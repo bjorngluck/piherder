@@ -91,6 +91,24 @@ CATALOG: tuple[TypeSpec, ...] = (
     TypeSpec(
         "herder_backup_failed", "backup", "PiHerder self-backup failed", "critical", True, 0, 0
     ),
+    TypeSpec(
+        "backup_destination_auth_failed",
+        "backup",
+        "Backup destination needs Connect again",
+        "critical",
+        True,
+        0,
+        0,
+    ),
+    TypeSpec(
+        "backup_stale",
+        "backup",
+        "Host backup is stale",
+        "warning",
+        True,
+        0,
+        0,
+    ),
     TypeSpec("os_updates", "updates", "OS updates", "warning", True, 0, 0),
     TypeSpec("reboot_pending", "updates", "Reboot pending", "warning", True, 0, 0),
     TypeSpec("container_updates", "updates", "Container image updates", "warning", True, 0, 0),

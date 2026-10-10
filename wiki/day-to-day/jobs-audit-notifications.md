@@ -61,6 +61,8 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 
 Statuses: `pending` → `running` → `success` / `failed`.
 
+A host-facts row still pending or running after its task is gone is failed on the fleet tick (30 minutes for host facts, 2 hours for the other exclusive types and for backups). The host leaves **refreshing**, and a failed refresh keeps the previous OS and kernel.
+
 **Web restart:** retention, the herder’s own backup, host facts, OS/container patch, host reboot, update checks, stack jobs, template jobs, backups, nmap, and Move are Celery — a web recycle does **not** fail them. Recycle **celery-worker** while one of those is **running** **fails** that job (it is not resumed mid-flight). If SSH is down at the start of a patch or stack job, the row stays **pending** and is probed again until the host answers or the wait limit (Settings → General → Jobs, default 30 minutes). A Kuma “host down” alert or a `last_seen` older than 15 minutes can show **waiting on host** on that pending job. Those are labels. The job resumes only when SSH works, and they do not fail it. See [Multi-worker](../operations/multi-worker.md).
 
 ### Exclusive jobs (one per type per host)

@@ -50,6 +50,14 @@ You pick the branch or a tag. The remote default, `main` or `master`, starts sel
 
 A project that is not a git checkout yet can be attached to a remote from the same page. New Docker Service can still clone a URL once and then write the pasted compose over it.
 
+### Fleet health
+
+Host backup schedules and destination copy schedules use the Settings timezone, the same clock as the label under the field. A stored hour 6 that was firing two hours later in Johannesburg now fires at 06:00 there.
+
+A host-facts refresh that cannot SSH keeps the previous OS and kernel. A facts row left pending or running after its task is gone is failed, and the host can refresh again. Drive or OneDrive rejecting the sign-in opens one alert on Settings → PiHerder backup. A backup-enabled host with no backup inside the stale window opens one warning. A later success resolves it.
+
+The Docker page on a host with Docker off says off and does not SSH. A direct host is copied only to the destinations it has ticked, so a Drive schedule does not fail that host with nothing to send. A deploy retries once when a stopped container from the same project holds the name. An apt update that exits 100 keeps the `E:` line in the job log.
+
 ---
 
 ## Defaults
@@ -89,3 +97,5 @@ The public demo is not this train.
 - Hiding the 15-minute host-facts snapshot from the default Jobs and Audit lists.
 - A repo check inside the Docker **Check updates** job. The Repository page is the check.
 - Greying out the straight-out tick when the host CPU does not match this PiHerder. The run names that mismatch. A note on the v1.12 plan.
+- An end-of-life badge on the host OS line.
+- Merging two LAN Discovery rows when a laptop changes MAC.

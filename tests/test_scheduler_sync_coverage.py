@@ -84,6 +84,8 @@ def test_sync_server_cron_jobs_all_arms():
         sched_mod.sync_server_cron_jobs(s, True, server)
     job_ids = {c.kwargs.get("id") for c in s.add_job.call_args_list}
     assert "backup_9" in job_ids
+    backup_call = next(c for c in s.add_job.call_args_list if c.kwargs.get("id") == "backup_9")
+    assert str(backup_call.kwargs["trigger"].timezone) == "UTC"
     assert "os_check_9" in job_ids
     assert "container_check_9" in job_ids
     assert "os_apply_9" in job_ids

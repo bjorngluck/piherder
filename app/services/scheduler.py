@@ -222,12 +222,20 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
 
     sid = server.id
 
+    # App timezone for every cron on this host. The container clock is UTC.
+    # The label under the field names this timezone, so the trigger must too.
+    try:
+        from .app_settings import get_app_timezone
+        tz = get_app_timezone()
+    except Exception:
+        tz = None
+
     # Backup
     bid = f"backup_{sid}"
     _remove_job(scheduler, bid)
     if server.backup_enabled and server.backup_schedule:
         try:
-            trigger = _cron_trigger(server.backup_schedule)
+            trigger = _cron_trigger(server.backup_schedule, timezone=tz)
             scheduler.add_job(
                 func=schedule_backup_job,
                 trigger=trigger,
@@ -236,16 +244,12 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
                 replace_existing=True,
                 name=f"Backup {server.name}",
             )
-            logger.info(f"[SCHEDULER] Backup scheduled for server {sid}: {server.backup_schedule}")
+            logger.info(
+                f"[SCHEDULER] Backup scheduled for server {sid}: "
+                f"{server.backup_schedule} ({tz})"
+            )
         except Exception as e:
             logger.warning(f"[SCHEDULER] Backup schedule failed for {sid}: {e}")
-
-    # App timezone for check schedules (matches Settings → timezone)
-    try:
-        from .app_settings import get_app_timezone
-        tz = get_app_timezone()
-    except Exception:
-        tz = None
 
     # OS update check
     oid = f"os_check_{sid}"
@@ -395,6 +399,12 @@ def sync_backup_copy_schedule(scheduler, HAS_SCHEDULER):
 
         from .backup_replicate import credentials_saved
 
+        try:
+            from .app_settings import get_app_timezone
+            tz = get_app_timezone()
+        except Exception:
+            tz = None
+
         with Session(engine) as db:
             rows = db.exec(select(BackupDestination)).all()
             for dest in rows:
@@ -402,7 +412,7 @@ def sync_backup_copy_schedule(scheduler, HAS_SCHEDULER):
                 if not dest.enabled or not credentials_saved(dest) or not cron or not dest.id:
                     continue
                 try:
-                    trigger = _cron_trigger(cron)
+                    trigger = _cron_trigger(cron, timezone=tz)
                 except Exception as e:
                     logger.warning("[SCHEDULER] Drive copy cron invalid for %s: %s", dest.id, e)
                     continue
@@ -479,6 +489,12 @@ def schedule_host_facts_fleet():
         from . import host_facts as facts_svc
 
         with Session(engine) as db:
+            try:
+                from . import jobs as jobs_svc
+
+                jobs_svc.cleanup_stale_backup_jobs(db)
+            except Exception as e:
+                logger.warning("[SCHEDULER] stale job sweep failed: %s", e)
             for server in db.exec(select(Server)).all():
                 if not server.id:
                     continue
@@ -535,6 +551,11 @@ def schedule_stack_health_job():
             has_scheduler=bool(_hs),
             notify=True,
         )
+        from ..database import engine
+        from .insights import sync_stale_backup_alerts
+
+        with Session(engine) as db:
+            sync_stale_backup_alerts(db)
     except Exception as e:
         logger.warning(f"[SCHEDULER] stack health job failed: {e}")
 

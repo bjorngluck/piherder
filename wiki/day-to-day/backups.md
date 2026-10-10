@@ -181,6 +181,8 @@ On Frigate/NVR-style trees, rsync may hit **code 24** (vanished files). From **v
 | Success | Each source finishes with `rc == 0` and no error classification; `last_backup_at` updates |
 | Failed | Status **failed**, audit error details, **`last_backup_at` not updated** |
 | After success | Open `backup_failed` notifications resolve |
+| Destination rejected the sign-in | One `backup_destination_auth_failed` alert, linked to Settings → PiHerder backup. A later successful copy resolves it |
+| No backup inside the stale window | One `backup_stale` warning per backup-enabled host. A later success resolves it |
 
 ### rsync path
 
@@ -190,7 +192,7 @@ On Frigate/NVR-style trees, rsync may hit **code 24** (vanished files). From **v
 
 ## Schedules
 
-Enable + cron on the Backups page. Same server never runs two backups at once ([Redis mutex](../operations/multi-worker.md)); different hosts can run in parallel.
+Enable + cron on the Backups page. The hour is the Settings timezone, the same clock as the label under the field. A destination copy schedule uses that clock too. Same server never runs two backups at once ([Redis mutex](../operations/multi-worker.md)); different hosts can run in parallel. A direct host is included in a destination schedule only when that destination is one of its ticked targets.
 
 **Why a mutex:** overlapping rsync to the same destination corrupts snapshots and confuses retention.
 
