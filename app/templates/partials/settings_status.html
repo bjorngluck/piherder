@@ -43,6 +43,11 @@
             {% else %}feature-off{% endif %}">{{ c.status }}</span>
         </div>
         <p class="text-xs text-muted break-words mb-0">{{ c.message }}</p>
+        {% if c.id == 'web' %}
+        <p class="text-[10px] text-muted mt-1 mb-0">
+          Hosted MCP is this same process, at <code class="font-mono">POST /mcp</code>.
+        </p>
+        {% endif %}
         {% if c.id == 'celery' and c.detail %}
         <p class="text-[10px] text-muted mt-1 mb-0">
           Nodes answer the broker ping; <strong class="text-text">pool slots</strong> are parallel backup capacity
