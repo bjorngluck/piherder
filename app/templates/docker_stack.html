@@ -47,8 +47,12 @@
   </span>
   {% elif _im.status == 'error' %}
   <span class="text-warning" title="{{ (_im.error or '') | e }}">Last refresh failed{% if _im.error %}: {{ _im.error[:80] }}{% endif %}</span>
+  {% elif _im.status == 'off' %}
+  <span class="text-text">Docker is off for this host.</span>
   {% endif %}
+  {% if _im.status != 'off' %}
   <a href="/servers/{{ server.id }}/docker?nocache=1" class="text-accent hover:underline ml-auto">Force refresh</a>
+  {% endif %}
 </div>
 
 {% if not projects and not orphan_containers and (_refreshing or _im.status in ('never', 'refreshing')) %}

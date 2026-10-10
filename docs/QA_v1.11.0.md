@@ -83,6 +83,19 @@ Docker → **Repository…** on an existing project. A tracked local edit stops 
 - [ ] A tracked local edit stops the update until Keep the local files or Take the remote copies
 - [ ] After the checkout moves, the stack is still the running one until Deploy
 
+## Fleet health
+
+Boxes stay empty until each one is walked.
+
+- [ ] A host backup schedule and a destination copy schedule fire at the hour named under the field, in the Settings timezone
+- [ ] A failed host-facts refresh keeps the previous OS and kernel lines
+- [ ] A host-facts row left running after the worker is gone fails, and the next snapshot can queue
+- [ ] A Drive or OneDrive token rejection opens one alert that links to Settings → PiHerder backup
+- [ ] A backup-enabled host with no backup inside the stale window opens one warning, and a later success resolves it
+- [ ] Docker on a host with the feature off says off and does not SSH
+- [ ] A direct host that does not target Drive is not a failed Drive follow-up
+- [ ] An apt update that exits 100 keeps the `E:` line in the job log
+
 ## Discover
 
 NPM CRUD and remote restore moved to [PLAN_v1.12.0.md](PLAN_v1.12.0.md). They are not walks on this train.

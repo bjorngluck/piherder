@@ -51,6 +51,7 @@ def _host(**kwargs) -> Server:
         hostname="pi.local",
         backup_enabled=True,
         backup_direct=True,
+        backup_direct_targets='["drive","onedrive","smb"]',
         backup_paths='[{"source":"/home/pi/docker/","enabled":true}]',
     )
     data.update(kwargs)

@@ -525,7 +525,7 @@ def push_groups(
                 copied.append(label)
                 sent = True
         if not sent and not any(row.get("error") for row in rows):
-            errors.append(f"{host_folder_name(server) or server.hostname}: nothing to send")
+            continue
     return copied, errors
 
 

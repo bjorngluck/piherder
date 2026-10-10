@@ -30,7 +30,7 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 
 ## Prerequisites
 
-1. Feature flag **Docker / containers** on.  
+1. Feature flag **Docker / containers** on. Off leaves the Docker page on **off** and does not SSH.  
 2. Remote `docker` usable by the SSH user (group/socket).  
 3. **Docker base dir** set correctly (absolute path if using least-priv).  
 4. Dependency check green for docker — [SSH troubleshooting](../troubleshooting/ssh-rsync.md).

@@ -19,6 +19,8 @@
 | Discover, moved from v1.11 | **NPM CRUD.** A note only. Proxy hosts stay read-only. Move can still retarget a backend |
 | Discover, moved from v1.11 | **Remote restore.** A note only. Restore stays a reverse rsync from `/backups`. Drive, OneDrive, and the NAS are not a restore source |
 | Note | **Direct copy on a different CPU.** Grey out the straight-out tick when host facts say the host architecture is not the herder's. Until then the run fails and names the mismatch, and that host keeps the `/backups` path |
+| Note | **OS end of life.** Issue [#45](https://github.com/bjorngluck/piherder/issues/45). A warning next to the OS line when the detected release is outside a small supported list. No auto-upgrade |
+| Note | **NIC change.** Issue [#46](https://github.com/bjorngluck/piherder/issues/46). A hint when a new MAC appears for a hostname that already has a stale row at that IP. Device identity stays the MAC |
 | Version bump | Not this file. v1.11 freezes to `1.11.0` only when asked. v1.12 stays unopened |
 | Demo | Do not point the public demo at a branch that does not exist |
 
@@ -30,6 +32,7 @@
 |------|----------------|
 | 2026-10-08 | **Notes opened.** NPM CRUD and remote restore move here from v1.11. Two new notes: an optional flag for API and MCP read audit, and `host_facts` kept out of the default Jobs and Audit lists. Nothing is built. |
 | 2026-10-09 | **Direct copy arch.** Grey out the straight-out tick when the host CPU does not match the herder. Not built. v1.11 names the mismatch in the job and tells the operator to keep `/backups` for that host. |
+| 2026-10-10 | **EOL badge and NIC change.** Issues [#45](https://github.com/bjorngluck/piherder/issues/45) and [#46](https://github.com/bjorngluck/piherder/issues/46). Not built. |
 
 ---
 

@@ -1226,6 +1226,51 @@ def _run_rclone(cmd: list[str], secret: str = "") -> tuple[int, str]:
     return proc.returncode, err[-2000:]
 
 
+_COPY_AUTH_MARKERS = (
+    "invalid_grant",
+    "rclone config reconnect",
+    "did not return the default drive",
+    "invalid_client",
+    "token has been expired or revoked",
+)
+
+
+def copy_auth_failure(message: str) -> bool:
+    text = (message or "").lower()
+    return any(marker in text for marker in _COPY_AUTH_MARKERS)
+
+
+def note_copy_auth_failure(session: Session, destination: BackupDestination, message: str) -> None:
+    """One open alert per destination when the account rejected the token."""
+    if destination is None or not getattr(destination, "id", None):
+        return
+    if not copy_auth_failure(message):
+        return
+    from .notifications import upsert_notification
+
+    name = destination_name(destination.provider)
+    upsert_notification(
+        session,
+        fingerprint=f"backup_destination_auth_failed:{int(destination.id)}",
+        type="backup_destination_auth_failed",
+        title=f"{name} needs Connect again",
+        body=(message or "The destination rejected the sign-in.")[:300],
+        link_url="/herder-backups?tab=backup",
+        severity="critical",
+        payload={"destination_id": int(destination.id), "provider": destination.provider},
+    )
+
+
+def resolve_copy_auth_failure(session: Session, destination_id: int | None) -> None:
+    if not destination_id:
+        return
+    from .notifications import resolve_by_fingerprint
+
+    resolve_by_fingerprint(
+        session, f"backup_destination_auth_failed:{int(destination_id)}"
+    )
+
+
 def _finish_copy(copied: list[str], errors: list[str]) -> dict[str, Any]:
     if errors and not copied:
         return {"ok": False, "error": errors[0], "errors": errors}
@@ -1243,6 +1288,19 @@ def _take_direct(checked: list[str]):
     except Exception:
         logger.warning("direct backup lookup failed", exc_info=True)
         return checked, []
+
+
+def _groups_for_destination(destination: BackupDestination, groups: list):
+    """Keep a direct host only when this destination is one it sends to."""
+    from .backup_direct import parse_direct_targets
+
+    provider = (getattr(destination, "provider", None) or "").strip().lower()
+    kept = []
+    for server, rels in groups or []:
+        chosen = set(parse_direct_targets(getattr(server, "backup_direct_targets", None)))
+        if provider and provider in chosen:
+            kept.append((server, rels))
+    return kept
 
 
 def _execute_smb(destination: BackupDestination, scope: str | None) -> dict[str, Any]:
@@ -1367,6 +1425,7 @@ def _scoped_parts(
     checked, skipped = parse_selection(destination.selection_json)
     checked, skipped = paths_for_scope(checked, skipped, scope)
     local, groups = _take_direct(checked)
+    groups = _groups_for_destination(destination, groups)
     return local, groups, skipped
 
 
