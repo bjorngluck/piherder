@@ -128,8 +128,15 @@ async def server_backups(
     except Exception as e:
         logger.debug(f"restore candidates: {e}")
 
+    from ..services.backup_direct import (
+        configured_destination_choices,
+        direct_where_label,
+        parse_direct_targets,
+    )
     from ..services.nav_shortcuts import host_feature_context
 
+    direct_choices = configured_destination_choices(session)
+    direct_picked = parse_direct_targets(getattr(server, "backup_direct_targets", None))
     _nav = host_feature_context(session, int(user.id) if user else None, server, "backups")
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -153,6 +160,12 @@ async def server_backups(
             **_nav,
             "restore_candidates": restore_candidates,
             "restore_result": None,
+            "direct_choices": direct_choices,
+            "direct_picked": direct_picked,
+            "direct_where": direct_where_label(
+                getattr(server, "backup_direct_targets", None),
+                direct_choices,
+            ),
         }
     )
 
@@ -318,6 +331,7 @@ async def stream_backup_logs(
 
 @router.post("/{server_id}/backup-config")
 async def update_backup_config(
+    request: Request,
     server_id: int,
     backup_paths: str = Form(""),
     retention_days: int = Form(None),
@@ -325,12 +339,34 @@ async def update_backup_config(
     dest_root: str = Form(""),
     folder_name: str = Form(""),
     scope: str = Form("this_host"),
+    backup_direct_set: str = Form(""),
+    backup_direct: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
+
+    # Refuse before any other field is written. A direct host needs a pick.
+    pending_targets: str | None = None
+    if backup_direct_set == "1" and backup_direct == "1":
+        from ..services.backup_direct import (
+            SELECT_DEST_MSG,
+            configured_destinations,
+            selected_direct_providers,
+        )
+
+        form = await request.form()
+        saved = {row.provider for row in configured_destinations(session)}
+        chosen = [
+            provider
+            for provider in selected_direct_providers(form.getlist("backup_direct_target"))
+            if provider in saved
+        ]
+        if not chosen:
+            raise HTTPException(400, SELECT_DEST_MSG)
+        pending_targets = json.dumps(chosen)
 
     if backup_schedule is not None:
         cron = backup_schedule.strip() or None
@@ -398,6 +434,14 @@ async def update_backup_config(
         server.backup_schedule = backup_schedule
         if backup_schedule:
             server.backup_enabled = True
+        session.add(server)
+        session.commit()
+
+    # The retention form does not send this. Only Configure does.
+    if backup_direct_set == "1":
+        server.backup_direct = backup_direct == "1"
+        if server.backup_direct:
+            server.backup_direct_targets = pending_targets
         session.add(server)
         session.commit()
 

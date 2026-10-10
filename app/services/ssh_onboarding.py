@@ -672,7 +672,8 @@ def build_sudoers_content(
     if backup:
         aliases.append(
             "Cmnd_Alias PIHERDER_BACKUP = /usr/bin/rsync, /bin/rsync, "
-            "/usr/bin/test, /bin/test, /usr/bin/true, /bin/true"
+            "/usr/bin/test, /bin/test, /usr/bin/true, /bin/true, "
+            "/var/lib/piherder/rclone"
         )
         grants.append(f"{user} ALL=(root) NOPASSWD: PIHERDER_BACKUP")
 

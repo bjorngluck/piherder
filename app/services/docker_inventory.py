@@ -100,10 +100,22 @@ def inventory_meta(server: Server) -> Dict[str, Any]:
     }
 
 
+def park_when_feature_off(session: Session, server: Server) -> bool:
+    """Docker feature off: store ``off``, clear the error, and do not SSH."""
+    if getattr(server, "container_patch_enabled", False):
+        return False
+    status = getattr(server, "docker_inventory_status", None) or "never"
+    if status != "off" or getattr(server, "docker_inventory_error", None):
+        set_status(session, server, "off", "")
+    return True
+
+
 def is_stale(server: Server, max_age_sec: int = DEFAULT_STALE_SEC) -> bool:
     """True if we should kick a background refresh."""
     status = getattr(server, "docker_inventory_status", None) or "never"
-    if status == "never":
+    if not getattr(server, "container_patch_enabled", False):
+        return False
+    if status in ("never", "off"):
         return True
     if status == "error":
         return True
@@ -327,11 +339,8 @@ def refresh_server_inventory(server_id: int, *, force: bool = False) -> bool:
             server = session.get(Server, server_id)
             if not server:
                 return False
-            # Feature gate: only hosts with container/docker feature (or forced)
-            if not force and not server.container_patch_enabled:
-                # Still allow if we already have inventory (was enabled before)
-                if not server.docker_inventory_json:
-                    return False
+            if park_when_feature_off(session, server):
+                return False
             set_status(session, server, "refreshing")
             # Detach plain values for SSH (Server stays attached)
             try:

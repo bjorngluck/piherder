@@ -33,7 +33,11 @@
     <h1 class="ops-hero-title">Backups</h1>
     <p class="ops-hero-sub">
       {{ server.hostname }}
+      {% if server.backup_direct %}
+      · straight to {{ direct_where }}
+      {% else %}
       · → <code class="text-[10px]">{{ effective_root }}/{{ effective_folder }}/</code>
+      {% endif %}
       ·
       {% if backup_running %}
       <span class="ops-hero-status ops-hero-status--run">running</span>
@@ -74,14 +78,20 @@
         <span class="ops-pulse-l">schedule</span>
       </div>
     </div>
-    <p class="ops-pulse-caption">rsync sources · path policy</p>
+    <p class="ops-pulse-caption">{% if server.backup_direct %}direct copy · path policy{% else %}rsync sources · path policy{% endif %}</p>
   </div>
 </section>
 
 <div class="card p-5">
   <div class="mb-3">
     <h2 class="font-semibold text-text">Backup sources</h2>
-    <p class="text-xs text-muted mt-1">Remote source → <code>{{ effective_root }}/{{ effective_folder }}/</code> (in container)</p>
+    <p class="text-xs text-muted mt-1">
+      {% if server.backup_direct %}
+      Remote source → the saved copy. Nothing is stored on this PiHerder first.
+      {% else %}
+      Remote source → <code>{{ effective_root }}/{{ effective_folder }}/</code> (in container)
+      {% endif %}
+    </p>
   </div>
 
   {% if backup_running %}
@@ -220,6 +230,9 @@
       <button type="submit" class="btn btn-secondary min-h-11 text-sm">Update retention</button>
     </form>
     <p class="text-xs text-muted mt-1">Schedule/cron and destination paths: use <strong class="text-text">Configure</strong> in the header.</p>
+    {% if server.backup_direct %}
+    <p class="text-xs text-muted mt-1">Retention days apply to a tree on this PiHerder. This host does not keep one, so they do not age the remote files.</p>
+    {% endif %}
   </div>
 </div>
 
@@ -232,6 +245,9 @@
   <div class="ph-collapse-card-body">
     <p class="text-xs text-muted mb-3">
       Local backup destination → remote source. Uncheck dry-run and check confirm to write for real. Path policy still applies.
+      {% if server.backup_direct %}
+      This host sends files straight to the copy. Restore from Drive, OneDrive, or the NAS is not available. This wizard only reads a tree already on this PiHerder.
+      {% endif %}
     </p>
 
     {% if restore_result %}
@@ -354,6 +370,31 @@
       </div>
 
       <div class="ph-config-section">
+        <div class="ph-config-section-title">Where the files go</div>
+        <input type="hidden" name="backup_direct_set" value="1">
+        <label class="flex gap-2 text-sm items-start min-h-11{% if not direct_choices %} opacity-50{% endif %}">
+          <input type="checkbox" name="backup_direct" value="1" class="mt-1"
+                 data-testid="backup-direct"
+                 {% if not direct_choices %}disabled title="Add a destination under Settings → PiHerder backup first"{% endif %}
+                 {% if server.backup_direct and direct_choices %}checked{% endif %}>
+          <span>Send this host’s files straight to a saved copy. Nothing is stored under the backup drive first. Other hosts still copy onto this PiHerder.</span>
+        </label>
+        {% if direct_choices %}
+        <div id="backup-direct-targets" class="mt-2 mb-3{% if not server.backup_direct %} hidden{% endif %}" data-testid="backup-direct-targets">
+          <p class="text-xs text-muted mb-1">Backup now and the schedule send to</p>
+          {% for choice in direct_choices %}
+          <label class="flex gap-2 text-sm items-center min-h-11">
+            <input type="checkbox" name="backup_direct_target" value="{{ choice.provider }}"
+                   data-direct-target data-testid="backup-direct-target-{{ choice.provider }}"
+                   {% if choice.provider in direct_picked %}checked{% endif %}>
+            {{ choice.label }}
+          </label>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-xs text-muted mt-1 mb-3" data-testid="backup-direct-none">No destination is saved yet. Add Google Drive, OneDrive, or a LAN share under Settings → PiHerder backup.</p>
+        {% endif %}
+        <p class="text-xs text-muted mt-1 mb-3">Copy now on one destination still starts that push only. rclone is copied to the host for the run and removed when it ends. The sign-in stays here. Files are read in place and sent straight on. The least-privilege script must allow <span class="font-mono">/var/lib/piherder/rclone</span>. Restore from the remote copy is not available.</p>
         <div class="ph-config-section-title">Destination</div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
@@ -365,6 +406,7 @@
             <input name="folder_name" value="{{ server.backup_folder_name or g.folder_name or '' }}" placeholder="{{ server.hostname }}" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
           </div>
         </div>
+        <p class="text-xs text-muted mt-2 mb-0">The path root is where a normal host backup lands on this PiHerder. A direct host does not use it. The folder name is used either way.</p>
       </div>
 
       <div class="ph-config-section">
@@ -446,6 +488,14 @@ function confirmRemoveBackupSource() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  const directBox = document.querySelector('[data-testid="backup-direct"]');
+  const directPick = document.getElementById('backup-direct-targets');
+  function syncDirectPick() {
+    if (directPick && directBox) directPick.classList.toggle('hidden', !directBox.checked);
+  }
+  if (directBox) directBox.addEventListener('change', syncDirectPick);
+  syncDirectPick();
+
   const addForm = document.querySelector('form[action$="/backup/add"]');
   if (addForm) {
     addForm.addEventListener('submit', async function(e) {

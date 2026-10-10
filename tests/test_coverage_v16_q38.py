@@ -115,7 +115,10 @@ def test_undo_enqueue_and_host_facts(tmp_path, monkeypatch):
     row.host_facts_status = "never"
     assert facts.is_stale(row) is True
     row.host_facts_status = "refreshing"
+    row.host_facts_at = datetime.utcnow()
     assert facts.is_stale(row) is False
+    row.host_facts_at = old
+    assert facts.is_stale(row) is True
     row.host_facts_status = "ok"
     row.host_facts_at = None
     assert facts.is_stale(row) is True

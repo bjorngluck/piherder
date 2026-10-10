@@ -5,6 +5,7 @@ Admin-managed instance tokens. See docs/API.md and GET /api/v1.
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any, Optional
 
@@ -23,6 +24,7 @@ from ..services import os_patching
 from ..services.server_audit import record_server_audit
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 ALLOWED_JOB_TYPES = frozenset(tok_svc.JOB_FEATURE_KEY.keys())
 
@@ -49,6 +51,15 @@ class ApiAuth:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=tok_svc.missing_scope_message(scope),
+            )
+
+    def require_unrestricted_jobs(self, detail: str) -> None:
+        """Jobs scope, and no feature:* allowlist. Used for work that is not one feature."""
+        self.require(tok_svc.SCOPE_JOBS)
+        if tok_svc.feature_keys_allowed(self.scopes) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=detail,
             )
 
     def require_feature(self, feature_key: str) -> None:
@@ -959,7 +970,8 @@ class MoveCreateBody(BaseModel):
     description=(
         "Requires scope jobs, feature:docker when the token is feature-restricted, "
         "and the docker flag on source and destination. confirm must be true. "
-        "The herder Move flag still gates this route. Not an MCP tool. No undo."
+        "The herder Move flag still gates this route. Hosted MCP start_move calls "
+        "this route. There is no undo."
     ),
 )
 def create_server_move(
@@ -1028,6 +1040,518 @@ def create_server_move(
             "leftover": "stopped",
             "job": job_service.job_public_dict(job),
             "already_active": False,
+        },
+    )
+
+
+# ---------- LAN Discovery (saved ranges only) ----------
+
+
+class DiscoveryScanBody(BaseModel):
+    """Start a scan of the ranges saved on this LAN Discovery integration."""
+
+    confirm: bool = False
+    intensity: str = "discovery"
+
+    model_config = {"extra": "forbid"}
+
+
+def _discovery_or_404(session: Session, integration_id: int):
+    from ..services.nmap.public_api import load_nmap
+
+    row = load_nmap(session, integration_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="LAN Discovery integration not found")
+    return row
+
+
+@router.get(
+    "/discovery",
+    summary="List LAN Discovery integrations",
+    description=(
+        "Saved ranges and the latest scan for each LAN Discovery integration. "
+        "Scope read. No credentials and no script output."
+    ),
+)
+def list_discovery(
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services.nmap.public_api import list_payload
+
+    auth.require(tok_svc.SCOPE_READ)
+    return list_payload(session)
+
+
+@router.get(
+    "/discovery/{integration_id}",
+    summary="Read one LAN Discovery integration",
+    description="Recent scans and a short device list. Scope read.",
+)
+def get_discovery(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services.nmap.public_api import detail_payload
+
+    auth.require(tok_svc.SCOPE_READ)
+    row = _discovery_or_404(session, integration_id)
+    return detail_payload(session, row)
+
+
+@router.get(
+    "/discovery/{integration_id}/runs/{run_id}",
+    summary="Read one LAN Discovery scan",
+    description="One scan row. Scope read. No artifact path and no script output.",
+)
+def get_discovery_run(
+    integration_id: int,
+    run_id: int,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..models import NmapScanRun
+    from ..services.nmap.public_api import run_public
+
+    auth.require(tok_svc.SCOPE_READ)
+    _discovery_or_404(session, integration_id)
+    run = session.get(NmapScanRun, int(run_id))
+    if run is None or int(run.integration_id) != int(integration_id):
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return {"run": run_public(run)}
+
+
+@router.post(
+    "/discovery/{integration_id}/scans",
+    status_code=202,
+    summary="Start a LAN Discovery scan",
+    description=(
+        "Scope jobs. confirm must be true. Targets are the ranges saved on "
+        "this integration. The body cannot set targets or vulnerability scripts. "
+        "Hosted MCP start_discovery calls this route."
+    ),
+)
+def create_discovery_scan(
+    integration_id: int,
+    body: DiscoveryScanBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services.audit_write import make_audit_log
+    from ..services.demo import http_403_if_demo
+    from ..services.nmap.argv import INTENSITIES
+    from ..services.nmap.public_api import queue_saved_scan, run_public
+
+    http_403_if_demo("nmap")
+    auth.require_unrestricted_jobs(
+        "LAN Discovery scans need a jobs token with no feature:* limit."
+    )
+    if body.confirm is not True:
+        raise HTTPException(status_code=400, detail="confirm must be true")
+    row = _discovery_or_404(session, integration_id)
+    try:
+        job, run, cidrs = queue_saved_scan(
+            session,
+            row,
+            intensity=body.intensity,
+            user_id=auth.user_id,
+        )
+    except ValueError as exc:
+        code = str(exc)
+        if code == "disabled":
+            raise HTTPException(status_code=400, detail="LAN Discovery is off") from exc
+        if code == "no_ranges":
+            raise HTTPException(
+                status_code=400,
+                detail="No scan ranges are saved",
+            ) from exc
+        if code == "bad_intensity":
+            allowed = ", ".join(INTENSITIES)
+            raise HTTPException(
+                status_code=400,
+                detail=f"intensity must be one of {allowed}",
+            ) from exc
+        raise HTTPException(status_code=400, detail=code[:200]) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)[:200]) from exc
+    except Exception as exc:
+        logger.exception("discovery scan enqueue failed")
+        raise HTTPException(status_code=503, detail=str(exc)[:200]) from exc
+
+    session.add(
+        make_audit_log(
+            action="nmap_scan_queued",
+            user_id=auth.user_id,
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
+            client_ip=auth.client_ip,
+            details=(
+                f"job={job.id} run={run.id} intensity={run.intensity} "
+                f"integration={row.id}"
+            ),
+        )
+    )
+    session.commit()
+    return JSONResponse(
+        status_code=202,
+        content={
+            "job_id": job.id,
+            "run_id": run.id,
+            "status": job.status,
+            "job_type": job.job_type,
+            "intensity": run.intensity,
+            "targets": cidrs,
+            "run": run_public(run),
+            "job": job_service.job_public_dict(job),
+        },
+    )
+
+
+class DiscoveryDevicePatch(BaseModel):
+    """Rename a device, or set known, new, or ignored."""
+
+    display_name: str | None = None
+    state: str | None = None
+
+    model_config = {"extra": "forbid"}
+
+
+class DiscoveryLinkBody(BaseModel):
+    """Link a discovery device to a fleet server."""
+
+    server_id: int
+
+    model_config = {"extra": "forbid"}
+
+
+class DiscoveryDeviceScanBody(BaseModel):
+    """Scan one device that already sits inside the saved ranges."""
+
+    confirm: bool = False
+    intensity: str = "deep"
+
+    model_config = {"extra": "forbid"}
+
+
+def _device_error(exc: ValueError) -> HTTPException:
+    code = str(exc)
+    table = {
+        "missing": (404, "Device not found"),
+        "linked": (400, "Unlink from the fleet server before purging"),
+        "unlink_first": (400, "unlink before marking new"),
+        "bad_state": (400, "state must be one of known, new, ignored"),
+        "bad_filter": (400, "state must be one of new, known, linked, ignored, stale"),
+        "bad_limit": (400, "limit must be from 1 to 200"),
+        "bad_offset": (400, "offset must be 0 or greater"),
+        "server": (400, "server not found"),
+        "disabled": (400, "LAN Discovery is off"),
+        "no_ranges": (400, "No scan ranges are saved"),
+        "outside_ranges": (400, "This device is outside the saved ranges"),
+    }
+    if code == "bad_intensity":
+        from ..services.nmap.argv import INTENSITIES
+
+        allowed = ", ".join(INTENSITIES)
+        return HTTPException(status_code=400, detail=f"intensity must be one of {allowed}")
+    status_code, detail = table.get(code, (400, code[:200]))
+    return HTTPException(status_code=status_code, detail=detail)
+
+
+def _device_caller(auth: ApiAuth) -> dict[str, Any]:
+    return {
+        "user_id": auth.user_id,
+        "api_token_id": auth.token_id,
+        "api_token_name": auth.token_name,
+        "client_ip": auth.client_ip,
+    }
+
+
+@router.get(
+    "/discovery/{integration_id}/devices",
+    summary="List LAN Discovery devices",
+    description=(
+        "Paged device list. state is new, known, linked, ignored, or stale. "
+        "Scope read. No MAC, notes, or script output."
+    ),
+)
+def list_discovery_devices(
+    integration_id: int,
+    state: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services.nmap.public_api import devices_page
+
+    auth.require(tok_svc.SCOPE_READ)
+    row = _discovery_or_404(session, integration_id)
+    try:
+        return devices_page(session, row, state=state, limit=limit, offset=offset)
+    except ValueError as exc:
+        raise _device_error(exc) from exc
+
+
+@router.patch(
+    "/discovery/{integration_id}/devices/{device_id}",
+    summary="Rename a LAN Discovery device or set its state",
+    description=(
+        "Scope edit. display_name sets the operator name and leaves kind and "
+        "map role alone. state is known, new, or ignored. A linked device "
+        "cannot be marked new."
+    ),
+)
+def patch_discovery_device(
+    integration_id: int,
+    device_id: int,
+    body: DiscoveryDevicePatch,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services.nmap.public_api import rename_device, set_device_operator_state
+
+    auth.require(tok_svc.SCOPE_EDIT)
+    if "display_name" not in body.model_fields_set and "state" not in body.model_fields_set:
+        raise HTTPException(status_code=400, detail="Pass display_name or state")
+    row = _discovery_or_404(session, integration_id)
+    who = _device_caller(auth)
+    try:
+        payload: dict[str, Any] = {}
+        if "display_name" in body.model_fields_set:
+            payload = rename_device(
+                session,
+                row,
+                device_id,
+                body.display_name or "",
+                **who,
+            )
+        if "state" in body.model_fields_set:
+            payload = set_device_operator_state(
+                session,
+                row,
+                device_id,
+                body.state or "",
+                **who,
+            )
+    except ValueError as exc:
+        raise _device_error(exc) from exc
+    return payload
+
+
+@router.post(
+    "/discovery/{integration_id}/devices/{device_id}/ignore",
+    summary="Hide a LAN Discovery device",
+    description="Scope edit. Sets state ignored.",
+)
+def ignore_discovery_device(
+    integration_id: int,
+    device_id: int,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services.nmap.public_api import ignore_device
+
+    auth.require(tok_svc.SCOPE_EDIT)
+    row = _discovery_or_404(session, integration_id)
+    try:
+        return ignore_device(session, row, device_id, **_device_caller(auth))
+    except ValueError as exc:
+        raise _device_error(exc) from exc
+
+
+@router.post(
+    "/discovery/{integration_id}/devices/{device_id}/unignore",
+    summary="Show a LAN Discovery device again",
+    description="Scope edit. Marks the device known. A linked device stays linked.",
+)
+def unignore_discovery_device(
+    integration_id: int,
+    device_id: int,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services.nmap.public_api import unignore_device
+
+    auth.require(tok_svc.SCOPE_EDIT)
+    row = _discovery_or_404(session, integration_id)
+    try:
+        return unignore_device(session, row, device_id, **_device_caller(auth))
+    except ValueError as exc:
+        raise _device_error(exc) from exc
+
+
+@router.post(
+    "/discovery/{integration_id}/devices/{device_id}/link",
+    summary="Link a LAN Discovery device to a fleet server",
+    description="Scope edit. Body is server_id.",
+)
+def link_discovery_device(
+    integration_id: int,
+    device_id: int,
+    body: DiscoveryLinkBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services.nmap.public_api import link_device_to_server
+
+    auth.require(tok_svc.SCOPE_EDIT)
+    row = _discovery_or_404(session, integration_id)
+    try:
+        return link_device_to_server(
+            session,
+            row,
+            device_id,
+            body.server_id,
+            **_device_caller(auth),
+        )
+    except ValueError as exc:
+        raise _device_error(exc) from exc
+
+
+@router.post(
+    "/discovery/{integration_id}/devices/{device_id}/unlink",
+    summary="Unlink a LAN Discovery device",
+    description="Scope edit. The device becomes known.",
+)
+def unlink_discovery_device(
+    integration_id: int,
+    device_id: int,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services.nmap.public_api import unlink_device_from_server
+
+    auth.require(tok_svc.SCOPE_EDIT)
+    row = _discovery_or_404(session, integration_id)
+    try:
+        return unlink_device_from_server(session, row, device_id, **_device_caller(auth))
+    except ValueError as exc:
+        raise _device_error(exc) from exc
+
+
+@router.delete(
+    "/discovery/{integration_id}/devices/{device_id}",
+    summary="Purge one LAN Discovery device",
+    description=(
+        "Scope edit. confirm=true is required. A linked device is refused. "
+        "There is no undo."
+    ),
+)
+def delete_discovery_device(
+    integration_id: int,
+    device_id: int,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+    confirm: bool = False,
+):
+    from ..services.nmap.public_api import purge_one_device
+
+    auth.require(tok_svc.SCOPE_EDIT)
+    if confirm is not True:
+        raise HTTPException(status_code=400, detail="confirm must be true")
+    row = _discovery_or_404(session, integration_id)
+    try:
+        return purge_one_device(session, row, device_id, **_device_caller(auth))
+    except ValueError as exc:
+        raise _device_error(exc) from exc
+
+
+@router.post(
+    "/discovery/{integration_id}/devices/purge-stale",
+    summary="Purge offline LAN Discovery devices",
+    description=(
+        "Scope edit. confirm=true is required. Removes devices in the stale "
+        "state. Linked devices stay. There is no undo."
+    ),
+)
+def purge_stale_discovery_devices(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+    confirm: bool = False,
+):
+    from ..services.nmap.public_api import purge_stale_devices
+
+    auth.require(tok_svc.SCOPE_EDIT)
+    if confirm is not True:
+        raise HTTPException(status_code=400, detail="confirm must be true")
+    row = _discovery_or_404(session, integration_id)
+    try:
+        return purge_stale_devices(session, row, **_device_caller(auth))
+    except ValueError as exc:
+        raise _device_error(exc) from exc
+
+
+@router.post(
+    "/discovery/{integration_id}/devices/{device_id}/scans",
+    status_code=202,
+    summary="Scan one LAN Discovery device",
+    description=(
+        "Scope jobs. confirm must be true. The device address must sit inside "
+        "the ranges saved on this integration. Vulnerability scripts stay off. "
+        "Hosted MCP scan_discovery_device calls this route."
+    ),
+)
+def create_discovery_device_scan(
+    integration_id: int,
+    device_id: int,
+    body: DiscoveryDeviceScanBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services.audit_write import make_audit_log
+    from ..services.demo import http_403_if_demo
+    from ..services.nmap.public_api import queue_device_scan, run_public
+
+    http_403_if_demo("nmap")
+    auth.require_unrestricted_jobs(
+        "LAN Discovery scans need a jobs token with no feature:* limit."
+    )
+    if body.confirm is not True:
+        raise HTTPException(status_code=400, detail="confirm must be true")
+    row = _discovery_or_404(session, integration_id)
+    try:
+        job, run, ip = queue_device_scan(
+            session,
+            row,
+            device_id,
+            intensity=body.intensity,
+            user_id=auth.user_id,
+        )
+    except ValueError as exc:
+        raise _device_error(exc) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)[:200]) from exc
+    except Exception as exc:
+        logger.exception("discovery device scan enqueue failed")
+        raise HTTPException(status_code=503, detail=str(exc)[:200]) from exc
+
+    session.add(
+        make_audit_log(
+            action="nmap_device_scan_queued",
+            user_id=auth.user_id,
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
+            client_ip=auth.client_ip,
+            details=(
+                f"device={device_id} ip={ip[:64]} job={job.id} "
+                f"run={run.id} intensity={run.intensity} integration={row.id}"
+            ),
+        )
+    )
+    session.commit()
+    return JSONResponse(
+        status_code=202,
+        content={
+            "job_id": job.id,
+            "run_id": run.id,
+            "status": job.status,
+            "job_type": job.job_type,
+            "intensity": run.intensity,
+            "targets": [ip],
+            "run": run_public(run),
+            "job": job_service.job_public_dict(job),
         },
     )
 

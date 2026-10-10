@@ -174,6 +174,42 @@ def collect_alerts_by_severity(session: Session) -> dict[str, Any]:
     )
 
 
+def sync_stale_backup_alerts(session: Session) -> int:
+    """Open one warning per backup-enabled host past the stale window.
+
+    A later success, or turning backups off, resolves that host's row.
+    """
+    from .notifications import resolve_by_fingerprint, upsert_notification
+
+    hours = backup_stale_hours()
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    servers = list(session.exec(select(Server)).all())
+    opened = 0
+    for server in servers:
+        if not server.id:
+            continue
+        fingerprint = f"backup_stale:{int(server.id)}"
+        last = server.last_backup_at
+        stale = bool(server.backup_enabled) and (last is None or last < cutoff)
+        if not stale:
+            resolve_by_fingerprint(session, fingerprint)
+            continue
+        name = server.name or server.hostname or f"#{server.id}"
+        when = "never" if last is None else last.strftime("%Y-%m-%d %H:%M UTC")
+        upsert_notification(
+            session,
+            fingerprint=fingerprint,
+            type="backup_stale",
+            title=f"{name} has no recent backup",
+            body=f"Last backup {when}. The stale window is {hours} hours.",
+            link_url=f"/servers/{int(server.id)}/backups",
+            severity="warning",
+            server_id=int(server.id),
+        )
+        opened += 1
+    return opened
+
+
 def collect_backups_stale(session: Session) -> dict[str, Any]:
     hours = backup_stale_hours()
     servers = list(session.exec(select(Server).order_by(Server.name)).all())

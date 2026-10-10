@@ -18,7 +18,19 @@ Homelab hosts hold compose data, configs, and media that are painful to rebuild.
 
 See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 
-A host does not upload to Drive, OneDrive, or a NAS by itself. **Backups** pulls the chosen paths onto this herder. **Copy the backup drive** then sends that mirror. A direct copy from the host, with nothing landing on `/backups` first, is not in this release. The discovery is parked for a later decision ([PLAN_v1.10.0.md](https://github.com/bjorngluck/piherder/blob/v1.10.0-dev/docs/PLAN_v1.10.0.md) §4, target **v1.11.0**).
+**Backups** pulls the chosen paths onto this herder unless that host is set to send files straight out. **Copy the backup drive** then sends the mirror. Hosts that do not opt in still rsync onto `/backups`.
+
+### Send a host straight out
+
+On the host’s **Backups** page, **Configure** can opt that host in. The tick stays unavailable until Google Drive, OneDrive, or a LAN share is saved under **Settings → PiHerder backup**.
+
+When the tick is on, choose one or more of those saved destinations. None are selected until you pick. **Save configuration** asks for a destination when the tick is on and nothing is selected. **Backup now** and the schedule send to the destinations you ticked. That **Backup now** stays a **Backup** job. Open the finished job or the audit row to see where it went. Google Drive and OneDrive show the folder name. A LAN share shows the host, the share, and the path. Each source row adds the folder written on that destination. The sign-in is not in the job or the audit row. **Copy now** still sends only the destination that is open, and on this host it starts that push. Jobs labels that push **Direct copy**. A folder already on this herder stays **Backup copy**. When both are ticked, the folder hop runs, then the direct hop starts. A failed folder hop still starts that direct hop. If the folder row stays running, that tick waits for the next schedule. They share one slot on that destination.
+
+Nothing of that host is stored under `/backups` first. rclone reads the original files in place and sends them straight on. It does not write a second copy of the tree on the Pi. The binary is copied for the run to `/var/lib/piherder/rclone`, owned by root, and removed when the run ends. The sign-in stays on this PiHerder. The temp config is deleted with the binary.
+
+A host whose SSH user is not root needs that path in the script from **SSH access**. Copy the script again and apply it on a host that was set up before this option existed. Root and Home Assistant OS run the copy as that login. The host must be able to reach Google, Microsoft, or the NAS. The host must use the same CPU architecture as this PiHerder. A different architecture fails the copy, and that host should keep the `/backups` path.
+
+The original files stay as they are. A file that grows during the copy, such as a live log, is sent at the size it had when the copy started. The copy keeps that file’s modification time. A share or Drive does not store a Unix owner the way the herder disk does. Retention days do not age the remote files. Restore of a direct host from Drive, OneDrive, or the NAS is not available. Restore still reads a tree on this PiHerder.
 
 ### Copy to Google Drive (v1.8 train)
 
@@ -51,7 +63,7 @@ A host does not upload to Drive, OneDrive, or a NAS by itself. **Backups** pulls
 | Account | A Google sign-in from this PiHerder. New files are owned by that Google account. A service account cannot store them on a personal Drive |
 | Schedule | The same presets as other schedules, **Copy now**, and an optional copy after a host backup succeeds |
 | Browser | Folder tree on the left, the open folder on the right. A ticked folder stays ticked inside. Untick a child to leave it behind |
-| Job | **Backup copy** (`backup_replicate`) on the existing Celery worker. It may run for up to 7 days. Host backups stay on the 2-hour worker limit. A task failure, including the 7-day limit, marks the row failed so **Copy now** can run again. A hard kill of the worker process can leave the row **running**, and **Copy now** then returns that folder-copy row until it is marked failed. A self-backup copy on the same destination does not take that slot. Files already copied stay. A failure fails that job only. The host backup time stays |
+| Job | **Backup copy** (`backup_replicate`) on the existing Celery worker. It may run for up to 7 days. Host backups stay on the 2-hour worker limit. A task failure, including the 7-day limit, marks the row failed so **Copy now** can run again. A hard kill of the worker process can leave the row **running**, and **Copy now** then returns that row until it is marked failed. A **Direct copy** from **Copy now** or the schedule shares that slot. A self-backup copy on the same destination does not take it. Files already copied stay. A failure fails that job only. The host backup time stays |
 | Restore | Still the local tree. The demo does not upload |
 
 Pull `bjorngluck/piherder:1.8.0` before a real copy. rclone is in that image. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/FEATURE_PLAN_BACKUP_DESTINATIONS.md).
@@ -89,13 +101,13 @@ A service account cannot store these files on a personal Gmail Drive. It has no 
 
 **Where in PiHerder:** Settings → **PiHerder backup** → **Copy the backup drive**. Pick **LAN NAS / SMB**.
 
-This is a second copy, independent of Google Drive and OneDrive. Host backups still rsync into `/backups` on this PiHerder. rclone then sends the ticked folders to one SMB share. The share does not replace that local directory. A saved Drive or OneDrive copy keeps running if you also save SMB.
+This is a second copy, independent of Google Drive and OneDrive. Hosts that have not opted to send files straight out still rsync into `/backups` on this PiHerder. rclone then sends the ticked folders to one SMB share. The share does not replace that local directory. A host that has opted in is listed even with no folder on `/backups`, and **Copy now** starts that host’s push to this share. A saved Drive or OneDrive copy keeps running if you also save SMB.
 
 **Remove** (admin, confirm `remove`) deletes that one provider's saved destination and its secret. The other providers stay. Files already on Drive, OneDrive, or the share are not deleted. The public demo refuses. This is not a job and not an agent action.
 
 1. Enter the NAS hostname or IP, the share name, and an optional path under that share.
 2. Enter a username and password, or leave both empty for a share that needs no login. That row reads **no login**. A blank password on its own keeps a password that is already saved. A username without a password, or a password without a username, is refused. Kerberos is not used. An optional domain or workgroup can be set.
-3. Tick the backup folders. **Test** lists the share and does not copy. **Copy now**, the schedule, or the follow-up after a host backup runs the same **Backup copy** job as Drive.
+3. Tick the backup folders. **Test** lists the share and does not copy. **Copy now**, the schedule, or the follow-up after a host backup runs the same **Backup copy** job as Drive. A host that sends files straight out is a **Direct copy** on that same destination.
 4. A failed copy fails that job only. The host backup time stays. The public demo does not upload. Restore still uses the local tree.
 
 The password is stored with the instance master key and is not written to the job log.
@@ -106,7 +118,7 @@ The password is stored with the instance master key and is not written to the jo
 
 **Where in PiHerder:** Settings → **PiHerder backup** → **Copy the backup drive**. Pick **OneDrive**.
 
-This is another copy, independent of Google Drive and the LAN share. rclone sends the ticked folders to a folder in the default drive of the Microsoft account you sign in with. Host backups still land on this PiHerder first. A Microsoft 365 personal plan already includes that OneDrive storage. The plan does not include a directory for the app registration below.
+This is another copy, independent of Google Drive and the LAN share. rclone sends the ticked folders to a folder in the default drive of the Microsoft account you sign in with. Hosts that have not opted to send files straight out still land on this PiHerder first. A host that has opted in sends straight to this drive when OneDrive is one of its ticked destinations. A Microsoft 365 personal plan already includes that OneDrive storage. The plan does not include a directory for the app registration below.
 
 A personal Microsoft account that has never had Azure lands in a tenant named **Microsoft Services**. App registrations refuse that tenant. The message names identity provider `live.com` and application `74658136-14ec-4630-ad9b-26e160ff0fc6`. Signing in again does not create a directory.
 
@@ -115,7 +127,7 @@ A personal Microsoft account that has never had Azure lands in a tenant named **
 3. In that directory, register an app named PiHerder. Accounts: **any organizational directory and personal Microsoft accounts**. PiHerder signs in through Microsoft’s common endpoint, so leave **Personal Microsoft accounts only** unselected. Redirect URI: **Web**, and the URL shown in the PiHerder dialog. It ends with `/backup-copies/onedrive/callback`.
 4. Add Microsoft Graph delegated permissions `User.Read`, `Files.ReadWrite`, and `offline_access`. That is the signed-in account’s own files, plus the address shown after sign-in. Do not add `Files.Read.All`, `Files.ReadWrite.All`, or `Sites.Read.All`. An account that already connected keeps its previous grant until you use **Connect Microsoft** again.
 5. Create a client secret. On the Overview, copy **Application (client) ID**. On **Certificates & secrets**, copy the secret **Value** while it is on screen. The **Secret ID** is not the secret. Paste those two into PiHerder. Leave the secret blank only after one is already saved. Set the folder name, for example `PiHerder`. If **Connect Microsoft** says the client is not enabled for consumers, the account type in step 3 is still single-directory. On **Manifest**, set `requestedAccessTokenVersion` under `api` from `null` to `2` and save. Then set the account type to any organizational directory and personal Microsoft accounts. The Authentication page refuses that change while the value is still `null`.
-6. **Connect Microsoft** and sign in as the account that owns the drive. The directory only holds the app. The files go to that account’s OneDrive. **Test** lists the folder and does not copy. **Copy now**, the schedule, or the follow-up after a host backup runs the same **Backup copy** job.
+6. **Connect Microsoft** and sign in as the account that owns the drive. The directory only holds the app. The files go to that account’s OneDrive. **Test** lists the folder and does not copy. **Copy now**, the schedule, or the follow-up after a host backup runs the same **Backup copy** job. A host that sends files straight out is a **Direct copy** on that same destination.
 
 A work or school account that already has a directory skips the free Azure signup. Register the app in that directory, with the same account type.
 
@@ -169,15 +181,18 @@ On Frigate/NVR-style trees, rsync may hit **code 24** (vanished files). From **v
 | Success | Each source finishes with `rc == 0` and no error classification; `last_backup_at` updates |
 | Failed | Status **failed**, audit error details, **`last_backup_at` not updated** |
 | After success | Open `backup_failed` notifications resolve |
+| Destination rejected the sign-in | One `backup_destination_auth_failed` alert, linked to Settings → PiHerder backup. A later successful copy resolves it |
+| No backup inside the stale window | One `backup_stale` warning per backup-enabled host. A later success resolves it |
 
 ### rsync path
 
 - Default: `--rsync-path "sudo -n rsync"` (or local sudo) so a least-priv user can still read protected trees.  
 - **Root user / HAOS:** plain `rsync` is auto-probed and used when sudo is not available.
+- A host set to send files straight out does not use this rsync pull. rclone reads the original files in place. See [Send a host straight out](#send-a-host-straight-out).
 
 ## Schedules
 
-Enable + cron on the Backups page. Same server never runs two backups at once ([Redis mutex](../operations/multi-worker.md)); different hosts can run in parallel.
+Enable + cron on the Backups page. The hour is the Settings timezone, the same clock as the label under the field. A destination copy schedule uses that clock too. Same server never runs two backups at once ([Redis mutex](../operations/multi-worker.md)); different hosts can run in parallel. A direct host is included in a destination schedule only when that destination is one of its ticked targets.
 
 **Why a mutex:** overlapping rsync to the same destination corrupts snapshots and confuses retention.
 

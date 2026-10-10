@@ -348,9 +348,12 @@ def job_type_label(job_type: str | None) -> str:
 
 
 def job_display_label(job_type: str | None, details: dict | None = None) -> str:
-    """Row label. A self-backup hop is the same job type as a folder copy."""
-    if job_type == "backup_replicate" and str((details or {}).get("herder_archive") or "").strip():
+    """Row label. Folder copy, a direct host push, and a self-backup share one job type."""
+    data = details or {}
+    if job_type == "backup_replicate" and str(data.get("herder_archive") or "").strip():
         return "Self-backup copy"
+    if job_type == "backup_replicate" and data.get("direct_host") is True:
+        return "Direct copy"
     return job_type_label(job_type)
 
 
@@ -724,28 +727,55 @@ def supersede_running_backups(session: Session, server_id: int) -> int:
     return len(stuck)
 
 
+# host_facts normally finishes in a minute. A row still pending or running
+# after this is a task Redis no longer has.
+HOST_FACTS_STALE_MINUTES = 30
+
+
+def _release_host_facts_refresh(session: Session, server_id: int | None) -> None:
+    """A failed or cancelled facts job must not leave the host on refreshing."""
+    if not server_id:
+        return
+    server = session.get(Server, server_id)
+    if server is None:
+        return
+    if (getattr(server, "host_facts_status", None) or "") != "refreshing":
+        return
+    server.host_facts_status = "stale"
+    session.add(server)
+
+
 def cleanup_stale_backup_jobs(session: Session, max_age_minutes: int = 120) -> int:
     """Mark old pending/running Celery jobs failed (worker crash / restart recovery).
 
-    Covers backup and service_migrate so a lost Move cannot pin both hosts.
+    Covers backup, Move, and exclusive Celery types. host_facts uses a shorter
+    cutoff so a lost task does not block the next fleet refresh for two hours.
     """
     cutoff = datetime.utcnow() - timedelta(minutes=max_age_minutes)
-    stale = session.exec(
+    facts_cutoff = datetime.utcnow() - timedelta(minutes=HOST_FACTS_STALE_MINUTES)
+    job_types = [
+        "backup",
+        "service_migrate",
+        "service_migrate_undo",
+        "service_migrate_dest_recover",
+        *sorted(EXCLUSIVE_CELERY_TYPES),
+    ]
+    rows = session.exec(
         select(Job).where(
-            Job.job_type.in_(
-                [
-                    "backup",
-                    "service_migrate",
-                    "service_migrate_undo",
-                    "service_migrate_dest_recover",
-                ]
-            ),
+            Job.job_type.in_(job_types),
             Job.status.in_(["pending", "running"]),
-            Job.created_at < cutoff,
         )
     ).all()
+    stale = []
+    for job in rows:
+        created = job.created_at or datetime.utcnow()
+        limit = facts_cutoff if (job.job_type or "") == "host_facts" else cutoff
+        if created < limit:
+            stale.append(job)
     for job in stale:
         _mark_job_failed(job, "Stale job — worker timeout or restart", session)
+        if (job.job_type or "") == "host_facts":
+            _release_host_facts_refresh(session, job.server_id)
     if stale:
         session.commit()
         logger.info(f"[Jobs] Cleaned up {len(stale)} stale Celery job(s)")
@@ -1637,7 +1667,9 @@ def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str
                 if not audit.details or _JOB_STARTED_RE.search(audit.details or ""):
                     audit.details = f"Job #{job_id} · Cancelled by user"[:500]
                 s.add(audit)
-                s.commit()
+            if (job.job_type or "") == "host_facts":
+                _release_host_facts_refresh(s, job.server_id)
+            s.commit()
             return
         summary = _human_job_summary(jt, status, snippet)
         if audit:
@@ -1715,6 +1747,9 @@ def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str
                     resolve_backup_failed(s, server_id)
             except Exception as e:
                 logger.debug(f"backup notification: {e}")
+        if jt == "host_facts" and status in ("failed", "cancelled"):
+            _release_host_facts_refresh(s, server_id)
+            s.commit()
 
     if hostname and jt:
         _send_summary_webhook(hostname, jt, status, snippet)

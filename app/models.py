@@ -176,6 +176,13 @@ class Server(SQLModel, table=True):
 
     # Feature flags
     backup_enabled: bool = False
+    # Opt-in: this host sends its sources straight to a saved copy.
+    # Hosts left off still rsync onto /backups. Nothing of a direct host
+    # is written under /backups first.
+    backup_direct: bool = False
+    # A JSON list such as ["drive"]. Empty or missing means none.
+    # Backup now and the host schedule send only to the listed providers.
+    backup_direct_targets: Optional[str] = None
     os_patch_enabled: bool = False
     container_patch_enabled: bool = False
     # v1.6 Mux-1: opt-in host tmux/screen for web SSH (default off; never HAOS/demo)

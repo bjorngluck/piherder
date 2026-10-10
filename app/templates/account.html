@@ -748,7 +748,8 @@
         <p class="text-xs text-muted mt-1 break-words">
           {% if user.totp_enabled %}Enabled · {{ backup_remaining }} backup code(s)
           {% elif pending_2fa_setup %}Setup in progress
-          {% else %}Off — TOTP optional (passkeys also count){% endif %}
+          {% elif has_passkeys %}Optional — a passkey is this account's 2FA
+          {% else %}Off{% endif %}
         </p>
       </div>
       <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
@@ -1063,7 +1064,7 @@
     </div>
   </div>
 
-  {% if user.totp_enabled %}
+  {% if has_2fa %}
   <div class="card p-4 settings-hub-card" id="account-devices">
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">

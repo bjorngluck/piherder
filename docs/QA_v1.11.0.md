@@ -1,0 +1,107 @@
+# PiHerder v1.11.0 — operator QA / sign-off
+
+**Branch:** `v1.11.0-dev` → `main` · tag **`v1.11.0`** (cut after merge, only when asked)  
+**Code freeze:** set 2026-10-08  
+**Package:** stays **`1.10.0`**. About / footer say **1.10.0**.  
+**Operator QA:** not started. Boxes below stay empty until you walk them.  
+**Screenshots:** names are in the [v1.11 pack](../wiki/assets/screenshots/README.md#v111--pack-status). The files are not in the tree yet: `account-passkey-2fa.png`, `host-backup-direct.png`, `jobs-direct-copy.png`, `docker-repository.png`.  
+**Pull request:** [#35](https://github.com/bjorngluck/piherder/pull/35). Body is [PR_v1.11.0.md](PR_v1.11.0.md).
+
+This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
+
+Plan: [PLAN_v1.11.0.md](PLAN_v1.11.0.md). 1.10 sign-off stays [QA_v1.10.0.md](QA_v1.10.0.md). Do not re-open those boxes.
+
+Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch.
+
+A box stays empty until you walk that slice. A Should that slips the tag stays unchecked and is noted as slipped. Do not tick a Discover row. Do not tick an Out row.
+
+---
+
+## Passkey versus Force 2FA (Must)
+
+Force 2FA is on. A passkey has to count as the second factor. App-based 2FA stays available. It is not required when a passkey is registered.
+
+- [ ] With Force 2FA on, signup can register a passkey, and that passkey satisfies the enroll wall
+- [ ] An account that already has a passkey is not sent to set up an authenticator app
+- [ ] The account and the Users list treat a passkey as 2FA
+
+## Path C decision (Must)
+
+Opt in, beside the pull. The write-up is in [PLAN_v1.11.0.md](PLAN_v1.11.0.md). These boxes stay empty until you read it.
+
+- [ ] A host can opt in. Hosts that do not opt in still rsync onto `/backups`
+- [ ] The operator picks one or more saved destinations. None start selected. Save refuses the opt-in with no destination
+- [ ] rclone reads the original files in place. The host does not store a second copy of the tree
+- [ ] The least-privilege script allows `/var/lib/piherder/rclone` for that run, and the temp config is deleted when the run ends
+
+## Path C build (Must)
+
+The build is on this branch. These boxes stay empty until you walk a real destination.
+
+- [ ] With no destination saved, the straight-out tick is unavailable
+- [ ] With a destination saved, Save refuses the tick when no destination is selected
+- [ ] **Backup now** sends the original files to each ticked destination. Nothing new from that host appears under `/backups`
+- [ ] **Copy now** on one destination starts that push only
+- [ ] LAN NAS: the finished Backup row and its audit row name the place. The sign-in is not in either row. **Copy now** shows **Direct copy**
+- [ ] Google Drive: the finished Backup row and its audit row name the place. The sign-in is not in either row. **Copy now** shows **Direct copy**
+- [ ] OneDrive: the finished Backup row and its audit row name the place. The sign-in is not in either row. **Copy now** shows **Direct copy**
+- [ ] Jobs labels that **Copy now** or schedule **Direct copy**. A folder on `/backups` stays **Backup copy**. **Backup now** on the host stays **Backup**
+- [ ] A least-privilege host can read root-owned files (MySQL data, `/var/lib/docker/volumes`) after the sudoers script is applied again
+- [ ] The original files keep their mode, owner, and modification time
+- [ ] A follow-up copy succeeds while a log is still being written. That log is sent at the size it had when the copy started
+- [ ] Restore of that host from Drive, OneDrive, or the NAS is not offered. Restore still reads a tree on this PiHerder
+
+## MCP Move (Should)
+
+Hosted `/mcp` `start_move` starts a stop-first Move. `confirm` must be true. The source is left stopped. Undo stays out. `trigger_job` still refuses `service_migrate`.
+
+- [ ] An agent can start a Move through hosted `/mcp`
+- [ ] Undo is not a tool, and `trigger_job` still refuses `service_migrate`
+
+## MCP nmap (Should)
+
+Hosted `/mcp` can read a LAN Discovery scan and can start one of the saved ranges. The agent does not choose the ranges. Vulnerability scripts stay off. The console stays off the tool.
+
+- [ ] An agent can read a LAN Discovery scan through hosted `/mcp`
+- [ ] An agent can start a scan of the saved ranges through hosted `/mcp`
+
+## Discovery devices (Should)
+
+Issue [#34](https://github.com/bjorngluck/piherder/issues/34). Same actions as the device page. A linked device cannot be purged. A one-device scan stays inside the saved ranges. Vulnerability scripts stay off.
+
+- [ ] An agent can rename a device and mark it known
+- [ ] An agent can link a device to a fleet server
+- [ ] Purge of a linked device is refused, and purge of offline devices removes only those rows
+- [ ] A one-device scan uses an address inside the saved ranges and does not run vulnerability scripts
+
+## Git-rich onboard (Should)
+
+Docker → **Repository…** on an existing project. A tracked local edit stops the update. Untracked files stay. The stack is not deployed.
+
+- [ ] Attach a remote to an existing project and see its branches, with the remote default selected
+- [ ] A tag ahead of the checkout is marked newer, and choosing it updates the checkout to that tag
+- [ ] A tracked local edit stops the update until Keep the local files or Take the remote copies
+- [ ] After the checkout moves, the stack is still the running one until Deploy
+
+## Fleet health
+
+Boxes stay empty until each one is walked.
+
+- [ ] A host backup schedule and a destination copy schedule fire at the hour named under the field, in the Settings timezone
+- [ ] A failed host-facts refresh keeps the previous OS and kernel lines
+- [ ] A host-facts row left running after the worker is gone fails, and the next snapshot can queue
+- [ ] A Drive or OneDrive token rejection opens one alert that links to Settings → PiHerder backup
+- [ ] A backup-enabled host with no backup inside the stale window opens one warning, and a later success resolves it
+- [ ] Docker on a host with the feature off says off and does not SSH
+- [ ] A direct host that does not target Drive is not a failed Drive follow-up
+- [ ] An apt update that exits 100 keeps the `E:` line in the job log
+
+## Discover
+
+NPM CRUD and remote restore moved to [PLAN_v1.12.0.md](PLAN_v1.12.0.md). They are not walks on this train.
+
+## 1.10 regression
+
+Do not retick the 1.10 boxes. This row is the spot check that 1.10 still behaves.
+
+- [ ] OneDrive, the herder self-backup copy, and hosted `/mcp` browser sign-in still work

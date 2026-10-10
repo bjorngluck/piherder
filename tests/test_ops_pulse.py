@@ -51,6 +51,17 @@ def test_users_pulse_roles_and_2fa():
     assert "2fa on" in labels
 
 
+def test_users_pulse_passkey_counts_as_2fa():
+    users = [
+        SimpleNamespace(role="admin", totp_enabled=False, id=7),
+        SimpleNamespace(role="operator", totp_enabled=False, id=8),
+    ]
+    p = users_pulse(users, second_factor_ids={7})
+    by_label = {x["l"]: x["n"] for x in p["line1"] + p["line2"]}
+    assert by_label["2fa on"] == 1
+    assert by_label["no 2fa"] == 1
+
+
 def test_users_pulse_no_admin_is_hot():
     p = users_pulse([SimpleNamespace(role="viewer", totp_enabled=False, id=1)])
     assert p["health"] == "hot"

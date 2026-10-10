@@ -342,7 +342,7 @@
               </p>
             </div>
             <div data-copy-help="smb" class="text-xs text-muted border border-border rounded p-3 bg-surface {% if copy_provider != 'smb' %}hidden{% endif %}">
-              <p>rclone on this PiHerder copies the ticked folders from <span class="font-mono text-text">/backups</span> to the share. Host backups still land here first. Leave the username and password both empty when the share needs no login. Leave the password blank on its own only after one is saved. Kerberos is not used.</p>
+              <p>rclone on this PiHerder copies the ticked folders from <span class="font-mono text-text">/backups</span> to the share. A host that has not opted to send files straight out still lands here first. Leave the username and password both empty when the share needs no login. Leave the password blank on its own only after one is saved. Kerberos is not used.</p>
             </div>
             <p data-copy-help="later" class="hidden text-sm text-muted">Choose Google Drive, OneDrive, or a LAN share.</p>
             <div data-copy-help="onedrive" class="text-xs text-muted border border-border rounded p-3 bg-surface {% if copy_provider != 'onedrive' %}hidden{% endif %}">
@@ -623,7 +623,7 @@
       </div>
       <div class="bc-status" id="bc-status"></div>
     </div>
-    <p class="text-xs text-muted mt-2">Folders and Copy now apply to {% if folder_provider == 'smb' %}the LAN share{% else %}Google Drive{% endif %} only.</p>
+    <p class="text-xs text-muted mt-2">Folders and Copy now apply to {% if folder_provider == 'smb' %}the LAN share{% elif folder_provider == 'onedrive' %}OneDrive{% else %}Google Drive{% endif %}. A host set to send files straight to the copy is listed even when it has no folder on <span class="font-mono">/backups</span>. Copy now starts that push. Other folders are still the copy on this PiHerder.</p>
     {% endif %}
     {% endif %}
   </div>
@@ -868,7 +868,7 @@
       if (entry.is_dir) name.addEventListener("click", function () { load(entry.path); });
       var size = document.createElement("span");
       size.className = "bc-meta bc-hide-sm";
-      size.textContent = entry.is_dir ? "—" : (entry.size_h || "—");
+      size.textContent = entry.direct ? "direct" : (entry.is_dir ? "—" : (entry.size_h || "—"));
       var mod = document.createElement("span");
       mod.className = "bc-meta bc-hide-sm";
       mod.textContent = whenLabel(entry.mtime);
@@ -881,7 +881,8 @@
     allEl.indeterminate = anyPartial && !allOn;
     allEl.checked = allOn;
     var folderState = data.state || "off";
-    if (!current) setStatus(folderState === "partial" ? "Some folders are included." : "Tick the folders to copy.");
+    if (data.direct && current) setStatus("This host sends its files straight to the copy. Copy now starts that push.");
+    else if (!current) setStatus(folderState === "partial" ? "Some folders are included." : "Tick the folders to copy.");
     else if (folderState === "on") setStatus("This folder is included. Untick anything you want to leave behind.");
     else if (folderState === "partial") setStatus("Part of this folder is included.");
     else setStatus("This folder is not included.");

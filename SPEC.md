@@ -3,7 +3,7 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** Historical phase checklist (v1.0 era). **Current release:** [v1.10.0](docs/RELEASE_v1.10.0.md) · [PLAN](docs/PLAN_v1.10.0.md). Package **1.10.0**. Hub `1.10.0` / `1.10` / `latest`. Prior: [v1.9.0](docs/RELEASE_v1.9.0.md) · [v1.8.1](docs/RELEASE_v1.8.1.md) · [v1.7.0](docs/RELEASE_v1.7.0.md).  
+> **Status:** Historical phase checklist (v1.0 era). **Current release:** [v1.10.0](docs/RELEASE_v1.10.0.md) · [PLAN](docs/PLAN_v1.10.0.md). Package **1.10.0**. Hub `1.10.0` / `1.10` / `latest`. Active train: [v1.11.0](docs/PLAN_v1.11.0.md) on `v1.11.0-dev`. Prior: [v1.9.0](docs/RELEASE_v1.9.0.md) · [v1.8.1](docs/RELEASE_v1.8.1.md) · [v1.7.0](docs/RELEASE_v1.7.0.md).  
 > **Last updated:** 2026-10-02 — do not treat this file as the operator guide (use the wiki + RELEASE).
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
@@ -126,7 +126,7 @@ Related backup hardening (same phase):
 - [x] **Per-server backup path allow/deny rules** — default deny OS roots; optional allow/deny prefixes on Backups page; enforced on add-source + `run_backup`.
 
 - [x] **Built-in scheduler UI for container/OS patch apply** — Edit server → Schedules tab; opt-in, default off
-- [x] **Token REST API (v1)** — admin-managed Bearer tokens (`ph_…`); scopes `read`/`jobs`/`edit`/`files` + optional `feature:*`; IP/CIDR allowlist; `PATCH …/features`; docs in [docs/API.md](docs/API.md) + `/docs`. Hosted MCP is `POST /mcp` on this app (same Bearer token). stdio `piherder-mcp` is the optional fallback. `trigger_job` matches that jobs POST list (`host_reboot`, the stack actions on the list, template deploy and redeploy). stdio package **0.3.1**.
+- [x] **Token REST API (v1)** — admin-managed Bearer tokens (`ph_…`); scopes `read`/`jobs`/`edit`/`files` + optional `feature:*`; IP/CIDR allowlist; `PATCH …/features`; docs in [docs/API.md](docs/API.md) + `/docs`. Hosted MCP is `POST /mcp` on this app (same Bearer token). stdio `piherder-mcp` is the optional fallback. `trigger_job` matches that jobs POST list (`host_reboot`, the stack actions on the list, template deploy and redeploy). stdio package **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)**.
 - [x] **Webhook / notification integration** — env `WEBHOOK_*` on new alerts + job finish; optional **Web Push** (VAPID) on new open notifications — see [PWA/push plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md)
 - [x] **Per-server OS-patch and container-patch apply cron** — APScheduler enqueues Celery `exclusive_job` (default queue); only-if-updates; skip if job active; audit as system/scheduler. A web recycle does not fail the row. A worker recycle fails a **running** apply. SSH down stays pending until the host answers or the Settings wait elapses.
 - [x] **OS update check schedule (check-only)** — apt upgradable count + reboot flag; no auto-upgrade — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
