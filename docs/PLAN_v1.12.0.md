@@ -1,7 +1,7 @@
 # PiHerder v1.12.0 — notes for the next train
 
 **Status:** **Notes.** Written 2026-10-08. Branch not cut. **v1.11.0** on `v1.11.0-dev` is still the active train.  
-**Package / image version:** stays **`1.10.0`** until a later freeze. This file does not bump it.  
+**Package / image version:** **`1.11.0`**. Hub image stays `1.10.0`. This file does not bump a later package.  
 **Theme:** two notes, plus the two Discover items moved off v1.11  
 **QA:** [QA_v1.12.0.md](QA_v1.12.0.md) (notes — **not** a walk yet)  
 **Related:** [PLAN_v1.11.0.md](PLAN_v1.11.0.md) · wiki [Jobs, audit, notifications](../wiki/day-to-day/jobs-audit-notifications.md) · wiki [API tokens](../wiki/operations/api-tokens.md)
@@ -22,7 +22,7 @@
 | Note | **OS end of life.** Issue [#49](https://github.com/bjorngluck/piherder/issues/49). A warning next to the OS line when the detected release is outside a small supported list. No auto-upgrade |
 | Note | **NIC change.** Issue [#50](https://github.com/bjorngluck/piherder/issues/50). A hint when a new MAC appears for a hostname that already has a stale row at that IP. Device identity stays the MAC |
 | Note | **Docker prune.** Issue [#48](https://github.com/bjorngluck/piherder/issues/48). A prune job from the host Docker page, the token API, and MCP. Volumes stay behind an explicit confirm. Not built |
-| Version bump | Not this file. v1.11 freezes to `1.11.0` only when asked. v1.12 stays unopened |
+| Version bump | Package is `1.11.0` on `v1.11.0-dev`. Hub image stays `1.10.0`. v1.12 stays unopened |
 | Demo | Do not point the public demo at a branch that does not exist |
 
 ---
@@ -43,14 +43,10 @@
 
 Tiers are picked when the train opens. These are not Must or Should. The notes above stay as they are: [#49](https://github.com/bjorngluck/piherder/issues/49) end-of-life OS badge, [#50](https://github.com/bjorngluck/piherder/issues/50) MAC change hint, remote restore, and NPM create, edit, and delete.
 
-- Direct copy does not check the host CPU when the opt-in is saved. Check it on save, and grey out the tick when the architectures differ. The 1.11 notes already promise this.
 - The Git Repository page can read a checkout the SSH user does not own. Refuse that checkout, which closes the filter-driver and credential-helper gap.
 - A folder hop left showing running holds that tick's direct hop until the next run. The direct hop should not wait on that row.
 - A missed scheduled backup is only a stale warning. Add a direct check that the expected run did not happen, and a Prometheus metric for Grafana.
-- Plain reads by API tokens and hosted `/mcp` are not audited. Add an optional flag, off unless the operator turns it on.
-- Routine `host_facts` snapshots fill Jobs and Audit. Leave them out of the default lists, and keep a failed snapshot visible.
 - [#47](https://github.com/bjorngluck/piherder/issues/47): the image check clears the update flag after a pull while the container still runs the old image. The flag should stay until the running container is that image.
-- [#48](https://github.com/bjorngluck/piherder/issues/48): there is no Docker prune job. Add one in the UI, the token API, and MCP.
 - Hosted MCP and the adapter do not show the effective backup time. Expose `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled` on the next adapter cut.
 - The supply-chain baseline is old. Re-check pinned actions, the dependency lock, image digest pinning, Dependabot, and secret scanning.
 - A push can still add fleet names, the home subnet, internal domains, or home paths. Fail that push in CI. Keep the denylist in a secret, not in the repo.
@@ -58,6 +54,7 @@ Tiers are picked when the train opens. These are not Must or Should. The notes a
 - The backup stagger reuses a minute past about 1,320 hosts on the default 02:00 base. That limit is documented. Revisit it only if a fleet needs more unique minutes.
 - The piherder-mcp PyPI readme still badges an older herder. Point that badge at herder 1.11.0 on the next adapter cut.
 - Stuck queue: open one alert when any job stays pending past N minutes (default 15) with no worker heartbeat, and resolve when the queue drains.
+- Callers import the module-level database engine. Add one get_engine() accessor and use it for every session.
 
 ---
 

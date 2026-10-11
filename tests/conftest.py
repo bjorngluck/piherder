@@ -53,12 +53,14 @@ def _force_test_env() -> None:
 
 
 def _is_test_target(value: str) -> bool:
-    text = (value or "").replace("\\", "/").strip().lower()
-    if not text:
-        return False
-    if "test" in text:
-        return True
-    return "/tmp/" in text or text.startswith("/tmp")
+    """True only for a value this file sets. A substring such as latest is not enough."""
+    return (value or "") in {
+        _TEST_DATABASE_URL,
+        _TEST_BROKER_URL,
+        _TEST_SETTINGS_PATH,
+        str(_TEST_BACKUPS),
+        str(_TEST_HERDER),
+    }
 
 
 def assert_test_targets(

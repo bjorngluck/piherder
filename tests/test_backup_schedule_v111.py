@@ -727,3 +727,52 @@ def test_fleet_sources_save_records_old_and_new(tmp_path, monkeypatch):
         assert changed["dest_root"] == {"from": "/backups", "to": "/mnt/share"}
         session.refresh(server)
         assert server.backup_schedule == "0 2 * * *"
+
+
+def test_backups_off_hides_the_schedule_label(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.database import get_session
+    from app.main import app
+    from app.models import User
+    from app.security.auth import create_user_access_token, get_password_hash
+
+    monkeypatch.setattr("app.services.account_stepup.force_2fa_applies", lambda *_a, **_k: False)
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'off.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    def _session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = _session
+    client = TestClient(app, raise_server_exceptions=False)
+    try:
+        with Session(engine) as session:
+            user = User(
+                email="off@test.local",
+                hashed_password=get_password_hash("SmokeTest1ok!"),
+                role="admin",
+                is_active=True,
+                must_change_password=False,
+                totp_enabled=True,
+            )
+            server = Server(name="host-a", hostname="host-a.local", backup_enabled=False)
+            session.add(user)
+            session.add(server)
+            session.commit()
+            session.refresh(user)
+            session.refresh(server)
+            server_id = server.id
+            token = create_user_access_token(user)
+        client.cookies.set("access_token", token)
+        page = client.get(f"/servers/{server_id}/backups")
+        assert page.status_code == 200
+        assert "not scheduled" not in page.text
+        assert "schedule unknown" not in page.text
+    finally:
+        app.dependency_overrides.clear()
