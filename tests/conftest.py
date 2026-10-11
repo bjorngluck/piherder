@@ -45,7 +45,8 @@ def _force_test_env() -> None:
     os.environ["DATA_ROOT"] = _TEST_SETTINGS_PATH
     os.environ["BACKUP_ROOT"] = str(_TEST_BACKUPS)
     os.environ["HERDER_BACKUP_ROOT"] = str(_TEST_HERDER)
-    os.environ["PIHERDER_DISABLE_SCHEDULER"] = "1"
+    # Permits the sqlite process engine. App code must not read this for anything else.
+    os.environ["PIHERDER_TESTING"] = "1"
     # A copied shell may carry libpq variables that name a live server.
     for key in ("PGHOST", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD"):
         os.environ.pop(key, None)
@@ -141,15 +142,7 @@ def _apply_runtime_isolation() -> None:
         )
         _rebind_imported_engines(replacement)
 
-    try:
-        from app.celery_app import celery
-
-        celery.conf.broker_url = _TEST_BROKER_URL
-        celery.conf.result_backend = _TEST_BROKER_URL
-        celery.conf.task_always_eager = True
-        celery.conf.task_eager_propagates = True
-    except Exception:
-        pass
+    _install_celery_enqueue_stub()
 
     try:
         import app.main as main
@@ -195,6 +188,59 @@ def _apply_runtime_isolation() -> None:
         pass
 
 
+_CELERY_ENQUEUE_CALLS: list[tuple] = []
+
+
+def _install_celery_enqueue_stub() -> None:
+    """Record delay and apply_async, then refuse unless a test replaced them.
+
+    A test that needs the task body calls task.run(). It does not call delay().
+    """
+    from celery.app.task import Task
+
+    from app.celery_app import celery
+
+    celery.conf.broker_url = _TEST_BROKER_URL
+    celery.conf.result_backend = _TEST_BROKER_URL
+    celery.conf.task_always_eager = False
+    celery.conf.task_eager_propagates = False
+
+    if not isinstance(getattr(Task, "_piherder_enqueue_calls", None), list):
+        Task._piherder_enqueue_calls = _CELERY_ENQUEUE_CALLS  # type: ignore[attr-defined]
+
+    def _blocked(self, *args, **kwargs):
+        name = getattr(self, "name", None) or type(self).__name__
+        Task._piherder_enqueue_calls.append((str(name), args, kwargs))  # type: ignore[attr-defined]
+        raise RuntimeError(
+            f"{name}: tests refuse to enqueue Celery work. "
+            "Mock delay or apply_async, or call the task body with run()."
+        )
+
+    Task.delay = _blocked  # type: ignore[method-assign]
+    Task.apply_async = _blocked  # type: ignore[method-assign]
+
+    def _blocked_send(name, args=None, kwargs=None, **_options):
+        Task._piherder_enqueue_calls.append((str(name), args, kwargs))  # type: ignore[attr-defined]
+        raise RuntimeError(
+            f"{name}: tests refuse to enqueue Celery work. "
+            "Mock delay or apply_async, or call the task body with run()."
+        )
+
+    celery.send_task = _blocked_send  # type: ignore[method-assign]
+
+
+def _assert_scheduler_blocked() -> None:
+    """The suite stub is the scheduler block. It must be installed and not running."""
+    import app.main as main
+
+    sched = getattr(main, "scheduler", None)
+    if sched is None:
+        assert getattr(main, "HAS_SCHEDULER", False) is False
+        return
+    assert getattr(sched, "_piherder_test_stub", False) is True
+    assert getattr(sched, "running", False) is not True
+
+
 def assert_runtime_targets() -> None:
     """Fail the session if the imported engine, broker, or settings path drifted."""
     assert_test_targets()
@@ -210,6 +256,7 @@ def assert_runtime_targets() -> None:
     data_root = str(getattr(settings, "DATA_ROOT", "") or "")
     if not _is_test_target(data_root):
         raise RuntimeError("DATA_ROOT: tests refuse to run against a non-test target")
+    _assert_scheduler_blocked()
 
 
 def _ensure_test_env() -> str:

@@ -57,6 +57,7 @@ Tiers are picked when the train opens. These are not Must or Should. The notes a
 - Older environment details are already on main. Sweep them out of the public history that is still easy to edit.
 - The backup stagger reuses a minute past about 1,320 hosts on the default 02:00 base. That limit is documented. Revisit it only if a fleet needs more unique minutes.
 - The piherder-mcp PyPI readme still badges an older herder. Point that badge at herder 1.11.0 on the next adapter cut.
+- Stuck queue: open one alert when any job stays pending past N minutes (default 15) with no worker heartbeat, and resolve when the queue drains.
 
 ---
 

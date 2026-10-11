@@ -2,17 +2,42 @@
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from app.celery_app import celery
-from app.database import engine
+from app.database import _create_app_engine, engine
 from app.models import Job, User
 from app.security.auth import create_user_access_token, get_password_hash
 from app.services import jobs as js
+from app.tasks import housekeeping_job
+from celery.app.task import Task
 from tests.conftest import _TEST_BROKER_URL, _TEST_DATABASE_URL, assert_test_targets
+
+_SKIP_DIRS = {
+    ".git",
+    ".venv",
+    ".venv-docs",
+    "__pycache__",
+    "node_modules",
+    ".pytest_cache",
+    "htmlcov",
+    "dist",
+    "build",
+}
+
+
+def _tracked_text_files():
+    root = Path(__file__).resolve().parents[1]
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [name for name in dirnames if name not in _SKIP_DIRS and not name.endswith(".egg-info")]
+        for name in filenames:
+            if name.endswith((".py", ".md", ".yml", ".yaml", ".toml", ".txt", ".html", ".sh")):
+                yield root, Path(dirpath) / name
 
 
 @pytest.mark.parametrize(
@@ -47,6 +72,50 @@ def test_guard_rejects_a_non_test_target(database_url, broker_url, settings_path
         )
     message = str(raised.value)
     assert message.startswith(f"{variable}:")
+
+
+def test_testing_flag_only_permits_the_sqlite_engine():
+    """PIHERDER_TESTING is the sqlite gate, and the scheduler flag is not in app/."""
+    testing_hits = []
+    scheduler_hits = []
+    for root, path in _tracked_text_files():
+        text = path.read_text(encoding="utf-8", errors="replace")
+        rel = path.relative_to(root).as_posix()
+        if "PIHERDER_TESTING" in text:
+            testing_hits.append(rel)
+        if rel.startswith("app/") and "PIHERDER_DISABLE_SCHEDULER" in text:
+            scheduler_hits.append(rel)
+    assert testing_hits
+    for rel in testing_hits:
+        assert rel == "app/database.py" or rel.startswith("tests/"), rel
+    assert scheduler_hits == []
+
+
+def test_sqlite_url_refuses_to_start_without_the_testing_flag(monkeypatch):
+    monkeypatch.delenv("PIHERDER_TESTING", raising=False)
+    with pytest.raises(RuntimeError, match="refuse to start"):
+        _create_app_engine("sqlite://")
+
+
+def test_testing_flag_permits_a_sqlite_engine(monkeypatch):
+    monkeypatch.setenv("PIHERDER_TESTING", "1")
+    opened = _create_app_engine("sqlite://")
+    try:
+        assert str(opened.url).startswith("sqlite")
+    finally:
+        opened.dispose()
+
+
+def test_unmocked_celery_enqueue_is_refused_and_recorded():
+    recorded = Task._piherder_enqueue_calls
+    before = len(recorded)
+    with pytest.raises(RuntimeError, match="refuse to enqueue"):
+        housekeeping_job.delay(1, 0, 1, "herder_backup")
+    with pytest.raises(RuntimeError, match="refuse to enqueue"):
+        housekeeping_job.apply_async(args=(1, 0, 1, "herder_backup"))
+    assert len(recorded) == before + 2
+    assert recorded[-1][0] == "app.tasks.housekeeping_job"
+    assert celery.conf.task_always_eager is False
 
 
 def test_herder_backup_request_stays_in_the_test_database(monkeypatch):
