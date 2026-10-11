@@ -194,6 +194,8 @@ On Frigate/NVR-style trees, rsync may hit **code 24** (vanished files). From **v
 
 Enable + cron on the Backups page. The hour is the Settings timezone, the same clock as the label under the field. A destination copy schedule uses that clock too. Same server never runs two backups at once ([Redis mutex](../operations/multi-worker.md)); different hosts can run in parallel. A direct host is included in a destination schedule only when that destination is one of its ticked targets.
 
+Settings → Fleet has a base backup time, daily at 02:00 unless you change it. **Apply to all servers**, with **Enable Backups** ticked, writes that time onto a host that has backups on and no schedule. Stagger, the same tick as the update checks, sets the minute from the server id plus 30. A host that already has a schedule is left alone. A new host starts with that time. The Servers list shows **no schedule** when backups are on and the field is empty, and the stale-backup alert says the same. The fleet-default choice on Configure saves the source list and the destination root. It does not set a schedule on other hosts.
+
 **Why a mutex:** overlapping rsync to the same destination corrupts snapshots and confuses retention.
 
 From the **Servers** list you can multi-select hosts and run **Backup** in bulk (only hosts with backups enabled) — [Bulk actions](updates-and-patching.md#bulk-actions-servers-list).

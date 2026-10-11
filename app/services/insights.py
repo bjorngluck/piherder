@@ -196,12 +196,15 @@ def sync_stale_backup_alerts(session: Session) -> int:
             continue
         name = server.name or server.hostname or f"#{server.id}"
         when = "never" if last is None else last.strftime("%Y-%m-%d %H:%M UTC")
+        unscheduled = ""
+        if not (server.backup_schedule or "").strip():
+            unscheduled = " Backups are on and this host has no schedule, so nothing is queued."
         upsert_notification(
             session,
             fingerprint=fingerprint,
             type="backup_stale",
             title=f"{name} has no recent backup",
-            body=f"Last backup {when}. The stale window is {hours} hours.",
+            body=f"Last backup {when}. The stale window is {hours} hours.{unscheduled}",
             link_url=f"/servers/{int(server.id)}/backups",
             severity="warning",
             server_id=int(server.id),

@@ -347,6 +347,16 @@ async def update_backup_config(
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
+    before = {
+        "backup_schedule": server.backup_schedule,
+        "retention_days": server.retention_days,
+        "backup_dest_root": server.backup_dest_root,
+        "backup_folder_name": server.backup_folder_name,
+        "backup_enabled": bool(server.backup_enabled),
+        "backup_direct": bool(getattr(server, "backup_direct", False)),
+        "backup_direct_targets": server.backup_direct_targets,
+        "backup_paths": server.backup_paths,
+    }
 
     # Refuse before any other field is written. A direct host needs a pick.
     pending_targets: str | None = None
@@ -445,12 +455,29 @@ async def update_backup_config(
         session.add(server)
         session.commit()
 
+    changed_fields = {}
+    for key, old in before.items():
+        new = getattr(server, key)
+        if key == "backup_enabled":
+            new = bool(new)
+        elif key == "backup_direct":
+            new = bool(new)
+        if new == old:
+            continue
+        if key == "backup_paths":
+            changed_fields[key] = "changed"
+            continue
+        changed_fields[key] = {"from": old, "to": new}
     record_server_audit(
         session,
         server_id=server.id,
         user_id=user.id,
         action="server_backup_config",
-        details={"scope": scope, "message": "Backup configuration updated"},
+        details={
+            "scope": scope,
+            "message": "Backup configuration updated",
+            "changed": changed_fields,
+        },
     )
     session.commit()
 

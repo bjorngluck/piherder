@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 
 # Midnight in app timezone (5-field cron: minute hour day month weekday)
 DEFAULT_MIDNIGHT_CRON = "0 0 * * *"
+# Daily at 02:00. Fleet apply uses this when a host has backups on and no schedule.
+DEFAULT_BACKUP_CRON = "0 2 * * *"
+# OS checks use offset 0 and container checks use 15. Backups sit 30 minutes away.
+BACKUP_STAGGER_OFFSET = 30
 
 
 def staggered_cron(base_cron: str, server_id: int, offset: int = 0) -> str:
@@ -23,6 +27,38 @@ def staggered_cron(base_cron: str, server_id: int, offset: int = 0) -> str:
     minute = (int(server_id) + int(offset)) % 60
     parts[0] = str(minute)
     return " ".join(parts)
+
+
+def host_backup_cron(base_cron: str, server_id: int, jitter: bool) -> str:
+    """Fleet backup time for one host. Stagger keeps the hour and shifts the minute."""
+    base = base_cron or DEFAULT_BACKUP_CRON
+    if jitter:
+        return staggered_cron(base, server_id, offset=BACKUP_STAGGER_OFFSET)
+    return app_cfg.validate_cron_expression(base)
+
+
+def stamp_new_host_backup_schedule(session: Session, server: Server) -> Optional[str]:
+    """Give a new backup-enabled host the fleet time when it has none.
+
+    Returns the cron written, or None when the host already has a schedule
+    or backups are off. A settings read failure leaves the host unchanged.
+    """
+    if not server.backup_enabled or (server.backup_schedule or "").strip():
+        return None
+    try:
+        cfg = app_cfg.load_settings()
+        base = app_cfg.validate_cron_expression(
+            (cfg.get("backup_cron") or DEFAULT_BACKUP_CRON).strip() or DEFAULT_BACKUP_CRON
+        )
+        jitter = bool(cfg.get("update_check_jitter", True))
+    except Exception:
+        logger.warning("[UPDATE-CHECK] Fleet backup schedule unavailable for a new host")
+        return None
+    cron = host_backup_cron(base, int(server.id or 0), jitter)
+    server.backup_schedule = cron
+    session.add(server)
+    session.commit()
+    return cron
 
 
 def apply_global_update_checks_to_all(
@@ -36,14 +72,18 @@ def apply_global_update_checks_to_all(
     only_patch_enabled: bool = False,
     enable_feature_flags: bool = True,
     enable_backups: bool = True,
+    backup_cron: str = DEFAULT_BACKUP_CRON,
 ) -> dict:
     """Write per-server check schedules from global defaults. Returns counts.
 
     By default applies to *all* servers and turns on related feature flags so the
     Servers list shows OS / Containers (and optionally Backups) as on.
+    When backups are included, a host with no backup schedule gets the fleet time.
+    A saved backup schedule is left alone.
     """
     os_cron = app_cfg.validate_cron_expression(os_cron or DEFAULT_MIDNIGHT_CRON)
     container_cron = app_cfg.validate_cron_expression(container_cron or DEFAULT_MIDNIGHT_CRON)
+    backup_cron = app_cfg.validate_cron_expression(backup_cron or DEFAULT_BACKUP_CRON)
 
     servers = list(session.exec(select(Server).order_by(Server.id)).all())
     os_n = 0
@@ -51,6 +91,7 @@ def apply_global_update_checks_to_all(
     flags_os = 0
     flags_cont = 0
     flags_backup = 0
+    backup_scheduled = 0
     for s in servers:
         sid = s.id or 0
         # OS
@@ -83,11 +124,15 @@ def apply_global_update_checks_to_all(
         elif not container_enabled:
             s.container_check_enabled = False
 
-        # Backups feature flag only (does not set/clear backup_schedule or run jobs)
+        # Backups. Turn the flag on, and write a schedule only when the host has none.
+        # A saved schedule stays. Turning the checkbox off does not clear a schedule.
         if enable_backups:
             if not s.backup_enabled:
                 flags_backup += 1
             s.backup_enabled = True
+            if not (s.backup_schedule or "").strip():
+                s.backup_schedule = host_backup_cron(backup_cron, sid, jitter)
+                backup_scheduled += 1
 
         session.add(s)
 
@@ -95,7 +140,8 @@ def apply_global_update_checks_to_all(
     logger.info(
         f"[UPDATE-CHECK] Applied global defaults: os={os_n} container={cont_n} "
         f"flags os+={flags_os} cont+={flags_cont} backup+={flags_backup} "
-        f"cron_os={os_cron} cron_container={container_cron} jitter={jitter}"
+        f"backup_scheduled={backup_scheduled} "
+        f"cron_os={os_cron} cron_container={container_cron} cron_backup={backup_cron} jitter={jitter}"
     )
     return {
         "servers_total": len(servers),
@@ -104,8 +150,10 @@ def apply_global_update_checks_to_all(
         "flags_os": flags_os,
         "flags_container": flags_cont,
         "flags_backup": flags_backup,
+        "backup_scheduled": backup_scheduled,
         "os_cron": os_cron,
         "container_cron": container_cron,
+        "backup_cron": backup_cron,
         "jitter": jitter,
     }
 
@@ -118,4 +166,5 @@ def load_update_check_settings() -> dict:
         "container_check_global_enabled": bool(cfg.get("container_check_global_enabled", True)),
         "container_check_cron": cfg.get("container_check_cron") or DEFAULT_MIDNIGHT_CRON,
         "update_check_jitter": bool(cfg.get("update_check_jitter", True)),
+        "backup_cron": cfg.get("backup_cron") or DEFAULT_BACKUP_CRON,
     }

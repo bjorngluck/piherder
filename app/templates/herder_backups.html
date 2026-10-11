@@ -263,6 +263,7 @@
   Feature flags turned on: OS +{{ request.query_params.get('flags_os', '0') }},
   containers +{{ request.query_params.get('flags_cont', '0') }},
   backups +{{ request.query_params.get('flags_bak', '0') }}.
+  Backup schedules written on {{ request.query_params.get('bak_sched', '0') }} host(s) that had none.
   Checks are queued (max 2 concurrent) when the schedule fires.
   {% else %}
   Defaults stored only — tick “Apply to all servers” to push schedules to hosts.

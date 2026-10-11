@@ -95,6 +95,7 @@ Boxes stay empty until each one is walked.
 - [ ] Docker on a host with the feature off says off and does not SSH
 - [ ] A direct host that does not target Drive is not a failed Drive follow-up
 - [ ] An apt update that exits 100 keeps the `E:` line in the job log
+- [ ] Settings → Fleet, with Apply and Enable Backups ticked, writes a schedule on a host that had none and leaves a host that already has a schedule alone. The Servers list shows no schedule while backups are on and the field is empty
 
 ## Discover
 

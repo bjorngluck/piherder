@@ -8,8 +8,10 @@ from sqlalchemy.pool import StaticPool
 
 from app.models import Server
 from app.services.update_check_config import (
+    DEFAULT_BACKUP_CRON,
     DEFAULT_MIDNIGHT_CRON,
     apply_global_update_checks_to_all,
+    host_backup_cron,
     staggered_cron,
 )
 
@@ -71,3 +73,74 @@ def test_apply_global_update_checks_to_all(tmp_path):
         assert counts["container_applied"] == 2
         # feature flags flipped on for hosts that were off
         assert any(r.os_patch_enabled for r in rows)
+
+
+def test_apply_writes_backup_schedule_only_when_missing(tmp_path):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'bak.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        kept = Server(
+            id=4,
+            name="kept",
+            hostname="kept.local",
+            ssh_username="pi",
+            created_at=datetime.utcnow(),
+            backup_enabled=True,
+            backup_schedule="15 6 * * *",
+        )
+        empty = Server(
+            id=5,
+            name="empty",
+            hostname="empty.local",
+            ssh_username="pi",
+            created_at=datetime.utcnow(),
+            backup_enabled=True,
+        )
+        off = Server(
+            id=6,
+            name="off",
+            hostname="off.local",
+            ssh_username="pi",
+            created_at=datetime.utcnow(),
+            backup_enabled=False,
+        )
+        s.add(kept)
+        s.add(empty)
+        s.add(off)
+        s.commit()
+        counts = apply_global_update_checks_to_all(
+            s,
+            os_enabled=False,
+            container_enabled=False,
+            jitter=True,
+            enable_feature_flags=False,
+            enable_backups=True,
+            backup_cron=DEFAULT_BACKUP_CRON,
+        )
+        assert counts["backup_scheduled"] == 2
+        assert counts["flags_backup"] == 1
+        assert kept.backup_schedule == "15 6 * * *"
+        assert empty.backup_schedule == host_backup_cron(DEFAULT_BACKUP_CRON, 5, True)
+        assert empty.backup_schedule == "35 2 * * *"
+        assert off.backup_enabled is True
+        assert off.backup_schedule == "36 2 * * *"
+
+        off.backup_schedule = None
+        off.backup_enabled = False
+        s.add(off)
+        s.commit()
+        skipped = apply_global_update_checks_to_all(
+            s,
+            os_enabled=False,
+            container_enabled=False,
+            enable_feature_flags=False,
+            enable_backups=False,
+            backup_cron="0 4 * * *",
+        )
+        assert skipped["backup_scheduled"] == 0
+        assert off.backup_schedule is None
+        assert off.backup_enabled is False

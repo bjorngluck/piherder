@@ -489,6 +489,13 @@ def patch_server_features(
             changed["docker"] = server.container_patch_enabled
 
     session.add(server)
+    if "backup" in changed:
+        try:
+            from .server_patch import sync_server_schedules
+
+            sync_server_schedules(server)
+        except Exception:
+            logger.warning("Could not sync backup schedule for server %s", server.id)
     record_server_audit(
         session,
         server_id=server.id,

@@ -52,8 +52,24 @@
       <label class="flex items-center gap-2 min-h-11 text-sm">
         <input type="checkbox" name="update_check_jitter" value="1"
                {% if cfg.update_check_jitter is not defined or cfg.update_check_jitter %}checked{% endif %}>
-        <span>Stagger by host (minute = server id mod 60; containers +15 min offset)</span>
+        <span>Stagger by host (minute = server id mod 60; containers +15 min; backups +30 min)</span>
       </label>
+
+      <div>
+        <label class="block text-xs text-muted mb-1">Backup schedule (base)</label>
+        <select class="w-full sm:w-56 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 mb-1"
+                aria-label="Backup schedule preset"
+                data-ph-fill="backup_cron">
+          <option value="">Custom / advanced cron…</option>
+          {% for val, lab in cron_presets %}
+          <option value="{{ val }}" {% if (cfg.backup_cron or '0 2 * * *') == val %}selected{% endif %}>{{ lab }}</option>
+          {% endfor %}
+        </select>
+        <input type="text" name="backup_cron" value="{{ cfg.backup_cron or '0 2 * * *' }}"
+               placeholder="0 2 * * *" class="w-full sm:w-40 bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
+        <p class="text-[10px] text-muted mt-1">{{ (cfg.backup_cron or '0 2 * * *') | cron_human(current_tz) }} · {{ current_tz }}</p>
+        <p class="text-[10px] text-muted mt-1">Apply writes this onto a host that has backups on and no schedule. A host that already has a schedule is left alone.</p>
+      </div>
 
       <label class="flex items-center gap-2 min-h-11 text-sm font-medium">
         <input type="checkbox" name="apply_to_all" value="1" checked>
@@ -68,9 +84,10 @@
         <span>Enable <strong>Backups</strong> feature on all servers</span>
       </label>
       <p class="text-[10px] text-muted">
-        Writes per-server check schedules, turns on feature flags so the Servers list shows them as on,
-        and re-registers the scheduler. Does <strong>not</strong> set a backup cron or run jobs —
-        only the backup capability toggle. Per-server cards still allow overrides.
+        Writes per-server check schedules and turns on the feature flags so the Servers list shows them as on.
+        With Backups ticked, a host that has no backup schedule gets the base time above.
+        A host that already has a backup schedule is left alone. This does not start a backup.
+        Per-server cards still allow overrides.
       </p>
       <button type="submit" class="btn btn-accent min-h-11 text-sm">Save &amp; apply update checks</button>
     </form>

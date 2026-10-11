@@ -299,6 +299,18 @@ async def wizard_identity_post(
         },
     )
     session.commit()
+    try:
+        import logging
+
+        from ..services.update_check_config import stamp_new_host_backup_schedule
+        from .server_patch import sync_server_schedules
+
+        stamp_new_host_backup_schedule(session, server)
+        sync_server_schedules(server)
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "Could not set the fleet backup schedule for server %s", server.id
+        )
     return RedirectResponse(wizard_path("trust", server.id), status_code=303)
 
 

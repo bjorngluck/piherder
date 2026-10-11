@@ -213,6 +213,9 @@
       <div class="source-row-when text-muted font-mono">{{ s.hostname }}</div>
       <div class="fleet-status-pills">
         {% if s.backup_enabled %}
+        {% if not s.backup_schedule %}
+        <span class="status-pill status-warning" title="Backups are on and this host has no schedule, so nothing is queued">no schedule</span>
+        {% endif %}
         {% if s.get('backup_running') %}
         <span class="status-pill status-running">backup…</span>
         {% elif s.get('last_backup_str') %}
