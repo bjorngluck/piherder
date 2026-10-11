@@ -52,7 +52,7 @@
       <label class="flex items-center gap-2 min-h-11 text-sm">
         <input type="checkbox" name="update_check_jitter" value="1"
                {% if cfg.update_check_jitter is not defined or cfg.update_check_jitter %}checked{% endif %}>
-        <span>Stagger by host (minute = server id mod 60; containers +15 min; backups +30 min)</span>
+        <span>Stagger update checks by host (minute = server id mod 60; containers +15 min)</span>
       </label>
 
       <div>
@@ -68,7 +68,7 @@
         <input type="text" name="backup_cron" value="{{ cfg.backup_cron or '0 2 * * *' }}"
                placeholder="0 2 * * *" class="w-full sm:w-40 bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
         <p class="text-[10px] text-muted mt-1">{{ (cfg.backup_cron or '0 2 * * *') | cron_human(current_tz) }} · {{ current_tz }}</p>
-        <p class="text-[10px] text-muted mt-1">Apply writes this onto a host that has backups on and no schedule. A host that already has a schedule is left alone.</p>
+        <p class="text-[10px] text-muted mt-1">This is one fleet clock. Each host still gets its own minute from its id, then later hours when the minutes run out. A host that already has a schedule is left alone. Hosts that do share a minute are queued. The worker runs them as slots are free.</p>
       </div>
 
       <label class="flex items-center gap-2 min-h-11 text-sm font-medium">
@@ -85,7 +85,7 @@
       </label>
       <p class="text-[10px] text-muted">
         Writes per-server check schedules and turns on the feature flags so the Servers list shows them as on.
-        With Backups ticked, a host that has no backup schedule gets the base time above.
+        With Backups ticked, a host that has no backup schedule gets its own minute from the base time above.
         A host that already has a backup schedule is left alone. This does not start a backup.
         Per-server cards still allow overrides.
       </p>

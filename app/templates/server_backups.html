@@ -73,16 +73,16 @@
       <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ server.retention_days or 7 }}</span><span class="ops-pulse-l">days keep</span></div>
       <div class="ops-pulse-stat" title="{{ server.backup_schedule or '' }}">
         <span class="ops-pulse-n text-xs" style="font-size:0.7rem">
-          {% if server.backup_schedule %}{{ server.backup_schedule | cron_human(get_app_timezone()) }}{% elif server.backup_enabled %}No schedule{% else %}—{% endif %}
+          {% if server.backup_schedule %}{{ server.backup_schedule | cron_human(get_app_timezone()) }}{% elif server.backup_schedule_source == 'fleet' and server.effective_backup_schedule %}{{ server.effective_backup_schedule | cron_human(get_app_timezone()) }}{% elif server.backup_enabled %}No schedule{% else %}-{% endif %}
         </span>
-        <span class="ops-pulse-l">schedule</span>
+        <span class="ops-pulse-l">{% if server.backup_schedule_source == 'fleet' %}fleet default{% else %}schedule{% endif %}</span>
       </div>
     </div>
     <p class="ops-pulse-caption">{% if server.backup_direct %}direct copy · path policy{% else %}rsync sources · path policy{% endif %}</p>
   </div>
 </section>
 
-{% if server.backup_enabled and not server.backup_schedule %}
+{% if server.backup_enabled and not server.backup_schedule and server.backup_schedule_source != 'fleet' %}
 <div class="mb-3 p-3 banner-warning border border-border rounded text-sm" role="status">
   Backups are on and this host has no schedule, so nothing is queued.
 </div>
@@ -368,6 +368,8 @@
                    title="5-field cron: minute hour day month weekday">
             {% if server.backup_schedule %}
             <p class="text-[10px] text-muted mt-1" data-testid="cron-human-backup">{{ server.backup_schedule | cron_human(get_app_timezone()) }} · <code class="font-mono">{{ server.backup_schedule }}</code></p>
+            {% elif server.backup_schedule_source == 'fleet' and server.effective_backup_schedule %}
+            <p class="text-[10px] text-muted mt-1">Fleet default: {{ server.effective_backup_schedule | cron_human(get_app_timezone()) }}. Saving a schedule here replaces it for this host.</p>
             {% else %}
             <p class="text-[10px] text-muted mt-1">Pick a preset or enter 5-field cron (app timezone: {{ get_app_timezone() }}).</p>
             {% endif %}

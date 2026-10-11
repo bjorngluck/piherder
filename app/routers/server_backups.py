@@ -137,6 +137,9 @@ async def server_backups(
 
     direct_choices = configured_destination_choices(session)
     direct_picked = parse_direct_targets(getattr(server, "backup_direct_targets", None))
+    from ..services.update_check_config import copy_backup_schedule_fields
+
+    copy_backup_schedule_fields(server_dict, server)
     _nav = host_feature_context(session, int(user.id) if user else None, server, "backups")
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -390,14 +393,21 @@ async def update_backup_config(
                 raise HTTPException(400, "Invalid cron expression. Example: '0 2 * * *' for 2am daily.")
         backup_schedule = cron
 
+    fleet_changed = {}
     if scope == "global":
+        previous = backup_svc.get_global_backup_defaults() or {}
         paths = [p.strip() for p in backup_paths.replace(",", "\n").splitlines() if p.strip()] or server.get_backup_paths()
+        new_root = dest_root.strip() or None
         global_config = {
             "sources": paths,
-            "dest_root": dest_root.strip() or None,
+            "dest_root": new_root,
         }
-        # Note: global config saving is stubbed in current backup_svc
         backup_svc.save_global_backup_defaults(global_config)
+        if previous.get("sources") != paths:
+            fleet_changed["sources"] = {"from": previous.get("sources"), "to": paths}
+        old_root = previous.get("dest_root") or None
+        if old_root != new_root:
+            fleet_changed["dest_root"] = {"from": old_root, "to": new_root}
     else:
         if backup_paths:
             # Update per-server paths (supports both old and new format via service)
@@ -468,6 +478,7 @@ async def update_backup_config(
             changed_fields[key] = "changed"
             continue
         changed_fields[key] = {"from": old, "to": new}
+    changed_fields.update(fleet_changed)
     record_server_audit(
         session,
         server_id=server.id,

@@ -191,6 +191,16 @@ def _open_alerts_by_server(session: Session) -> dict[int, list[dict[str, Any]]]:
     return out
 
 
+def _backup_schedule_fields(server) -> dict[str, Any]:
+    """Saved cron, the cron that runs, its source, and the next run.
+
+    Added beside the existing server fields. Older clients ignore the new keys.
+    """
+    from ..services.update_check_config import resolve_backup_schedule
+
+    return resolve_backup_schedule(server)
+
+
 def _server_public(
     s: Server, *, alerts: list[dict[str, Any]] | None = None
 ) -> dict[str, Any]:
@@ -232,6 +242,7 @@ def _server_public(
             "docker": bool(s.container_patch_enabled),
         },
         "last_backup_at": last_backup,
+        **_backup_schedule_fields(s),
         "os_updates_count": s.os_updates_count,
         "container_updates_count": s.container_updates_count,
         "reboot_pending": bool(s.reboot_pending),
@@ -489,13 +500,6 @@ def patch_server_features(
             changed["docker"] = server.container_patch_enabled
 
     session.add(server)
-    if "backup" in changed:
-        try:
-            from .server_patch import sync_server_schedules
-
-            sync_server_schedules(server)
-        except Exception:
-            logger.warning("Could not sync backup schedule for server %s", server.id)
     record_server_audit(
         session,
         server_id=server.id,
@@ -508,6 +512,13 @@ def patch_server_features(
     )
     session.commit()
     session.refresh(server)
+    if "backup" in changed:
+        try:
+            from .server_patch import sync_server_schedules
+
+            sync_server_schedules(server)
+        except Exception:
+            logger.warning("Could not sync backup schedule for server %s", server.id)
     return {"ok": True, "changed": changed, "server": _server_public(server)}
 
 

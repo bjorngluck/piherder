@@ -226,16 +226,17 @@ function _selectHasValue(select, value) {
   return select.value === wanted;
 }
 
+function _singleNumber(value, lo, hi) {
+  if (!/^\d{1,2}$/.test(String(value))) return false;
+  const n = parseInt(value, 10);
+  return n >= lo && n <= hi;
+}
+
+function _singleDow(value) {
+  return /^[0-6]$/.test(String(value));
+}
+
 function parseAndSetCronBuilder(cronStr) {
-  const parts = cronStr.trim().split(/\s+/);
-  if (parts.length < 5) return;
-
-  const min = parts[0];
-  const hour = parts[1];
-  const dom = parts[2];
-  const month = parts[3];
-  const wd = parts[4];
-
   const freqSel = document.getElementById('schedule-freq');
   const hSel = document.getElementById('schedule-hour');
   const mSel = document.getElementById('schedule-min');
@@ -243,30 +244,51 @@ function parseAndSetCronBuilder(cronStr) {
   const domWrap = document.getElementById('schedule-dom-wrap');
   const wdSel = document.getElementById('schedule-weekday');
   const domIn = document.getElementById('schedule-dom');
-
-  const minuteOk = /^\d+$/.test(min) && _selectHasValue(mSel, String(parseInt(min, 10)));
-  const hourOk = /^\d+$/.test(hour) && _selectHasValue(hSel, String(parseInt(hour, 10)));
-  // Leave Custom in place. Rebuilding from the selects would turn a missing
-  // minute into 0 and save a different cron.
-  if (!freqSel || !minuteOk || !hourOk || month !== '*') {
+  const useCustom = function () {
     if (freqSel) freqSel.value = 'custom';
+    if (wdWrap) wdWrap.classList.add('hidden');
+    if (domWrap) domWrap.classList.add('hidden');
+  };
+
+  const parts = (cronStr || '').trim().split(/\s+/);
+  if (parts.length < 5) {
+    useCustom();
     return;
   }
+
+  const min = parts[0];
+  const hour = parts[1];
+  const dom = parts[2];
+  const month = parts[3];
+  const wd = parts[4];
+
+  const minuteOk = _singleNumber(min, 0, 59) && _selectHasValue(mSel, String(parseInt(min, 10)));
+  const hourOk = _singleNumber(hour, 0, 23) && _selectHasValue(hSel, String(parseInt(hour, 10)));
+  // A range or a list is not one option in the builder. Leave the raw cron.
+  const simple = freqSel && month === '*' && minuteOk && hourOk;
+  const daily = simple && dom === '*' && wd === '*';
+  const weekly = simple && dom === '*' && _singleDow(wd) && _selectHasValue(wdSel, String(parseInt(wd, 10)));
+  const monthly = simple && wd === '*' && _singleNumber(dom, 1, 31);
 
   if (wdWrap) wdWrap.classList.add('hidden');
   if (domWrap) domWrap.classList.add('hidden');
 
-  if (wd !== '*' && dom === '*') {
+  if (daily) {
+    freqSel.value = 'daily';
+    return;
+  }
+  if (weekly) {
     freqSel.value = 'weekly';
     wdWrap.classList.remove('hidden');
-    if (wdSel) wdSel.value = wd;
-  } else if (dom !== '*') {
+    return;
+  }
+  if (monthly) {
     freqSel.value = 'monthly';
     domWrap.classList.remove('hidden');
-    if (domIn) domIn.value = dom;
-  } else {
-    freqSel.value = 'daily';
+    if (domIn) domIn.value = String(parseInt(dom, 10));
+    return;
   }
+  useCustom();
 }
 function hideBackupConfigModal() {
   const modal = document.getElementById('backup-config-modal');
@@ -843,6 +865,8 @@ function computeUsableSummary(drives) {
           <input type="text" name="backup_schedule" id="cron-input" value="{{ server.backup_schedule or '' }}" placeholder="0 2 * * *" class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs">
           {% if server.backup_schedule %}
           <p class="text-[9px] text-muted mt-0.5">{{ server.backup_schedule | cron_human(get_app_timezone()) }} · <code class="font-mono">{{ server.backup_schedule }}</code></p>
+          {% elif server.backup_schedule_source == 'fleet' and server.effective_backup_schedule %}
+          <p class="text-[9px] text-muted mt-0.5">Fleet default: {{ server.effective_backup_schedule | cron_human(get_app_timezone()) }}. Saving a schedule here replaces it for this host.</p>
           {% else %}
           <p class="text-[9px] text-muted mt-0.5">Presets build the cron. Use Custom for complex repeats.</p>
           {% endif %}
