@@ -672,6 +672,7 @@ async def add_server(
         ssh_public_key=pub,
         ssh_password_encrypted=pw_enc,
         sort_order=next_sort,
+        backup_enabled=True,
     )
     session.add(server)
     session.commit()

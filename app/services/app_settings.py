@@ -57,6 +57,9 @@ DEFAULTS: Dict[str, Any] = {
     # Base host-backup cron. A host with backups on and no saved schedule
     # inherits this time. Apply does not copy it onto the host.
     "backup_cron": "0 2 * * *",
+    # One startup pass clears schedules that were copies of the fleet minute.
+    # True means that pass has finished and must not run again.
+    "fleet_backup_inherit_cleaned": False,
     "force_2fa": False,
     # Require TOTP enabled to deploy templates / view deployment secrets
     "template_require_2fa": False,

@@ -119,24 +119,35 @@ def effective_fleet_cron(server_id: int) -> str:
     return fleet_backup_cron(base, server_id)
 
 
-def _live_backup_job(server_id: int):
-    """The registered backup job for this host, or None when it is not scheduled."""
+def _backup_job_state(server_id: int):
+    """Whether a backup job is registered.
+
+    ``None`` means the scheduler cannot answer: this process has no scheduler,
+    it is not running yet, or the lookup failed. ``False`` means it is running
+    and this host has no ``backup_{id}`` job. ``True`` means that job exists.
+    """
     if not server_id:
         return None
     try:
         from ..main import HAS_SCHEDULER, scheduler
     except Exception:
+        logger.debug("[UPDATE-CHECK] Scheduler import failed", exc_info=True)
         return None
     if not HAS_SCHEDULER or scheduler is None:
+        return None
+    if getattr(scheduler, "running", None) is not True:
         return None
     getter = getattr(scheduler, "get_job", None)
     if getter is None:
         return None
     try:
-        return getter(f"backup_{int(server_id)}")
+        job = getter(f"backup_{int(server_id)}")
     except Exception:
         logger.debug("[UPDATE-CHECK] Backup job lookup failed", exc_info=True)
         return None
+    if job is None:
+        return False
+    return job
 
 
 def resolve_backup_schedule(server, *, with_next: bool = True) -> dict:
@@ -145,8 +156,8 @@ def resolve_backup_schedule(server, *, with_next: bool = True) -> dict:
     ``backup_schedule`` is the host value or null. It is not rewritten here.
     ``backup_schedule_source`` is ``host``, ``fleet``, or null when backups are off
     or no fleet time is available. ``next_backup_run`` is the registered job's
-    next run time. ``backup_scheduled`` is false when backups are on and no job
-    is registered, and ``next_backup_run`` is null in that case.
+    next run time. ``backup_scheduled`` is null when the scheduler cannot answer,
+    and false only when it is running, backups are on, and no job is registered.
     """
     raw = getattr(server, "backup_schedule", None)
     own = (raw or "").strip() or None
@@ -168,13 +179,15 @@ def resolve_backup_schedule(server, *, with_next: bool = True) -> dict:
         except Exception:
             logger.warning("[UPDATE-CHECK] Could not resolve a fleet backup time")
             cron, source = None, None
-    scheduled = False
+    scheduled = None
     next_run = None
     if with_next:
-        job = _live_backup_job(int(getattr(server, "id", 0) or 0))
-        if job is not None:
+        state = _backup_job_state(int(getattr(server, "id", 0) or 0))
+        if state is None or state is False:
+            scheduled = state
+        else:
             scheduled = True
-            when = getattr(job, "next_run_time", None)
+            when = getattr(state, "next_run_time", None)
             if when is not None:
                 try:
                     next_run = when.isoformat()
@@ -307,12 +320,18 @@ def apply_global_update_checks_to_all(
 
 
 def clear_matching_fleet_backup_schedules(session: Session) -> int:
-    """Clear a saved schedule only when it is exactly the fleet time for that id.
+    """Clear copied fleet minutes once, then never again.
 
-    Those hosts become source fleet and keep the same minute. Every other
-    saved schedule stays. Running this again clears nothing. One audit row
-    records the count, with no host names, and only when something changed.
+    The first run clears a saved schedule only when it is exactly the fleet
+    time for that id. Those hosts keep the same minute as source fleet. Every
+    other saved schedule stays. The settings marker is set even when nothing
+    matched. A later run, including one where a host has saved that same
+    minute, leaves the row alone. One audit row records the count, with no
+    host names, and only when something changed.
     """
+    if app_cfg.load_settings().get("fleet_backup_inherit_cleaned"):
+        logger.info("[UPDATE-CHECK] Fleet backup schedule cleanup already ran")
+        return 0
     base, _jitter = _fleet_backup_settings()
     cleared = 0
     for server in session.exec(select(Server).order_by(Server.id)).all():
@@ -324,23 +343,23 @@ def clear_matching_fleet_backup_schedules(session: Session) -> int:
         server.backup_schedule = None
         session.add(server)
         cleared += 1
+    if cleared:
+        from .server_audit import record_server_audit
+
+        record_server_audit(
+            session,
+            server_id=None,
+            user_id=None,
+            action="fleet_backup_schedule_inherit",
+            message=f"Cleared {cleared} backup schedule(s) that matched the fleet time",
+            details={"cleared": cleared},
+        )
+        session.commit()
+    app_cfg.save_settings({"fleet_backup_inherit_cleaned": True})
     logger.info(
         "[UPDATE-CHECK] Fleet backup schedule cleanup cleared %s host(s)",
         cleared,
     )
-    if not cleared:
-        return 0
-    from .server_audit import record_server_audit
-
-    record_server_audit(
-        session,
-        server_id=None,
-        user_id=None,
-        action="fleet_backup_schedule_inherit",
-        message=f"Cleared {cleared} backup schedule(s) that matched the fleet time",
-        details={"cleared": cleared},
-    )
-    session.commit()
     return cleared
 
 

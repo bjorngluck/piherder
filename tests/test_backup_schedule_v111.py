@@ -231,7 +231,7 @@ def test_api_patch_resyncs_after_commit_and_reports_the_fleet_time(monkeypatch):
     assert body["effective_backup_schedule"] == "35 2 * * *"
     assert body["backup_schedule_source"] == "fleet"
     assert body["next_backup_run"] is None
-    assert body["backup_scheduled"] is False
+    assert body["backup_scheduled"] is None
     assert "features" in body
     assert body["features"]["backup"] is True
 
@@ -252,7 +252,7 @@ def test_api_own_schedule_wins_and_off_has_no_effective_time(monkeypatch):
     assert payload["effective_backup_schedule"] == "15 6 * * *"
     assert payload["backup_schedule_source"] == "host"
     assert payload["next_backup_run"] is None
-    assert payload["backup_scheduled"] is False
+    assert payload["backup_scheduled"] is None
 
     off = Server(
         id=4,
@@ -282,6 +282,8 @@ def test_api_next_run_comes_from_the_job_and_clears_when_removed(monkeypatch):
             self.next_run_time = when
 
     class _Sched:
+        running = True
+
         def __init__(self):
             self.jobs = {}
 
@@ -322,6 +324,28 @@ def test_api_next_run_comes_from_the_job_and_clears_when_removed(monkeypatch):
         assert quiet["backup_scheduled"] is False
         assert quiet["next_backup_run"] is None
         assert quiet["effective_backup_schedule"] == "35 2 * * *"
+
+
+def test_backup_scheduled_is_unknown_without_a_running_scheduler(monkeypatch):
+    from app.routers.api_v1 import _server_public
+
+    _settings(monkeypatch)
+    host = Server(id=5, name="host-a", hostname="host-a.local", backup_enabled=True)
+    monkeypatch.setattr("app.main.HAS_SCHEDULER", False)
+    monkeypatch.setattr("app.main.scheduler", None)
+    missing = _server_public(host)
+    assert missing["backup_scheduled"] is None
+    assert missing["next_backup_run"] is None
+    assert missing["effective_backup_schedule"] == "35 2 * * *"
+
+    monkeypatch.setattr("app.main.HAS_SCHEDULER", True)
+    monkeypatch.setattr(
+        "app.main.scheduler",
+        type("Idle", (), {"running": False, "get_job": lambda self, _job: None})(),
+    )
+    idle = _server_public(host)
+    assert idle["backup_scheduled"] is None
+    assert idle["next_backup_run"] is None
 
 
 def test_base_change_moves_an_inheriting_hosts_job(monkeypatch):
@@ -427,7 +451,18 @@ def test_startup_cleanup_keeps_the_effective_minute(monkeypatch):
         resolve_backup_schedule,
     )
 
+    store = {"backup_cron": "0 2 * * *", "update_check_jitter": True}
+
+    def _load():
+        return dict(store)
+
+    def _save(partial):
+        store.update(partial)
+        return dict(store)
+
     _settings(monkeypatch)
+    monkeypatch.setattr("app.services.app_settings.load_settings", _load)
+    monkeypatch.setattr("app.services.app_settings.save_settings", _save)
     engine = _engine()
     with Session(engine) as session:
         matched = Server(
@@ -469,7 +504,13 @@ def test_startup_cleanup_keeps_the_effective_minute(monkeypatch):
         assert payload["cleared"] == 1
         assert "host-a" not in rows[0].details
         assert "host-b" not in rows[0].details
+        assert store["fleet_backup_inherit_cleaned"] is True
+        matched.backup_schedule = "35 2 * * *"
+        session.add(matched)
+        session.commit()
         assert clear_matching_fleet_backup_schedules(session) == 0
+        session.refresh(matched)
+        assert matched.backup_schedule == "35 2 * * *"
         assert len(list(session.exec(select(AuditLog)))) == 1
 
 
@@ -516,9 +557,10 @@ def test_update_server_and_wizard_resync_without_writing_a_schedule(monkeypatch)
         )
         assert created.status_code == 303
         row = session.exec(select(Server)).one()
-        assert row.backup_enabled is False
+        assert row.backup_enabled is True
         assert not (row.backup_schedule or "").strip()
-        assert seen == []
+        assert seen == [f"{(row.id + 30) % 60} 2 * * *"]
+        seen.clear()
 
         added = asyncio.run(
             add_server(
@@ -536,10 +578,15 @@ def test_update_server_and_wizard_resync_without_writing_a_schedule(monkeypatch)
         assert added.status_code == 303
         hosts = list(session.exec(select(Server).order_by(Server.id)).all())
         assert len(hosts) == 2
-        assert all(host.backup_enabled is False for host in hosts)
+        assert all(host.backup_enabled is True for host in hosts)
         assert all(not (host.backup_schedule or "").strip() for host in hosts)
+        assert seen == [f"{(hosts[1].id + 30) % 60} 2 * * *"]
+        seen.clear()
 
         target = hosts[0]
+        target.backup_enabled = False
+        session.add(target)
+        session.commit()
         asyncio.run(
             update_server(
                 server_id=target.id,

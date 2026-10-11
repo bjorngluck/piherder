@@ -194,9 +194,10 @@ def _open_alerts_by_server(session: Session) -> dict[int, list[dict[str, Any]]]:
 def _backup_schedule_fields(server) -> dict[str, Any]:
     """Saved cron, the cron that runs, its source, and the live next run.
 
-    ``backup_scheduled`` is false when backups are on and no job is registered.
-    ``next_backup_run`` is that job's next run, or null. Older clients ignore
-    the new keys.
+    ``backup_scheduled`` is false only when the scheduler is running, backups
+    are on, and no job is registered. Null means that state is unknown.
+    ``next_backup_run`` is the live job's next run, or null. Older clients
+    ignore the new keys.
     """
     from ..services.update_check_config import resolve_backup_schedule
 

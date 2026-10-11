@@ -276,6 +276,7 @@ async def wizard_identity_post(
         ssh_username=(ssh_username or "pi").strip() or "pi",
         ssh_port=port,
         sort_order=next_sort,
+        backup_enabled=True,
     )
     session.add(server)
     session.commit()

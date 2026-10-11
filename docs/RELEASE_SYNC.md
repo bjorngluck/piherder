@@ -4,9 +4,9 @@ The three production repos name each other. A tag in one repo is not done until 
 
 Local clones:
 
-- `/home/bjorn/docker/piherder`
-- `/home/bjorn/piherder-mcp`
-- `/home/bjorn/piherder-ha`
+- `/home/user/docker/piherder`
+- `/home/user/piherder-mcp`
+- `/home/user/piherder-ha`
 
 ## Before the tag
 
