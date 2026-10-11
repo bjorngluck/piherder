@@ -1,5 +1,6 @@
 from sqlmodel import SQLModel, create_engine, Session
 from sqlalchemy import text, inspect
+from sqlalchemy.pool import StaticPool
 from .config import settings
 from .models import (  # ensure registered for create_all / alembic
     DockerVersion,
@@ -9,13 +10,26 @@ from .models import (  # ensure registered for create_all / alembic
     ComposeProjectMeta,
 )
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    echo=False,
-    pool_size=10,
-    max_overflow=10,
-    pool_pre_ping=True,
-)
+
+def _create_app_engine(url: str):
+    """Postgres pool in production. A sqlite URL (the test suite) cannot take pool_size."""
+    if (url or "").startswith("sqlite"):
+        return create_engine(
+            url,
+            echo=False,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+    return create_engine(
+        url,
+        echo=False,
+        pool_size=10,
+        max_overflow=10,
+        pool_pre_ping=True,
+    )
+
+
+engine = _create_app_engine(settings.DATABASE_URL)
 
 
 def get_session():

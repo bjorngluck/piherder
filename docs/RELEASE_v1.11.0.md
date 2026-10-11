@@ -89,6 +89,7 @@ A weekday range such as `1-5`, or a day list such as `1,15`, stays as typed. Con
 | A failed folder hop did not start the direct hop | The direct hop still starts. A folder row left running waits for the next schedule |
 | A token limited to one feature could start a LAN scan | A scan needs a jobs token with no `feature:*` limit |
 | An https git URL with a user or token in it was accepted | That URL is refused. Use a deploy key or a credential helper |
+| Running the tests on a herder host could write to the live database | The suite is isolated and guarded |
 
 ---
 
