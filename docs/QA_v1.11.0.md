@@ -2,7 +2,7 @@
 
 **Branch:** `v1.11.0-dev` → `main` · tag **`v1.11.0`** (cut after merge, only when asked)  
 **Code freeze:** set 2026-10-08  
-**Package:** stays **`1.10.0`**. About / footer say **1.10.0**.  
+**Package:** **`1.11.0`**. About / footer say **1.11.0**. Hub image stays **1.10.0**.  
 **Operator QA:** not started. Boxes below stay empty until you walk them.  
 **Screenshots:** names are in the [v1.11 pack](../wiki/assets/screenshots/README.md#v111--pack-status). The files are not in the tree yet: `account-passkey-2fa.png`, `host-backup-direct.png`, `jobs-direct-copy.png`, `docker-repository.png`.  
 **Pull request:** [#35](https://github.com/bjorngluck/piherder/pull/35). Body is [PR_v1.11.0.md](PR_v1.11.0.md).
