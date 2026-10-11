@@ -16,7 +16,13 @@ from app.security.auth import create_user_access_token, get_password_hash
 from app.services import jobs as js
 from app.tasks import housekeeping_job
 from celery.app.task import Task
-from tests.conftest import _TEST_BROKER_URL, _TEST_DATABASE_URL, assert_test_targets
+from tests.conftest import (
+    _TEST_BROKER_URL,
+    _TEST_DATABASE_URL,
+    _TEST_SETTINGS_PATH,
+    _is_test_target,
+    assert_test_targets,
+)
 
 _SKIP_DIRS = {
     ".git",
@@ -45,19 +51,19 @@ def _tracked_text_files():
     [
         (
             "postgresql://piherder:piherder@127.0.0.1:5432/piherder",
-            "redis://127.0.0.1:1/test",
-            "/tmp/piherder-test/data",
+            _TEST_BROKER_URL,
+            _TEST_SETTINGS_PATH,
             "DATABASE_URL",
         ),
         (
-            "sqlite:////tmp/piherder-test/test.db",
+            _TEST_DATABASE_URL,
             "redis://localhost:6379/0",
-            "/tmp/piherder-test/data",
+            _TEST_SETTINGS_PATH,
             "CELERY_BROKER_URL",
         ),
         (
-            "sqlite:////tmp/piherder-test/test.db",
-            "redis://127.0.0.1:1/test",
+            _TEST_DATABASE_URL,
+            _TEST_BROKER_URL,
             "/data",
             "DATA_ROOT",
         ),
@@ -72,6 +78,17 @@ def test_guard_rejects_a_non_test_target(database_url, broker_url, settings_path
         )
     message = str(raised.value)
     assert message.startswith(f"{variable}:")
+
+
+def test_latest_is_not_a_test_target():
+    assert _is_test_target("latest") is False
+    with pytest.raises(RuntimeError, match="DATABASE_URL") as raised:
+        assert_test_targets(
+            database_url="latest",
+            broker_url=_TEST_BROKER_URL,
+            settings_path=_TEST_SETTINGS_PATH,
+        )
+    assert "tests refuse to run against a non-test target" in str(raised.value)
 
 
 def test_testing_flag_only_permits_the_sqlite_engine():
