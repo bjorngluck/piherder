@@ -50,17 +50,17 @@ You pick the branch or a tag. The remote default, `main` or `master`, starts sel
 
 A project that is not a git checkout yet can be attached to a remote from the same page. New Docker Service can still clone a URL once and then write the pasted compose over it.
 
-### A host with backups on gets a schedule
+### Backups on for the fleet now gives every host a schedule
 
-Settings → Fleet has a base backup time, daily at 02:00 unless you change it. **Apply to all servers**, with **Enable Backups** ticked, writes that time onto a host that has backups on and no schedule of its own. A host that already has a schedule is left alone.
+Hosts could previously be enabled with no schedule and never back up. Settings → Fleet has one base backup time, daily at 02:00 unless you change it. **Apply to all servers**, with **Enable Backups** ticked, turns backups on. It does not write a schedule onto the host. Adding a host does not turn backups on and does not write a schedule.
 
-A host with backups on and no saved schedule still runs. The scheduler uses the fleet time for that host and does not write it onto the row. The host's own schedule wins. Backups off means no job. The Servers list and the Backups page show the inherited time marked **fleet default**.
+A host with backups on and no saved schedule inherits the fleet time. The Servers list and the Backups page mark that time **fleet default**. A saved schedule on the host always wins. Backups off means no job. Saving a new base clock moves the inheriting hosts, whether or not Apply is ticked. A schedule that was already exactly the fleet minute for that host is cleared once at startup, so the host inherits the same minute. Any other saved schedule is left alone.
 
-The fleet clock is one time. Each host still gets its own minute from its id. Placing one host does not read the rest of the fleet, so a few hundred or a thousand hosts stay cheap to register. Ids below 60 keep the previous minute on the base hour. Later ids use the following hours, one host per minute. The first 1440 ids each get a different minute of the day. Past that, a daily cron has to share a minute. Those jobs are queued. The worker runs them as slots are free. One host still does not run two backups at once. Turning backups on from the host form or the token API registers that cron after the save.
+The fleet clock is one time. On a daily base, each host gets its own minute from its id. Ids below 60 stay on that hour. Later ids use the following hours and stop at 23:00. They do not wrap to the morning of the same day. A 02:00 base therefore has 1320 distinct minutes, which covers a fleet of hundreds or a thousand hosts. Past that window, a few hosts share a minute. The worker queues them. One host still does not run two backups at once. A list such as `2,14`, a step such as `*/6`, or a weekday base only changes the minute, so hosts 60 apart can share that minute. Placing one host does not read the rest of the fleet, and adding a host does not move anyone else's time.
 
-The server API adds `backup_schedule` (the saved value, or null), `effective_backup_schedule`, `backup_schedule_source` (`host` or `fleet`), and `next_backup_run` (an ISO time in the Settings timezone). Older clients can ignore the new keys.
+The server API adds `backup_schedule` (the saved value, or null), `effective_backup_schedule`, `backup_schedule_source` (`host` or `fleet`), `next_backup_run`, and `backup_scheduled`. `next_backup_run` is the live job's next run. When backups are on and no job is registered, `next_backup_run` is null and `backup_scheduled` is false. Older clients can ignore the new keys.
 
-A weekday range such as `1-5`, or a day list such as `1,15`, stays as typed. Configure switches that expression to Custom instead of saving a different cron. The fleet-default save records the old and new source list and destination root.
+A weekday range such as `1-5`, or a day list such as `1,15`, stays as typed. Configure switches that expression to Custom instead of saving a different cron. Saving Fleet defaults records the old and new base clock and flags, plus the applied counts. The fleet source-list save records the old and new source list and destination root.
 
 ---
 
@@ -70,11 +70,11 @@ A weekday range such as `1-5`, or a day list such as `1,15`, stays as typed. Con
 |---|---|
 | A passkey did not count as 2FA when Force 2FA was on | A registered passkey satisfies Force 2FA. Signup can register one. App-based 2FA stays available |
 | A backup set for hour 6 ran two hours later than the label | Host backups and destination copies use the Settings timezone, the same clock as the label |
-| Enable Backups on the fleet turned the flag on and left the schedule empty | Apply can write a time onto a host with no schedule. A saved schedule stays. With no saved schedule, the host runs on the fleet time and the list marks it **fleet default** |
+| Enable Backups on the fleet turned the flag on and left the schedule empty, so the host never backed up | Apply turns backups on and does not write a schedule. A host with no saved schedule runs on the fleet time. The list marks it **fleet default**. A saved schedule stays |
 | Saving Configure changed a minute such as 2 to 0, a weekday range, or a day list | A simple minute is kept. A range or a list stays as typed. Opening Configure on an empty schedule does not fill one in |
 | A cron backup was not marked scheduled, and Backup now said it was scheduled | The cron run is marked scheduled. Backup now is not |
 | A backup configuration change did not say which field moved | The audit row records the old and new values, including the schedule |
-| Changing the backup flag through the token API left the old cron in place | That change re-registers the host cron after the save. The server payload includes the effective schedule, its source, and the next run |
+| Changing the backup flag through the token API left the old cron in place | That change re-registers the host cron after the save. The server payload includes the effective schedule, its source, whether a job is registered, and that job's next run |
 | A failed host-facts refresh cleared the OS and kernel lines | The previous OS and kernel stay |
 | A host-facts job left running blocked the next snapshot | That job fails after 30 minutes, and the next snapshot can queue |
 | Drive or OneDrive rejecting the sign-in was only a failed job | One alert opens on Settings → PiHerder backup. Severity follows the backup category. A later success resolves it |
@@ -102,7 +102,7 @@ A weekday range such as `1-5`, or a day list such as `1,15`, stays as typed. Con
 | Move a service | **on**. Set `PIHERDER_SERVICE_MIGRATE=false` to hide it |
 | Agents (MCP) | off until you paste a token or approve a browser sign-in |
 | Repository update | does not deploy |
-| Fleet backup time | daily at 02:00. A host with no saved schedule inherits it. Ids below 60 stay on that hour. Later ids use the following hours. Apply can save a copy onto the host |
+| Fleet backup time | daily at 02:00. A host with no saved schedule inherits it. Ids below 60 stay on that hour. Later ids use the following hours through 23:00. A list, a step, or a weekday base only changes the minute. Apply does not copy the time onto the host |
 
 ---
 

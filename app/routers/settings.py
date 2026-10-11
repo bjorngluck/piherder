@@ -2299,6 +2299,21 @@ async def save_update_check_defaults(
         )
 
     try:
+        previous = app_cfg.load_settings()
+        old_backup = (previous.get("backup_cron") or "0 2 * * *").strip() or "0 2 * * *"
+        try:
+            old_backup = app_cfg.validate_cron_expression(old_backup)
+        except ValueError:
+            pass
+        old_flags = {
+            "os_check_global_enabled": bool(previous.get("os_check_global_enabled", True)),
+            "os_check_cron": previous.get("os_check_cron") or "0 0 * * *",
+            "container_check_global_enabled": bool(
+                previous.get("container_check_global_enabled", True)
+            ),
+            "container_check_cron": previous.get("container_check_cron") or "0 0 * * *",
+            "update_check_jitter": bool(previous.get("update_check_jitter", True)),
+        }
         app_cfg.save_settings(
             {
                 "os_check_global_enabled": os_on,
@@ -2318,8 +2333,10 @@ async def save_update_check_defaults(
             "flags_backup": 0,
             "backup_scheduled": 0,
         }
+        from .. import database as dbmod
+
         if do_apply:
-            with Session(engine) as db:
+            with Session(dbmod.engine) as db:
                 applied = ucc.apply_global_update_checks_to_all(
                     db,
                     os_enabled=os_on,
@@ -2332,8 +2349,51 @@ async def save_update_check_defaults(
                     enable_backups=_form_on(enable_backups),
                     backup_cron=bak_cron,
                 )
+        if do_apply or old_backup != bak_cron:
             sched, has = _scheduler()
             sync_all_server_cron_jobs(sched, has)
+        from ..services.server_audit import record_server_audit
+
+        with Session(dbmod.engine) as db:
+            record_server_audit(
+                db,
+                server_id=None,
+                user_id=getattr(user, "id", None),
+                action="fleet_update_checks",
+                details={
+                    "backup_cron": {"from": old_backup, "to": bak_cron},
+                    "os_check_global_enabled": {
+                        "from": old_flags["os_check_global_enabled"],
+                        "to": os_on,
+                    },
+                    "os_check_cron": {"from": old_flags["os_check_cron"], "to": os_cron},
+                    "container_check_global_enabled": {
+                        "from": old_flags["container_check_global_enabled"],
+                        "to": cont_on,
+                    },
+                    "container_check_cron": {
+                        "from": old_flags["container_check_cron"],
+                        "to": cont_cron,
+                    },
+                    "update_check_jitter": {
+                        "from": old_flags["update_check_jitter"],
+                        "to": jitter,
+                    },
+                    "apply_to_all": do_apply,
+                    "enable_feature_flags": _form_on(enable_feature_flags),
+                    "enable_backups": _form_on(enable_backups),
+                    "applied": {
+                        "servers_total": applied.get("servers_total", 0),
+                        "os_applied": applied.get("os_applied", 0),
+                        "container_applied": applied.get("container_applied", 0),
+                        "flags_os": applied.get("flags_os", 0),
+                        "flags_container": applied.get("flags_container", 0),
+                        "flags_backup": applied.get("flags_backup", 0),
+                        "backup_scheduled": applied.get("backup_scheduled", 0),
+                    },
+                },
+            )
+            db.commit()
     except Exception as e:
         return RedirectResponse(
             _settings_url("fleet", error=str(e)[:120]), status_code=303

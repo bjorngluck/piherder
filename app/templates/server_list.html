@@ -213,8 +213,8 @@
       <div class="source-row-when text-muted font-mono">{{ s.hostname }}</div>
       <div class="fleet-status-pills">
         {% if s.backup_enabled %}
-        {% if s.backup_schedule_source == 'fleet' and s.effective_backup_schedule %}
-        <span class="text-xs text-muted" title="{{ s.effective_backup_schedule }}">{{ s.effective_backup_schedule | cron_human(get_app_timezone()) }} · fleet default</span>
+        {% if s.effective_backup_schedule %}
+        <span class="text-xs text-muted" title="{{ s.effective_backup_schedule }}{% if s.next_backup_run %} · next {{ s.next_backup_run }}{% endif %}">{{ s.effective_backup_schedule | cron_human(get_app_timezone()) }}{% if s.backup_schedule_source == 'fleet' %} · fleet default{% endif %}{% if s.backup_scheduled %} · scheduled{% elif s.backup_schedule_source %} · not scheduled{% endif %}</span>
         {% elif not s.backup_schedule %}
         <span class="status-pill status-warning" title="Backups are on and this host has no schedule, so nothing is queued">no schedule</span>
         {% endif %}

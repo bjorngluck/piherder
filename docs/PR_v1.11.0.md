@@ -37,7 +37,7 @@ Walk [QA_v1.11.0.md](QA_v1.11.0.md). Do not retick the 1.10 boxes.
 - [ ] Direct backup on LAN NAS, Google Drive, and OneDrive. Each finished Backup row and audit row names the place, with no sign-in, and **Copy now** shows **Direct copy**
 - [ ] MCP Move, a LAN Discovery read, a saved-range scan, and device rename, link, and purge
 - [ ] Repository on an existing checkout: newer tag visible, local edit stops the update, no deploy
-- [ ] Bug-fix walk in [QA_v1.11.0.md](QA_v1.11.0.md): schedule hour matches the label, a host with backups on and no schedule gets one from Fleet apply, and the Fleet health boxes
+- [ ] Bug-fix walk in [QA_v1.11.0.md](QA_v1.11.0.md): schedule hour matches the label, fleet backups give every host an effective schedule, and the Fleet health boxes
 - [ ] `.venv-docs/bin/mkdocs build --strict`
 - [ ] Screenshot files named in the [v1.11 pack](../wiki/assets/screenshots/README.md#v111--pack-status)
 

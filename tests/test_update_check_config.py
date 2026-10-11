@@ -11,7 +11,6 @@ from app.services.update_check_config import (
     DEFAULT_BACKUP_CRON,
     DEFAULT_MIDNIGHT_CRON,
     apply_global_update_checks_to_all,
-    host_backup_cron,
     staggered_cron,
 )
 
@@ -75,7 +74,7 @@ def test_apply_global_update_checks_to_all(tmp_path):
         assert any(r.os_patch_enabled for r in rows)
 
 
-def test_apply_writes_backup_schedule_only_when_missing(tmp_path):
+def test_apply_enables_backups_without_writing_a_schedule(tmp_path):
     engine = create_engine(
         f"sqlite:///{tmp_path / 'bak.db'}",
         connect_args={"check_same_thread": False},
@@ -121,13 +120,13 @@ def test_apply_writes_backup_schedule_only_when_missing(tmp_path):
             enable_backups=True,
             backup_cron=DEFAULT_BACKUP_CRON,
         )
-        assert counts["backup_scheduled"] == 2
+        assert counts["backup_scheduled"] == 0
         assert counts["flags_backup"] == 1
         assert kept.backup_schedule == "15 6 * * *"
-        assert empty.backup_schedule == host_backup_cron(DEFAULT_BACKUP_CRON, 5, True)
-        assert empty.backup_schedule == "35 2 * * *"
+        assert empty.backup_schedule is None
+        assert empty.backup_enabled is True
         assert off.backup_enabled is True
-        assert off.backup_schedule == "36 2 * * *"
+        assert off.backup_schedule is None
 
         off.backup_schedule = None
         off.backup_enabled = False

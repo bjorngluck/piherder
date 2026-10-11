@@ -30,8 +30,8 @@ def test_failed_facts_keep_the_previous_os_line():
     engine = _engine()
     with Session(engine) as session:
         server = Server(
-            name="RPI4-1",
-            hostname="rpi4-1.local",
+            name="host-a",
+            hostname="host-a.local",
             os_pretty="Debian GNU/Linux 12",
             os_id="debian",
             hardware="Raspberry Pi 4",
@@ -44,7 +44,7 @@ def test_failed_facts_keep_the_previous_os_line():
         facts.apply_snapshot(
             session,
             server,
-            {"error": "SSH connect failed to rpi4-1.local: timed out"},
+            {"error": "SSH connect failed to host-a.local: timed out"},
         )
         session.refresh(server)
         assert server.os_pretty == "Debian GNU/Linux 12"
@@ -58,8 +58,8 @@ def test_stale_host_facts_job_clears_refreshing():
     engine = _engine()
     with Session(engine) as session:
         server = Server(
-            name="RPIZ2-1",
-            hostname="rpiz2-1.local",
+            name="host-b",
+            hostname="host-b.local",
             host_facts_status="refreshing",
         )
         session.add(server)
@@ -95,30 +95,30 @@ def test_stale_host_facts_job_clears_refreshing():
 def test_drive_followup_skips_a_host_that_targets_smb_only():
     host = Server(
         id=3,
-        name="rpi5-3",
-        hostname="rpi5-3.local",
+        name="host-c",
+        hostname="host-c.local",
         backup_direct=True,
         backup_direct_targets='["smb"]',
     )
     dest = BackupDestination(provider="drive", name="Drive")
-    kept = copies._groups_for_destination(dest, [(host, ["rpi5-3.local"])])
+    kept = copies._groups_for_destination(dest, [(host, ["host-c.local"])])
     assert kept == []
     host.backup_direct_targets = '["drive","smb"]'
-    kept = copies._groups_for_destination(dest, [(host, ["rpi5-3.local"])])
-    assert kept == [(host, ["rpi5-3.local"])]
+    kept = copies._groups_for_destination(dest, [(host, ["host-c.local"])])
+    assert kept == [(host, ["host-c.local"])]
 
 
 def test_nothing_to_send_is_not_a_copy_error(monkeypatch):
-    server = Server(id=3, name="rpi5-3", hostname="rpi5-3.local")
+    server = Server(id=3, name="host-c", hostname="host-c.local")
     dest = BackupDestination(provider="drive", name="Drive")
 
     def _rows(*_args, **_kwargs):
-        return [{"source": "rpi5-3", "rel": "rpi5-3", "skipped": True}]
+        return [{"source": "host-c", "rel": "host-c", "skipped": True}]
 
     monkeypatch.setattr("app.services.backup_direct.push_server", _rows)
     copied, errors = __import__(
         "app.services.backup_direct", fromlist=["push_groups"]
-    ).push_groups(dest, [(server, ["rpi5-3"])], [])
+    ).push_groups(dest, [(server, ["host-c"])], [])
     assert copied == []
     assert errors == []
 
@@ -151,14 +151,14 @@ def test_stale_backup_opens_and_resolves():
     engine = _engine()
     with Session(engine) as session:
         old = Server(
-            name="Nomad",
-            hostname="nomad.local",
+            name="host-d",
+            hostname="host-d.local",
             backup_enabled=True,
             last_backup_at=datetime.utcnow() - timedelta(days=10),
         )
         fresh = Server(
-            name="rpi5-1",
-            hostname="rpi5-1.local",
+            name="host-e",
+            hostname="host-e.local",
             backup_enabled=True,
             last_backup_at=datetime.utcnow(),
         )
@@ -191,8 +191,8 @@ def test_docker_off_does_not_refresh(monkeypatch):
     monkeypatch.setattr(inv, "engine", engine)
     with Session(engine) as session:
         server = Server(
-            name="3DPRINT",
-            hostname="3dprint.local",
+            name="host-f",
+            hostname="host-f.local",
             container_patch_enabled=False,
             docker_inventory_status="error",
             docker_inventory_error="bash: line 1: docker: command not found",
@@ -210,11 +210,11 @@ def test_docker_off_does_not_refresh(monkeypatch):
 
 
 def test_apt_error_line_survives_the_next_real_line():
-    os_patching.clear_os_patch_progress("rpi4-1")
-    os_patching._append_os_log("rpi4-1", "[update] $ sudo /usr/bin/apt update")
-    os_patching._append_os_log("rpi4-1", "\rE: Failed to fetch http://deb.debian.org/ 404", replace_progress=True)
-    os_patching._append_os_log("rpi4-1", "[update] exit=100")
-    lines = os_patching.get_os_patch_log_tail("rpi4-1", n=20)
+    os_patching.clear_os_patch_progress("host-a")
+    os_patching._append_os_log("host-a", "[update] $ sudo /usr/bin/apt update")
+    os_patching._append_os_log("host-a", "\rE: Failed to fetch http://deb.debian.org/ 404", replace_progress=True)
+    os_patching._append_os_log("host-a", "[update] exit=100")
+    lines = os_patching.get_os_patch_log_tail("host-a", n=20)
     assert any(line.startswith("E: Failed to fetch") for line in lines)
     assert os_patching.apt_failure_reason(lines).startswith("E: Failed to fetch")
 
@@ -225,7 +225,7 @@ def test_stopped_container_from_this_project_is_removed(monkeypatch):
     def _run(_client, cmd, timeout=30):
         calls.append(cmd)
         if cmd.startswith("docker inspect"):
-            return 0, "hailo-frigate-standalone|exited|/home/bjorn/docker/hailo-frigate-standalone", ""
+            return 0, "stack|exited|/home/user/stack", ""
         if cmd.startswith("docker rm"):
             return 0, "863934a2a33f", ""
         return 1, "", "unexpected"
@@ -233,8 +233,8 @@ def test_stopped_container_from_this_project_is_removed(monkeypatch):
     monkeypatch.setattr(docker_svc, "run_command", _run)
     note = docker_svc._clear_stopped_name_conflict(
         object(),
-        "/home/bjorn/docker/hailo-frigate-standalone",
-        'Error: container name "/hailo-vlm" is already in use by container "863934a2a33f"',
+        "/home/user/stack",
+        'Error: container name "/app" is already in use by container "c0ffee123456"',
     )
     assert note.startswith("removed stopped container")
     assert any(cmd.startswith("docker rm ") for cmd in calls)
@@ -243,14 +243,14 @@ def test_stopped_container_from_this_project_is_removed(monkeypatch):
 def test_other_project_container_is_left_in_place(monkeypatch):
     def _run(_client, cmd, timeout=30):
         if cmd.startswith("docker inspect"):
-            return 0, "other-stack|exited|/home/bjorn/docker/other", ""
+            return 0, "other-stack|exited|/home/user/other", ""
         raise AssertionError(cmd)
 
     monkeypatch.setattr(docker_svc, "run_command", _run)
     note = docker_svc._clear_stopped_name_conflict(
         object(),
-        "/home/bjorn/docker/hailo-frigate-standalone",
-        'container name "/hailo-vlm" is already in use by container "abc123"',
+        "/home/user/stack",
+        'container name "/app" is already in use by container "abc123"',
     )
     assert "other-stack" in note
     assert "left in place" in note

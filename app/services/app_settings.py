@@ -54,8 +54,8 @@ DEFAULTS: Dict[str, Any] = {
     "container_check_global_enabled": True,
     "container_check_cron": "0 0 * * *",
     "update_check_jitter": True,
-    # Base host-backup cron. Fleet apply writes a staggered copy onto a host
-    # that has backups on and no schedule of its own.
+    # Base host-backup cron. A host with backups on and no saved schedule
+    # inherits this time. Apply does not copy it onto the host.
     "backup_cron": "0 2 * * *",
     "force_2fa": False,
     # Require TOTP enabled to deploy templates / view deployment secrets

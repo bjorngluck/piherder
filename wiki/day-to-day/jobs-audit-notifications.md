@@ -145,7 +145,7 @@ Each backup job writes append-only phases:
 | running | `backup_running` | Worker started rsync (snapshot, `info`) |
 | complete | `backup` | Terminal success or failure |
 
-**Completed backups** show a summary line with source count and total size (e.g. `2 sources · 1.5 MB`), duration, and a detail modal with per-source sizes. A host that sends files straight out adds the destination on that line, for example `2 sources · LAN NAS / SMB · 192.168.86.42/piherder-test/PiHerder`. The detail keeps the same place on each source. The sign-in is not in the row. Queued and running phase rows are noise: **Hide incomplete runs** hides them, and they are left out of the Audit **active** pulse. Older rows that still say `running` are treated the same way.
+**Completed backups** show a summary line with source count and total size (e.g. `2 sources · 1.5 MB`), duration, and a detail modal with per-source sizes. A host that sends files straight out adds the destination on that line, for example `2 sources · LAN NAS / SMB · 192.0.2.42/share/Backups`. The detail keeps the same place on each source. The sign-in is not in the row. Queued and running phase rows are noise: **Hide incomplete runs** hides them, and they are left out of the Audit **active** pulse. Older rows that still say `running` are treated the same way.
 
 ### Timezone display
 
