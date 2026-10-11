@@ -75,7 +75,7 @@
         <span class="ops-pulse-n text-xs" style="font-size:0.7rem">
           {% if server.backup_schedule %}{{ server.backup_schedule | cron_human(get_app_timezone()) }}{% elif server.backup_schedule_source == 'fleet' and server.effective_backup_schedule %}{{ server.effective_backup_schedule | cron_human(get_app_timezone()) }}{% elif server.backup_enabled %}No schedule{% else %}-{% endif %}
         </span>
-        <span class="ops-pulse-l">{% if server.backup_schedule_source == 'fleet' %}fleet default{% else %}schedule{% endif %}{% if server.backup_scheduled is true %} · scheduled{% elif server.backup_scheduled is false %} · not scheduled{% endif %}</span>
+        <span class="ops-pulse-l">{% if server.backup_schedule_source == 'fleet' %}fleet default{% else %}schedule{% endif %}{% if server.backup_scheduled is true %} · scheduled{% elif server.backup_scheduled is false %} · not scheduled{% else %} · <span class="text-muted">schedule unknown</span>{% endif %}</span>
       </div>
     </div>
     <p class="ops-pulse-caption">{% if server.backup_direct %}direct copy · path policy{% else %}rsync sources · path policy{% endif %}{% if server.backup_enabled %} · {% if server.next_backup_run %}next {{ server.next_backup_run }}{% else %}no next run{% endif %}{% endif %}</p>
