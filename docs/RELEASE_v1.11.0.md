@@ -1,10 +1,10 @@
 # PiHerder v1.11.0
 
-**11 October 2026.** Draft notes for this train. Package on About and `/api/v1` is still **1.10.0**. Hub tags stay `1.10.0` · `1.10` · `latest`.
+**11 October 2026.** Draft notes for this train. About, `/api/v1`, and hosted MCP report **1.11.0-dev**. Hub tags stay `1.10.0` · `1.10` · `latest`.
 
 A passkey counts as a second factor when Force 2FA is on. A host can send its own files straight to Google Drive, OneDrive, or a LAN share. An agent can start a Move, read or start a LAN Discovery scan, and tidy the devices that scan found. Docker can show a newer git tag on a project that is already on the host.
 
-About and `/api/v1` still report package **1.10.0**. The straight-out tick and **Repository…** are how you tell this train is running.
+About and `/api/v1` report **1.11.0-dev**. The straight-out tick and **Repository…** are how you tell this train is running.
 
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.10.0` · `1.10` · `latest` (amd64 + arm64). Pin `1.9.0` / `1.9` stays the previous image. Home Assistant plugin stays **0.5.0**. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** is on PyPI. `uvx piherder-mcp` installs it. The public demo stays the production image.
 
@@ -52,7 +52,15 @@ A project that is not a git checkout yet can be attached to a remote from the sa
 
 ### A host with backups on gets a schedule
 
-Settings → Fleet has a base backup time, daily at 02:00 unless you change it. **Apply to all servers**, with **Enable Backups** ticked, writes that time onto a host that has backups on and no schedule of its own. Stagger shifts the minute by the server id plus 30, on the same tick as the update checks. A host that already has a schedule is left alone. A new host starts with that time. The Servers list shows **no schedule** while backups are on and the field is empty.
+Settings → Fleet has a base backup time, daily at 02:00 unless you change it. **Apply to all servers**, with **Enable Backups** ticked, writes that time onto a host that has backups on and no schedule of its own. A host that already has a schedule is left alone.
+
+A host with backups on and no saved schedule still runs. The scheduler uses the fleet time for that host and does not write it onto the row. The host's own schedule wins. Backups off means no job. The Servers list and the Backups page show the inherited time marked **fleet default**.
+
+The fleet clock is one time. Each host still gets its own minute from its id. Placing one host does not read the rest of the fleet, so a few hundred or a thousand hosts stay cheap to register. Ids below 60 keep the previous minute on the base hour. Later ids use the following hours, one host per minute. The first 1440 ids each get a different minute of the day. Past that, a daily cron has to share a minute. Those jobs are queued. The worker runs them as slots are free. One host still does not run two backups at once. Turning backups on from the host form or the token API registers that cron after the save.
+
+The server API adds `backup_schedule` (the saved value, or null), `effective_backup_schedule`, `backup_schedule_source` (`host` or `fleet`), and `next_backup_run` (an ISO time in the Settings timezone). Older clients can ignore the new keys.
+
+A weekday range such as `1-5`, or a day list such as `1,15`, stays as typed. Configure switches that expression to Custom instead of saving a different cron. The fleet-default save records the old and new source list and destination root.
 
 ---
 
@@ -62,11 +70,11 @@ Settings → Fleet has a base backup time, daily at 02:00 unless you change it. 
 |---|---|
 | A passkey did not count as 2FA when Force 2FA was on | A registered passkey satisfies Force 2FA. Signup can register one. App-based 2FA stays available |
 | A backup set for hour 6 ran two hours later than the label | Host backups and destination copies use the Settings timezone, the same clock as the label |
-| Enable Backups on the fleet turned the flag on and left the schedule empty | Apply writes a staggered time onto a host with no schedule. A saved schedule stays. The Servers list shows **no schedule** while the field is empty |
-| Saving Configure changed a minute such as 2 to 0, and an empty schedule opened as 02:00 | Every minute is kept. Opening Configure on an empty schedule does not fill one in |
+| Enable Backups on the fleet turned the flag on and left the schedule empty | Apply can write a time onto a host with no schedule. A saved schedule stays. With no saved schedule, the host runs on the fleet time and the list marks it **fleet default** |
+| Saving Configure changed a minute such as 2 to 0, a weekday range, or a day list | A simple minute is kept. A range or a list stays as typed. Opening Configure on an empty schedule does not fill one in |
 | A cron backup was not marked scheduled, and Backup now said it was scheduled | The cron run is marked scheduled. Backup now is not |
 | A backup configuration change did not say which field moved | The audit row records the old and new values, including the schedule |
-| Changing the backup flag through the token API left the old cron in place | That change re-registers the host cron |
+| Changing the backup flag through the token API left the old cron in place | That change re-registers the host cron after the save. The server payload includes the effective schedule, its source, and the next run |
 | A failed host-facts refresh cleared the OS and kernel lines | The previous OS and kernel stay |
 | A host-facts job left running blocked the next snapshot | That job fails after 30 minutes, and the next snapshot can queue |
 | Drive or OneDrive rejecting the sign-in was only a failed job | One alert opens on Settings → PiHerder backup. Severity follows the backup category. A later success resolves it |
@@ -94,7 +102,7 @@ Settings → Fleet has a base backup time, daily at 02:00 unless you change it. 
 | Move a service | **on**. Set `PIHERDER_SERVICE_MIGRATE=false` to hide it |
 | Agents (MCP) | off until you paste a token or approve a browser sign-in |
 | Repository update | does not deploy |
-| Fleet backup time | daily at 02:00. Apply writes it only onto a host that has no schedule. Stagger adds 30 minutes |
+| Fleet backup time | daily at 02:00. A host with no saved schedule inherits it. Ids below 60 stay on that hour. Later ids use the following hours. Apply can save a copy onto the host |
 
 ---
 

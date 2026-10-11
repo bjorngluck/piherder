@@ -194,7 +194,11 @@ On Frigate/NVR-style trees, rsync may hit **code 24** (vanished files). From **v
 
 Enable + cron on the Backups page. The hour is the Settings timezone, the same clock as the label under the field. A destination copy schedule uses that clock too. Same server never runs two backups at once ([Redis mutex](../operations/multi-worker.md)); different hosts can run in parallel. A direct host is included in a destination schedule only when that destination is one of its ticked targets.
 
-Settings → Fleet has a base backup time, daily at 02:00 unless you change it. **Apply to all servers**, with **Enable Backups** ticked, writes that time onto a host that has backups on and no schedule. Stagger, the same tick as the update checks, sets the minute from the server id plus 30. A host that already has a schedule is left alone. A new host starts with that time. The Servers list shows **no schedule** when backups are on and the field is empty, and the stale-backup alert says the same. The fleet-default choice on Configure saves the source list and the destination root. It does not set a schedule on other hosts.
+Settings → Fleet has a base backup time, daily at 02:00 unless you change it. **Apply to all servers**, with **Enable Backups** ticked, writes that time onto a host that has no schedule. A host that already has a schedule is left alone.
+
+A host with backups on and no saved schedule still runs on the fleet time. The fleet clock is one time. Each host still gets its own minute, computed from the host id, so registering one host does not read the rest of the fleet. That time is not written onto the host. The Servers list and the Backups page mark it **fleet default**. The host's own schedule wins. Backups off means no job. Ids below 60 stay on the base hour. Later ids use the following hours, one host per minute, which keeps a fleet of hundreds or a thousand hosts on different minutes. Past 1440 hosts a daily cron shares a minute among a few hosts. Those jobs are queued. The worker runs them as slots are free. One host still does not run two backups at once. The stale-backup alert still says when a host has no schedule at all.
+
+The fleet-default choice on Configure saves the source list and the destination root, and the audit row records the old and new values. It does not set a schedule on other hosts. A weekday range or a day-of-month list stays as typed.
 
 **Why a mutex:** overlapping rsync to the same destination corrupts snapshots and confuses retention.
 
