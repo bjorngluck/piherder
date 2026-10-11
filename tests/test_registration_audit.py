@@ -33,6 +33,19 @@ def test_first_admin_and_open_registration_are_audited(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "app.routers.auth.rate_limit_auth", lambda *a, **k: True
     )
+    # Do not read the fleet's saved password policy. The default policy
+    # does not require a special character.
+    monkeypatch.setattr(
+        "app.services.password_policy.get_policy",
+        lambda: {
+            "min_length": 10,
+            "max_length": 72,
+            "require_upper": True,
+            "require_lower": True,
+            "require_digit": True,
+            "require_special": False,
+        },
+    )
     app.dependency_overrides[get_session] = _session
     client = TestClient(app, raise_server_exceptions=False)
     try:
