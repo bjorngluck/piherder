@@ -22,6 +22,7 @@ Design: [PLAN_v1.11.0.md](PLAN_v1.11.0.md). Maintainer ticks: [QA_v1.11.0.md](QA
 | **Path C** | Opt in per host. None of the destinations start selected. Save refuses an empty tick. Original files go straight out. Nothing new under `/backups`. Jobs label **Direct copy**. The finished backup names the destination |
 | **MCP** | `start_move`, `read_discovery`, `start_discovery`, and the device tools. Undo stays out. `trigger_job` still refuses `service_migrate`. Adapter **0.4.2** |
 | **Repository** | Existing project. Branch or tag. **Update available** names a newer tag. A local tracked edit stops the update. No deploy |
+| **Bug fixes** | Listed in [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md). Schedule clock, fleet backup time, host facts, backup alerts, Docker off, apt `E:` lines, and the Settings tab label |
 | **Demo** | Stays the production image. Not this branch |
 
 ## Migrations
@@ -36,6 +37,7 @@ Walk [QA_v1.11.0.md](QA_v1.11.0.md). Do not retick the 1.10 boxes.
 - [ ] Direct backup on LAN NAS, Google Drive, and OneDrive. Each finished Backup row and audit row names the place, with no sign-in, and **Copy now** shows **Direct copy**
 - [ ] MCP Move, a LAN Discovery read, a saved-range scan, and device rename, link, and purge
 - [ ] Repository on an existing checkout: newer tag visible, local edit stops the update, no deploy
+- [ ] Bug-fix walk in [QA_v1.11.0.md](QA_v1.11.0.md): schedule hour matches the label, a host with backups on and no schedule gets one from Fleet apply, and the Fleet health boxes
 - [ ] `.venv-docs/bin/mkdocs build --strict`
 - [ ] Screenshot files named in the [v1.11 pack](../wiki/assets/screenshots/README.md#v111--pack-status)
 
