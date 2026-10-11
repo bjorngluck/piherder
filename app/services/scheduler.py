@@ -230,12 +230,24 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
     except Exception:
         tz = None
 
-    # Backup
+    # Backup. A saved schedule wins. With none, use the fleet base time.
+    # Do not write that fleet time onto the host row.
     bid = f"backup_{sid}"
     _remove_job(scheduler, bid)
-    if server.backup_enabled and server.backup_schedule:
+    backup_cron = None
+    if server.backup_enabled:
+        backup_cron = (server.backup_schedule or "").strip() or None
+        if not backup_cron:
+            try:
+                from .update_check_config import effective_fleet_cron
+
+                backup_cron = effective_fleet_cron(sid)
+            except Exception as e:
+                logger.warning(f"[SCHEDULER] Fleet backup time failed for {sid}: {e}")
+                backup_cron = None
+    if backup_cron:
         try:
-            trigger = _cron_trigger(server.backup_schedule, timezone=tz)
+            trigger = _cron_trigger(backup_cron, timezone=tz)
             scheduler.add_job(
                 func=schedule_backup_job,
                 trigger=trigger,
@@ -246,7 +258,7 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
             )
             logger.info(
                 f"[SCHEDULER] Backup scheduled for server {sid}: "
-                f"{server.backup_schedule} ({tz})"
+                f"{backup_cron} ({tz})"
             )
         except Exception as e:
             logger.warning(f"[SCHEDULER] Backup schedule failed for {sid}: {e}")

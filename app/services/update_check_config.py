@@ -29,12 +29,131 @@ def staggered_cron(base_cron: str, server_id: int, offset: int = 0) -> str:
     return " ".join(parts)
 
 
-def host_backup_cron(base_cron: str, server_id: int, jitter: bool) -> str:
-    """Fleet backup time for one host. Stagger keeps the hour and shifts the minute."""
-    base = base_cron or DEFAULT_BACKUP_CRON
-    if jitter:
-        return staggered_cron(base, server_id, offset=BACKUP_STAGGER_OFFSET)
-    return app_cfg.validate_cron_expression(base)
+def fleet_backup_cron(base_cron: str, server_id: int) -> str:
+    """Stagger one host from its id. This does not read the rest of the fleet.
+
+    A daily cron has 1440 minute slots. Ids below 60 keep minute
+    ``(id + 30) % 60`` on the base hour, which already fills that hour.
+    Later ids take the following hours, one minute each. The first 1440 ids
+    therefore each get a different minute of the day, which covers a fleet of
+    hundreds or a thousand hosts. Past that, the day repeats, so a few hosts
+    can share a minute instead of a whole hour firing together. Adding a host
+    does not move anyone else's time.
+    """
+    parts = (base_cron or DEFAULT_BACKUP_CRON).strip().split()
+    if len(parts) != 5:
+        parts = DEFAULT_BACKUP_CRON.split()
+    sid = int(server_id or 0)
+    if not str(parts[1]).isdigit():
+        parts[0] = str((sid + BACKUP_STAGGER_OFFSET) % 60)
+        return " ".join(parts)
+    if sid < 60:
+        parts[0] = str((sid + BACKUP_STAGGER_OFFSET) % 60)
+        return " ".join(parts)
+    extra = sid - 60
+    parts[0] = str(extra % 60)
+    parts[1] = str((int(parts[1]) + 1 + extra // 60) % 24)
+    return " ".join(parts)
+
+
+def host_backup_cron(base_cron: str, server_id: int, jitter: bool = True) -> str:
+    """Fleet backup time for one host.
+
+    The base clock is the same for the fleet. The minute and, when needed, the
+    hour still differ per host id. ``jitter`` is accepted so older callers keep
+    working. Backup placement does not use it. Update checks still do.
+    """
+    del jitter
+    return fleet_backup_cron(base_cron or DEFAULT_BACKUP_CRON, server_id)
+
+
+def _fleet_backup_settings() -> tuple[str, bool]:
+    try:
+        cfg = app_cfg.load_settings()
+        base = (cfg.get("backup_cron") or DEFAULT_BACKUP_CRON).strip() or DEFAULT_BACKUP_CRON
+        base = app_cfg.validate_cron_expression(base)
+        jitter = bool(cfg.get("update_check_jitter", True))
+    except Exception:
+        logger.warning("[UPDATE-CHECK] Fleet backup schedule unavailable")
+        return DEFAULT_BACKUP_CRON, True
+    return base, jitter
+
+
+def effective_fleet_cron(server_id: int) -> str:
+    """Fleet time for a host that has backups on and no saved schedule.
+
+    The saved fleet clock is one time. Each host id still gets its own minute.
+    """
+    base, _jitter = _fleet_backup_settings()
+    return fleet_backup_cron(base, server_id)
+
+
+def resolve_backup_schedule(server, *, with_next: bool = True) -> dict:
+    """Saved cron, the cron that will run, where it came from, and the next run.
+
+    ``backup_schedule`` is the host value or null. It is not rewritten here.
+    ``backup_schedule_source`` is ``host``, ``fleet``, or null when backups are off
+    or no fleet time is available. ``next_backup_run`` is an ISO time in the
+    Settings timezone.
+    """
+    raw = getattr(server, "backup_schedule", None)
+    own = (raw or "").strip() or None
+    if not bool(getattr(server, "backup_enabled", False)):
+        return {
+            "backup_schedule": own,
+            "effective_backup_schedule": None,
+            "backup_schedule_source": None,
+            "next_backup_run": None,
+        }
+    if own:
+        cron, source = own, "host"
+    else:
+        try:
+            cron = effective_fleet_cron(int(getattr(server, "id", 0) or 0))
+            source = "fleet"
+        except Exception:
+            logger.warning("[UPDATE-CHECK] Could not resolve a fleet backup time")
+            cron, source = None, None
+    return {
+        "backup_schedule": own,
+        "effective_backup_schedule": cron,
+        "backup_schedule_source": source,
+        "next_backup_run": _next_cron_iso(cron) if cron and with_next else None,
+    }
+
+
+def copy_backup_schedule_fields(target: dict, server) -> None:
+    """Add the effective schedule fields used by the host list and Backups page.
+
+    Skips the next-run calculation. A list of hundreds of hosts should not
+    build a trigger per row.
+    """
+    info = resolve_backup_schedule(server, with_next=False)
+    target["effective_backup_schedule"] = info["effective_backup_schedule"]
+    target["backup_schedule_source"] = info["backup_schedule_source"]
+
+
+def _next_cron_iso(cron: str | None) -> str | None:
+    if not cron or not str(cron).strip():
+        return None
+    try:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        from .app_settings import get_app_timezone
+        from .scheduler import _cron_trigger
+
+        tz_name = get_app_timezone()
+        tz = ZoneInfo(tz_name) if tz_name else None
+        trigger = _cron_trigger(str(cron).strip(), timezone=tz_name)
+        now = datetime.now(tz) if tz else datetime.now()
+        nxt = trigger.get_next_fire_time(None, now)
+        if nxt is None:
+            return None
+        return nxt.isoformat()
+    except Exception:
+        logger.debug("[UPDATE-CHECK] Next backup run unavailable", exc_info=True)
+        return None
 
 
 def stamp_new_host_backup_schedule(session: Session, server: Server) -> Optional[str]:
