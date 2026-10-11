@@ -1,6 +1,6 @@
 # PiHerder v1.11.0
 
-**8 October 2026.** Package stays **1.10.0** on this freeze. Hub tags stay `1.10.0` · `1.10` · `latest`.
+**11 October 2026.** Draft notes for this train. Package on About and `/api/v1` is still **1.10.0**. Hub tags stay `1.10.0` · `1.10` · `latest`.
 
 A passkey counts as a second factor when Force 2FA is on. A host can send its own files straight to Google Drive, OneDrive, or a LAN share. An agent can start a Move, read or start a LAN Discovery scan, and tidy the devices that scan found. Docker can show a newer git tag on a project that is already on the host.
 
@@ -50,15 +50,37 @@ You pick the branch or a tag. The remote default, `main` or `master`, starts sel
 
 A project that is not a git checkout yet can be attached to a remote from the same page. New Docker Service can still clone a URL once and then write the pasted compose over it.
 
-### Fleet health
+### A host with backups on gets a schedule
 
-Host backup schedules and destination copy schedules use the Settings timezone, the same clock as the label under the field. A stored hour 6 that was firing two hours later in Johannesburg now fires at 06:00 there.
+Settings → Fleet has a base backup time, daily at 02:00 unless you change it. **Apply to all servers**, with **Enable Backups** ticked, writes that time onto a host that has backups on and no schedule of its own. Stagger shifts the minute by the server id plus 30, on the same tick as the update checks. A host that already has a schedule is left alone. A new host starts with that time. The Servers list shows **no schedule** while backups are on and the field is empty.
 
-A host-facts refresh that cannot SSH keeps the previous OS and kernel. A facts row left pending or running after its task is gone is failed, and the host can refresh again. Drive or OneDrive rejecting the sign-in opens one alert on Settings → PiHerder backup. A backup-enabled host with no backup inside the stale window opens one warning. A later success resolves it.
+---
 
-The Docker page on a host with Docker off says off and does not SSH. A direct host is copied only to the destinations it has ticked, so a Drive schedule does not fail that host with nothing to send. A deploy retries once when a stopped container from the same project holds the name. An apt update that exits 100 keeps the `E:` line in the job log.
+## Bug fixes
 
-Settings → Fleet has a backup time. Apply, with Enable Backups ticked, writes that time onto a host that has backups on and no schedule of its own. Stagger shifts the minute by the server id plus 30, using the same stagger tick as the update checks. A host that already has a schedule is left alone. A new host starts with that time. The Servers list shows **no schedule** when backups are on and the field is empty. The stale-backup alert says the same. Saving Configure keeps a minute that is not a multiple of 5. A run from the schedule is marked scheduled. Backup now is not.
+| What you saw | What it does now |
+|---|---|
+| A passkey did not count as 2FA when Force 2FA was on | A registered passkey satisfies Force 2FA. Signup can register one. App-based 2FA stays available |
+| A backup set for hour 6 ran two hours later than the label | Host backups and destination copies use the Settings timezone, the same clock as the label |
+| Enable Backups on the fleet turned the flag on and left the schedule empty | Apply writes a staggered time onto a host with no schedule. A saved schedule stays. The Servers list shows **no schedule** while the field is empty |
+| Saving Configure changed a minute such as 2 to 0, and an empty schedule opened as 02:00 | Every minute is kept. Opening Configure on an empty schedule does not fill one in |
+| A cron backup was not marked scheduled, and Backup now said it was scheduled | The cron run is marked scheduled. Backup now is not |
+| A backup configuration change did not say which field moved | The audit row records the old and new values, including the schedule |
+| Changing the backup flag through the token API left the old cron in place | That change re-registers the host cron |
+| A failed host-facts refresh cleared the OS and kernel lines | The previous OS and kernel stay |
+| A host-facts job left running blocked the next snapshot | That job fails after 30 minutes, and the next snapshot can queue |
+| Drive or OneDrive rejecting the sign-in was only a failed job | One alert opens on Settings → PiHerder backup. Severity follows the backup category. A later success resolves it |
+| A backup-enabled host could go quiet with no warning | One warning opens when the last backup is outside the stale window. A later success resolves it. If the host has no schedule, the warning says nothing is queued |
+| Docker off still contacted the host on refresh | The Docker page says off and does not SSH |
+| A direct host was sent on every destination schedule | A destination schedule includes that host only when that destination is ticked. An empty push is a skip, not a failed job |
+| Deploy failed because a stopped container from the same project still held the name | That stopped container is removed and the deploy retries once. A container from another project is left in place |
+| An apt update that exited 100 stored no `E:` line | The job log keeps the `E:` line |
+| The Settings tab read PiHerderbackup | The tab reads PiHerder backup |
+| Status did not say where hosted MCP runs | The Web card says hosted MCP is this same process, at POST /mcp |
+| Repository did not mark a newer tag | The page names a tag ahead of the checkout |
+| A failed folder hop did not start the direct hop | The direct hop still starts. A folder row left running waits for the next schedule |
+| A token limited to one feature could start a LAN scan | A scan needs a jobs token with no `feature:*` limit |
+| An https git URL with a user or token in it was accepted | That URL is refused. Use a deploy key or a credential helper |
 
 ---
 
@@ -72,6 +94,7 @@ Settings → Fleet has a backup time. Apply, with Enable Backups ticked, writes 
 | Move a service | **on**. Set `PIHERDER_SERVICE_MIGRATE=false` to hide it |
 | Agents (MCP) | off until you paste a token or approve a browser sign-in |
 | Repository update | does not deploy |
+| Fleet backup time | daily at 02:00. Apply writes it only onto a host that has no schedule. Stagger adds 30 minutes |
 
 ---
 
