@@ -124,13 +124,13 @@ The public demo is not this train.
 
 ## Not in this release
 
-- Creating or editing Nginx Proxy Manager proxy hosts. Move can still retarget a backend.
-- Restore from Drive, OneDrive, or a LAN share.
-- An audit row for every API or MCP read.
-- Hiding the 15-minute host-facts snapshot from the default Jobs and Audit lists.
+- Creating or editing Nginx Proxy Manager proxy hosts. Move can still retarget a backend. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
+- Restore from Drive, OneDrive, or a LAN share. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
+- An audit row for every API or MCP read. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
+- Hiding the 15-minute host-facts snapshot from the default Jobs and Audit lists. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
 - A repo check inside the Docker **Check updates** job. The Repository page is the check.
-- Greying out the straight-out tick when the host CPU does not match this PiHerder. The run names that mismatch. A note on the v1.12 plan.
-- An end-of-life badge on the host OS line.
-- Merging two LAN Discovery rows when a laptop changes MAC.
-- A Docker prune job from the host page, the token API, and MCP.
-- An image update check that says up to date after a pull, while the container still runs the old image.
+- Greying out the straight-out tick when the host CPU does not match this PiHerder. The run names that mismatch. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
+- An end-of-life badge on the host OS line. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
+- Merging two LAN Discovery rows when a laptop changes MAC. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
+- A Docker prune job from the host page, the token API, and MCP. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
+- An image update check that says up to date after a pull, while the container still runs the old image. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).

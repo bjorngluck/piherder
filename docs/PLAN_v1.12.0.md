@@ -35,6 +35,28 @@
 | 2026-10-09 | **Direct copy arch.** Grey out the straight-out tick when the host CPU does not match the herder. Not built. v1.11 names the mismatch in the job and tells the operator to keep `/backups` for that host. |
 | 2026-10-10 | **EOL badge and NIC change.** Issues [#49](https://github.com/bjorngluck/piherder/issues/49) and [#50](https://github.com/bjorngluck/piherder/issues/50). Re-filed without environment details. Not built. |
 | 2026-10-11 | **Docker prune.** Issue [#48](https://github.com/bjorngluck/piherder/issues/48). Not built. |
+| 2026-10-11 | **Candidates.** Listed below. Not tiered. Nothing is built. |
+
+---
+
+## Candidates
+
+Tiers are picked when the train opens. These are not Must or Should. The notes above stay as they are: [#49](https://github.com/bjorngluck/piherder/issues/49) end-of-life OS badge, [#50](https://github.com/bjorngluck/piherder/issues/50) MAC change hint, remote restore, and NPM create, edit, and delete.
+
+- Direct copy does not check the host CPU when the opt-in is saved. Check it on save, and grey out the tick when the architectures differ. The 1.11 notes already promise this.
+- The Git Repository page can read a checkout the SSH user does not own. Refuse that checkout, which closes the filter-driver and credential-helper gap.
+- A folder hop left showing running holds that tick's direct hop until the next run. The direct hop should not wait on that row.
+- A missed scheduled backup is only a stale warning. Add a direct check that the expected run did not happen, and a Prometheus metric for Grafana.
+- Plain reads by API tokens and hosted `/mcp` are not audited. Add an optional flag, off unless the operator turns it on.
+- Routine `host_facts` snapshots fill Jobs and Audit. Leave them out of the default lists, and keep a failed snapshot visible.
+- [#47](https://github.com/bjorngluck/piherder/issues/47): the image check clears the update flag after a pull while the container still runs the old image. The flag should stay until the running container is that image.
+- [#48](https://github.com/bjorngluck/piherder/issues/48): there is no Docker prune job. Add one in the UI, the token API, and MCP.
+- Hosted MCP and the adapter do not show the effective backup time. Expose `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled` on the next adapter cut.
+- The supply-chain baseline is old. Re-check pinned actions, the dependency lock, image digest pinning, Dependabot, and secret scanning.
+- A push can still add fleet names, the home subnet, internal domains, or home paths. Fail that push in CI. Keep the denylist in a secret, not in the repo.
+- Older environment details are already on main. Sweep them out of the public history that is still easy to edit.
+- The backup stagger reuses a minute past about 1,320 hosts on the default 02:00 base. That limit is documented. Revisit it only if a fleet needs more unique minutes.
+- The piherder-mcp PyPI readme still badges an older herder. Point that badge at herder 1.11.0 on the next adapter cut.
 
 ---
 

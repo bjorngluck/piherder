@@ -347,6 +347,17 @@ def test_backup_scheduled_is_unknown_without_a_running_scheduler(monkeypatch):
     assert idle["backup_scheduled"] is None
     assert idle["next_backup_run"] is None
 
+    def _fail(self, _job_id):
+        raise RuntimeError("lookup failed")
+
+    monkeypatch.setattr(
+        "app.main.scheduler",
+        type("Broken", (), {"running": True, "get_job": _fail})(),
+    )
+    failed = _server_public(host)
+    assert failed["backup_scheduled"] is None
+    assert failed["next_backup_run"] is None
+
 
 def test_base_change_moves_an_inheriting_hosts_job(monkeypatch):
     import asyncio
@@ -559,6 +570,12 @@ def test_update_server_and_wizard_resync_without_writing_a_schedule(monkeypatch)
         row = session.exec(select(Server)).one()
         assert row.backup_enabled is True
         assert not (row.backup_schedule or "").strip()
+        from app.services.update_check_config import resolve_backup_schedule
+
+        created_info = resolve_backup_schedule(row)
+        assert created_info["backup_schedule"] is None
+        assert created_info["backup_schedule_source"] == "fleet"
+        assert created_info["effective_backup_schedule"]
         assert seen == [f"{(row.id + 30) % 60} 2 * * *"]
         seen.clear()
 
@@ -580,6 +597,9 @@ def test_update_server_and_wizard_resync_without_writing_a_schedule(monkeypatch)
         assert len(hosts) == 2
         assert all(host.backup_enabled is True for host in hosts)
         assert all(not (host.backup_schedule or "").strip() for host in hosts)
+        added_info = resolve_backup_schedule(hosts[1])
+        assert added_info["backup_schedule"] is None
+        assert added_info["backup_schedule_source"] == "fleet"
         assert seen == [f"{(hosts[1].id + 30) % 60} 2 * * *"]
         seen.clear()
 
@@ -651,6 +671,14 @@ def test_configure_builder_keeps_ranges_and_lists():
     assert "_singleDow(wd)" in chunk
     assert chunk.index("_singleDow(wd)") < chunk.index("freqSel.value = 'weekly'")
     assert "useCustom" in chunk
+
+    fleet = Path("app/templates/server_list.html").read_text()
+    backups = Path("app/templates/server_backups.html").read_text()
+    for text in (fleet, backups):
+        assert "schedule unknown" in text
+        unknown_at = text.index("schedule unknown")
+        false_at = text.rindex("not scheduled", 0, unknown_at)
+        assert "is false" in text[false_at - 80:false_at]
 
 
 def test_fleet_sources_save_records_old_and_new(tmp_path, monkeypatch):
