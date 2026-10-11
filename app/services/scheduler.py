@@ -80,7 +80,7 @@ def schedule_backup_job(server_id: int):
         with Session(engine) as db:
             server = db.get(Server, server_id)
             if server and server.backup_enabled:
-                enqueue_backup_for_server(db, server)
+                enqueue_backup_for_server(db, server, scheduled=True)
     except Exception as e:
         logger.debug(f"[SCHEDULER] Error enqueuing backup for {server_id}: {e}")
 

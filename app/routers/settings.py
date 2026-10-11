@@ -378,7 +378,7 @@ async def settings_page(
         },
         "fleet": {
             "title": "Fleet defaults",
-            "sub": "Global OS / container update-check defaults for the fleet.",
+            "sub": "Global OS, container, and backup schedule defaults for the fleet.",
             "viz": "orb",
             "primary": fleet_checks_on,
             "primary_label": "checks on",
@@ -2272,6 +2272,7 @@ async def save_update_check_defaults(
     container_check_global_enabled: Optional[str] = Form(None),
     container_check_cron: str = Form("0 0 * * *"),
     update_check_jitter: Optional[str] = Form(None),
+    backup_cron: str = Form("0 2 * * *"),
     apply_to_all: Optional[str] = Form(None),
     enable_feature_flags: Optional[str] = Form(None),
     enable_backups: Optional[str] = Form(None),
@@ -2285,11 +2286,13 @@ async def save_update_check_defaults(
     do_apply = _form_on(apply_to_all)
     os_cron = (os_check_cron or "").strip() or "0 0 * * *"
     cont_cron = (container_check_cron or "").strip() or "0 0 * * *"
+    bak_cron = (backup_cron or "").strip() or "0 2 * * *"
     try:
         if os_on:
             app_cfg.validate_cron_expression(os_cron)
         if cont_on:
             app_cfg.validate_cron_expression(cont_cron)
+        app_cfg.validate_cron_expression(bak_cron)
     except ValueError as e:
         return RedirectResponse(
             _settings_url("fleet", error=str(e)[:120]), status_code=303
@@ -2303,6 +2306,7 @@ async def save_update_check_defaults(
                 "container_check_global_enabled": cont_on,
                 "container_check_cron": cont_cron,
                 "update_check_jitter": jitter,
+                "backup_cron": bak_cron,
             }
         )
         applied = {
@@ -2312,6 +2316,7 @@ async def save_update_check_defaults(
             "flags_os": 0,
             "flags_container": 0,
             "flags_backup": 0,
+            "backup_scheduled": 0,
         }
         if do_apply:
             with Session(engine) as db:
@@ -2325,6 +2330,7 @@ async def save_update_check_defaults(
                     only_patch_enabled=False,
                     enable_feature_flags=_form_on(enable_feature_flags),
                     enable_backups=_form_on(enable_backups),
+                    backup_cron=bak_cron,
                 )
             sched, has = _scheduler()
             sync_all_server_cron_jobs(sched, has)
@@ -2343,6 +2349,7 @@ async def save_update_check_defaults(
             flags_os=str(applied.get("flags_os", 0)),
             flags_cont=str(applied.get("flags_container", 0)),
             flags_bak=str(applied.get("flags_backup", 0)),
+            bak_sched=str(applied.get("backup_scheduled", 0)),
             applied="1" if do_apply else "0",
         ),
         status_code=303,

@@ -1248,8 +1248,13 @@ def enqueue_backup_for_server(
     server: Server,
     user_id: int | None = None,
     source_filter: str | None = None,
+    scheduled: bool = False,
 ) -> Job:
-    """Create Job + AuditLog in DB and hand off to Celery — web never runs rsync."""
+    """Create Job + AuditLog in DB and hand off to Celery — web never runs rsync.
+
+    ``scheduled`` is true only for the cron path. Backup now stays false, and
+    its audit line does not say the run was scheduled.
+    """
     cleanup_stale_backup_jobs(session)
     reboot = _active_job_of_type(session, server.id, "host_reboot")
     if reboot:
@@ -1269,6 +1274,7 @@ def enqueue_backup_for_server(
         source_filter=source_filter,
         user_id=user_id,
         queued_at=datetime.utcnow().isoformat(),
+        scheduled=bool(scheduled),
     )
     session.add(job)
     session.commit()
@@ -1286,6 +1292,11 @@ def enqueue_backup_for_server(
         )
 
     src_label = source_filter or "all sources"
+    request_message = (
+        f"Scheduled backup requested for {src_label}"
+        if scheduled
+        else f"Backup requested for {src_label}"
+    )
     record_backup_audit_event(
         session,
         server_id=server.id,
@@ -1293,7 +1304,7 @@ def enqueue_backup_for_server(
         phase="request",
         user_id=user_id,
         source_filter=source_filter,
-        message=f"Scheduled backup requested for {src_label}",
+        message=request_message,
     )
     record_backup_audit_event(
         session,

@@ -73,7 +73,7 @@
       <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ server.retention_days or 7 }}</span><span class="ops-pulse-l">days keep</span></div>
       <div class="ops-pulse-stat" title="{{ server.backup_schedule or '' }}">
         <span class="ops-pulse-n text-xs" style="font-size:0.7rem">
-          {% if server.backup_schedule %}{{ server.backup_schedule | cron_human(get_app_timezone()) }}{% else %}—{% endif %}
+          {% if server.backup_schedule %}{{ server.backup_schedule | cron_human(get_app_timezone()) }}{% elif server.backup_enabled %}No schedule{% else %}—{% endif %}
         </span>
         <span class="ops-pulse-l">schedule</span>
       </div>
@@ -81,6 +81,12 @@
     <p class="ops-pulse-caption">{% if server.backup_direct %}direct copy · path policy{% else %}rsync sources · path policy{% endif %}</p>
   </div>
 </section>
+
+{% if server.backup_enabled and not server.backup_schedule %}
+<div class="mb-3 p-3 banner-warning border border-border rounded text-sm" role="status">
+  Backups are on and this host has no schedule, so nothing is queued.
+</div>
+{% endif %}
 
 <div class="card p-5">
   <div class="mb-3">
@@ -412,7 +418,8 @@
       <div class="ph-config-section">
         <div class="ph-config-section-title">Save scope</div>
         <label class="flex gap-2 text-sm items-center min-h-11"><input type="radio" name="scope" value="this_host" checked> This host only</label>
-        <label class="flex gap-2 text-sm items-center min-h-11"><input type="radio" name="scope" value="global"> Global default (new hosts inherit)</label>
+        <label class="flex gap-2 text-sm items-center min-h-11"><input type="radio" name="scope" value="global"> Fleet sources and destination root</label>
+        <p class="text-xs text-muted mt-1">Saves the source list and the destination root for new hosts. It does not set a schedule on other hosts. This host’s schedule still saves with either choice.</p>
       </div>
 
       <div id="config-error" class="text-danger text-sm mb-2 hidden"></div>

@@ -58,6 +58,8 @@ A host-facts refresh that cannot SSH keeps the previous OS and kernel. A facts r
 
 The Docker page on a host with Docker off says off and does not SSH. A direct host is copied only to the destinations it has ticked, so a Drive schedule does not fail that host with nothing to send. A deploy retries once when a stopped container from the same project holds the name. An apt update that exits 100 keeps the `E:` line in the job log.
 
+Settings → Fleet has a backup time. Apply, with Enable Backups ticked, writes that time onto a host that has backups on and no schedule of its own. Stagger shifts the minute by the server id plus 30, using the same stagger tick as the update checks. A host that already has a schedule is left alone. A new host starts with that time. The Servers list shows **no schedule** when backups are on and the field is empty. The stale-backup alert says the same. Saving Configure keeps a minute that is not a multiple of 5. A run from the schedule is marked scheduled. Backup now is not.
+
 ---
 
 ## Defaults
@@ -99,3 +101,5 @@ The public demo is not this train.
 - Greying out the straight-out tick when the host CPU does not match this PiHerder. The run names that mismatch. A note on the v1.12 plan.
 - An end-of-life badge on the host OS line.
 - Merging two LAN Discovery rows when a laptop changes MAC.
+- A Docker prune job from the host page, the token API, and MCP.
+- An image update check that says up to date after a pull, while the container still runs the old image.
