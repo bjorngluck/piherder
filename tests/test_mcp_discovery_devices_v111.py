@@ -161,7 +161,7 @@ def test_agent_can_rename_link_and_purge(tmp_path, monkeypatch):
             name="LAN",
             base_url="local://nmap",
             enabled=True,
-            config_json=json.dumps({"cidrs": ["192.0.2.0/24"]}),
+            config_json=json.dumps({"cidrs": ["198.51.100.0/24"]}),
         )
         session.add(row)
         session.commit()
@@ -170,8 +170,8 @@ def test_agent_can_rename_link_and_purge(tmp_path, monkeypatch):
         session.add(
             NmapDevice(
                 integration_id=row.id,
-                identity_key="ip:192.0.2.10",
-                ip_address="192.0.2.10",
+                identity_key="ip:198.51.100.10",
+                ip_address="198.51.100.10",
                 hostname="cam",
                 display_name="old",
                 kind_override="printer",
@@ -181,8 +181,8 @@ def test_agent_can_rename_link_and_purge(tmp_path, monkeypatch):
         session.add(
             NmapDevice(
                 integration_id=row.id,
-                identity_key="ip:192.0.2.11",
-                ip_address="192.0.2.11",
+                identity_key="ip:198.51.100.11",
+                ip_address="198.51.100.11",
                 state="linked",
                 linked_server_id=server.id,
                 last_seen_at=old,
@@ -191,8 +191,8 @@ def test_agent_can_rename_link_and_purge(tmp_path, monkeypatch):
         session.add(
             NmapDevice(
                 integration_id=row.id,
-                identity_key="ip:192.0.2.12",
-                ip_address="192.0.2.12",
+                identity_key="ip:198.51.100.12",
+                ip_address="198.51.100.12",
                 state="known",
                 last_seen_at=old,
             )
@@ -209,13 +209,13 @@ def test_agent_can_rename_link_and_purge(tmp_path, monkeypatch):
         integration_id = row.id
         server_id = server.id
         fresh = session.exec(
-            select(NmapDevice).where(NmapDevice.ip_address == "192.0.2.10")
+            select(NmapDevice).where(NmapDevice.ip_address == "198.51.100.10")
         ).one()
         linked = session.exec(
-            select(NmapDevice).where(NmapDevice.ip_address == "192.0.2.11")
+            select(NmapDevice).where(NmapDevice.ip_address == "198.51.100.11")
         ).one()
         stale = session.exec(
-            select(NmapDevice).where(NmapDevice.ip_address == "192.0.2.12")
+            select(NmapDevice).where(NmapDevice.ip_address == "198.51.100.12")
         ).one()
         outside = session.exec(
             select(NmapDevice).where(NmapDevice.ip_address == "10.9.9.9")
@@ -424,10 +424,10 @@ def test_agent_can_rename_link_and_purge(tmp_path, monkeypatch):
         assert body["isError"] is False
         assert text["http_status"] == 202
         assert text["intensity"] == "deep"
-        assert text["targets"] == ["192.0.2.11"]
+        assert text["targets"] == ["198.51.100.11"]
         assert captured["call"]["scan_options"]["vuln_scripts"] is False
         assert captured["call"]["scan_options"]["script_preset"] == "none"
-        assert captured["call"]["targets"] == ["192.0.2.11"]
+        assert captured["call"]["targets"] == ["198.51.100.11"]
 
         extra = client.patch(
             f"/api/v1/discovery/{integration_id}/devices/{linked_id}",

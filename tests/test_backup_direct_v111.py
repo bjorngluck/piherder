@@ -64,15 +64,15 @@ def test_destination_place_names_the_share_and_hides_the_sign_in():
         config_json=json.dumps(
             {
                 "host": "192.0.2.42",
-                "share": "piherder-test",
-                "remote_dir": "PiHerder",
-                "username": "piherder",
+                "share": "share",
+                "remote_dir": "Backups",
+                "username": "user",
                 "password": "smb-secret-9f3c1a",
             }
         ),
     )
     place = destination_place(smb)
-    assert place == "LAN NAS / SMB · 192.0.2.42/piherder-test/PiHerder"
+    assert place == "LAN NAS / SMB · 192.0.2.42/share/Backups"
     assert "smb-secret" not in place
     assert "piherder@" not in place
     drive = BackupDestination(
@@ -96,19 +96,19 @@ def test_audit_names_the_direct_destination():
     from app.services.backup_audit import compact_backup_snippet
 
     summary = {
-        "server": "rpi5-3.hacknow.info",
+        "server": "host-a.local",
         "direct": True,
-        "where": "LAN NAS / SMB · 192.0.2.42/piherder-test/PiHerder",
+        "where": "LAN NAS / SMB · 192.0.2.42/share/Backups",
         "results": [
             {
-                "source": "/home/user/docker/",
-                "rel": "rpi5-3.hacknow.info/docker",
+                "source": "/home/user/stack/",
+                "rel": "host-a.local/stack",
                 "rc": 0,
                 "direct": True,
                 "destination": "LAN NAS / SMB",
                 "where": (
-                    "LAN NAS / SMB · 192.0.2.42/piherder-test/PiHerder/"
-                    "rpi5-3.hacknow.info/docker"
+                    "LAN NAS / SMB · 192.0.2.42/share/Backups/"
+                    "host-a.local/stack"
                 ),
             }
         ],
@@ -117,10 +117,10 @@ def test_audit_names_the_direct_destination():
     assert snip["where"] == summary["where"]
     assert snip["direct"] is True
     assert snip["results"][0]["destination"] == "LAN NAS / SMB"
-    assert "rpi5-3.hacknow.info/docker" in snip["results"][0]["where"]
+    assert "host-a.local/stack" in snip["results"][0]["where"]
     line = _backup_summary(snip)
     assert "LAN NAS / SMB" in line
-    assert "192.0.2.42/piherder-test/PiHerder" in line
+    assert "192.0.2.42/share/Backups" in line
     assert "smb-secret" not in line
 
 
@@ -658,7 +658,7 @@ def test_normal_host_still_errors_when_the_mirror_is_missing(monkeypatch, tmp_pa
             client_secret="secret-value",
             refresh_token="refresh-value",
             access_token="access",
-            email="bjorn@outlook.com",
+            email="user@example.com",
             expires_in=None,
         ),
     )

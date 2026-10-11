@@ -95,7 +95,8 @@ Boxes stay empty until each one is walked.
 - [ ] Docker on a host with the feature off says off and does not SSH
 - [ ] A direct host that does not target Drive is not a failed Drive follow-up
 - [ ] An apt update that exits 100 keeps the `E:` line in the job log
-- [ ] A host with backups on and no saved schedule shows **fleet default** and runs at that time. A host with its own schedule keeps that schedule. Backups off does not register a job. Apply still writes a schedule only onto a host that has none
+- [ ] A host with backups on and no saved schedule shows **fleet default** and runs at that time. A host with its own schedule keeps that schedule. Backups off does not register a job. Apply turns backups on and does not write a schedule
+- [ ] Enable fleet backups. Every host shows an effective schedule, a next run, and backup_scheduled true
 
 ## Discover
 

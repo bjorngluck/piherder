@@ -80,8 +80,7 @@ def test_stale_alert_names_a_missing_schedule():
         assert insights.sync_stale_backup_alerts(session) == 1
         rows = list(session.exec(select(Notification).where(Notification.status == "open")).all())
         assert len(rows) == 1
-        assert "no schedule" in rows[0].body
-        assert "nothing is queued" in rows[0].body
+        assert "nothing is queued" not in rows[0].body
 
 
 def _settings(monkeypatch):
@@ -108,6 +107,17 @@ def test_fleet_stagger_is_unique_for_a_large_fleet():
     thousand = [fleet_backup_cron(base, i) for i in range(1, 1001)]
     assert len(set(thousand)) == 1000
     assert fleet_backup_cron(base, 1) != fleet_backup_cron(base, 61)
+    # A host pushed past 23:00 shares a minute. It does not wrap to 00:00.
+    late = fleet_backup_cron("0 23 * * *", 60)
+    assert late.split()[1] == "23"
+    assert late in {fleet_backup_cron("0 23 * * *", i) for i in range(60)}
+    # A list or a step hour stays as written. Hosts 60 apart share the minute.
+    assert fleet_backup_cron("0 2,14 * * *", 61).split()[1] == "2,14"
+    assert fleet_backup_cron("0 2,14 * * *", 61) == fleet_backup_cron("0 2,14 * * *", 1)
+    assert fleet_backup_cron("0 */6 * * *", 5).split()[1] == "*/6"
+    weekly = fleet_backup_cron("0 2 * * 1", 61)
+    assert weekly.split()[1] == "2"
+    assert weekly.split()[4] == "1"
     # The fleet clock is one time. Hosts still do not share that exact minute.
     from app.services.update_check_config import host_backup_cron
 
@@ -220,8 +230,8 @@ def test_api_patch_resyncs_after_commit_and_reports_the_fleet_time(monkeypatch):
     assert body["backup_schedule"] is None
     assert body["effective_backup_schedule"] == "35 2 * * *"
     assert body["backup_schedule_source"] == "fleet"
-    assert "T" in body["next_backup_run"]
-    assert body["next_backup_run"].endswith("+00:00")
+    assert body["next_backup_run"] is None
+    assert body["backup_scheduled"] is False
     assert "features" in body
     assert body["features"]["backup"] is True
 
@@ -241,7 +251,8 @@ def test_api_own_schedule_wins_and_off_has_no_effective_time(monkeypatch):
     assert payload["backup_schedule"] == "15 6 * * *"
     assert payload["effective_backup_schedule"] == "15 6 * * *"
     assert payload["backup_schedule_source"] == "host"
-    assert payload["next_backup_run"]
+    assert payload["next_backup_run"] is None
+    assert payload["backup_scheduled"] is False
 
     off = Server(
         id=4,
@@ -255,6 +266,325 @@ def test_api_own_schedule_wins_and_off_has_no_effective_time(monkeypatch):
     assert quiet["effective_backup_schedule"] is None
     assert quiet["backup_schedule_source"] is None
     assert quiet["next_backup_run"] is None
+    assert quiet["backup_scheduled"] is False
+
+
+def test_api_next_run_comes_from_the_job_and_clears_when_removed(monkeypatch):
+    from datetime import timezone
+    from types import SimpleNamespace
+
+    from app.routers.api_v1 import ApiAuth, ServerFeaturesBody, _server_public, patch_server_features
+
+    _settings(monkeypatch)
+
+    class _Job:
+        def __init__(self, when):
+            self.next_run_time = when
+
+    class _Sched:
+        def __init__(self):
+            self.jobs = {}
+
+        def add_job(self, *args, **kwargs):
+            del args
+            self.jobs[kwargs["id"]] = _Job(datetime(2026, 10, 12, 2, 35, tzinfo=timezone.utc))
+
+        def remove_job(self, job_id):
+            self.jobs.pop(job_id, None)
+
+        def get_job(self, job_id):
+            return self.jobs.get(job_id)
+
+    sched = _Sched()
+    monkeypatch.setattr("app.main.scheduler", sched)
+    monkeypatch.setattr("app.main.HAS_SCHEDULER", True)
+    engine = _engine()
+    with Session(engine) as session:
+        server = Server(id=5, name="host-a", hostname="host-a.local", backup_enabled=False)
+        session.add(server)
+        session.commit()
+        auth = ApiAuth(SimpleNamespace(created_by_user_id=None, id=None, name="agent", scopes="edit"))
+        result = patch_server_features(
+            5,
+            ServerFeaturesBody(backup=True),
+            session,
+            auth,
+        )
+        body = result["server"]
+        assert body["backup_scheduled"] is True
+        assert body["next_backup_run"] == "2026-10-12T02:35:00+00:00"
+        assert body["effective_backup_schedule"] == "35 2 * * *"
+        assert body["backup_schedule"] is None
+        sched.remove_job("backup_5")
+        session.refresh(server)
+        quiet = _server_public(server)
+        assert server.backup_enabled is True
+        assert quiet["backup_scheduled"] is False
+        assert quiet["next_backup_run"] is None
+        assert quiet["effective_backup_schedule"] == "35 2 * * *"
+
+
+def test_base_change_moves_an_inheriting_hosts_job(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+
+    from app.models import AuditLog
+    from app.routers.settings import save_update_check_defaults
+    from app.services import scheduler as sched_mod
+
+    store = {
+        "backup_cron": "0 2 * * *",
+        "update_check_jitter": True,
+        "os_check_global_enabled": True,
+        "os_check_cron": "0 0 * * *",
+        "container_check_global_enabled": True,
+        "container_check_cron": "0 0 * * *",
+    }
+
+    def _load():
+        return dict(store)
+
+    def _save(partial):
+        store.update(partial)
+        return dict(store)
+
+    monkeypatch.setattr("app.services.app_settings.load_settings", _load)
+    monkeypatch.setattr("app.services.app_settings.save_settings", _save)
+    monkeypatch.setattr("app.services.app_settings.get_app_timezone", lambda: "UTC")
+    seen = []
+    real = sched_mod._cron_trigger
+
+    def _wrap(cron, timezone=None):
+        seen.append(cron)
+        return real(cron, timezone=timezone)
+
+    monkeypatch.setattr(sched_mod, "_cron_trigger", _wrap)
+
+    class _Sched:
+        def add_job(self, *args, **kwargs):
+            del args, kwargs
+
+        def remove_job(self, job_id):
+            del job_id
+
+        def get_jobs(self):
+            return []
+
+    monkeypatch.setattr("app.main.scheduler", _Sched())
+    monkeypatch.setattr("app.main.HAS_SCHEDULER", True)
+    engine = _engine()
+    monkeypatch.setattr("app.database.engine", engine)
+    monkeypatch.setattr("app.routers.settings.engine", engine)
+    with Session(engine) as session:
+        host = Server(id=5, name="host-a", hostname="host-a.local", backup_enabled=True)
+        session.add(host)
+        session.commit()
+
+    def _save_form(cron):
+        return asyncio.run(
+            save_update_check_defaults(
+                os_check_global_enabled="on",
+                os_check_cron="0 0 * * *",
+                container_check_global_enabled="on",
+                container_check_cron="0 0 * * *",
+                update_check_jitter="on",
+                backup_cron=cron,
+                apply_to_all=None,
+                enable_feature_flags=None,
+                enable_backups=None,
+                user=SimpleNamespace(id=7),
+            )
+        )
+
+    _save_form("0 4 * * *")
+    assert seen == ["35 4 * * *"]
+    with Session(engine) as session:
+        host = session.get(Server, 5)
+        assert host.backup_schedule is None
+        assert host.backup_enabled is True
+        rows = list(session.exec(select(AuditLog).where(AuditLog.action == "fleet_update_checks")))
+        assert len(rows) == 1
+        assert rows[0].user_id == 7
+        assert rows[0].server_id is None
+        import json
+
+        details = json.loads(rows[0].details)
+        assert details["backup_cron"] == {"from": "0 2 * * *", "to": "0 4 * * *"}
+        assert details["apply_to_all"] is False
+        assert details["applied"]["backup_scheduled"] == 0
+        assert "host-a" not in rows[0].details
+    seen.clear()
+    _save_form("0 4 * * *")
+    assert seen == []
+
+
+def test_startup_cleanup_keeps_the_effective_minute(monkeypatch):
+    import json
+
+    from app.models import AuditLog
+    from app.services.update_check_config import (
+        clear_matching_fleet_backup_schedules,
+        resolve_backup_schedule,
+    )
+
+    _settings(monkeypatch)
+    engine = _engine()
+    with Session(engine) as session:
+        matched = Server(
+            id=5,
+            name="host-a",
+            hostname="host-a.local",
+            backup_enabled=True,
+            backup_schedule="35 2 * * *",
+        )
+        custom = Server(
+            id=6,
+            name="host-b",
+            hostname="host-b.local",
+            backup_enabled=True,
+            backup_schedule="15 6 * * *",
+        )
+        session.add(matched)
+        session.add(custom)
+        session.commit()
+        before = {
+            row.id: resolve_backup_schedule(row)["effective_backup_schedule"]
+            for row in (matched, custom)
+        }
+        cleared = clear_matching_fleet_backup_schedules(session)
+        session.refresh(matched)
+        session.refresh(custom)
+        assert cleared == 1
+        assert matched.backup_schedule is None
+        assert resolve_backup_schedule(matched)["effective_backup_schedule"] == before[5]
+        assert resolve_backup_schedule(matched)["backup_schedule_source"] == "fleet"
+        assert custom.backup_schedule == "15 6 * * *"
+        assert resolve_backup_schedule(custom)["effective_backup_schedule"] == before[6]
+        rows = list(session.exec(select(AuditLog)))
+        assert len(rows) == 1
+        assert rows[0].user_id is None
+        assert rows[0].server_id is None
+        assert rows[0].action == "fleet_backup_schedule_inherit"
+        payload = json.loads(rows[0].details)
+        assert payload["cleared"] == 1
+        assert "host-a" not in rows[0].details
+        assert "host-b" not in rows[0].details
+        assert clear_matching_fleet_backup_schedules(session) == 0
+        assert len(list(session.exec(select(AuditLog)))) == 1
+
+
+def test_update_server_and_wizard_resync_without_writing_a_schedule(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+
+    from app.routers.server_wizard import wizard_features_post, wizard_identity_post
+    from app.routers.servers import add_server, update_server
+    from app.services import scheduler as sched_mod
+
+    _settings(monkeypatch)
+    seen = []
+    real = sched_mod._cron_trigger
+
+    def _wrap(cron, timezone=None):
+        seen.append(cron)
+        return real(cron, timezone=timezone)
+
+    monkeypatch.setattr(sched_mod, "_cron_trigger", _wrap)
+
+    class _Sched:
+        def add_job(self, *args, **kwargs):
+            del args, kwargs
+
+        def remove_job(self, job_id):
+            del job_id
+
+    monkeypatch.setattr("app.main.scheduler", _Sched())
+    monkeypatch.setattr("app.main.HAS_SCHEDULER", True)
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+    engine = _engine()
+    user = SimpleNamespace(id=3)
+    with Session(engine) as session:
+        created = asyncio.run(
+            wizard_identity_post(
+                name="host-a",
+                hostname="host-a.local",
+                ssh_username="pi",
+                ssh_port=22,
+                session=session,
+                user=user,
+            )
+        )
+        assert created.status_code == 303
+        row = session.exec(select(Server)).one()
+        assert row.backup_enabled is False
+        assert not (row.backup_schedule or "").strip()
+        assert seen == []
+
+        added = asyncio.run(
+            add_server(
+                name="host-b",
+                hostname="host-b.local",
+                ssh_username="pi",
+                ssh_port=22,
+                key_mode="password",
+                private_key="",
+                ssh_password="secret-pass",
+                session=session,
+                user=user,
+            )
+        )
+        assert added.status_code == 303
+        hosts = list(session.exec(select(Server).order_by(Server.id)).all())
+        assert len(hosts) == 2
+        assert all(host.backup_enabled is False for host in hosts)
+        assert all(not (host.backup_schedule or "").strip() for host in hosts)
+
+        target = hosts[0]
+        asyncio.run(
+            update_server(
+                server_id=target.id,
+                name=target.name,
+                hostname=target.hostname,
+                ssh_username="pi",
+                ssh_port=22,
+                ssh_password="",
+                clear_password=None,
+                docker_base_dir="~/docker",
+                os_type=None,
+                include_dns=None,
+                dns_name="",
+                dns_ip_override="",
+                ip_address="",
+                dns_manage_a=None,
+                dns_sync_now=None,
+                backup_enabled=True,
+                container_patch_enabled=False,
+                os_patch_enabled=False,
+                console_mux_enabled=False,
+                session=session,
+                user=user,
+            )
+        )
+        session.refresh(target)
+        assert target.backup_enabled is True
+        assert target.backup_schedule is None
+        assert seen == [f"{(target.id + 30) % 60} 2 * * *"]
+        seen.clear()
+        asyncio.run(
+            wizard_features_post(
+                server_id=hosts[1].id,
+                backup_enabled="on",
+                os_patch_enabled=None,
+                container_patch_enabled=None,
+                console_mux_enabled=None,
+                session=session,
+                user=user,
+            )
+        )
+        session.refresh(hosts[1])
+        assert hosts[1].backup_enabled is True
+        assert hosts[1].backup_schedule is None
+        assert seen == [f"{(hosts[1].id + 30) % 60} 2 * * *"]
 
 
 def test_configure_builder_keeps_ranges_and_lists():

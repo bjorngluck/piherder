@@ -99,7 +99,7 @@ def _server(name: str) -> Server:
     return Server(
         name=name,
         hostname=f"{name}.local",
-        ip_address="10.1.0.8",
+        ip_address="192.0.2.8",
         ssh_username="pi",
         ssh_port=22,
         ssh_password_encrypted=encrypt_str("x"),
@@ -147,7 +147,7 @@ def _scan_run(integration_id: int):
         hosts_up=0,
         hosts_total=0,
         ports_open=0,
-        targets_json='["192.0.2.0/24"]',
+        targets_json='["198.51.100.0/24"]',
         error=None,
         started_at=None,
         finished_at=None,
@@ -292,11 +292,11 @@ def test_discovery_read_hides_secrets_and_start_uses_saved_ranges(tmp_path, monk
         user = _user(session)
         plain = _token(session, user, "read,jobs")
         read_only = _token(session, user, "read")
-        row = create_nmap(session, name="LAN", cidrs=["192.0.2.0/24"])
+        row = create_nmap(session, name="LAN", cidrs=["198.51.100.0/24"])
         row.credentials_encrypted = "super-secret-token"
         row.config_json = json.dumps(
             {
-                "cidrs": ["192.0.2.0/24"],
+                "cidrs": ["198.51.100.0/24"],
                 "notes": "operator-private-note",
             }
         )
@@ -310,7 +310,7 @@ def test_discovery_read_hides_secrets_and_start_uses_saved_ranges(tmp_path, monk
             hosts_up=2,
             hosts_total=3,
             ports_open=1,
-            targets_json='["192.0.2.0/24"]',
+            targets_json='["198.51.100.0/24"]',
             artifact_path="/data/nmap/secret.xml",
             summary_json='{"script":"private-script-output"}',
             error="",
@@ -321,9 +321,9 @@ def test_discovery_read_hides_secrets_and_start_uses_saved_ranges(tmp_path, monk
         session.add(
             NmapDevice(
                 integration_id=row.id,
-                identity_key="ip:192.0.2.35",
-                ip_address="192.0.2.35",
-                hostname="rpi5-3",
+                identity_key="ip:198.51.100.35",
+                ip_address="198.51.100.35",
+                hostname="host-a",
                 state="known",
                 notes="private-device-note",
                 mac_address="aa:bb:cc:dd:ee:ff",
@@ -337,7 +337,7 @@ def test_discovery_read_hides_secrets_and_start_uses_saved_ranges(tmp_path, monk
         listed = client.get("/api/v1/discovery", headers=headers)
         assert listed.status_code == 200
         body = listed.json()
-        assert body["integrations"][0]["cidrs"] == ["192.0.2.0/24"]
+        assert body["integrations"][0]["cidrs"] == ["198.51.100.0/24"]
         assert body["integrations"][0]["latest_run"]["id"] == run_id
         raw = listed.text
         assert "super-secret-token" not in raw
@@ -350,8 +350,8 @@ def test_discovery_read_hides_secrets_and_start_uses_saved_ranges(tmp_path, monk
         device = detail.json()["devices"][0]
         assert detail.json()["total"] == 1
         assert "list_discovery_devices" in detail.json()["devices_hint"]
-        assert device["ip"] == "192.0.2.35"
-        assert device["hostname"] == "rpi5-3"
+        assert device["ip"] == "198.51.100.35"
+        assert device["hostname"] == "host-a"
         assert "mac" not in device
         assert "private-device-note" not in detail.text
 
@@ -394,8 +394,8 @@ def test_discovery_read_hides_secrets_and_start_uses_saved_ranges(tmp_path, monk
         assert body["isError"] is False
         assert text["http_status"] == 202
         assert text["intensity"] == "inventory"
-        assert text["targets"] == ["192.0.2.0/24"]
-        assert captured["call"]["targets"] == ["192.0.2.0/24"]
+        assert text["targets"] == ["198.51.100.0/24"]
+        assert captured["call"]["targets"] == ["198.51.100.0/24"]
         assert captured["call"]["intensity"] == "inventory"
         assert captured["call"]["scan_options"]["script_preset"] == "none"
         assert captured["call"]["scan_options"]["vuln_scripts"] is False
@@ -444,7 +444,7 @@ def test_feature_restricted_token_cannot_start_a_scan(tmp_path, monkeypatch):
     with Session(engine) as session:
         user = _user(session)
         plain = _token(session, user, "read,jobs,feature:backup")
-        row = create_nmap(session, name="LAN", cidrs=["192.0.2.0/24"])
+        row = create_nmap(session, name="LAN", cidrs=["198.51.100.0/24"])
         integration_id = row.id
     headers = {"Authorization": f"Bearer {plain}"}
     try:

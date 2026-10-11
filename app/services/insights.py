@@ -198,7 +198,17 @@ def sync_stale_backup_alerts(session: Session) -> int:
         when = "never" if last is None else last.strftime("%Y-%m-%d %H:%M UTC")
         unscheduled = ""
         if not (server.backup_schedule or "").strip():
-            unscheduled = " Backups are on and this host has no schedule, so nothing is queued."
+            fleet_time = ""
+            try:
+                from .update_check_config import effective_fleet_cron
+
+                fleet_time = effective_fleet_cron(int(server.id))
+            except Exception:
+                fleet_time = ""
+            if not fleet_time:
+                unscheduled = (
+                    " Backups are on and this host has no schedule, so nothing is queued."
+                )
         upsert_notification(
             session,
             fingerprint=fingerprint,

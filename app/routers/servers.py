@@ -672,7 +672,6 @@ async def add_server(
         ssh_public_key=pub,
         ssh_password_encrypted=pw_enc,
         sort_order=next_sort,
-        backup_enabled=True,
     )
     session.add(server)
     session.commit()
@@ -709,13 +708,11 @@ async def add_server(
     session.commit()
 
     try:
-        from ..services.update_check_config import stamp_new_host_backup_schedule
         from .server_patch import sync_server_schedules
 
-        stamp_new_host_backup_schedule(session, server)
         sync_server_schedules(server)
     except Exception:
-        logger.warning("Could not set the fleet backup schedule for server %s", server.id)
+        logger.warning("Could not sync schedules for server %s", server.id)
 
     if key_mode == "generate" or (key_mode == "upload" and ssh_onboarding.is_real_public_key(pub)):
         return RedirectResponse(

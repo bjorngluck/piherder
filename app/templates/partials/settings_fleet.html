@@ -68,7 +68,7 @@
         <input type="text" name="backup_cron" value="{{ cfg.backup_cron or '0 2 * * *' }}"
                placeholder="0 2 * * *" class="w-full sm:w-40 bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
         <p class="text-[10px] text-muted mt-1">{{ (cfg.backup_cron or '0 2 * * *') | cron_human(current_tz) }} · {{ current_tz }}</p>
-        <p class="text-[10px] text-muted mt-1">This is one fleet clock. Each host still gets its own minute from its id, then later hours when the minutes run out. A host that already has a schedule is left alone. Hosts that do share a minute are queued. The worker runs them as slots are free.</p>
+        <p class="text-[10px] text-muted mt-1">This is one fleet clock. On a daily time, each host gets its own minute from its id, then the following hours, and stops at 23:00 instead of wrapping to the morning. A list, a step, or a weekday base only changes the minute, so some hosts share that minute. Those jobs are queued. The worker runs them as slots are free. A saved schedule on a host is left alone. Saving a new base clock updates inheriting hosts even when Apply is not ticked.</p>
       </div>
 
       <label class="flex items-center gap-2 min-h-11 text-sm font-medium">
@@ -85,8 +85,8 @@
       </label>
       <p class="text-[10px] text-muted">
         Writes per-server check schedules and turns on the feature flags so the Servers list shows them as on.
-        With Backups ticked, a host that has no backup schedule gets its own minute from the base time above.
-        A host that already has a backup schedule is left alone. This does not start a backup.
+        With Backups ticked, backups are turned on. The backup time is not written onto the host.
+        A host with no saved schedule uses the fleet time. A saved schedule is left alone. This does not start a backup.
         Per-server cards still allow overrides.
       </p>
       <button type="submit" class="btn btn-accent min-h-11 text-sm">Save &amp; apply update checks</button>
