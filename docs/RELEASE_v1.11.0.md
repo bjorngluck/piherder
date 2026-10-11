@@ -38,7 +38,7 @@ Hosted `POST /mcp` can start a stop-first Move with `start_move`. `confirm` must
 
 `read_discovery` reads saved ranges and recent scans. The short device list stops at 50 rows and includes the total. Page the rest with `list_discovery_devices`. `start_discovery` scans those saved ranges. The agent does not choose the targets. Vulnerability scripts stay off. A token that sets any `feature:*` scope cannot start a scan. A `jobs` token with no `feature:*` scope can.
 
-`list_discovery_devices` pages devices. An agent with `edit` can rename a device, mark it known, new, or ignored, link it to a fleet server, and purge one device or the offline rows. A linked device cannot be purged. `scan_discovery_device` scans one device that already sits inside the saved ranges. Vulnerability scripts stay off.
+`list_discovery_devices` pages devices. An agent with `edit` can rename a device, mark it known, new, or ignored, link it to a fleet server, and purge one device or the offline rows. A linked device cannot be purged. `scan_discovery_device` scans one device that already sits inside the saved ranges. Vulnerability scripts stay off. This is issue [#34](https://github.com/bjorngluck/piherder/issues/34).
 
 Adapter **0.4.2** lists these tools and sends `confirm=true` on the two purge calls. **0.4.1** lists the tools and omits that query, so purge returns 400 on this train. A machine on **0.4.0** does not send the device tools. Run `uvx --refresh piherder-mcp`, then restart the MCP client so it lists 27 tools. A client that is still running keeps the old tool list. If uv does not see **0.4.2** yet, run `uvx --no-cache --refresh piherder-mcp` and restart the client again. `read_discovery`, `start_discovery`, and the device tools need this train's herder. `start_move` also works on a 1.10.0 herder.
 
@@ -52,7 +52,7 @@ A project that is not a git checkout yet can be attached to a remote from the sa
 
 ### Backups on for the fleet now gives every host a schedule
 
-Hosts could previously be enabled with no schedule and never back up. Settings → Fleet has one base backup time, daily at 02:00 unless you change it. **Apply to all servers**, with **Enable Backups** ticked, turns backups on. It does not write a schedule onto the host. A new host has backups on and inherits the fleet time. It does not get a saved schedule.
+Issue [#51](https://github.com/bjorngluck/piherder/issues/51). Hosts could previously be enabled with no schedule and never back up. Settings → Fleet has one base backup time, daily at 02:00 unless you change it. **Apply to all servers**, with **Enable Backups** ticked, turns backups on. It does not write a schedule onto the host. A new host has backups on and inherits the fleet time. It does not get a saved schedule.
 
 A host with backups on and no saved schedule inherits the fleet time. The Servers list and the Backups page mark that time **fleet default**. A saved schedule on the host always wins. Backups off means no job. Saving a new base clock moves the inheriting hosts, whether or not Apply is ticked. The first startup clears a schedule that is exactly the fleet minute for that host, so the host inherits the same minute. Later startups leave every saved schedule alone.
 
@@ -65,6 +65,8 @@ A weekday range such as `1-5`, or a day list such as `1,15`, stays as typed. Con
 ---
 
 ## Bug fixes
+
+The empty fleet schedule, the Configure minute, the scheduled flag, the token API cron, and the backup audit fields are issue [#51](https://github.com/bjorngluck/piherder/issues/51).
 
 | What you saw | What it does now |
 |---|---|
@@ -131,7 +133,20 @@ The public demo is not this train.
 - Hiding the 15-minute host-facts snapshot from the default Jobs and Audit lists. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
 - A repo check inside the Docker **Check updates** job. The Repository page is the check.
 - Greying out the straight-out tick when the host CPU does not match this PiHerder. The run names that mismatch. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
-- An end-of-life badge on the host OS line. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
-- Merging two LAN Discovery rows when a laptop changes MAC. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
-- A Docker prune job from the host page, the token API, and MCP. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
-- An image update check that says up to date after a pull, while the container still runs the old image. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
+- An end-of-life badge on the host OS line. Issue [#49](https://github.com/bjorngluck/piherder/issues/49). [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
+- A hint when a new MAC appears for a hostname that already has a stale row at that IP. Device identity stays the MAC. Issue [#50](https://github.com/bjorngluck/piherder/issues/50). [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
+- A Docker prune job from the host page, the token API, and MCP. Issue [#48](https://github.com/bjorngluck/piherder/issues/48). [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
+- An image update check that says up to date after a pull, while the container still runs the old image. Issue [#47](https://github.com/bjorngluck/piherder/issues/47). [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
+
+## Open issues
+
+Leave these open until v1.11.0 is released.
+
+| Issue | Where it stands |
+|---|---|
+| [#34](https://github.com/bjorngluck/piherder/issues/34) Discovery devices | On this train. An agent can rename, mark, link, and purge. Adapter 0.4.2 sends `confirm=true` on purge |
+| [#51](https://github.com/bjorngluck/piherder/issues/51) Backup schedule | On this train. Apply turns backups on and does not write a schedule. A host with no saved schedule inherits the fleet time |
+| [#47](https://github.com/bjorngluck/piherder/issues/47) Image check after a pull | Not in this release. The flag can clear while the container still runs the old image |
+| [#48](https://github.com/bjorngluck/piherder/issues/48) Docker prune | Not in this release |
+| [#49](https://github.com/bjorngluck/piherder/issues/49) End-of-life OS badge | Not in this release |
+| [#50](https://github.com/bjorngluck/piherder/issues/50) MAC change hint | Not in this release |
