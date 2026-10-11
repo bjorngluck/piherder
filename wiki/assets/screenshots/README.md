@@ -26,12 +26,12 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.8.0** | **Captured** 2026-10-01. Home Assistant plugin **0.4.3** and the Google Drive copy card. Package **1.8.0**. [§ v1.8](#v180--pack-status). [QA](../../../docs/QA_v1.8.0.md) |
 | **v1.9.0** | **Captured** 2026-10-02. Drive and SMB rows, Remove confirm, herder Move, plugin **0.5.0** Stop project and Plugin sensor. [§ v1.9](#v190--pack-status). [QA](../../../docs/QA_v1.9.0.md) |
 | **v1.10.0** | **Captured** 2026-10-05. OneDrive row, self-backup copy checkbox, Reports cards, template fleet, Allow this agent. Package **1.10.0**. [§ v1.10](#v110--pack-status). [QA](../../../docs/QA_v1.10.0.md) |
-| **v1.11.0** | **Code freeze** 2026-10-08. File names reserved. Frames are not in this directory yet. About on this branch reports **1.11.0-dev**. Hub tags stay **1.10.0**. [§ v1.11](#v111--pack-status). [QA](../../../docs/QA_v1.11.0.md) |
+| **v1.11.0** | **Code freeze** 2026-10-08. File names reserved. Frames are not in this directory yet. About on this branch reports **1.11.0**. Hub tags stay **1.10.0**. [§ v1.11](#v111--pack-status). [QA](../../../docs/QA_v1.11.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    **v1.11** names are reserved. [§ v1.11](#v111--pack-status). Frames are not in this directory yet. About / footer on this branch say **1.11.0-dev**.  
+    **v1.11** names are reserved. [§ v1.11](#v111--pack-status). Frames are not in this directory yet. About / footer on this branch say **1.11.0**.  
     Do not photograph the public demo. Mask tokens, the SMB password, the Google client secret, and the Microsoft client secret.  
     **v1.10 captures** stay. Do not retake them for this train.
 
@@ -39,7 +39,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 
 ## v1.11.0 — pack status {#v111--pack-status}
 
-**Code freeze** 2026-10-08. The branch is `v1.11.0-dev`. About on this branch reports **1.11.0-dev**. Hub tags stay **1.10.0**. Maintainer walks are [QA_v1.11.0.md](../../../docs/QA_v1.11.0.md). The boxes are empty. Do not photograph [the public demo](https://piherder-demo.hacknow.info).
+**Code freeze** 2026-10-08. The branch is `v1.11.0-dev`. About on this branch reports **1.11.0**. Hub tags stay **1.10.0**. Maintainer walks are [QA_v1.11.0.md](../../../docs/QA_v1.11.0.md). The boxes are empty. Do not photograph [the public demo](https://piherder-demo.hacknow.info).
 
 Drop these files in this directory when the frames exist. Wiki pages can link them after that. `mkdocs build --strict` does not require a picture that no page links yet.
 

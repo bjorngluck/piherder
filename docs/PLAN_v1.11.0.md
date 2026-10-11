@@ -1,9 +1,9 @@
 # PiHerder v1.11.0 — a passkey counts as 2FA, then a host copies straight out
 
-**Status:** **Code freeze** 2026-10-08. Package stays **1.10.0**. Tag and Hub publish stay for the ship step.  
+**Status:** **Code freeze** 2026-10-08. Package **1.11.0**. Tag and Hub publish stay for the ship step.  
 **Date opened:** 2026-10-06  
 **Git branch:** `v1.11.0-dev` → `main` · tag `v1.11.0` after merge, only when asked  
-**Package / image version:** stays **`1.10.0`** until freeze. About / footer still say **1.10.0**. Image on Hub stays `1.10.0` / `1.10` / `latest`.  
+**Package / image version:** package **`1.11.0`**. About / footer say **1.11.0**. Image on Hub stays `1.10.0` / `1.10` / `latest`.  
 **Theme:** a passkey counts as 2FA, then a host copies straight to Drive, OneDrive, or the NAS  
 **Baseline:** `v1.10.0` (tagged 2026-10-05; Hub digest `sha256:0a1286cb0864e153ea1af6ba8b458175da051c8a54fc98d701539c08dcd99d04`)  
 **Mode:** **Must → Should → Discover.** Must **passkey versus Force 2FA** · **Path C discovery** · **Path C build**. Should **MCP Move**, **MCP nmap**, **discovery devices**, and **git-rich onboard** have landed. Walks are still empty.  
@@ -68,6 +68,7 @@ This train fixes the passkey gate and builds the Path C choice below. An agent c
 | 2026-10-11 | **Draft notes.** [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) has a bug-fix table. QA boxes stay empty. |
 | 2026-10-11 | **Backup schedule fallback.** A host with backups on and no saved schedule uses the fleet time without writing it. The minute comes from the host id, so a large fleet does not share one minute. About reports `1.11.0-dev`. Hub tags stay `1.10.0`. |
 | 2026-10-11 | **Inherited backup time.** Apply turns backups on and does not write a schedule. Adding a host does not turn backups on. A saved schedule wins. Saving a new base clock re-registers inheriting jobs. Startup clears a schedule only when it is exactly the fleet minute for that host. A daily base does not wrap past 23:00. A list or step hour only changes the minute. |
+| 2026-10-11 | **Package 1.11.0.** About, `/api/v1`, and hosted MCP report `1.11.0`. Hub tags stay `1.10.0`. |
 | 2026-10-07 | **Git-rich onboard.** Still a note. A cloned project can show a newer commit on the remote, and the operator can update the checkout. No automatic deploy. A stack still comes from a compose file or a template. |
 | 2026-10-07 | **Git-rich onboard.** The operator picks the branch (`main` or `master`, starting on the remote default) or a tag. The page lists tags and marks a newer tag than the checkout. Update follows that choice. No automatic deploy. |
 | 2026-10-07 | **Git-rich onboard.** An existing project can be attached to a remote. A tracked file that differs locally stops the update. The operator keeps that file or takes the remote copy. Untracked files stay. |
@@ -88,8 +89,8 @@ This train fixes the passkey gate and builds the Path C choice below. An agent c
 | 3 | **Path C** decision, then the build | **Choice written. Build landed.** Opt in, beside the pull. Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
 | 4 | Should, if it fits | **MCP Move**, **MCP nmap**, **discovery devices** ([#34](https://github.com/bjorngluck/piherder/issues/34)). **Landed.** Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
 | 5 | Discover write-ups | **Git-rich onboard** landed. Walk still empty. **NPM CRUD** and remote restore moved to [PLAN_v1.12.0.md](PLAN_v1.12.0.md) |
-| 6 | Freeze | **Set** 2026-10-08. Package stays **1.10.0**. Version bump, tag, and Hub stay for the ship step |
+| 6 | Freeze | **Set** 2026-10-08. Package is **1.11.0**. Tag and Hub stay for the ship step |
 
 ---
 
-*Opened 2026-10-06. Package stays `1.10.0`. Operator walks live in [QA_v1.11.0.md](QA_v1.11.0.md).*
+*Opened 2026-10-06. Package is `1.11.0`. Operator walks live in [QA_v1.11.0.md](QA_v1.11.0.md).*

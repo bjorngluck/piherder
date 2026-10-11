@@ -1,10 +1,10 @@
 # PiHerder v1.11.0
 
-**11 October 2026.** Draft notes for this train. About, `/api/v1`, and hosted MCP report **1.11.0-dev**. Hub tags stay `1.10.0` · `1.10` · `latest`.
+**11 October 2026.** Draft notes for this train. About, `/api/v1`, and hosted MCP report **1.11.0**. Hub tags stay `1.10.0` · `1.10` · `latest`.
 
 A passkey counts as a second factor when Force 2FA is on. A host can send its own files straight to Google Drive, OneDrive, or a LAN share. An agent can start a Move, read or start a LAN Discovery scan, and tidy the devices that scan found. Docker can show a newer git tag on a project that is already on the host.
 
-About and `/api/v1` report **1.11.0-dev**. The straight-out tick and **Repository…** are how you tell this train is running.
+About and `/api/v1` report **1.11.0**. The straight-out tick and **Repository…** are how you tell this train is running.
 
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.10.0` · `1.10` · `latest` (amd64 + arm64). Pin `1.9.0` / `1.9` stays the previous image. Home Assistant plugin stays **0.5.0**. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** is on PyPI. `uvx piherder-mcp` installs it. The public demo stays the production image.
 

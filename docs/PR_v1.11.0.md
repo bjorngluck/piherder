@@ -4,7 +4,7 @@
 
 **Base:** `main` · **Head:** `v1.11.0-dev` · [QA_v1.11.0.md](QA_v1.11.0.md) boxes are empty. Screenshot names are reserved. Frames are not in the tree.
 
-**State:** open as [#35](https://github.com/bjorngluck/piherder/pull/35). Notes are [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md). Package stays **1.10.0**. Tag and Hub publish stay for the ship step.
+**State:** open as [#35](https://github.com/bjorngluck/piherder/pull/35). Notes are [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md). Package **1.11.0**. Tag and Hub publish stay for the ship step.
 
 ---
 
@@ -12,7 +12,7 @@
 
 Eleventh minor after production **v1.10.0**. A passkey counts as 2FA when Force 2FA is on. A host can send its files straight to a saved Drive, OneDrive, or LAN share. Hosted `/mcp` can start a Move, read or start a LAN scan, and tidy discovery devices. Docker → Repository shows a newer git tag on a project that is already on the host.
 
-Operator walks are not signed. Package stays **1.10.0**.
+Operator walks are not signed. Package **1.11.0**. Hub image stays **1.10.0**.
 
 Design: [PLAN_v1.11.0.md](PLAN_v1.11.0.md). Maintainer ticks: [QA_v1.11.0.md](QA_v1.11.0.md). Screenshot list: [v1.11 pack](../wiki/assets/screenshots/README.md#v111--pack-status). Next notes: [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
 
