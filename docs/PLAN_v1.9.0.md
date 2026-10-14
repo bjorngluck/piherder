@@ -3,7 +3,7 @@
 **Status:** **Shipped** 2026-10-02. Tag **v1.9.0**. Package **1.9.0**. Published adapter is **`0.3.1`**. Plugin **0.5.0**. End-user notes: [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md).  
 **Date opened:** 2026-10-01  
 **Git branch:** `v1.9.0-dev` → `main` · tag `v1.9.0` at freeze  
-**Package / image version:** stays **`1.8.1`** until freeze. Image tags at freeze: `1.9.0` / `1.9` / `latest`. Pins `1.8.1` / `1.8` and `1.8.0` stay valid.  
+**Package / image version:** **`1.9.0`**. Image tags `1.9.0` / `1.9` / `latest`. Pins `1.8.1` / `1.8` and `1.8.0` stay valid.  
 **Theme:** **MCP-svc**, a selectable LAN share, Move on by default, then the card and backup honesty that landed with them  
 **Baseline:** `v1.8.0` (tagged 2026-10-01; Hub digest `sha256:8ce50bbce758e622a996cd58557b0846e03cb02613b09471405222df620c2e89`)  
 **Mode:** Landed on this branch vs **freeze-only**. Landed: **MCP-svc** · **LAN NAS / SMB** · **Move default-on** · **Remove one backup dest** (#25) · **HA Slice 3** (plugin **0.5.0**, poll-only) · **CSP Slice 2**. Hygiene: **Supply-chain locks** (on `main` as **v1.8.1**, and on this branch). Freeze-only: herder **1.9.0** tag and image. **OneDrive** stays discovery-only. Discover (no client): **Path C** · **MCP OAuth**.  

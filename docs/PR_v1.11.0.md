@@ -48,7 +48,7 @@ Walk [QA_v1.11.0.md](QA_v1.11.0.md). Do not retick the 1.10 boxes.
 - Hiding routine `host_facts` rows from Jobs and Audit
 - A repo check inside the Docker **Check updates** job
 - Public demo pointed at this branch
-- Version bump, tag, and Hub publish
+- Tag and Hub publish. The package is already **1.11.0**
 
 ## Ship steps
 

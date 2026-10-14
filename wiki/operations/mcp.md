@@ -170,7 +170,7 @@ Not accepted on `trigger_job`: `docker_stack_down`, `docker_stack_remove`, `temp
 
 ### Move
 
-`start_move` takes `server_id` (the source), `dest_server_id`, `project` (the compose project name, not a directory), and `confirm: true`. The source stack is left stopped. There is no undo, no source remove, and no port or bind overrides. The herder Move flag still gates it. A token that is feature-restricted needs `feature:docker`, and both hosts need the docker flag. **409** means a stack, Move, or backup is already running. Poll `get_job`. Adapter **0.4.0** lists `start_move`. Adapter **0.3.1** does not. The Home Assistant card still uses `POST /api/v1/servers/{id}/moves`.
+`start_move` takes `server_id` (the source), `dest_server_id`, `project` (the compose project name, not a directory), and `confirm: true`. The source stack is left stopped. There is no undo, no source remove, and no port or bind overrides. The herder Move flag still gates it. A token that is feature-restricted needs `feature:docker`, and both hosts need the docker flag. **409** means a stack, Move, or backup is already running. Poll `get_job`. Adapter **0.4.2** lists `start_move`. Adapter **0.3.1** does not. The Home Assistant card still uses `POST /api/v1/servers/{id}/moves`.
 
 ### LAN Discovery
 
@@ -227,13 +227,13 @@ uvx --from git+https://github.com/bjorngluck/piherder-mcp.git piherder-mcp
 
 `${PIHERDER_TOKEN}` in older samples is a human placeholder. Many hosts do **not** expand it. Paste the real secret, or set it in the environment the host already inherits.
 
-Adapter **0.4.0** matches this hosted list, including `start_move`, `read_discovery`, and `start_discovery`. Adapter **0.3.1** offers the four one-service job types and does not list those three. A token without `read` makes the stdio process exit on stderr.
+Adapter **0.4.2** matches this hosted list, including the device tools, and sends `confirm=true` on purge. Adapter **0.4.0** lists `start_move`, `read_discovery`, and `start_discovery` and does not list the device tools. Adapter **0.3.1** offers the four one-service job types and does not list those three. A token without `read` makes the stdio process exit on stderr.
 
 ## Operating note
 
 Copy into the client that needs a short rule (Cursor rule, Grok skill, `CLAUDE.md`, Codex `AGENTS.md`):
 
-Call `summary` before changing anything. `trigger_job` for the jobs POST types listed above (`host_reboot`, the one-service `container_*` actions, the `docker_stack_*` actions on that list, and template deploy or redeploy included). For a stack job, `source_filter` is the compose project path. For `container_start`, `container_stop`, `container_restart`, and `container_redeploy`, `service` and `source_filter` are required. On **409**, poll `get_job`. `start_move` starts a stop-first Move (`confirm` true; the source is left stopped; no undo). `read_discovery` reads saved LAN Discovery ranges and recent scans. `start_discovery` scans those saved ranges (`confirm` true; no caller targets; vulnerability scripts stay off). Files stay in the fleet jail. Do not invent SSH, undo, a console, `docker_stack_down`, or `docker_stack_remove`. A token without `jobs`, `edit`, or `files` has no such tool. Adapter **0.4.0** lists `start_move`, `read_discovery`, and `start_discovery`. Adapter **0.3.1** does not.
+Call `summary` before changing anything. `trigger_job` for the jobs POST types listed above (`host_reboot`, the one-service `container_*` actions, the `docker_stack_*` actions on that list, and template deploy or redeploy included). For a stack job, `source_filter` is the compose project path. For `container_start`, `container_stop`, `container_restart`, and `container_redeploy`, `service` and `source_filter` are required. On **409**, poll `get_job`. `start_move` starts a stop-first Move (`confirm` true; the source is left stopped; no undo). `read_discovery` reads saved LAN Discovery ranges and recent scans. `start_discovery` scans those saved ranges (`confirm` true; no caller targets; vulnerability scripts stay off). Files stay in the fleet jail. Do not invent SSH, undo, a console, `docker_stack_down`, or `docker_stack_remove`. A token without `jobs`, `edit`, or `files` has no such tool. Adapter **0.4.2** lists `start_move`, `read_discovery`, `start_discovery`, and the device tools. Adapter **0.3.1** does not list those three.
 
 ## Known follow-up
 
