@@ -96,7 +96,7 @@ Boxes stay empty until each one is walked.
 - [ ] A direct host that does not target Drive is not a failed Drive follow-up
 - [ ] An apt update that exits 100 keeps the `E:` line in the job log
 - [ ] A host with backups on and no saved schedule shows **fleet default** and runs at that time. A host with its own schedule keeps that schedule. Backups off does not register a job. Apply turns backups on and does not write a schedule
-- [ ] Enable fleet backups. Every host shows an effective schedule, a next run, and backup_scheduled true
+- [ ] Enable fleet backups. Every host with backups on shows an effective schedule. The list says scheduled, or schedule unknown when this process cannot see the scheduler. A backups-off host shows neither not scheduled nor schedule unknown
 
 ## Discover
 
