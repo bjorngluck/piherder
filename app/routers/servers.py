@@ -180,6 +180,8 @@ async def list_servers(
         rows = page_rows
         list_paged = total_pages > 1
 
+    from ..services.update_check_config import copy_backup_schedule_fields
+
     servers = []
     for row in rows:
         d = row.model_dump(exclude={"audit_logs", "jobs"})
@@ -207,6 +209,7 @@ async def list_servers(
                 pass
         d["os_phased_count"] = phased
         d["os_total_upgradable"] = total_up
+        copy_backup_schedule_fields(d, row)
         servers.append(d)
 
     # Kuma SSH reachability chips (from integration bindings cache)
@@ -705,6 +708,13 @@ async def add_server(
         )
     session.commit()
 
+    try:
+        from .server_patch import sync_server_schedules
+
+        sync_server_schedules(server)
+    except Exception:
+        logger.warning("Could not sync schedules for server %s", server.id)
+
     if key_mode == "generate" or (key_mode == "upload" and ssh_onboarding.is_real_public_key(pub)):
         return RedirectResponse(
             _server_redirect(server.id, show_ssh_key="1", msg="server_added"),
@@ -737,6 +747,9 @@ async def server_detail(
     server_dict["has_ssh_key"] = bool(server.ssh_private_key_encrypted)
     server_dict["has_ssh_password"] = bool(server.ssh_password_encrypted)
     server_dict["has_real_public_key"] = ssh_onboarding.is_real_public_key(server.ssh_public_key)
+    from ..services.update_check_config import copy_backup_schedule_fields
+
+    copy_backup_schedule_fields(server_dict, server)
 
     from ..services import ssh_identities as ident_svc
 
@@ -1351,6 +1364,13 @@ async def update_server(
 
     ident_svc.ensure_fleet_identity(session, server)
     session.commit()
+    if "backup_enabled" in changed:
+        try:
+            from .server_patch import sync_server_schedules
+
+            sync_server_schedules(server)
+        except Exception:
+            logger.warning("Could not sync backup schedule for server %s", server.id)
 
     # Host DNS only when General form explicitly includes the DNS section
     if touch_dns:

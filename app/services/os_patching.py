@@ -70,6 +70,22 @@ def _ensure_progress(hostname: str) -> dict:
     return _os_patch_progress[hostname]
 
 
+def _apt_signal(text: str) -> bool:
+    """Apt error lines that must survive a carriage-return rewrite."""
+    return "E:" in text or "Err:" in text
+
+
+def _keep_progress_signal(lines: list) -> None:
+    """Promote a live progress line when it is an apt error. Otherwise drop it."""
+    if not lines or not str(lines[-1]).startswith("… "):
+        return
+    prev = str(lines[-1])[2:].strip()
+    if _apt_signal(prev):
+        lines[-1] = prev
+    else:
+        lines.pop()
+
+
 def _append_os_log(hostname: str, text: str, *, replace_progress: bool = False):
     """Append log text. Carriage-return chunks update the last progress line in place."""
     p = _ensure_progress(hostname)
@@ -79,7 +95,12 @@ def _append_os_log(hostname: str, text: str, *, replace_progress: bool = False):
 
     # Progress-style updates (apt status / bars): keep one live trailing line
     if replace_progress or ("\r" in text and "\n" not in text):
-        chunk = text.replace("\r", " ").strip()
+        pieces = [part.strip() for part in text.replace("\n", "").split("\r") if part.strip()]
+        for piece in pieces[:-1]:
+            if _apt_signal(piece):
+                _keep_progress_signal(lines)
+                lines.append(piece[:500])
+        chunk = pieces[-1] if pieces else ""
         if not chunk:
             return
         if lines and lines[-1].startswith("… "):
@@ -94,13 +115,17 @@ def _append_os_log(hostname: str, text: str, *, replace_progress: bool = False):
     for part in text.split("\n"):
         # leftover \r progress within a multi-line chunk
         if "\r" in part:
-            part = part.split("\r")[-1]
+            pieces = [bit.strip() for bit in part.split("\r") if bit.strip()]
+            for piece in pieces[:-1]:
+                if _apt_signal(piece):
+                    _keep_progress_signal(lines)
+                    lines.append(piece[:500])
+            part = pieces[-1] if pieces else ""
         ln = part.strip()
         if not ln:
             continue
-        # Drop stale in-place progress line when a real line arrives
-        if lines and lines[-1].startswith("… "):
-            lines.pop()
+        # Drop a progress bar. Keep it when it is the apt E: or Err: line.
+        _keep_progress_signal(lines)
         lines.append(ln)
         p["last_activity"] = time.time()
 
@@ -443,6 +468,8 @@ def run_os_patch(server: Server, selected_steps: list[str] = None) -> dict:
             step_row: dict = {"step": name, "rc": status}
             if status != 0:
                 reason = apt_failure_reason(fresh)
+                if not reason and int(status) == 100:
+                    reason = "apt output was not captured"
                 if reason:
                     step_row["reason"] = reason
             results.append(step_row)

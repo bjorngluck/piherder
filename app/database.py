@@ -1,5 +1,8 @@
+import os
+
 from sqlmodel import SQLModel, create_engine, Session
 from sqlalchemy import text, inspect
+from sqlalchemy.pool import StaticPool
 from .config import settings
 from .models import (  # ensure registered for create_all / alembic
     DockerVersion,
@@ -9,13 +12,40 @@ from .models import (  # ensure registered for create_all / alembic
     ComposeProjectMeta,
 )
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    echo=False,
-    pool_size=10,
-    max_overflow=10,
-    pool_pre_ping=True,
-)
+
+def _sqlite_engine_permitted() -> bool:
+    """PIHERDER_TESTING=1 permits the sqlite process engine. Nothing else reads it."""
+    return (os.environ.get("PIHERDER_TESTING") or "").strip() == "1"
+
+
+def _create_app_engine(url: str):
+    """Postgres pool for the web app and the worker.
+
+    A sqlite URL is the test suite only. Without PIHERDER_TESTING=1 the process
+    refuses to start, so a web or worker launch cannot open a sqlite file.
+    """
+    if (url or "").startswith("sqlite"):
+        if not _sqlite_engine_permitted():
+            raise RuntimeError(
+                "DATABASE_URL is sqlite. The web app and the worker refuse to start "
+                "unless PIHERDER_TESTING=1."
+            )
+        return create_engine(
+            url,
+            echo=False,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+    return create_engine(
+        url,
+        echo=False,
+        pool_size=10,
+        max_overflow=10,
+        pool_pre_ping=True,
+    )
+
+
+engine = _create_app_engine(settings.DATABASE_URL)
 
 
 def get_session():

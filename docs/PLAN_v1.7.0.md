@@ -10,7 +10,7 @@
 **QA:** [QA_v1.7.0.md](QA_v1.7.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [PLAN_v1.6.0.md](PLAN_v1.6.0.md) · [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) · [PLAN_v1.5.0.md](PLAN_v1.5.0.md) §4 J-runtime · §4 Brand · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [API.md](API.md) · [SPEC.md](../SPEC.md) · wiki [multi-worker](../wiki/operations/multi-worker.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md)
 
-> **Train open 2026-09-25.** Production stays **v1.6.0** on `main`. Package stays **`1.6.0`** until freeze. Kill switch `PIHERDER_SERVICE_MIGRATE` stays **false**. Do not redeploy the public demo onto this branch.
+> Opened 2026-09-25, while production was **v1.6.0** and the package was **`1.6.0`**. The Move kill switch started **false**. This train shipped as **1.7.0**. Move is on unless `PIHERDER_SERVICE_MIGRATE=false`.
 
 ---
 

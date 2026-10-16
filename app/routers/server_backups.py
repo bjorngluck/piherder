@@ -128,8 +128,18 @@ async def server_backups(
     except Exception as e:
         logger.debug(f"restore candidates: {e}")
 
+    from ..services.backup_direct import (
+        configured_destination_choices,
+        direct_where_label,
+        parse_direct_targets,
+    )
     from ..services.nav_shortcuts import host_feature_context
 
+    direct_choices = configured_destination_choices(session)
+    direct_picked = parse_direct_targets(getattr(server, "backup_direct_targets", None))
+    from ..services.update_check_config import copy_backup_schedule_fields
+
+    copy_backup_schedule_fields(server_dict, server)
     _nav = host_feature_context(session, int(user.id) if user else None, server, "backups")
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -153,6 +163,12 @@ async def server_backups(
             **_nav,
             "restore_candidates": restore_candidates,
             "restore_result": None,
+            "direct_choices": direct_choices,
+            "direct_picked": direct_picked,
+            "direct_where": direct_where_label(
+                getattr(server, "backup_direct_targets", None),
+                direct_choices,
+            ),
         }
     )
 
@@ -318,6 +334,7 @@ async def stream_backup_logs(
 
 @router.post("/{server_id}/backup-config")
 async def update_backup_config(
+    request: Request,
     server_id: int,
     backup_paths: str = Form(""),
     retention_days: int = Form(None),
@@ -325,12 +342,44 @@ async def update_backup_config(
     dest_root: str = Form(""),
     folder_name: str = Form(""),
     scope: str = Form("this_host"),
+    backup_direct_set: str = Form(""),
+    backup_direct: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
+    before = {
+        "backup_schedule": server.backup_schedule,
+        "retention_days": server.retention_days,
+        "backup_dest_root": server.backup_dest_root,
+        "backup_folder_name": server.backup_folder_name,
+        "backup_enabled": bool(server.backup_enabled),
+        "backup_direct": bool(getattr(server, "backup_direct", False)),
+        "backup_direct_targets": server.backup_direct_targets,
+        "backup_paths": server.backup_paths,
+    }
+
+    # Refuse before any other field is written. A direct host needs a pick.
+    pending_targets: str | None = None
+    if backup_direct_set == "1" and backup_direct == "1":
+        from ..services.backup_direct import (
+            SELECT_DEST_MSG,
+            configured_destinations,
+            selected_direct_providers,
+        )
+
+        form = await request.form()
+        saved = {row.provider for row in configured_destinations(session)}
+        chosen = [
+            provider
+            for provider in selected_direct_providers(form.getlist("backup_direct_target"))
+            if provider in saved
+        ]
+        if not chosen:
+            raise HTTPException(400, SELECT_DEST_MSG)
+        pending_targets = json.dumps(chosen)
 
     if backup_schedule is not None:
         cron = backup_schedule.strip() or None
@@ -344,14 +393,21 @@ async def update_backup_config(
                 raise HTTPException(400, "Invalid cron expression. Example: '0 2 * * *' for 2am daily.")
         backup_schedule = cron
 
+    fleet_changed = {}
     if scope == "global":
+        previous = backup_svc.get_global_backup_defaults() or {}
         paths = [p.strip() for p in backup_paths.replace(",", "\n").splitlines() if p.strip()] or server.get_backup_paths()
+        new_root = dest_root.strip() or None
         global_config = {
             "sources": paths,
-            "dest_root": dest_root.strip() or None,
+            "dest_root": new_root,
         }
-        # Note: global config saving is stubbed in current backup_svc
         backup_svc.save_global_backup_defaults(global_config)
+        if previous.get("sources") != paths:
+            fleet_changed["sources"] = {"from": previous.get("sources"), "to": paths}
+        old_root = previous.get("dest_root") or None
+        if old_root != new_root:
+            fleet_changed["dest_root"] = {"from": old_root, "to": new_root}
     else:
         if backup_paths:
             # Update per-server paths (supports both old and new format via service)
@@ -401,12 +457,38 @@ async def update_backup_config(
         session.add(server)
         session.commit()
 
+    # The retention form does not send this. Only Configure does.
+    if backup_direct_set == "1":
+        server.backup_direct = backup_direct == "1"
+        if server.backup_direct:
+            server.backup_direct_targets = pending_targets
+        session.add(server)
+        session.commit()
+
+    changed_fields = {}
+    for key, old in before.items():
+        new = getattr(server, key)
+        if key == "backup_enabled":
+            new = bool(new)
+        elif key == "backup_direct":
+            new = bool(new)
+        if new == old:
+            continue
+        if key == "backup_paths":
+            changed_fields[key] = "changed"
+            continue
+        changed_fields[key] = {"from": old, "to": new}
+    changed_fields.update(fleet_changed)
     record_server_audit(
         session,
         server_id=server.id,
         user_id=user.id,
         action="server_backup_config",
-        details={"scope": scope, "message": "Backup configuration updated"},
+        details={
+            "scope": scope,
+            "message": "Backup configuration updated",
+            "changed": changed_fields,
+        },
     )
     session.commit()
 

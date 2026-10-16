@@ -19,7 +19,7 @@ When backups stay pending or the UI feels dead, you need a single place that ans
 
 | Component | Idea |
 |-----------|------|
-| Web | Process / health |
+| Web | Process answering. Hosted MCP is this same process, at `POST /mcp` |
 | PostgreSQL | `SELECT 1` |
 | Redis | Broker ping |
 | Celery | Nodes + **pool slots** (`CELERY_CONCURRENCY`) |

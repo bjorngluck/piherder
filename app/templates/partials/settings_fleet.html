@@ -52,8 +52,24 @@
       <label class="flex items-center gap-2 min-h-11 text-sm">
         <input type="checkbox" name="update_check_jitter" value="1"
                {% if cfg.update_check_jitter is not defined or cfg.update_check_jitter %}checked{% endif %}>
-        <span>Stagger by host (minute = server id mod 60; containers +15 min offset)</span>
+        <span>Stagger update checks by host (minute = server id mod 60; containers +15 min)</span>
       </label>
+
+      <div>
+        <label class="block text-xs text-muted mb-1">Backup schedule (base)</label>
+        <select class="w-full sm:w-56 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 mb-1"
+                aria-label="Backup schedule preset"
+                data-ph-fill="backup_cron">
+          <option value="">Custom / advanced cron…</option>
+          {% for val, lab in cron_presets %}
+          <option value="{{ val }}" {% if (cfg.backup_cron or '0 2 * * *') == val %}selected{% endif %}>{{ lab }}</option>
+          {% endfor %}
+        </select>
+        <input type="text" name="backup_cron" value="{{ cfg.backup_cron or '0 2 * * *' }}"
+               placeholder="0 2 * * *" class="w-full sm:w-40 bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
+        <p class="text-[10px] text-muted mt-1">{{ (cfg.backup_cron or '0 2 * * *') | cron_human(current_tz) }} · {{ current_tz }}</p>
+        <p class="text-[10px] text-muted mt-1">This is one fleet clock. On a daily time, each host gets its own minute from its id, then the following hours, and stops at 23:00 instead of wrapping to the morning. A list, a step, or a weekday base only changes the minute, so some hosts share that minute. Those jobs are queued. The worker runs them as slots are free. A saved schedule on a host is left alone. Saving a new base clock updates inheriting hosts even when Apply is not ticked.</p>
+      </div>
 
       <label class="flex items-center gap-2 min-h-11 text-sm font-medium">
         <input type="checkbox" name="apply_to_all" value="1" checked>
@@ -68,9 +84,10 @@
         <span>Enable <strong>Backups</strong> feature on all servers</span>
       </label>
       <p class="text-[10px] text-muted">
-        Writes per-server check schedules, turns on feature flags so the Servers list shows them as on,
-        and re-registers the scheduler. Does <strong>not</strong> set a backup cron or run jobs —
-        only the backup capability toggle. Per-server cards still allow overrides.
+        Writes per-server check schedules and turns on the feature flags so the Servers list shows them as on.
+        With Backups ticked, backups are turned on. The backup time is not written onto the host.
+        A host with no saved schedule uses the fleet time. A saved schedule is left alone. This does not start a backup.
+        Per-server cards still allow overrides.
       </p>
       <button type="submit" class="btn btn-accent min-h-11 text-sm">Save &amp; apply update checks</button>
     </form>

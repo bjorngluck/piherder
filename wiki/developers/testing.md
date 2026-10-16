@@ -20,12 +20,12 @@ pip install pytest-cov
 pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=80
 ```
 
-Unit tests live under `tests/` — no live SSH required for the main suite. Default `pytest` only collects `tests/` (not `e2e/`).
+Unit tests live under `tests/` — no live SSH required for the main suite. Default `pytest` only collects `tests/` (not `e2e/`). `tests/conftest.py` points the database, settings directory, and broker at throwaway targets before the app is imported. The guard accepts only those exact values. Host `pytest` does not use the live database.
 
 | Bar | Value |
 |-----|--------|
 | **Suite freeze target** | **≥ 80%** line on `app` (v1.7 Should; v1.6 floor was 75) |
-| **CI fail-under** | **80** (compose suite **81.01%**, 39638/48927 — about one point of headroom) |
+| **CI fail-under** | **80**. The v1.7 compose run was **81.01%** (39638/48927). On this train the host suite is **79.97%** (43805/54778). The report rounds that to 80, and the gate uses that rounded figure |
 | **1.x end goal** | **80%** line on `app`, now the CI floor. |
 | **v1.0 production** | Authz matrix + input validation + credential recovery tests; no 100% target; prefer service tests over router % |
 

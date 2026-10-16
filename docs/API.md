@@ -157,6 +157,11 @@ Base path: **`/api/v1`**
   "container_updates_count": 2,
   "reboot_pending": false,
   "last_backup_at": "2026-07-10T02:00:00Z",
+  "backup_schedule": null,
+  "effective_backup_schedule": "30 2 * * *",
+  "backup_schedule_source": "fleet",
+  "next_backup_run": "2026-07-11T02:30:00+02:00",
+  "backup_scheduled": true,
   "alerts_open": 0,
   "alert_title": null,
   "alerts": []
@@ -174,6 +179,8 @@ Base path: **`/api/v1`**
 ```
 
 Server-side feature flags still gate jobs: you cannot run a backup job if `features.backup` is false on the server (enable it first with `edit`, or in the UI).
+
+`backup_schedule` is the saved cron, or null. `effective_backup_schedule` is the cron that will run. `backup_schedule_source` is `host`, `fleet`, or null when backups are off. `next_backup_run` is the live job's next run. `backup_scheduled` is true when that job is registered, false only when backups are on, the scheduler is running, and no job is registered, and null when this process cannot see the scheduler. A saved schedule wins. Apply does not write `backup_schedule`.
 
 ### Jobs
 
@@ -247,9 +254,33 @@ That table is the allowlist (`JOB_FEATURE_KEY`). Anything else, including `docke
 
 Gates: `jobs`, `feature:docker` when the token is feature-restricted, the docker flag on **both** hosts, and the herder Move surface (`PIHERDER_SERVICE_MIGRATE`, off in demo). Health field `service_migrate` is that surface. **404** when it is off. **400** when `confirm` is not true or the project name is a path. **409** when source or dest already has a stack, Move, or backup job — poll that job. The audit row stores this token and the client IP.
 
-`POST /api/v1/servers/{id}/jobs` with `service_migrate` stays **400**. Hosted MCP `trigger_job` does not grow a Move tool.
+`POST /api/v1/servers/{id}/jobs` with `service_migrate` stays **400**. Hosted MCP `trigger_job` does not start a Move. Hosted `start_move` calls this route. There is no undo tool. Adapter **0.4.2** lists `start_move`. Adapter **0.3.1** does not.
 
-Hosted MCP `trigger_job` uses this same list, including `container_start`, `container_stop`, `container_restart`, and `container_redeploy` (**v1.9** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md)). Those four require `service` and `source_filter`, the same body as this POST. It does not add `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move, undo, nmap, the console, token admin, or stale-data cleanup. For a `docker_stack_*` job, `source_filter` is the compose project path. Feature flags and `feature:*` scopes still apply. Token gates stay `jobs`, `feature:docker` when the token is feature-restricted, and the server docker flag. Published adapter **0.3.1** lists the four one-service types. `uvx` at **0.2.0** does not.
+Hosted MCP `trigger_job` uses this same list, including `container_start`, `container_stop`, `container_restart`, and `container_redeploy` (**v1.9** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md)). Those four require `service` and `source_filter`, the same body as this POST. It does not add `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move, undo, nmap, the console, token admin, or stale-data cleanup. Move is `start_move`. A LAN Discovery scan is `read_discovery` and `start_discovery`. For a `docker_stack_*` job, `source_filter` is the compose project path. Feature flags and `feature:*` scopes still apply. Token gates stay `jobs`, `feature:docker` when the token is feature-restricted, and the server docker flag. Adapter **0.4.2** lists the four one-service types plus `start_move`, `read_discovery`, `start_discovery`, and the device tools. Adapter **0.4.0** lists the four plus those three scan and Move tools and does not list the device tools. Adapter **0.3.1** lists the four and does not list those three. `uvx` at **0.2.0** does not list the four one-service types.
+
+### LAN Discovery
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| `GET` | `/api/v1/discovery` | `read` | Saved ranges and the latest scan |
+| `GET` | `/api/v1/discovery/{id}` | `read` | Recent scans and a short device list |
+| `GET` | `/api/v1/discovery/{id}/runs/{run_id}` | `read` | One scan |
+| `POST` | `/api/v1/discovery/{id}/scans` | `jobs` | Start a scan of the saved ranges (HTTP **202**) |
+| `GET` | `/api/v1/discovery/{id}/devices` | `read` | Paged devices. `state`, `limit`, `offset` |
+| `PATCH` | `/api/v1/discovery/{id}/devices/{device_id}` | `edit` | `display_name` and/or `state` (`known`, `new`, `ignored`) |
+| `POST` | `/api/v1/discovery/{id}/devices/{device_id}/ignore` | `edit` | Hide the device |
+| `POST` | `/api/v1/discovery/{id}/devices/{device_id}/unignore` | `edit` | Mark known. A linked device stays linked |
+| `POST` | `/api/v1/discovery/{id}/devices/{device_id}/link` | `edit` | Body `server_id` |
+| `POST` | `/api/v1/discovery/{id}/devices/{device_id}/unlink` | `edit` | Device becomes known |
+| `DELETE` | `/api/v1/discovery/{id}/devices/{device_id}?confirm=true` | `edit` | Purge one device. `confirm=true` is required. A linked device is **400** |
+| `POST` | `/api/v1/discovery/{id}/devices/purge-stale?confirm=true` | `edit` | Purge offline devices. `confirm=true` is required. Linked devices stay |
+| `POST` | `/api/v1/discovery/{id}/devices/{device_id}/scans` | `jobs` | Scan one device inside the saved ranges (HTTP **202**) |
+
+```json
+{ "confirm": true, "intensity": "discovery" }
+```
+
+`confirm` must be `true`. `intensity` is `discovery` (the default), `inventory`, `detailed`, or `deep`. The body cannot set targets or vulnerability scripts. The scan uses the CIDRs saved on that integration. **400** when Discovery is off, when no ranges are saved, or when `confirm` is not true. The response names the ranges. It does not include credentials, script output, or the scan file path. Hosted MCP `read_discovery` and `start_discovery` call the scan routes. Hosted `list_discovery_devices`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices`, and `scan_discovery_device` call the device routes. A rename leaves kind and map role alone. A new or offline device becomes known when it is named. A linked device cannot be marked new and cannot be purged. Purge has no undo. A one-device scan defaults to `deep`, must sit inside the saved ranges, and keeps vulnerability scripts off. The device payload is id, ip, hostname, display name, state, linked server, and last seen. No MAC, notes, or script output. Each write stores this token and the client IP. Adapter **0.4.2** lists the device tools and sends `confirm=true` on purge. Adapter **0.4.1** lists the tools and omits that query. Adapter **0.4.0** lists the scan tools and does not list the device tools. Demo does not start a scan.
 
 ### Stale data cleanup
 

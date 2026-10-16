@@ -176,13 +176,11 @@ function showBackupConfigModal() {
     modal.classList.add('flex');
 
     const cronInput = document.getElementById('cron-input');
-    if (cronInput && cronInput.value) {
+    if (cronInput && cronInput.value.trim()) {
       parseAndSetCronBuilder(cronInput.value);
     } else {
-      document.getElementById('schedule-freq').value = 'daily';
-      document.getElementById('schedule-hour').value = '2';
-      document.getElementById('schedule-min').value = '0';
-      updateCronBuilder();
+      const freq = document.getElementById('schedule-freq');
+      if (freq) freq.value = 'custom';
     }
   }
 }
@@ -219,16 +217,26 @@ function updateCronBuilder() {
   }
 }
 
+function _selectHasValue(select, value) {
+  if (!select) return false;
+  const wanted = String(value);
+  const has = Array.from(select.options).some(function (opt) { return opt.value === wanted; });
+  if (!has) return false;
+  select.value = wanted;
+  return select.value === wanted;
+}
+
+function _singleNumber(value, lo, hi) {
+  if (!/^\d{1,2}$/.test(String(value))) return false;
+  const n = parseInt(value, 10);
+  return n >= lo && n <= hi;
+}
+
+function _singleDow(value) {
+  return /^[0-6]$/.test(String(value));
+}
+
 function parseAndSetCronBuilder(cronStr) {
-  const parts = cronStr.trim().split(/\s+/);
-  if (parts.length < 5) return;
-
-  const min = parts[0];
-  const hour = parts[1];
-  const dom = parts[2];
-  const month = parts[3];
-  const wd = parts[4];
-
   const freqSel = document.getElementById('schedule-freq');
   const hSel = document.getElementById('schedule-hour');
   const mSel = document.getElementById('schedule-min');
@@ -236,23 +244,51 @@ function parseAndSetCronBuilder(cronStr) {
   const domWrap = document.getElementById('schedule-dom-wrap');
   const wdSel = document.getElementById('schedule-weekday');
   const domIn = document.getElementById('schedule-dom');
+  const useCustom = function () {
+    if (freqSel) freqSel.value = 'custom';
+    if (wdWrap) wdWrap.classList.add('hidden');
+    if (domWrap) domWrap.classList.add('hidden');
+  };
 
-  if (hSel) hSel.value = hour;
-  if (mSel) mSel.value = min;
-
-  if (wd !== '*' && dom === '*') {
-    freqSel.value = 'weekly';
-    wdWrap.classList.remove('hidden');
-    if (wdSel) wdSel.value = wd;
-  } else if (dom !== '*') {
-    freqSel.value = 'monthly';
-    domWrap.classList.remove('hidden');
-    if (domIn) domIn.value = dom;
-  } else {
-    freqSel.value = 'daily';
+  const parts = (cronStr || '').trim().split(/\s+/);
+  if (parts.length < 5) {
+    useCustom();
+    return;
   }
 
-  updateCronBuilder();
+  const min = parts[0];
+  const hour = parts[1];
+  const dom = parts[2];
+  const month = parts[3];
+  const wd = parts[4];
+
+  const minuteOk = _singleNumber(min, 0, 59) && _selectHasValue(mSel, String(parseInt(min, 10)));
+  const hourOk = _singleNumber(hour, 0, 23) && _selectHasValue(hSel, String(parseInt(hour, 10)));
+  // A range or a list is not one option in the builder. Leave the raw cron.
+  const simple = freqSel && month === '*' && minuteOk && hourOk;
+  const daily = simple && dom === '*' && wd === '*';
+  const weekly = simple && dom === '*' && _singleDow(wd) && _selectHasValue(wdSel, String(parseInt(wd, 10)));
+  const monthly = simple && wd === '*' && _singleNumber(dom, 1, 31);
+
+  if (wdWrap) wdWrap.classList.add('hidden');
+  if (domWrap) domWrap.classList.add('hidden');
+
+  if (daily) {
+    freqSel.value = 'daily';
+    return;
+  }
+  if (weekly) {
+    freqSel.value = 'weekly';
+    wdWrap.classList.remove('hidden');
+    return;
+  }
+  if (monthly) {
+    freqSel.value = 'monthly';
+    domWrap.classList.remove('hidden');
+    if (domIn) domIn.value = String(parseInt(dom, 10));
+    return;
+  }
+  useCustom();
 }
 function hideBackupConfigModal() {
   const modal = document.getElementById('backup-config-modal');
@@ -808,7 +844,7 @@ function computeUsableSummary(drives) {
             </select>
             <span class="self-center">:</span>
             <select id="schedule-min" data-ph-change="updateCronBuilder" class="bg-surface border border-border px-1 py-1 rounded text-sm w-14">
-              {% for m in [0,5,10,15,20,25,30,35,40,45,50,55] %}<option value="{{ m }}">{{ '%02d'|format(m) }}</option>{% endfor %}
+              {% for m in range(60) %}<option value="{{ m }}">{{ '%02d'|format(m) }}</option>{% endfor %}
             </select>
 
             <div id="schedule-weekday-wrap" class="hidden flex items-center gap-1">
@@ -829,6 +865,8 @@ function computeUsableSummary(drives) {
           <input type="text" name="backup_schedule" id="cron-input" value="{{ server.backup_schedule or '' }}" placeholder="0 2 * * *" class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs">
           {% if server.backup_schedule %}
           <p class="text-[9px] text-muted mt-0.5">{{ server.backup_schedule | cron_human(get_app_timezone()) }} · <code class="font-mono">{{ server.backup_schedule }}</code></p>
+          {% elif server.backup_schedule_source == 'fleet' and server.effective_backup_schedule %}
+          <p class="text-[9px] text-muted mt-0.5">Fleet default: {{ server.effective_backup_schedule | cron_human(get_app_timezone()) }}. Saving a schedule here replaces it for this host.</p>
           {% else %}
           <p class="text-[9px] text-muted mt-0.5">Presets build the cron. Use Custom for complex repeats.</p>
           {% endif %}
@@ -859,7 +897,8 @@ function computeUsableSummary(drives) {
       <div class="mt-3">
         <div class="text-xs text-muted mb-1">Save scope</div>
         <label class="flex gap-2 text-sm"><input type="radio" name="scope" value="this_host" checked> This host only</label>
-        <label class="flex gap-2 text-sm"><input type="radio" name="scope" value="global"> Global default (new servers + apply to this)</label>
+        <label class="flex gap-2 text-sm"><input type="radio" name="scope" value="global"> Fleet sources and destination root</label>
+        <p class="text-[10px] text-muted mt-1">Saves the source list and the destination root for new hosts. It does not set a schedule on other hosts. This host’s schedule still saves with either choice.</p>
       </div>
 
       <div id="config-error" class="text-danger text-sm mb-2 hidden"></div>
@@ -870,7 +909,7 @@ function computeUsableSummary(drives) {
     </form>
 
     <div class="text-[10px] text-muted mt-3">
-      Global defaults are stored and used for new servers. Per-host overrides the global for this machine.
+      The fleet default stores the source list and the destination root. It does not set a schedule on other hosts.
     </div>
   </div>
 </div>

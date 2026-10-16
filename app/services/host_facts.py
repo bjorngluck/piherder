@@ -206,10 +206,22 @@ def snapshot_from_server(server: Server) -> dict[str, Any]:
 
 
 def apply_snapshot(session: Session, server: Server, info: dict[str, Any]) -> None:
-    """Write high-level columns + JSON. Updates os_type when detection is confident."""
+    """Write high-level columns + JSON. Updates os_type when detection is confident.
+
+    A failed SSH leaves the last good OS, kernel, and hardware in place.
+    """
+    err = (info.get("error") or "")[:500]
+    pretty_in = (info.get("os_pretty") or info.get("os_version") or "") or None
+    hardware_in = (info.get("hardware") or "") or None
+    if err and not pretty_in and not hardware_in:
+        server.host_facts_status = "error"
+        server.host_facts_error = err or None
+        session.add(server)
+        session.commit()
+        return
     os_id = (info.get("os_id") or "") or None
-    pretty = (info.get("os_pretty") or info.get("os_version") or "") or None
-    hardware = (info.get("hardware") or "") or None
+    pretty = pretty_in
+    hardware = hardware_in
     arch = (info.get("arch") or "") or None
     family = family_from_ids(os_id, pretty, info.get("profile"))
     server.os_pretty = (pretty or "")[:160] or None
@@ -253,11 +265,14 @@ def apply_snapshot(session: Session, server: Server, info: dict[str, Any]) -> No
     payload["disk_used_bytes"] = server.disk_used_bytes
     server.host_facts_json = json.dumps(payload, default=str, separators=(",", ":"))
     server.host_facts_at = datetime.utcnow()
-    err = (info.get("error") or "")[:500]
-    server.host_facts_status = "error" if err and not pretty and not hardware else "ok"
+    server.host_facts_status = "ok"
     server.host_facts_error = err or None
     session.add(server)
     session.commit()
+
+
+# A refresh still marked refreshing after this long did not finish.
+REFRESH_STUCK_SEC = 30 * 60
 
 
 def is_stale(server: Server, max_age_sec: int = SCHEDULER_STALE_SEC) -> bool:
@@ -265,7 +280,13 @@ def is_stale(server: Server, max_age_sec: int = SCHEDULER_STALE_SEC) -> bool:
     if status in ("never", "error", "stale"):
         return True
     if status == "refreshing":
-        return False
+        at = getattr(server, "host_facts_at", None)
+        if not at:
+            return True
+        try:
+            return (datetime.utcnow() - at).total_seconds() > REFRESH_STUCK_SEC
+        except Exception:
+            return True
     at = getattr(server, "host_facts_at", None)
     if not at:
         return True
