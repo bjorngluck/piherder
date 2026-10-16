@@ -54,6 +54,9 @@ Tiers are picked when the train opens. These are not Must or Should. The notes a
 - The backup stagger reuses a minute past about 1,320 hosts on the default 02:00 base. That limit is documented. Revisit it only if a fleet needs more unique minutes.
 - The piherder-mcp PyPI readme still badges an older herder. Point that badge at herder 1.11.0 on the next adapter cut.
 - Stuck queue: open one alert when any job stays pending past N minutes (default 15) with no worker heartbeat, and resolve when the queue drains.
+- Self-backup failed alert: include the last successful self-backup time, or "never", so the operator can see how exposed they are. This covers the stuck-pending timeout and normal failures.
+- Container update checks stopped for about three days after the 1.11 deploy, then started again on their own. Find the cause in that scheduler path and add a test. A host with its own backup schedule also missed one run in the same week.
+- MCP OAuth tokens take their name from the client name, so two agents that send the same name look the same in Settings and the audit log. Add a short suffix to the token name so they can be told apart.
 - Callers import the module-level database engine. Add one get_engine() accessor and use it for every session.
 
 ---
