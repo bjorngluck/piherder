@@ -46,7 +46,7 @@ If **no** `feature:*` scopes are set, any job type allowed by `jobs` may run (st
 
 **409 / exclusive jobs:** a second start of the same exclusive type on a host returns **HTTP 409** with the existing `job_id` (same rule as the UI).
 
-A `read` call does not write an audit row. An optional flag for API and hosted `/mcp` reads is a note on the v1.12 plan. Writes stay audited either way.
+A `read` call does not write an audit row. An optional flag for API and hosted `/mcp` reads is Must on the open [v1.12.0](https://github.com/bjorngluck/piherder/blob/v1.12.0-dev/docs/PLAN_v1.12.0.md) train. It is not built yet. Writes stay audited either way.
 
 ## IP allowlist
 

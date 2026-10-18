@@ -186,7 +186,7 @@ On Frigate/NVR-style trees, rsync may hit **code 24** (vanished files). From **v
 | Success | Each source finishes with `rc == 0` and no error classification; `last_backup_at` updates |
 | Failed | Status **failed**, audit error details, **`last_backup_at` not updated** |
 | After success | Open `backup_failed` notifications resolve |
-| Destination rejected the sign-in | One `backup_destination_auth_failed` alert, linked to Settings → PiHerder backup. Severity follows the backup category. A later successful copy resolves it. Keeping that alert critical for an expired or rejected Google Drive, OneDrive, or LAN share credential is a note on [PLAN_v1.12.0.md](https://github.com/bjorngluck/piherder/blob/v1.11.0-dev/docs/PLAN_v1.12.0.md). It is not built |
+| Destination rejected the sign-in | One `backup_destination_auth_failed` alert, linked to Settings → PiHerder backup. Severity follows the backup category. A later successful copy resolves it. Keeping that alert critical for an expired or rejected Google Drive, OneDrive, or LAN share credential is Must on the open [v1.12.0](https://github.com/bjorngluck/piherder/blob/v1.12.0-dev/docs/PLAN_v1.12.0.md) train. It is not built yet |
 | No backup inside the stale window | One `backup_stale` warning per backup-enabled host. A later success resolves it |
 
 ### rsync path

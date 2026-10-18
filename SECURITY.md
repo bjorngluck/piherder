@@ -19,7 +19,7 @@
 | **`main`** | Development tip; security fixes land here first |
 | **v0.9.x and older** | Best-effort; prefer upgrade to latest production |
 
-Security fixes are applied on the default branch (`main`) and released as patch tags when warranted. The package on `v1.11.0-dev` is **1.11.0**. The current Hub image is **v1.10.0**. Pins **v1.9.0**, **v1.8.1**, and **v1.7.0** stay valid ([PLAN_v1.10.0.md](docs/PLAN_v1.10.0.md)). [v1.11.0](docs/PLAN_v1.11.0.md) is not a supported production line until it is tagged.
+Security fixes are applied on the default branch (`main`) and released as patch tags when warranted. The current release is **v1.11.0**. Image `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image. Pins **v1.9.0**, **v1.8.1**, and **v1.7.0** stay valid ([PLAN_v1.10.0.md](docs/PLAN_v1.10.0.md)). The package on `v1.12.0-dev` stays **1.11.0**. [v1.12.0](docs/PLAN_v1.12.0.md) is not a supported production line until it is tagged.
 
 ## Reporting a vulnerability
 

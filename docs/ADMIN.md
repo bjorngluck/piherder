@@ -609,7 +609,7 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
 | **Image pin** | Hub **`1.10.0`** / `1.10` / `latest` (`1.9.0` / `1.9` stays the previous image. Pin `1.8.1` / `1.8` stays valid. Pins `1.8.0` and `1.7.0` / `1.7` stay valid) |
 
-Current release: [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) · [QA_v1.11.0.md](QA_v1.11.0.md) · [PLAN_v1.11.0.md](PLAN_v1.11.0.md). Package **1.11.0**. Image `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image. Operator walks signed 2026-10-18. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** is on PyPI. Plugin **0.5.0**. Next notes: [PLAN_v1.12.0.md](PLAN_v1.12.0.md), branch not cut. Prior: [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current release: [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) · [QA_v1.11.0.md](QA_v1.11.0.md) · [PLAN_v1.11.0.md](PLAN_v1.11.0.md). Package **1.11.0**. Image `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image. Operator walks signed 2026-10-18. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** is on PyPI. Plugin **0.5.0**. Open train: [PLAN_v1.12.0.md](PLAN_v1.12.0.md) on `v1.12.0-dev`. Package stays **1.11.0**. Walks are empty. Prior: [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 
