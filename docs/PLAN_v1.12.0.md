@@ -1,4 +1,4 @@
-# PiHerder v1.12.0 — quieter lists, then honest backup and image signals
+# PiHerder v1.12.0: quieter lists, then honest backup and image signals
 
 **Status:** **Open** 2026-10-18. Nothing on this train is built yet.  
 **Date opened:** 2026-10-18  
@@ -26,15 +26,17 @@ v1.11.0 shipped a passkey that counts as 2FA, a host that can copy straight to D
 
 | Tier | Lock |
 |------|------|
-| Must | **Audit API and MCP reads.** An optional flag. Off unless the operator turns it on. When it is on, a `read` call from an API token or from hosted `/mcp` writes an audit row. The row stores the token and the client IP. It does not store a secret. Writes stay audited either way |
+| Must | **Audit API and MCP reads.** An optional flag. Off unless the operator turns it on. When it is on, a `read` call from an API token or from hosted `/mcp` writes an audit row. The row stores the token id and name only, never the token value or prefix. Turning the flag on or off writes its own audit row. Read rows stay out of the default Audit list and have their own retention. Writes stay audited either way |
 | Must | **Host facts clutter.** The 15-minute `host_facts` snapshot writes a Jobs row and an Audit row for every host. The default Jobs list and the default Audit list leave that routine snapshot out. A failed snapshot stays visible |
+| Discover | **Read-only admin API.** A read-only admin API for users, tokens, and the audit log. Needs a design and a Security review before it is built |
 
 ### Backup
 
 | Tier | Lock |
 |------|------|
 | Should | **Direct copy on a different CPU.** Grey out the straight-out tick when host facts say the host architecture is not the herder's. v1.11 already names the mismatch and keeps `/backups` for that host |
-| Should | **Missed scheduled backup.** A missed run is only a stale warning today. Add a direct check that the expected run did not happen, and a Prometheus metric for Grafana |
+| Should | **Missed scheduled run.** Covers host backups and container update checks. Open a warning when a run does not start within N minutes of its slot. Resolve it on the next successful run. Add a Prometheus metric |
+| Should | **Copy before the backups.** Warn when a destination copy is scheduled before the host backups it ships. A copy that runs before the backups is the case to catch |
 | Discover | **Remote restore.** Restore from Drive, OneDrive, or a LAN share. Restore stays a reverse rsync from `/backups` until this is promoted |
 | Discover | **Direct hop vs a stuck folder hop.** A folder hop left showing running holds that tick's direct hop until the next run. The direct hop should not wait on that row |
 | Later | **Backup stagger ceiling.** The stagger reuses a minute past about 1,320 hosts on the default 02:00 base. That limit is documented |
@@ -43,8 +45,9 @@ v1.11.0 shipped a passkey that counts as 2FA, a host that can copy straight to D
 
 | Tier | Lock |
 |------|------|
-| Must | **Backup credential failure.** Google Drive, OneDrive, and a LAN share (SMB or NAS) each open one critical alert when the saved credential expires or the destination rejects it. The alert stays critical even when the backup category is set lower. A later successful copy resolves it. v1.11 opens one alert, and that severity follows the backup category |
-| Must | **Self-backup failed alert.** Include the last successful self-backup time, or "never" |
+| Must | **Backup credential failure.** Google Drive, OneDrive, and a LAN share (SMB or NAS) each open one critical alert when the saved credential expires or the destination rejects it. For Drive and OneDrive the alert says reconnect, not a generic failure. The alert and the log line may carry the provider error code (for example `invalid_grant`) and never the token, the rclone config, or the raw response body. Docs say to publish the OAuth app to production, because a Testing-mode app loses its token after 7 days, and to keep the Drive scope at `drive.file`. The alert stays critical even when the backup category is set lower. A later successful copy resolves it. v1.11 opens one alert, and that severity follows the backup category |
+| Must | **Self-backup failed alert.** Include the last successful self-backup time, or "never". Not built |
+| Must | **Admin alert.** An admin alert when a user or API token is created, or a 2FA setting changes (force 2FA, template 2FA). The alert names the actor and the client IP |
 | Later | **Stuck queue.** One alert when any job stays pending past N minutes (default 15) with no worker heartbeat. Resolve when the queue drains |
 
 ### MCP and the adapter
@@ -62,40 +65,42 @@ The read-audit flag under Jobs and audit covers hosted `/mcp` as well as API tok
 | Tier | Lock |
 |------|------|
 | Must | **Image update flag.** Issue [#47](https://github.com/bjorngluck/piherder/issues/47). The image check clears the update flag after a pull while the container still runs the old image. The flag stays until the running container is that image |
-| Should | **Docker prune.** Issue [#48](https://github.com/bjorngluck/piherder/issues/48). A prune job from the host Docker page, the token API, and MCP. Volumes stay behind an explicit confirm |
+| Should | **Docker prune.** Issue [#48](https://github.com/bjorngluck/piherder/issues/48). A prune job from the host Docker page, the token API, and MCP. The API and MCP need the `edit` scope. Volume prune is UI-only behind a confirm. Every prune writes an audit row |
 
 ### Scheduler
 
 | Tier | Lock |
 |------|------|
-| Should | **Update-check gap.** Container update checks stopped for about three days after the 1.11 deploy, then started again. Find the cause in that scheduler path and add a test. A host with its own backup schedule also missed one run in the same week |
+| Must | **Update-check gap.** Still live. No scheduled container check has run since about 14 Oct. Update checks stopped for about four days. Find the cause in that scheduler path and add a test |
+| Should | **Scheduler visibility.** About shows each scheduled job's last fire time and next fire time |
 
 ### Hosts
 
 | Tier | Lock |
 |------|------|
 | Must | **OS end of life.** Issue [#49](https://github.com/bjorngluck/piherder/issues/49). A warning next to the OS line when the detected release is outside a small supported list. No auto-upgrade |
+| Should | **OS patch error output.** OS patch jobs keep apt's error output, including when sudo drops `DEBIAN_FRONTEND` |
 | Later | **NIC change.** Issue [#50](https://github.com/bjorngluck/piherder/issues/50). A hint when a new MAC appears for a hostname that already has a stale row at that IP. Device identity stays the MAC. The issue stays open |
 
 ### Git
 
 | Tier | Lock |
 |------|------|
-| Should | **Checkout ownership.** The Repository page can read a checkout the SSH user does not own. Refuse that checkout. That closes the filter-driver and credential-helper gap |
+| Must | **Checkout ownership.** The Repository page can read a checkout the SSH user does not own. Refuse that checkout. Never set `safe.directory=*`. That closes the filter-driver and credential-helper gap |
 
 ### Nginx Proxy Manager
 
 | Tier | Lock |
 |------|------|
-| Should | **NPM CRUD.** Create, edit, and delete proxy hosts. Move can still retarget a backend |
+| Discover | **NPM CRUD.** Create, edit, and delete proxy hosts. Admin-only, audited, no MCP on this train. Move can still retarget a backend |
 
 ### Supply chain and history
 
 | Tier | Lock |
 |------|------|
-| Must | **History sweep.** Older environment details are already on main. Sweep them out of the public history that is still easy to edit. A rewrite of published commits waits for a separate yes. No force-push on the train open |
-| Should | **Supply-chain baseline.** Re-check pinned actions, the dependency lock, image digest pinning, Dependabot, and secret scanning |
-| Later | **Push denylist in CI.** Fail a push that adds fleet names, the home subnet, internal domains, or home paths. The denylist would stay in a secret. The manual grep remains |
+| Should | **History sweep.** Older environment details are already on main. Done when a grep of main and the wiki comes back clean, plus a list of published commits that still hold old environment details, for the maintainer's yes or no. No force-push |
+| Should | **Supply-chain baseline.** Re-check pinned actions, the dependency lock, image digest pinning, Dependabot, and secret scanning. The [#52](https://github.com/bjorngluck/piherder/pull/52) mako and multidict bump landed as the first commit on this train. [#52](https://github.com/bjorngluck/piherder/pull/52) closes once the branch is green |
+| Should | **Push denylist in CI.** Fail a push that adds fleet names, the home subnet, internal domains, or home paths. The denylist stays in a secret. Lands with the history sweep. The manual grep remains until then |
 
 ### Internals
 
@@ -124,7 +129,8 @@ Nothing was voted **Out**.
 | 2026-10-11 | **Docker prune.** Issue [#48](https://github.com/bjorngluck/piherder/issues/48). |
 | 2026-10-11 | **Candidates.** Listed, then voted on 2026-10-18. |
 | 2026-10-11 | **Backup credential failure.** An expired or rejected credential for Google Drive, OneDrive, or a LAN share must open one critical alert. The backup category cannot lower it. |
-| 2026-10-18 | **Train opened** from `main` after **v1.11.0** shipped. Tiers voted and grouped by area. Must: read audit, host-facts lists, backup-credential alert, self-backup last success, image update flag ([#47](https://github.com/bjorngluck/piherder/issues/47)), OS end of life ([#49](https://github.com/bjorngluck/piherder/issues/49)), history sweep. Should: NPM CRUD, direct-copy CPU tick, Docker prune ([#48](https://github.com/bjorngluck/piherder/issues/48)), git checkout ownership, missed backup check, MCP backup time, supply-chain pass, adapter readme badge, update-check gap. Discover: remote restore, direct hop vs a stuck folder hop. Later includes [#50](https://github.com/bjorngluck/piherder/issues/50). Package stays `1.11.0`. Nothing is built. |
+| 2026-10-18 | **Train opened** from `main` after **v1.11.0** shipped. Tiers voted and grouped by area. Must: read audit, host facts lists, backup credential alert, self-backup last success, image update flag ([#47](https://github.com/bjorngluck/piherder/issues/47)), OS end of life ([#49](https://github.com/bjorngluck/piherder/issues/49)), update-check gap, admin alert, git checkout ownership. Should: direct-copy CPU tick, missed scheduled run, copy before the backups, Docker prune ([#48](https://github.com/bjorngluck/piherder/issues/48)), scheduler visibility, OS patch error output, MCP backup time, adapter readme badge, history sweep, supply-chain pass, push denylist. Discover: remote restore, direct hop vs a stuck folder hop, NPM CRUD, read-only admin API. Package stays `1.11.0`. |
+| 2026-10-18 | **Team review.** Update-check gap, admin alert, and git checkout ownership are Must. History sweep is Should, and the push denylist lands with it. NPM CRUD is Discover. Must: read audit, host facts lists, backup credential alert, self-backup last success, image update flag ([#47](https://github.com/bjorngluck/piherder/issues/47)), OS end of life ([#49](https://github.com/bjorngluck/piherder/issues/49)), update-check gap, admin alert, git checkout ownership. Should: direct-copy CPU tick, missed scheduled run, copy before the backups, Docker prune ([#48](https://github.com/bjorngluck/piherder/issues/48)), scheduler visibility, OS patch error output, MCP backup time, adapter readme badge, history sweep, supply-chain pass, push denylist. Discover: remote restore, direct hop vs a stuck folder hop, NPM CRUD, read-only admin API. The [#52](https://github.com/bjorngluck/piherder/pull/52) lock bump is the first commit. Product work is not built. |
 
 ---
 
@@ -133,9 +139,9 @@ Nothing was voted **Out**.
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.12.0-dev`** | **Done** 2026-10-18 |
-| 2 | Must, by area | Jobs and audit, alerts, Docker image flag, hosts end of life, history sweep. Not started |
-| 3 | Should, if it fits | Backup, MCP and the adapter, Docker prune, scheduler, Git, NPM, supply-chain pass |
-| 4 | Discover | Remote restore. Direct hop vs a stuck folder hop. Promote or defer in the release notes |
+| 2 | Must, by area | Jobs and audit (read audit, host facts lists), alerts (backup credential, self-backup last success, admin alert), Docker image flag ([#47](https://github.com/bjorngluck/piherder/issues/47)), OS end of life ([#49](https://github.com/bjorngluck/piherder/issues/49)), update-check gap, git checkout ownership. Not started |
+| 3 | Should, if it fits | Backup (direct-copy CPU tick, missed scheduled run, copy before the backups), MCP and the adapter, Docker prune, scheduler visibility, OS patch error output, history sweep, supply-chain pass, push denylist |
+| 4 | Discover | Remote restore. Direct hop vs a stuck folder hop. NPM CRUD. Read-only admin API. Promote or defer in the release notes |
 | 5 | Freeze | Not set. Package stays `1.11.0` until then |
 | 6 | Operator QA | Boxes in [QA_v1.12.0.md](QA_v1.12.0.md) are empty |
 
