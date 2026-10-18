@@ -6,7 +6,7 @@ A passkey counts as a second factor when Force 2FA is on. A host can send its ow
 
 About and `/api/v1` report **1.11.0**. The straight-out tick and **Repository…** are how you tell **1.11.0** is running.
 
-**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.11.0` · `1.11` · `latest` (amd64 + arm64). The manifest digest is recorded when that image is published. Pin `1.10.0` / `1.10` stays the previous image. Pins `1.9.0` / `1.9` and `1.8.1` / `1.8` stay valid. Home Assistant plugin stays **0.5.0**. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** is on PyPI. `uvx piherder-mcp` installs it. The public demo is updated separately.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.11.0` · `1.11` · `latest` (amd64 + arm64). Manifest `sha256:5b1a0ec8cfa5e2da26a486c5bc0f6d400ec86a8285e6eb9c2bbe64cfd30671b7`. Pin `1.10.0` / `1.10` stays the previous image. Pins `1.9.0` / `1.9` and `1.8.1` / `1.8` stay valid. Home Assistant plugin stays **0.5.0**. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** is on PyPI. `uvx piherder-mcp` installs it. The public demo is updated separately.
 
 Operator how-to: [Account security](https://piherder-docs.hacknow.info/account-security/two-factor/) · [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/) · [Docker](https://piherder-docs.hacknow.info/docker/overview/) · [LAN Discovery](https://piherder-docs.hacknow.info/integrations/lan-discovery/). Technical record: [PLAN_v1.11.0](PLAN_v1.11.0.md). Maintainer QA: [QA_v1.11.0](QA_v1.11.0.md).
 

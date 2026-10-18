@@ -55,15 +55,15 @@ Walk [QA_v1.11.0.md](QA_v1.11.0.md). Do not retick the 1.10 boxes.
 - [x] Full test suite green on the final tip
 - [ ] QA boxes done: LAN, Drive, OneDrive direct walks; fleet backups on gives every host a schedule; direct copy on a low-RAM Pi; arch mismatch error
 - [x] Git-rich onboard: QA box ticked, or marked "can ship if the walk slips" like MCP Move and nmap
-- [ ] Run the RELEASE_SYNC.md check against origin/main of all three repos
+- [x] Run the RELEASE_SYNC.md check against origin/main of all three repos
 - [x] Operator walks signed ([QA_v1.11.0.md](QA_v1.11.0.md))
 - [x] End-user notes (`RELEASE_v1.11.0.md`)
 - [x] Screenshot files dropped in `wiki/assets/screenshots/`
 - [x] `.venv-docs/bin/mkdocs build --strict`
-- [ ] Merge PR #35 to main
-- [ ] Tag v1.11.0 and publish the release notes
-- [ ] Push Docker Hub image tags 1.11.0, 1.11 and latest (amd64 + arm64)
-- [ ] Record the multi-arch image digest (sha256:...) in the GitHub release notes
+- [x] Merge PR #35 to main
+- [x] Tag v1.11.0 and publish the release notes
+- [x] Push Docker Hub image tags 1.11.0, 1.11 and latest (amd64 + arm64)
+- [x] Record the multi-arch image digest (sha256:5b1a0ec8cfa5e2da26a486c5bc0f6d400ec86a8285e6eb9c2bbe64cfd30671b7) in the GitHub release notes
 - [ ] Update the demo environment
 - [ ] Post-deploy check on the herder: About shows 1.11.0; every host with backups on returns backup_scheduled true with a next_backup_run, or both null (this process cannot see the scheduler; then confirm from the first scheduled Backup job instead); the first scheduled run after deploy lands as a Backup job with an audit row
 - [ ] Hand the release notes to Growth for the release post
