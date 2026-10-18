@@ -10,6 +10,7 @@ import base64
 import json
 import logging
 import os
+import re
 import secrets
 import subprocess
 import tempfile
@@ -310,6 +311,21 @@ def destination_name(provider: str) -> str:
     return "Google Drive"
 
 
+def destination_place(destination: BackupDestination) -> str:
+    """Where a copy lands. Folder, or SMB host/share/path. No sign-in."""
+    label = destination_name(getattr(destination, "provider", None) or "")
+    provider = (getattr(destination, "provider", None) or "").strip().lower()
+    cfg = _load_cfg(destination)
+    if provider == "smb":
+        host = str(cfg.get("host") or "").strip()
+        share = str(cfg.get("share") or "").strip().strip("/")
+        path = str(cfg.get("remote_dir") or "").strip().strip("/")
+        tail = "/".join(bit for bit in (host, share, path) if bit)
+        return f"{label} · {tail}" if tail else label
+    folder = str(cfg.get("remote_dir") or "PiHerder").strip().strip("/") or "PiHerder"
+    return f"{label} · {folder}"
+
+
 def normalize_provider(value: str | None) -> str:
     provider = (value or "drive").strip().lower()
     if provider not in _SELECTABLE:
@@ -405,6 +421,17 @@ def _redact(text: str, secret: str) -> str:
     if not text or not secret:
         return text or ""
     return text.replace(secret, "[redacted]")
+
+
+# Google access tokens show up in rclone stderr. They do not belong on a job row.
+_ACCESS_TOKEN = re.compile(r"ya29\.[0-9A-Za-z_\-]+")
+
+
+def scrub_job_text(text: str) -> str:
+    """Remove access tokens before text is stored on a job or shown in a log."""
+    if not text:
+        return ""
+    return _ACCESS_TOKEN.sub("[redacted]", text)
 
 
 def _config_pass(path: str) -> str:
@@ -1195,8 +1222,53 @@ def _run_rclone(cmd: list[str], secret: str = "") -> tuple[int, str]:
     err = (proc.stderr or proc.stdout or "").strip()
     if "token" in err.lower() and "ya29" in err:
         err = "rclone failed (token redacted)"
-    err = _redact(err, secret)
+    err = scrub_job_text(_redact(err, secret))
     return proc.returncode, err[-2000:]
+
+
+_COPY_AUTH_MARKERS = (
+    "invalid_grant",
+    "rclone config reconnect",
+    "did not return the default drive",
+    "invalid_client",
+    "token has been expired or revoked",
+)
+
+
+def copy_auth_failure(message: str) -> bool:
+    text = (message or "").lower()
+    return any(marker in text for marker in _COPY_AUTH_MARKERS)
+
+
+def note_copy_auth_failure(session: Session, destination: BackupDestination, message: str) -> None:
+    """One open alert per destination when the account rejected the token."""
+    if destination is None or not getattr(destination, "id", None):
+        return
+    if not copy_auth_failure(message):
+        return
+    from .notifications import upsert_notification
+
+    name = destination_name(destination.provider)
+    upsert_notification(
+        session,
+        fingerprint=f"backup_destination_auth_failed:{int(destination.id)}",
+        type="backup_destination_auth_failed",
+        title=f"{name} needs Connect again",
+        body=(message or "The destination rejected the sign-in.")[:300],
+        link_url="/herder-backups?tab=backup",
+        severity="critical",
+        payload={"destination_id": int(destination.id), "provider": destination.provider},
+    )
+
+
+def resolve_copy_auth_failure(session: Session, destination_id: int | None) -> None:
+    if not destination_id:
+        return
+    from .notifications import resolve_by_fingerprint
+
+    resolve_by_fingerprint(
+        session, f"backup_destination_auth_failed:{int(destination_id)}"
+    )
 
 
 def _finish_copy(copied: list[str], errors: list[str]) -> dict[str, Any]:
@@ -1207,9 +1279,34 @@ def _finish_copy(copied: list[str], errors: list[str]) -> dict[str, Any]:
     return {"ok": True, "copied": copied}
 
 
+def _take_direct(checked: list[str]):
+    """Split ticked paths that belong to a direct host off the herder copy."""
+    try:
+        from .backup_direct import partition_checked
+
+        return partition_checked(checked)
+    except Exception:
+        logger.warning("direct backup lookup failed", exc_info=True)
+        return checked, []
+
+
+def _groups_for_destination(destination: BackupDestination, groups: list):
+    """Keep a direct host only when this destination is one it sends to."""
+    from .backup_direct import parse_direct_targets
+
+    provider = (getattr(destination, "provider", None) or "").strip().lower()
+    kept = []
+    for server, rels in groups or []:
+        chosen = set(parse_direct_targets(getattr(server, "backup_direct_targets", None)))
+        if provider and provider in chosen:
+            kept.append((server, rels))
+    return kept
+
+
 def _execute_smb(destination: BackupDestination, scope: str | None) -> dict[str, Any]:
     secret = ""
     config_path = ""
+    local: dict[str, Any] = {"ok": True, "copied": []}
     try:
         try:
             secret = decrypt_smb_secret(destination).get("password") or ""
@@ -1217,6 +1314,8 @@ def _execute_smb(destination: BackupDestination, scope: str | None) -> dict[str,
             secret = ""
         checked, skipped = parse_selection(destination.selection_json)
         checked, skipped = paths_for_scope(checked, skipped, scope)
+        # A direct host is its own job. This hop only reads the herder mirror.
+        checked, _direct_groups = _take_direct(checked)
         if not checked:
             return {"ok": False, "error": "Nothing selected on the backup drive"}
         config_path = write_smb_rclone_config(destination)
@@ -1225,31 +1324,33 @@ def _execute_smb(destination: BackupDestination, scope: str | None) -> dict[str,
         errors: list[str] = []
         copied: list[str] = []
         for rel, excludes, _is_dir in sync_plan(checked, skipped):
-            local = resolve_under_root(rel)
-            if not local.exists():
+            local_path = resolve_under_root(rel)
+            if not local_path.exists():
                 errors.append(f"{rel} is not on the backup drive")
                 continue
             remote = f"{remote_root}/{rel}"
-            if local.is_dir():
+            if local_path.is_dir():
                 cmd = rclone_sync_cmd(
-                    config_path, str(local), remote, excludes, use_trash=False
+                    config_path, str(local_path), remote, excludes, use_trash=False
                 )
             else:
                 cmd = rclone_copy_file_cmd(
-                    config_path, str(local), remote, use_trash=False
+                    config_path, str(local_path), remote, use_trash=False
                 )
             rc, err = _run_rclone(cmd, secret)
-            err = _redact(err, obscured)
+            err = scrub_job_text(_redact(err, obscured))
             if rc != 0:
-                errors.append(_redact(f"{rel}: {err or 'rclone failed'}"[:500], secret))
+                errors.append(scrub_job_text(_redact(f"{rel}: {err or 'rclone failed'}"[:500], secret)))
             else:
                 copied.append(rel)
-        return _finish_copy(copied, errors)
+        local = _finish_copy(copied, errors)
     except Exception as exc:
-        return {"ok": False, "error": _redact(str(exc)[:500], secret)}
+        cleaned = scrub_job_text(_redact(str(exc)[:500], secret))
+        local = {"ok": False, "error": cleaned, "errors": [cleaned]}
     finally:
         if config_path:
             discard_rclone_config(config_path)
+    return local
 
 
 def execute(destination: BackupDestination, scope: str | None = None) -> dict[str, Any]:
@@ -1263,12 +1364,15 @@ def execute(destination: BackupDestination, scope: str | None = None) -> dict[st
         return {"ok": False, "error": f"Provider {destination.provider} is not built"}
     checked, skipped = parse_selection(destination.selection_json)
     checked, skipped = paths_for_scope(checked, skipped, scope)
+    # A direct host is its own job. This hop only reads the herder mirror.
+    checked, _direct_groups = _take_direct(checked)
     if not checked:
         return {"ok": False, "error": "Nothing selected on the backup drive"}
     config_path = ""
     use_trash = destination.provider == "drive"
     client_secret = ""
     refresh = ""
+    local: dict[str, Any] = {"ok": True, "copied": []}
     try:
         token_json = decrypt_token(destination)
         token_payload = json.loads(token_json)
@@ -1286,31 +1390,64 @@ def execute(destination: BackupDestination, scope: str | None = None) -> dict[st
         errors: list[str] = []
         copied: list[str] = []
         for rel, excludes, _is_dir in sync_plan(checked, skipped):
-            local = resolve_under_root(rel)
-            if not local.exists():
+            local_path = resolve_under_root(rel)
+            if not local_path.exists():
                 errors.append(f"{rel} is not on the backup drive")
                 continue
             remote = f"{remote_root}/{rel}"
-            if local.is_dir():
+            if local_path.is_dir():
                 cmd = rclone_sync_cmd(
-                    config_path, str(local), remote, excludes, use_trash=use_trash
+                    config_path, str(local_path), remote, excludes, use_trash=use_trash
                 )
             else:
                 cmd = rclone_copy_file_cmd(
-                    config_path, str(local), remote, use_trash=use_trash
+                    config_path, str(local_path), remote, use_trash=use_trash
                 )
             rc, err = _run_rclone(cmd, client_secret)
-            err = _redact(err, refresh)
+            err = scrub_job_text(_redact(err, refresh))
             if rc != 0:
-                errors.append(f"{rel}: {err or 'rclone failed'}"[:500])
+                errors.append(scrub_job_text(f"{rel}: {err or 'rclone failed'}"[:500]))
             else:
                 copied.append(rel)
-        return _finish_copy(copied, errors)
+        local = _finish_copy(copied, errors)
     except Exception as exc:
-        return {"ok": False, "error": _redact(_redact(str(exc)[:500], client_secret), refresh)}
+        cleaned = scrub_job_text(_redact(_redact(str(exc)[:500], client_secret), refresh))
+        local = {"ok": False, "error": cleaned, "errors": [cleaned]}
     finally:
         if config_path:
             discard_rclone_config(config_path)
+    return local
+
+
+def _scoped_parts(
+    destination: BackupDestination, scope: str | None
+) -> tuple[list[str], list, list[str]]:
+    checked, skipped = parse_selection(destination.selection_json)
+    checked, skipped = paths_for_scope(checked, skipped, scope)
+    local, groups = _take_direct(checked)
+    groups = _groups_for_destination(destination, groups)
+    return local, groups, skipped
+
+
+def execute_direct(destination: BackupDestination, scope: str | None = None) -> dict[str, Any]:
+    """Push ticked direct hosts. The herder mirror is a different job."""
+    from .backup_direct import push_groups
+    from .demo import demo_mode
+
+    if demo_mode():
+        return {"ok": False, "error": "Demo does not upload"}
+    if destination.provider not in _SELECTABLE:
+        return {"ok": False, "error": f"Provider {destination.provider} is not built"}
+    _local, groups, skipped = _scoped_parts(destination, scope)
+    if not groups:
+        return {"ok": False, "error": "Nothing selected on the backup drive"}
+    copied, errors = push_groups(destination, groups, skipped)
+    result = _finish_copy(copied, errors)
+    if result.get("error"):
+        result["error"] = scrub_job_text(str(result["error"]))[:500]
+    if result.get("errors"):
+        result["errors"] = [scrub_job_text(str(item))[:500] for item in result["errors"]]
+    return result
 
 
 def copies_herder_backup(destination: BackupDestination | None) -> bool:
@@ -1498,10 +1635,11 @@ def get_or_create(session: Session, provider: str = "drive") -> BackupDestinatio
 
 
 def _active_replicate(session: Session, destination_id: int) -> Job | None:
-    """Pending or running host-folder copy for this destination.
+    """Pending or running copy for this destination.
 
     A self-backup hop on the same destination is a different rclone call
-    (one archive under ``herder/``). It does not take this slot.
+    (one archive under ``herder/``). It does not take this slot. A direct
+    host push does: it shares the slot with a herder-folder copy.
     """
     rows = session.exec(
         select(Job)
@@ -1540,49 +1678,79 @@ def _refused_copy_job(destination: BackupDestination, server_id: int | None) -> 
     )
 
 
-def enqueue(
+def _queue_copy_message(destination: BackupDestination, *, direct_host: bool) -> str:
+    provider = destination.provider
+    if direct_host:
+        if provider == "smb":
+            return "Direct copy to the LAN share queued…"
+        if provider == "onedrive":
+            return "Direct copy to OneDrive queued…"
+        return "Direct copy to Drive queued…"
+    if provider == "smb":
+        return "SMB copy queued…"
+    if provider == "onedrive":
+        return "OneDrive copy queued…"
+    return "Drive copy queued…"
+
+
+def _fail_unstarted(
+    session: Session,
+    job: Job,
+    destination: BackupDestination,
+    message: str,
+    *,
+    direct_host: bool,
+) -> Job:
+    payload: dict[str, Any] = {
+        "error": scrub_job_text(message)[:500],
+        "destination_id": destination.id,
+        "done": True,
+    }
+    if direct_host:
+        payload["direct_host"] = True
+    job.status = "failed"
+    job.finished_at = datetime.utcnow()
+    job.details = json.dumps(payload)
+    session.add(job)
+    session.commit()
+    return job
+
+
+def _create_replicate_job(
     session: Session,
     destination: BackupDestination,
     *,
-    server_id: int | None = None,
-    scope: str | None = None,
-    user_id: int | None = None,
+    server_id: int | None,
+    scope: str | None,
+    user_id: int | None,
+    direct_host: bool,
+    direct_after: bool,
 ) -> Job:
+    """One backup_replicate row. direct_host is the pill flag, not a secret."""
     from .demo import demo_mode
     from .jobs.service import _initial_job_details
 
-    if not credentials_saved(destination):
-        return _refused_copy_job(destination, server_id)
-    # Host-folder copies share one slot. A self-backup copy does not use it.
-    active = _active_replicate(session, int(destination.id or 0))
-    if active:
-        return active
+    flags: dict[str, Any] = {}
+    if direct_host:
+        flags["direct_host"] = True
+    if direct_after:
+        flags["direct_after"] = True
     job = Job(server_id=server_id, job_type=JOB_TYPE, status="pending")
-    if destination.provider == "smb":
-        queued = "SMB copy queued…"
-    elif destination.provider == "onedrive":
-        queued = "OneDrive copy queued…"
-    else:
-        queued = "Drive copy queued…"
     job.details = _initial_job_details(
-        queued,
+        _queue_copy_message(destination, direct_host=direct_host),
         destination_id=destination.id,
         scope=scope,
         user_id=user_id,
         queued_at=datetime.utcnow().isoformat(),
+        **flags,
     )
     session.add(job)
     session.commit()
     session.refresh(job)
     if demo_mode():
-        job.status = "failed"
-        job.finished_at = datetime.utcnow()
-        job.details = json.dumps(
-            {"error": "Demo does not upload", "destination_id": destination.id, "done": True}
+        return _fail_unstarted(
+            session, job, destination, "Demo does not upload", direct_host=direct_host
         )
-        session.add(job)
-        session.commit()
-        return job
     from ..tasks import replicate_backup
 
     try:
@@ -1591,12 +1759,66 @@ def enqueue(
         session.add(job)
         session.commit()
     except Exception as exc:
-        job.status = "failed"
-        job.finished_at = datetime.utcnow()
-        job.details = json.dumps({"error": str(exc)[:500], "destination_id": destination.id})
-        session.add(job)
-        session.commit()
+        return _fail_unstarted(
+            session, job, destination, str(exc)[:500], direct_host=direct_host
+        )
     return job
+
+
+def enqueue(
+    session: Session,
+    destination: BackupDestination,
+    *,
+    server_id: int | None = None,
+    scope: str | None = None,
+    user_id: int | None = None,
+) -> Job:
+    if not credentials_saved(destination):
+        return _refused_copy_job(destination, server_id)
+    # Folder copies and direct host pushes share one slot. A self-backup copy does not.
+    active = _active_replicate(session, int(destination.id or 0))
+    if active:
+        return active
+    local, groups, _skipped = _scoped_parts(destination, scope)
+    direct_only = bool(groups) and not local
+    # Mixed ticks stay two rows. The folder hop starts the direct hop when it finishes.
+    follow = bool(groups) and bool(local)
+    return _create_replicate_job(
+        session,
+        destination,
+        server_id=server_id,
+        scope=scope,
+        user_id=user_id,
+        direct_host=direct_only,
+        direct_after=follow,
+    )
+
+
+def enqueue_direct_followup(
+    session: Session,
+    destination: BackupDestination,
+    *,
+    scope: str | None = None,
+    user_id: int | None = None,
+) -> Job | None:
+    """Queue the direct half after a folder copy. This row is not a folder hop."""
+    if not credentials_saved(destination):
+        return None
+    _local, groups, _skipped = _scoped_parts(destination, scope)
+    if not groups:
+        return None
+    active = _active_replicate(session, int(destination.id or 0))
+    if active:
+        return active
+    return _create_replicate_job(
+        session,
+        destination,
+        server_id=None,
+        scope=scope,
+        user_id=user_id if isinstance(user_id, int) else None,
+        direct_host=True,
+        direct_after=False,
+    )
 
 
 def _active_herder_copy(session: Session, destination_id: int, archive_name: str) -> Job | None:
@@ -1710,6 +1932,10 @@ def enqueue_after_herder_backup(session: Session, archive_path: str | Path) -> l
 
 
 def enqueue_after_host_backup(session: Session, server: Server) -> None:
+    # A direct host already pushed during the backup job. There is no
+    # /backups tree to upload, and a second hop would send the files twice.
+    if getattr(server, "backup_direct", False):
+        return
     folder = host_folder_name(server)
     if not folder:
         return

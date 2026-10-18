@@ -33,6 +33,8 @@ Container **count** on the HA card comes from Docker inventory meta, not this sn
 
 Opening the modal does **not** SSH. The header **refresh icon** SSHs once (`/servers/{id}/diagnostics?force=1`) and writes the row. Footer text says so.
 
+A refresh that cannot SSH keeps the previous OS and kernel. A facts job left pending or running after its task is gone fails after 30 minutes, the host leaves **refreshing**, and the next snapshot can queue.
+
 <figure class="ph-figure" markdown>
   ![System Info snapshot](../assets/screenshots/system-info-snapshot.png)
   <figcaption>Stored CPU, memory, and disk. The header refresh icon is the SSH. Opening the modal does not SSH.</figcaption>

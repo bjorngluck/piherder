@@ -299,6 +299,16 @@ async def wizard_identity_post(
         },
     )
     session.commit()
+    try:
+        import logging
+
+        from .server_patch import sync_server_schedules
+
+        sync_server_schedules(server)
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "Could not sync schedules for server %s", server.id
+        )
     return RedirectResponse(wizard_path("trust", server.id), status_code=303)
 
 
@@ -576,6 +586,16 @@ async def wizard_features_post(
         },
     )
     session.commit()
+    try:
+        from .server_patch import sync_server_schedules
+
+        sync_server_schedules(server)
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "Could not sync backup schedule for server %s", server.id
+        )
     return RedirectResponse(wizard_path("schedules", server.id), status_code=303)
 
 

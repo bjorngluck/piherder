@@ -464,12 +464,10 @@ def post_login_path(
         applies = force_2fa_applies(user, request=request, session=session)
     except Exception:
         applies = force_2fa_required()
-    if applies:
-        if session is not None:
-            if not user_has_second_factor(session, user):
-                return "/auth/force-2fa"
-        elif not getattr(user, "totp_enabled", False):
-            return "/auth/force-2fa"
+    # A passkey counts. Without a session we cannot see passkeys, so do not
+    # send the user to the authenticator enroll wall on TOTP alone.
+    if applies and session is not None and not user_has_second_factor(session, user):
+        return "/auth/force-2fa"
     nxt = mcp_oauth_return_target(request)
     if nxt:
         return nxt

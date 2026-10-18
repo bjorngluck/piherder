@@ -113,6 +113,13 @@ Rough production defaults (in-process; disabled when `PIHERDER_DISABLE_AUTH_RATE
 
 **Where:** **Settings** → **Security policy**. **Available from v1.3.**
 
+From **1.11.0**, a passkey counts as the second factor. Signup with Force 2FA on can register a passkey, and that passkey satisfies the enroll wall. The Users list shows **2FA** for that account. An authenticator app stays available.
+
+<figure class="ph-figure" markdown>
+  ![Users list treats a passkey as 2FA](../assets/screenshots/account-passkey-2fa.png)
+  <figcaption>v1.11. Users and roles. Names are masked. Both accounts show the 2FA badge.</figcaption>
+</figure>
+
 | Setting | Effect |
 |---------|--------|
 | **Who must enrol** | Off · **admins** · **operators and admins** · **everyone**. Users in scope without TOTP **or** a passkey go to `/auth/force-2fa`. |

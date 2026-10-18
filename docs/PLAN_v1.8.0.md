@@ -315,4 +315,4 @@ MCP can already restart a whole compose project (`docker_stack_restart`) and upd
 
 ---
 
-*Package stays `1.7.0` until freeze. Operator walks live in [QA_v1.8.0.md](QA_v1.8.0.md).*
+*Shipped as `1.8.0`. Operator walks live in [QA_v1.8.0.md](QA_v1.8.0.md).*

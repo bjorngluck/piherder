@@ -141,7 +141,13 @@ No new database revision. Recreate **web** and **celery-worker**. About should s
 
 **v1.10.0** is tagged. Notes: [RELEASE_v1.10.0.md](https://github.com/bjorngluck/piherder/blob/v1.10.0/docs/RELEASE_v1.10.0.md). Image `1.10.0` / `1.10` / `latest`. Pin `1.9.0` / `1.9` stays the previous image.
 
-Alembic **048** runs on web start. Recreate **web** and **celery-worker**. About should say **1.10.0**. OneDrive is a third row on **Copy the backup drive**. A destination can copy each new self-backup. Hosted `/mcp` can sign an agent in through the browser. Plugin **0.5.0** and adapter **0.3.1** stay. The public demo still reports **1.9.0**.
+Alembic **048** runs on web start. Recreate **web** and **celery-worker**. About should say **1.10.0**. OneDrive is a third row on **Copy the backup drive**. A destination can copy each new self-backup. Hosted `/mcp` can sign an agent in through the browser. Plugin **0.5.0** and adapter **0.3.1** stay on this **1.10.0** image. The next jump is [1.10 → 1.11](#110--111).
+
+## 1.10 → 1.11 {#110--111}
+
+**v1.11.0** is the current release. Notes: [RELEASE_v1.11.0.md](https://github.com/bjorngluck/piherder/blob/v1.11.0/docs/RELEASE_v1.11.0.md). Image `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image.
+
+Alembic **049** and **050** run on web start. Recreate **web** and **celery-worker**. About should say **1.11.0**. A passkey counts as 2FA when Force 2FA is on. A host can send files straight to a saved Drive, OneDrive, or LAN share. Hosted `/mcp` can start a Move, read or start a LAN Discovery scan, and tidy devices. Docker → **Repository…** can update an existing checkout. Plugin **0.5.0** stays. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** sends `confirm=true` on discovery purge. `uvx --refresh piherder-mcp`, then restart the MCP client. The public demo is updated separately.
 
 ## Breaking notes
 

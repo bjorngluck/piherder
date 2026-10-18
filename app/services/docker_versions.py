@@ -413,10 +413,16 @@ def create_new_docker_project(
     full_path = f"{base}/{project_name}".replace("//", "/")
     client = get_ssh_client(server)
     try:
-        run_command(client, f"mkdir -p {full_path}", timeout=30)
+        import shlex
+
+        run_command(client, f"mkdir -p {shlex.quote(full_path)}", timeout=30)
         if git_url:
-            # clone into the dir (assumes empty or use --depth etc)
-            run_command(client, f"cd {full_path} && git clone {git_url} . || true", timeout=180)
+            # Clone first. The pasted compose is written over it afterwards.
+            run_command(
+                client,
+                f"cd {shlex.quote(full_path)} && git clone {shlex.quote(git_url)} . || true",
+                timeout=180,
+            )
         ok, _werr = write_project_files(server, full_path, base_files)
         return ok
     finally:

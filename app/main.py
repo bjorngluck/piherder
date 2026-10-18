@@ -154,6 +154,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("VAPID ensure skipped: %s", e)
 
+    # One pass. Hosts that were given the fleet minute as their own schedule
+    # inherit it again. A later saved schedule is left alone. Not a migration.
+    try:
+        from .services.update_check_config import clear_matching_fleet_backup_schedules
+
+        with Session(engine) as db:
+            clear_matching_fleet_backup_schedules(db)
+    except Exception as e:
+        logger.warning("Fleet backup schedule cleanup skipped: %s", e)
+
     # Start APScheduler (per-server schedules + PiHerder self-backup)
     if HAS_SCHEDULER and scheduler and not scheduler.running:
         scheduler.start()

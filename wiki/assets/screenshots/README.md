@@ -26,13 +26,36 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.8.0** | **Captured** 2026-10-01. Home Assistant plugin **0.4.3** and the Google Drive copy card. Package **1.8.0**. [§ v1.8](#v180--pack-status). [QA](../../../docs/QA_v1.8.0.md) |
 | **v1.9.0** | **Captured** 2026-10-02. Drive and SMB rows, Remove confirm, herder Move, plugin **0.5.0** Stop project and Plugin sensor. [§ v1.9](#v190--pack-status). [QA](../../../docs/QA_v1.9.0.md) |
 | **v1.10.0** | **Captured** 2026-10-05. OneDrive row, self-backup copy checkbox, Reports cards, template fleet, Allow this agent. Package **1.10.0**. [§ v1.10](#v110--pack-status). [QA](../../../docs/QA_v1.10.0.md) |
+| **v1.11.0** | **Captured** 2026-10-18 and wired. Passkey as 2FA, straight-out backups, a finished Backup, and Repository. Names in the frames are masked. Package **1.11.0**. [§ v1.11](#v111--pack-status). [QA](../../../docs/QA_v1.11.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    **v1.10** pack is captured. [§ v1.10](#v110--pack-status). About / footer say **1.10.0**.  
+    **v1.11** frames are in [§ v1.11](#v111--pack-status). About / footer say **1.11.0**.  
     Do not photograph the public demo. Mask tokens, the SMB password, the Google client secret, and the Microsoft client secret.  
-    **v1.9 captures** stay. Do not retake them for OneDrive.
+    **v1.10 captures** stay. Do not retake them for this release.
+
+---
+
+## v1.11.0 — pack status {#v111--pack-status}
+
+**Captured** 2026-10-18. About and the footer say **1.11.0**. Maintainer walks in [QA_v1.11.0.md](../../../docs/QA_v1.11.0.md) signed the same day. Names, paths, and the job log are masked. Do not photograph [the public demo](https://piherder-demo.hacknow.info).
+
+| File | Surface | What the frame shows | Where |
+|------|---------|----------------------|--------|
+| `account-passkey-2fa.png` | Users and roles | Both accounts show the 2FA badge. Names are masked. `account-2fa.png` and `account-passkeys.png` stay | [2FA](../../account-security/two-factor.md) |
+| `host-backup-direct.png` | Host → Backups → Configure | Straight-out tick on, LAN NAS / SMB selected. Source paths and the folder name are masked | [Backups](../../day-to-day/backups.md) |
+| `jobs-direct-copy.png` | Jobs detail | A finished scheduled Backup. The server, worker, job number, and log are masked | [Jobs](../../day-to-day/jobs-audit-notifications.md) |
+| `docker-repository.png` | Docker → **Repository…** | Existing checkout, remote default selected, no newer tag in this frame. Path and remote URL are masked | [Docker](../../docker/overview.md) |
+
+### Do not shoot for 1.11
+
+| Slice | Why |
+|-------|-----|
+| v1.10 pack | `settings-backup-onedrive.png`, `settings-herder-copy.png`, `herder-backup-copy-off.png`, `reports-cards.png`, `templates-on-the-fleet.png`, and `mcp-allow-agent.png` stay |
+| NPM CRUD | Note on v1.12. Proxy hosts stay read-only |
+| Remote restore | Note on v1.12. Restore still reads `/backups` |
+| Public demo | Stays the production image |
 
 ---
 
@@ -58,7 +81,7 @@ Mask every token, the SMB password, and the Google and Microsoft client secrets.
 
 | Slice | Why |
 |-------|-----|
-| Path C | No screen. Decision is **v1.11.0** |
+| Path C | Shipped in the v1.11 pack as `host-backup-direct.png` |
 | NAS **Copy now** | Walk signed 2026-10-04. Optional file `settings-backup-copy-now.png` only. Do not use the demo |
 | Dependabot | A YAML file and GitHub settings. No product screen |
 | Pending self-backup | A job row and a critical alert. Capture only if you are already in that failure. Optional file `herder-backup-pending.png` |

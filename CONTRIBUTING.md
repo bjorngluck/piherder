@@ -20,8 +20,12 @@ All contributions are offered under the **[MIT License](LICENSE)**. By submittin
 ## Getting Started
 
 - Read the [README](README.md) and [SPEC.md](SPEC.md) for project goals and design principles.
-- Current release: **[v1.10.0](docs/RELEASE_v1.10.0.md)**. [PLAN](docs/PLAN_v1.10.0.md) · [QA](docs/QA_v1.10.0.md). Package **1.10.0**. Image `1.10.0` / `1.10` / `latest`. Pin `1.9.0` / `1.9` stays the previous image. Plugin **0.5.0**. Adapter **0.3.1**. Operator wiki [Backups](wiki/day-to-day/backups.md) · [Self-backup](wiki/operations/self-backup.md) · [Agents (MCP)](wiki/operations/mcp.md) · [Home Assistant](wiki/integrations/home-assistant.md). Prior: [v1.9.0](docs/RELEASE_v1.9.0.md) · [v1.8.1](docs/RELEASE_v1.8.1.md) · [v1.8.0](docs/RELEASE_v1.8.0.md) · [v1.7.0](docs/RELEASE_v1.7.0.md) · [v1.6.0](docs/RELEASE_v1.6.0.md) · [v1.5.0](docs/RELEASE_v1.5.0.md) · [v1.4.0](docs/RELEASE_v1.4.0.md) · [v1.3.0](docs/RELEASE_v1.3.0.md) · [v1.2.0](docs/RELEASE_v1.2.0.md) · [v1.1.1](docs/RELEASE_v1.1.1.md) · [v1.0.0](docs/RELEASE_v1.0.0.md).
+- Current release: **[v1.11.0](docs/RELEASE_v1.11.0.md)**. [PLAN](docs/PLAN_v1.11.0.md) · [QA](docs/QA_v1.11.0.md). Package **1.11.0**. Image `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image. Prior notes: **[v1.10.0](docs/RELEASE_v1.10.0.md)**. [PLAN](docs/PLAN_v1.10.0.md) · [QA](docs/QA_v1.10.0.md). Plugin **0.5.0**. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)**. Operator wiki [Backups](wiki/day-to-day/backups.md) · [Self-backup](wiki/operations/self-backup.md) · [Agents (MCP)](wiki/operations/mcp.md) · [Home Assistant](wiki/integrations/home-assistant.md). Prior: [v1.9.0](docs/RELEASE_v1.9.0.md) · [v1.8.1](docs/RELEASE_v1.8.1.md) · [v1.8.0](docs/RELEASE_v1.8.0.md) · [v1.7.0](docs/RELEASE_v1.7.0.md) · [v1.6.0](docs/RELEASE_v1.6.0.md) · [v1.5.0](docs/RELEASE_v1.5.0.md) · [v1.4.0](docs/RELEASE_v1.4.0.md) · [v1.3.0](docs/RELEASE_v1.3.0.md) · [v1.2.0](docs/RELEASE_v1.2.0.md) · [v1.1.1](docs/RELEASE_v1.1.1.md) · [v1.0.0](docs/RELEASE_v1.0.0.md).
 - Look for issues tagged `good first issue` or `help wanted`.
+
+## Running tests
+
+The unit suite is isolated from a PiHerder instance on the same machine. `tests/conftest.py` points the database, the settings directory, and the Celery broker at throwaway test targets before the app is imported, and it does not start the scheduler. A session guard refuses to run if `DATABASE_URL`, `CELERY_BROKER_URL`, or `DATA_ROOT` is not one of the exact targets that file sets. A name such as `latest` is not a test target. You can run `pytest` on a host that also runs PiHerder.
 
 ## Documentation
 
@@ -58,7 +62,7 @@ Feature requests are welcome and will be considered against the roadmap.
 
 [v1.5.0 pull request #5](https://github.com/bjorngluck/piherder/pull/5) was opened with the Grok GitHub connector, tool `github__create_pull_request`. The tool schemas, when the connector has been used on this host, are under `~/.grok/projects/home-bjorn-docker-piherder/mcps/grok_com_github/tools/`. The catalog name is `github__create_pull_request`, not `grok_com_github__create_pull_request`.
 
-1. Write `docs/PR_vN.md` (title, base `main`, head `vN-dev`, test plan, merge checklist). Push the train branch first.
+1. Write `docs/PR_vN.md` (title, base `main`, head `vN-dev`, test plan, ship steps). Push the train branch first.
 2. Discover the tool (`search_tool` query `github__create_pull_request`) and call it. Fields: `owner` `bjorngluck`, `repo` `piherder`, `title`, `head`, `base` `main`, `draft` true until the QA gates in `docs/QA_vN.md` are closed, `body` the text of `docs/PR_vN.md`.
 3. Leave the pull request unmerged. Merge, the `v*` tag, the GitHub Release, and the Hub push are a separate ask. PiHerder does not file a GitHub Issue for a version.
 

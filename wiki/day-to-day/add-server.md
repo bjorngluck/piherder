@@ -49,7 +49,7 @@ Empty filter: “No hosts match” + **Show all**.
 2. **Trust** — generate a keypair (recommended), upload a key, or password-only (discouraged); optional **one-time password** only to bootstrap key deploy. Private material is encrypted at rest and never re-shown.  
 3. **Connect** — ordered path: **install public key** (copy / install script / Deploy) → **Test connection** → **Clear stored password** when key-only works.  
 4. **Privilege** — optional least-priv user on Pi OS / Ubuntu; **skip automated least-priv on HAOS** (wizard copy explains).  
-5. **Features** — enable Backups / OS updates / Docker only as needed. OS updates = apt/dnf on Linux, or HA Core/OS/Supervisor via `ha` CLI on HAOS; leave Docker off on pure HAOS.  
+5. **Features** — Backups starts on and does not save a schedule, so the host inherits the fleet time until you save one. OS updates and Docker stay off until you enable them. OS updates = apt/dnf on Linux, or HA Core/OS/Supervisor via `ha` CLI on HAOS; leave Docker off on pure HAOS.  
 6. **Schedules** — prefer **check-only** schedules first (counts without apply); deep edit stays on the server page.  
 7. **Network** — optional FQDN / Pi-hole A later; safe to skip.  
 8. **Done** — summary + next steps (HAOS-aware when the host was detected as HAOS).
@@ -116,7 +116,7 @@ SSH access shows **two labeled public keys** when privileged exists: **Fleet pub
 
 - Creates e.g. `piherder` with key-only login  
 - Optional `docker` group  
-- Sudoers for rsync/test and optional apt/reboot (`visudo -cf` before install)  
+- Sudoers for rsync/test, `/var/lib/piherder/rclone` for a host that sends files straight out, and optional apt/reboot (`visudo -cf` before install). A host set up before that rclone path existed needs the script copied again from **SSH access** and applied again  
 - **Run on host** re-points `ssh_username` after verify  
 - **HAOS / specialised:** instructions only — not automated  
 

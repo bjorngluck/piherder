@@ -10,7 +10,7 @@ It is **not** a replacement for:
 
 | Not this | That is… |
 |----------|----------|
-| Per-server **rsync** of docker/media trees | [Server backups](../day-to-day/backups.md) on the `/backups` volume |
+| Per-server **rsync** of docker/media trees, or a host that sends those files straight to Drive, OneDrive, or the NAS | [Server backups](../day-to-day/backups.md). A direct host does not fill `/backups` |
 | Copy of that backup drive to Google Drive | Same Settings tab, the card **Copy the backup drive**, on the v1.8 train only. It copies checked folders from `/backups` after the host rsync. It is not this archive. [Backups](../day-to-day/backups.md#copy-to-google-drive-v18-train) |
 | A VM/disk image of the herder host | You still install compose + image on the new machine |
 

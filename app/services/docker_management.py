@@ -17,6 +17,7 @@ docker_versions.py for maintainability. All names are re-exported below so
 existing imports of docker_management continue to work unchanged.
 """
 import json
+import re
 import shlex
 import traceback
 import sys
@@ -339,6 +340,68 @@ def write_compose_file(server: Server, project_path: str, content: str) -> tuple
             pass
 
 
+_NAME_IN_USE = re.compile(
+    r'container name "/([^"]+)" is already in use by container "([0-9a-fA-F]+)"',
+    re.IGNORECASE,
+)
+
+
+def _same_compose_project(project_path: str, project: str, workdir: str) -> bool:
+    path = (project_path or "").rstrip("/")
+    held = (workdir or "").rstrip("/")
+    if path and held and path == held:
+        return True
+    base = path.rsplit("/", 1)[-1] if path else ""
+    return bool(base) and base == (project or "").strip() and not held
+
+
+def _clear_stopped_name_conflict(client, project_path: str, output: str) -> str:
+    """Remove a stopped container from this project that blocks ``up``.
+
+    A running holder, or a holder from another project, is left in place.
+    The return value is a log line. Empty means there was no name conflict.
+    """
+    match = _NAME_IN_USE.search(output or "")
+    if not match:
+        return ""
+    name, holder = match.group(1), match.group(2)
+    fmt = (
+        '{{index .Config.Labels "com.docker.compose.project"}}|'
+        "{{.State.Status}}|"
+        '{{index .Config.Labels "com.docker.compose.project.working_dir"}}'
+    )
+    rc, out, err = run_command(
+        client,
+        "docker inspect --format "
+        + shlex.quote(fmt)
+        + " "
+        + shlex.quote(holder),
+        timeout=30,
+    )
+    if rc != 0:
+        return f"name conflict /{name} held by {holder[:12]}; inspect failed"
+    parts = (out or "").strip().split("|")
+    project = parts[0].strip() if parts else ""
+    status = parts[1].strip().lower() if len(parts) > 1 else ""
+    workdir = parts[2].strip() if len(parts) > 2 else ""
+    owner = project or workdir or holder[:12]
+    if not _same_compose_project(project_path, project, workdir):
+        return (
+            f"name conflict /{name} is used by project {owner} "
+            f"({status or 'unknown'}). It was left in place."
+        )
+    if status in ("running", "restarting", "paused"):
+        return (
+            f"name conflict /{name} is {status} in this project. It was left in place."
+        )
+    rm_rc, _rm_out, rm_err = run_command(
+        client, "docker rm " + shlex.quote(holder), timeout=60
+    )
+    if rm_rc != 0:
+        return f"name conflict /{name} could not be removed: {(rm_err or '').strip()[:200]}"
+    return f"removed stopped container /{name} ({holder[:12]}) and retried up"
+
+
 def redeploy_project(
     server: Server,
     project_path: str,
@@ -399,14 +462,19 @@ def redeploy_project(
         # Recreate services as needed after image tags moved.
         # --remove-orphans keeps project tidy; not --force-recreate (avoids
         # bouncing services whose images did not change).
-        up_status, uout, uerr = run_command(
-            client,
-            f"cd {qpath} && docker compose {f_flags}up -d --remove-orphans 2>&1",
-            timeout=300,
-        )
+        up_cmd = f"cd {qpath} && docker compose {f_flags}up -d --remove-orphans 2>&1"
+        up_status, uout, uerr = run_command(client, up_cmd, timeout=300)
         up_out = ((uout or "") + (uerr or "")).strip()
+        conflict_note = ""
+        if up_status != 0:
+            conflict_note = _clear_stopped_name_conflict(client, path, up_out)
+            if conflict_note.startswith("removed stopped container"):
+                up_status, uout, uerr = run_command(client, up_cmd, timeout=300)
+                up_out = ((uout or "") + (uerr or "")).strip()
 
         chunks = []
+        if conflict_note:
+            chunks.append(conflict_note)
         if pull:
             chunks.append(f"=== docker compose pull (rc={pull_status}) ===\n{pull_out}")
         chunks.append(f"=== docker compose up -d (rc={up_status}) ===\n{up_out}")
