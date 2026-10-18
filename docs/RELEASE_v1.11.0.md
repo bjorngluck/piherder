@@ -137,6 +137,7 @@ The public demo is not this train.
 - A hint when a new MAC appears for a hostname that already has a stale row at that IP. Device identity stays the MAC. Issue [#50](https://github.com/bjorngluck/piherder/issues/50). [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
 - A Docker prune job from the host page, the token API, and MCP. Issue [#48](https://github.com/bjorngluck/piherder/issues/48). [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
 - An image update check that says up to date after a pull, while the container still runs the old image. Issue [#47](https://github.com/bjorngluck/piherder/issues/47). [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
+- A critical alert when a Google Drive, OneDrive, or LAN share credential expires or is rejected. This release opens one alert, and its severity follows the backup category. [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
 
 ## Open issues
 

@@ -22,6 +22,7 @@
 | Note | **OS end of life.** Issue [#49](https://github.com/bjorngluck/piherder/issues/49). A warning next to the OS line when the detected release is outside a small supported list. No auto-upgrade |
 | Note | **NIC change.** Issue [#50](https://github.com/bjorngluck/piherder/issues/50). A hint when a new MAC appears for a hostname that already has a stale row at that IP. Device identity stays the MAC |
 | Note | **Docker prune.** Issue [#48](https://github.com/bjorngluck/piherder/issues/48). A prune job from the host Docker page, the token API, and MCP. Volumes stay behind an explicit confirm. Not built |
+| Note | **Backup credential failure.** Google Drive, OneDrive, and a LAN share (SMB or NAS) each open one critical alert when the saved credential expires or the destination rejects it. The alert stays critical even when the backup category is set lower. A later successful copy resolves it. v1.11 opens one alert for a rejected sign-in, and that severity follows the backup category. Not built |
 | Version bump | Package is `1.11.0` on `v1.11.0-dev`. Hub image stays `1.10.0`. v1.12 stays unopened |
 | Demo | Do not point the public demo at a branch that does not exist |
 
@@ -36,6 +37,7 @@
 | 2026-10-10 | **EOL badge and NIC change.** Issues [#49](https://github.com/bjorngluck/piherder/issues/49) and [#50](https://github.com/bjorngluck/piherder/issues/50). Re-filed without environment details. Not built. |
 | 2026-10-11 | **Docker prune.** Issue [#48](https://github.com/bjorngluck/piherder/issues/48). Not built. |
 | 2026-10-11 | **Candidates.** Listed below. Not tiered. Nothing is built. |
+| 2026-10-11 | **Backup credential failure.** An expired or rejected credential for Google Drive, OneDrive, or a LAN share (SMB or NAS) must open one critical alert. The backup category cannot lower it. Not built. |
 
 ---
 

@@ -7,6 +7,7 @@
 
 - **Audit API and MCP reads.** Off unless an operator flag is on. A read from a token or from hosted `/mcp` can write an audit row. Writes stay audited either way.
 - **Host facts clutter.** The 15-minute `host_facts` job and its audit row stay out of the default Jobs list and the default Audit list. A failed snapshot stays visible.
+- **Backup credential failure.** An expired or rejected Google Drive, OneDrive, or LAN share (SMB or NAS) credential opens one critical alert. The backup category cannot lower it. A later successful copy resolves it. Not built.
 
 ## Moved from v1.11
 
