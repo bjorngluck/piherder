@@ -8,7 +8,7 @@ Maintainer plans and release notes. Operator wiki is `wiki/` (MkDocs).
 |------|--------|
 | Current release | [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md) · [QA_v1.10.0.md](QA_v1.10.0.md). Tag **v1.10.0**. Image `1.10.0` / `1.10` / `latest`. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)**. Plugin **0.5.0** |
 | Active train | [PLAN_v1.11.0.md](PLAN_v1.11.0.md) · [QA_v1.11.0.md](QA_v1.11.0.md) · [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) on `v1.11.0-dev`. Notes, 11 October 2026, include a bug-fix table. About reports **1.11.0**. Hub tags stay **1.10.0** |
-| Next notes | [PLAN_v1.12.0.md](PLAN_v1.12.0.md) · [QA_v1.12.0.md](QA_v1.12.0.md). Branch not cut. NPM CRUD, remote restore, optional read audit, and `host_facts` clutter |
+| Next notes | [PLAN_v1.12.0.md](PLAN_v1.12.0.md) · [QA_v1.12.0.md](QA_v1.12.0.md). Branch not cut. NPM CRUD, remote restore, optional read audit, `host_facts` clutter, and a critical alert when a Drive, OneDrive, or LAN share credential expires or is rejected |
 | Prior release | [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [QA_v1.9.0.md](QA_v1.9.0.md). Tag **v1.9.0**. Pin `1.9.0` / `1.9` stays the previous image |
 | Prior release | [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) |
 | Prior production | [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md) |
