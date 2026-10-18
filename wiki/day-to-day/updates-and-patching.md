@@ -49,7 +49,7 @@ Configured under **Edit → Schedules**.
 |----------|------|----------------|
 | **OS packages (apt)** | Count ready packages, phased count, reboot-pending | Run upgrade |
 | **HA updates** (`os_type=haos`) | Count Core / OS / Supervisor with `update_available` | Run `ha … update` |
-| **Container images** | Pull/compare image IDs per compose project | `compose up -d` |
+| **Container images** | Pull/compare image IDs per compose project. A saved schedule keeps running while fleet container checks are on. Turning those checks off and applying clears each host schedule | `compose up -d` |
 
 Results feed the dashboard, badges, and notifications.
 
@@ -92,7 +92,7 @@ A second trigger (double-click, concurrent bulk, scheduler overlap) **does not**
 
 | UI action | Meaning |
 |-----------|---------|
-| **Check updates** | Pull / compare only |
+| **Check updates** | Pull, then compare each running container with that image. The update flag stays until the running container is the new image. A pull by itself does not clear it |
 | **Deploy** | Pull + `up -d` — surfaces pull/up results (not silent success) |
 
 Successful Deploy clears pending stack badges and resolves `container_updates` when none remain.

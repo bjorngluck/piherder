@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import platform
 import secrets
 import shlex
 import shutil
@@ -40,6 +41,82 @@ logger = logging.getLogger(__name__)
 # Fixed path so least-privilege sudoers can allow it. Root-owned, copied
 # for the run, and removed at the end. Not a standing install.
 SUDO_RCLONE = "/var/lib/piherder/rclone"
+
+# The image build writes both. Direct copy sends the one that matches the host.
+BUNDLED_RCLONE_DIR = "/usr/lib/piherder"
+SUPPORTED_DIRECT_CPUS = ("amd64", "arm64")
+
+_CPU_FAMILY = {
+    "amd64": "amd64",
+    "x86_64": "amd64",
+    "aarch64": "arm64",
+    "arm64": "arm64",
+    "armv7l": "armv7",
+    "armv6l": "armv6",
+    "armhf": "armv7",
+    "armv7": "armv7",
+    "arm": "arm",
+    "i386": "386",
+    "i686": "386",
+    "x86": "386",
+    "ppc64le": "ppc64le",
+    "s390x": "s390x",
+    "riscv64": "riscv64",
+}
+
+
+class DirectCopyArchError(Exception):
+    """The host CPU is known and this image has no rclone for it."""
+
+
+def cpu_family(raw: str | None) -> str | None:
+    """amd64, arm64, another known CPU, or None when blank or unrecognized."""
+    text = (raw or "").strip().lower().split()[:1]
+    token = text[0] if text else ""
+    if not token:
+        return None
+    if token in _CPU_FAMILY:
+        return _CPU_FAMILY[token]
+    if token.startswith("arm"):
+        return token[:32]
+    return None
+
+
+def direct_copy_arch_block(host_arch: str | None) -> str | None:
+    """Why the straight-out tick stays off, or None when the copy may be tried."""
+    family = cpu_family(host_arch)
+    if family is None or family in SUPPORTED_DIRECT_CPUS:
+        return None
+    shown = ((host_arch or family).strip().split() or [family])[0][:32]
+    return (
+        f"Straight-out copy has no rclone for {shown}. "
+        "Keep /backups for this host."
+    )
+
+
+def bundled_rclone_path(family: str) -> str:
+    return os.path.join(BUNDLED_RCLONE_DIR, f"rclone-{family}")
+
+
+def rclone_bin_for_host(host_arch: str | None) -> str:
+    """Binary to copy onto the host.
+
+    amd64 and arm64 use the matching file in the image. A blank or
+    unrecognized architecture uses this image's own rclone.
+    """
+    family = cpu_family(host_arch)
+    if family is None:
+        return herder_rclone_bin()
+    blocked = direct_copy_arch_block(host_arch)
+    if blocked:
+        raise DirectCopyArchError(blocked)
+    bundled = bundled_rclone_path(family)
+    if os.path.isfile(bundled):
+        return bundled
+    if cpu_family(platform.machine()) == family:
+        return herder_rclone_bin()
+    raise FileNotFoundError(f"This image has no rclone for {family}.")
+
 
 NO_DEST_MSG = (
     "Select a destination for this host. Add Google Drive, OneDrive, "
@@ -639,14 +716,14 @@ def _push_unlocked(
     refresh = ""
     obscured = ""
     try:
-        herder_bin = herder_rclone_bin()
-    except FileNotFoundError as exc:
+        local_bin = rclone_bin_for_host(getattr(server, "arch", None))
+    except (FileNotFoundError, DirectCopyArchError) as exc:
         return _stamp_rows(destination, [{"source": folder, "rel": folder, "error": str(exc)}])
     try:
         client = get_ssh_client(server)
         sftp = client.open_sftp()
         try:
-            sftp.put(herder_bin, user_bin)
+            sftp.put(local_bin, user_bin)
             sftp.chmod(user_bin, 0o700)
         finally:
             sftp.close()
@@ -655,8 +732,8 @@ def _push_unlocked(
             blob = f"{err or ''} {out or ''}".lower()
             if "exec format" in blob or "cannot execute" in blob:
                 message = (
-                    f"This herder's rclone cannot run on {hostname}. "
-                    "The host and the herder need the same CPU architecture."
+                    f"The rclone sent to {hostname} cannot run on that CPU. "
+                    "Keep /backups for this host."
                 )
             else:
                 message = "rclone copied to the host did not start"

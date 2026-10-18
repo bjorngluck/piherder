@@ -22,7 +22,7 @@ One snapshot, three consumers: this modal, `/api/v1/servers` + `/api/v1/summary`
 | Field | Source |
 |-------|--------|
 | Hardware | Pi device-tree, DMI, or HAOS chassis/machine — not the `os_type` dropdown |
-| OS | `PRETTY_NAME` (Ubuntu 24.04, Home Assistant OS, …) |
+| OS | `PRETTY_NAME` (Ubuntu 24.04, Home Assistant OS, …). A Debian or Ubuntu release outside the small supported list shows **Unsupported** next to that line. The list is Ubuntu 22.04, 24.04, and 26.04 LTS, and Debian or Raspbian 12 and 13. HAOS is not in this check. The warning does not start an upgrade |
 | Kernel / reboot pending | Snapshot |
 | CPU | `nproc` + `/proc/loadavg` |
 | Memory | `/proc/meminfo` (MemTotal / MemAvailable) |

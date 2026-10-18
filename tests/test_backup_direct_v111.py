@@ -17,11 +17,15 @@ from app.services import backup as backup_mod
 from app.services import backup_replicate as copies
 from app.services.backup_direct import (
     NO_DEST_MSG,
+    _push_unlocked,
+    cpu_family,
+    direct_copy_arch_block,
     followup_destinations,
     merge_directory,
     parse_direct_targets,
     partition_checked,
     planned_syncs,
+    rclone_bin_for_host,
     rels_for_push,
     remote_sync_command,
     rewrite_service_account,
@@ -816,3 +820,216 @@ def test_opt_in_stays_unavailable_until_a_destination_is_saved(client):
     with Session(engine) as session:
         row = session.get(Server, server_id)
         assert row.backup_direct is False
+
+
+def test_cpu_family_maps_the_two_image_arches():
+    assert cpu_family("aarch64") == "arm64"
+    assert cpu_family("x86_64") == "amd64"
+    assert cpu_family("arm64") == "arm64"
+    assert cpu_family("") is None
+    assert cpu_family(None) is None
+    assert cpu_family("not-a-cpu") is None
+    assert direct_copy_arch_block("aarch64") is None
+    assert direct_copy_arch_block(None) is None
+    assert direct_copy_arch_block("not-a-cpu") is None
+    blocked = direct_copy_arch_block("armv7l")
+    assert blocked is not None
+    assert "armv7l" in blocked
+    assert "/backups" in blocked
+    assert direct_copy_arch_block("i686") is not None
+
+
+def test_rclone_bin_follows_the_host_cpu(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.backup_direct.BUNDLED_RCLONE_DIR", str(tmp_path))
+    arm = tmp_path / "rclone-arm64"
+    amd = tmp_path / "rclone-amd64"
+    arm.write_bytes(b"arm")
+    amd.write_bytes(b"amd")
+    native = tmp_path / "native"
+    native.write_bytes(b"native")
+    monkeypatch.setattr(
+        "app.services.backup_direct.herder_rclone_bin", lambda: str(native)
+    )
+    assert rclone_bin_for_host("aarch64") == str(arm)
+    assert rclone_bin_for_host("x86_64") == str(amd)
+    assert rclone_bin_for_host(None) == str(native)
+    assert rclone_bin_for_host("not-a-cpu") == str(native)
+    try:
+        rclone_bin_for_host("armv7l")
+    except Exception as exc:
+        assert "armv7l" in str(exc)
+    else:
+        raise AssertionError("armv7l should refuse")
+    amd.unlink()
+    monkeypatch.setattr("app.services.backup_direct.platform.machine", lambda: "aarch64")
+    try:
+        rclone_bin_for_host("amd64")
+    except FileNotFoundError as exc:
+        assert "amd64" in str(exc)
+    else:
+        raise AssertionError("missing amd64 binary")
+
+
+def _direct_dest() -> BackupDestination:
+    return BackupDestination(
+        provider="drive",
+        config_json='{"remote_dir":"Backup_PiHerder"}',
+    )
+
+
+def test_direct_copy_sends_the_matching_binary(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.backup_direct.BUNDLED_RCLONE_DIR", str(tmp_path))
+    arm = tmp_path / "rclone-arm64"
+    arm.write_bytes(b"arm")
+    put: dict[str, str] = {}
+
+    class SFTP:
+        def put(self, src, _dst):
+            put["src"] = src
+
+        def chmod(self, *_args):
+            return None
+
+        def close(self):
+            return None
+
+    class Client:
+        def open_sftp(self):
+            return SFTP()
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr("app.services.backup_direct.get_ssh_client", lambda _server: Client())
+    monkeypatch.setattr(
+        "app.services.backup_direct.run_command",
+        lambda *_args, **_kwargs: (1, "", "exec format error"),
+    )
+    rows = _push_unlocked(
+        _host(arch="aarch64", ssh_username="pi"),
+        _direct_dest(),
+        ["pi.local/docker"],
+        [],
+        sources=None,
+        lock_token=None,
+    )
+    assert put["src"] == str(arm)
+    assert "cannot run on that CPU" in rows[0]["error"]
+    assert "/backups" in rows[0]["error"]
+
+
+def test_unsupported_cpu_does_not_open_ssh(monkeypatch):
+    def boom(*_args, **_kwargs):
+        raise AssertionError("ssh")
+
+    monkeypatch.setattr("app.services.backup_direct.get_ssh_client", boom)
+    rows = _push_unlocked(
+        _host(arch="armv7l"),
+        _direct_dest(),
+        ["pi.local/docker"],
+        [],
+        sources=None,
+        lock_token=None,
+    )
+    assert "armv7l" in rows[0]["error"]
+    assert "/backups" in rows[0]["error"]
+
+
+def test_straight_out_tick_follows_the_host_cpu(client):
+    test_client, engine = client
+    with Session(engine) as session:
+        user = User(
+            email="arch@test.local",
+            hashed_password=get_password_hash("SmokeTest1ok!"),
+            role="admin",
+            is_active=True,
+            must_change_password=False,
+            totp_enabled=True,
+        )
+        arm = Server(
+            name="Arm",
+            hostname="host-a.local",
+            arch="aarch64",
+            backup_enabled=True,
+            backup_direct=False,
+        )
+        other = Server(
+            name="Other",
+            hostname="host-b.local",
+            arch="armv7l",
+            backup_enabled=True,
+            backup_direct=True,
+            backup_schedule="0 2 * * *",
+        )
+        unknown = Server(
+            name="Unknown",
+            hostname="host-c.local",
+            arch="not-a-cpu",
+            backup_enabled=True,
+            backup_direct=False,
+        )
+        session.add(user)
+        session.add(arm)
+        session.add(other)
+        session.add(unknown)
+        session.add(
+            BackupDestination(
+                provider="drive",
+                enabled=True,
+                credentials_encrypted="tok",
+                name="Google Drive",
+            )
+        )
+        session.commit()
+        session.refresh(user)
+        session.refresh(arm)
+        session.refresh(other)
+        session.refresh(unknown)
+        arm_id, other_id, unknown_id = arm.id, other.id, unknown.id
+    test_client.cookies.set("access_token", create_user_access_token(user))
+    arm_page = test_client.get(f"/servers/{arm_id}/backups")
+    assert arm_page.status_code == 200
+    assert "disabled" not in _input_tag(arm_page.text, "backup-direct")
+    assert 'data-testid="backup-direct-arch"' not in arm_page.text
+    unknown_page = test_client.get(f"/servers/{unknown_id}/backups")
+    assert "disabled" not in _input_tag(unknown_page.text, "backup-direct")
+    other_page = test_client.get(f"/servers/{other_id}/backups")
+    assert other_page.status_code == 200
+    tag = _input_tag(other_page.text, "backup-direct")
+    assert "disabled" in tag
+    assert "checked" not in tag
+    assert "armv7l" in other_page.text
+    assert 'data-testid="backup-direct-arch"' in other_page.text
+    refused = test_client.post(
+        f"/servers/{other_id}/backup-config",
+        data={
+            "backup_paths": "/tmp/should-not-save",
+            "backup_schedule": "15 3 * * *",
+            "scope": "this_host",
+            "backup_direct_set": "1",
+            "backup_direct": "1",
+            "backup_direct_target": "drive",
+        },
+        follow_redirects=False,
+    )
+    assert refused.status_code == 400
+    assert "armv7l" in refused.text
+    with Session(engine) as session:
+        row = session.get(Server, other_id)
+        assert row.backup_direct is True
+        assert row.backup_schedule == "0 2 * * *"
+        assert "/tmp/should-not-save" not in (row.backup_paths or "")
+    cleared = test_client.post(
+        f"/servers/{other_id}/backup-config",
+        data={
+            "backup_schedule": "15 3 * * *",
+            "scope": "this_host",
+            "backup_direct_set": "1",
+        },
+        follow_redirects=False,
+    )
+    assert cleared.status_code == 303
+    with Session(engine) as session:
+        row = session.get(Server, other_id)
+        assert row.backup_direct is False
+        assert row.backup_schedule == "15 3 * * *"

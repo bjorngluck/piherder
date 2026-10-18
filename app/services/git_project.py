@@ -142,13 +142,25 @@ def _run(server: Server, script: str, timeout: int = 180) -> str:
 def _enter(path: str) -> str:
     """cd into the project and read that one checkout.
 
-    The ownership override is this folder only. Repo hooks, fsmonitor, and
-    a repo sshCommand are not used.
+    A folder or checkout the SSH user does not own is refused before git
+    runs. Git is not told to trust another owner's directory. Repo hooks,
+    fsmonitor, and a repo sshCommand are not used.
     """
     quoted = shlex.quote(path)
     return f"""
 cd {quoted} || {{ echo result=missing; exit 0; }}
-git() {{ command git -c safe.directory={quoted} -c core.fsmonitor= -c core.hooksPath=/dev/null -c core.sshCommand=ssh "$@"; }}
+me=$(id -u)
+owned() {{
+  target=$1
+  [ -e "$target" ] || return 0
+  owner=$(stat -c %u "$target" 2>/dev/null || true)
+  [ -n "$owner" ] && [ "$owner" = "$me" ]
+}}
+if ! owned . || ! owned .git; then
+  echo result=unowned
+  exit 0
+fi
+git() {{ command git -c core.fsmonitor= -c core.hooksPath=/dev/null -c core.sshCommand=ssh "$@"; }}
 """
 
 

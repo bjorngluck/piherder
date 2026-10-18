@@ -130,6 +130,7 @@ async def server_backups(
 
     from ..services.backup_direct import (
         configured_destination_choices,
+        direct_copy_arch_block,
         direct_where_label,
         parse_direct_targets,
     )
@@ -164,6 +165,7 @@ async def server_backups(
             "restore_candidates": restore_candidates,
             "restore_result": None,
             "direct_choices": direct_choices,
+            "direct_arch_block": direct_copy_arch_block(getattr(server, "arch", None)),
             "direct_picked": direct_picked,
             "direct_where": direct_where_label(
                 getattr(server, "backup_direct_targets", None),
@@ -367,9 +369,13 @@ async def update_backup_config(
         from ..services.backup_direct import (
             SELECT_DEST_MSG,
             configured_destinations,
+            direct_copy_arch_block,
             selected_direct_providers,
         )
 
+        blocked = direct_copy_arch_block(getattr(server, "arch", None))
+        if blocked:
+            raise HTTPException(400, blocked)
         form = await request.form()
         saved = {row.provider for row in configured_destinations(session)}
         chosen = [

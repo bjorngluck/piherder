@@ -380,13 +380,17 @@
       <div class="ph-config-section">
         <div class="ph-config-section-title">Where the files go</div>
         <input type="hidden" name="backup_direct_set" value="1">
-        <label class="flex gap-2 text-sm items-start min-h-11{% if not direct_choices %} opacity-50{% endif %}">
+        <label class="flex gap-2 text-sm items-start min-h-11{% if not direct_choices or direct_arch_block %} opacity-50{% endif %}">
           <input type="checkbox" name="backup_direct" value="1" class="mt-1"
                  data-testid="backup-direct"
-                 {% if not direct_choices %}disabled title="Add a destination under Settings → PiHerder backup first"{% endif %}
-                 {% if server.backup_direct and direct_choices %}checked{% endif %}>
+                 {% if direct_arch_block %}disabled title="{{ direct_arch_block }}"
+                 {% elif not direct_choices %}disabled title="Add a destination under Settings → PiHerder backup first"{% endif %}
+                 {% if server.backup_direct and direct_choices and not direct_arch_block %}checked{% endif %}>
           <span>Send this host’s files straight to a saved copy. Nothing is stored under the backup drive first. Other hosts still copy onto this PiHerder.</span>
         </label>
+        {% if direct_arch_block %}
+        <p class="text-xs text-warning mt-1 mb-3" data-testid="backup-direct-arch">{{ direct_arch_block }}</p>
+        {% endif %}
         {% if direct_choices %}
         <div id="backup-direct-targets" class="mt-2 mb-3{% if not server.backup_direct %} hidden{% endif %}" data-testid="backup-direct-targets">
           <p class="text-xs text-muted mb-1">Backup now and the schedule send to</p>
@@ -402,7 +406,7 @@
         {% else %}
         <p class="text-xs text-muted mt-1 mb-3" data-testid="backup-direct-none">No destination is saved yet. Add Google Drive, OneDrive, or a LAN share under Settings → PiHerder backup.</p>
         {% endif %}
-        <p class="text-xs text-muted mt-1 mb-3">Copy now on one destination still starts that push only. rclone is copied to the host for the run and removed when it ends. The sign-in stays here. Files are read in place and sent straight on. The least-privilege script must allow <span class="font-mono">/var/lib/piherder/rclone</span>. Restore from the remote copy is not available.</p>
+        <p class="text-xs text-muted mt-1 mb-3">Copy now on one destination still starts that push only. rclone is copied to the host for the run and removed when it ends. The image carries rclone for amd64 and arm64, and the copy sends the one that matches this host. The sign-in stays here. Files are read in place and sent straight on. The least-privilege script must allow <span class="font-mono">/var/lib/piherder/rclone</span>. Restore from the remote copy is not available.</p>
         <div class="ph-config-section-title">Destination</div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>

@@ -68,7 +68,7 @@ See [Docker overview — Compose sets](overview.md#compose-sets-same-folder-one-
 
 | Button | Effect |
 |--------|--------|
-| **Check updates** | Pull / image compare — no `up -d`. Runs as a **Job** (`docker_stack_check`) with live log. |
+| **Check updates** | Pull, then compare each running container with that image. The update flag stays until the running container is the new image. No `up -d`. Runs as a **Job** (`docker_stack_check`) with live log. |
 | **Deploy** | Pull + `up -d` (default Compose files in the project dir). Job `docker_stack_deploy` with live log. |
 | **Deploy \<set\> set** | Pull + `up -d` with `-f docker-compose.<set>.yml` only — still same project path/name. |
 | **Stop / Start / Restart all** | `docker compose stop\|start\|restart` for the whole project. Jobs `docker_stack_stop` / `_start` / `_restart` with confirm + live log. |

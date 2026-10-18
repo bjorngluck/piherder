@@ -699,6 +699,65 @@ def get_logs(server: Server, container_or_service: str, lines: int = 100, follow
     return (out + err).strip()
 
 
+def _image_ref_key(ref: str) -> str:
+    """Compare compose refs and container image names without registry prefix."""
+    text = (ref or "").strip().split("@")[0]
+    for prefix in ("docker.io/library/", "docker.io/"):
+        if text.startswith(prefix):
+            text = text[len(prefix):]
+            break
+    return text
+
+
+def running_image_inspect_command(project_path: str) -> str:
+    """One line per running container: image ref, then the image id it was created from."""
+    qdir = shlex.quote(project_path)
+    fmt = "'{{.Config.Image}}|{{.Image}}'"
+    return (
+        f"cd {qdir} && ids=$(docker compose ps -q) && "
+        f"[ -n \"$ids\" ] && docker inspect $ids --format {fmt} "
+        "2>/dev/null || true"
+    )
+
+
+def parse_running_image_ids(raw: str) -> dict[str, set[str]]:
+    """Map a normalized image ref to the ids of running containers using it."""
+    found: dict[str, set[str]] = {}
+    for line in (raw or "").splitlines():
+        if "|" not in line:
+            continue
+        ref, image_id = line.split("|", 1)
+        key = _image_ref_key(ref)
+        image_id = (image_id or "").strip()
+        if key and image_id:
+            found.setdefault(key, set()).add(image_id)
+    return found
+
+
+def pending_registry_images(
+    images: list[str],
+    before_ids: dict[str, str],
+    after_ids: dict[str, str],
+    running_raw: str,
+) -> list[str]:
+    """Images that a pull just changed, or that a running container has not picked up.
+
+    A later check must not clear the flag only because the new image is already
+    on disk. The flag stays until a running container in the project uses that id.
+    """
+    running = parse_running_image_ids(running_raw)
+    pending: list[str] = []
+    for img in images:
+        before = (before_ids.get(img) or "").strip()
+        after = (after_ids.get(img) or "").strip()
+        changed = bool(after) and before != after
+        seen = running.get(_image_ref_key(img)) or set()
+        behind = bool(after) and bool(seen) and any(item.strip() != after for item in seen)
+        if changed or behind:
+            pending.append(img)
+    return pending
+
+
 def _image_id_remote(client, image: str) -> str:
     img = (image or "").strip()
     if not img:
@@ -776,9 +835,10 @@ def classify_compose_images(client, project_path: str) -> dict:
 
 def check_compose_updates(server: Server, project_path: str) -> Dict:
     """
-    Check for newer *registry* images (docker compose pull + ID compare).
+    Check for newer registry images, then compare them with running containers.
 
-    Services with ``build:`` are ignored for update badges — rebuild is manual.
+    Services with ``build:`` are ignored for update badges. Rebuild is manual.
+    The flag stays until a running container uses the pulled image.
     """
     client = get_ssh_client(server)
     try:
@@ -802,10 +862,14 @@ def check_compose_updates(server: Server, project_path: str) -> Dict:
             timeout=180,
         )
         after_ids = {img: _image_id_remote(client, img) for img in images}
-        updated_images = [
-            img for img in images
-            if before_ids.get(img) != after_ids.get(img)
-        ]
+        _, running_raw, _ = run_command(
+            client,
+            running_image_inspect_command(project_path),
+            timeout=30,
+        )
+        updated_images = pending_registry_images(
+            images, before_ids, after_ids, running_raw or ""
+        )
         has_updates = bool(updated_images)
 
         return {

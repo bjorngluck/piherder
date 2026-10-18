@@ -589,6 +589,8 @@ async def docker_repository_attach(
         raise HTTPException(404)
     try:
         attached = attach_remote(server, project, git_url)
+        if attached.get("result") == "unowned":
+            return _git_page(request, server, user, project, attached)
         session.add(
             make_audit_log(
                 action="git_project_attach",

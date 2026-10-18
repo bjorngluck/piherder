@@ -1,6 +1,6 @@
 # PiHerder v1.12.0: quieter lists, then honest backup and image signals
 
-**Status:** **Open** 2026-10-18. Quiet lists, the backup credential alert, the self-backup last-success line, and the admin alert are in. The rest of Must is not started.  
+**Status:** **Open** 2026-10-18. Quiet lists, the backup credential alert, the self-backup last-success line, the admin alert, the image update flag, the OS end-of-life warning, the update-check gap, and git checkout ownership are in. Direct copy on a different CPU is in. The rest of Should is not started.  
 **Date opened:** 2026-10-18  
 **Git branch:** `v1.12.0-dev` → `main` · tag `v1.12.0` after merge, only when asked  
 **Package / image version:** package stays **`1.11.0`** until freeze. About / footer say **1.11.0**. Release image tags stay `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image.  
@@ -26,15 +26,15 @@ v1.11.0 shipped a passkey that counts as 2FA, a host that can copy straight to D
 
 | Tier | Lock |
 |------|------|
-| Must | **Audit API and MCP reads.** An optional flag. Off unless the operator turns it on. When it is on, a `read` call from an API token or from hosted `/mcp` writes an audit row. The row stores the token id and name only, never the token value or prefix. Turning the flag on or off writes its own audit row. Read rows stay out of the default Audit list and have their own retention. Writes stay audited either way |
-| Must | **Host facts clutter.** The 15-minute `host_facts` snapshot writes a Jobs row and an Audit row for every host. The default Jobs list and the default Audit list leave that routine snapshot out. A failed snapshot stays visible |
+| Must | **In. Audit API and MCP reads.** An optional flag. Off unless the operator turns it on. When it is on, a `read` call from an API token or from hosted `/mcp` writes an audit row. The row stores the token id and name only, never the token value or prefix. Turning the flag on or off writes its own audit row. Read rows stay out of the default Audit list and have their own retention. Writes stay audited either way |
+| Must | **In. Host facts clutter.** The 15-minute `host_facts` snapshot writes a Jobs row and an Audit row for every host. The default Jobs list and the default Audit list leave that routine snapshot out. A failed snapshot stays visible |
 | Discover | **Read-only admin API.** A read-only admin API for users, tokens, and the audit log. Needs a design and a Security review before it is built |
 
 ### Backup
 
 | Tier | Lock |
 |------|------|
-| Should | **Direct copy on a different CPU.** Grey out the straight-out tick when host facts say the host architecture is not the herder's. v1.11 already names the mismatch and keeps `/backups` for that host |
+| Should | **In. Direct copy on a different CPU.** The image carries rclone for amd64 and arm64. Direct copy sends the one that matches the host. The straight-out tick is greyed out when host facts name another CPU. An unknown architecture stays available. `/backups` stays for a host the binary cannot run on |
 | Should | **Missed scheduled run.** Covers host backups and container update checks. Open a warning when a run does not start within N minutes of its slot. Resolve it on the next successful run. Add a Prometheus metric |
 | Should | **Copy before the backups.** Warn when a destination copy is scheduled before the host backups it ships. A copy that runs before the backups is the case to catch |
 | Discover | **Remote restore.** Restore from Drive, OneDrive, or a LAN share. Restore stays a reverse rsync from `/backups` until this is promoted |
@@ -45,9 +45,9 @@ v1.11.0 shipped a passkey that counts as 2FA, a host that can copy straight to D
 
 | Tier | Lock |
 |------|------|
-| Must | **Backup credential failure.** Google Drive, OneDrive, and a LAN share (SMB or NAS) each open one critical alert when the saved credential expires or the destination rejects it. For Drive and OneDrive the alert says reconnect, not a generic failure. The alert and the log line may carry the provider error code (for example `invalid_grant`) and never the token, the rclone config, or the raw response body. Docs say to publish the OAuth app to production, because a Testing-mode app loses its token after 7 days. The copy keeps the full Drive scope, `https://www.googleapis.com/auth/drive`, because `drive.file` cannot see a folder the operator created. The alert stays critical even when the backup category is set lower. A later successful copy resolves it. v1.11 opens one alert, and that severity follows the backup category |
-| Must | **Self-backup failed alert.** Include the last successful self-backup time, or "never". The time comes from the last successful job, or from the newest archive when that job row is gone |
-| Must | **Admin alert.** An admin alert when a user or API token is created, or a 2FA setting changes (force 2FA, template 2FA). The alert names the actor and the client IP. Each event is its own open warning. A 2FA alert opens only when force 2FA or template 2FA changes. The body leaves out the password and the token |
+| Must | **In. Backup credential failure.** Google Drive, OneDrive, and a LAN share (SMB or NAS) each open one critical alert when the saved credential expires or the destination rejects it. For Drive and OneDrive the alert says reconnect, not a generic failure. The alert and the log line may carry the provider error code (for example `invalid_grant`) and never the token, the rclone config, or the raw response body. Docs say to publish the OAuth app to production, because a Testing-mode app loses its token after 7 days. The copy keeps the full Drive scope, `https://www.googleapis.com/auth/drive`, because `drive.file` cannot see a folder the operator created. The alert stays critical even when the backup category is set lower. A later successful copy resolves it. v1.11 opens one alert, and that severity follows the backup category |
+| Must | **In. Self-backup failed alert.** Include the last successful self-backup time, or "never". The time comes from the last successful job, or from the newest archive when that job row is gone |
+| Must | **In. Admin alert.** An admin alert when a user or API token is created, or a 2FA setting changes (force 2FA, template 2FA). The alert names the actor and the client IP. Each event is its own open warning. A 2FA alert opens only when force 2FA or template 2FA changes. The body leaves out the password and the token |
 | Later | **Stuck queue.** One alert when any job stays pending past N minutes (default 15) with no worker heartbeat. Resolve when the queue drains |
 
 ### MCP and the adapter
@@ -64,21 +64,21 @@ The read-audit flag under Jobs and audit covers hosted `/mcp` as well as API tok
 
 | Tier | Lock |
 |------|------|
-| Must | **Image update flag.** Issue [#47](https://github.com/bjorngluck/piherder/issues/47). The image check clears the update flag after a pull while the container still runs the old image. The flag stays until the running container is that image |
+| Must | **In. Image update flag.** Issue [#47](https://github.com/bjorngluck/piherder/issues/47). A check still flags an image when the pull changes its id. It also keeps the flag when a running container is still on the previous id. The flag clears once every running container for that image uses the id on disk. The issue stays open |
 | Should | **Docker prune.** Issue [#48](https://github.com/bjorngluck/piherder/issues/48). A prune job from the host Docker page, the token API, and MCP. The API and MCP need the `edit` scope. Volume prune is UI-only behind a confirm. Every prune writes an audit row |
 
 ### Scheduler
 
 | Tier | Lock |
 |------|------|
-| Must | **Update-check gap.** Still live. No scheduled container check has run since about 14 Oct. Update checks stopped for about four days. Find the cause in that scheduler path and add a test |
+| Must | **In. Update-check gap.** A saved container check cron still registers while fleet container checks are on. Apply had cleared the per-host flag and left the cron, so the scheduler removed the job. Applying with container checks off now clears that cron |
 | Should | **Scheduler visibility.** About shows each scheduled job's last fire time and next fire time |
 
 ### Hosts
 
 | Tier | Lock |
 |------|------|
-| Must | **OS end of life.** Issue [#49](https://github.com/bjorngluck/piherder/issues/49). A warning next to the OS line when the detected release is outside a small supported list. No auto-upgrade |
+| Must | **In. OS end of life.** Issue [#49](https://github.com/bjorngluck/piherder/issues/49). A warning next to the OS line when the detected release is outside a small supported list. The list is Ubuntu 22.04, 24.04, and 26.04 LTS, and Debian or Raspbian 12 and 13. No auto-upgrade |
 | Should | **OS patch error output.** OS patch jobs keep apt's error output, including when sudo drops `DEBIAN_FRONTEND` |
 | Later | **NIC change.** Issue [#50](https://github.com/bjorngluck/piherder/issues/50). A hint when a new MAC appears for a hostname that already has a stale row at that IP. Device identity stays the MAC. The issue stays open |
 
@@ -86,7 +86,7 @@ The read-audit flag under Jobs and audit covers hosted `/mcp` as well as API tok
 
 | Tier | Lock |
 |------|------|
-| Must | **Checkout ownership.** The Repository page can read a checkout the SSH user does not own. Refuse that checkout. Never set `safe.directory=*`. That closes the filter-driver and credential-helper gap |
+| Must | **In. Checkout ownership.** Repository refuses a folder or checkout the SSH user does not own, before git runs. `safe.directory` is not set. That closes the filter-driver and credential-helper gap |
 
 ### Nginx Proxy Manager
 
@@ -135,6 +135,11 @@ Nothing was voted **Out**.
 | 2026-10-18 | **Backup credential alert.** One critical alert per Drive, OneDrive, or LAN destination when the sign-in is rejected. The Backups category cannot lower it. Drive and OneDrive say reconnect. The alert and the job line may carry the provider error code and do not carry the token, the rclone config, or the raw body. A later successful copy resolves it. Docs say to publish the Google app to production, because Testing drops the token after 7 days. The copy still requests the full Drive scope. `drive.file` cannot see a folder the operator created. |
 | 2026-10-18 | **Self-backup alert.** A failed self-backup still opens one critical alert. The body includes the last successful self-backup time, or "never". The time is the later of the last successful job and the newest archive. A failed job does not count. The scheduler path uses the same line. |
 | 2026-10-18 | **Admin alert.** Creating a user, creating an API token, or changing force 2FA or template 2FA opens one warning. The body names the actor and the client IP. It does not include a password or a token. Each event stays its own open row. Registration, SSO provisioning, the Settings form, `POST /api/v1/tokens`, and a browser MCP sign-in are included. An MCP refresh is not. Grace days do not open it. |
+| 2026-10-18 | **Image update flag.** A check still flags an image when the pull changes its id. It also keeps the flag when a running container is still on the previous id. The flag clears once every running container for that image uses the id on disk. Issue [#47](https://github.com/bjorngluck/piherder/issues/47) stays open. |
+| 2026-10-18 | **OS end of life.** The host page shows **Unsupported** next to the OS line when Ubuntu, Debian, or Raspbian is outside Ubuntu 22.04, 24.04, and 26.04 LTS, or Debian and Raspbian 12 and 13. HAOS is not in this check. The warning does not start an upgrade. Issue [#49](https://github.com/bjorngluck/piherder/issues/49) stays open. |
+| 2026-10-18 | **Update-check gap.** Scheduled container checks stopped after 11 Oct because Apply cleared the per-host flag and left the cron. The scheduler only registered a job when that flag was on, so the next start removed it. OS checks stayed on and kept running. A saved container cron now registers while fleet container checks are on. Applying with that check off clears the cron. |
+| 2026-10-18 | **Checkout ownership.** Repository refuses a folder or checkout the SSH user does not own, before git runs. `safe.directory` is not set. Repo hooks, fsmonitor, and a repo sshCommand stay disabled. |
+| 2026-10-18 | **Direct copy CPU.** The image carries rclone for amd64 and arm64, and the copy sends the one that matches the host. The straight-out tick is greyed out when host facts name another CPU. An unknown architecture stays available. A host the binary cannot run on keeps `/backups`. |
 
 ---
 
@@ -143,8 +148,8 @@ Nothing was voted **Out**.
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.12.0-dev`** | **Done** 2026-10-18 |
-| 2 | Must, by area | Jobs and audit, the backup credential alert, the self-backup last-success line, and the admin alert are in. Still open: Docker image flag ([#47](https://github.com/bjorngluck/piherder/issues/47)), OS end of life ([#49](https://github.com/bjorngluck/piherder/issues/49)), update-check gap, git checkout ownership |
-| 3 | Should, if it fits | Backup (direct-copy CPU tick, missed scheduled run, copy before the backups), MCP and the adapter, Docker prune, scheduler visibility, OS patch error output, history sweep, supply-chain pass, push denylist |
+| 2 | Must, by area | **Done.** Jobs and audit, the backup credential alert, the self-backup last-success line, the admin alert, the image update flag, the OS end-of-life warning, the update-check gap, and git checkout ownership are in |
+| 3 | Should, if it fits | Direct copy on a different CPU is in. Still open: missed scheduled run, copy before the backups, MCP and the adapter, Docker prune, scheduler visibility, OS patch error output, history sweep, supply-chain pass, push denylist |
 | 4 | Discover | Remote restore. Direct hop vs a stuck folder hop. NPM CRUD. Read-only admin API. Promote or defer in the release notes |
 | 5 | Freeze | Not set. Package stays `1.11.0` until then |
 | 6 | Operator QA | Boxes in [QA_v1.12.0.md](QA_v1.12.0.md) are empty |

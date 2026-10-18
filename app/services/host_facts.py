@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import threading
 from datetime import datetime
 from typing import Any, Optional, Set
@@ -174,6 +175,61 @@ def family_from_ids(os_id: str | None, pretty: str | None, profile: str | None) 
     return oid or None
 
 
+# Vendor standard support as of 2026-10. Not Ubuntu ESM. Not a live calendar.
+# Ubuntu: LTS only. Interim releases stay outside this list.
+# Debian and Raspbian: current stable (13) and the previous stable (12).
+SUPPORTED_RELEASES: dict[str, frozenset[str]] = {
+    "ubuntu": frozenset({"22.04", "24.04", "26.04"}),
+    "debian": frozenset({"12", "13"}),
+    "raspbian": frozenset({"12", "13"}),
+}
+OS_SUPPORT_WARNING = "Unsupported release"
+
+_UBUNTU_VER = re.compile(r"\b(\d{2}\.\d{2})\b")
+_DEBIAN_CODENAMES = (
+    ("forky", "14"),
+    ("trixie", "13"),
+    ("bookworm", "12"),
+    ("bullseye", "11"),
+    ("buster", "10"),
+)
+_DEBIAN_VER = re.compile(r"\b(\d{1,2})(?:\.\d+)?\b")
+
+
+def release_version(family: str, pretty: str | None) -> str | None:
+    """Major release from a pretty name. Empty when the name has no version."""
+    text = pretty or ""
+    if family == "ubuntu":
+        match = _UBUNTU_VER.search(text)
+        return match.group(1) if match else None
+    lowered = text.lower()
+    for name, number in _DEBIAN_CODENAMES:
+        if name in lowered:
+            return number
+    match = _DEBIAN_VER.search(text)
+    return match.group(1) if match else None
+
+
+def os_support_warning(
+    os_id: str | None,
+    pretty: str | None,
+    os_type: str | None = None,
+) -> str | None:
+    """Warning when a known Debian-family release is outside the supported list.
+
+    Returns None for HAOS, for families this list does not cover, and when the
+    version cannot be read. This does not upgrade the host.
+    """
+    family = family_from_ids(os_id, pretty, os_type)
+    allowed = SUPPORTED_RELEASES.get(family or "")
+    if not allowed:
+        return None
+    version = release_version(family or "", pretty)
+    if not version or version in allowed:
+        return None
+    return OS_SUPPORT_WARNING
+
+
 def snapshot_from_server(server: Server) -> dict[str, Any]:
     raw = getattr(server, "host_facts_json", None)
     data: dict[str, Any] = {}
@@ -202,6 +258,11 @@ def snapshot_from_server(server: Server) -> dict[str, Any]:
     data["disk_used_bytes"] = getattr(server, "disk_used_bytes", None)
     if data["status"] == "never" and not data.get("os_pretty") and not data.get("hardware"):
         data["error"] = data.get("error") or "No host facts yet"
+    data["os_support_warning"] = os_support_warning(
+        data.get("os_id"),
+        data.get("os_pretty") or data.get("os_version"),
+        getattr(server, "os_type", None),
+    )
     return data
 
 

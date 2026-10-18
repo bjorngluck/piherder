@@ -97,6 +97,7 @@ def test_sync_server_cron_jobs_all_arms():
         backup_enabled=False,
         os_check_enabled=False,
         container_check_enabled=False,
+        container_check_schedule="",
         os_apply_enabled=False,
         container_apply_enabled=False,
     )

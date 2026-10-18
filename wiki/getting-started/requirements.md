@@ -42,7 +42,7 @@ PiHerder probes dependencies for **enabled** features only (no auto-install on t
 | Feature enabled | Remote tools expected |
 |-----------------|----------------------|
 | Always | SSH + shell |
-| Backups | `rsync` on PATH; `sudo -n rsync` **or** plain rsync (root/HAOS). A host that sends files straight out also needs a route to Google, Microsoft, or the NAS, and sudoers must allow `/var/lib/piherder/rclone` unless the login is root |
+| Backups | `rsync` on PATH; `sudo -n rsync` **or** plain rsync (root/HAOS). A host that sends files straight out also needs a route to Google, Microsoft, or the NAS, and sudoers must allow `/var/lib/piherder/rclone` unless the login is root. The image carries rclone for amd64 and arm64. Another known CPU keeps the `/backups` path |
 | Docker / containers | `docker` (+ group/socket as needed) |
 | OS patch | `apt-get` / apt |
 

@@ -60,19 +60,22 @@ Issue [#49](https://github.com/bjorngluck/piherder/issues/49).
 
 ## Scheduler (Must)
 
-Still live. No scheduled container check has run since about 14 Oct.
+Scheduled container checks stopped after 11 Oct. Apply cleared the per-host flag and left the cron. The scheduler then removed the job.
 
 - [ ] The capture log names why those update checks stopped
 - [ ] A test covers that cause
 
 ## Git (Must)
 
+Repository refuses a folder or checkout the SSH user does not own, before git runs.
+
 - [ ] Repository refuses a checkout the SSH user does not own
 - [ ] That fix does not set `safe.directory=*`
 
 ## Backup (Should)
 
-- [ ] The straight-out tick is greyed out when host facts say the host architecture is not the herder's
+- [ ] The image carries rclone for amd64 and arm64, and a direct copy sends the one that matches the host
+- [ ] The straight-out tick is greyed out when host facts name a CPU other than those two. An unknown architecture stays available
 - [ ] A missed scheduled run covers host backups and container update checks. A warning opens when a run does not start within N minutes of its slot, and the next successful run resolves it
 - [ ] `/metrics` exposes a series for that missed run
 - [ ] A destination copy scheduled before the host backups it ships raises a warning

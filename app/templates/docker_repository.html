@@ -21,9 +21,12 @@
   <div class="card rounded-xl p-3 mb-4 text-sm">The remote could not be fetched.</div>
   {% elif report.result == 'attached' %}
   <div class="card rounded-xl p-3 mb-4 text-sm status-success">Remote saved. Pick a branch or a tag to update.</div>
+  {% elif report.result == 'unowned' %}
+  <div class="card rounded-xl p-3 mb-4 text-sm">This folder is not owned by the SSH user. PiHerder will not read or change it.</div>
   {% endif %}
 
-  {% if not report.repo %}
+  {% if report.result == 'unowned' %}
+  {% elif not report.repo %}
   <form method="post" action="/servers/{{ server.id }}/docker/compose/{{ project }}/repository/attach" class="space-y-3 card rounded-xl p-4">
     <label class="text-xs block">Remote URL</label>
     <input name="git_url" required class="w-full bg-surface border border-border p-2 rounded text-sm" placeholder="https://github.com/you/app.git">
