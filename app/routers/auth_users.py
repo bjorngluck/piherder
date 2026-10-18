@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 
 from .. import templates as templates_mod
 from ..database import get_session
-from ..models import User
+from ..models import User, WebAuthnCredential
 from ..security.auth import (
     get_admin_user,
     get_password_hash,
@@ -71,12 +71,17 @@ def _users_page_response(
 
     users = list(session.exec(select(User).order_by(User.email)).all())
     sole_admin_ids = {u.id for u in users if is_sole_admin(session, u)}
+    passkey_user_ids = {
+        int(row)
+        for row in session.exec(select(WebAuthnCredential.user_id)).all()
+    }
     ctx = {
         "title": "Users & roles",
         "user": admin,
         "users": users,
         "roles": [ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER],
         "sole_admin_ids": sole_admin_ids,
+        "passkey_user_ids": passkey_user_ids,
         "admin_count": count_active_admins(session),
         "msg": None,
         "error": None,
@@ -88,6 +93,7 @@ def _users_page_response(
             role_admin=ROLE_ADMIN,
             role_operator=ROLE_OPERATOR,
             role_viewer=ROLE_VIEWER,
+            second_factor_ids=passkey_user_ids,
         ),
     }
     ctx.update(extra)

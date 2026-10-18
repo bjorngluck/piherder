@@ -26,6 +26,7 @@ from sqlmodel import Session, select
 
 from app.database import engine
 from app.models import AuditLog, User
+from app.services.webauthn_svc import has_passkeys
 from app.services.password_policy import generate_password, policy_rules_text, validate_password
 from app.services.user_admin import (
     admin_clear_2fa_only,
@@ -117,7 +118,7 @@ def cmd_list(session: Session, _args: argparse.Namespace) -> int:
             f"{int(u.id):>4}  "
             f"{(u.role or '?'):<10}  "
             f"{'yes' if u.is_active else 'no':<6}  "
-            f"{'yes' if u.totp_enabled else 'no':<4}  "
+            f"{'yes' if (u.totp_enabled or has_passkeys(session, int(u.id))) else 'no':<4}  "
             f"{'yes' if u.must_change_password else 'no':<5}  "
             f"{u.email}"
         )

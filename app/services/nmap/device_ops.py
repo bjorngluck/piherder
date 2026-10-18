@@ -171,6 +171,7 @@ def set_device_map_identity(
     user_id: int | None = None,
     api_token_id: int | None = None,
     api_token_name: str | None = None,
+    client_ip: str | None = None,
 ) -> NmapDevice:
     """Single form: map name + kind override + map role (gateway).
 
@@ -233,6 +234,7 @@ def set_device_map_identity(
         user_id=user_id,
         api_token_id=api_token_id,
         api_token_name=api_token_name,
+        client_ip=client_ip,
     )
     return device
 
@@ -244,6 +246,7 @@ def _audit_device_mapped(
     user_id: int | None = None,
     api_token_id: int | None = None,
     api_token_name: str | None = None,
+    client_ip: str | None = None,
 ) -> None:
     """Record nmap_device_mapped for every caller, not only the HTTP route."""
     import logging
@@ -261,6 +264,7 @@ def _audit_device_mapped(
                 user_id=user_id,
                 api_token_id=api_token_id,
                 api_token_name=api_token_name,
+                client_ip=client_ip,
                 action="nmap_device_mapped",
                 status="success",
                 details=details[:2000],

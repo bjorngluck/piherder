@@ -62,7 +62,9 @@ async def docker_page(
         raise HTTPException(404)
 
     force = request.query_params.get("nocache") in ("1", "true", "yes")
-    if force:
+    if inventory_svc.park_when_feature_off(session, server):
+        force = False
+    elif force:
         try:
             docker_svc._CACHE.clear()
         except Exception:
@@ -510,7 +512,9 @@ async def stack_fragment(
         interval = 120
 
     force = request.query_params.get("nocache") in ("1", "true", "yes")
-    if force:
+    if inventory_svc.park_when_feature_off(session, server):
+        force = False
+    elif force:
         try:
             docker_svc._CACHE.clear()
         except Exception:

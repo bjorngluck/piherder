@@ -41,6 +41,10 @@ def compact_backup_snippet(summary: Any, *, ok: bool) -> dict:
         "server": summary.get("server"),
         "ok": ok,
     }
+    if summary.get("direct"):
+        out["direct"] = True
+    if summary.get("where"):
+        out["where"] = str(summary["where"])[:300]
     if summary.get("error"):
         out["error"] = str(summary["error"])[:500]
     if summary.get("timestamp"):
@@ -51,6 +55,12 @@ def compact_backup_snippet(summary: Any, *, ok: bool) -> dict:
         if not isinstance(r, dict):
             continue
         item: dict[str, Any] = {"source": r.get("source")}
+        if r.get("rel"):
+            item["rel"] = str(r["rel"])[:200]
+        if r.get("destination"):
+            item["destination"] = str(r["destination"])[:80]
+        if r.get("where"):
+            item["where"] = str(r["where"])[:200]
         if r.get("skipped"):
             item["skipped"] = True
             if r.get("reason"):

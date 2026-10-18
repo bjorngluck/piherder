@@ -5,7 +5,15 @@ Same process as the web app. Clients send ``POST /mcp`` with
 stdio adapter and call the existing ``/api/v1`` route functions in-process.
 Hosted ``trigger_job`` also accepts ``container_start``, ``container_stop``,
 ``container_restart``, and ``container_redeploy`` (v1.9). Adapter 0.2.0 does
-not list those four until the companion release.
+not list those four until the companion release. Hosted ``start_move``,
+``read_discovery``, and ``start_discovery`` call the token routes. Adapter
+0.4.0 lists those three. Adapter 0.4.2 sends ``confirm=true`` on the two
+purge HTTP calls. 0.4.1 lists the device tools and omits that query
+(``list_discovery_devices``, ``rename_discovery_device``,
+``set_discovery_device_state``, ``link_discovery_device``,
+``unlink_discovery_device``, ``purge_discovery_device``,
+``purge_stale_discovery_devices``, ``scan_discovery_device``).
+Adapter 0.3.1 does not list any of those.
 
 Transport choice: MCP Streamable HTTP (spec 2025-03-26 and later), stateless,
 preferring a single ``application/json`` response. That is what Cursor, Claude
@@ -82,8 +90,20 @@ _SERVER_INSTRUCTIONS = (
     "container_start, container_stop, container_restart, and container_redeploy "
     "require service (one compose service) and source_filter (the compose project directory). "
     "On HTTP 409 poll get_job and do not start another. "
+    "start_move starts a stop-first Move. confirm must be true. "
+    "The source stack is left stopped. There is no undo. "
+    "read_discovery reads saved LAN Discovery ranges and recent scans. "
+    "list_discovery_devices pages devices. state filters new, known, linked, ignored, or stale. "
+    "rename_discovery_device sets the operator name. "
+    "set_discovery_device_state sets known, new, or ignored. "
+    "link_discovery_device and unlink_discovery_device tie a device to a fleet server. "
+    "purge_discovery_device and purge_stale_discovery_devices need confirm true. "
+    "A linked device cannot be purged. There is no undo. "
+    "start_discovery scans the saved ranges. confirm must be true. "
+    "scan_discovery_device scans one device already inside those ranges. confirm must be true. "
+    "The agent does not choose targets, and vulnerability scripts stay off. "
     "Files stay in the fleet jail. "
-    "Do not invent SSH, Move, undo, a console, nmap, token admin, "
+    "Do not invent SSH, undo, a console, token admin, "
     "docker_stack_down, docker_stack_remove, or stale-data cleanup. "
     "Tools appear only for scopes on this token. A token without read has no tools."
 )
@@ -270,6 +290,221 @@ def tool_catalog() -> list[dict[str, Any]]:
             ),
             "scope": tok_svc.SCOPE_JOBS,
             "inputSchema": _trigger_job_schema(sid),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "start_move",
+            "description": (
+                "Start a stop-first Move of one compose project. "
+                "server_id is the source. dest_server_id is the destination. "
+                "project is the compose project name, not a directory. "
+                "confirm must be true. The source stack is left stopped. "
+                "There is no undo. HTTP 202 means accepted. HTTP 409 means "
+                "a stack, Move, or backup is already running: poll get_job."
+            ),
+            "scope": tok_svc.SCOPE_JOBS,
+            "inputSchema": _obj_schema(
+                {
+                    "server_id": sid,
+                    "dest_server_id": _int_prop("Destination server id"),
+                    "project": _str_prop("Compose project name. Not a filesystem path."),
+                    "confirm": {
+                        "type": "boolean",
+                        "description": "Must be true. The source stack is left stopped.",
+                    },
+                },
+                ["server_id", "dest_server_id", "project", "confirm"],
+            ),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "read_discovery",
+            "description": (
+                "Read LAN Discovery. Omit integration_id to list saved ranges "
+                "and the latest scan. Pass integration_id for recent scans and "
+                "a short device list. That list stops at 50 and includes total. "
+                "Page the rest with list_discovery_devices. "
+                "Pass run_id with integration_id for one scan. "
+                "No credentials and no script output."
+            ),
+            "scope": tok_svc.SCOPE_READ,
+            "inputSchema": _obj_schema(
+                {
+                    "integration_id": _int_prop("LAN Discovery integration id"),
+                    "run_id": _int_prop("Scan id. Requires integration_id."),
+                },
+                [],
+            ),
+            "annotations": _READ_ANN,
+        },
+        {
+            "name": "start_discovery",
+            "description": (
+                "Start a LAN Discovery scan of the ranges saved on that integration. "
+                "confirm must be true. intensity is discovery, inventory, detailed, "
+                "or deep. The agent does not choose targets. Vulnerability scripts "
+                "stay off. HTTP 202 means accepted."
+            ),
+            "scope": tok_svc.SCOPE_JOBS,
+            "inputSchema": _obj_schema(
+                {
+                    "integration_id": _int_prop("LAN Discovery integration id"),
+                    "confirm": {
+                        "type": "boolean",
+                        "description": "Must be true.",
+                    },
+                    "intensity": _str_prop(
+                        "discovery, inventory, detailed, or deep. Default discovery."
+                    ),
+                },
+                ["integration_id", "confirm"],
+            ),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "list_discovery_devices",
+            "description": (
+                "Page LAN Discovery devices. state is new, known, linked, ignored, "
+                "or stale. limit defaults to 50 and caps at 200. offset pages. "
+                "No MAC, notes, or script output."
+            ),
+            "scope": tok_svc.SCOPE_READ,
+            "inputSchema": _obj_schema(
+                {
+                    "integration_id": _int_prop("LAN Discovery integration id"),
+                    "state": _str_prop("new, known, linked, ignored, or stale"),
+                    "limit": _int_prop("Page size. Default 50. Maximum 200."),
+                    "offset": _int_prop("Rows to skip. Default 0."),
+                },
+                ["integration_id"],
+            ),
+            "annotations": _READ_ANN,
+        },
+        {
+            "name": "rename_discovery_device",
+            "description": (
+                "Set the operator name on one LAN Discovery device. "
+                "Kind and map role stay. A new or offline device becomes known. "
+                "Pass an empty display_name to clear the name."
+            ),
+            "scope": tok_svc.SCOPE_EDIT,
+            "inputSchema": _obj_schema(
+                {
+                    "integration_id": _int_prop("LAN Discovery integration id"),
+                    "device_id": _int_prop("Device id"),
+                    "display_name": _str_prop("Operator name. Empty clears it."),
+                },
+                ["integration_id", "device_id", "display_name"],
+            ),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "set_discovery_device_state",
+            "description": (
+                "Set a LAN Discovery device to known, new, or ignored. "
+                "A linked device cannot be marked new. "
+                "Marking known leaves a linked device linked."
+            ),
+            "scope": tok_svc.SCOPE_EDIT,
+            "inputSchema": _obj_schema(
+                {
+                    "integration_id": _int_prop("LAN Discovery integration id"),
+                    "device_id": _int_prop("Device id"),
+                    "state": _str_prop("known, new, or ignored"),
+                },
+                ["integration_id", "device_id", "state"],
+            ),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "link_discovery_device",
+            "description": "Link a LAN Discovery device to a fleet server.",
+            "scope": tok_svc.SCOPE_EDIT,
+            "inputSchema": _obj_schema(
+                {
+                    "integration_id": _int_prop("LAN Discovery integration id"),
+                    "device_id": _int_prop("Device id"),
+                    "server_id": _int_prop("Fleet server id"),
+                },
+                ["integration_id", "device_id", "server_id"],
+            ),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "unlink_discovery_device",
+            "description": "Unlink a LAN Discovery device. The device becomes known.",
+            "scope": tok_svc.SCOPE_EDIT,
+            "inputSchema": _obj_schema(
+                {
+                    "integration_id": _int_prop("LAN Discovery integration id"),
+                    "device_id": _int_prop("Device id"),
+                },
+                ["integration_id", "device_id"],
+            ),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "purge_discovery_device",
+            "description": (
+                "Permanently delete one LAN Discovery device. confirm must be true. "
+                "A linked device is refused. There is no undo."
+            ),
+            "scope": tok_svc.SCOPE_EDIT,
+            "inputSchema": _obj_schema(
+                {
+                    "integration_id": _int_prop("LAN Discovery integration id"),
+                    "device_id": _int_prop("Device id"),
+                    "confirm": {
+                        "type": "boolean",
+                        "description": "Must be true. There is no undo.",
+                    },
+                },
+                ["integration_id", "device_id", "confirm"],
+            ),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "purge_stale_discovery_devices",
+            "description": (
+                "Permanently delete offline LAN Discovery devices. confirm must be true. "
+                "Linked devices stay. There is no undo. The result lists the removed ids."
+            ),
+            "scope": tok_svc.SCOPE_EDIT,
+            "inputSchema": _obj_schema(
+                {
+                    "integration_id": _int_prop("LAN Discovery integration id"),
+                    "confirm": {
+                        "type": "boolean",
+                        "description": "Must be true. There is no undo.",
+                    },
+                },
+                ["integration_id", "confirm"],
+            ),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "scan_discovery_device",
+            "description": (
+                "Scan one LAN Discovery device. confirm must be true. "
+                "intensity is discovery, inventory, detailed, or deep. Default deep. "
+                "The device address must sit inside the saved ranges. "
+                "Vulnerability scripts stay off. HTTP 202 means accepted."
+            ),
+            "scope": tok_svc.SCOPE_JOBS,
+            "inputSchema": _obj_schema(
+                {
+                    "integration_id": _int_prop("LAN Discovery integration id"),
+                    "device_id": _int_prop("Device id"),
+                    "confirm": {
+                        "type": "boolean",
+                        "description": "Must be true.",
+                    },
+                    "intensity": _str_prop(
+                        "discovery, inventory, detailed, or deep. Default deep."
+                    ),
+                },
+                ["integration_id", "device_id", "confirm"],
+            ),
             "annotations": _WRITE_ANN,
         },
         {
@@ -778,6 +1013,147 @@ async def call_tool(
                 if status_code == 409:
                     payload["already_active"] = True
             await _drain_background(background)
+        elif name == "start_move":
+            if _opt_bool(args, "confirm") is not True:
+                return tool_text_result(
+                    {"ok": False, "detail": "confirm must be true"},
+                    is_error=True,
+                )
+            project = _opt_str(args, "project").strip()
+            if not project:
+                raise ToolArgError("Missing project")
+            raw = api_v1.create_server_move(
+                _require_int(args, "server_id"),
+                api_v1.MoveCreateBody(
+                    dest_server_id=_require_int(args, "dest_server_id"),
+                    project=project,
+                    confirm=True,
+                ),
+                session,
+                auth,
+            )
+            status_code, payload = _unwrap_json(raw)
+            if isinstance(payload, dict) and status_code in (202, 409):
+                payload = dict(payload)
+                payload["http_status"] = status_code
+                if status_code == 409:
+                    payload["already_active"] = True
+        elif name == "read_discovery":
+            integration_id = _opt_int(args, "integration_id")
+            run_id = _opt_int(args, "run_id")
+            if run_id is not None and integration_id is None:
+                raise ToolArgError("Missing integration_id")
+            if run_id is not None:
+                payload = api_v1.get_discovery_run(integration_id, run_id, session, auth)
+            elif integration_id is not None:
+                payload = api_v1.get_discovery(integration_id, session, auth)
+            else:
+                payload = api_v1.list_discovery(session, auth)
+        elif name == "start_discovery":
+            if _opt_bool(args, "confirm") is not True:
+                return tool_text_result(
+                    {"ok": False, "detail": "confirm must be true"},
+                    is_error=True,
+                )
+            intensity = _opt_str(args, "intensity").strip() or "discovery"
+            raw = api_v1.create_discovery_scan(
+                _require_int(args, "integration_id"),
+                api_v1.DiscoveryScanBody(confirm=True, intensity=intensity),
+                session,
+                auth,
+            )
+            status_code, payload = _unwrap_json(raw)
+            if isinstance(payload, dict) and status_code == 202:
+                payload = dict(payload)
+                payload["http_status"] = status_code
+        elif name == "list_discovery_devices":
+            payload = api_v1.list_discovery_devices(
+                _require_int(args, "integration_id"),
+                _opt_str(args, "state").strip() or None,
+                _opt_int(args, "limit") if _opt_int(args, "limit") is not None else 50,
+                _opt_int(args, "offset") if _opt_int(args, "offset") is not None else 0,
+                session,
+                auth,
+            )
+        elif name == "rename_discovery_device":
+            if "display_name" not in args:
+                raise ToolArgError("Missing display_name")
+            payload = api_v1.patch_discovery_device(
+                _require_int(args, "integration_id"),
+                _require_int(args, "device_id"),
+                api_v1.DiscoveryDevicePatch(display_name=_opt_str(args, "display_name")),
+                session,
+                auth,
+            )
+        elif name == "set_discovery_device_state":
+            state = _opt_str(args, "state").strip().lower()
+            if state not in ("known", "new", "ignored"):
+                raise ToolArgError("state must be one of known, new, ignored")
+            payload = api_v1.patch_discovery_device(
+                _require_int(args, "integration_id"),
+                _require_int(args, "device_id"),
+                api_v1.DiscoveryDevicePatch(state=state),
+                session,
+                auth,
+            )
+        elif name == "link_discovery_device":
+            payload = api_v1.link_discovery_device(
+                _require_int(args, "integration_id"),
+                _require_int(args, "device_id"),
+                api_v1.DiscoveryLinkBody(server_id=_require_int(args, "server_id")),
+                session,
+                auth,
+            )
+        elif name == "unlink_discovery_device":
+            payload = api_v1.unlink_discovery_device(
+                _require_int(args, "integration_id"),
+                _require_int(args, "device_id"),
+                session,
+                auth,
+            )
+        elif name == "purge_discovery_device":
+            if _opt_bool(args, "confirm") is not True:
+                return tool_text_result(
+                    {"ok": False, "detail": "confirm must be true"},
+                    is_error=True,
+                )
+            payload = api_v1.delete_discovery_device(
+                _require_int(args, "integration_id"),
+                _require_int(args, "device_id"),
+                session,
+                auth,
+                confirm=True,
+            )
+        elif name == "purge_stale_discovery_devices":
+            if _opt_bool(args, "confirm") is not True:
+                return tool_text_result(
+                    {"ok": False, "detail": "confirm must be true"},
+                    is_error=True,
+                )
+            payload = api_v1.purge_stale_discovery_devices(
+                _require_int(args, "integration_id"),
+                session,
+                auth,
+                confirm=True,
+            )
+        elif name == "scan_discovery_device":
+            if _opt_bool(args, "confirm") is not True:
+                return tool_text_result(
+                    {"ok": False, "detail": "confirm must be true"},
+                    is_error=True,
+                )
+            intensity = _opt_str(args, "intensity").strip() or "deep"
+            raw = api_v1.create_discovery_device_scan(
+                _require_int(args, "integration_id"),
+                _require_int(args, "device_id"),
+                api_v1.DiscoveryDeviceScanBody(confirm=True, intensity=intensity),
+                session,
+                auth,
+            )
+            status_code, payload = _unwrap_json(raw)
+            if isinstance(payload, dict) and status_code == 202:
+                payload = dict(payload)
+                payload["http_status"] = status_code
         elif name == "list_files":
             payload = api_v1.api_files_list(
                 _require_int(args, "server_id"),

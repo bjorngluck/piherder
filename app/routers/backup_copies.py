@@ -237,10 +237,20 @@ async def list_copy_dir(
     if dest is None:
         return JSONResponse({"ok": False, "error": "That destination is not saved."}, status_code=400)
     checked, skipped = copies.parse_selection(dest.selection_json)
+    from ..services.backup_direct import merge_directory, path_is_direct
+
+    disk_error = ""
     try:
-        rows = copies.list_directory(p)
+        disk = copies.list_directory(p)
     except (FileNotFoundError, ValueError) as exc:
-        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+        disk = None
+        disk_error = str(exc)
+    rows = merge_directory(session, p, disk)
+    if rows is None:
+        return JSONResponse(
+            {"ok": False, "error": disk_error or "That folder was not found."},
+            status_code=400,
+        )
     for row in rows:
         row["state"] = copies.selection_state(row["path"], checked, skipped)
         row["included"] = row["state"] == "on"
@@ -251,6 +261,7 @@ async def list_copy_dir(
         "path": parent,
         "state": state,
         "included": state == "on",
+        "direct": path_is_direct(session, parent),
         "entries": rows,
     }
 
