@@ -145,8 +145,12 @@
              data-ph-disable-checked="audit-hide-noise-off">
       Hide incomplete
     </label>
+    <label class="ops-f-check">
+      <input type="checkbox" name="show_routine" value="1" {% if show_routine %}checked{% endif %}>
+      Show routine rows
+    </label>
     <div class="ops-f-actions">
-      {% if server_id or user_id or api_token_id or status or action or search or date_from or date_to %}
+      {% if server_id or user_id or api_token_id or status or action or search or date_from or date_to or show_routine %}
       <a href="/audit" class="btn btn-secondary text-xs min-h-9 px-2.5">Clear</a>
       {% endif %}
       <button type="submit" class="btn btn-accent text-xs min-h-9 px-3">Apply</button>
@@ -220,7 +224,7 @@
     Page {{ page or 1 }} of {{ total_pages or 1 }} · {{ total or 0 }} total
   </div>
   <div class="flex flex-wrap gap-2">
-    {% set aq = 'search=' ~ (search or '') ~ '&server_id=' ~ (server_id or '') ~ '&user_id=' ~ (user_id or '') ~ '&api_token_id=' ~ (api_token_id or '') ~ '&status=' ~ (status or '') ~ '&action=' ~ (action or '') ~ '&date_from=' ~ (date_from or '') ~ '&date_to=' ~ (date_to or '') ~ '&per_page=' ~ (per_page or 20) ~ '&hide_noise=' ~ ('1' if hide_noise else '0') %}
+    {% set aq = 'search=' ~ (search or '') ~ '&server_id=' ~ (server_id or '') ~ '&user_id=' ~ (user_id or '') ~ '&api_token_id=' ~ (api_token_id or '') ~ '&status=' ~ (status or '') ~ '&action=' ~ (action or '') ~ '&date_from=' ~ (date_from or '') ~ '&date_to=' ~ (date_to or '') ~ '&per_page=' ~ (per_page or 20) ~ '&hide_noise=' ~ ('1' if hide_noise else '0') ~ ('&show_routine=1' if show_routine else '') %}
     {% if page and page > 1 %}
     <a class="btn btn-secondary min-h-11 text-sm" href="/audit?{{ aq }}&page={{ page - 1 }}">← Prev</a>
     {% endif %}

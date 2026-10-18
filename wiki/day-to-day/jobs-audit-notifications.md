@@ -79,7 +79,7 @@ These types do not stack on the same server while already **pending** or **runni
 - Stack lifecycle + template deploy/redeploy (shared **stack mutation** lane on the host)  
 - `service_migrate`, `service_migrate_undo`, and `service_migrate_dest_recover` — exclusive with backup **and** stack mutation on **both** source and dest  
 - `template_drift_check` (one drift job at a time per host; not a stack write)  
-- `host_facts` (one snapshot job at a time per host). The scheduler queues one about every 15 minutes per host. Each run writes a Jobs row and an Audit row. Those routine rows fill both views. On the open [v1.12.0](https://github.com/bjorngluck/piherder/blob/v1.12.0-dev/docs/PLAN_v1.12.0.md) train the default lists will leave that snapshot out and keep a failed snapshot visible. It is not built yet.  
+- `host_facts` (one snapshot job at a time per host). The scheduler queues one about every 15 minutes per host. Each run writes a Jobs row and an Audit row. The default Jobs list and the default Audit list leave a successful snapshot out. A failed snapshot stays on both lists. **Show routine host snapshots** on Jobs, and **Show routine rows** on Audit, bring the successful rows back.  
 
 A second start reuses the existing job (UI follows it; REST **409** with `already_active` / existing `job`). Backups use a separate rule: per-host Redis mutex + Celery (see [Multi-worker](../operations/multi-worker.md)). [Move a service](../docker/service-migration.md) also refuses a migrate while either host is busy.
 
@@ -129,7 +129,7 @@ Actors may be:
 | Scheduler / cron only | **—** (no HTTP request) |
 | Job finish (Celery etc.) | IP **snapshotted when the job was queued** |
 
-Also audited with IP: **login** / **login failed** / **2FA**, and **API token** create/update/rotate/revoke. A `read` call from an API token or from hosted `/mcp` does not write an audit row. An optional flag for those reads is Must on the open [v1.12.0](https://github.com/bjorngluck/piherder/blob/v1.12.0-dev/docs/PLAN_v1.12.0.md) train. Off unless that flag is on. It is not built yet. Writes stay audited either way. Free-text search matches IPs. Detail modal shows **IP**.
+Also audited with IP: **login** / **login failed** / **2FA**, and **API token** create/update/rotate/revoke. A `read` call from an API token or from hosted `/mcp` writes an audit row only when Settings, Security policy, **API and MCP read audit** is on. The row stores the token id and name, and the client IP. It does not store the token. Those rows stay off the default Audit list until **Show routine rows** is on, and they keep their own retention (1-90 days, default 7). Turning the flag on or off writes its own audit row. Writes stay audited either way. Free-text search matches IPs. Detail modal shows **IP**.
 
 Filter by user, server, token, action, status, **date range** (same **7d / 30d / 90d** presets as Jobs — app timezone), or free-text (includes IP). Per-page is the same **10 / 20 / 50 / 100** cookie as Jobs.
 

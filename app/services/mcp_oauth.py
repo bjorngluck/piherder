@@ -342,6 +342,14 @@ def _issue_grant(
         )
     )
     session.commit()
+    from .admin_alerts import notify_api_token_created
+
+    notify_api_token_created(
+        session,
+        actor=user,
+        token_id=int(api.id),
+        name=api.name,
+    )
     return _token_body(plain, refresh, scopes)
 
 

@@ -19,7 +19,8 @@ Operators want “backup host X every night from HA” without storing a human p
 Authorization: Bearer ph_<secret>
 ```
 
-- Secret shown **once** at create or rotate; only a hash is stored.  
+- Secret shown **once** at create or rotate; only a hash is stored.
+- Creating a token opens an admin alert. It names the admin and the client IP. It does not include the secret or the token prefix. The Settings form, `POST /api/v1/tokens`, and a browser MCP sign-in all open it. Refreshing an MCP token does not.  
 - **Rotate** issues a new secret immediately.  
 - **Revoke** soft-disables; row kept for audit.
 - Optional **expires** (never / 30d / 90d / custom). Expired tokens fail lookup the same as revoked.
@@ -46,7 +47,7 @@ If **no** `feature:*` scopes are set, any job type allowed by `jobs` may run (st
 
 **409 / exclusive jobs:** a second start of the same exclusive type on a host returns **HTTP 409** with the existing `job_id` (same rule as the UI).
 
-A `read` call does not write an audit row. An optional flag for API and hosted `/mcp` reads is Must on the open [v1.12.0](https://github.com/bjorngluck/piherder/blob/v1.12.0-dev/docs/PLAN_v1.12.0.md) train. It is not built yet. Writes stay audited either way.
+A `read` call writes an audit row only when Settings, Security policy, **API and MCP read audit** is on. The row stores the token id and name, and the client IP. It does not store the token. Those rows stay off the default Audit list and keep their own retention (1-90 days, default 7). Turning the flag on or off writes its own audit row. Hosted `/mcp` reads follow the same flag. Writes stay audited either way.
 
 ## IP allowlist
 

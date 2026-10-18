@@ -811,6 +811,16 @@ async def register(
         else:
             details = f"Registered {user.email} as operator"
         _audit(session, user.id, "user_registered", details)
+        from ..services.admin_alerts import notify_user_created
+
+        notify_user_created(
+            session,
+            actor=user,
+            email=user.email,
+            role=user.role,
+            user_id=int(user.id),
+            how="registered",
+        )
         return RedirectResponse("/auth/login", status_code=303)
     except Exception:
         msg = "Registration failed. Please try a different email or shorter password."

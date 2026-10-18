@@ -204,6 +204,15 @@ async def create_user(
             "user_created",
             f"Created {email} as {new_role}",
         )
+        from ..services.admin_alerts import notify_user_created
+
+        notify_user_created(
+            session,
+            actor=admin,
+            email=email,
+            role=new_role,
+            user_id=int(created.id),
+        )
         return _page(
             msg="user_created",
             new_user_credentials=_credentials_payload(

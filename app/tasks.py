@@ -890,6 +890,7 @@ def _start_direct_followup(destination_id: int, scope, user_id, folder_job_id: i
 def replicate_backup(self, job_id: int):
     """Copy checked /backups paths, or push a direct host, to one destination."""
     db = Session(engine)
+    dest = None
     follow_direct = False
     follow_dest_id = None
     follow_scope = None
@@ -907,9 +908,11 @@ def replicate_backup(self, job_id: int):
             details = {}
         from app.models import BackupDestination
         from app.services.backup_replicate import (
+            copy_auth_failure,
             execute,
             execute_direct,
             note_copy_auth_failure,
+            public_auth_failure,
             resolve_copy_auth_failure,
             scrub_job_text,
         )
@@ -945,21 +948,39 @@ def replicate_backup(self, job_id: int):
             except Exception:
                 logger.debug("copy auth resolve skipped", exc_info=True)
             return {"status": "success", "job_id": job_id}
-        stored_error = scrub_job_text(str(result.get("error") or "copy failed"))[:500]
+        raw_error = scrub_job_text(str(result.get("error") or "copy failed"))
+        if copy_auth_failure(raw_error):
+            _title, stored_error = public_auth_failure(dest.provider, raw_error)
+        else:
+            stored_error = raw_error[:500]
         _update_job_status(
             job_id,
             "failed",
             {"error": stored_error, "current": "failed"},
         )
         try:
-            note_copy_auth_failure(db, dest, stored_error)
+            note_copy_auth_failure(db, dest, raw_error)
         except Exception:
             logger.debug("copy auth alert skipped", exc_info=True)
         return {"status": "failed", "job_id": job_id, "error": stored_error}
     except Exception as exc:
-        from app.services.backup_replicate import scrub_job_text
+        from app.services.backup_replicate import (
+            copy_auth_failure,
+            public_auth_failure,
+            scrub_job_text,
+        )
 
-        stored = scrub_job_text(str(exc))[:500]
+        raw = scrub_job_text(str(exc))
+        if dest is not None and copy_auth_failure(raw):
+            _title, stored = public_auth_failure(dest.provider, raw)
+            try:
+                from app.services.backup_replicate import note_copy_auth_failure
+
+                note_copy_auth_failure(db, dest, raw)
+            except Exception:
+                logger.debug("copy auth alert skipped", exc_info=True)
+        else:
+            stored = raw[:500]
         logger.error("Backup copy job %s failed: %s", job_id, stored)
         _update_job_status(job_id, "failed", {"error": stored, "current": "failed"})
         return {"status": "failed", "job_id": job_id, "error": stored}

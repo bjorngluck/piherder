@@ -150,6 +150,17 @@ def get_api_auth(
             detail="Client IP not allowed for this API token",
         )
     tok_svc.touch_token_last_used(session, token)
+    if request.method in ("GET", "HEAD"):
+        from ..services.api_read_audit import record_api_read
+
+        record_api_read(
+            session,
+            token_id=token.id,
+            token_name=token.name,
+            user_id=token.created_by_user_id,
+            client_ip=client_ip,
+            what=f"{request.method} {request.url.path}",
+        )
     return ApiAuth(token, client_ip=client_ip)
 
 
@@ -1702,6 +1713,14 @@ def admin_create_token(
         )
     except DemoBlocked as e:
         raise HTTPException(status_code=403, detail=e.message) from e
+    from ..services.admin_alerts import notify_api_token_created
+
+    notify_api_token_created(
+        session,
+        actor=user,
+        token_id=int(row.id),
+        name=row.name,
+    )
     from ..services.password_reset import configured_public_origin
 
     return {

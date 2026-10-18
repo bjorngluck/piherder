@@ -1142,6 +1142,14 @@ async def create_api_token_form(
         session.commit()
     except Exception:
         session.rollback()
+    from ..services.admin_alerts import notify_api_token_created
+
+    notify_api_token_created(
+        session,
+        actor=user,
+        token_id=int(row.id),
+        name=row.name,
+    )
     return RedirectResponse(
         _settings_url(
             "api",
@@ -1527,6 +1535,8 @@ async def save_security_policy(
     console_require_passkey: Optional[str] = Form(None),
     oidc_idp_mfa_satisfies_login_2fa: Optional[str] = Form(None),
     oidc_idp_mfa_claim: str = Form("amr"),
+    audit_api_reads: Optional[str] = Form(None),
+    audit_read_retention_days: int = Form(7),
     user: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
@@ -1562,6 +1572,21 @@ async def save_security_policy(
     elif prev_scope == "off":
         grace_since = datetime.utcnow().isoformat() + "Z"
     claim = (oidc_idp_mfa_claim or "amr").strip()[:64] or "amr"
+    from ..services.api_read_audit import (
+        RETENTION_DEFAULT,
+        RETENTION_MAX,
+        RETENTION_MIN,
+        reads_enabled,
+        record_flag_change,
+    )
+
+    read_flag = _form_on(audit_api_reads)
+    try:
+        read_days = int(audit_read_retention_days)
+    except (TypeError, ValueError):
+        read_days = RETENTION_DEFAULT
+    read_days = max(RETENTION_MIN, min(RETENTION_MAX, read_days))
+    flag_was = reads_enabled(prev)
 
     def _win(raw, default):
         return max(step.WINDOW_MIN, min(step.WINDOW_MAX, int(raw if raw is not None else default)))
@@ -1595,6 +1620,8 @@ async def save_security_policy(
         "console_require_passkey": _form_on(console_require_passkey),
         "oidc_idp_mfa_satisfies_login_2fa": _form_on(oidc_idp_mfa_satisfies_login_2fa),
         "oidc_idp_mfa_claim": claim,
+        "audit_api_reads": read_flag,
+        "audit_read_retention_days": read_days,
     }
     try:
         saved = app_cfg.save_settings({**t_keys, **policy_keys})
@@ -1630,6 +1657,18 @@ async def save_security_policy(
                 )
             )
         session.commit()
+    if flag_was != read_flag:
+        record_flag_change(session, user_id=user.id, enabled=read_flag)
+    from ..services.admin_alerts import notify_2fa_setting_change
+
+    notify_2fa_setting_change(
+        session,
+        actor=user,
+        prev_scope=prev_scope,
+        new_scope=scope,
+        prev_template=bool(prev.get("template_require_2fa")),
+        new_template=_form_on(template_require_2fa),
+    )
     return RedirectResponse(
         _settings_url("general", security_saved="1"), status_code=303
     )

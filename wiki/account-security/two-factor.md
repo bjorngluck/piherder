@@ -122,7 +122,7 @@ From **1.11.0**, a passkey counts as the second factor. Signup with Force 2FA on
 
 | Setting | Effect |
 |---------|--------|
-| **Who must enrol** | Off · **admins** · **operators and admins** · **everyone**. Users in scope without TOTP **or** a passkey go to `/auth/force-2fa`. |
+| **Who must enrol** | Off · **admins** · **operators and admins** · **everyone**. Users in scope without TOTP **or** a passkey go to `/auth/force-2fa`. Changing this, or **Require 2FA for template deploy & secrets**, opens an admin alert. The alert names the admin and the client IP. Grace days and the other security settings do not. |
 | **Grace** | 0–60 days after you turn the policy on (home-lab). 0 = immediate. |
 | **Trusted device skips login 2FA** | Default **on** (same as v1.2). |
 | **Trusted device skips the enrol wall** | Default **off**. |

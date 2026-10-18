@@ -1250,6 +1250,27 @@ async def call_tool(
     return tool_text_result(payload, is_error=False)
 
 
+def _mcp_tool_is_read(name: str) -> bool:
+    for tool in tool_catalog():
+        if tool.get("name") == name:
+            ann = tool.get("annotations") or {}
+            return bool(ann.get("readOnlyHint"))
+    return False
+
+
+def _audit_mcp_read(session: Session, auth: Any, what: str) -> None:
+    from .api_read_audit import record_api_read
+
+    record_api_read(
+        session,
+        token_id=getattr(auth, "token_id", None),
+        token_name=getattr(auth, "token_name", None),
+        user_id=getattr(auth, "user_id", None),
+        client_ip=getattr(auth, "client_ip", None),
+        what=f"mcp {what}",
+    )
+
+
 async def dispatch_rpc(
     message: dict[str, Any],
     session: Session,
@@ -1297,6 +1318,7 @@ async def dispatch_rpc(
                 tok_svc.missing_scope_message(tok_svc.SCOPE_READ),
             )
         tools = [public_tool(tool) for tool in tools_for_scopes(auth.scopes)]
+        _audit_mcp_read(session, auth, "tools/list")
         return _rpc_result(req_id, {"tools": tools})
     if method == "tools/call":
         name = params.get("name")
@@ -1308,6 +1330,8 @@ async def dispatch_rpc(
         if not isinstance(arguments, dict):
             return _rpc_error(req_id, -32602, "tools/call arguments must be an object")
         result = await call_tool(name, arguments, session, auth)
+        if _mcp_tool_is_read(name):
+            _audit_mcp_read(session, auth, name)
         return _rpc_result(req_id, result)
     if method in ("resources/list", "resources/templates/list"):
         key = "resourceTemplates" if method.endswith("templates/list") else "resources"

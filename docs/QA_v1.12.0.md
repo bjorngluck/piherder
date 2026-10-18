@@ -19,23 +19,30 @@ Do not tick a box until that walk has been done. Do not tick a Discover row. Do 
 
 ## Jobs and audit (Must)
 
-The read-audit flag is off unless the operator turns it on. Writes stay audited either way.
+The read-audit flag is off unless the operator turns it on. Writes stay audited either way. Read rows stay off the default Audit list and use their own retention.
 
 - [ ] With the flag off, a `read` call from an API token does not write an audit row
-- [ ] With the flag on, that read writes one row. The row has the token and the client IP. It has no secret
+- [ ] With the flag on, that read writes one row. The row has the token id and name, and the client IP. It has no token value and no prefix
+- [ ] Turning the flag on writes its own audit row. Turning it off writes one too
 - [ ] With the flag on, a read through hosted `/mcp` writes the same kind of row
 - [ ] With the flag off, a write from a token still writes an audit row
+- [ ] Read rows stay off the default Audit list until **Show routine rows** is on
+- [ ] Read rows older than their own retention are deleted. The general audit purge leaves them alone
 - [ ] The default Jobs list leaves a successful 15-minute `host_facts` snapshot out
 - [ ] The default Audit list leaves that routine snapshot out
 - [ ] A failed `host_facts` snapshot stays on both default lists
+- [ ] **Show routine host snapshots** on Jobs brings the successful snapshot back
 
 ## Alerts (Must)
 
-- [ ] An expired or rejected Google Drive credential opens one critical alert. Setting the backup category lower does not lower it
-- [ ] The same alert, still critical, for OneDrive
+- [ ] An expired or rejected Google Drive credential opens one critical alert. The alert says reconnect. Setting the backup category lower does not lower it
+- [ ] The same alert, still critical, for OneDrive. It says reconnect
 - [ ] The same alert, still critical, for a LAN share
+- [ ] The alert and the log line may carry the provider error code. They never carry the token, the rclone config, or the raw response body
+- [ ] Docs say to publish the OAuth app to production, because a Testing-mode app loses its token after 7 days. The Drive scope stays `https://www.googleapis.com/auth/drive`, because `drive.file` cannot see a folder the operator created
 - [ ] A later successful copy resolves that alert
 - [ ] A failed self-backup alert shows the last successful self-backup time, or "never"
+- [ ] Creating a user, creating an API token, or changing a 2FA setting (force 2FA, template 2FA) opens an admin alert. The alert names the actor and the client IP
 
 ## Docker (Must)
 
@@ -51,18 +58,24 @@ Issue [#49](https://github.com/bjorngluck/piherder/issues/49).
 - [ ] A detected release outside the small supported list shows a warning next to the OS line
 - [ ] That warning does not start an upgrade
 
-## Supply chain and history (Must)
+## Scheduler (Must)
 
-A rewrite of published commits is a separate ask. This walk does not force-push.
+Still live. No scheduled container check has run since about 14 Oct.
 
-- [ ] Environment details that are still easy to edit are gone from the public tree
-- [ ] Published commits were not rewritten for this walk
+- [ ] The capture log names why those update checks stopped
+- [ ] A test covers that cause
+
+## Git (Must)
+
+- [ ] Repository refuses a checkout the SSH user does not own
+- [ ] That fix does not set `safe.directory=*`
 
 ## Backup (Should)
 
 - [ ] The straight-out tick is greyed out when host facts say the host architecture is not the herder's
-- [ ] A missed scheduled backup is its own check, not only a stale warning
+- [ ] A missed scheduled run covers host backups and container update checks. A warning opens when a run does not start within N minutes of its slot, and the next successful run resolves it
 - [ ] `/metrics` exposes a series for that missed run
+- [ ] A destination copy scheduled before the host backups it ships raises a warning
 
 ## MCP and the adapter (Should)
 
@@ -73,34 +86,30 @@ The adapter cut ships with the herder.
 
 ## Docker prune (Should)
 
-Issue [#48](https://github.com/bjorngluck/piherder/issues/48). Volumes stay behind an explicit confirm.
+Issue [#48](https://github.com/bjorngluck/piherder/issues/48). Volume prune is UI-only behind a confirm. The API and MCP need the `edit` scope.
 
 - [ ] The host Docker page can start a prune job
-- [ ] The token API can start that job
-- [ ] Hosted `/mcp` can start that job
-- [ ] Volumes stay until the operator confirms that part
+- [ ] The token API can start that job, and it requires the `edit` scope
+- [ ] Hosted `/mcp` can start that job, and it requires the `edit` scope
+- [ ] Volumes stay in the UI until the operator confirms that part
+- [ ] Every prune writes an audit row
 
 ## Scheduler (Should)
 
-- [ ] The capture log names why container update checks stopped for about three days after the 1.11 deploy
-- [ ] A test covers that cause
-- [ ] The same note explains the host backup that missed one run that week
+- [ ] About shows each scheduled job's last fire time and next fire time
 
-## Git (Should)
+## Hosts (Should)
 
-- [ ] Repository refuses a checkout the SSH user does not own
+- [ ] An OS patch job keeps apt's error output, including when sudo drops `DEBIAN_FRONTEND`
 
-## Nginx Proxy Manager (Should)
+## Supply chain and history (Should)
 
-Move can still retarget a backend.
+Done when a grep of main and the wiki comes back clean, plus a list of published commits that still hold old environment details. No force-push. The push denylist lands with that sweep.
 
-- [ ] An operator can create a proxy host
-- [ ] An operator can edit a proxy host
-- [ ] An operator can delete a proxy host
-
-## Supply-chain pass (Should)
-
+- [ ] A grep of main and the wiki comes back clean
+- [ ] The list of published commits is ready for a yes or no. This walk does not force-push
 - [ ] The capture log records the pass over pinned actions, the dependency lock, image digest pinning, Dependabot, and secret scanning
+- [ ] The push denylist stays in a secret. Until it lands, the manual grep remains
 
 ## Discover
 
@@ -108,13 +117,14 @@ Not a walk until the row is promoted in [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
 
 - Remote restore from Drive, OneDrive, or a LAN share. Restore still reads `/backups`.
 - A direct hop does not wait on a folder hop that is still showing running.
+- NPM CRUD. Admin-only, audited, no MCP on this train. Move can still retarget a backend.
+- A read-only admin API for users, tokens, and the audit log. Needs a design and a Security review before it is built.
 
 ## Later
 
 Not a walk on this train. Issues stay open.
 
 - NIC change, issue [#50](https://github.com/bjorngluck/piherder/issues/50). Device identity stays the MAC.
-- Push denylist in CI.
 - Backup stagger past about 1,320 hosts.
 - Stuck queue alert.
 - OAuth token name suffix.

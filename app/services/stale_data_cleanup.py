@@ -160,8 +160,28 @@ def preview_cleanup(session: Session, cfg: dict | None = None) -> dict[str, Any]
     if conf["audit_enabled"]:
         cut = _cutoff(conf["audit_days"])
         out["audit"] = len(
-            list(session.exec(select(AuditLog).where(AuditLog.started_at < cut)).all())
+            list(
+                session.exec(
+                    select(AuditLog).where(
+                        AuditLog.started_at < cut,
+                        AuditLog.action != "api_read",
+                    )
+                ).all()
+            )
         )
+    from .api_read_audit import retention_days
+
+    read_cut = _cutoff(retention_days())
+    out["read_audit"] = len(
+        list(
+            session.exec(
+                select(AuditLog).where(
+                    AuditLog.action == "api_read",
+                    AuditLog.started_at < read_cut,
+                )
+            ).all()
+        )
+    )
 
     if conf["nmap_enabled"]:
         cut = _cutoff(conf["nmap_days"])
@@ -170,7 +190,12 @@ def preview_cleanup(session: Session, cfg: dict | None = None) -> dict[str, Any]
             for r in session.exec(select(NmapScanRun)).all()
             if _nmap_run_is_stale(r, cut)
         )
-    out["total"] = int(out["jobs"]) + int(out["audit"]) + int(out["nmap_runs"])
+    out["total"] = (
+        int(out["jobs"])
+        + int(out["audit"])
+        + int(out.get("read_audit") or 0)
+        + int(out["nmap_runs"])
+    )
     return out
 
 
@@ -213,7 +238,31 @@ def _delete_old_jobs(session: Session, days: int, *, keep_job_id: int | None) ->
 
 def _delete_old_audit(session: Session, days: int) -> int:
     cut = _cutoff(days)
-    rows = list(session.exec(select(AuditLog).where(AuditLog.started_at < cut)).all())
+    rows = list(
+        session.exec(
+            select(AuditLog).where(
+                AuditLog.started_at < cut,
+                AuditLog.action != "api_read",
+            )
+        ).all()
+    )
+    for al in rows:
+        session.delete(al)
+    if rows:
+        session.commit()
+    return len(rows)
+
+
+def _delete_old_read_audit(session: Session, days: int) -> int:
+    cut = _cutoff(days)
+    rows = list(
+        session.exec(
+            select(AuditLog).where(
+                AuditLog.action == "api_read",
+                AuditLog.started_at < cut,
+            )
+        ).all()
+    )
     for al in rows:
         session.delete(al)
     if rows:
@@ -316,6 +365,7 @@ def run_stale_data_cleanup(
         "preview": prev,
         "deleted_jobs": 0,
         "deleted_audit": 0,
+        "deleted_read_audit": 0,
         "deleted_nmap_runs": 0,
         "deleted_nmap_files": 0,
         "purged_console_transcripts": 0,
@@ -368,6 +418,19 @@ def run_stale_data_cleanup(
                     f"Deleted {n} audit row(s) older than {conf['audit_days']}d"
                 ),
             )
+        from .api_read_audit import retention_days
+
+        n_read = _delete_old_read_audit(session, retention_days())
+        result["deleted_read_audit"] = n_read
+        merge_job_details(
+            session,
+            job_id,
+            status="running",
+            current="read_audit",
+            log_line=stamp_line(
+                f"Deleted {n_read} API read row(s) older than {retention_days()}d"
+            ),
+        )
         try:
             from . import console_audit as ca
             from . import ssh_console as cons

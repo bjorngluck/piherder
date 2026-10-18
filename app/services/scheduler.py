@@ -898,17 +898,8 @@ def schedule_herder_backup_job():
     except Exception as e:
         logger.error(f"[SCHEDULER] PiHerder self-backup error: {e}")
         try:
-            from .notifications import upsert_notification
+            from . import jobs as js
 
-            with Session(engine) as s:
-                upsert_notification(
-                    s,
-                    fingerprint="herder_backup_failed",
-                    type="herder_backup_failed",
-                    title="PiHerder self-backup failed",
-                    body=str(e)[:300],
-                    link_url="/herder-backups",
-                    severity="critical",
-                )
+            js._notify_herder_backup_failed(str(e))
         except Exception:
             pass

@@ -1228,10 +1228,32 @@ def _run_rclone(cmd: list[str], secret: str = "") -> tuple[int, str]:
 
 _COPY_AUTH_MARKERS = (
     "invalid_grant",
+    "invalid_client",
+    "unauthorized_client",
     "rclone config reconnect",
     "did not return the default drive",
-    "invalid_client",
     "token has been expired or revoked",
+    "invalid username or password",
+    "nt_status_logon_failure",
+    "nt_status_wrong_password",
+    "nt_status_account_locked_out",
+    "nt_status_account_disabled",
+    "nt_status_no_such_user",
+)
+
+_OAUTH_CODES = (
+    "invalid_grant",
+    "invalid_client",
+    "unauthorized_client",
+    "access_denied",
+)
+
+_SMB_CODES = (
+    "NT_STATUS_LOGON_FAILURE",
+    "NT_STATUS_WRONG_PASSWORD",
+    "NT_STATUS_ACCOUNT_LOCKED_OUT",
+    "NT_STATUS_ACCOUNT_DISABLED",
+    "NT_STATUS_NO_SUCH_USER",
 )
 
 
@@ -1240,21 +1262,53 @@ def copy_auth_failure(message: str) -> bool:
     return any(marker in text for marker in _COPY_AUTH_MARKERS)
 
 
+def auth_error_code(message: str) -> str | None:
+    """A short provider code. Never the token, the rclone config, or the body."""
+    text = (message or "").lower()
+    for code in _OAUTH_CODES:
+        if code in text:
+            return code
+    for code in _SMB_CODES:
+        if code.lower() in text:
+            return code
+    if "token has been expired or revoked" in text or "rclone config reconnect" in text:
+        return "invalid_grant"
+    if "invalid username or password" in text:
+        return "NT_STATUS_LOGON_FAILURE"
+    return None
+
+
+def public_auth_failure(provider: str, message: str) -> tuple[str, str]:
+    """Title and one log line. Drive and OneDrive say reconnect."""
+    kind = (provider or "").strip().lower()
+    name = destination_name(kind)
+    code = auth_error_code(message)
+    if kind in ("drive", "onedrive"):
+        title = f"Reconnect {name}"
+        body = f"Reconnect {name}. The saved sign-in was rejected."
+    else:
+        title = f"{name} rejected the sign-in"
+        body = f"{name} rejected the saved sign-in."
+    if code:
+        body = f"{body} ({code})"
+    return title, body
+
+
 def note_copy_auth_failure(session: Session, destination: BackupDestination, message: str) -> None:
-    """One open alert per destination when the account rejected the token."""
+    """One open alert per destination when the account rejected the sign-in."""
     if destination is None or not getattr(destination, "id", None):
         return
     if not copy_auth_failure(message):
         return
     from .notifications import upsert_notification
 
-    name = destination_name(destination.provider)
+    title, body = public_auth_failure(destination.provider, message)
     upsert_notification(
         session,
         fingerprint=f"backup_destination_auth_failed:{int(destination.id)}",
         type="backup_destination_auth_failed",
-        title=f"{name} needs Connect again",
-        body=(message or "The destination rejected the sign-in.")[:300],
+        title=title,
+        body=body,
         link_url="/herder-backups?tab=backup",
         severity="critical",
         payload={"destination_id": int(destination.id), "provider": destination.provider},

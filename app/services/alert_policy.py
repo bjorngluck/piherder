@@ -31,6 +31,7 @@ CATEGORIES: tuple[tuple[str, str], ...] = (
     ("backup", "Backups"),
     ("updates", "Updates"),
     ("template", "Templates"),
+    ("admin", "Admin"),
 )
 
 CATEGORY_IDS: tuple[str, ...] = tuple(c[0] for c in CATEGORIES)
@@ -113,9 +114,21 @@ CATALOG: tuple[TypeSpec, ...] = (
     TypeSpec("reboot_pending", "updates", "Reboot pending", "warning", True, 0, 0),
     TypeSpec("container_updates", "updates", "Container image updates", "warning", True, 0, 0),
     TypeSpec("template_drift", "template", "Template config drift", "warning", True, 0, 0),
+    TypeSpec(
+        "admin_change",
+        "admin",
+        "User, token, or 2FA change",
+        "warning",
+        True,
+        0,
+        0,
+    ),
 )
 
 CATALOG_BY_ID: dict[str, TypeSpec] = {t.id: t for t in CATALOG}
+
+# A lower Backups category must not quiet an expired or rejected destination sign-in.
+PINNED_CRITICAL = frozenset({"backup_destination_auth_failed"})
 
 
 def _clamp_int(raw: Any, *, lo: int, hi: int, default: int) -> int:
@@ -241,6 +254,16 @@ def effective(type_id: str) -> EffectivePolicy:
     type_ov = types.get(tid) if isinstance(types.get(tid), dict) else None
     out = _overlay(base, cat_ov)
     out = _overlay(out, type_ov)
+    if out.type_id in PINNED_CRITICAL:
+        out = EffectivePolicy(
+            type_id=out.type_id,
+            category=out.category,
+            label=out.label,
+            enabled=out.enabled,
+            severity="critical",
+            debounce_minutes=out.debounce_minutes,
+            realert_hours=out.realert_hours,
+        )
     return out
 
 

@@ -34,6 +34,7 @@ Settings → Alerts → **Alert policy** is the taxonomy + volume control so map
 | **Backups** | host backup failed · herder self-backup failed | critical |
 | **Updates** | OS updates · reboot pending · container image updates | warning |
 | **Templates** | config drift | warning |
+| **Admin** | user created · API token created · force 2FA or template 2FA changed | warning |
 
 Per category you can **mute**, override **severity** (`default` keeps the table above), set **debounce** (minutes before a dismissed flap re-opens), and **re-alert** (hours; `0` = no channel nudge while still open).
 
@@ -53,6 +54,12 @@ Herder does **not** ping or SSH-probe hosts for health. Bind an **Uptime Kuma SS
 - **Offline:** nmap last-seen older than the stale window (~14 days). Resolve when the device is seen again.
 - **Mute LAN discovery** in Alert policy before the first large scan if you do not want the inbox filled.
 - Port add/remove is **not** an alert.
+
+### Admin changes
+
+Creating a user, creating an API token, or changing force 2FA or template 2FA opens one warning. The body names the actor and the client IP. It does not include a password or a token. Each event stays open until you dismiss it. A later change does not replace the earlier row. Mute the **Admin** category to stop them. Web Push follows the master switch.
+
+The same alert covers the Users page, the first registration, an SSO account provisioned on first sign-in, Settings → API management, `POST /api/v1/tokens`, and a browser MCP sign-in. Refreshing an MCP token does not open another one. Grace days and the other security settings do not open this alert.
 
 ### Debounce and re-alert
 

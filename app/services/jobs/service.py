@@ -14,10 +14,11 @@ Shared helpers: _initial_job_details, _merge_job_details, _flush_job_progress,
 _create_queued_job_with_audit, _finish, job_public_dict.
 """
 from fastapi import BackgroundTasks
+from sqlalchemy import and_, not_
 from sqlmodel import Session, select
 from ...database import engine
 from ...models import Job, AuditLog, Server
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import re
@@ -386,6 +387,7 @@ def _jobs_filter_query(
     active_only: bool = False,
     date_from=None,
     date_to=None,
+    hide_routine: bool = False,
 ):
     q = select(Job)
     if server_id is not None:
@@ -396,6 +398,8 @@ def _jobs_filter_query(
         q = q.where(Job.status == status)
     if job_type:
         q = q.where(Job.job_type == job_type)
+    elif hide_routine:
+        q = q.where(not_(and_(Job.job_type == "host_facts", Job.status == "success")))
     if date_from is not None:
         q = q.where(Job.created_at >= date_from)
     if date_to is not None:
@@ -412,6 +416,7 @@ def list_jobs(
     active_only: bool = False,
     date_from=None,
     date_to=None,
+    hide_routine: bool = False,
     limit: int = 50,
     offset: int = 0,
 ) -> list[Job]:
@@ -423,6 +428,7 @@ def list_jobs(
         active_only=active_only,
         date_from=date_from,
         date_to=date_to,
+        hide_routine=hide_routine,
     )
     lim = max(1, min(int(limit), 100))
     off = max(0, int(offset or 0))
@@ -439,6 +445,7 @@ def count_jobs(
     active_only: bool = False,
     date_from=None,
     date_to=None,
+    hide_routine: bool = False,
 ) -> int:
     from sqlalchemy import func
 
@@ -451,6 +458,8 @@ def count_jobs(
         q = q.where(Job.status == status)
     if job_type:
         q = q.where(Job.job_type == job_type)
+    elif hide_routine:
+        q = q.where(not_(and_(Job.job_type == "host_facts", Job.status == "success")))
     if date_from is not None:
         q = q.where(Job.created_at >= date_from)
     if date_to is not None:
@@ -2086,9 +2095,68 @@ async def _run_retention_job(job_id: int, server_id: int, audit_id: int):
 HERDER_BACKUP_PENDING_SEC = 30 * 60
 
 
+def _latest_herder_archive_at() -> datetime | None:
+    """Newest archive on disk. A purged job row does not erase that success."""
+    try:
+        rows = herder_backup.list_backups()
+    except Exception:
+        return None
+    if not rows:
+        return None
+    from ..app_settings import parse_utc_datetime
+
+    return parse_utc_datetime(rows[0].get("mtime"))
+
+
+def _utc_naive(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
+def last_successful_herder_backup_at(session: Session) -> datetime | None:
+    """Last finished self-backup, or the newest archive when the job row is gone."""
+    when: datetime | None = None
+    try:
+        row = session.exec(
+            select(Job)
+            .where(Job.job_type == "herder_backup")
+            .where(Job.status == "success")
+            .order_by(Job.finished_at.desc())
+        ).first()
+    except Exception:
+        row = None
+    if row is not None:
+        when = _utc_naive(row.finished_at or row.started_at)
+    archive_at = _utc_naive(_latest_herder_archive_at())
+    candidates = [item for item in (when, archive_at) if item is not None]
+    return max(candidates) if candidates else None
+
+
+def herder_backup_failure_body(session: Session, message: str) -> str:
+    """Failure text plus the last success, or never. The time is not truncated away."""
+    when = last_successful_herder_backup_at(session)
+    if when is None:
+        last = "never"
+    else:
+        from ..app_settings import format_datetime_in_app_tz
+
+        last = format_datetime_in_app_tz(when) or "never"
+        if last == "Never":
+            last = "never"
+    suffix = f" Last successful self-backup: {last}."
+    detail = (message or "PiHerder self-backup failed").strip() or "PiHerder self-backup failed"
+    room = 300 - len(suffix)
+    if room < 1:
+        return suffix.strip()[:300]
+    return detail[:room].rstrip() + suffix
+
+
 def _notify_herder_backup_failed(message: str, *, link_url: str = "/herder-backups") -> None:
     try:
-        from .notifications import upsert_notification
+        from ..notifications import upsert_notification
 
         with _get_fresh_session() as s:
             upsert_notification(
@@ -2096,7 +2164,7 @@ def _notify_herder_backup_failed(message: str, *, link_url: str = "/herder-backu
                 fingerprint="herder_backup_failed",
                 type="herder_backup_failed",
                 title="PiHerder self-backup failed",
-                body=(message or "PiHerder self-backup failed")[:300],
+                body=herder_backup_failure_body(s, message),
                 link_url=link_url or "/herder-backups",
                 severity="critical",
             )
@@ -2121,7 +2189,7 @@ def _enqueue_herder_archive_copies(archive_path) -> None:
 
 def _resolve_herder_backup_failed() -> None:
     try:
-        from .notifications import resolve_by_fingerprint
+        from ..notifications import resolve_by_fingerprint
 
         with _get_fresh_session() as s:
             resolve_by_fingerprint(s, "herder_backup_failed")

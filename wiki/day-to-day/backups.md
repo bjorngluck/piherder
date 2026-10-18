@@ -79,15 +79,15 @@ Pull `bjorngluck/piherder:1.8.0` before a real copy. rclone is in that image. De
 
 PiHerder opens Google, you approve access, and PiHerder stores that sign-in. Each new archive is created by your Google account inside a folder you own. rclone still uploads only files that are new or changed.
 
-A self-hosted PiHerder cannot ship one Google client. Google only redirects to a URL registered on a client in your project, and the Drive scope is restricted. Leave the app in **Testing** and add your Gmail as a test user. Do not publish the app. Publishing asks Google to verify that scope, which a homelab does not need.
+A self-hosted PiHerder cannot ship one Google client. Google only redirects to a URL registered on a client in your project. Publish the app to **Production**. An app left in **Testing** loses its refresh token after 7 days, and the next copy fails until you connect again. Publishing does not start a verification review. Google still says the app is unverified. Choose **Advanced**, then continue, and sign in as the Gmail that owns the folder.
 
 The redirect URL is shown in the PiHerder dialog. It is the address you use in the browser plus `/backup-copies/google/callback`. If that address is wrong, set `PIHERDER_PUBLIC_URL` to the same origin and reload.
 
 1. Open [Google Cloud Console](https://console.cloud.google.com/) and select a project, or [create one](https://console.cloud.google.com/projectcreate).
 2. [Enable the Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com) on that project.
 3. Open [Google Auth platform → Branding](https://console.cloud.google.com/auth/branding). App name: **PiHerder**. User support email: your Gmail. Save. A logo is optional.
-4. Open [Audience](https://console.cloud.google.com/auth/audience). User type: **External**. Publishing status stays **Testing**. Under **Test users**, add the Gmail that owns the Drive folder. Save. Only those users can approve the app while it is in testing.
-5. Open [Data access](https://console.cloud.google.com/auth/scopes). **Add or remove scopes**. Add `https://www.googleapis.com/auth/drive`, shown as **See, edit, create, and delete all of your Google Drive files**. Update, then Save. This is the scope PiHerder requests. A narrower scope cannot see a folder you created yourself.
+4. Open [Audience](https://console.cloud.google.com/auth/audience). User type: **External**. Publish the app to **Production**. A Testing app drops the sign-in after 7 days. You do not need test users after it is in production.
+5. Open [Data access](https://console.cloud.google.com/auth/scopes). **Add or remove scopes**. Add `https://www.googleapis.com/auth/drive`, shown as **See, edit, create, and delete all of your Google Drive files**. Update, then Save. This is the scope PiHerder requests. `https://www.googleapis.com/auth/drive.file` cannot see a folder you created yourself, so the copy keeps the full Drive scope.
 6. Open [Clients](https://console.cloud.google.com/auth/clients). **Create client**. Application type: **Web application**. Name it PiHerder. Under **Authorised redirect URIs**, add the URL from the PiHerder dialog. It includes the port when you use one, for example `https://piherder.example:8443/backup-copies/google/callback`. Do not add a trailing slash. JavaScript origins can stay empty. Create.
 7. Copy the client ID and the client secret into the PiHerder dialog. The secret starts with `GOCSPX-`. Google shows it once. If you lose it, add a new secret on that client. Leave the secret box blank only after a secret is already saved. Set **Folder on Drive** to a folder in that Gmail’s My Drive, for example `Backup_PiHerder`. The folder does not need to be shared with anyone else.
 8. **Connect Google**. PiHerder shows **Continue to Google**, then Google’s account page. Google says the app is not verified. Choose **Advanced**, then **Go to PiHerder (unsafe)**. Sign in as the test user and allow access. The summary line then shows that Gmail address. The secret and the sign-in are not shown again.
@@ -186,7 +186,7 @@ On Frigate/NVR-style trees, rsync may hit **code 24** (vanished files). From **v
 | Success | Each source finishes with `rc == 0` and no error classification; `last_backup_at` updates |
 | Failed | Status **failed**, audit error details, **`last_backup_at` not updated** |
 | After success | Open `backup_failed` notifications resolve |
-| Destination rejected the sign-in | One `backup_destination_auth_failed` alert, linked to Settings → PiHerder backup. Severity follows the backup category. A later successful copy resolves it. Keeping that alert critical for an expired or rejected Google Drive, OneDrive, or LAN share credential is Must on the open [v1.12.0](https://github.com/bjorngluck/piherder/blob/v1.12.0-dev/docs/PLAN_v1.12.0.md) train. It is not built yet |
+| Destination rejected the sign-in | One `backup_destination_auth_failed` alert, linked to Settings → PiHerder backup. It stays **critical** when the Backups category is set lower. Google Drive and OneDrive say reconnect. The line may include the provider error code, such as `invalid_grant`, and does not include the token, the rclone config, or the raw response. A later successful copy resolves it |
 | No backup inside the stale window | One `backup_stale` warning per backup-enabled host. A later success resolves it |
 
 ### rsync path

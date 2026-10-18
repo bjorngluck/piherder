@@ -50,6 +50,7 @@ async def jobs_page(
     active_only: Optional[str] = None,
     date_from: str = "",
     date_to: str = "",
+    show_routine: Optional[str] = None,
     page: int = 1,
     per_page: int = 20,
 ):
@@ -75,6 +76,8 @@ async def jobs_page(
     }
     sid: int | None = None
     only_active = active_only in ("1", "on", "true", "yes")
+    show_snapshots = show_routine in ("1", "on", "true", "yes")
+    hide_routine = (not show_snapshots) and (job_type or "") != "host_facts"
     per_page = lq.per_page_from_request(request)
     page = lq.page_from_request(request)
     df = _parse_date_start(date_from)
@@ -97,6 +100,7 @@ async def jobs_page(
                 active_only=only_active,
                 date_from=df,
                 date_to=dt,
+                hide_routine=hide_routine,
             )
             total_pages = max(1, (total + per_page - 1) // per_page) if total else 1
             if page > total_pages:
@@ -110,6 +114,7 @@ async def jobs_page(
                 active_only=only_active,
                 date_from=df,
                 date_to=dt,
+                hide_routine=hide_routine,
                 limit=per_page,
                 offset=offset,
             )
@@ -134,6 +139,8 @@ async def jobs_page(
             type_counts: dict[str, int] = {}
             queue_secs: list[float] = []
             for j in recent:
+                if hide_routine and (j.job_type or "") == "host_facts" and (j.status or "") == "success":
+                    continue
                 st = (j.status or "").lower()
                 if st in pulse:
                     pulse[st] += 1
@@ -149,12 +156,14 @@ async def jobs_page(
                         pass
             ranked_t = sorted(type_counts.items(), key=lambda kv: (-kv[1], kv[0]))
             max_t = ranked_t[0][1] if ranked_t else 1
+            shown = sum(type_counts.values())
+            pulse["sample"] = shown
             pulse["by_type"] = [
                 {
                     "id": jt,
                     "label": job_service.job_type_label(jt),
                     "count": n,
-                    "pct": round(100.0 * n / max(1, len(recent)), 1),
+                    "pct": round(100.0 * n / max(1, shown), 1),
                     "bar": round(100.0 * n / max(1, max_t), 1),
                 }
                 for jt, n in ranked_t[:10]
@@ -199,6 +208,7 @@ async def jobs_page(
             "status": status or "",
             "job_type": job_type or "",
             "active_only": only_active,
+            "show_routine": show_snapshots,
             "date_from": date_from or "",
             "date_to": date_to or "",
             "app_date_today": calendar_today_in_app_tz(),
