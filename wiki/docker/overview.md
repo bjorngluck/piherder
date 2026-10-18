@@ -57,6 +57,11 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | **Repository…** | Project ⋯ menu. Attach a git remote to a project that is already on the host, pick a branch or a tag, and update the checkout. A tag ahead of the checkout is marked newer. A tracked local edit stops the update until you keep those files or take the remote copies. Untracked files stay. This does not deploy. An https URL with a user or token in it is refused. Use a deploy key or a credential helper |
 | Template-managed stacks | Badge + gated full editor — [Templates](../service-templates/overview.md) |
 
+<figure class="ph-figure" markdown>
+  ![Repository on an existing checkout](../assets/screenshots/docker-repository.png)
+  <figcaption>v1.11. Repository on a project that is already a checkout. The remote default branch is selected. This frame has no newer tag. The project path and the remote URL are masked. Update checkout does not deploy.</figcaption>
+</figure>
+
 !!! note "Browser Back on Docker"
     Leaving Docker for another tool (template deployment, full editor) and pressing **Back** must not leave a stuck “Collecting information from host via SSH” overlay. The page clears the wait chrome when the stack is already loaded (bfcache-safe).
 

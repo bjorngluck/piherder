@@ -2,7 +2,7 @@
 
 **Title:** `v1.11.0: passkey 2FA, direct backup, MCP, git repository`
 
-**Base:** `main` · **Head:** `v1.11.0-dev` · [QA_v1.11.0.md](QA_v1.11.0.md) boxes are empty. Screenshot names are reserved. Frames are not in the tree.
+**Base:** `main` · **Head:** `v1.11.0-dev` · [QA_v1.11.0.md](QA_v1.11.0.md) walks signed 2026-10-18. Screenshots are wired. Tag and Hub follow approval.
 
 **State:** open as [#35](https://github.com/bjorngluck/piherder/pull/35). Notes are [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md). Package **1.11.0**. Tag and Hub publish stay for the ship step.
 
@@ -12,7 +12,7 @@
 
 Eleventh minor after production **v1.10.0**. A passkey counts as 2FA when Force 2FA is on. A host can send its files straight to a saved Drive, OneDrive, or LAN share. Hosted `/mcp` can start a Move, read or start a LAN scan, and tidy discovery devices. Docker → Repository shows a newer git tag on a project that is already on the host.
 
-Operator walks are not signed. Package **1.11.0**. Hub image stays **1.10.0**.
+Operator walks signed 2026-10-18. Package **1.11.0**. Release notes are written as the shipped release. Image tags are `1.11.0` / `1.11` / `latest`. Tag and Hub follow approval.
 
 Design: [PLAN_v1.11.0.md](PLAN_v1.11.0.md). Maintainer ticks: [QA_v1.11.0.md](QA_v1.11.0.md). Screenshot list: [v1.11 pack](../wiki/assets/screenshots/README.md#v111--pack-status). Next notes: [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
 
@@ -33,13 +33,13 @@ Alembic **049** (`049_backup_direct`) and **050** (`050_backup_direct_targets`).
 
 Walk [QA_v1.11.0.md](QA_v1.11.0.md). Do not retick the 1.10 boxes.
 
-- [ ] Passkey versus Force 2FA
-- [ ] Direct backup on LAN NAS, Google Drive, and OneDrive. Each finished Backup row and audit row names the place, with no sign-in, and **Copy now** shows **Direct copy**
-- [ ] MCP Move, a LAN Discovery read, a saved-range scan, and device rename, link, and purge
-- [ ] Repository on an existing checkout: newer tag visible, local edit stops the update, no deploy
-- [ ] Bug-fix walk in [QA_v1.11.0.md](QA_v1.11.0.md): schedule hour matches the label, fleet backups give every host an effective schedule, and the Fleet health boxes
-- [ ] `.venv-docs/bin/mkdocs build --strict`
-- [ ] Screenshot files named in the [v1.11 pack](../wiki/assets/screenshots/README.md#v111--pack-status)
+- [x] Passkey versus Force 2FA
+- [x] Direct backup on LAN NAS, Google Drive, and OneDrive. Each finished Backup row and audit row names the place, with no sign-in, and **Copy now** shows **Direct copy**
+- [x] MCP Move, a LAN Discovery read, a saved-range scan, and device rename, link, and purge
+- [x] Repository on an existing checkout: newer tag visible, local edit stops the update, no deploy
+- [x] Bug-fix walk in [QA_v1.11.0.md](QA_v1.11.0.md): schedule hour matches the label, fleet backups give every host an effective schedule, and the Fleet health boxes
+- [x] `.venv-docs/bin/mkdocs build --strict`
+- [x] Screenshot files named in the [v1.11 pack](../wiki/assets/screenshots/README.md#v111--pack-status)
 
 ## Out of scope
 
@@ -52,14 +52,14 @@ Walk [QA_v1.11.0.md](QA_v1.11.0.md). Do not retick the 1.10 boxes.
 
 ## Ship steps
 
-- [ ] Full test suite green on the final tip
+- [x] Full test suite green on the final tip
 - [ ] QA boxes done: LAN, Drive, OneDrive direct walks; fleet backups on gives every host a schedule; direct copy on a low-RAM Pi; arch mismatch error
-- [ ] Git-rich onboard: QA box ticked, or marked "can ship if the walk slips" like MCP Move and nmap
+- [x] Git-rich onboard: QA box ticked, or marked "can ship if the walk slips" like MCP Move and nmap
 - [ ] Run the RELEASE_SYNC.md check against origin/main of all three repos
-- [ ] Operator walks signed ([QA_v1.11.0.md](QA_v1.11.0.md))
-- [ ] End-user notes (`RELEASE_v1.11.0.md`)
-- [ ] Screenshot files dropped in `wiki/assets/screenshots/`
-- [ ] `.venv-docs/bin/mkdocs build --strict`
+- [x] Operator walks signed ([QA_v1.11.0.md](QA_v1.11.0.md))
+- [x] End-user notes (`RELEASE_v1.11.0.md`)
+- [x] Screenshot files dropped in `wiki/assets/screenshots/`
+- [x] `.venv-docs/bin/mkdocs build --strict`
 - [ ] Merge PR #35 to main
 - [ ] Tag v1.11.0 and publish the release notes
 - [ ] Push Docker Hub image tags 1.11.0, 1.11 and latest (amd64 + arm64)

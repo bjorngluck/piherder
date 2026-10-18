@@ -32,6 +32,11 @@ A host whose SSH user is not root needs that path in the script from **SSH acces
 
 The original files stay as they are. A file that grows during the copy, such as a live log, is sent at the size it had when the copy started. The copy keeps that file’s modification time. A share or Drive does not store a Unix owner the way the herder disk does. Retention days do not age the remote files. Restore of a direct host from Drive, OneDrive, or the NAS is not available. Restore still reads a tree on this PiHerder.
 
+<figure class="ph-figure" markdown>
+  ![Send this host straight to a saved copy](../assets/screenshots/host-backup-direct.png)
+  <figcaption>v1.11. Configure backups with the straight-out tick on and LAN NAS / SMB selected. Source paths and the server folder name are masked. Google Drive and OneDrive are saved and not selected.</figcaption>
+</figure>
+
 ### Copy to Google Drive (v1.8 train)
 
 **Settings → PiHerder backup** has a card under the self-backup cards, titled **Copy the backup drive**. Google Drive ships in **1.8.0**. The **1.7.0** image has no such card. A LAN share has its own row as of **1.9.0**. OneDrive is a third row as of **1.10.0**.

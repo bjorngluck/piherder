@@ -4,8 +4,8 @@
 
 | Version | Support |
 |---------|---------|
-| **v1.11.x** | Package **1.11.0** on `v1.11.0-dev` ([RELEASE_v1.11.0.md](docs/RELEASE_v1.11.0.md) · [PLAN_v1.11.0.md](docs/PLAN_v1.11.0.md)). Not tagged. Hub image stays **v1.10.0** |
-| **v1.10.x** | Published image ([RELEASE_v1.10.0.md](docs/RELEASE_v1.10.0.md) · [PLAN_v1.10.0.md](docs/PLAN_v1.10.0.md)). Tag **v1.10.0**. Hub `1.10.0` / `1.10` / `latest` |
+| **v1.11.x** | Current release ([RELEASE_v1.11.0.md](docs/RELEASE_v1.11.0.md) · [PLAN_v1.11.0.md](docs/PLAN_v1.11.0.md)). Tag **v1.11.0**. Image `1.11.0` / `1.11` / `latest` |
+| **v1.10.x** | Previous image pin; still valid ([RELEASE_v1.10.0.md](docs/RELEASE_v1.10.0.md) · [PLAN_v1.10.0.md](docs/PLAN_v1.10.0.md)). Tag **v1.10.0**. Pin `1.10.0` / `1.10` |
 | **v1.9.x** | Previous production pin; still valid ([RELEASE_v1.9.0.md](docs/RELEASE_v1.9.0.md) · [PLAN_v1.9.0.md](docs/PLAN_v1.9.0.md)). Tag **v1.9.0** |
 | **v1.8.x** | Prior production pin; still valid ([RELEASE_v1.8.1.md](docs/RELEASE_v1.8.1.md) · [PLAN_v1.8.0.md](docs/PLAN_v1.8.0.md)). Tag **v1.8.1** |
 | **v1.7.x** | Prior production pin; still valid ([RELEASE_v1.7.0.md](docs/RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](docs/PLAN_v1.7.0.md)) |
