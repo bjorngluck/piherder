@@ -1,12 +1,12 @@
 # PiHerder v1.11.0 — a passkey counts as 2FA, then a host copies straight out
 
-**Status:** **Code freeze** 2026-10-08. Package **1.11.0**. Tag and Hub publish stay for the ship step.  
+**Status:** **Released** 2026-10-18. Package **1.11.0**. Operator QA signed. Screenshots wired. Tag and Hub publish follow approval of PR #35.  
 **Date opened:** 2026-10-06  
 **Git branch:** `v1.11.0-dev` → `main` · tag `v1.11.0` after merge, only when asked  
-**Package / image version:** package **`1.11.0`**. About / footer say **1.11.0**. Image on Hub stays `1.10.0` / `1.10` / `latest`.  
+**Package / image version:** package **`1.11.0`**. About / footer say **1.11.0**. Release image tags are `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image.  
 **Theme:** a passkey counts as 2FA, then a host copies straight to Drive, OneDrive, or the NAS  
 **Baseline:** `v1.10.0` (tagged 2026-10-05; Hub digest `sha256:0a1286cb0864e153ea1af6ba8b458175da051c8a54fc98d701539c08dcd99d04`)  
-**Mode:** **Must → Should → Discover.** Must **passkey versus Force 2FA** · **Path C discovery** · **Path C build**. Should **MCP Move**, **MCP nmap**, **discovery devices**, and **git-rich onboard** have landed. Walks are still empty.  
+**Mode:** **Must → Should → Discover.** Must **passkey versus Force 2FA** · **Path C discovery** · **Path C build**. Should **MCP Move**, **MCP nmap**, **discovery devices**, and **git-rich onboard** have landed. Operator walks signed 2026-10-18.  
 **QA:** [QA_v1.11.0.md](QA_v1.11.0.md) (maintainer stub — **not** the operator wiki)  
 **Related:** [PLAN_v1.10.0.md](PLAN_v1.10.0.md) · [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [FEATURE_PLAN_BACKUP_DESTINATIONS.md](FEATURE_PLAN_BACKUP_DESTINATIONS.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [Agents (MCP)](../wiki/operations/mcp.md)
 
@@ -18,7 +18,7 @@
 
 v1.10.0 shipped OneDrive beside Google Drive and a LAN share, a copy of the herder self-backup, and browser sign-in for hosted `/mcp`. A passkey now counts as 2FA when Force 2FA is on. A host backup is still a pull onto `/backups` unless that host opts in. Path C was discovered in [PLAN_v1.10.0.md](PLAN_v1.10.0.md) §4.
 
-This train fixes the passkey gate and builds the Path C choice below. An agent can start a Move, and can start or read a LAN Discovery scan. The operator walk is still empty.
+This train fixes the passkey gate and builds the Path C choice below. An agent can start a Move, and can start or read a LAN Discovery scan. Operator walks signed 2026-10-18.
 
 ---
 
@@ -28,13 +28,13 @@ This train fixes the passkey gate and builds the Path C choice below. An agent c
 |-------|------|
 | Must, first | **Passkey versus Force 2FA.** On signup, with 2FA enforced, a passkey cannot be registered. A passkey already in place still forces app-based 2FA. A passkey is not treated as 2FA on the account. The tag waits on this |
 | Must | **Path C discovery.** A host can opt in and pick one or more saved destinations. None start selected. Save refuses the opt-in with no destination. The host sends its files straight to those destinations. Nothing of that host lands on `/backups` first, and the host does not store a second copy. Hosts that do not opt in still rsync onto `/backups`, and the herder copy of that mirror stays. Copy now on a direct host starts that destination's push. rclone reads the original files in place for that run, as root when the backup user is not root, using /var/lib/piherder/rclone. The temp config is deleted when the run ends. Input was [PLAN_v1.10.0.md](PLAN_v1.10.0.md) §4 |
-| Must | **Path C build.** That choice is on this branch. The tag waits on the operator walk. A finished **Backup** job and its audit row name the destination. The sign-in stays out. Restore from Drive, OneDrive, or the NAS is a note on [PLAN_v1.12.0.md](PLAN_v1.12.0.md) |
+| Must | **Path C build.** That choice is on this branch. Operator walk signed 2026-10-18. The tag waits on the ship step. A finished **Backup** job and its audit row name the destination. The sign-in stays out. Restore from Drive, OneDrive, or the NAS is a note on [PLAN_v1.12.0.md](PLAN_v1.12.0.md) |
 | Should | **MCP Move.** Hosted `/mcp` `start_move` starts a stop-first Move. `confirm` must be true. The source is left stopped. Undo stays out. `trigger_job` still refuses `service_migrate`. The tag can ship if the operator walk slips |
 | Should | **MCP nmap.** Hosted `/mcp` can read a LAN Discovery scan and can start one of the saved ranges. The agent does not choose the ranges. Vulnerability scripts stay off. The tag can ship if the operator walk slips |
 | Should | **Discovery devices.** Issue [#34](https://github.com/bjorngluck/piherder/issues/34). An agent can rename a device, mark it known, new, or ignored, link it to a server, and purge one device or the offline rows. A linked device cannot be purged. A one-device scan stays inside the saved ranges and keeps vulnerability scripts off. Kind and map role stay on the rename. Adapter **0.4.2** is on PyPI and sends `confirm=true` on purge. **0.4.1** omits that query. A cached **0.4.0** does not send the device tools |
 | Moved | **NPM CRUD** and **remote restore** are notes on [PLAN_v1.12.0.md](PLAN_v1.12.0.md). They are not part of this train |
-| Should | **Git-rich onboard.** Landed. Docker → Repository on an existing project. The operator attaches a remote, picks the branch (remote default starts selected) or a tag, and sees a tag that is ahead of the checkout. Update moves the checkout. A tracked local edit or a local commit stops that update until the operator keeps the local files or takes the remote copies. Untracked files stay. The stack is not deployed. Walk still empty |
-| Version bump | Package is **1.11.0**. Hub image stays `1.10.0`. The tag waits on the ship step |
+| Should | **Git-rich onboard.** Landed. Docker → Repository on an existing project. The operator attaches a remote, picks the branch (remote default starts selected) or a tag, and sees a tag that is ahead of the checkout. Update moves the checkout. A tracked local edit or a local commit stops that update until the operator keeps the local files or takes the remote copies. Untracked files stay. The stack is not deployed. Operator walk signed 2026-10-18 |
+| Version bump | Package is **1.11.0**. Release image tags are `1.11.0` / `1.11` / `latest`. The tag and the Hub push follow approval of PR #35 |
 | Demo | Do not point the public demo at this branch |
 | Plugin | The Home Assistant card stays the separate HACS repo. Putting it in this image is not a backlog row |
 
@@ -77,6 +77,8 @@ This train fixes the passkey gate and builds the Path C choice below. An agent c
 | 2026-10-08 | **Git-rich onboard landed.** Docker → Repository attaches a remote, lists branches and tags, marks a tag ahead of the checkout, and updates only after a local edit is kept or replaced. Untracked files stay. The stack is not deployed. QA stays empty. Package stays `1.10.0`. |
 | 2026-10-08 | **Discover moved.** NPM CRUD and remote restore are notes on [PLAN_v1.12.0.md](PLAN_v1.12.0.md). That plan also notes an optional flag for API and MCP read audit, and `host_facts` kept out of the default Jobs and Audit lists. Nothing there is built. |
 | 2026-10-08 | **Code freeze.** Notes are [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md). QA boxes stay empty. Screenshot names are `account-passkey-2fa.png`, `host-backup-direct.png`, `jobs-direct-copy.png`, and `docker-repository.png`. Package stays `1.10.0`. |
+| 2026-10-18 | **Operator QA and screenshots.** The walks are signed. The four frames are wired, with names and paths masked. Release notes are written as the shipped **1.11.0** release, including the bug-fix table. Tag and Hub follow approval of PR #35. |
+| 2026-10-18 | **Operator QA.** Passkey versus Force 2FA, Path C decision, Path C build, MCP Move, MCP nmap, discovery devices, git-rich onboard, and Fleet health signed. The 1.10 regression is verified. |
 
 ---
 
@@ -85,12 +87,13 @@ This train fixes the passkey gate and builds the Path C choice below. An agent c
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.11.0-dev`** | **Done** 2026-10-06 |
-| 2 | **Passkey versus Force 2FA** | **Landed.** Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
-| 3 | **Path C** decision, then the build | **Choice written. Build landed.** Opt in, beside the pull. Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
-| 4 | Should, if it fits | **MCP Move**, **MCP nmap**, **discovery devices** ([#34](https://github.com/bjorngluck/piherder/issues/34)). **Landed.** Operator walk still empty in [QA_v1.11.0.md](QA_v1.11.0.md) |
-| 5 | Discover write-ups | **Git-rich onboard** landed. Walk still empty. **NPM CRUD** and remote restore moved to [PLAN_v1.12.0.md](PLAN_v1.12.0.md) |
-| 6 | Freeze | **Set** 2026-10-08. Package is **1.11.0**. Tag and Hub stay for the ship step |
+| 2 | **Passkey versus Force 2FA** | **Signed** 2026-10-18 in [QA_v1.11.0.md](QA_v1.11.0.md) |
+| 3 | **Path C** decision, then the build | **Choice written. Build landed. Signed** 2026-10-18. Opt in, beside the pull |
+| 4 | Should, if it fits | **MCP Move**, **MCP nmap**, **discovery devices** ([#34](https://github.com/bjorngluck/piherder/issues/34)). **Signed** 2026-10-18 |
+| 5 | Discover write-ups | **Git-rich onboard** signed 2026-10-18. **NPM CRUD** and remote restore moved to [PLAN_v1.12.0.md](PLAN_v1.12.0.md) |
+| 6 | Freeze | **Set** 2026-10-08. Package is **1.11.0**. Tag and Hub follow approval of PR #35 |
+| 7 | Operator QA and screenshots | **Signed** 2026-10-18. Four frames wired. Names in the frames are masked |
 
 ---
 
-*Opened 2026-10-06. Package is `1.11.0`. Operator walks live in [QA_v1.11.0.md](QA_v1.11.0.md).*
+*Opened 2026-10-06. Package is `1.11.0`. Operator walks signed 2026-10-18 in [QA_v1.11.0.md](QA_v1.11.0.md). Release notes: [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md).*

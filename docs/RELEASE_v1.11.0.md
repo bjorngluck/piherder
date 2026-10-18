@@ -1,12 +1,12 @@
 # PiHerder v1.11.0
 
-**11 October 2026.** Draft notes for this train. About, `/api/v1`, and hosted MCP report **1.11.0**. Hub tags stay `1.10.0` · `1.10` · `latest`.
+**18 October 2026.** Tag **[v1.11.0](https://github.com/bjorngluck/piherder/releases/tag/v1.11.0)**. Package **1.11.0**. Released.
 
 A passkey counts as a second factor when Force 2FA is on. A host can send its own files straight to Google Drive, OneDrive, or a LAN share. An agent can start a Move, read or start a LAN Discovery scan, and tidy the devices that scan found. Docker can show a newer git tag on a project that is already on the host.
 
-About and `/api/v1` report **1.11.0**. The straight-out tick and **Repository…** are how you tell this train is running.
+About and `/api/v1` report **1.11.0**. The straight-out tick and **Repository…** are how you tell **1.11.0** is running.
 
-**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.10.0` · `1.10` · `latest` (amd64 + arm64). Pin `1.9.0` / `1.9` stays the previous image. Home Assistant plugin stays **0.5.0**. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** is on PyPI. `uvx piherder-mcp` installs it. The public demo stays the production image.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.11.0` · `1.11` · `latest` (amd64 + arm64). The manifest digest is recorded when that image is published. Pin `1.10.0` / `1.10` stays the previous image. Pins `1.9.0` / `1.9` and `1.8.1` / `1.8` stay valid. Home Assistant plugin stays **0.5.0**. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** is on PyPI. `uvx piherder-mcp` installs it. The public demo is updated separately.
 
 Operator how-to: [Account security](https://piherder-docs.hacknow.info/account-security/two-factor/) · [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Agents (MCP)](https://piherder-docs.hacknow.info/operations/mcp/) · [Docker](https://piherder-docs.hacknow.info/docker/overview/) · [LAN Discovery](https://piherder-docs.hacknow.info/integrations/lan-discovery/). Technical record: [PLAN_v1.11.0](PLAN_v1.11.0.md). Maintainer QA: [QA_v1.11.0](QA_v1.11.0.md).
 
@@ -40,7 +40,7 @@ Hosted `POST /mcp` can start a stop-first Move with `start_move`. `confirm` must
 
 `list_discovery_devices` pages devices. An agent with `edit` can rename a device, mark it known, new, or ignored, link it to a fleet server, and purge one device or the offline rows. A linked device cannot be purged. `scan_discovery_device` scans one device that already sits inside the saved ranges. Vulnerability scripts stay off. This is issue [#34](https://github.com/bjorngluck/piherder/issues/34).
 
-Adapter **0.4.2** lists these tools and sends `confirm=true` on the two purge calls. **0.4.1** lists the tools and omits that query, so purge returns 400 on this train. A machine on **0.4.0** does not send the device tools. Run `uvx --refresh piherder-mcp`, then restart the MCP client so it lists 27 tools. A client that is still running keeps the old tool list. If uv does not see **0.4.2** yet, run `uvx --no-cache --refresh piherder-mcp` and restart the client again. `read_discovery`, `start_discovery`, and the device tools need this train's herder. `start_move` also works on a 1.10.0 herder.
+Adapter **0.4.2** lists these tools and sends `confirm=true` on the two purge calls. **0.4.1** lists the tools and omits that query, so purge returns 400 on **1.11.0**. A machine on **0.4.0** does not send the device tools. Run `uvx --refresh piherder-mcp`, then restart the MCP client so it lists 27 tools. A client that is still running keeps the old tool list. If uv does not see **0.4.2** yet, run `uvx --no-cache --refresh piherder-mcp` and restart the client again. `read_discovery`, `start_discovery`, and the device tools need PiHerder **1.11.0**. `start_move` also works on a 1.10.0 herder.
 
 ### Docker can see a newer git tag
 
@@ -114,14 +114,14 @@ The empty fleet schedule, the Configure minute, the scheduled flag, the token AP
 Two database revisions add the straight-out tick and the chosen destinations. The image applies them on startup.
 
 1. Take a full DR self-backup. Keep `PIHERDER_MASTER_KEY`.
-2. Pull the image for this train when it is published. Hub tags today are `1.10.0` · `1.10` · `latest`.
+2. Pull `bjorngluck/piherder:1.11.0`. Tags `1.11` and `latest` are that same image.
 3. `docker compose pull && docker compose up -d`. Recreate **web** and **celery-worker**. The app code is not a folder on the host.
 4. On any host whose SSH user is not root and that will send files straight out, copy the sudoers script from SSH access and apply it again. It lets the backup user run `/var/lib/piherder/rclone`. No destination sign-in is stored on the host. The temp config lives only for the run.
 5. `uvx --refresh piherder-mcp` if an agent should see the device tools, then restart the MCP client so it lists 27 tools. **0.4.2** sends `confirm=true` on purge. If uv does not see **0.4.2** yet, run `uvx --no-cache --refresh piherder-mcp` and restart the client again.
 
 Rolling back means restoring the DR self-backup from step 1. Pinning the image at `1.10.0` does not undo the two database revisions.
 
-The public demo is not this train.
+The public demo is updated separately.
 
 ---
 
@@ -141,12 +141,12 @@ The public demo is not this train.
 
 ## Open issues
 
-Leave these open until v1.11.0 is released.
+Close [#34](https://github.com/bjorngluck/piherder/issues/34) and [#51](https://github.com/bjorngluck/piherder/issues/51) with this release. Leave [#47](https://github.com/bjorngluck/piherder/issues/47) through [#50](https://github.com/bjorngluck/piherder/issues/50) open.
 
 | Issue | Where it stands |
 |---|---|
-| [#34](https://github.com/bjorngluck/piherder/issues/34) Discovery devices | On this train. An agent can rename, mark, link, and purge. Adapter 0.4.2 sends `confirm=true` on purge |
-| [#51](https://github.com/bjorngluck/piherder/issues/51) Backup schedule | On this train. Apply turns backups on and does not write a schedule. A host with no saved schedule inherits the fleet time |
+| [#34](https://github.com/bjorngluck/piherder/issues/34) Discovery devices | Shipped. An agent can rename, mark, link, and purge. Adapter 0.4.2 sends `confirm=true` on purge. Close with this release |
+| [#51](https://github.com/bjorngluck/piherder/issues/51) Backup schedule | Shipped. Apply turns backups on and does not write a schedule. A host with no saved schedule inherits the fleet time. Close with this release |
 | [#47](https://github.com/bjorngluck/piherder/issues/47) Image check after a pull | Not in this release. The flag can clear while the container still runs the old image |
 | [#48](https://github.com/bjorngluck/piherder/issues/48) Docker prune | Not in this release |
 | [#49](https://github.com/bjorngluck/piherder/issues/49) End-of-life OS badge | Not in this release |
