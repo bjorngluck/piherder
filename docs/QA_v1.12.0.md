@@ -113,10 +113,10 @@ The job log keeps an `E:` line, and a debconf or sudo line when that is what apt
 
 ## Supply chain and history (Should)
 
-The working tree no longer carries the home path, the home subnet, or an internal hostname. The public docs host, the public demo host, and the demo login stay. Published commits are listed in [HISTORY_SWEEP_v1.12.md](HISTORY_SWEEP_v1.12.md). No force-push. The denylist workflow is in. It checks only after the secret `PIHERDER_PUSH_DENYLIST` is set. These boxes stay open until that walk is signed.
+Published history was rewritten on 2026-10-19. The home path, the home subnet, and internal hostnames are gone from `main`, the release tags, and `gh-pages`. The public docs host, the public demo host, and the demo login stay. The map is [HISTORY_SWEEP_v1.12.md](HISTORY_SWEEP_v1.12.md). The denylist workflow is in. It checks only after the secret `PIHERDER_PUSH_DENYLIST` is set. These boxes stay open until that walk is signed.
 
 - [ ] A grep of main and the wiki comes back clean
-- [ ] The list of published commits is ready for a yes or no. This walk does not force-push
+- [ ] `main`, the release tags, and `gh-pages` no longer carry the home path, the home subnet, or an internal hostname
 The capture log records the pass. `uv.lock` matches the exported locks at Mako 1.4.3 and multidict 6.9.1. Actions stay on major tags. The base image stays a tag. Six medium Dependabot alerts stay open on main until this branch lands. Secret scanning has no open alerts. This box stays open until that walk is signed.
 
 - [ ] The capture log records the pass over pinned actions, the dependency lock, image digest pinning, Dependabot, and secret scanning
