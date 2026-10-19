@@ -265,7 +265,7 @@ def find_npm_host_server(session: Session) -> Optional[Server]:
 
 
 def _npm_edge_hostname(session: Session) -> str:
-    """Public NPM hostname from the integration base URL (e.g. nginx.example.com)."""
+    """Public NPM hostname from the integration base URL (e.g. edge.example.com)."""
     try:
         rows = [
             r

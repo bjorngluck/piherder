@@ -144,8 +144,8 @@ def test_onboarding_key_helpers_and_scripts():
         "piherder", remove_user=True, compose_owner="pi", compose_tree="/home/pi/docker"
     )
     assert "sudoers.d" in clean and "setfacl" in clean
-    clean_bjorn = onb.build_piherder_user_cleanup_script("bjorn")
-    assert "USER_NAME=" in clean_bjorn
+    clean_owner = onb.build_piherder_user_cleanup_script("owner")
+    assert "USER_NAME=" in clean_owner
 
     acl = onb.build_compose_tree_acl_script("ph", "pi", "docker")
     assert "/home/pi/docker" in acl

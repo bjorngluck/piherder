@@ -229,7 +229,7 @@ Existing `upsert_service_record` already:
 
 ### NPM edge (moving the proxy stack)
 
-Public names are **CNAME → NPM hostname** (e.g. `ai.example.com` → `nginx.example.com`). Moving the NPM compose project:
+Public names are **CNAME → NPM hostname** (e.g. `app.example.com` → `edge.example.com`). Moving the NPM compose project:
 
 1. Retarget **only** the edge FQDN CNAME to dest `dns_name`.  
 2. Leave dependent CNAMEs on the alias — flip fabric `target_server_id` to dest, no Pi-hole rewrite of those names.  
@@ -258,7 +258,7 @@ Not in 1.4: POST new proxy host, DELETE, certificate_id changes, `enabled` toggl
 | Check | When | Pass |
 |-------|------|------|
 | `docker compose ps` dest | always | expected services running |
-| TLS fingerprint | `CertificateTarget.verify_url` or fabric `certificate_id` + known port | `openssl s_client -servername <fqdn>` matches vault fingerprint (SNI matters — Authentik default cert vs `*.hacknow.info`) |
+| TLS fingerprint | `CertificateTarget.verify_url` or fabric `certificate_id` + known port | `openssl s_client -servername <fqdn>` matches vault fingerprint (SNI matters — Authentik default cert vs `*.example.com`) |
 | Kuma | any service binding | metrics `up` for that monitor after DNS; rebind `server_id` so coverage / down-alerts follow dest |
 | Inventory | always | dest project present; source project stopped or absent from running |
 
@@ -450,7 +450,7 @@ An operator can:
 | 2026-08-25 | **M-rm:** optional source project + named volume delete after green migrate. Preview + danger confirm + `leftover_remove_ack`. Dest never wiped. |
 | 2026-08-25 | Operator wiki pass: full pipeline + leftover + Journey Move; maintainer QA/PLAN/ROADMAP/SPEC aligned for live validation. |
 | 2026-08-30 | **NPM edge move:** dependents keep CNAME on the NPM hostname; alias follows dest; Pi-hole login falls back to NPM LAN backend; cutover retries DNS when fabric already points at dest. |
-| 2026-08-30 | **NPM proxy-host binding:** PUT ``forward_host`` for the compose project even with no fabric DNS row (openwebui / ``ai.example.com``). Rebind follows the project, not only the source host. |
+| 2026-08-30 | **NPM proxy-host binding:** PUT ``forward_host`` for the compose project even with no fabric DNS row (openwebui / ``app.example.com``). Rebind follows the project, not only the source host. |
 | 2026-09-01 | Grafana **container** dashboard binds follow dest. Optional **Adopt into fabric** (via_proxy, no cert, no Pi-hole rewrite). JobHold **Start source stack** after copy / dest-up fail. ``dns_then_start`` stays out. |
 | 2026-09-06 | **M-worker** parked for **v1.5 candidate**: Celery Move + heartbeats. 1.4 stays web `BackgroundTasks`. |
 | 2026-09-07 | **M-worker** promoted: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) Must on `v1.5.0-dev`. |

@@ -144,7 +144,7 @@ On cert detail: **Add deploy target** opens a multi-step modal (name → server 
 
 ### How deploy writes files
 
-1. SSH as the host’s configured user (`ssh_username` — e.g. `piherder` or `bjorn`).  
+1. SSH as the host’s configured user (`ssh_username` — e.g. `piherder` or `user`).  
 2. **SFTP** write into **Directory** (expand `~` to that user’s home).  
 3. `chmod` / optional `chown` (chown may use `sudo`).  
 4. Optional **post-deploy** shell command (also as that user; use `sudo` when needed).
@@ -165,7 +165,7 @@ Then configure NPM (or the proxy) to use those files.
 
 ### Cookbook: OctoPi / HAProxy host (no Docker, least-priv `piherder`)
 
-Use when a host runs **OctoPrint / OctoPi** (or similar) with **HAProxy** TLS and stock **`/etc/ssl/snakeoil.pem`**, and the PiHerder SSH user is the dedicated **`piherder`** account (not full-sudo `bjorn`).
+Use when a host runs **OctoPrint / OctoPi** (or similar) with **HAProxy** TLS and stock **`/etc/ssl/snakeoil.pem`**, and the PiHerder SSH user is the dedicated **`piherder`** account (not full-sudo `user`).
 
 **Combined layout** builds one PEM (private key, then fullchain) — same idea as OctoPi’s snakeoil file.
 
@@ -240,7 +240,7 @@ sudo install -o root -g root -m 644 /home/piherder/certs/snakeoil.pem /etc/ssl/s
 
 3. Browser: `https://3dprint.local` (or the FQDN that matches the cert SANs).
 
-#### Using a full-sudo user (`bjorn`) instead
+#### Using a full-sudo user (`user`) instead
 
 Same target, but Directory can still be staging under that user’s home (`/home/user/certs`) and post-deploy uses the same `sudo install … && sudo systemctl restart haproxy` pattern. Full sudo means you may not need a separate `piherder-certs` drop-in — still prefer **not** relying on interactive password prompts (`sudo -n` must work for automation).
 

@@ -371,7 +371,7 @@ def npm_proxy_hosts_for_project(
 ) -> list[dict[str, Any]]:
     """NPM proxy hosts bound to this compose project (fabric row not required).
 
-    Operators often bind ``ai.example.com`` on NPM without a ServiceDnsRecord.
+    Operators often bind ``app.example.com`` on NPM without a ServiceDnsRecord.
     Move still has to PUT ``forward_host``.
     """
     name = compose_project_name(project)

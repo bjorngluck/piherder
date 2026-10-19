@@ -2739,7 +2739,7 @@ def test_bind_outside_default_dest_clears_block(lock_db):
         hostname="a.local",
         container_patch_enabled=True,
         docker_base_dir="/home/user/docker",
-        ssh_username="bjorn",
+        ssh_username="owner",
         dns_name="a.test",
     )
     dest = Server(
@@ -2747,7 +2747,7 @@ def test_bind_outside_default_dest_clears_block(lock_db):
         hostname="b.local",
         container_patch_enabled=True,
         docker_base_dir="/home/user/docker",
-        ssh_username="bjorn",
+        ssh_username="owner",
         dns_name="b.test",
     )
     lock_db.add(src)
@@ -2880,7 +2880,7 @@ def test_preflight_docker_sock_is_host_local_not_folded(lock_db):
         hostname="a.local",
         container_patch_enabled=True,
         docker_base_dir="/home/user/docker",
-        ssh_username="bjorn",
+        ssh_username="owner",
         dns_name="a.test",
     )
     dest = Server(
@@ -2888,7 +2888,7 @@ def test_preflight_docker_sock_is_host_local_not_folded(lock_db):
         hostname="b.local",
         container_patch_enabled=True,
         docker_base_dir="/home/user/docker",
-        ssh_username="bjorn",
+        ssh_username="owner",
         dns_name="b.test",
     )
     lock_db.add(src)
@@ -2940,8 +2940,8 @@ def test_pipeline_does_not_rsync_docker_sock(lock_db, tmp_path, monkeypatch):
     src, dest = _pair_hosts(lock_db)
     src.docker_base_dir = "/home/user/docker"
     dest.docker_base_dir = "/home/user/docker"
-    src.ssh_username = "bjorn"
-    dest.ssh_username = "bjorn"
+    src.ssh_username = "owner"
+    dest.ssh_username = "owner"
     src.docker_inventory_json = _inv(
         "uptime-kuma",
         mounts_detail=[

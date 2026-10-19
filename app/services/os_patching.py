@@ -71,8 +71,36 @@ def _ensure_progress(hostname: str) -> dict:
 
 
 def _apt_signal(text: str) -> bool:
-    """Apt error lines that must survive a carriage-return rewrite."""
-    return "E:" in text or "Err:" in text
+    """Lines that must survive a carriage-return rewrite.
+
+    ``sudo`` resets the environment, so a ``DEBIAN_FRONTEND`` prefix is often
+    gone by the time apt runs. debconf then prints its frontend error, and apt
+    or sudo may print the rest. Those lines are the job's error output.
+    """
+    raw = str(text or "")
+    if "E:" in raw or "Err:" in raw:
+        return True
+    low = raw.lower()
+    if "debconf:" in low:
+        return True
+    if "dpkg: error" in low:
+        return True
+    if "sudo:" in low and (
+        "environment" in low or "not allowed" in low or "sorry" in low
+    ):
+        return True
+    return False
+
+
+def _signal_message(text: str) -> str:
+    """Short form of a kept error line for the job summary."""
+    raw = str(text or "").strip()
+    if raw.startswith("… "):
+        raw = raw[2:].strip()
+    positions = [raw.find(tok) for tok in ("E:", "Err:") if raw.find(tok) >= 0]
+    if positions:
+        raw = raw[min(positions) :].strip()
+    return raw[:180]
 
 
 def _keep_progress_signal(lines: list) -> None:
@@ -103,6 +131,17 @@ def _append_os_log(hostname: str, text: str, *, replace_progress: bool = False):
         chunk = pieces[-1] if pieces else ""
         if not chunk:
             return
+        # A trailing error must be kept. The next progress rewrite would
+        # replace a "… " line, which drops debconf after sudo strips the env.
+        if _apt_signal(chunk):
+            _keep_progress_signal(lines)
+            lines.append(chunk[:500])
+            p["last_activity"] = time.time()
+            if len(lines) > _MAX_LOG_LINES:
+                p["log_lines"] = lines[-_MAX_LOG_LINES:]
+            return
+        if lines and lines[-1].startswith("… "):
+            _keep_progress_signal(lines)
         if lines and lines[-1].startswith("… "):
             lines[-1] = f"… {chunk[:200]}"
         else:
@@ -264,19 +303,29 @@ def summarize_os_patch_result(res: dict) -> str:
 
 
 def apt_failure_reason(lines: list[str], *, limit: int = 2) -> str:
-    """Last apt ``E:`` lines from a step log. Empty when apt printed none."""
-    found: list[str] = []
+    """Last apt, debconf, or sudo error lines from a step log.
+
+    Apt ``E:`` and ``Err:`` lines win. When sudo dropped ``DEBIAN_FRONTEND``
+    and apt printed no ``E:`` line, the debconf or sudo line is the reason.
+    """
+    apt_hits: list[str] = []
+    other: list[str] = []
     for raw in lines or []:
         text = str(raw).strip()
-        idx = text.find("E:")
-        if idx < 0:
+        if text.startswith("… "):
+            text = text[2:].strip()
+        if not text or not _apt_signal(text):
             continue
-        msg = text[idx:].strip()
-        if msg and msg not in found:
-            found.append(msg)
-    if not found:
+        msg = _signal_message(text)
+        if not msg:
+            continue
+        bucket = apt_hits if ("E:" in text or "Err:" in text) else other
+        if msg not in bucket:
+            bucket.append(msg)
+    chosen = apt_hits or other
+    if not chosen:
         return ""
-    return " · ".join(found[-max(1, int(limit)):])
+    return " · ".join(chosen[-max(1, int(limit)) :])
 
 
 def os_patch_succeeded(res: dict) -> bool:
@@ -320,8 +369,8 @@ def _stream_ssh_command(client, hostname: str, step_name: str, cmd: str, timeout
                     buf += data
                     while "\n" in buf:
                         line, buf = buf.split("\n", 1)
-                        if "\r" in line:
-                            line = line.split("\r")[-1]
+                        # Keep earlier carriage-return pieces when they are
+                        # apt, debconf, or sudo errors. _append_os_log does that.
                         if line.strip():
                             _append_os_log(hostname, line)
                     if buf and "\r" in buf and "\n" not in buf:

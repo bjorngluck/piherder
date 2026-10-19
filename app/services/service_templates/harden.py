@@ -198,7 +198,7 @@ _BOOLISH = frozenset(
 )
 _SECTION_KEY_RE = re.compile(r"^([ \t]*)([A-Za-z0-9_-]+)\s*:\s*(.*)$")
 
-# FQDN-ish tokens in config bodies (e.g. rpi5-2.example.com)
+# FQDN-ish tokens in config bodies (e.g. host-b.example.com)
 _HOST_FQDN_RE = re.compile(
     r"\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}\b"
 )

@@ -259,7 +259,7 @@ def test_build_access_path_host_direct():
     session = MagicMock()
     host = SimpleNamespace(
         id=8, name="3DPRINT", dns_name="3dprint.example.com", hostname="3dprint.example.com",
-        ip_address="192.0.2.41", dns_ip_override=None,
+        ip_address="10.0.2.41", dns_ip_override=None,
     )
     with patch.object(fabric.core, "_servers_by_id", return_value={8: host}), patch.object(fabric.core, "_find_npm_forward", return_value=None
     ), patch.object(fabric.core, "_find_docker_container", return_value=None), patch.object(fabric.core, "resolve_app_layers",
@@ -291,14 +291,14 @@ def test_build_access_path_npm_app():
     session = MagicMock()
     edge = SimpleNamespace(
         id=5, name="RPI5-3", dns_name="rpi5-3.example.com", hostname="rpi5-3",
-        ip_address="192.0.2.35", dns_ip_override=None,
+        ip_address="10.0.2.35", dns_ip_override=None,
     )
     backend = SimpleNamespace(
         id=1, name="RPI5-2", dns_name="rpi5-2.example.com", hostname="rpi5-2",
-        ip_address="192.0.2.49", dns_ip_override=None,
+        ip_address="10.0.2.49", dns_ip_override=None,
     )
     with patch.object(fabric.core, "_servers_by_id", return_value={5: edge, 1: backend}), patch.object(fabric.core, "_find_npm_forward",
-        return_value={"forward_host": "192.0.2.49", "forward_port": 8090, "domain_names": ["download.example.com"]},
+        return_value={"forward_host": "10.0.2.49", "forward_port": 8090, "domain_names": ["download.example.com"]},
     ), patch.object(fabric.core, "_find_docker_container", return_value="qbittorrent"), patch.object(fabric.core, "resolve_app_layers",
         return_value={"docker_project": "qbittorrent", "docker_container": "qbittorrent", "source": "explicit"},
     ):
@@ -320,7 +320,7 @@ def test_build_access_path_host_direct_with_app_layers():
     session = MagicMock()
     host = SimpleNamespace(
         id=4, name="RPI5-6", dns_name="rpi5-6.example.com", hostname="rpi5-6",
-        ip_address="192.0.2.34", dns_ip_override=None,
+        ip_address="10.0.2.34", dns_ip_override=None,
     )
     with patch.object(fabric.core, "_servers_by_id", return_value={4: host}), patch.object(fabric.core, "_find_npm_forward", return_value=None
     ), patch.object(fabric.core, "resolve_app_layers",
@@ -349,10 +349,10 @@ def test_build_access_path_direct_ignores_stale_npm():
     session = MagicMock()
     host = SimpleNamespace(
         id=4, name="RPI5-4", dns_name="rpi5-4.example.com", hostname="rpi5-4",
-        ip_address="192.0.2.40", dns_ip_override=None,
+        ip_address="10.0.2.40", dns_ip_override=None,
     )
     stale_npm = {
-        "forward_host": "192.0.2.40",
+        "forward_host": "10.0.2.40",
         "forward_port": 8971,
         "domain_names": ["frigate.example.com"],
     }
@@ -387,10 +387,10 @@ def test_build_access_path_npm_same_host():
     session = MagicMock()
     host = SimpleNamespace(
         id=4, name="RPI5-6", dns_name="rpi5-6.example.com", hostname="rpi5-6",
-        ip_address="192.0.2.34", dns_ip_override=None,
+        ip_address="10.0.2.34", dns_ip_override=None,
     )
     npm_fwd = {
-        "forward_host": "192.0.2.34",
+        "forward_host": "10.0.2.34",
         "forward_port": 5678,
         "domain_names": ["n8n.example.com"],
     }
@@ -1040,23 +1040,23 @@ def test_build_fabric_view_lazy_and_no_persist():
 
 
 def test_ip_in_lan():
-    assert fabric._ip_in_lan("192.0.2.10", "192.0.2.0/24") is True
-    assert fabric._ip_in_lan("10.0.0.5", "192.0.2.0/24") is False
-    assert fabric._ip_in_lan(None, "192.0.2.0/24") is None
-    assert fabric._ip_in_lan("192.0.2.10", "") is None
+    assert fabric._ip_in_lan("10.0.2.10", "10.0.2.0/24") is True
+    assert fabric._ip_in_lan("10.0.0.5", "10.0.2.0/24") is False
+    assert fabric._ip_in_lan(None, "10.0.2.0/24") is None
+    assert fabric._ip_in_lan("10.0.2.10", "") is None
 
 
 def test_host_is_cloud_rfc1918_fallback():
     """Without LAN CIDR, public IPs are cloud; private stay on LAN."""
     assert fabric._host_is_cloud("203.0.113.50", "") is True
-    assert fabric._host_is_cloud("192.0.2.20", "") is False
+    assert fabric._host_is_cloud("10.0.2.20", "") is False
     assert fabric._host_is_cloud("10.0.0.5", "") is False
     assert fabric._host_is_cloud(None, "") is False
-    assert fabric._host_is_cloud("203.0.113.50", "192.0.2.0/24") is True
-    assert fabric._host_is_cloud("192.0.2.20", "192.0.2.0/24") is False
+    assert fabric._host_is_cloud("203.0.113.50", "10.0.2.0/24") is True
+    assert fabric._host_is_cloud("10.0.2.20", "10.0.2.0/24") is False
     # Private, but outside the saved CIDR: still LAN, not the Internet node.
-    assert fabric._host_is_cloud("192.0.2.49", "10.0.0.0/24") is False
-    assert fabric._host_is_cloud("10.0.0.5", "192.0.2.0/24") is False
+    assert fabric._host_is_cloud("10.0.2.49", "10.0.0.0/24") is False
+    assert fabric._host_is_cloud("10.0.0.5", "10.0.2.0/24") is False
 
 
 def test_physical_mesh_places_cloud_and_infra():
@@ -1065,7 +1065,7 @@ def test_physical_mesh_places_cloud_and_infra():
             "server_id": 1,
             "name": "RPI",
             "dns_name": "rpi.example",
-            "ip": "192.0.2.20",
+            "ip": "10.0.2.20",
             "href": "/servers/1",
         },
         {
@@ -1090,8 +1090,8 @@ def test_physical_mesh_places_cloud_and_infra():
         }
     ]
     net = {
-        "lan_subnet": "192.0.2.0/24",
-        "gateway_ip": "192.0.2.1",
+        "lan_subnet": "10.0.2.0/24",
+        "gateway_ip": "10.0.2.1",
         "public_ip": "198.51.100.9",
         "gateway_kuma": {
             "external_id": "router-ping",
@@ -1120,7 +1120,7 @@ def test_physical_mesh_places_cloud_and_infra():
     assert gw.get("split") is True
     assert "up" in (gw.get("path_chain") or "")
     assert "198.51.100.9" in (gw.get("sub_top") or "")
-    assert "192.0.2.1" in (gw.get("sub_bottom") or gw.get("lan_ip") or "")
+    assert "10.0.2.1" in (gw.get("sub_bottom") or gw.get("lan_ip") or "")
     # No separate Public IP card — WAN IP is on the Router
     assert not any(n.get("kind") == "public_ip" for n in svg["nodes"])
 
@@ -1132,7 +1132,7 @@ def test_physical_mesh_links_without_network_settings():
             "server_id": 1,
             "name": "RPI",
             "dns_name": "rpi.example",
-            "ip": "192.0.2.20",
+            "ip": "10.0.2.20",
             "href": "/servers/1",
         },
         {
@@ -1169,14 +1169,14 @@ def test_physical_mesh_hosts_not_on_router_spine():
             "server_id": i,
             "name": f"H{i}",
             "dns_name": f"h{i}.example",
-            "ip": f"192.0.2.{10 + i}",
+            "ip": f"10.0.2.{10 + i}",
             "href": f"/servers/{i}",
         }
         for i in range(1, 10)
     ]
     net = {
-        "lan_subnet": "192.0.2.0/24",
-        "gateway_ip": "192.0.2.1",
+        "lan_subnet": "10.0.2.0/24",
+        "gateway_ip": "10.0.2.1",
         "public_ip": "198.51.100.9",
     }
     svg = fabric._build_physical_mesh_svg(hosts, [], network=net)
@@ -1201,14 +1201,14 @@ def test_physical_mesh_lan_hosts_inside_zone_apps_outside():
             "server_id": 1,
             "name": "RPI",
             "dns_name": "rpi.example",
-            "ip": "192.0.2.20",
+            "ip": "10.0.2.20",
             "href": "/servers/1",
         },
         {
             "server_id": 2,
             "name": "Pi2",
             "dns_name": "pi2.example",
-            "ip": "192.0.2.21",
+            "ip": "10.0.2.21",
             "href": "/servers/2",
         },
     ]
@@ -1226,14 +1226,14 @@ def test_physical_mesh_lan_hosts_inside_zone_apps_outside():
         }
     ]
     net = {
-        "lan_subnet": "192.0.2.0/24",
-        "gateway_ip": "192.0.2.1",
+        "lan_subnet": "10.0.2.0/24",
+        "gateway_ip": "10.0.2.1",
         "public_ip": "198.51.100.9",
     }
     svg = fabric._build_physical_mesh_svg(hosts, services, network=net)
     lan = next(n for n in svg["nodes"] if n["kind"] == "lan")
     assert lan.get("zone_rx") and lan.get("zone_ry")
-    assert lan.get("sub") == "192.0.2.0/24"
+    assert lan.get("sub") == "10.0.2.0/24"
     # Circular centre badge (fan hub)
     assert lan.get("rx") == lan.get("ry")
     zrx = float(lan.get("zone_rx_full") or lan["zone_rx"])
@@ -1262,7 +1262,7 @@ def test_physical_mesh_lan_hosts_inside_zone_apps_outside():
     assert (inet.get("sub") or "") == ""
     assert gw.get("split") is True
     assert gw.get("sub_top") == "198.51.100.9"
-    assert gw.get("sub_bottom") == "192.0.2.1"
+    assert gw.get("sub_bottom") == "10.0.2.1"
     zone_top = zcy - zry
     assert abs(gw["y"] - zone_top) < 2.0  # on the rim
     assert inet["y"] < gw["y"]
@@ -1276,7 +1276,7 @@ def test_physical_mesh_cloud_hooks_internet_side():
             "server_id": 1,
             "name": "RPI",
             "dns_name": "rpi.example",
-            "ip": "192.0.2.20",
+            "ip": "10.0.2.20",
             "href": "/servers/1",
         },
         {
@@ -1288,8 +1288,8 @@ def test_physical_mesh_cloud_hooks_internet_side():
         },
     ]
     net = {
-        "lan_subnet": "192.0.2.0/24",
-        "gateway_ip": "192.0.2.1",
+        "lan_subnet": "10.0.2.0/24",
+        "gateway_ip": "10.0.2.1",
         "public_ip": "198.51.100.9",
     }
     svg = fabric._build_physical_mesh_svg(hosts, [], network=net)
@@ -1311,7 +1311,7 @@ def test_physical_mesh_edges_meet_node_borders():
             "server_id": 1,
             "name": "RPI",
             "dns_name": "rpi.example",
-            "ip": "192.0.2.20",
+            "ip": "10.0.2.20",
             "href": "/servers/1",
         },
         {
@@ -1336,8 +1336,8 @@ def test_physical_mesh_edges_meet_node_borders():
         }
     ]
     net = {
-        "lan_subnet": "192.0.2.0/24",
-        "gateway_ip": "192.0.2.1",
+        "lan_subnet": "10.0.2.0/24",
+        "gateway_ip": "10.0.2.1",
         "public_ip": "198.51.100.9",
     }
     svg = fabric._build_physical_mesh_svg(hosts, services, network=net)

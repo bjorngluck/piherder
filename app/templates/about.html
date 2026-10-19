@@ -109,6 +109,45 @@
     </p>
   </div>
 
+  <div class="card p-5 account-card account-card--wide" data-testid="scheduler-jobs">
+    <h2 class="font-semibold text-text mb-2">Scheduled jobs</h2>
+    <p class="text-xs text-muted mb-3">
+      Last fire is the last time this web process ran the job. A restart clears it.
+      Next fire is when the scheduler will run it next. Times use {{ get_app_timezone() }}.
+    </p>
+    {% set sched = scheduler_jobs or {} %}
+    {% if not sched.available %}
+    <p class="text-sm text-muted">The scheduler is not available in this process.</p>
+    {% elif not sched.running %}
+    <p class="text-sm text-muted">The scheduler is not running.</p>
+    {% elif sched.unreadable %}
+    <p class="text-sm text-muted">The scheduler is running. Its job list could not be read.</p>
+    {% elif not sched.jobs %}
+    <p class="text-sm text-muted">No scheduled jobs.</p>
+    {% else %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-muted">
+            <th class="py-1 pr-3 font-medium">Job</th>
+            <th class="py-1 pr-3 font-medium">Last fire</th>
+            <th class="py-1 font-medium">Next fire</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in sched.jobs %}
+          <tr class="border-t border-border" data-testid="scheduler-job" data-job-id="{{ row.id }}">
+            <td class="py-1.5 pr-3 text-text">{{ row.name }}</td>
+            <td class="py-1.5 pr-3 font-mono text-xs text-muted">{{ row.last_display }}</td>
+            <td class="py-1.5 font-mono text-xs text-text">{{ row.next_display }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
   <div class="card p-5 account-card account-card--wide">
     <h2 class="font-semibold text-text mb-2">Links</h2>
     <ul class="text-sm space-y-1.5">

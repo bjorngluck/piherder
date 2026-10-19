@@ -54,7 +54,7 @@ scrape_configs:
       - labels:
           host: rpi5-1
 clients:
-  - url: http://rpi5-2.example.com:3100/loki/api/v1/push
+  - url: http://host-b.example.com:3100/loki/api/v1/push
 ```
 
 **From host** will:

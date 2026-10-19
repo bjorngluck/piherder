@@ -1,6 +1,6 @@
 # PiHerder v1.12.0: quieter lists, then honest backup and image signals
 
-**Status:** **Open** 2026-10-18. Quiet lists, the backup credential alert, the self-backup last-success line, the admin alert, the image update flag, the OS end-of-life warning, the update-check gap, and git checkout ownership are in. Direct copy on a different CPU is in. A missed scheduled run opens a warning. A destination copy scheduled before its host backups opens a warning. `list_servers` and `get_server` return the backup time. The adapter package that names those fields ships with the herder. Docker prune is a job. The GitHub adapter readme badges herder 1.11.0. PyPI 0.4.2 still badges 1.10.0 until the adapter cut that ships with this herder.  
+**Status:** **Open** 2026-10-18. Quiet lists, the backup credential alert, the self-backup last-success line, the admin alert, the image update flag, the OS end-of-life warning, the update-check gap, and git checkout ownership are in. Direct copy on a different CPU is in. A missed scheduled run opens a warning. A destination copy scheduled before its host backups opens a warning. `list_servers` and `get_server` return the backup time. The adapter package that names those fields ships with the herder. Docker prune is a job. The GitHub adapter readme badges herder 1.11.0. About lists each scheduled job's last fire and next fire. An OS patch job keeps apt's error output, including when sudo drops DEBIAN_FRONTEND. The history sweep is in on this tree. The push denylist checks added lines when its secret is set. The three lockfiles pin Mako 1.4.3 and multidict 6.9.1. Actions stay on major tags. Six medium Dependabot alerts stay open on main until this branch lands. PyPI 0.4.2 still badges 1.10.0 until the adapter cut that ships with this herder.  
 **Date opened:** 2026-10-18  
 **Git branch:** `v1.12.0-dev` → `main` · tag `v1.12.0` after merge, only when asked  
 **Package / image version:** package stays **`1.11.0`** until freeze. About / footer say **1.11.0**. Release image tags stay `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image.  
@@ -72,14 +72,14 @@ The read-audit flag under Jobs and audit covers hosted `/mcp` as well as API tok
 | Tier | Lock |
 |------|------|
 | Must | **In. Update-check gap.** A saved container check cron still registers while fleet container checks are on. Apply had cleared the per-host flag and left the cron, so the scheduler removed the job. Applying with container checks off now clears that cron |
-| Should | **Scheduler visibility.** About shows each scheduled job's last fire time and next fire time |
+| Should | **In. Scheduler visibility.** About shows each scheduled job's last fire time and next fire time. Last fire is the last time this web process ran the job. A restart clears it |
 
 ### Hosts
 
 | Tier | Lock |
 |------|------|
 | Must | **In. OS end of life.** Issue [#49](https://github.com/bjorngluck/piherder/issues/49). A warning next to the OS line when the detected release is outside a small supported list. The list is Ubuntu 22.04, 24.04, and 26.04 LTS, and Debian or Raspbian 12 and 13. No auto-upgrade |
-| Should | **OS patch error output.** OS patch jobs keep apt's error output, including when sudo drops `DEBIAN_FRONTEND` |
+| Should | **In. OS patch error output.** OS patch jobs keep apt's error output, including when sudo drops `DEBIAN_FRONTEND`. The job log and the summary keep an `E:` line, and a debconf or sudo line when that is the error |
 | Later | **NIC change.** Issue [#50](https://github.com/bjorngluck/piherder/issues/50). A hint when a new MAC appears for a hostname that already has a stale row at that IP. Device identity stays the MAC. The issue stays open |
 
 ### Git
@@ -98,9 +98,9 @@ The read-audit flag under Jobs and audit covers hosted `/mcp` as well as API tok
 
 | Tier | Lock |
 |------|------|
-| Should | **History sweep.** Older environment details are already on main. Done when a grep of main and the wiki comes back clean, plus a list of published commits that still hold old environment details, for the maintainer's yes or no. No force-push |
-| Should | **Supply-chain baseline.** Re-check pinned actions, the dependency lock, image digest pinning, Dependabot, and secret scanning. The [#52](https://github.com/bjorngluck/piherder/pull/52) mako and multidict bump landed as the first commit on this train. [#52](https://github.com/bjorngluck/piherder/pull/52) closes once the branch is green |
-| Should | **Push denylist in CI.** Fail a push that adds fleet names, the home subnet, internal domains, or home paths. The denylist stays in a secret. Lands with the history sweep. The manual grep remains until then |
+| Should | **In. History sweep.** The working tree no longer carries the home path, the home subnet, or an internal hostname. The public docs host, the public demo host, and the demo login stay. Published commits are listed in [HISTORY_SWEEP_v1.12.md](HISTORY_SWEEP_v1.12.md) for a yes or no. No force-push |
+| Should | **In. Supply-chain baseline.** `uv.lock` now matches the exported locks: Mako **1.4.3** and multidict **6.9.1**. PyJWT **2.15.1** and urllib3 **2.8.0** stay. Actions stay on major tags, not commit SHAs. The image base stays `python:3.12-slim-bookworm`. Dependabot security updates stay on, and version-update pull requests stay off. Six medium alerts for Mako and multidict stay open on `main` until this branch lands. Secret scanning has no open alerts. [#52](https://github.com/bjorngluck/piherder/pull/52) closes once the branch is green |
+| Should | **In. Push denylist in CI.** Added lines fail when they contain a term from the secret `PIHERDER_PUSH_DENYLIST`. The patterns are not in the repo. An empty secret prints that the manual grep remains and exits 0. It does not echo the secret or the matched line. The secret is not set yet |
 
 ### Internals
 
@@ -145,6 +145,10 @@ Nothing was voted **Out**.
 | 2026-10-19 | **Backup time on MCP.** `list_servers` and `get_server` return `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`. The tool text names those fields. `backup_scheduled` is false only when backups are on, the scheduler is running, and no job is registered. Null means that state is unknown. The adapter package that carries that text ships with the herder. It stays **0.4.2** until then. |
 | 2026-10-19 | **Docker prune.** The host Docker page, `POST /api/v1/servers/{id}/docker/prune`, and hosted `prune_docker` start a `docker_prune` job. The API and MCP need the `edit` scope. Volume prune stays on the Docker page until the operator confirms it. Every run writes an audit row. Issue [#48](https://github.com/bjorngluck/piherder/issues/48) stays open. No schedule and no prune-after-update on this train. Build cache and buildx cache are a [v1.13 note](PLAN_v1.13.0.md). |
 | 2026-10-19 | **Adapter readme badge.** The GitHub readme on piherder-mcp main badges herder 1.11.0. PyPI **0.4.2** still freezes the 1.10.0 readme. That page updates on the adapter cut that ships with this herder. The adapter stays **0.4.2** and is not published ahead of it. |
+| 2026-10-19 | **Scheduler visibility.** About lists each scheduled job with its last fire and its next fire. Last fire is the last time this web process ran the job. A restart clears it. A missed slot is not a fire. |
+| 2026-10-19 | **OS patch error output.** An OS patch job keeps apt's error output when sudo drops `DEBIAN_FRONTEND`. A carriage-return rewrite no longer replaces a debconf, sudo, or `E:` line. The job summary names that line. |
+| 2026-10-19 | **History sweep.** The working tree no longer carries the home path, the home subnet, or an internal hostname. The public docs host, the public demo, and the demo login stay. Published tags are listed in [HISTORY_SWEEP_v1.12.md](HISTORY_SWEEP_v1.12.md). No force-push. The push denylist workflow reads secret `PIHERDER_PUSH_DENYLIST`. An empty secret does not pretend it checked. |
+| 2026-10-19 | **Supply-chain pass.** `uv.lock` was behind the exported locks. All three now pin Mako **1.4.3** and multidict **6.9.1**. Actions stay on major tags. The base image stays a tag. Dependabot still has six medium alerts on `main` for those two packages. They close when this branch lands. Secret scanning has no open alerts. |
 
 ---
 
@@ -154,7 +158,7 @@ Nothing was voted **Out**.
 |---|------|--------|
 | 1 | Open **`v1.12.0-dev`** | **Done** 2026-10-18 |
 | 2 | Must, by area | **Done.** Jobs and audit, the backup credential alert, the self-backup last-success line, the admin alert, the image update flag, the OS end-of-life warning, the update-check gap, and git checkout ownership are in |
-| 3 | Should, if it fits | Direct copy on a different CPU is in. Missed scheduled run is in. Copy before the backups is in. Backup time is on `list_servers` and `get_server`. Docker prune is a job. The GitHub adapter readme badges herder 1.11.0. Still open: scheduler visibility, OS patch error output, history sweep, supply-chain pass, push denylist. PyPI 0.4.2 still badges herder 1.10.0 until the adapter cut that ships with this herder |
+| 3 | Should, if it fits | Direct copy on a different CPU is in. Missed scheduled run is in. Copy before the backups is in. Backup time is on `list_servers` and `get_server`. Docker prune is a job. The GitHub adapter readme badges herder 1.11.0. About lists each scheduled job's last fire and next fire. An OS patch job keeps apt's error output, including when sudo drops DEBIAN_FRONTEND. The history sweep is in on this tree. The push denylist checks added lines when its secret is set. The three lockfiles pin Mako 1.4.3 and multidict 6.9.1. PyPI 0.4.2 still badges herder 1.10.0 until the adapter cut that ships with this herder |
 | 4 | Discover | Remote restore. Direct hop vs a stuck folder hop. NPM CRUD. Read-only admin API. Promote or defer in the release notes |
 | 5 | Freeze | Not set. Package stays `1.11.0` until then |
 | 6 | Operator QA | Boxes in [QA_v1.12.0.md](QA_v1.12.0.md) are empty |

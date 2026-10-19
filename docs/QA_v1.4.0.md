@@ -44,7 +44,7 @@ Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATIO
 - [x] Dest project name taken → set a new dest name, Recheck, Move enabled  
 - [x] After a failed move, dest folder emptied: Recheck must **not** block on leftover dest `created`/exited containers; Move removes them then dest up  
 - [x] Recheck dest uses live dest folder + containers + `ss` listen ports (not dest Docker cache)  
-- [x] Dest project tree owner matches dest docker root (`bjorn` for `/home/user/docker`), not `root` / fleet SSH  
+- [x] Dest project tree owner matches dest docker root (`user` for `/home/user/docker`), not `root` / fleet SSH  
 - [x] Recheck + dest port change show wait modal  
 - [x] Job overlay stays with Succeeded/Failed until Close  
 - [x] Port clash → remap dest host port, Recheck, Move enabled  
@@ -112,7 +112,7 @@ Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATIO
 
 Code for 1–5 is on `v1.4.0-dev` (web runs migrate jobs). Tick when walked on real Pis. **Do not** pick Remove source on Open WebUI / NPM / n8n.
 
-- [x] **1 NPM-fronted (not the edge)** — job log has `NPM PUT … forward_host` (proxy-host binding is enough; no fabric row required). Public CNAME stays on `nginx.example.com`. Retest of #959 (Open WebUI already on RPI5-4 — pick another proxied app).
+- [x] **1 NPM-fronted (not the edge)** — job log has `NPM PUT … forward_host` (proxy-host binding is enough; no fabric row required). Public CNAME stays on the NPM hostname. When the app is already on the dest host, pick another proxied app.
 - [x] **2 Direct TLS** — Grafana / Authentik / `sso` class. CNAME target is dest `dns_name`; both Pi-holes `restartdns`.
 - [x] **3 Host lock** — Frigate (or hardware): Lock → Move disabled with reason → Unlock. HAOS never in dest list.
 - [x] **4 Leftover** — disposable stack only: one run **`compose down`** (volumes kept); one run **Remove source** (project dir + copied named volumes gone; dest untouched). Extra ack required.

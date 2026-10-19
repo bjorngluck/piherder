@@ -755,6 +755,7 @@ def sync_template_drift_schedule(scheduler, HAS_SCHEDULER):
             replace_existing=True,
             max_instances=1,
             coalesce=True,
+            name="Template drift check",
         )
         logger.info(
             "[SCHEDULER] template drift every %sh id=%s",

@@ -3,7 +3,7 @@
 # Inbound: Cloudflare + optional admin. Outbound: DNS to chosen resolvers + HTTPS to CF only.
 #
 # Usage:
-#   sudo WAN=eth0 COMPOSE_NET=172.18.0.0/16 ADMIN_IP=41.193.110.155 ./demo-docker-user.sh
+#   sudo WAN=eth0 COMPOSE_NET=172.18.0.0/16 ADMIN_IP=203.0.113.10 ./demo-docker-user.sh
 #   sudo ./demo-docker-user.sh   # defaults: eth0, 172.18.0.0/16, no admin IP
 #
 # Refresh CF list: https://www.cloudflare.com/ips-v4

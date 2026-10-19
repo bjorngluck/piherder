@@ -103,18 +103,24 @@ Issue [#48](https://github.com/bjorngluck/piherder/issues/48). Volume prune is U
 
 - [ ] About shows each scheduled job's last fire time and next fire time
 
+Last fire is the last time this web process ran the job. A restart clears it. A missed slot is not a fire. Next fire is the scheduler's next run. Times use the Settings timezone. This box stays open until that walk is signed.
+
 ## Hosts (Should)
 
 - [ ] An OS patch job keeps apt's error output, including when sudo drops `DEBIAN_FRONTEND`
 
+The job log keeps an `E:` line, and a debconf or sudo line when that is what apt printed. The job summary names that line. A later progress rewrite does not replace it. This box stays open until that walk is signed.
+
 ## Supply chain and history (Should)
 
-Done when a grep of main and the wiki comes back clean, plus a list of published commits that still hold old environment details. No force-push. The push denylist lands with that sweep.
+The working tree no longer carries the home path, the home subnet, or an internal hostname. The public docs host, the public demo host, and the demo login stay. Published commits are listed in [HISTORY_SWEEP_v1.12.md](HISTORY_SWEEP_v1.12.md). No force-push. The denylist workflow is in. It checks only after the secret `PIHERDER_PUSH_DENYLIST` is set. These boxes stay open until that walk is signed.
 
 - [ ] A grep of main and the wiki comes back clean
 - [ ] The list of published commits is ready for a yes or no. This walk does not force-push
+The capture log records the pass. `uv.lock` matches the exported locks at Mako 1.4.3 and multidict 6.9.1. Actions stay on major tags. The base image stays a tag. Six medium Dependabot alerts stay open on main until this branch lands. Secret scanning has no open alerts. This box stays open until that walk is signed.
+
 - [ ] The capture log records the pass over pinned actions, the dependency lock, image digest pinning, Dependabot, and secret scanning
-- [ ] The push denylist stays in a secret. Until it lands, the manual grep remains
+- [ ] The push denylist secret is set and a push that adds a listed term fails. Until then, the manual grep remains
 
 ## Discover
 

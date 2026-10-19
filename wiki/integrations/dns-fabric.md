@@ -344,7 +344,7 @@ Infrastructure nodes (Internet cloud, Router, LAN, NPM hub) use theme-aware fill
 
 ### Direct TLS (no NPM)
 
-When a container terminates TLS itself (e.g. Frigate on `rpi5-4.example.com`) and the CNAME target is the **host** — not the NPM edge:
+When a container terminates TLS itself (e.g. Frigate on `host-a.example.com`) and the CNAME target is the **host** — not the NPM edge:
 
 1. Pi-hole CNAME (or host A) must point at the backend host FQDN. Leftover NPM proxy hosts in inventory are **not** treated as the path edge.  
 2. Bind the Kuma HTTP monitor to that host **and** the compose project / container (not “host service”). Prefer the monitor URL to be the published HTTPS name.  
@@ -354,7 +354,7 @@ Without a linked project the Hosts map shows the host only; stack expand has not
 
 ### NPM on the same host
 
-A proxied app can live on the **same Pi as NPM** (e.g. n8n after the proxy moved). Public DNS is still **CNAME → NPM hostname** (`n8n.example.com` → `nginx.example.com`); NPM forwards to localhost/LAN on that box. Path map keeps **name → NPM → host → app** — it does not collapse to direct because target and backend server ids match. Direct TLS (above) is only when the fabric row is **not** `via_proxy`.
+A proxied app can live on the **same Pi as NPM** (e.g. n8n after the proxy moved). Public DNS is still **CNAME → NPM hostname** (`n8n.example.com` → `edge.example.com`); NPM forwards to localhost/LAN on that box. Path map keeps **name → NPM → host → app** — it does not collapse to direct because target and backend server ids match. Direct TLS (above) is only when the fabric row is **not** `via_proxy`.
 
 ---
 

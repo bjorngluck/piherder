@@ -568,8 +568,8 @@ def repoint_ssh_username(
     """
     Switch Server.ssh_username and freeze ~/ docker paths under previous home.
 
-    After least-priv re-point there is no separate "bjorn credentials" row —
-    only one username + one keypair + optional password. Drop stored password
+    After least-priv re-point there is one username, one keypair, and an optional
+    password. Drop the stored password
     (bootstrap leftover); keep the private key (now used as the new user).
 
     Returns (previous_username, new_username, password_cleared).

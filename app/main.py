@@ -168,6 +168,12 @@ async def lifespan(app: FastAPI):
     if HAS_SCHEDULER and scheduler and not scheduler.running:
         scheduler.start()
         try:
+            from .services.scheduler_visibility import attach_fire_listener
+
+            attach_fire_listener(scheduler)
+        except Exception as e:
+            logger.warning("Scheduler fire listener skipped: %s", e)
+        try:
             from .services.scheduler import (
                 sync_all_server_cron_jobs,
                 sync_docker_inventory_schedule,

@@ -13,6 +13,21 @@ from ..services import app_update
 router = APIRouter(tags=["about"])
 
 
+def _scheduler_jobs() -> dict:
+    try:
+        from ..main import HAS_SCHEDULER, scheduler
+        from ..services.scheduler_visibility import scheduler_snapshot
+
+        return scheduler_snapshot(scheduler, HAS_SCHEDULER)
+    except Exception:
+        return {
+            "available": False,
+            "running": False,
+            "unreadable": True,
+            "jobs": [],
+        }
+
+
 @router.get("/about", response_class=HTMLResponse)
 async def about_page(
     request: Request,
@@ -37,6 +52,7 @@ async def about_page(
             "license_url": vi.LICENSE_URL,
             "update_notice": notice,
             "check_forced": force,
+            "scheduler_jobs": _scheduler_jobs(),
         },
     )
 

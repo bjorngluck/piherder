@@ -155,8 +155,8 @@ def test_create_update_nmap_and_device_state_sqlite(tmp_path):
         row = nmap_cfg.create_nmap(
             s,
             name="Home LAN",
-            cidrs=["192.0.2.0/24"],
-            excludes=["192.0.2.1/32"],
+            cidrs=["10.0.2.0/24"],
+            excludes=["10.0.2.1/32"],
             skip_dns=False,
             use_syn=True,
             vuln_enabled=True,
@@ -165,7 +165,7 @@ def test_create_update_nmap_and_device_state_sqlite(tmp_path):
         assert row.type == "nmap"
         assert row.base_url == nmap_cfg.BASE_URL_LOCAL
         cfg = nmap_cfg.parse_nmap_config(row)
-        assert cfg["cidrs"] == ["192.0.2.0/24"]
+        assert cfg["cidrs"] == ["10.0.2.0/24"]
         assert cfg["use_syn"] is True
 
         with pytest.raises(ValueError, match="already exists"):
@@ -175,7 +175,7 @@ def test_create_update_nmap_and_device_state_sqlite(tmp_path):
             s,
             row,
             name="Home LAN 2",
-            cidrs=["192.0.2.0/24", "10.0.0.0/24"],
+            cidrs=["10.0.2.0/24", "10.0.0.0/24"],
             excludes=[],
             skip_dns=True,
             use_syn=False,
@@ -188,8 +188,8 @@ def test_create_update_nmap_and_device_state_sqlite(tmp_path):
 
         dev = NmapDevice(
             integration_id=row.id,
-            identity_key="ip:192.0.2.50",
-            ip_address="192.0.2.50",
+            identity_key="ip:10.0.2.50",
+            ip_address="10.0.2.50",
             hostname="cam",
             state="new",
             ports_json='[{"port":554,"state":"open","service":"rtsp"}]',

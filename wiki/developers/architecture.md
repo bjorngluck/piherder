@@ -57,7 +57,7 @@ flowchart TB
 | CSP | `app/security/headers.py` — per-request script nonce; `script-src-attr 'none'` (Slice 2); demo Report-Only unless `PIHERDER_CSP_ENFORCE` |
 | Docker unused cleanup HTML | `app/services/docker_unused_html.py` |
 | Per-server backup lock | `app/services/server_job_lock.py` |
-| Scheduler | `app/services/scheduler.py` |
+| Scheduler | `app/services/scheduler.py`. About reads last fire and next fire from `app/services/scheduler_visibility.py`. Last fire is this web process only |
 | Backup | `app/services/backup.py` (+ progress, profiles) |
 | Drive copy | `app/services/backup_replicate.py` · `app/routers/backup_copies.py` · `app/tasks.py` `replicate_backup` · Alembic **047** · Settings → PiHerder backup. Google web OAuth client, refresh token in Fernet. Not in the 1.7.0 image |
 | Docker inventory | `app/services/docker_inventory.py` |

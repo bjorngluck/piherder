@@ -615,7 +615,7 @@ def test_pihole_login_urls_uses_npm_lan():
                     {
                         "id": "2",
                         "domain_names": ["pihole.example.test"],
-                        "forward_host": "192.0.2.34",
+                        "forward_host": "10.0.2.34",
                         "forward_port": 88,
                         "forward_scheme": "http",
                     }
@@ -627,7 +627,7 @@ def test_pihole_login_urls_uses_npm_lan():
     session.commit()
     urls = fabric.pihole_login_urls(session, ph_row)
     assert urls[0].rstrip("/") == "https://pihole.example.test"
-    assert "http://192.0.2.34:88" in urls
+    assert "http://10.0.2.34:88" in urls
 
 
 def test_pihole_login_fallback_second_url():
@@ -890,7 +890,7 @@ def test_resolve_app_layers_and_find_container():
 def test_resolve_app_layers_matches_kuma_monitor_url_to_host_fqdn():
     """Host-identity TLS: monitor URL is the host FQDN, project is frigate."""
     session, _ = _engine_session()
-    host = _server(session, name="RPI5-4", dns_name="rpi5-4.example.com", ip="192.0.2.40")
+    host = _server(session, name="RPI5-4", dns_name="rpi5-4.example.com", ip="10.0.2.40")
     from app.services.integrations import registry as reg
 
     integ = Integration(

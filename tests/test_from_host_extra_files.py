@@ -68,7 +68,7 @@ def test_parameterize_host_literals_node_and_remote_url():
 server:
   http_listen_port: 9080
 clients:
-  - url: http://rpi5-2.example.com:3100/loki/api/v1/push
+  - url: http://host-b.example.com:3100/loki/api/v1/push
 scrape_configs:
   - job_name: system-rpi5-1
     static_configs:
@@ -76,7 +76,7 @@ scrape_configs:
           host: rpi5-1
 """
     out, vars_, msgs = parameterize_host_literals(
-        body, node_name="rpi5-1", host_fqdn="rpi5-1.example.com"
+        body, node_name="rpi5-1", host_fqdn="host-a.example.com"
     )
     assert "{{NODE_NAME}}" in out
     assert "rpi5-1" not in out.replace("{{NODE_NAME}}", "")
@@ -85,7 +85,7 @@ scrape_configs:
     assert any(v["name"] == "NODE_NAME" for v in vars_)
     assert any(v["name"] == "LOKI_URL" for v in vars_)
     assert "{{LOKI_URL}}" in out
-    assert "rpi5-2.example.com" not in out
+    assert "host-b.example.com" not in out
 
 
 def test_build_variables_includes_extra_files():
@@ -99,7 +99,7 @@ services:
 """
     promtail = """
 clients:
-  - url: http://rpi5-2.example.com:3100/loki/api/v1/push
+  - url: http://host-b.example.com:3100/loki/api/v1/push
 scrape_configs:
   - job_name: system-rpi5-1
     static_configs:
@@ -113,7 +113,7 @@ scrape_configs:
         parameterize=True,
         extra_file_texts={"promtail-config.yaml": promtail},
         node_name="rpi5-1",
-        host_fqdn="rpi5-1.example.com",
+        host_fqdn="host-a.example.com",
     )
     assert "promtail-config.yaml" in extra
     assert "{{NODE_NAME}}" in extra["promtail-config.yaml"]

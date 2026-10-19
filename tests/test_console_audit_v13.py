@@ -109,7 +109,7 @@ def test_password_prompt_redacts_secret():
 
 def test_sudo_password_prompt():
     rec = ca.SessionRecorder(mode=ca.MODE_COMMANDS)
-    rec.feed_stdout(b"[sudo] password for bjorn: ")
+    rec.feed_stdout(b"[sudo] password for user: ")
     rec.feed_stdin(b"secret-pass\r")
     assert "secret-pass" not in rec.dumps()
 

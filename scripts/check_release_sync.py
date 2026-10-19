@@ -7,15 +7,17 @@ Reads origin/main of the three local clones. See docs/RELEASE_SYNC.md.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
+_HERE = Path(__file__).resolve().parent.parent
 REPOS = {
-    "herder": Path("/home/user/docker/piherder"),
-    "mcp": Path("/home/user/piherder-mcp"),
-    "ha": Path("/home/user/piherder-ha"),
+    "herder": _HERE,
+    "mcp": Path(os.environ.get("PIHERDER_MCP_REPO", str(_HERE.parent / "piherder-mcp"))),
+    "ha": Path(os.environ.get("PIHERDER_HA_REPO", str(_HERE.parent / "piherder-ha"))),
 }
 
 DYNAMIC_BADGE = (
