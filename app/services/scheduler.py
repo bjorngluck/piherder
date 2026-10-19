@@ -489,6 +489,12 @@ def sync_backup_copy_schedule(scheduler, HAS_SCHEDULER):
                     replace_existing=True,
                     name=f"Backup copy {dest.name}",
                 )
+            try:
+                from .copy_schedule_order import sync_copy_order_alerts
+
+                sync_copy_order_alerts(db)
+            except Exception:
+                logger.exception("[SCHEDULER] Copy order check failed")
     except Exception as e:
         logger.warning("[SCHEDULER] Drive copy schedule sync failed: %s", e)
 
@@ -890,6 +896,54 @@ def watch_pending_herder_backups():
             )
     except Exception:
         logger.exception("[SCHEDULER] Pending self-backup watch failed")
+
+
+def watch_missed_schedules():
+    """Open a warning when a host backup or container check missed its slot."""
+    from ..database import engine
+    from .schedule_watch import sync_missed_schedule_alerts
+
+    try:
+        with Session(engine) as session:
+            opened = sync_missed_schedule_alerts(session)
+            try:
+                from .copy_schedule_order import sync_copy_order_alerts
+
+                sync_copy_order_alerts(session)
+            except Exception:
+                logger.exception("[SCHEDULER] Copy order check failed")
+        if opened:
+            logger.warning("[SCHEDULER] Missed schedule warnings open: %s", opened)
+    except Exception:
+        logger.exception("[SCHEDULER] Missed schedule watch failed")
+
+
+def sync_missed_schedule_watch(scheduler, HAS_SCHEDULER):
+    """Check every few minutes, including while those crons are off."""
+    if not HAS_SCHEDULER or not scheduler:
+        return
+    from .schedule_watch import MISSED_RUN_WATCH_MINUTES, MISSED_SCHEDULE_WATCH_JOB_ID
+
+    try:
+        scheduler.remove_job(MISSED_SCHEDULE_WATCH_JOB_ID)
+    except Exception:
+        pass
+    try:
+        from apscheduler.triggers.interval import IntervalTrigger
+
+        scheduler.add_job(
+            func=watch_missed_schedules,
+            trigger=IntervalTrigger(minutes=MISSED_RUN_WATCH_MINUTES),
+            id=MISSED_SCHEDULE_WATCH_JOB_ID,
+            replace_existing=True,
+            name="Missed schedule watch",
+        )
+        logger.info(
+            "[SCHEDULER] Missed schedule watch every %sm",
+            MISSED_RUN_WATCH_MINUTES,
+        )
+    except Exception as e:
+        logger.warning("[SCHEDULER] Could not register missed schedule watch: %s", e)
 
 
 def sync_herder_backup_pending_watch(scheduler, HAS_SCHEDULER):

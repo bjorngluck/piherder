@@ -808,6 +808,15 @@ def api_meta_dict() -> dict:
             {"method": "POST", "path": "/api/v1/servers/{id}/jobs", "scope": "jobs", "summary": "Trigger job"},
             {
                 "method": "POST",
+                "path": "/api/v1/servers/{id}/docker/prune",
+                "scope": "edit",
+                "summary": (
+                    "Start a Docker prune job. images, containers, both, or networks. "
+                    "Volume prune stays on the Docker page."
+                ),
+            },
+            {
+                "method": "POST",
                 "path": "/api/v1/servers/{id}/moves",
                 "scope": "jobs",
                 "summary": (

@@ -102,7 +102,7 @@ Tool names match adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/bl
 |-------|--------|
 | `read` | `health`, `summary`, `list_servers`, `get_server`, `inventory`, `services`, `list_jobs`, `get_job`, `read_discovery`, `list_discovery_devices` |
 | `jobs` | `trigger_job`, `start_move`, `start_discovery`, `scan_discovery_device` |
-| `edit` | `set_features`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices` |
+| `edit` | `set_features`, `prune_docker`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices` |
 | `files` | `list_files`, `read_file`, `write_file`, `mkdir`, `rename_file`, `delete_file` |
 
 ### Tools
@@ -111,8 +111,8 @@ Tool names match adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/bl
 |------|--------|----------------|
 | `health` | `read` | Token health, scopes, and allowed features. |
 | `summary` | `read` | Fleet heartbeat from the database. Does not SSH. Call this before a change. |
-| `list_servers` | `read` | Servers. `q` filters. `limit` defaults to 100 and caps at 100. `offset` pages. |
-| `get_server` | `read` | One server, including its feature flags. |
+| `list_servers` | `read` | Servers. `q` filters. `limit` defaults to 100 and caps at 100. `offset` pages. Each server includes `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`. |
+| `get_server` | `read` | One server, including its feature flags and those three backup fields. `backup_scheduled` is false only when backups are on, the scheduler is running, and no job is registered. Null means that state is unknown. |
 | `inventory` | `read` | Stored Docker inventory. Omit `server_id` for the fleet. Does not SSH. |
 | `services` | `read` | Stored service up/down chips. Does not poll Uptime Kuma or Nginx Proxy Manager. |
 | `list_jobs` | `read` | Jobs. Optional `server_id`, `status_filter`, `job_type`, `active_only`, `limit`, `offset`. |
@@ -130,6 +130,7 @@ Tool names match adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/bl
 | `purge_discovery_device` | `edit` | Delete one device. `confirm` must be true. A linked device is refused. |
 | `purge_stale_discovery_devices` | `edit` | Delete offline devices. `confirm` must be true. Linked devices stay. |
 | `set_features` | `edit` | Toggle `backup`, `os_patch`, or `docker`. Omit a field to leave it unchanged. |
+| `prune_docker` | `edit` | Start a Docker prune job. `prune_type` is `images`, `containers`, `both`, or `networks`. Volume prune stays on the Docker page. |
 | `list_files` | `files` | List a fleet-jail directory. `p` is jail-relative. `""` is the jail root. |
 | `read_file` | `files` | Download one fleet-jail file. Capped around 256 KiB. The result says when it was cut. |
 | `write_file` | `files` | Upload text. `p` is the directory, `name` is the basename. Cap 256 KiB. |
@@ -182,7 +183,7 @@ Not accepted on `trigger_job`: `docker_stack_down`, `docker_stack_remove`, `temp
 
 Adapter **0.4.2** lists these device tools and sends `confirm=true` on the two purge calls. Adapter **0.4.1** lists the tools and omits that query, so purge returns 400 on 1.11.0. Adapter **0.4.0** lists `read_discovery` and `start_discovery` and does not list the device tools. Adapter **0.3.1** does not list the scan tools either. `uvx piherder-mcp` installs **0.4.2**. A cached **0.4.1** needs `uvx --refresh piherder-mcp`.
 
-Read tools set `readOnlyHint`. `set_features`, `trigger_job`, `start_move`, `start_discovery`, `scan_discovery_device`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices`, `write_file`, `mkdir`, `rename_file`, and `delete_file` set `destructiveHint`.
+Read tools set `readOnlyHint`. `set_features`, `prune_docker`, `trigger_job`, `start_move`, `start_discovery`, `scan_discovery_device`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices`, `write_file`, `mkdir`, `rename_file`, and `delete_file` set `destructiveHint`.
 
 ## What stays out
 

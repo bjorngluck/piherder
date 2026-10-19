@@ -1985,29 +1985,43 @@ def list_unused_images_and_containers(server: Server) -> dict:
             pass
 
 def prune_unused(server: Server, prune_type: str = 'both') -> dict:
-    """Prune based on type: 'images' (dangling), 'containers' (exited), or 'both'."""
-    valid_types = ('images', 'containers', 'both')
-    if prune_type not in valid_types:
+    """Prune one category. ``both`` is dangling images and exited containers.
+
+    ``networks`` is unused networks. ``volumes`` is unused volumes. The page
+    is the only caller that passes ``volumes``, and only after confirm.
+    """
+    commands = {
+        "images": 'docker image prune -f --filter "dangling=true"',
+        "containers": "docker container prune -f",
+        "networks": "docker network prune -f",
+        "volumes": "docker volume prune -f",
+    }
+    labels = {
+        "images": "Images",
+        "containers": "Containers",
+        "networks": "Networks",
+        "volumes": "Volumes",
+    }
+    if prune_type == "both":
+        steps = ("images", "containers")
+    elif prune_type in commands:
+        steps = (prune_type,)
+    else:
         return {"success": False, "output": "Invalid prune_type", "type": prune_type}
 
     client = get_ssh_client(server)
     try:
         outs = []
         success = True
-        if prune_type in ('images', 'both'):
-            s, o, e = run_command(client, 'docker image prune -f --filter "dangling=true"', timeout=60)
-            outs.append("Images: " + (o + e).strip())
-            if s != 0:
-                success = False
-        if prune_type in ('containers', 'both'):
-            s, o, e = run_command(client, 'docker container prune -f', timeout=60)
-            outs.append("Containers: " + (o + e).strip())
+        for step in steps:
+            s, o, e = run_command(client, commands[step], timeout=60)
+            outs.append(labels[step] + ": " + (o + e).strip())
             if s != 0:
                 success = False
         return {
             "success": success,
             "output": "\n".join(outs) or "Nothing to prune.",
-            "type": prune_type
+            "type": prune_type,
         }
     finally:
         try:

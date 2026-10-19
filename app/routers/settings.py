@@ -572,6 +572,7 @@ async def settings_page(
     copy_can_test = False
     copy_can_remove = False
     copy_rows: list[dict] = []
+    copy_early: dict[str, str] = {}
     drive_saved = False
     smb_saved = False
     onedrive_saved = False
@@ -647,6 +648,12 @@ async def settings_page(
                 od_schedule = od_row.schedule or ""
                 od_after = bool(od_row.after_host_backup)
                 od_herder = copies.copies_herder_backup(od_row)
+            try:
+                from ..services.copy_schedule_order import early_text_by_provider
+
+                copy_early = early_text_by_provider(session)
+            except Exception:
+                copy_early = {}
             copy_rows = _backup_copy_rows(
                 drive_saved=drive_saved,
                 smb_saved=smb_saved,
@@ -755,6 +762,7 @@ async def settings_page(
             copy_can_test = False
             copy_can_remove = False
             copy_rows = []
+            copy_early = {}
             drive_saved = False
             smb_saved = False
             onedrive_saved = False
@@ -817,6 +825,7 @@ async def settings_page(
             "copy_removed": qp.get("copy_removed"),
             "copy_test": qp.get("copy_test"),
             "copy_rows": copy_rows,
+            "copy_early": copy_early,
             "drive_saved": drive_saved,
             "smb_saved": smb_saved,
             "onedrive_saved": onedrive_saved,

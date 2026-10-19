@@ -199,6 +199,9 @@
             {% if row.schedule %}{{ row.schedule | cron_human(current_tz if current_tz is defined else get_app_timezone()) }}{% else %}manual{% endif %}
             {% if folder_provider == row.provider %}<span class="text-muted">· folders below</span>{% endif %}
           </div>
+          {% if copy_early is defined and copy_early.get(row.provider) %}
+          <p class="text-sm text-warning mt-1" data-testid="copy-before-backups">{{ copy_early[row.provider] }}</p>
+          {% endif %}
           {% if copy_test and copy_provider == row.provider %}
             {% if row.provider == 'smb' %}
               {% if copy_test == 'ok' %}<p class="text-sm text-accent mt-1">The share listed. Nothing was copied.</p>

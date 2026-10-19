@@ -842,3 +842,112 @@ def test_tools_for_scopes_fail_closed_without_read():
     names = [tool["name"] for tool in tools_for_scopes({"read"})]
     assert "health" in names
     assert "trigger_job" not in names
+
+
+def test_hosted_server_tools_return_the_backup_time(tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+
+    from sqlmodel import Session
+
+    from app.models import Server
+    from app.services.update_check_config import effective_fleet_cron
+
+    monkeypatch.setattr(
+        "app.services.app_settings.load_settings",
+        lambda: {"backup_cron": "0 2 * * *", "update_check_jitter": True},
+    )
+
+    class _Job:
+        def __init__(self, when):
+            self.next_run_time = when
+
+    class _Sched:
+        running = True
+
+        def __init__(self):
+            self.jobs = {}
+
+        def get_job(self, job_id):
+            return self.jobs.get(job_id)
+
+    sched = _Sched()
+    monkeypatch.setattr("app.main.scheduler", sched)
+    monkeypatch.setattr("app.main.HAS_SCHEDULER", True)
+
+    client, app, engine, secrets = _client(tmp_path, monkeypatch)
+    try:
+        with Session(engine) as session:
+            timed = Server(
+                name="host-a",
+                hostname="host-a.local",
+                ssh_username="pi",
+                backup_enabled=True,
+                backup_schedule="15 4 * * *",
+            )
+            quiet = Server(
+                name="host-b",
+                hostname="host-b.local",
+                ssh_username="pi",
+                backup_enabled=False,
+            )
+            fleet = Server(
+                name="host-c",
+                hostname="host-c.local",
+                ssh_username="pi",
+                backup_enabled=True,
+            )
+            session.add(timed)
+            session.add(quiet)
+            session.add(fleet)
+            session.commit()
+            session.refresh(timed)
+            session.refresh(fleet)
+            timed_id = timed.id
+            fleet_id = fleet.id
+        when = datetime(2026, 10, 20, 4, 15, tzinfo=timezone.utc)
+        sched.jobs[f"backup_{timed_id}"] = _Job(when)
+
+        listed = _rpc(client, secrets["read"], "tools/list")
+        by_name = {tool["name"]: tool for tool in listed.json()["result"]["tools"]}
+        for name in ("list_servers", "get_server"):
+            text = by_name[name]["description"]
+            assert "effective_backup_schedule" in text
+            assert "next_backup_run" in text
+            assert "backup_scheduled" in text
+        assert "Null means that state is unknown" in by_name["get_server"]["description"]
+
+        page = _rpc(
+            client,
+            secrets["read"],
+            "tools/call",
+            {"name": "list_servers", "arguments": {"limit": 100, "offset": 0}},
+        )
+        assert page.json()["result"]["isError"] is False
+        rows = {
+            row["id"]: row
+            for row in page.json()["result"]["structuredContent"]["servers"]
+        }
+        assert rows[timed_id]["effective_backup_schedule"] == "15 4 * * *"
+        assert rows[timed_id]["backup_scheduled"] is True
+        assert rows[timed_id]["next_backup_run"] == "2026-10-20T04:15:00+00:00"
+        assert rows[fleet_id]["effective_backup_schedule"] == effective_fleet_cron(fleet_id)
+        assert rows[fleet_id]["backup_schedule_source"] == "fleet"
+        assert rows[fleet_id]["backup_scheduled"] is False
+        assert rows[fleet_id]["next_backup_run"] is None
+        off = next(row for row in rows.values() if row["hostname"] == "host-b.local")
+        assert off["effective_backup_schedule"] is None
+        assert off["backup_scheduled"] is False
+        assert off["next_backup_run"] is None
+
+        one = _rpc(
+            client,
+            secrets["read"],
+            "tools/call",
+            {"name": "get_server", "arguments": {"server_id": timed_id}},
+        )
+        body = one.json()["result"]["structuredContent"]
+        assert body["effective_backup_schedule"] == "15 4 * * *"
+        assert body["next_backup_run"] == "2026-10-20T04:15:00+00:00"
+        assert body["backup_scheduled"] is True
+    finally:
+        app.dependency_overrides.clear()

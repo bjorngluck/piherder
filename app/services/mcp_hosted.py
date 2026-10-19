@@ -103,6 +103,10 @@ _SERVER_INSTRUCTIONS = (
     "scan_discovery_device scans one device already inside those ranges. confirm must be true. "
     "The agent does not choose targets, and vulnerability scripts stay off. "
     "Files stay in the fleet jail. "
+    "prune_docker starts a Docker prune job. It needs the edit scope. "
+    "prune_type is images, containers, both, or networks. "
+    "both is dangling images and exited containers. "
+    "Volume prune stays on the Docker page. "
     "Do not invent SSH, undo, a console, token admin, "
     "docker_stack_down, docker_stack_remove, or stale-data cleanup. "
     "Tools appear only for scopes on this token. A token without read has no tools."
@@ -191,7 +195,10 @@ def tool_catalog() -> list[dict[str, Any]]:
         },
         {
             "name": "list_servers",
-            "description": "List servers. limit default 100, max 100.",
+            "description": (
+                "List servers. limit default 100, max 100. Each server includes "
+                "effective_backup_schedule, next_backup_run, and backup_scheduled."
+            ),
             "scope": tok_svc.SCOPE_READ,
             "inputSchema": _obj_schema(
                 {
@@ -205,7 +212,12 @@ def tool_catalog() -> list[dict[str, Any]]:
         },
         {
             "name": "get_server",
-            "description": "One server, including feature flags.",
+            "description": (
+                "One server, including feature flags. Includes "
+                "effective_backup_schedule, next_backup_run, and backup_scheduled. "
+                "backup_scheduled is false only when backups are on, the scheduler "
+                "is running, and no job is registered. Null means that state is unknown."
+            ),
             "scope": tok_svc.SCOPE_READ,
             "inputSchema": _obj_schema({"server_id": sid}, ["server_id"]),
             "annotations": _READ_ANN,
@@ -267,6 +279,30 @@ def tool_catalog() -> list[dict[str, Any]]:
                     "backup": {"type": "boolean", "description": "Backups feature"},
                     "os_patch": {"type": "boolean", "description": "OS patch feature"},
                     "docker": {"type": "boolean", "description": "Docker / containers feature"},
+                },
+                ["server_id"],
+            ),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "prune_docker",
+            "description": (
+                "Start a Docker prune job. Needs the edit scope. "
+                "prune_type is images, containers, both, or networks. "
+                "both is dangling images and exited containers. "
+                "Volume prune stays on the Docker page. "
+                "HTTP 202 means accepted. HTTP 409 means a prune is already active: "
+                "poll get_job and do not start another."
+            ),
+            "scope": tok_svc.SCOPE_EDIT,
+            "inputSchema": _obj_schema(
+                {
+                    "server_id": sid,
+                    "prune_type": {
+                        "type": "string",
+                        "enum": ["images", "containers", "both", "networks"],
+                        "description": "Default both. Volumes are not accepted.",
+                    },
                 },
                 ["server_id"],
             ),
@@ -958,6 +994,28 @@ async def call_tool(
             payload = api_v1.patch_server_features(
                 _require_int(args, "server_id"), body, session, auth
             )
+        elif name == "prune_docker":
+            kind = _opt_str(args, "prune_type").strip().lower() or "both"
+            if kind == "volumes":
+                return tool_text_result(
+                    {"ok": False, "detail": "Volume prune stays on the Docker page"},
+                    is_error=True,
+                )
+            background = BackgroundTasks()
+            raw = await api_v1.prune_docker(
+                _require_int(args, "server_id"),
+                api_v1.DockerPruneBody(prune_type=kind),
+                background,
+                session,
+                auth,
+            )
+            status_code, payload = _unwrap_json(raw)
+            if isinstance(payload, dict) and status_code in (202, 409):
+                payload = dict(payload)
+                payload["http_status"] = status_code
+                if status_code == 409:
+                    payload["already_active"] = True
+            await _drain_background(background)
         elif name == "trigger_job":
             job_type = _opt_str(args, "job_type").strip().lower()
             if job_type not in MCP_JOB_TYPES:

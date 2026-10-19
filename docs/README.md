@@ -8,7 +8,8 @@ Maintainer plans and release notes. Operator wiki is `wiki/` (MkDocs).
 |------|--------|
 | Current release | [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) · [PLAN_v1.11.0.md](PLAN_v1.11.0.md) · [QA_v1.11.0.md](QA_v1.11.0.md). Tag **v1.11.0**. Image `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)**. Plugin **0.5.0**. Operator QA signed 2026-10-18 |
 | Prior release | [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md) · [QA_v1.10.0.md](QA_v1.10.0.md). Tag **v1.10.0**. Pin `1.10.0` / `1.10` |
-| Open train | [PLAN_v1.12.0.md](PLAN_v1.12.0.md) · [QA_v1.12.0.md](QA_v1.12.0.md). Branch **`v1.12.0-dev`**. Package stays **1.11.0**. Must is in. Direct copy on a different CPU is in. The rest of Should is not started. Walks are empty |
+| Open train | [PLAN_v1.12.0.md](PLAN_v1.12.0.md) · [QA_v1.12.0.md](QA_v1.12.0.md). Branch **`v1.12.0-dev`**. Package stays **1.11.0**. Must is in. Direct copy on a different CPU is in. Missed scheduled run is in. Copy before the backups is in. Backup time is on `list_servers` and `get_server`. Docker prune is a job. The GitHub adapter readme badges herder 1.11.0. PyPI 0.4.2 still badges 1.10.0 until the adapter cut that ships with this herder. Walks are empty |
+| Next notes | [PLAN_v1.13.0.md](PLAN_v1.13.0.md). Not a train. Build cache and buildx cache from the host page, the token API, and hosted MCP. Not built |
 | Prior release | [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [QA_v1.9.0.md](QA_v1.9.0.md). Tag **v1.9.0**. Pin `1.9.0` / `1.9` stays valid |
 | Prior release | [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) |
 | Prior production | [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md) |

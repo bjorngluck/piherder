@@ -188,6 +188,8 @@ On Frigate/NVR-style trees, rsync may hit **code 24** (vanished files). From **v
 | After success | Open `backup_failed` notifications resolve |
 | Destination rejected the sign-in | One `backup_destination_auth_failed` alert, linked to Settings → PiHerder backup. It stays **critical** when the Backups category is set lower. Google Drive and OneDrive say reconnect. The line may include the provider error code, such as `invalid_grant`, and does not include the token, the rclone config, or the raw response. A later successful copy resolves it |
 | No backup inside the stale window | One `backup_stale` warning per backup-enabled host. A later success resolves it |
+| Scheduled run did not start | One `backup_schedule_missed` warning when a host backup does not start within 15 minutes of its slot. The next successful backup resolves it. Turning backups off resolves it too |
+| Copy scheduled before the host backups | One `backup_copy_early` warning when a destination copy runs earlier the same day than a host backup whose folder on `/backups` is ticked. The warning names those hosts. It clears when the copy is no longer earlier. A host that sends files straight out is not part of this check. The same sentence shows on Settings → PiHerder backup |
 
 ### rsync path
 
@@ -197,13 +199,15 @@ On Frigate/NVR-style trees, rsync may hit **code 24** (vanished files). From **v
 
 ## Schedules
 
-Enable + cron on the Backups page. The hour is the Settings timezone, the same clock as the label under the field. A destination copy schedule uses that clock too. Same server never runs two backups at once ([Redis mutex](../operations/multi-worker.md)); different hosts can run in parallel. A direct host is included in a destination schedule only when that destination is one of its ticked targets.
+Enable + cron on the Backups page. The hour is the Settings timezone, the same clock as the label under the field. A destination copy schedule uses that clock too. Same server never runs two backups at once ([Redis mutex](../operations/multi-worker.md)); different hosts can run in parallel. A direct host is included in a destination schedule only when that destination is one of its ticked targets. A copy that is earlier the same day than a host backup whose `/backups` folder is ticked opens a warning. See the outcome table above.
 
 Settings → Fleet has a base backup time, daily at 02:00 unless you change it. **Apply to all servers**, with **Enable Backups** ticked, turns backups on. It does not write a schedule. A host that already has a schedule is left alone. Saving a new base clock moves hosts that inherit it, even when Apply is not ticked. Adding a host, including the wizard, turns backups on and leaves the schedule empty, so the new host inherits this time.
 
 A host with backups on and no saved schedule runs on the fleet time. The fleet clock is one time. Each host still gets its own minute, computed from the host id, so registering one host does not read the rest of the fleet. That time is not written onto the host. The Servers list and the Backups page mark it **fleet default** and show the next run when a job is registered. When backups are on and this page cannot see the scheduler, the label says **schedule unknown**. That is not a missed job. **Not scheduled** means backups are on, the scheduler is running, and no job is registered. The host's own schedule wins. Backups off means no job, and the schedule label is hidden. On a daily base, ids below 60 stay on that hour. Later ids use the following hours and stop at 23:00, so a 02:00 base has 1320 distinct minutes. Past that, or on a list, a step, or a weekday base, some hosts share a minute. Those jobs are queued. The worker runs them as slots are free. One host still does not run two backups at once.
 
 The fleet-default choice on Configure saves the source list and the destination root, and the audit row records the old and new values. It does not set a schedule on other hosts. A weekday range or a day-of-month list stays as typed.
+
+`list_servers` and `get_server` return the same three fields: `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`. The tool text names them. The adapter package that carries that text ships with the herder.
 
 **Why a mutex:** overlapping rsync to the same destination corrupts snapshots and confuses retention.
 

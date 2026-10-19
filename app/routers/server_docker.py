@@ -1356,10 +1356,13 @@ async def list_unused_route(
 @router.post("/{server_id}/docker/prune-unused")
 async def prune_unused_route(
     server_id: int,
+    background_tasks: BackgroundTasks,
     prune_type: str = Form("both"),
+    confirm: str = Form(""),
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_operator_user),
 ):
+    from ..services import jobs as job_svc
     from ..services.input_validation import PRUNE_TYPES, ValidationError, allowlist
 
     try:
@@ -1372,47 +1375,38 @@ async def prune_unused_route(
     except ValidationError as e:
         raise HTTPException(400, detail=str(e)) from e
 
+    confirmed = str(confirm or "").strip().lower() in {"1", "true", "on", "yes"}
+    if prune_type == "volumes" and not confirmed:
+        return RedirectResponse(
+            f"/servers/{server_id}/docker?prune=need_confirm&prune_type=volumes",
+            status_code=303,
+        )
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
 
     try:
-        res = docker_svc.prune_unused(server, prune_type=prune_type)
-        ok = "ok" if res.get("success") else "fail"
-        # record audit
-        try:
-            audit = make_audit_log(
-                user_id=user.id if user else None,
-                server_id=server_id,
-                action="docker_prune_unused",
-                status="success" if res.get("success") else "failed",
-                details=f"prune_type={prune_type}",
-                output_snippet=str(res.get("output", ""))[:500],
-                started_at=datetime.utcnow(),
-                finished_at=datetime.utcnow(),
-            )
-            session.add(audit)
-            session.commit()
-        except Exception:
-            pass
-    except Exception as e:
-        ok = "fail"
-        # best effort audit fail
-        try:
-            audit = make_audit_log(
-                user_id=user.id if user else None,
-                server_id=server_id,
-                action="docker_prune_unused",
-                status="failed",
-                details=f"prune_type={prune_type}",
-                output_snippet=str(e)[:300],
-                started_at=datetime.utcnow(),
-                finished_at=datetime.utcnow(),
-            )
-            session.add(audit)
-            session.commit()
-        except Exception:
-            pass
-        return RedirectResponse(f"/servers/{server_id}/docker?prune=fail&prune_type={prune_type}", status_code=303)
+        job = job_svc.create_job_and_run(
+            background_tasks,
+            session,
+            server,
+            "docker_prune",
+            user_id=user.id if user else None,
+            source_filter=prune_type,
+        )
+    except job_svc.JobAlreadyActive:
+        return RedirectResponse(
+            f"/servers/{server_id}/docker?prune=busy&prune_type={prune_type}",
+            status_code=303,
+        )
+    except Exception:
+        return RedirectResponse(
+            f"/servers/{server_id}/docker?prune=fail&prune_type={prune_type}",
+            status_code=303,
+        )
 
-    return RedirectResponse(f"/servers/{server_id}/docker?prune={ok}&prune_type={prune_type}", status_code=303)
+    return RedirectResponse(
+        f"/servers/{server_id}/docker?prune=queued&prune_type={prune_type}&job={job.id}",
+        status_code=303,
+    )

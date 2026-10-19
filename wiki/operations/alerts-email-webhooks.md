@@ -31,8 +31,8 @@ Settings → Alerts → **Alert policy** is the taxonomy + volume control so map
 | **LAN discovery** | `nmap_new_device` (new host) · `nmap_device_offline` (stale / not seen ~14d) | warning / info |
 | **PiHerder stack** | `stack_health` — disk / DB / Redis / Celery | fail = critical, warn = warning |
 | **Certificates** | expiring · renew/deploy/verify failed | warning / critical |
-| **Backups** | host backup failed · herder self-backup failed | critical |
-| **Updates** | OS updates · reboot pending · container image updates | warning |
+| **Backups** | host backup failed · herder self-backup failed · scheduled backup did not start · copy scheduled before the host backups | critical for a failed run, warning for a missed slot, an early copy, or a stale backup |
+| **Updates** | OS updates · reboot pending · container image updates · scheduled container check did not start | warning |
 | **Templates** | config drift | warning |
 | **Admin** | user created · API token created · force 2FA or template 2FA changed | warning |
 
@@ -60,6 +60,16 @@ Herder does **not** ping or SSH-probe hosts for health. Bind an **Uptime Kuma SS
 Creating a user, creating an API token, or changing force 2FA or template 2FA opens one warning. The body names the actor and the client IP. It does not include a password or a token. Each event stays open until you dismiss it. A later change does not replace the earlier row. Mute the **Admin** category to stop them. Web Push follows the master switch.
 
 The same alert covers the Users page, the first registration, an SSO account provisioned on first sign-in, Settings → API management, `POST /api/v1/tokens`, and a browser MCP sign-in. Refreshing an MCP token does not open another one. Grace days and the other security settings do not open this alert.
+
+### Missed schedule
+
+A host backup or a container image check that does not start within 15 minutes of its slot opens one warning (`backup_schedule_missed` or `container_check_missed`). The clock is the Settings timezone. A slot before the host was added does not count. The next successful run of that same kind resolves the warning. Turning that schedule off resolves it too. Mute **Backups** or **Updates** to stop the matching one. Web Push follows the master switch.
+
+`/metrics` exposes `piherder_schedule_missed` with `kind` and `server_id`. It is 1 while the latest due slot was missed and no success has finished since.
+
+### Copy before the backups
+
+A destination copy that is scheduled earlier the same day than a host backup whose folder on `/backups` is ticked opens one warning, `backup_copy_early`. The body names those hosts. The clock is the Settings timezone, and the check looks 35 days ahead. It clears when that copy is no longer earlier. Turning the copy schedule off, or unticking the folder, clears it too. A host that sends files straight out is not included, because that copy reads the host rather than `/backups`. Mute **Backups** to stop it. The Settings copy list shows the same sentence. Web Push follows the master switch.
 
 ### Debounce and re-alert
 

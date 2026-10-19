@@ -49,7 +49,7 @@ Configured under **Edit → Schedules**.
 |----------|------|----------------|
 | **OS packages (apt)** | Count ready packages, phased count, reboot-pending | Run upgrade |
 | **HA updates** (`os_type=haos`) | Count Core / OS / Supervisor with `update_available` | Run `ha … update` |
-| **Container images** | Pull/compare image IDs per compose project. A saved schedule keeps running while fleet container checks are on. Turning those checks off and applying clears each host schedule | `compose up -d` |
+| **Container images** | Pull/compare image IDs per compose project. A saved schedule keeps running while fleet container checks are on. Turning those checks off and applying clears each host schedule. A check that does not start within 15 minutes of its slot opens one warning, and the next successful check resolves it | `compose up -d` |
 
 Results feed the dashboard, badges, and notifications.
 

@@ -286,6 +286,20 @@ def collect_samples(session: Session) -> list[tuple[str, str, list[str]]]:
             [_line("piherder_servers_backup_stale", backup_stale)],
         )
     )
+    try:
+        from .schedule_watch import missed_schedule_lines
+
+        missed_lines = missed_schedule_lines(session)
+    except Exception:
+        missed_lines = []
+    samples.append(
+        (
+            "piherder_schedule_missed",
+            "1 when the latest due host backup or container check did not start "
+            "within 15 minutes and has not succeeded since",
+            missed_lines,
+        )
+    )
 
     return samples
 

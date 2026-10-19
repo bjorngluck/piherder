@@ -81,6 +81,7 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "service_migrate_undo",
         "service_migrate_dest_recover",
         "host_facts",
+        "docker_prune",
     }
 )
 
@@ -327,6 +328,7 @@ JOB_TYPE_LABELS = {
     "retention": "Retention",
     "diagnostics": "Diagnostics",
     "herder_backup": "PiHerder backup",
+    "docker_prune": "Docker prune",
     "backup_replicate": "Backup copy",
     "pihole_action": "Pi-hole action",
     "stale_data_cleanup": "Stale data cleanup",
@@ -941,7 +943,16 @@ def create_job_and_run(
             active = get_active_job_for_source(session, server_id, source_filter)
             if active:
                 raise BackupAlreadyRunning(active)
-    elif job_type in _EXCLUSIVE_JOB_TYPES and server_id is not None:
+    prune_kind = None
+    if job_type == "docker_prune":
+        from ..input_validation import PRUNE_TYPES
+
+        prune_kind = (source_filter or "both").strip().lower() or "both"
+        if prune_kind not in PRUNE_TYPES:
+            raise ValueError(
+                "prune_type must be images, containers, both, networks, or volumes"
+            )
+    if job_type in _EXCLUSIVE_JOB_TYPES and server_id is not None:
         active = _active_job_of_type(session, server_id, job_type)
         if active:
             logger.info(
@@ -978,8 +989,11 @@ def create_job_and_run(
             "container_stop": f"Stop {(service or '').strip() or 'container'} queued…",
             "container_restart": f"Restart {(service or '').strip() or 'container'} queued…",
             "container_redeploy": f"Update {(service or '').strip() or 'container'} queued…",
+            "docker_prune": f"Docker prune ({prune_kind or 'both'}) queued…",
         }
         detail_extra = dict(actor_extra)
+        if prune_kind:
+            detail_extra["prune_type"] = prune_kind
         if job_type in _CONTAINER_SERVICE_JOB_TYPES:
             detail_extra["source_filter"] = (source_filter or "").strip()
             detail_extra["service"] = (service or "").strip()
@@ -1056,6 +1070,8 @@ def create_job_and_run(
         start_details = f"Job #{job.id} started"
         if job_type == "os_patch" and os_steps:
             start_details = f"Job #{job.id} started · {','.join(os_steps)}"
+        elif job_type == "docker_prune" and prune_kind:
+            start_details = f"Job #{job.id} started · {prune_kind}"
         audit = make_audit_log(
             user_id=user_id,
             server_id=server_id,
@@ -1137,6 +1153,20 @@ def create_job_and_run(
             background_tasks=background_tasks,
             bg_fn=_run_host_facts_job,
             bg_args=(job.id, server.id, audit.id),
+        )
+    elif job_type == "docker_prune":
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            payload={"prune_type": prune_kind or "both"},
+            background_tasks=background_tasks,
+            bg_fn=_run_docker_prune_job,
+            bg_args=(job.id, server.id, audit.id, prune_kind or "both"),
+            pool=_update_check_pool,
+            sync_fn=_execute_docker_prune,
+            sync_args=(job.id, server.id, audit.id, prune_kind or "both"),
         )
     elif job_type == "container_update_check":
         handoff_exclusive(
@@ -1765,8 +1795,18 @@ def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str
                     )
                 elif status == "success":
                     resolve_backup_failed(s, server_id)
+                    from ..schedule_watch import resolve_backup_schedule_missed
+
+                    resolve_backup_schedule_missed(s, server_id)
             except Exception as e:
                 logger.debug(f"backup notification: {e}")
+        if jt == "container_update_check" and server_id and status == "success":
+            try:
+                from ..schedule_watch import resolve_container_check_missed
+
+                resolve_container_check_missed(s, server_id)
+            except Exception as e:
+                logger.debug(f"container check schedule notification: {e}")
         if jt == "host_facts" and status in ("failed", "cancelled"):
             _release_host_facts_refresh(s, server_id)
             s.commit()
@@ -2909,6 +2949,57 @@ def _execute_host_reboot(job_id: int, server_id: int, audit_id: int) -> None:
 
 async def _run_host_reboot_job(job_id: int, server_id: int, audit_id: int):
     await run_in_threadpool(_execute_host_reboot, job_id, server_id, audit_id)
+
+
+def _execute_docker_prune(
+    job_id: int, server_id: int, audit_id: int, prune_type: str = ""
+) -> None:
+    from ..docker_management import prune_unused
+
+    kind = (prune_type or "both").strip().lower() or "both"
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        server = session.get(Server, server_id)
+        if job and job.details:
+            try:
+                saved = json.loads(job.details or "{}")
+                if isinstance(saved, dict) and saved.get("prune_type"):
+                    kind = str(saved["prune_type"]).strip().lower() or kind
+            except Exception:
+                pass
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="pruning",
+                prune_type=kind,
+                log_lines=[f"Docker prune ({kind}) started…"],
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+        if not server:
+            _finish(audit_id, job_id, "failed", "Server not found", "", "docker_prune")
+            return
+        hostname = server.hostname or ""
+        try:
+            res = prune_unused(server, prune_type=kind)
+        except Exception as exc:
+            _finish(audit_id, job_id, "failed", f"{kind}: {exc}", hostname, "docker_prune")
+            return
+        output = str(res.get("output") or "").strip() or "Nothing to prune."
+        message = f"{kind}: {output}"
+        status = "success" if res.get("success") else "failed"
+        _finish(audit_id, job_id, status, message, hostname, "docker_prune")
+
+
+async def _run_docker_prune_job(
+    job_id: int, server_id: int, audit_id: int, prune_type: str = "both"
+):
+    await run_in_threadpool(
+        _execute_docker_prune, job_id, server_id, audit_id, prune_type
+    )
 
 
 def _execute_container_update_check(job_id: int, server_id: int, audit_id: int) -> None:

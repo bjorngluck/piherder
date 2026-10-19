@@ -35,6 +35,22 @@
             Prune exited containers
           </button>
         </form>
+        <form method="post" action="/servers/{{ server.id }}/docker/prune-unused" class="cleanup-prune-form" data-prune-label="unused networks">
+          <input type="hidden" name="prune_type" value="networks">
+          <button type="submit" class="btn btn-secondary text-sm min-h-11 w-full text-danger border-danger/30">
+            Prune unused networks
+          </button>
+        </form>
+        <form method="post" action="/servers/{{ server.id }}/docker/prune-unused" class="cleanup-prune-form" data-prune-label="unused volumes" data-volume-prune="1">
+          <input type="hidden" name="prune_type" value="volumes">
+          <label class="flex items-start gap-2 text-xs mb-2">
+            <input type="checkbox" name="confirm" value="true" class="mt-0.5" data-volume-confirm>
+            <span>Unused volumes only. Volumes still in use stay. This cannot be undone.</span>
+          </label>
+          <button type="submit" class="btn btn-secondary text-sm min-h-11 w-full text-danger border-danger/30" disabled>
+            Prune unused volumes
+          </button>
+        </form>
       </div>
     </div>
   </div>
@@ -1438,6 +1454,15 @@ document.addEventListener('click', function(e) {
     }
   }, true);
 
+  document.querySelectorAll('form[data-volume-prune]').forEach(form => {
+    const box = form.querySelector('[data-volume-confirm]');
+    const btn = form.querySelector('button');
+    if (!box || !btn) return;
+    const sync = () => { btn.disabled = !box.checked; };
+    box.addEventListener('change', sync);
+    sync();
+  });
+
   // Prune forms — loading overlay + modal status feedback
   document.querySelectorAll('form[action*="/prune-unused"], form.cleanup-prune-form').forEach(form => {
     form.addEventListener('submit', function(e) {
@@ -1458,7 +1483,7 @@ document.addEventListener('click', function(e) {
               <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
             </div>
             <div class="font-medium">Pruning ${label}…</div>
-            <div class="text-xs text-muted mt-2">SSH command running on host — please wait</div>
+            <div class="text-xs text-muted mt-2">Opening a prune job</div>
           </div>
         `;
         document.body.appendChild(overlay);

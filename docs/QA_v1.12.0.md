@@ -76,16 +76,18 @@ Repository refuses a folder or checkout the SSH user does not own, before git ru
 
 - [ ] The image carries rclone for amd64 and arm64, and a direct copy sends the one that matches the host
 - [ ] The straight-out tick is greyed out when host facts name a CPU other than those two. An unknown architecture stays available
-- [ ] A missed scheduled run covers host backups and container update checks. A warning opens when a run does not start within N minutes of its slot, and the next successful run resolves it
-- [ ] `/metrics` exposes a series for that missed run
-- [ ] A destination copy scheduled before the host backups it ships raises a warning
+- [ ] A missed scheduled run covers host backups and container update checks. A warning opens when a run does not start within 15 minutes of its slot, and the next successful run resolves it
+- [ ] `/metrics` exposes `piherder_schedule_missed` for that missed run
+- [ ] A destination copy scheduled earlier the same day than a ticked host backup raises a warning and names those hosts. A direct host is not part of that check. The warning clears when the copy is no longer earlier
 
 ## MCP and the adapter (Should)
 
 The adapter cut ships with the herder.
 
-- [ ] An agent can read `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`
+- [ ] `list_servers` and `get_server` return `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`, and the tool text names those fields
 - [ ] The published piherder-mcp readme badges herder 1.11.0
+
+The GitHub readme on adapter main already badges herder 1.11.0. PyPI 0.4.2 still freezes the 1.10.0 readme. This box stays open until the published package shows 1.11.0. That upload ships with the herder. The adapter stays 0.4.2 until then.
 
 ## Docker prune (Should)
 

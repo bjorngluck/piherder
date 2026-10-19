@@ -46,6 +46,7 @@ _ACTION_LABELS = {
     "host_reboot": "Host reboot",
     "os_update_check": "OS update check",
     "container_update_check": "Container update check",
+    "docker_prune": "Docker prune",
     "docker_stack_check": "Stack update check",
     "docker_stack_deploy": "Stack deploy",
     "docker_check-updates": "Stack update check",

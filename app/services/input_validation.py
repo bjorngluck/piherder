@@ -215,5 +215,6 @@ CERT_LAYOUTS = frozenset(
     }
 )
 CERT_WRITE_MODES = frozenset({"direct", "stage_sudo"})
-# Must match docker_management.prune_unused
-PRUNE_TYPES = frozenset({"images", "containers", "both"})
+# Must match docker_management.prune_unused. volumes is the Docker page only.
+PRUNE_TYPES = frozenset({"images", "containers", "both", "networks", "volumes"})
+PRUNE_API_TYPES = frozenset({"images", "containers", "both", "networks"})

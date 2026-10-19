@@ -45,6 +45,7 @@ EXCLUSIVE_CELERY_TYPES = frozenset(
         "template_redeploy",
         "template_drift_check",
         "host_facts",
+        "docker_prune",
     }
 )
 
@@ -510,6 +511,10 @@ def _execute(job_type: str, job_id: int, server_id: int, audit_id: int, payload:
         )
     elif job_type == "host_facts":
         js._execute_host_facts(job_id, server_id, audit_id)
+    elif job_type == "docker_prune":
+        js._execute_docker_prune(
+            job_id, server_id, audit_id, payload.get("prune_type") or ""
+        )
     elif job_type in (
         "container_start",
         "container_stop",

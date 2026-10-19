@@ -180,7 +180,7 @@ Base path: **`/api/v1`**
 
 Server-side feature flags still gate jobs: you cannot run a backup job if `features.backup` is false on the server (enable it first with `edit`, or in the UI).
 
-`backup_schedule` is the saved cron, or null. `effective_backup_schedule` is the cron that will run. `backup_schedule_source` is `host`, `fleet`, or null when backups are off. `next_backup_run` is the live job's next run. `backup_scheduled` is true when that job is registered, false only when backups are on, the scheduler is running, and no job is registered, and null when this process cannot see the scheduler. A saved schedule wins. Apply does not write `backup_schedule`.
+`backup_schedule` is the saved cron, or null. `effective_backup_schedule` is the cron that will run. `backup_schedule_source` is `host`, `fleet`, or null when backups are off. `next_backup_run` is the live job's next run. `backup_scheduled` is true when that job is registered, false only when backups are on, the scheduler is running, and no job is registered, and null when this process cannot see the scheduler. A saved schedule wins. Apply does not write `backup_schedule`. Hosted `list_servers` and `get_server` return these keys, and the tool text names `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`. The adapter returns the same JSON. The package that names those fields in its tool text ships with the herder.
 
 ### Jobs
 
@@ -190,6 +190,7 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 | `GET` | `/api/v1/jobs/{id}` | `read` | Job detail (`?detail=true` for longer log tail) |
 | `GET` | `/api/v1/servers/{id}/jobs` | `read` | Jobs for one server |
 | `POST` | `/api/v1/servers/{id}/jobs` | `jobs` | Trigger job (HTTP **202**) |
+| `POST` | `/api/v1/servers/{id}/docker/prune` | `edit` | Start a `docker_prune` job (HTTP **202**). `prune_type` is `images`, `containers`, `both`, or `networks`. Volume prune stays on the Docker page |
 
 **POST body**
 

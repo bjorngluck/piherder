@@ -350,7 +350,10 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
                 pass
             try:
                 from .services.notifications import resolve_backup_failed
+                from .services.schedule_watch import resolve_backup_schedule_missed
+
                 resolve_backup_failed(db, server_id)
+                resolve_backup_schedule_missed(db, server_id)
             except Exception:
                 pass
         else:

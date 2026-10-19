@@ -295,19 +295,28 @@
       New service <strong>{{ request.query_params.get('new_project') }}</strong> created (files written, versioning enabled).
     </div>
   {% endif %}
-  {% if request.query_params.get('prune') %}
+  {% set _prune = request.query_params.get('prune') %}
+  {% if _prune == 'queued' %}
     <div class="mb-3 p-2 text-xs rounded banner-success border border-border">
-      Prune {{ request.query_params.get('prune_type', 'unused') }} {{ 'succeeded' if request.query_params.get('prune') == 'ok' else 'failed' }}.
+      Prune job started ({{ request.query_params.get('prune_type', 'unused') }}).
+      Follow it under <a href="/jobs" class="text-primary underline">Jobs</a>.
+    </div>
+  {% elif _prune == 'need_confirm' %}
+    <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
+      Unused volumes stay until you confirm that prune.
+    </div>
+  {% elif _prune == 'busy' %}
+    <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
+      A prune is already running for this host.
+    </div>
+  {% elif _prune %}
+    <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
+      Prune {{ request.query_params.get('prune_type', 'unused') }} did not start.
     </div>
   {% endif %}
 
   {# Compose projects with nested services (and orphans) #}
   {% include "docker_stack.html" %}
-
-  <div class="mt-6 text-xs text-muted">
-    Compose ⋯: deploy, start/stop/restart all, logs, build, edit. Container ⋯: start / stop / restart / logs.
-    Tap a service row for image, ports, mounts, and size.
-  </div>
 </div>
 
 <!-- Compose ⋯ popover (anchored menu — not a full-screen modal) -->

@@ -1,6 +1,6 @@
 # PiHerder v1.12.0: quieter lists, then honest backup and image signals
 
-**Status:** **Open** 2026-10-18. Quiet lists, the backup credential alert, the self-backup last-success line, the admin alert, the image update flag, the OS end-of-life warning, the update-check gap, and git checkout ownership are in. Direct copy on a different CPU is in. The rest of Should is not started.  
+**Status:** **Open** 2026-10-18. Quiet lists, the backup credential alert, the self-backup last-success line, the admin alert, the image update flag, the OS end-of-life warning, the update-check gap, and git checkout ownership are in. Direct copy on a different CPU is in. A missed scheduled run opens a warning. A destination copy scheduled before its host backups opens a warning. `list_servers` and `get_server` return the backup time. The adapter package that names those fields ships with the herder. Docker prune is a job. The GitHub adapter readme badges herder 1.11.0. PyPI 0.4.2 still badges 1.10.0 until the adapter cut that ships with this herder.  
 **Date opened:** 2026-10-18  
 **Git branch:** `v1.12.0-dev` → `main` · tag `v1.12.0` after merge, only when asked  
 **Package / image version:** package stays **`1.11.0`** until freeze. About / footer say **1.11.0**. Release image tags stay `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image.  
@@ -35,8 +35,8 @@ v1.11.0 shipped a passkey that counts as 2FA, a host that can copy straight to D
 | Tier | Lock |
 |------|------|
 | Should | **In. Direct copy on a different CPU.** The image carries rclone for amd64 and arm64. Direct copy sends the one that matches the host. The straight-out tick is greyed out when host facts name another CPU. An unknown architecture stays available. `/backups` stays for a host the binary cannot run on |
-| Should | **Missed scheduled run.** Covers host backups and container update checks. Open a warning when a run does not start within N minutes of its slot. Resolve it on the next successful run. Add a Prometheus metric |
-| Should | **Copy before the backups.** Warn when a destination copy is scheduled before the host backups it ships. A copy that runs before the backups is the case to catch |
+| Should | **In. Missed scheduled run.** Covers host backups and container update checks. A warning opens when a run does not start within 15 minutes of its slot. The next successful run resolves it. `/metrics` has `piherder_schedule_missed` |
+| Should | **In. Copy before the backups.** Warn when a destination copy is scheduled earlier the same day than a host backup whose `/backups` folder it ships. The warning names those hosts and clears when the copy is no longer earlier. A direct host is not part of this check |
 | Discover | **Remote restore.** Restore from Drive, OneDrive, or a LAN share. Restore stays a reverse rsync from `/backups` until this is promoted |
 | Discover | **Direct hop vs a stuck folder hop.** A folder hop left showing running holds that tick's direct hop until the next run. The direct hop should not wait on that row |
 | Later | **Backup stagger ceiling.** The stagger reuses a minute past about 1,320 hosts on the default 02:00 base. That limit is documented |
@@ -54,8 +54,8 @@ v1.11.0 shipped a passkey that counts as 2FA, a host that can copy straight to D
 
 | Tier | Lock |
 |------|------|
-| Should | **Backup time on MCP.** Hosted MCP and the adapter do not show the effective backup time. Expose `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled` on the next adapter cut. The adapter ships with the herder |
-| Should | **Adapter readme badge.** The piherder-mcp PyPI readme still badges an older herder. Point that badge at herder 1.11.0 on the same adapter cut |
+| Should | **In. Backup time on MCP.** `list_servers` and `get_server` return `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`. The tool text names those fields. The adapter package that carries that text ships with the herder. It is not published ahead of this train |
+| Should | **In. Adapter readme badge.** The GitHub readme on piherder-mcp main badges herder 1.11.0. PyPI **0.4.2** still freezes the 1.10.0 readme. That page updates on the adapter cut that ships with this herder. The adapter stays **0.4.2** until then |
 | Later | **OAuth token names.** MCP OAuth tokens take their name from the client name, so two agents that send the same name look the same. A short suffix stays a note |
 
 The read-audit flag under Jobs and audit covers hosted `/mcp` as well as API tokens. It is not a second MCP row.
@@ -65,7 +65,7 @@ The read-audit flag under Jobs and audit covers hosted `/mcp` as well as API tok
 | Tier | Lock |
 |------|------|
 | Must | **In. Image update flag.** Issue [#47](https://github.com/bjorngluck/piherder/issues/47). A check still flags an image when the pull changes its id. It also keeps the flag when a running container is still on the previous id. The flag clears once every running container for that image uses the id on disk. The issue stays open |
-| Should | **Docker prune.** Issue [#48](https://github.com/bjorngluck/piherder/issues/48). A prune job from the host Docker page, the token API, and MCP. The API and MCP need the `edit` scope. Volume prune is UI-only behind a confirm. Every prune writes an audit row |
+| Should | **In. Docker prune.** Issue [#48](https://github.com/bjorngluck/piherder/issues/48). The host Docker page, the token API, and hosted `/mcp` start a `docker_prune` job. The API and MCP need the `edit` scope. `both` is dangling images and exited containers. Networks are their own type. Volume prune stays on the Docker page until the operator confirms it. Every prune writes an audit row. The issue stays open. Build cache and buildx cache are a [v1.13 note](PLAN_v1.13.0.md), not this train |
 
 ### Scheduler
 
@@ -140,6 +140,11 @@ Nothing was voted **Out**.
 | 2026-10-18 | **Update-check gap.** Scheduled container checks stopped after 11 Oct because Apply cleared the per-host flag and left the cron. The scheduler only registered a job when that flag was on, so the next start removed it. OS checks stayed on and kept running. A saved container cron now registers while fleet container checks are on. Applying with that check off clears the cron. |
 | 2026-10-18 | **Checkout ownership.** Repository refuses a folder or checkout the SSH user does not own, before git runs. `safe.directory` is not set. Repo hooks, fsmonitor, and a repo sshCommand stay disabled. |
 | 2026-10-18 | **Direct copy CPU.** The image carries rclone for amd64 and arm64, and the copy sends the one that matches the host. The straight-out tick is greyed out when host facts name another CPU. An unknown architecture stays available. A host the binary cannot run on keeps `/backups`. |
+| 2026-10-19 | **Missed scheduled run.** A host backup or a container update check that does not start within 15 minutes of its slot opens one warning. The next successful run of that kind resolves it. Turning the schedule off resolves it too. `/metrics` exposes `piherder_schedule_missed`. |
+| 2026-10-19 | **Copy before the backups.** A destination copy scheduled earlier the same day than a ticked host backup opens one warning and names those hosts. It clears when the copy is no longer earlier. A direct host is not included. The Settings copy list shows the same sentence. |
+| 2026-10-19 | **Backup time on MCP.** `list_servers` and `get_server` return `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`. The tool text names those fields. `backup_scheduled` is false only when backups are on, the scheduler is running, and no job is registered. Null means that state is unknown. The adapter package that carries that text ships with the herder. It stays **0.4.2** until then. |
+| 2026-10-19 | **Docker prune.** The host Docker page, `POST /api/v1/servers/{id}/docker/prune`, and hosted `prune_docker` start a `docker_prune` job. The API and MCP need the `edit` scope. Volume prune stays on the Docker page until the operator confirms it. Every run writes an audit row. Issue [#48](https://github.com/bjorngluck/piherder/issues/48) stays open. No schedule and no prune-after-update on this train. Build cache and buildx cache are a [v1.13 note](PLAN_v1.13.0.md). |
+| 2026-10-19 | **Adapter readme badge.** The GitHub readme on piherder-mcp main badges herder 1.11.0. PyPI **0.4.2** still freezes the 1.10.0 readme. That page updates on the adapter cut that ships with this herder. The adapter stays **0.4.2** and is not published ahead of it. |
 
 ---
 
@@ -149,7 +154,7 @@ Nothing was voted **Out**.
 |---|------|--------|
 | 1 | Open **`v1.12.0-dev`** | **Done** 2026-10-18 |
 | 2 | Must, by area | **Done.** Jobs and audit, the backup credential alert, the self-backup last-success line, the admin alert, the image update flag, the OS end-of-life warning, the update-check gap, and git checkout ownership are in |
-| 3 | Should, if it fits | Direct copy on a different CPU is in. Still open: missed scheduled run, copy before the backups, MCP and the adapter, Docker prune, scheduler visibility, OS patch error output, history sweep, supply-chain pass, push denylist |
+| 3 | Should, if it fits | Direct copy on a different CPU is in. Missed scheduled run is in. Copy before the backups is in. Backup time is on `list_servers` and `get_server`. Docker prune is a job. The GitHub adapter readme badges herder 1.11.0. Still open: scheduler visibility, OS patch error output, history sweep, supply-chain pass, push denylist. PyPI 0.4.2 still badges herder 1.10.0 until the adapter cut that ships with this herder |
 | 4 | Discover | Remote restore. Direct hop vs a stuck folder hop. NPM CRUD. Read-only admin API. Promote or defer in the release notes |
 | 5 | Freeze | Not set. Package stays `1.11.0` until then |
 | 6 | Operator QA | Boxes in [QA_v1.12.0.md](QA_v1.12.0.md) are empty |

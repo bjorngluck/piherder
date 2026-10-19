@@ -987,6 +987,83 @@ async def create_server_job(
     )
 
 
+class DockerPruneBody(BaseModel):
+    """Host Docker prune. Volumes are not accepted on this route."""
+
+    prune_type: str = "both"
+
+
+@router.post(
+    "/servers/{server_id}/docker/prune",
+    status_code=202,
+    summary="Start a Docker prune job",
+    description=(
+        "Requires scope `edit`. prune_type is images, containers, both, or networks. "
+        "both is dangling images and exited containers. Volume prune stays on the "
+        "Docker page and needs a confirm there."
+    ),
+)
+async def prune_docker(
+    server_id: int,
+    body: DockerPruneBody,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services.input_validation import PRUNE_API_TYPES, ValidationError, allowlist
+
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404, detail="Server not found")
+    auth.require(tok_svc.SCOPE_EDIT)
+    auth.require_feature("docker")
+    auth.require_server_feature(server, "docker")
+    kind = (body.prune_type or "both").strip().lower()
+    if kind == "volumes":
+        raise HTTPException(
+            status_code=400,
+            detail="Volume prune stays on the Docker page",
+        )
+    try:
+        kind = allowlist(kind, PRUNE_API_TYPES, field="prune_type")
+    except ValidationError as e:
+        raise HTTPException(400, detail=str(e)) from e
+    try:
+        job = job_service.create_job_and_run(
+            background_tasks,
+            session,
+            server,
+            "docker_prune",
+            user_id=auth.user_id,
+            source_filter=kind,
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
+        )
+    except job_service.JobAlreadyActive as e:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": "docker_prune already active for this server",
+                "job": job_service.job_public_dict(e.job),
+                "already_active": True,
+            },
+        )
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e)[:200]) from e
+    except RuntimeError as e:
+        raise HTTPException(503, detail=str(e)[:200]) from e
+    return JSONResponse(
+        status_code=202,
+        content={
+            "job_id": job.id,
+            "status": job.status,
+            "job_type": job.job_type,
+            "prune_type": kind,
+            "job": job_service.job_public_dict(job),
+        },
+    )
+
+
 class MoveCreateBody(BaseModel):
     """Stop-first Move. Leftover on the source is always stopped. No undo."""
 
