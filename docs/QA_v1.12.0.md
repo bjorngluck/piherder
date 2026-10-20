@@ -6,7 +6,7 @@
 **Operator QA:** not signed. Every box below is empty.  
 **Release notes:** draft [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md). Not a ship.  
 **Screenshots:** reserved, not captured. [v1.12 pack](../wiki/assets/screenshots/README.md#v112--pack-status).  
-**Pull request:** draft. See [PR_v1.12.0.md](PR_v1.12.0.md). The number is filled when the PR is open.
+**Pull request:** draft [#54](https://github.com/bjorngluck/piherder/pull/54). See [PR_v1.12.0.md](PR_v1.12.0.md).
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 

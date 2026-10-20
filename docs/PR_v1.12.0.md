@@ -4,7 +4,7 @@
 
 **Base:** `main` · **Head:** `v1.12.0-dev` · [QA_v1.12.0.md](QA_v1.12.0.md) walks are empty. Screenshots are reserved and not captured. Tag and Hub follow approval.
 
-**State:** draft until the walks are signed. Notes are [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md). Package stays **1.11.0** until freeze. Tag and Hub publish stay for the ship step.
+**State:** draft [#54](https://github.com/bjorngluck/piherder/pull/54) until the walks are signed. Notes are [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md). Package stays **1.11.0** until freeze. Tag and Hub publish stay for the ship step.
 
 ---
 
