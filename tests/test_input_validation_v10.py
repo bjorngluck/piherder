@@ -39,7 +39,7 @@ def test_safe_path_blocks_traversal():
 
 
 def test_safe_hostname_and_user():
-    assert safe_hostname("rpi5-1.local") == "rpi5-1.local"
+    assert safe_hostname("host-a.local") == "host-a.local"
     assert safe_hostname("192.168.1.10") == "192.168.1.10"
     with pytest.raises(ValidationError):
         safe_hostname("host:22")

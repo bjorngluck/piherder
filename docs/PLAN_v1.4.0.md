@@ -169,12 +169,12 @@ One **operator+** wizard + one **Job** (`service_migrate`) with a live log, prev
 ```text
 Docker → project ⋯ → Move to another host…
 ┌─────────────────────────────────────────────────────┐
-│  Move  frigate  ?  — LOCKED (Coral TPU on rpi5-4)   │
+│  Move  frigate  ?  (LOCKED, Coral TPU on host-d)   │
 │  Move  grafana                                        │
-│    From: rpi5-6    To: [ rpi5-3 ▾ ]                   │
+│    From: host-f    To: [ host-c ▾ ]                   │
 │    Dataset: ./ + grafana-data (1.2 GiB)               │
-│    DNS: grafana.example.com  CNAME → rpi5-3…         │
-│    NPM: (if via_proxy) proxy #12  10.0.0.6 → rpi5-3   │
+│    DNS: grafana.example.com  CNAME → host-c…         │
+│    NPM: (if via_proxy) proxy #12  10.0.0.6 → host-c   │
 │    After: leave source stopped (data kept)            │
 │    [ Cancel ]  [ Preview ]  [ Move service ]          │
 └─────────────────────────────────────────────────────┘
@@ -223,7 +223,7 @@ Docker → project ⋯ → Move to another host…
 
 Success criteria:
 
-1. Operator can lock Frigate on rpi5-4 with reason “Coral TPU”; **Move** is refused.  
+1. Operator can lock Frigate on host-d with reason “Coral TPU”; **Move** is refused.  
 2. HAOS host never appears as migrate source or destination.  
 3. Unlocked **direct** stack: stop → copy → dest up → CNAME to dest `dns_name` → both Pi-holes `restartdns` → TLS/Kuma green when those rows exist.  
 4. Unlocked **NPM-fronted** stack: dest up → proxy-host backend updates to dest; public name stays on NPM.  
@@ -329,7 +329,7 @@ Success criteria:
 | D-F3 | **Seed** | Fake jail under something like `home/pi/docker/…` matching demo hosts; no `.env` / PEM bodies |
 | D-F4 | **Kill switch** | Still **never** enable `PIHERDER_HOST_FILES` live SFTP on the public demo VPS. Simulated route is `DEMO_MODE` only |
 
-**Out:** real jailed SFTP on Nomad · privileged `/` · zip-on-host · token `files` against demo · using this as the migrate copy engine.
+**Out:** real jailed SFTP on the demo VPS · privileged `/` · zip-on-host · token `files` against demo · using this as the migrate copy engine.
 
 Success: visitor opens **Files** on a seeded host, browses a fake tree, cannot exfiltrate or mutate a real filesystem; lab with the flag on is unchanged.
 

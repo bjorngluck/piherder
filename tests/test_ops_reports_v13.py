@@ -270,8 +270,8 @@ def test_docker_deploys_and_patches():
 
 def test_move_jobs_count_fail_last_dest():
     session = _memory_session()
-    src = _server(session, name="rpi5-4", hostname="rpi5-4")
-    dest = _server(session, name="rpi5-3", hostname="rpi5-3")
+    src = _server(session, name="host-d", hostname="host-d")
+    dest = _server(session, name="host-c", hostname="host-c")
     now = datetime.utcnow()
     _job(
         session,
@@ -301,10 +301,10 @@ def test_move_jobs_count_fail_last_dest():
     assert card["ok"] == 1
     assert card["fail"] == 1
     assert card["runs"] == 2
-    assert card["last_dest"] == "rpi5-3"
+    assert card["last_dest"] == "host-c"
     assert card["last_project"] == "openwebui"
-    assert card["hosts"][0]["name"] == "rpi5-4"
-    assert "openwebui → rpi5-3" in card["hosts"][0]["last_dest"]
+    assert card["hosts"][0]["name"] == "host-d"
+    assert "openwebui → host-c" in card["hosts"][0]["last_dest"]
     data = rpt.collect_ops_reports(session, days=7)
     assert data["move"]["ok"] == 1
     assert data["move"]["fail"] == 1

@@ -15,19 +15,19 @@ from app.security.encryption import encrypt_str, decrypt_str
 SAMPLE_METRICS = """
 # HELP monitor_status Monitor Status (1 = UP, 0= DOWN, 2= PENDING, 3= MAINTENANCE)
 # TYPE monitor_status gauge
-monitor_status{monitor_id="1",monitor_name="rpi5-1 SSH",monitor_type="port",monitor_url="",monitor_hostname="rpi5-1",monitor_port="22"} 1
-monitor_status{monitor_id="2",monitor_name="rpi5-2 SSH",monitor_type="port",monitor_url="",monitor_hostname="10.0.0.2",monitor_port="22"} 0
+monitor_status{monitor_id="1",monitor_name="host-a SSH",monitor_type="port",monitor_url="",monitor_hostname="host-a",monitor_port="22"} 1
+monitor_status{monitor_id="2",monitor_name="host-b SSH",monitor_type="port",monitor_url="",monitor_hostname="10.0.0.2",monitor_port="22"} 0
 monitor_status{monitor_id="3",monitor_name="Grafana",monitor_type="http",monitor_url="https://g.example",monitor_hostname="",monitor_port=""} 1
-monitor_response_time{monitor_id="1",monitor_name="rpi5-1 SSH",monitor_type="port",monitor_url="",monitor_hostname="rpi5-1",monitor_port="22"} 12
-monitor_response_time{monitor_id="2",monitor_name="rpi5-2 SSH",monitor_type="port",monitor_url="",monitor_hostname="10.0.0.2",monitor_port="22"} 45
+monitor_response_time{monitor_id="1",monitor_name="host-a SSH",monitor_type="port",monitor_url="",monitor_hostname="host-a",monitor_port="22"} 12
+monitor_response_time{monitor_id="2",monitor_name="host-b SSH",monitor_type="port",monitor_url="",monitor_hostname="10.0.0.2",monitor_port="22"} 45
 """
 
 # Real Uptime Kuma export: NO monitor_id, hostname/port may be the string "null"
 SAMPLE_METRICS_NO_ID = """
-monitor_status{monitor_name="RPI5-1 SSH",monitor_type="port",monitor_url="https://",monitor_hostname="rpi5-1.example.com",monitor_port="22"} 1
-monitor_status{monitor_name="RPI5-2 SSH",monitor_type="port",monitor_url="https://",monitor_hostname="rpi5-2.example.com",monitor_port="22"} 0
+monitor_status{monitor_name="host-a SSH",monitor_type="port",monitor_url="https://",monitor_hostname="host-a.example.com",monitor_port="22"} 1
+monitor_status{monitor_name="host-b SSH",monitor_type="port",monitor_url="https://",monitor_hostname="host-b.example.com",monitor_port="22"} 0
 monitor_status{monitor_name="Home Assistant",monitor_type="http",monitor_url="https://homeassistant.example/",monitor_hostname="null",monitor_port="null"} 1
-monitor_response_time{monitor_name="RPI5-1 SSH",monitor_type="port",monitor_url="https://",monitor_hostname="rpi5-1.example.com",monitor_port="22"} 2
+monitor_response_time{monitor_name="host-a SSH",monitor_type="port",monitor_url="https://",monitor_hostname="host-a.example.com",monitor_port="22"} 2
 """
 
 
@@ -36,7 +36,7 @@ def test_parse_prometheus_metrics():
     assert len(mons) == 3
     by_id = {m.id: m for m in mons}
     assert by_id["1"].status == "up"
-    assert by_id["1"].hostname == "rpi5-1"
+    assert by_id["1"].hostname == "host-a"
     assert by_id["1"].port == "22"
     assert by_id["1"].response_time_ms == 12
     assert by_id["2"].status == "down"
@@ -49,19 +49,19 @@ def test_parse_metrics_without_monitor_id():
     mons = kuma.parse_prometheus_metrics(SAMPLE_METRICS_NO_ID)
     assert len(mons) == 3
     by_id = {m.id: m for m in mons}
-    assert "RPI5-1 SSH" in by_id
-    assert by_id["RPI5-1 SSH"].status == "up"
-    assert by_id["RPI5-1 SSH"].hostname == "rpi5-1.example.com"
-    assert by_id["RPI5-1 SSH"].port == "22"
-    assert by_id["RPI5-1 SSH"].response_time_ms == 2
-    assert by_id["RPI5-2 SSH"].status == "down"
+    assert "host-a SSH" in by_id
+    assert by_id["host-a SSH"].status == "up"
+    assert by_id["host-a SSH"].hostname == "host-a.example.com"
+    assert by_id["host-a SSH"].port == "22"
+    assert by_id["host-a SSH"].response_time_ms == 2
+    assert by_id["host-b SSH"].status == "down"
     # string "null" cleaned
     assert by_id["Home Assistant"].hostname == ""
     assert by_id["Home Assistant"].port == ""
 
 
 def test_normalize_base_url():
-    assert kuma.normalize_base_url("http://rpi5-4:3001/") == "http://rpi5-4:3001"
+    assert kuma.normalize_base_url("http://host-d:3001/") == "http://host-d:3001"
     with pytest.raises(ValueError):
         kuma.normalize_base_url("not-a-url")
     with pytest.raises(ValueError):
@@ -69,13 +69,13 @@ def test_normalize_base_url():
 
 
 def test_metrics_url():
-    assert kuma.metrics_url("http://rpi5-4:3001") == "http://rpi5-4:3001/metrics"
+    assert kuma.metrics_url("http://host-d:3001") == "http://host-d:3001/metrics"
 
 
 def test_suggest_monitor_for_server():
     mons = kuma.parse_prometheus_metrics(SAMPLE_METRICS)
     hit = kuma.suggest_monitor_for_server(
-        mons, hostname="rpi5-1", ip_address="", ssh_port=22
+        mons, hostname="host-a", ip_address="", ssh_port=22
     )
     assert hit is not None
     assert hit.id == "1"
@@ -93,15 +93,15 @@ def test_suggest_monitor_for_server():
 def test_suggest_fqdn_and_ssh_name():
     mons = kuma.parse_prometheus_metrics(SAMPLE_METRICS_NO_ID)
     hit = kuma.suggest_monitor_for_server(
-        mons, hostname="rpi5-1", ip_address="", ssh_port=22
+        mons, hostname="host-a", ip_address="", ssh_port=22
     )
     assert hit is not None
-    assert hit.id == "RPI5-1 SSH"
+    assert hit.id == "host-a SSH"
     hit_fqdn = kuma.suggest_monitor_for_server(
-        mons, hostname="rpi5-2.example.com", ssh_port=22
+        mons, hostname="host-b.example.com", ssh_port=22
     )
     assert hit_fqdn is not None
-    assert hit_fqdn.id == "RPI5-2 SSH"
+    assert hit_fqdn.id == "host-b SSH"
 
 
 def test_fetch_metrics_auth_and_parse(monkeypatch):
@@ -184,10 +184,10 @@ monitor_cert_is_valid{monitor_name="Grafana",monitor_type="http",monitor_url="ht
 
 def test_apply_dashboard_id_map():
     mons = kuma.parse_prometheus_metrics(SAMPLE_METRICS_NO_ID)
-    kuma.apply_dashboard_id_map(mons, {"RPI5-1 SSH": "32", "RPI5-2 SSH": "33"})
+    kuma.apply_dashboard_id_map(mons, {"host-a SSH": "32", "host-b SSH": "33"})
     by_name = {m.name: m for m in mons}
-    assert by_name["RPI5-1 SSH"].dashboard_id == "32"
+    assert by_name["host-a SSH"].dashboard_id == "32"
     assert (
-        kuma.open_kuma_url("https://uptime.example.com", dashboard_id=by_name["RPI5-1 SSH"].dashboard_id)
+        kuma.open_kuma_url("https://uptime.example.com", dashboard_id=by_name["host-a SSH"].dashboard_id)
         == "https://uptime.example.com/dashboard/32"
     )

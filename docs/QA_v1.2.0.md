@@ -222,7 +222,7 @@ Run against [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) **o
 | 11.7 | Should | Network maps / Path map open. | ☐ |
 | 11.8 | Should | Notifications bell + (if HTTPS) Web Push toggle still works. | ☐ |
 | 11.9 | Should | First-register-on-empty-DB story unchanged on a throwaway compose project. | ☐ |
-| 11.10 | Should | **Direct TLS (no NPM):** a container that serves HTTPS on the **host FQDN** (e.g. Frigate on `rpi5-4…`). Stack → **Use \<project\> for this path**. Hosts map shows the app satellite + container; path is **not** via NPM even if NPM still lists the old proxy host. Kuma bind scoped to that Docker project. | ☐ |
+| 11.10 | Should | **Direct TLS (no NPM):** a container that serves HTTPS on the **host FQDN** (e.g. Frigate on `host-d…`). Stack → **Use \<project\> for this path**. Hosts map shows the app satellite + container; path is **not** via NPM even if NPM still lists the old proxy host. Kuma bind scoped to that Docker project. | ☐ |
 
 ---
 

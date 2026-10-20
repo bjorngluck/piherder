@@ -75,8 +75,8 @@ name  →  [NPM]  →  host  →  [service/project]  →  [container]
 | Entity | Example | Notes |
 |--------|---------|--------|
 | **Name** | `grafana.example.com` | CNAME, or **host identity A** when name = host FQDN |
-| **NPM** | RPI5-3 | Only when proxied (edge host) |
-| **Host** | RPI5-6 | Fleet server + A record |
+| **NPM** | host-c | Only when proxied (edge host) |
+| **Host** | host-f | Fleet server + A record |
 | **Service** | `grafana` | Compose project (Kuma / NPM / deploy) |
 | **Container** | `grafana` | Runtime container |
 

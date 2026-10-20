@@ -501,11 +501,11 @@ def test_plan_from_pihole_cname_direct():
 
 def test_match_pihole_host_for_server_and_list_cnames():
     session, _ = _engine_session()
-    server = _server(session, name="rpi5-1", dns_name=None, ip="192.168.1.50")
+    server = _server(session, name="host-a", dns_name=None, ip="192.168.1.50")
     _pihole(session)
 
     hosts = [
-        {"domain": "rpi5-1.example.com", "ip": "192.168.1.50"},
+        {"domain": "host-a.example.com", "ip": "192.168.1.50"},
         {"domain": "other.example.com", "ip": "10.0.0.1"},
     ]
     cnames = [
@@ -521,7 +521,7 @@ def test_match_pihole_host_for_server_and_list_cnames():
         listed = fabric.list_pihole_cnames(session)
 
     assert match is not None
-    assert match["domain"] == "rpi5-1.example.com"
+    assert match["domain"] == "host-a.example.com"
     assert match["ip"] == "192.168.1.50"
     assert len(listed) == 1
     assert listed[0]["domain"] == "app.example.com"

@@ -313,7 +313,7 @@ def test_notify_transition_ssh_is_host_down(monkeypatch):
         external_label="rpi SSH",
     )
     session = MagicMock()
-    session.get.return_value = SimpleNamespace(name="rpi5")
+    session.get.return_value = SimpleNamespace(name="host-a")
     poll_mod._notify_transition(session, integ, binding, "up", "down")
     assert calls["type"] == "host_down"
     assert "n:host-9" in (calls.get("link_url") or "")
@@ -336,7 +336,7 @@ def test_notify_transition_service_stays_integration(monkeypatch):
         external_label="App",
     )
     session = MagicMock()
-    session.get.return_value = SimpleNamespace(name="rpi5")
+    session.get.return_value = SimpleNamespace(name="host-a")
     poll_mod._notify_transition(session, integ, binding, "up", "down")
     assert calls["type"] == "integration_monitor_down"
 

@@ -839,7 +839,7 @@ Optional **read-mostly** link into an existing Grafana (**Catalog → Integratio
    | **Containers (one)** | Containers + container name | `var-job={hostname_short}_cadvisor&var-container={container}` |
    | **Host logs** | Binding kind = Host logs | `var-host={hostname_short}` |
 
-   `{hostname_short}` = first DNS label (`rpi5-1.example.com` → `rpi5-1`).  
+   `{hostname_short}` = first DNS label (`host-a.example.com` → `host-a`).  
    Edit templates to match **your** Grafana variable names (`job`, `container`, `host`, …).
 4. **Poll / Test** stores health and dashboard inventory (with token).
 5. **Bind** with a **kind** (tabs on the integration detail page; **Clone** prefill supported):

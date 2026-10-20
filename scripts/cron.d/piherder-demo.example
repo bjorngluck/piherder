@@ -8,7 +8,7 @@
 #   sudo chmod 644 /etc/cron.d/piherder-demo
 #
 # Prefer the deploy user who owns the git tree and is in the docker group.
-# Root is needed for DOCKER-USER (Turnstile siteverify on a locked Nomad node).
+# Root is needed for DOCKER-USER (Turnstile siteverify on a locked demo node).
 # cron.d requires a username field; paths must be absolute (no $VAR expansion).
 
 SHELL=/bin/bash

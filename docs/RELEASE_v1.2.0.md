@@ -89,7 +89,7 @@ When a container terminates TLS itself and DNS points at the **host** (not NPM),
 | Item | Behaviour |
 |------|-----------|
 | Leftover NPM | If the CNAME/A target **is** the backend host, stale NPM proxy-host inventory is **not** treated as the path edge |
-| Kuma URL match | A service bind whose monitor URL is the published host FQDN attaches the compose project (e.g. Frigate on `rpi5-4.example.com`) |
+| Kuma URL match | A service bind whose monitor URL is the published host FQDN attaches the compose project (e.g. Frigate on `host-d.example.com`) |
 | **Use this project** | Stack panel **persists** `docker_project` on the path (preview chips no longer silently drop the link) and marks the path **direct** |
 | Hosts map | Linked project shows as an app satellite + stack fan; unlinked host-identity paths stay host-only |
 

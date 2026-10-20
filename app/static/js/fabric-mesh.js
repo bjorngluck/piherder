@@ -774,7 +774,7 @@
    * Resolve what to focus under a click/hover target.
    * - App / path chips → path id (service mapping)
    * - Host / Router / LAN / Internet → node id (always, even with zero apps)
-   * Hosts prefer node focus so Nomad etc. work without mapped services.
+   * Hosts prefer node focus so a cloud host works without mapped services.
    */
   function focusKeyFrom(el) {
     if (!el) return null;

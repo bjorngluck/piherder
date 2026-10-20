@@ -30,24 +30,24 @@ def test_host_ip_for_dns_precedence():
 
 
 def test_suggest_host_dns_name():
-    s = SimpleNamespace(name="RPI5 Lab", hostname="10.0.0.1")
-    assert fabric.suggest_host_dns_name(s, "example.com") == "rpi5-lab.example.com"
+    s = SimpleNamespace(name="Host Lab", hostname="10.0.0.1")
+    assert fabric.suggest_host_dns_name(s, "example.com") == "host-lab.example.com"
     assert fabric.suggest_host_dns_name(s, "") == ""
 
 
 def test_server_name_tokens_and_identity():
     s = SimpleNamespace(
-        name="RPI5-1",
+        name="host-a",
         hostname="10.0.0.5",
-        dns_name="rpi5-1.example.com",
+        dns_name="host-a.example.com",
     )
     tokens = fabric._server_name_tokens(s)
-    assert "rpi5-1" in tokens
-    assert "rpi5-1.example.com" in tokens
+    assert "host-a" in tokens
+    assert "host-a.example.com" in tokens
     # pure IPs excluded
     assert "10.0.0.5" not in tokens
 
-    assert fabric.is_host_identity_name("rpi5-1.example.com", s) is True
+    assert fabric.is_host_identity_name("host-a.example.com", s) is True
     assert fabric.is_host_identity_name("app.example.com", s) is False
     assert fabric.is_host_identity_name("x", None) is False
 

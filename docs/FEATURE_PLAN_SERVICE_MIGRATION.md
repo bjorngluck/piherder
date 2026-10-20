@@ -50,9 +50,9 @@ PiHerder stays **SSH-first**. No agent on the Pis. The herder is the staging hop
 
 | Project | Move? | Why |
 |---------|-------|-----|
-| **Frigate** on rpi5-4 | **Lock** | Coral / TPU (`devices:` / USB). Operator sets host lock + reason |
+| **Frigate** on host-d | **Lock** | Coral / TPU (`devices:` / USB). Operator sets host lock + reason |
 | **Anything on HAOS** | **Refuse** | Unique appliance; not a compose dest |
-| **Grafana** / **Authentik** (`sso`) on rpi5-6 | **Yes** (direct) | Direct TLS. DNS CNAME follows dest host. Cert target + `/certs` bind re-applied on dest |
+| **Grafana** / **Authentik** (`sso`) on host-f | **Yes** (direct) | Direct TLS. DNS CNAME follows dest host. Cert target + `/certs` bind re-applied on dest |
 | **Pi-hole** itself | **Out of happy path** | Fabric depends on it; document “do not migrate the resolver you are using to migrate” |
 | **NPM-fronted** app (CNAME → NPM, `via_proxy=true`) | **Yes** (**M-npm**) | Public name stays on NPM; proxy-host `forward_host` updates to dest LAN/SSH address |
 | **NPM edge** (`nginx…` / NPM compose project) | **Yes** | Public names stay **CNAME → NPM hostname**. Only that alias CNAME → dest. Pi-hole admin URLs through the edge use LAN `forward_host` during cutover |
