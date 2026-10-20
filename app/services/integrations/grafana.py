@@ -99,7 +99,7 @@ def dashboard_path(uid: str, slug: str = "") -> str:
 
 
 def hostname_short(hostname: str = "", name: str = "") -> str:
-    """First DNS label, lowercased — rpi5-1.example.com → rpi5-1.
+    """First DNS label, lowercased. host-a.example.com becomes host-a.
 
     Falls back to a slug of the server display name.
     """
@@ -109,7 +109,7 @@ def hostname_short(hostname: str = "", name: str = "") -> str:
     n = (name or "").strip().lower()
     if not n:
         return ""
-    # RPI5-1 / "RPI 5" → rpi5-1 / rpi-5
+    # host-a / "lab host" → host-a / lab-host
     n = re.sub(r"[^a-z0-9]+", "-", n).strip("-")
     return n
 

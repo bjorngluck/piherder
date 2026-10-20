@@ -140,7 +140,7 @@
 
     // Host / infra / any node-id: ONLY explicit membership in the node set.
     // Never match another server because it shares a service path id (that was
-    // lighting rpi5-4 when selecting rpi5-3 as NPM edge for the same service).
+    // lighting host-b when selecting host-a as NPM edge for the same service).
     var nid = nodeIdFromEl(el);
     if (nid) {
       return !!nodes[nodeFocusKey(nid)];
@@ -163,7 +163,7 @@
   }
 
   /**
-   * Selecting a host (e.g. rpi5-3):
+   * Selecting a host (e.g. host-a):
    *  1) host + LAN/Internet + topo lines
    *  2) services this host backends + land edges only (not npm dashed to other hosts)
    *  3) services this host NPM-edges + npm dashed only (not land edge / not backend host)

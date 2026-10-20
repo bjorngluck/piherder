@@ -356,7 +356,7 @@ def suggest_monitor_for_server(
             s += 5
         if mtype in ("port", "tcp"):
             s += 3
-        # Name contains a host token (e.g. "RPI5-1 SSH")
+        # Name contains a host token (e.g. "host-a SSH")
         for h in host_candidates:
             if h and len(h) >= 3 and h in name_l:
                 s += 4

@@ -890,7 +890,7 @@ def test_resolve_app_layers_and_find_container():
 def test_resolve_app_layers_matches_kuma_monitor_url_to_host_fqdn():
     """Host-identity TLS: monitor URL is the host FQDN, project is frigate."""
     session, _ = _engine_session()
-    host = _server(session, name="RPI5-4", dns_name="rpi5-4.example.com", ip="10.0.2.40")
+    host = _server(session, name="host-b", dns_name="host-b.example.com", ip="10.0.2.40")
     from app.services.integrations import registry as reg
 
     integ = Integration(
@@ -914,7 +914,7 @@ def test_resolve_app_layers_matches_kuma_monitor_url_to_host_fqdn():
             external_label="Frigate",
             docker_project="frigate",
             docker_container="frigate",
-            external_meta_json='{"url": "https://rpi5-4.example.com:8971/"}',
+            external_meta_json='{"url": "https://host-b.example.com:8971/"}',
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
         )
@@ -922,7 +922,7 @@ def test_resolve_app_layers_matches_kuma_monitor_url_to_host_fqdn():
     session.commit()
 
     layers = fabric.resolve_app_layers(
-        session, host.id, fqdn="rpi5-4.example.com", docker_project=None
+        session, host.id, fqdn="host-b.example.com", docker_project=None
     )
     assert layers.get("docker_project") == "frigate"
     assert layers.get("docker_container") == "frigate"

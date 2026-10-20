@@ -99,7 +99,7 @@ def _server_name_tokens(server: Server) -> set[str]:
         if not s:
             continue
         tokens.add(s)
-        # short label: rpi5-1 from rpi5-1.example.com or display name
+        # short label: host-a from host-a.example.com or display name
         short = s.split(".")[0]
         if short:
             tokens.add(short)
@@ -1823,7 +1823,7 @@ def resolve_app_layers(
         cont = (b.docker_container or "").lower()
         # Direct TLS on the container often uses the *host* FQDN (no app CNAME).
         # Match the Kuma monitor URL/hostname to this path even when tokens
-        # are ``rpi5-4`` and the compose project is ``frigate``.
+        # are ``host-b`` and the compose project is ``frigate``.
         fq = normalize_fqdn(fqdn)
         if fq and fq in _binding_monitor_hosts(b):
             score += 50
