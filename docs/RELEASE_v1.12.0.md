@@ -1,10 +1,10 @@
 # PiHerder v1.12.0
 
-**Draft. 20 October 2026.** Not tagged. Package stays **1.11.0** until freeze. About and the footer still say **1.11.0**. Image tags stay `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image. This note is the text for the tag. It is not a ship.
+**Draft. 20 October 2026.** Code freeze is set. Not tagged. Package stays **1.11.0** until the ship bump. About and the footer still say **1.11.0**. Image tags stay `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image. This note is the text for the tag. It is not a ship.
 
 The default Jobs and Audit lists leave routine noise out. Backup and image signals stay honest: a rejected copy sign-in stays critical, a running container keeps an image flagged until it is actually on that image, and an unsupported OS is named. A host can pull one backup folder back from Drive, OneDrive, or a LAN share. An admin can create, edit, and delete an NPM proxy host. Remote restore, NPM CRUD, and the read-only admin API were promoted from Discover.
 
-Operator how-to stays on the wiki: [Jobs and audit](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/) · [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Alerts](https://piherder-docs.hacknow.info/operations/alerts-email-webhooks/) · [Docker](https://piherder-docs.hacknow.info/docker/overview/) · [NPM](https://piherder-docs.hacknow.info/integrations/npm/) · [API tokens](https://piherder-docs.hacknow.info/operations/api-tokens/). Technical record: [PLAN_v1.12.0](PLAN_v1.12.0.md). Maintainer QA: [QA_v1.12.0](QA_v1.12.0.md). Walks are empty.
+Operator how-to stays on the wiki: [Jobs and audit](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/) · [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Alerts](https://piherder-docs.hacknow.info/operations/alerts-email-webhooks/) · [Docker](https://piherder-docs.hacknow.info/docker/overview/) · [NPM](https://piherder-docs.hacknow.info/integrations/npm/) · [API tokens](https://piherder-docs.hacknow.info/operations/api-tokens/). Technical record: [PLAN_v1.12.0](PLAN_v1.12.0.md). Maintainer QA: [QA_v1.12.0](QA_v1.12.0.md). Walks are signed 2026-10-20. Screenshots are not captured.
 
 Home Assistant plugin is **[0.5.1](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.1)** (card copy off the event loop). This herder cut does not ship the plugin. Adapter stays **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** until the cut that ships with this herder. The GitHub adapter readme already badges herder 1.11.0. PyPI 0.4.2 still freezes the 1.10.0 readme. The public demo stays the production image.
 
@@ -52,7 +52,7 @@ A folder row left running does not hold that tick's direct hop. The direct hop s
 
 The host Docker page, `POST /api/v1/servers/{id}/docker/prune`, and hosted `prune_docker` start a `docker_prune` job. The API and MCP need the `edit` scope. `both` is dangling images, then exited containers. Networks are their own type. Volume prune stays on the Docker page until the operator confirms it. Every run writes an audit row. This is issue [#48](https://github.com/bjorngluck/piherder/issues/48). The issue stays open. Build cache and buildx cache are not in this prune.
 
-About lists each scheduled job with its last fire and its next fire. Last fire is the last time this web process ran the job. A restart clears it. A missed slot is not a fire.
+About keeps a short count of scheduled jobs. View schedule opens them grouped by type, with each host's status, last run, and next fire. Last run is the latest matching job. A restart does not clear it. A missed slot is not a run.
 
 An OS patch job keeps apt's error output when sudo drops `DEBIAN_FRONTEND`. A carriage-return rewrite no longer replaces a debconf, sudo, or `E:` line.
 
@@ -66,7 +66,7 @@ A token with the `admin` scope can GET users, API tokens, and the audit log at `
 
 ## Not in this release
 
-- The package bump, the `v1.12.0` tag, and the Hub push. They wait until freeze and a separate ship step.
+- The package bump, the `v1.12.0` tag, and the Hub push. Freeze is set. They wait for a separate ship step.
 - The public demo. It stays the production image.
 - Adapter **0.4.2** on PyPI. The tool text for backup time and `prune_docker` ships with this herder, not ahead of it.
 - Issues [#47](https://github.com/bjorngluck/piherder/issues/47), [#48](https://github.com/bjorngluck/piherder/issues/48), [#49](https://github.com/bjorngluck/piherder/issues/49), and [#50](https://github.com/bjorngluck/piherder/issues/50). Close them with the release, only when asked. [#50](https://github.com/bjorngluck/piherder/issues/50) is Later. Device identity stays the MAC.
@@ -80,4 +80,4 @@ A token with the `admin` scope can GET users, API tokens, and the audit log at `
 
 ## Upgrade
 
-No new Alembic revision. Recreate **web** and **celery-worker** so the image includes this branch. About still says **1.11.0** until freeze. Plugin **0.5.1** is the current card. Set the resource to `?v=0.5.1`. Do not point the public demo at this branch.
+No new Alembic revision. Recreate **web** and **celery-worker** so the image includes this branch. About still says **1.11.0** until the ship bump. Plugin **0.5.1** is the current card. Set the resource to `?v=0.5.1`. Do not point the public demo at this branch.

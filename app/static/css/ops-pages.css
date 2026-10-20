@@ -979,6 +979,32 @@ html.dark .ph-file-badge--config,
   margin-bottom: 0.15rem;
 }
 
+/* About schedule modal: the type control stays above the scrolling rows. */
+.scheduler-jobs-scroll {
+  overscroll-behavior: contain;
+  padding-right: 0.15rem;
+}
+.scheduler-job-table th,
+.scheduler-job-table td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.scheduler-job-table .scheduler-status-cell {
+  width: 1%;
+}
+.scheduler-status-pill {
+  display: inline-flex;
+  width: max-content;
+  max-width: none;
+  white-space: nowrap;
+  line-height: 1.2;
+  vertical-align: middle;
+}
+.scheduler-status-none {
+  background: color-mix(in srgb, var(--color-border) 55%, transparent);
+  color: var(--color-muted);
+}
+
 /* Live log / build stream chrome */
 .ph-stream-panel {
   border-radius: 12px;

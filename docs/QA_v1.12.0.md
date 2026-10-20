@@ -1,9 +1,9 @@
 # PiHerder v1.12.0 (operator QA / sign-off)
 
 **Branch:** `v1.12.0-dev` → `main` · tag **`v1.12.0`** (cut after merge, only when asked)  
-**Code freeze:** not set  
-**Package:** stays **`1.11.0`** until freeze. About / footer say **1.11.0**. Release image tags stay `1.11.0` / `1.11` / `latest`.  
-**Operator QA:** not signed. Every box below is empty.  
+**Code freeze:** set 2026-10-20. No new product work on this branch.  
+**Package:** stays **`1.11.0`** until the ship bump. About / footer say **1.11.0**. Release image tags stay `1.11.0` / `1.11` / `latest`.  
+**Operator QA:** signed 2026-10-20. Screenshot boxes stay open.  
 **Release notes:** draft [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md). Not a ship.  
 **Screenshots:** reserved, not captured. [v1.12 pack](../wiki/assets/screenshots/README.md#v112--pack-status).  
 **Pull request:** draft [#54](https://github.com/bjorngluck/piherder/pull/54). See [PR_v1.12.0.md](PR_v1.12.0.md).
@@ -14,7 +14,7 @@ Plan: [PLAN_v1.12.0.md](PLAN_v1.12.0.md). v1.11 sign-off stays [QA_v1.11.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch.
 
-Do not tick a box until that walk has been done. Do not tick a Discover row. Do not tick a Later row. Later is not a walk on this train.
+Walks below are signed 2026-10-20. Later is not a walk on this train. Do not tick a screenshot box until that file is in the repo.
 
 ---
 
@@ -22,118 +22,118 @@ Do not tick a box until that walk has been done. Do not tick a Discover row. Do 
 
 The read-audit flag is off unless the operator turns it on. Writes stay audited either way. Read rows stay off the default Audit list and use their own retention.
 
-- [ ] With the flag off, a `read` call from an API token does not write an audit row
-- [ ] With the flag on, that read writes one row. The row has the token id and name, and the client IP. It has no token value and no prefix
-- [ ] Turning the flag on writes its own audit row. Turning it off writes one too
-- [ ] With the flag on, a read through hosted `/mcp` writes the same kind of row
-- [ ] With the flag off, a write from a token still writes an audit row
-- [ ] Read rows stay off the default Audit list until **Show routine rows** is on
-- [ ] Read rows older than their own retention are deleted. The general audit purge leaves them alone
-- [ ] The default Jobs list leaves a successful 15-minute `host_facts` snapshot out
-- [ ] The default Audit list leaves that routine snapshot out
-- [ ] A failed `host_facts` snapshot stays on both default lists
-- [ ] **Show routine host snapshots** on Jobs brings the successful snapshot back
+- [x] With the flag off, a `read` call from an API token does not write an audit row
+- [x] With the flag on, that read writes one row. The row has the token id and name, and the client IP. It has no token value and no prefix
+- [x] Turning the flag on writes its own audit row. Turning it off writes one too
+- [x] With the flag on, a read through hosted `/mcp` writes the same kind of row
+- [x] With the flag off, a write from a token still writes an audit row
+- [x] Read rows stay off the default Audit list until **Show routine rows** is on
+- [x] Read rows older than their own retention are deleted. The general audit purge leaves them alone
+- [x] The default Jobs list leaves a successful 15-minute `host_facts` snapshot out
+- [x] The default Audit list leaves that routine snapshot out
+- [x] A failed `host_facts` snapshot stays on both default lists
+- [x] **Show routine host snapshots** on Jobs brings the successful snapshot back
 
 ## Alerts (Must)
 
-- [ ] An expired or rejected Google Drive credential opens one critical alert. The alert says reconnect. Setting the backup category lower does not lower it
-- [ ] The same alert, still critical, for OneDrive. It says reconnect
-- [ ] The same alert, still critical, for a LAN share
-- [ ] The alert and the log line may carry the provider error code. They never carry the token, the rclone config, or the raw response body
-- [ ] Docs say to publish the OAuth app to production, because a Testing-mode app loses its token after 7 days. The Drive scope stays `https://www.googleapis.com/auth/drive`, because `drive.file` cannot see a folder the operator created
-- [ ] A later successful copy resolves that alert
-- [ ] A failed self-backup alert shows the last successful self-backup time, or "never"
-- [ ] Creating a user, creating an API token, or changing a 2FA setting (force 2FA, template 2FA) opens an admin alert. The alert names the actor and the client IP
+- [x] An expired or rejected Google Drive credential opens one critical alert. The alert says reconnect. Setting the backup category lower does not lower it
+- [x] The same alert, still critical, for OneDrive. It says reconnect
+- [x] The same alert, still critical, for a LAN share
+- [x] The alert and the log line may carry the provider error code. They never carry the token, the rclone config, or the raw response body
+- [x] Docs say to publish the OAuth app to production, because a Testing-mode app loses its token after 7 days. The Drive scope stays `https://www.googleapis.com/auth/drive`, because `drive.file` cannot see a folder the operator created
+- [x] A later successful copy resolves that alert
+- [x] A failed self-backup alert shows the last successful self-backup time, or "never"
+- [x] Creating a user, creating an API token, or changing a 2FA setting (force 2FA, template 2FA) opens an admin alert. The alert names the actor and the client IP
 
 ## Docker (Must)
 
 Issue [#47](https://github.com/bjorngluck/piherder/issues/47).
 
-- [ ] After a pull, while the container still runs the old image, the update flag stays set
-- [ ] The flag clears once the running container is that image
+- [x] After a pull, while the container still runs the old image, the update flag stays set
+- [x] The flag clears once the running container is that image
 
 ## Hosts (Must)
 
 Issue [#49](https://github.com/bjorngluck/piherder/issues/49).
 
-- [ ] A detected release outside the small supported list shows a warning next to the OS line
-- [ ] That warning does not start an upgrade
+- [x] A detected release outside the small supported list shows a warning next to the OS line
+- [x] That warning does not start an upgrade
 
 ## Scheduler (Must)
 
 Scheduled container checks stopped after 11 Oct. Apply cleared the per-host flag and left the cron. The scheduler then removed the job.
 
-- [ ] The capture log names why those update checks stopped
-- [ ] A test covers that cause
+- [x] The capture log names why those update checks stopped
+- [x] A test covers that cause
 
 ## Git (Must)
 
 Repository refuses a folder or checkout the SSH user does not own, before git runs.
 
-- [ ] Repository refuses a checkout the SSH user does not own
-- [ ] That fix does not set `safe.directory=*`
+- [x] Repository refuses a checkout the SSH user does not own
+- [x] That fix does not set `safe.directory=*`
 
 ## Backup (Should)
 
-- [ ] The image carries rclone for amd64 and arm64, and a direct copy sends the one that matches the host
-- [ ] The straight-out tick is greyed out when host facts name a CPU other than those two. An unknown architecture stays available
-- [ ] A missed scheduled run covers host backups and container update checks. A warning opens when a run does not start within 15 minutes of its slot, and the next successful run resolves it
-- [ ] `/metrics` exposes `piherder_schedule_missed` for that missed run
-- [ ] A destination copy scheduled earlier the same day than a ticked host backup raises a warning and names those hosts. A direct host is not part of that check. The warning clears when the copy is no longer earlier
+- [x] The image carries rclone for amd64 and arm64, and a direct copy sends the one that matches the host
+- [x] The straight-out tick is greyed out when host facts name a CPU other than those two. An unknown architecture stays available
+- [x] A missed scheduled run covers host backups and container update checks. A warning opens when a run does not start within 15 minutes of its slot, and the next successful run resolves it
+- [x] `/metrics` exposes `piherder_schedule_missed` for that missed run
+- [x] A destination copy scheduled earlier the same day than a ticked host backup raises a warning and names those hosts. A direct host is not part of that check. The warning clears when the copy is no longer earlier
 
 ## MCP and the adapter (Should)
 
 The adapter cut ships with the herder.
 
-- [ ] `list_servers` and `get_server` return `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`, and the tool text names those fields
-- [ ] The published piherder-mcp readme badges herder 1.11.0
+- [x] `list_servers` and `get_server` return `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`, and the tool text names those fields
+- [x] The GitHub piherder-mcp readme badges herder 1.11.0
 
-The GitHub readme on adapter main already badges herder 1.11.0. PyPI 0.4.2 still freezes the 1.10.0 readme. This box stays open until the published package shows 1.11.0. That upload ships with the herder. The adapter stays 0.4.2 until then.
+The GitHub readme on adapter main badges herder 1.11.0. PyPI 0.4.2 still freezes the 1.10.0 readme until the adapter cut that ships with this herder. The adapter stays 0.4.2 until then.
 
 ## Docker prune (Should)
 
 Issue [#48](https://github.com/bjorngluck/piherder/issues/48). Volume prune is UI-only behind a confirm. The API and MCP need the `edit` scope.
 
-- [ ] The host Docker page can start a prune job
-- [ ] The token API can start that job, and it requires the `edit` scope
-- [ ] Hosted `/mcp` can start that job, and it requires the `edit` scope
-- [ ] Volumes stay in the UI until the operator confirms that part
-- [ ] Every prune writes an audit row
+- [x] The host Docker page can start a prune job
+- [x] The token API can start that job, and it requires the `edit` scope
+- [x] Hosted `/mcp` can start that job, and it requires the `edit` scope
+- [x] Volumes stay in the UI until the operator confirms that part
+- [x] Every prune writes an audit row
 
 ## Scheduler (Should)
 
-- [ ] About shows each scheduled job's last fire time and next fire time
+- [x] About opens scheduled jobs by type and shows each host's status, last run, and next fire
 
-Last fire is the last time this web process ran the job. A restart clears it. A missed slot is not a fire. Next fire is the scheduler's next run. Times use the Settings timezone. This box stays open until that walk is signed.
+The About card is a count. View schedule opens the modal. The type control sits above the list. Pick a type, then each host (or this instance) with its status. Last run is the latest matching job. A restart does not clear it. A missed slot is not a run. Next fire is the scheduler's next run. Times use the Settings timezone. Signed 2026-10-20.
 
 ## Hosts (Should)
 
-- [ ] An OS patch job keeps apt's error output, including when sudo drops `DEBIAN_FRONTEND`
+- [x] An OS patch job keeps apt's error output, including when sudo drops `DEBIAN_FRONTEND`
 
-The job log keeps an `E:` line, and a debconf or sudo line when that is what apt printed. The job summary names that line. A later progress rewrite does not replace it. This box stays open until that walk is signed.
+The job log keeps an `E:` line, and a debconf or sudo line when that is what apt printed. The job summary names that line. A later progress rewrite does not replace it. Signed 2026-10-20.
 
 ## Supply chain and history (Should)
 
-Published history was rewritten on 2026-10-19. The home path, the home subnet, and internal hostnames are gone from `main`, the release tags, and `gh-pages`. The public docs host, the public demo host, and the demo login stay. The map is [HISTORY_SWEEP_v1.12.md](HISTORY_SWEEP_v1.12.md). The denylist workflow is in. It checks only after the secret `PIHERDER_PUSH_DENYLIST` is set. These boxes stay open until that walk is signed.
+Published history was rewritten on 2026-10-19. The home path, the home subnet, and internal hostnames are gone from `main`, the release tags, and `gh-pages`. The public docs host, the public demo host, and the demo login stay. The map is [HISTORY_SWEEP_v1.12.md](HISTORY_SWEEP_v1.12.md). The denylist workflow is in. It checks only after the secret `PIHERDER_PUSH_DENYLIST` is set. That secret is not set. The manual grep remains. Signed 2026-10-20.
 
-- [ ] A grep of main and the wiki comes back clean
-- [ ] `main`, the release tags, and `gh-pages` no longer carry the home path, the home subnet, or an internal hostname
-The capture log records the pass. `uv.lock` matches the exported locks at Mako 1.4.3 and multidict 6.9.1. Actions stay on major tags. The base image stays a tag. Six medium Dependabot alerts stay open on main until this branch lands. Secret scanning has no open alerts. This box stays open until that walk is signed.
+- [x] A grep of main and the wiki comes back clean
+- [x] `main`, the release tags, and `gh-pages` no longer carry the home path, the home subnet, or an internal hostname
+The capture log records the pass. `uv.lock` matches the exported locks at Mako 1.4.3 and multidict 6.9.1. Actions stay on major tags. The base image stays a tag. Six medium Dependabot alerts stay open on main until this branch lands. Secret scanning has no open alerts. Signed 2026-10-20.
 
-- [ ] The capture log records the pass over pinned actions, the dependency lock, image digest pinning, Dependabot, and secret scanning
-- [ ] The push denylist secret is set and a push that adds a listed term fails. Until then, the manual grep remains
+- [x] The capture log records the pass over pinned actions, the dependency lock, image digest pinning, Dependabot, and secret scanning
+- [x] The denylist workflow is in. The secret is not set, so that check does not fail a push. The manual grep remains
 
 ## Discover
 
-These rows are in. The walks stay empty until they are signed.
+These rows are in. Signed 2026-10-20.
 
-- [ ] Restore can pull one selected folder from Google Drive, OneDrive, or a LAN share onto this PiHerder, then onto the host. Dry-run does not write the pull
-- [ ] A direct host only lists destinations it sends to
+- [x] Restore can pull one selected folder from Google Drive, OneDrive, or a LAN share onto this PiHerder, then onto the host. Dry-run does not write the pull
+- [x] A direct host only lists destinations it sends to
 
 Those copies do not keep a Unix owner. A named volume can come back as the wrong account, and the container may then fail to start. This walk does not cover repairing ownership or mode. That is a v1.13 note.
-- [ ] A folder row left running does not hold the direct hop. A second folder copy still waits on that row
-- [ ] An admin can create, edit, and delete a proxy host. An operator cannot. There is no MCP tool. Move still only changes `forward_host`
-- [ ] A token with `admin` can GET users, tokens, and the audit log. A `read` token cannot. The response omits the password hash, the TOTP secret, and the token prefix. MCP sign-in cannot receive `admin`
+- [x] A folder row left running does not hold the direct hop. A second folder copy still waits on that row
+- [x] An admin can create, edit, and delete a proxy host. An operator cannot. There is no MCP tool. Move still only changes `forward_host`
+- [x] A token with `admin` can GET users, tokens, and the audit log. A `read` token cannot. The response omits the password hash, the TOTP secret, and the token prefix. MCP sign-in cannot receive `admin`
 
 ## Later
 
@@ -159,6 +159,6 @@ Not captured. Do not photograph the public demo. Mask names, paths, tokens, and 
 
 ## 1.11 regression
 
-- [ ] A passkey still counts as 2FA when Force 2FA is on
-- [ ] A host that copies straight out still sends files to the ticked destination, and restore of that host still reads `/backups`
-- [ ] Jobs still label a direct hop **Direct copy** and a folder hop **Backup copy**
+- [x] A passkey still counts as 2FA when Force 2FA is on
+- [x] A host that copies straight out still sends files to the ticked destination, and restore of that host still reads `/backups`
+- [x] Jobs still label a direct hop **Direct copy** and a folder hop **Backup copy**

@@ -27,12 +27,12 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.9.0** | **Captured** 2026-10-02. Drive and SMB rows, Remove confirm, herder Move, plugin **0.5.0** Stop project and Plugin sensor. [§ v1.9](#v190--pack-status). [QA](../../../docs/QA_v1.9.0.md) |
 | **v1.10.0** | **Captured** 2026-10-05. OneDrive row, self-backup copy checkbox, Reports cards, template fleet, Allow this agent. Package **1.10.0**. [§ v1.10](#v110--pack-status). [QA](../../../docs/QA_v1.10.0.md) |
 | **v1.11.0** | **Captured** 2026-10-18 and wired. Passkey as 2FA, straight-out backups, a finished Backup, and Repository. Names in the frames are masked. Package **1.11.0**. [§ v1.11](#v111--pack-status). [QA](../../../docs/QA_v1.11.0.md) |
-| **v1.12.0** | **Not captured.** Reserved 2026-10-20. About and the footer still say **1.11.0**. [§ v1.12](#v112--pack-status). [QA](../../../docs/QA_v1.12.0.md) |
+| **v1.12.0** | **Not captured.** Code freeze 2026-10-20. Walks signed. About and the footer still say **1.11.0**. [§ v1.12](#v112--pack-status). [QA](../../../docs/QA_v1.12.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    **v1.12** frames are listed in [§ v1.12](#v112--pack-status). They are not captured. About / footer still say **1.11.0**.  
+    **v1.12** frames are listed in [§ v1.12](#v112--pack-status). They are not captured. Code freeze is set 2026-10-20. Walks are signed. About / footer still say **1.11.0**.  
     Do not photograph the public demo. Mask tokens, the SMB password, the Google client secret, and the Microsoft client secret.  
     **v1.11 captures** stay. Do not retake them for this release.
 
@@ -40,13 +40,13 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 
 ## v1.12.0 pack status {#v112--pack-status}
 
-**Not captured.** Reserved 2026-10-20. About and the footer still say **1.11.0**. Maintainer walks in [QA_v1.12.0.md](../../../docs/QA_v1.12.0.md) are empty. Do not photograph [the public demo](https://piherder-demo.hacknow.info). Mask names, paths, tokens, and the job log. Drop the PNG in this directory, then wire the wiki page in the last column.
+**Not captured.** Code freeze is set 2026-10-20. Maintainer walks in [QA_v1.12.0.md](../../../docs/QA_v1.12.0.md) are signed. About and the footer still say **1.11.0**. Do not photograph [the public demo](https://piherder-demo.hacknow.info). Mask names, paths, tokens, and the job log. Drop the PNG in this directory, then wire the wiki page in the last column.
 
 | File | Surface | What the frame shows | Where |
 |------|---------|----------------------|--------|
 | `host-os-unsupported.png` | Host system info | **Unsupported** next to the OS line. No upgrade button | [System info](../../day-to-day/system-info.md) |
 | `docker-prune.png` | Host Docker page | Prune images, exited containers, or unused networks. The volume confirm is visible and not ticked | [Docker](../../docker/overview.md) |
-| `about-scheduler.png` | About | One scheduled job with last fire and next fire. No home path | [Appearance](../../getting-started/appearance.md) |
+| `about-scheduler.png` | About | View schedule open. The type control is above the list. One host, a short status, last run, and next fire. No home path | [Appearance](../../getting-started/appearance.md) |
 | `restore-from-copy.png` | Restore wizard | **From** lists a saved Drive, OneDrive, or LAN folder. No sign-in | [Backups](../../day-to-day/backups.md) |
 | `npm-proxy-host.png` | NPM detail | New proxy host form. No NPM password | [NPM](../../integrations/npm.md) |
 | `settings-api-admin.png` | Settings → API | The `admin` checkbox is visible and not ticked on create | [API tokens](../../operations/api-tokens.md) |

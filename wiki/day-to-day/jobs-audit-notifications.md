@@ -14,7 +14,7 @@ Open notifications via the **bell** icon (no separate Alerts nav link).
 
 ## Why they exist
 
-Long SSH work must not block the browser (jobs). Homelab and multi-operator setups need accountability (audit). Noise should not bury failures (notifications + optional Web Push). Together they replace “did that cron fire?” shell archaeology. **About** lists each scheduled job with the last time this web process ran it and the next time it will run. A restart clears the last fire. A missed slot is not a fire.
+Long SSH work must not block the browser (jobs). Homelab and multi-operator setups need accountability (audit). Noise should not bury failures (notifications + optional Web Push). Together they replace “did that cron fire?” shell archaeology. **About** keeps a short count. **View schedule** groups jobs by type and lists each host with its status, the latest matching job, and the next time it will run. A restart does not clear that time. A missed slot is not a run.
 
 ---
 
