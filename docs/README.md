@@ -6,7 +6,7 @@ Maintainer plans and release notes. Operator wiki is `wiki/` (MkDocs).
 
 | Kind | Where |
 |------|--------|
-| Current release | [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) · [PLAN_v1.11.0.md](PLAN_v1.11.0.md) · [QA_v1.11.0.md](QA_v1.11.0.md). Tag **v1.11.0**. Image `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)**. Plugin **0.5.0**. Operator QA signed 2026-10-18 |
+| Current release | [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) · [PLAN_v1.11.0.md](PLAN_v1.11.0.md) · [QA_v1.11.0.md](QA_v1.11.0.md). Tag **v1.11.0**. Image `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image. Adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)**. Plugin **[0.5.1](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.1)**. Operator QA signed 2026-10-18 |
 | Prior release | [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md) · [QA_v1.10.0.md](QA_v1.10.0.md). Tag **v1.10.0**. Pin `1.10.0` / `1.10` |
 | Next notes | [PLAN_v1.12.0.md](PLAN_v1.12.0.md) · [QA_v1.12.0.md](QA_v1.12.0.md). Branch not cut. NPM CRUD, remote restore, optional read audit, `host_facts` clutter, and a critical alert when a Drive, OneDrive, or LAN share credential expires or is rejected |
 | Prior release | [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [QA_v1.9.0.md](QA_v1.9.0.md). Tag **v1.9.0**. Pin `1.9.0` / `1.9` stays valid |
