@@ -69,6 +69,38 @@ def test_classify_slot_on_time_late_success_and_miss():
     assert watch.classify_slot(SLOT, []) == "missed"
 
 
+def test_hosts_queued_together_stay_on_time_when_workers_start_late(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.app_settings.get_app_timezone", lambda: "UTC"
+    )
+    engine = _engine()
+    queued = datetime(2026, 10, 19, 2, 0)
+    with Session(engine) as session:
+        hosts = [
+            _host(session, name="host-a", hostname="host-a.local"),
+            _host(session, name="host-b", hostname="host-b.local"),
+            _host(session, name="host-c", hostname="host-c.local"),
+        ]
+        for host, minute in zip(hosts, (1, 16, 40)):
+            session.add(
+                Job(
+                    server_id=host.id,
+                    job_type="backup",
+                    status="running",
+                    created_at=queued,
+                    started_at=datetime(2026, 10, 19, 2, minute),
+                )
+            )
+        session.commit()
+        assert watch.sync_missed_schedule_alerts(session, now=NOW) == 0
+        open_rows = list(
+            session.exec(
+                select(Notification).where(Notification.status == "open")
+            ).all()
+        )
+        assert open_rows == []
+
+
 def _host(session, **kwargs):
     fields = dict(
         name="host-a",

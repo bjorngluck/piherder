@@ -135,8 +135,10 @@ def classify_slot(
     """``succeeded``, ``on_time``, or ``missed`` for one due slot.
 
     A success at or after the slot wins, including a start that was late.
-    A start inside the grace window is on time even when that run has not
-    finished. Anything else is missed.
+    Lateness uses ``created_at`` (when the job was queued, or when the
+    scheduler fired). A queue time inside the grace window is on time even
+    when a worker starts the job later. ``started_at`` counts only when
+    ``created_at`` is missing. Anything else is missed.
     """
     slot_utc = _as_utc(slot)
     if slot_utc is None:
@@ -146,8 +148,10 @@ def classify_slot(
     for job in jobs:
         started = _as_utc(getattr(job, "started_at", None))
         finished = _as_utc(getattr(job, "finished_at", None))
+        created = _as_utc(getattr(job, "created_at", None))
         status = (getattr(job, "status", "") or "").strip()
-        if started is not None and slot_utc <= started <= grace_end:
+        queued = created if created is not None else started
+        if queued is not None and slot_utc <= queued <= grace_end:
             on_time = True
         success_at = finished or started
         if status == "success" and success_at is not None and success_at >= slot_utc:
