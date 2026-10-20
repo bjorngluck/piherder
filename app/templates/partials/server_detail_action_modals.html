@@ -634,7 +634,7 @@ async function loadSystemInfoIntoModal(useCache = true) {
     }
     if (data.hardware || data.os_pretty) {
       html += `<div class="text-sm mb-3"><span class="text-muted">Hardware</span> ${esc(data.hardware || '—')}
-        <span class="text-muted ml-3">OS</span> ${esc(data.os_pretty || data.os_version || '—')}${data.os_support_warning ? ' <span class="text-warning" title="This release is outside the supported list. PiHerder does not upgrade the OS.">Unsupported</span>' : ''}</div>`;
+        <span class="text-muted ml-3">OS</span> ${esc(data.os_pretty || data.os_version || '.')}${data.os_support_warning ? ' <span class="text-warning" title="This release is outside the supported list. PiHerder does not upgrade the OS.">Unsupported</span>' : ''}</div>`;
     }
     const isHaos = data.profile === 'haos' || (data.ha && data.ha.components);
     const ha = data.ha || {};

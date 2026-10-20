@@ -1,4 +1,4 @@
-"""Nginx Proxy Manager adapter — token auth, proxy hosts, certificates.
+"""Nginx Proxy Manager adapter (token auth, proxy hosts, certificates).
 
 Auth: POST /api/tokens {"identity": email, "secret": password}
       → Bearer JWT

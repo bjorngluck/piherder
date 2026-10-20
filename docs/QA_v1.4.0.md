@@ -112,7 +112,7 @@ Plan: [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · design: [FEATURE_PLAN_SERVICE_MIGRATIO
 
 Code for 1–5 is on `v1.4.0-dev` (web runs migrate jobs). Tick when walked on real Pis. **Do not** pick Remove source on Open WebUI / NPM / n8n.
 
-- [x] **1 NPM-fronted (not the edge)** — job log has `NPM PUT … forward_host` (proxy-host binding is enough; no fabric row required). Public CNAME stays on the NPM hostname. When the app is already on the dest host, pick another proxied app.
+- [x] **1 NPM-fronted (not the edge).** Job log has `NPM PUT … forward_host` (proxy-host binding is enough; no fabric row required). Public CNAME stays on the NPM hostname. When the app is already on the dest host, pick another proxied app.
 - [x] **2 Direct TLS** — Grafana / Authentik / `sso` class. CNAME target is dest `dns_name`; both Pi-holes `restartdns`.
 - [x] **3 Host lock** — Frigate (or hardware): Lock → Move disabled with reason → Unlock. HAOS never in dest list.
 - [x] **4 Leftover** — disposable stack only: one run **`compose down`** (volumes kept); one run **Remove source** (project dir + copied named volumes gone; dest untouched). Extra ack required.

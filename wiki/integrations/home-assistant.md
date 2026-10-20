@@ -41,7 +41,7 @@ Host **hardware**, **OS**, CPU, memory, and disk come from PiHerder **[System In
 The built-in HA **device page** only has one Visit link. For fleet totals and per-host shortcuts, add the **PiHerder fleet** Lovelace card:
 
 1. HACS plugin **0.5.1**, **restart Home Assistant**, then **hard-refresh the browser** (Ctrl+Shift+R). Reload of the config entry is not enough.  
-2. Dashboard **⋮ → Resources** — delete any `/api/piherder/…` or older `/local/piherder-dashboard-card.js?v=0.2.2`, `?v=0.2.3`, `?v=0.2.4`, `?v=0.3.0`, `?v=0.4.0`, `?v=0.4.1`, `?v=0.4.2`, `?v=0.4.3`, `?v=0.4.4`, or `?v=0.5.0` card URL. You want **one** resource:
+2. Dashboard **⋮ → Resources**. Delete any `/api/piherder/…` or older `/local/piherder-dashboard-card.js?v=0.2.2`, `?v=0.2.3`, `?v=0.2.4`, `?v=0.3.0`, `?v=0.4.0`, `?v=0.4.1`, `?v=0.4.2`, `?v=0.4.3`, `?v=0.4.4`, or `?v=0.5.0` card URL. You want **one** resource:
 
    - URL: `/local/piherder-dashboard-card.js?v=0.5.1`  
    - Type: **JavaScript module** (not JavaScript)

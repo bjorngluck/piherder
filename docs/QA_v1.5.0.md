@@ -37,7 +37,7 @@ Plan: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) · migrate design: [FEATURE_PLAN_SERVICE_
 - [x] Demo never copies  
 - [x] Wiki no longer says “do not recycle web during a Move” as current 1.5 truth — [Move](../wiki/docker/service-migration.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Multi-worker](../wiki/operations/multi-worker.md)  
 
-**Live:** Job on 2026-09-07 — Celery worker, NPM-fronted app moved between two hosts, `forward_host` PUT, leftover remove, staging wiped. Recycle-web-mid-copy and recycle-worker-fail **signed 2026-09-18**.
+**Live:** Job on 2026-09-07. Celery worker, NPM-fronted app moved between two hosts, `forward_host` PUT, leftover remove, staging wiped. Recycle-web-mid-copy and recycle-worker-fail **signed 2026-09-18**.
 
 ## N3a — Reports layout (Should; may slip)
 

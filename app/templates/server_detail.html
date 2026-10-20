@@ -508,7 +508,7 @@
     <div class="flex flex-wrap gap-1 justify-center mt-0.5">
       {% if server.hardware %}<span class="host-hero-chip" title="Hardware from last host-facts snapshot">{{ server.hardware }}</span>{% endif %}
       {% set _os_warn = os_support_warning(server.os_id, server.os_pretty, server.os_type) %}
-      {% if server.os_pretty %}<span class="host-hero-chip {% if _os_warn %}is-warn{% else %}is-ok{% endif %}" title="OS from last host-facts snapshot">{{ server.os_pretty }}</span>{% if _os_warn %}<span class="host-hero-chip is-warn" title="This release is outside the supported list. PiHerder does not upgrade the OS.">Unsupported</span>{% endif %}{% elif is_haos %}<span class="host-hero-chip is-ok" title="Home Assistant OS — updates via ha CLI">HAOS</span>{% endif %}
+      {% if server.os_pretty %}<span class="host-hero-chip {% if _os_warn %}is-warn{% else %}is-ok{% endif %}" title="OS from last host-facts snapshot">{{ server.os_pretty }}</span>{% if _os_warn %}<span class="host-hero-chip is-warn" title="This release is outside the supported list. PiHerder does not upgrade the OS.">Unsupported</span>{% endif %}{% elif is_haos %}<span class="host-hero-chip is-ok" title="Home Assistant OS (updates via ha CLI)">HAOS</span>{% endif %}
       {% if server.backup_enabled %}<span class="host-hero-chip is-ok">backup</span>{% endif %}
       {% if server.container_patch_enabled and not is_haos %}<span class="host-hero-chip is-ok">docker</span>{% endif %}
       {% if server.os_patch_enabled %}<span class="host-hero-chip is-ok">{% if is_haos %}HA updates{% else %}os patch{% endif %}</span>{% endif %}

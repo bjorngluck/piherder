@@ -144,7 +144,7 @@ On cert detail: **Add deploy target** opens a multi-step modal (name → server 
 
 ### How deploy writes files
 
-1. SSH as the host’s configured user (`ssh_username` — e.g. `piherder` or `user`).  
+1. SSH as the host’s configured user (`ssh_username`, e.g. `piherder` or `user`).  
 2. **SFTP** write into **Directory** (expand `~` to that user’s home).  
 3. `chmod` / optional `chown` (chown may use `sudo`).  
 4. Optional **post-deploy** shell command (also as that user; use `sudo` when needed).

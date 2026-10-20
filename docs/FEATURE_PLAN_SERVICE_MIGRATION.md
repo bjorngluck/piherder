@@ -258,7 +258,7 @@ Not in 1.4: POST new proxy host, DELETE, certificate_id changes, `enabled` toggl
 | Check | When | Pass |
 |-------|------|------|
 | `docker compose ps` dest | always | expected services running |
-| TLS fingerprint | `CertificateTarget.verify_url` or fabric `certificate_id` + known port | `openssl s_client -servername <fqdn>` matches vault fingerprint (SNI matters — Authentik default cert vs `*.example.com`) |
+| TLS fingerprint | `CertificateTarget.verify_url` or fabric `certificate_id` + known port | `openssl s_client -servername <fqdn>` matches vault fingerprint (SNI matters. Authentik default cert vs `*.example.com`) |
 | Kuma | any service binding | metrics `up` for that monitor after DNS; rebind `server_id` so coverage / down-alerts follow dest |
 | Inventory | always | dest project present; source project stopped or absent from running |
 

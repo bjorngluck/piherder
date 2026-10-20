@@ -1,4 +1,4 @@
-# PiHerder v1.12.0 — operator QA / sign-off
+# PiHerder v1.12.0 (operator QA / sign-off)
 
 **Branch:** `v1.12.0-dev` → `main` · tag **`v1.12.0`** (cut after merge, only when asked)  
 **Code freeze:** not set  
