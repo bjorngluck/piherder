@@ -136,4 +136,4 @@ def test_about_page_renders_the_job_table(monkeypatch):
     assert "Backup host-a" in body
     assert "None yet" in body
     assert format_datetime_in_app_tz(early) in body
-    assert "Last fire is the last time this web process ran the job." in body
+    assert "Last fire (since restart) is the last time this web process ran the job." in body
