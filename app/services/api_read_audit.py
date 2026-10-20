@@ -74,28 +74,30 @@ def record_api_read(
     client_ip: str | None,
     what: str,
 ) -> None:
-    """Write one read row when the flag is on. Never raises into the caller."""
+    """Write one read row when the flag is on. Never raises into the caller.
+
+    The row is committed on a short-lived session for the same engine, so this
+    does not commit or discard work the caller has not committed yet.
+    """
     try:
         if not reads_enabled():
             return
-        session.add(
-            make_audit_log(
-                action=ACTION,
-                status="success",
-                user_id=user_id,
-                api_token_id=token_id,
-                api_token_name=(token_name or None),
-                details=public_detail(what),
-                client_ip=client_ip,
-                finished_at=datetime.utcnow(),
+        with Session(session.get_bind()) as audit:
+            audit.add(
+                make_audit_log(
+                    action=ACTION,
+                    status="success",
+                    user_id=user_id,
+                    api_token_id=token_id,
+                    api_token_name=(token_name or None),
+                    details=public_detail(what),
+                    client_ip=client_ip,
+                    finished_at=datetime.utcnow(),
+                )
             )
-        )
-        session.commit()
+            audit.commit()
     except Exception:
-        try:
-            session.rollback()
-        except Exception:
-            pass
+        return
 
 
 def record_flag_change(

@@ -83,6 +83,31 @@ def test_flag_off_writes_nothing_and_errors_do_not_raise(monkeypatch):
         assert list(session.exec(select(AuditLog)).all()) == []
 
 
+def test_failing_audit_write_keeps_the_caller_change(monkeypatch):
+    monkeypatch.setattr("app.services.app_settings.load_settings", _settings(True))
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr("app.services.api_read_audit.make_audit_log", _boom)
+    engine = _engine()
+    with Session(engine) as session:
+        session.add(AuditLog(action="pending", status="success", details="keep"))
+        reads.record_api_read(
+            session,
+            token_id=3,
+            token_name="reader",
+            user_id=1,
+            client_ip="192.0.2.10",
+            what="GET /api/v1/health",
+        )
+        session.commit()
+    with Session(engine) as session:
+        rows = list(session.exec(select(AuditLog)).all())
+    assert [r.action for r in rows] == ["pending"]
+    assert rows[0].details == "keep"
+
+
 def test_flag_on_stores_id_and_name_not_the_secret(monkeypatch):
     monkeypatch.setattr("app.services.app_settings.load_settings", _settings(True))
     engine = _engine()
