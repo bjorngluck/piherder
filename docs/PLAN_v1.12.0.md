@@ -157,6 +157,7 @@ Nothing was voted **Out**.
 | 2026-10-20 | **Read-only admin API.** Scope `admin` is off by default and is not implied by `read`. GET `/api/v1/admin/users`, `/tokens`, and `/audit` (default 50, max 100). Responses omit the password hash, the TOTP secret, the token secret, the token hash, and the token prefix. These GETs write an `api_read` row when read audit is on, at most one per token and path every 5 minutes. MCP sign-in cannot receive the scope. No write route and no MCP tool. |
 | 2026-10-20 | **Release action pin.** `softprops/action-gh-release` is pinned to `3bb12739c298aeb8a4eeaf626c5b8d85266b0e65` (v2.6.2). Other actions stay on major tags. |
 | 2026-10-20 | **Promoted from Discover.** Remote restore, NPM CRUD, and the read-only admin API. |
+| 2026-10-20 | **yarl pin.** `aiohttp` 3.14.4 needs `yarl` >= 1.25.1. The three lockfiles now pin `yarl` **1.25.1**. |
 
 ---
 
