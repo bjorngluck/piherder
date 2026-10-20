@@ -99,7 +99,7 @@ The read-audit flag under Jobs and audit covers hosted `/mcp` as well as API tok
 | Tier | Lock |
 |------|------|
 | Should | **In. History sweep.** Published history was rewritten on 2026-10-19. The home path, the home subnet, and internal hostnames are gone from `main`, the release tags, `gh-pages`, and the open side branches. The public docs host, the public demo host, and the demo login stay. The map is [HISTORY_SWEEP_v1.12.md](HISTORY_SWEEP_v1.12.md). `main` rejects force-push again |
-| Should | **In. Supply-chain baseline.** `uv.lock` now matches the exported locks: Mako **1.4.3** and multidict **6.9.1**. PyJWT **2.15.1** and urllib3 **2.8.0** stay. Actions stay on major tags, not commit SHAs. The image base stays `python:3.12-slim-bookworm`. Dependabot security updates stay on, and version-update pull requests stay off. Six medium alerts for Mako and multidict stay open on `main` until this branch lands. Secret scanning has no open alerts. [#52](https://github.com/bjorngluck/piherder/pull/52) closes once the branch is green |
+| Should | **In. Supply-chain baseline.** `uv.lock` now matches the exported locks: Mako **1.4.3** and multidict **6.9.1**. PyJWT **2.15.1** and urllib3 **2.8.0** stay. The release action `softprops/action-gh-release` is pinned to `3bb12739c298aeb8a4eeaf626c5b8d85266b0e65` (v2.6.2). Other actions stay on major tags. The image base stays `python:3.12-slim-bookworm`. Dependabot security updates stay on, and version-update pull requests stay off. Six medium alerts for Mako and multidict stay open on `main` until this branch lands. Secret scanning has no open alerts. [#52](https://github.com/bjorngluck/piherder/pull/52) closes once the branch is green |
 | Should | **In. Push denylist in CI.** Added lines fail when they contain a term from the secret `PIHERDER_PUSH_DENYLIST`. The patterns are not in the repo. An empty secret prints that the manual grep remains and exits 0. It does not echo the secret or the matched line. The secret is not set yet |
 
 ### Internals
@@ -155,6 +155,7 @@ Nothing was voted **Out**.
 | 2026-10-19 | **Supply-chain pass.** `uv.lock` was behind the exported locks. All three now pin Mako **1.4.3** and multidict **6.9.1**. Actions stay on major tags. The base image stays a tag. Dependabot still has six medium alerts on `main` for those two packages. They close when this branch lands. Secret scanning has no open alerts. |
 | 2026-10-20 | **Draft release notes.** [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) is a draft. Package stays `1.11.0`. Walks stay empty. Screenshots are reserved and not captured. Draft pull request [#54](https://github.com/bjorngluck/piherder/pull/54). |
 | 2026-10-20 | **Read-only admin API.** Scope `admin` is off by default and is not implied by `read`. GET `/api/v1/admin/users`, `/tokens`, and `/audit` (default 50, max 100). Responses omit the password hash, the TOTP secret, the token secret, the token hash, and the token prefix. These GETs write an `api_read` row when read audit is on, at most one per token and path every 5 minutes. MCP sign-in cannot receive the scope. No write route and no MCP tool. |
+| 2026-10-20 | **Release action pin.** `softprops/action-gh-release` is pinned to `3bb12739c298aeb8a4eeaf626c5b8d85266b0e65` (v2.6.2). Other actions stay on major tags. |
 
 ---
 
