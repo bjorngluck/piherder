@@ -2,7 +2,7 @@
 
 **Draft. 20 October 2026.** Not tagged. Package stays **1.11.0** until freeze. About and the footer still say **1.11.0**. Image tags stay `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image. This note is the text for the tag. It is not a ship.
 
-The default Jobs and Audit lists leave routine noise out. Backup and image signals stay honest: a rejected copy sign-in stays critical, a running container keeps an image flagged until it is actually on that image, and an unsupported OS is named. A host can pull one backup folder back from Drive, OneDrive, or a LAN share. An admin can create, edit, and delete an NPM proxy host.
+The default Jobs and Audit lists leave routine noise out. Backup and image signals stay honest: a rejected copy sign-in stays critical, a running container keeps an image flagged until it is actually on that image, and an unsupported OS is named. A host can pull one backup folder back from Drive, OneDrive, or a LAN share. An admin can create, edit, and delete an NPM proxy host. Remote restore, NPM CRUD, and the read-only admin API were promoted from Discover.
 
 Operator how-to stays on the wiki: [Jobs and audit](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/) · [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Alerts](https://piherder-docs.hacknow.info/operations/alerts-email-webhooks/) · [Docker](https://piherder-docs.hacknow.info/docker/overview/) · [NPM](https://piherder-docs.hacknow.info/integrations/npm/) · [API tokens](https://piherder-docs.hacknow.info/operations/api-tokens/). Technical record: [PLAN_v1.12.0](PLAN_v1.12.0.md). Maintainer QA: [QA_v1.12.0](QA_v1.12.0.md). Walks are empty.
 

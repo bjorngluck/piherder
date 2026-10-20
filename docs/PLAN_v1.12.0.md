@@ -28,7 +28,7 @@ v1.11.0 shipped a passkey that counts as 2FA, a host that can copy straight to D
 |------|------|
 | Must | **In. Audit API and MCP reads.** An optional flag. Off unless the operator turns it on. When it is on, a `read` call from an API token or from hosted `/mcp` writes an audit row. The row stores the token id and name only, never the token value or prefix. Turning the flag on or off writes its own audit row. Read rows stay out of the default Audit list and have their own retention. Writes stay audited either way |
 | Must | **In. Host facts clutter.** The 15-minute `host_facts` snapshot writes a Jobs row and an Audit row for every host. The default Jobs list and the default Audit list leave that routine snapshot out. A failed snapshot stays visible |
-| Discover | **In. Read-only admin API.** A token with the `admin` scope can GET users, API tokens, and the audit log. The scope is off by default and `read` does not include it. MCP sign-in cannot receive it. Responses omit the password hash, the TOTP secret, the token secret, the token hash, and the token prefix. These GETs write an `api_read` row when read audit is on, at most one per token and path every 5 minutes. There is no write route and no MCP tool |
+| Should | **Promoted from Discover. In. Read-only admin API.** A token with the `admin` scope can GET users, API tokens, and the audit log. The scope is off by default and `read` does not include it. MCP sign-in cannot receive it. Responses omit the password hash, the TOTP secret, the token secret, the token hash, and the token prefix. These GETs write an `api_read` row when read audit is on, at most one per token and path every 5 minutes. There is no write route and no MCP tool |
 
 ### Backup
 
@@ -37,7 +37,7 @@ v1.11.0 shipped a passkey that counts as 2FA, a host that can copy straight to D
 | Should | **In. Direct copy on a different CPU.** The image carries rclone for amd64 and arm64. Direct copy sends the one that matches the host. The straight-out tick is greyed out when host facts name another CPU. An unknown architecture stays available. `/backups` stays for a host the binary cannot run on |
 | Should | **In. Missed scheduled run.** Covers host backups and container update checks. A warning opens when a run does not start within 15 minutes of its slot. The next successful run resolves it. `/metrics` has `piherder_schedule_missed` |
 | Should | **In. Copy before the backups.** Warn when a destination copy is scheduled earlier the same day than a host backup whose `/backups` folder it ships. The warning names those hosts and clears when the copy is no longer earlier. A direct host is not part of this check |
-| Discover | **In. Remote restore.** The restore wizard can pull one selected folder from Google Drive, OneDrive, or a LAN share onto this PiHerder, then reverse-rsync it to the host. Dry-run does not write the pull. A direct host only lists destinations it sends to. The audit row names the destination and leaves out the sign-in. Those copies do not keep a Unix owner. A named volume can come back as the wrong account, and the container may then fail to start. This train does not repair ownership or mode. That is a [v1.13 note](PLAN_v1.13.0.md) |
+| Should | **Promoted from Discover. In. Remote restore.** The restore wizard can pull one selected folder from Google Drive, OneDrive, or a LAN share onto this PiHerder, then reverse-rsync it to the host. Dry-run does not write the pull. A direct host only lists destinations it sends to. The audit row names the destination and leaves out the sign-in. Those copies do not keep a Unix owner. A named volume can come back as the wrong account, and the container may then fail to start. This train does not repair ownership or mode. That is a [v1.13 note](PLAN_v1.13.0.md) |
 | Discover | **In. Direct hop vs a stuck folder hop.** A folder row left running does not hold that tick's direct hop. The direct hop starts when the folder task ends, and a later copy enqueue starts it if the folder row is still running. A second folder copy still waits on that row. A cancel does not start the direct hop |
 | Later | **Backup stagger ceiling.** The stagger reuses a minute past about 1,320 hosts on the default 02:00 base. That limit is documented |
 
@@ -92,7 +92,7 @@ The read-audit flag under Jobs and audit covers hosted `/mcp` as well as API tok
 
 | Tier | Lock |
 |------|------|
-| Discover | **In. NPM CRUD.** An admin can create, edit, and delete a proxy host from the NPM integration page. The form sets domains, forward scheme, host, and port, enabled, an existing certificate, and force SSL. It does not request a certificate. Each change writes an audit row and leaves out the NPM password. There is no MCP tool. Move still only changes `forward_host` |
+| Should | **Promoted from Discover. In. NPM CRUD.** An admin can create, edit, and delete a proxy host from the NPM integration page. The form sets domains, forward scheme, host, and port, enabled, an existing certificate, and force SSL. It does not request a certificate. Each change writes an audit row and leaves out the NPM password. There is no MCP tool. Move still only changes `forward_host` |
 
 ### Supply chain and history
 
@@ -156,6 +156,7 @@ Nothing was voted **Out**.
 | 2026-10-20 | **Draft release notes.** [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) is a draft. Package stays `1.11.0`. Walks stay empty. Screenshots are reserved and not captured. Draft pull request [#54](https://github.com/bjorngluck/piherder/pull/54). |
 | 2026-10-20 | **Read-only admin API.** Scope `admin` is off by default and is not implied by `read`. GET `/api/v1/admin/users`, `/tokens`, and `/audit` (default 50, max 100). Responses omit the password hash, the TOTP secret, the token secret, the token hash, and the token prefix. These GETs write an `api_read` row when read audit is on, at most one per token and path every 5 minutes. MCP sign-in cannot receive the scope. No write route and no MCP tool. |
 | 2026-10-20 | **Release action pin.** `softprops/action-gh-release` is pinned to `3bb12739c298aeb8a4eeaf626c5b8d85266b0e65` (v2.6.2). Other actions stay on major tags. |
+| 2026-10-20 | **Promoted from Discover.** Remote restore, NPM CRUD, and the read-only admin API. |
 
 ---
 
@@ -166,7 +167,7 @@ Nothing was voted **Out**.
 | 1 | Open **`v1.12.0-dev`** | **Done** 2026-10-18 |
 | 2 | Must, by area | **Done.** Jobs and audit, the backup credential alert, the self-backup last-success line, the admin alert, the image update flag, the OS end-of-life warning, the update-check gap, and git checkout ownership are in |
 | 3 | Should, if it fits | Direct copy on a different CPU is in. Missed scheduled run is in. Copy before the backups is in. Backup time is on `list_servers` and `get_server`. Docker prune is a job. The GitHub adapter readme badges herder 1.11.0. About lists each scheduled job's last fire and next fire. An OS patch job keeps apt's error output, including when sudo drops DEBIAN_FRONTEND. Published history was rewritten. The restore wizard can pull one selected folder from a copy destination. A folder row left running does not hold the direct hop. An admin can create, edit, and delete an NPM proxy host. The push denylist checks added lines when its secret is set. The three lockfiles pin Mako 1.4.3 and multidict 6.9.1. PyPI 0.4.2 still badges herder 1.10.0 until the adapter cut that ships with this herder |
-| 4 | Discover | Remote restore is in. A direct hop no longer waits on a folder row left running. NPM CRUD is in. The read-only admin API is in. Draft notes are [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md). The tag is not cut |
+| 4 | Discover | A direct hop no longer waits on a folder row left running. Remote restore, NPM CRUD, and the read-only admin API were promoted from Discover. Draft notes are [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md). The tag is not cut |
 | 5 | Freeze | Not set. Package stays `1.11.0` until then |
 | 6 | Operator QA | Boxes in [QA_v1.12.0.md](QA_v1.12.0.md) are empty |
 
