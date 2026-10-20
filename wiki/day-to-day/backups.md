@@ -24,13 +24,13 @@ See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 
 On the host’s **Backups** page, **Configure** can opt that host in. The tick stays unavailable until Google Drive, OneDrive, or a LAN share is saved under **Settings → PiHerder backup**.
 
-When the tick is on, choose one or more of those saved destinations. None are selected until you pick. **Save configuration** asks for a destination when the tick is on and nothing is selected. **Backup now** and the schedule send to the destinations you ticked. That **Backup now** stays a **Backup** job. Open the finished job or the audit row to see where it went. Google Drive and OneDrive show the folder name. A LAN share shows the host, the share, and the path. Each source row adds the folder written on that destination. The sign-in is not in the job or the audit row. **Copy now** still sends only the destination that is open, and on this host it starts that push. Jobs labels that push **Direct copy**. A folder already on this herder stays **Backup copy**. When both are ticked, the folder hop runs, then the direct hop starts. A failed folder hop still starts that direct hop. If the folder row stays running, that tick waits for the next schedule. They share one slot on that destination.
+When the tick is on, choose one or more of those saved destinations. None are selected until you pick. **Save configuration** asks for a destination when the tick is on and nothing is selected. **Backup now** and the schedule send to the destinations you ticked. That **Backup now** stays a **Backup** job. Open the finished job or the audit row to see where it went. Google Drive and OneDrive show the folder name. A LAN share shows the host, the share, and the path. Each source row adds the folder written on that destination. The sign-in is not in the job or the audit row. **Copy now** still sends only the destination that is open, and on this host it starts that push. Jobs labels that push **Direct copy**. A folder already on this herder stays **Backup copy**. When both are ticked, the folder hop runs, then the direct hop starts. A failed folder hop still starts that direct hop. A folder row left running does not hold that direct hop. A second folder copy still waits on the folder row. A second direct copy waits on the direct row.
 
 Nothing of that host is stored under `/backups` first. rclone reads the original files in place and sends them straight on. It does not write a second copy of the tree on the Pi. The binary is copied for the run to `/var/lib/piherder/rclone`, owned by root, and removed when the run ends. The sign-in stays on this PiHerder. The temp config is deleted with the binary.
 
 A host whose SSH user is not root needs that path in the script from **SSH access**. Copy the script again and apply it on a host that was set up before this option existed. Root and Home Assistant OS run the copy as that login. The host must be able to reach Google, Microsoft, or the NAS. The image carries rclone for amd64 and arm64, and the copy sends the one that matches the host. A host whose CPU is something else has the tick greyed out and should keep the `/backups` path. A host whose architecture is not known yet can still use the tick. If that binary cannot run, the job says so and the host should keep `/backups`.
 
-The original files stay as they are. A file that grows during the copy, such as a live log, is sent at the size it had when the copy started. The copy keeps that file’s modification time. A share or Drive does not store a Unix owner the way the herder disk does. Retention days do not age the remote files. Restore of a direct host from Drive, OneDrive, or the NAS is not available. Restore still reads a tree on this PiHerder.
+The original files stay as they are. A file that grows during the copy, such as a live log, is sent at the size it had when the copy started. The copy keeps that file’s modification time. A share or Drive does not store a Unix owner the way the herder disk does. Retention days do not age the remote files. Restore can pull that host's folder from a ticked Drive, OneDrive, or LAN share onto this PiHerder, then write it back to the host. A dry-run does not write the pull.
 
 <figure class="ph-figure" markdown>
   ![Send this host straight to a saved copy](../assets/screenshots/host-backup-direct.png)
@@ -68,7 +68,7 @@ The original files stay as they are. A file that grows during the copy, such as 
 | Account | A Google sign-in from this PiHerder. New files are owned by that Google account. A service account cannot store them on a personal Drive |
 | Schedule | The same presets as other schedules, **Copy now**, and an optional copy after a host backup succeeds |
 | Browser | Folder tree on the left, the open folder on the right. A ticked folder stays ticked inside. Untick a child to leave it behind |
-| Job | **Backup copy** (`backup_replicate`) on the existing Celery worker. It may run for up to 7 days. Host backups stay on the 2-hour worker limit. A task failure, including the 7-day limit, marks the row failed so **Copy now** can run again. A hard kill of the worker process can leave the row **running**, and **Copy now** then returns that row until it is marked failed. A **Direct copy** from **Copy now** or the schedule shares that slot. A self-backup copy on the same destination does not take it. Files already copied stay. A failure fails that job only. The host backup time stays |
+| Job | **Backup copy** (`backup_replicate`) on the existing Celery worker. It may run for up to 7 days. Host backups stay on the 2-hour worker limit. A task failure, including the 7-day limit, marks the row failed so **Copy now** can run again. A hard kill of the worker process can leave the row **running**. **Copy now** for another folder copy returns that row until it is marked failed. A direct hop does not wait on it. A self-backup copy on the same destination does not take it. Files already copied stay. A failure fails that job only. The host backup time stays |
 | Restore | Still the local tree. The demo does not upload |
 
 Pull `bjorngluck/piherder:1.8.0` before a real copy. rclone is in that image. Design: [FEATURE_PLAN_BACKUP_DESTINATIONS.md](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/FEATURE_PLAN_BACKUP_DESTINATIONS.md).
@@ -217,13 +217,16 @@ From the **Servers** list you can multi-select hosts and run **Backup** in bulk 
 
 **Why dry-run first:** restore **writes onto the remote host**. A preview reverse rsync shows what would change without committing.
 
-1. Backups page → restore for a source.  
-2. **Dry-run** reverse rsync (preview).  
-3. Confirm to apply.  
-4. Path policy enforced; audit action `backup_restore`.
+1. Backups page → restore for a source.
+2. Leave **From** on **This PiHerder**, or pick Drive, OneDrive, or a LAN share. A direct host only lists destinations it sends to. The folder must be selected on that copy.
+3. **Dry-run** previews the host write. A destination dry-run checks the remote folder and does not write it here.
+4. Confirm to apply. That pulls the folder here, then reverse-rsyncs it onto the host.
+5. Path policy enforced; audit action `backup_restore`. The row names the destination. It does not include the sign-in.
 
 !!! warning "Restore is privileged"
     You are writing back onto the remote host. Prefer dry-run first. Prefer restoring to a test path when learning.
+
+    Drive, OneDrive, and a LAN share do not keep a Unix owner. The pull lands as the account that runs rclone on this PiHerder, and the reverse rsync writes that owner onto the host. A named volume that must belong to the app user inside the container can come back as the wrong account. The container may then fail to start or refuse to write. This release does not repair ownership or mode. Putting them back is noted for the next release.
 
 ## Retention
 

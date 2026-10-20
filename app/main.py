@@ -17,6 +17,7 @@ from .routers import notifications as notifications_router
 from .routers import push as push_router
 from .routers import metrics as metrics_router
 from .routers import api_v1 as api_v1_router
+from .routers import api_admin as api_admin_router
 from .routers import integrations as integrations_router
 from .routers import certificates as certificates_router
 from .routers import fleet_services as fleet_services_router
@@ -513,6 +514,7 @@ app.include_router(push_router.router, prefix="", tags=["push"])
 app.include_router(jobs_page_router.router, prefix="", tags=["jobs"])
 app.include_router(metrics_router.router, prefix="", tags=["metrics"])
 app.include_router(api_v1_router.router, prefix="/api/v1", tags=["api-v1"])
+app.include_router(api_admin_router.router, prefix="/api/v1", tags=["api-v1"])
 app.include_router(mcp_router.router, tags=["mcp"])
 app.include_router(mcp_oauth_router.router, tags=["mcp"])
 app.include_router(settings_router.router, prefix="", tags=["settings"])

@@ -41,7 +41,7 @@ class ApiAuth:
         self.client_ip = client_ip
 
     def require(self, scope: str) -> None:
-        """Enforce a capability scope (read | jobs | edit)."""
+        """Enforce a capability scope (read | jobs | edit | files | admin)."""
         if scope not in tok_svc.CAPABILITY_SCOPES:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -150,7 +150,8 @@ def get_api_auth(
             detail="Client IP not allowed for this API token",
         )
     tok_svc.touch_token_last_used(session, token)
-    if request.method in ("GET", "HEAD"):
+    # Admin GETs would append a row on every audit-log poll. Skip them.
+    if request.method in ("GET", "HEAD") and not request.url.path.startswith("/api/v1/admin"):
         from ..services.api_read_audit import record_api_read
 
         record_api_read(

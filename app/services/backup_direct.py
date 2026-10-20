@@ -3,7 +3,7 @@
 rclone reads the original files in place. For a non-root backup user it
 runs as root, from a binary installed for that run only. Nothing is copied
 on the host first. Hosts that do not opt in still rsync onto /backups.
-Restore from Drive, OneDrive, or the NAS is not built here.
+Restore can pull a ticked destination back onto this PiHerder, then onto the host.
 """
 from __future__ import annotations
 

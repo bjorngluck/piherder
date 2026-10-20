@@ -2,7 +2,7 @@
 
 ## What this is
 
-Connect an existing **Nginx Proxy Manager** instance for **proxy host inventory** (read-only in PiHerder) and **TLS certificate pull** into the encrypted cert vault.
+Connect an existing **Nginx Proxy Manager** instance for **proxy host inventory**, admin create, edit, and delete, and **TLS certificate pull** into the encrypted cert vault.
 
 ## Why it exists
 
@@ -32,16 +32,15 @@ NPM is often the edge of a homelab. Operators need to see which hostnames are pr
 3. Admin **identity** (email) + password  
 4. Save & connect (PiHerder obtains a short-lived API token per request)
 
-## Proxy hosts (read-only)
+## Proxy hosts
 
-- Inventory from `GET /api/nginx/proxy-hosts`  
-- **Bind** a host to a PiHerder server (optional Docker project/container)  
-- Create/edit/delete of proxy hosts stays in the NPM UI for this release  
+- Inventory from `GET /api/nginx/proxy-hosts`
+- **Bind** a host to a PiHerder server (optional Docker project/container). An operator can bind. Create, edit, and delete are admin-only.
+- An admin can create, edit, or delete a proxy host from this page. The form sets the domain names, the forward scheme, host, and port, enabled, an existing certificate, and force SSL. It does not request a new certificate and it does not edit advanced config. A delete removes the PiHerder binding and leaves the certificate.
+- Each change writes an audit row. The row names the proxy host id, the domains, and the forward target. It does not include the NPM password. There is no MCP tool for these writes.
 - Proxy host **binding** UI is card-based (mobile-friendly selects; host service or Docker cascade)
 
-**Why read-only proxy edit:** production focuses on inventory + certs; full proxy CRUD stays in NPM to avoid half-baked edge configs.
-
-**Move a service (v1.4):** preflight matches the FQDN against this **poll cache**. The migrate job **PUT**s `forward_host` to dest. A fabric DNS row is **not** required — an NPM **proxy-host binding** on the compose project is enough (e.g. `app.example.com` → Open WebUI). Public CNAME stays on the NPM hostname. Optional **Adopt into fabric** (default off) adds a `via_proxy` DNS list row; it does not rewrite Pi-hole CNAMEs or invent certs. Poll NPM before moving.
+**Move a service (v1.4):** preflight matches the FQDN against this **poll cache**. The migrate job **PUT**s `forward_host` to dest. It does not create or delete a proxy host. A fabric DNS row is **not** required — an NPM **proxy-host binding** on the compose project is enough (e.g. `app.example.com` → Open WebUI). Public CNAME stays on the NPM hostname. Optional **Adopt into fabric** (default off) adds a `via_proxy` DNS list row; it does not rewrite Pi-hole CNAMEs or invent certs. Poll NPM before moving.
 
 **Moving NPM itself:** keep the fleet pattern **service FQDN → CNAME → NPM hostname** (e.g. `app.example.com` → `edge.example.com`). Only the NPM hostname CNAME follows dest. Pi-hole APIs that use `https://pihole…` through this proxy fall back to the poll-cache LAN backend during cutover. [Move a service](../docker/service-migration.md).
 

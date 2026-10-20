@@ -1,4 +1,4 @@
-"""Nginx Proxy Manager adapter — token auth, proxy hosts (RO), certificates.
+"""Nginx Proxy Manager adapter — token auth, proxy hosts, certificates.
 
 Auth: POST /api/tokens {"identity": email, "secret": password}
       → Bearer JWT
@@ -6,7 +6,9 @@ Auth: POST /api/tokens {"identity": email, "secret": password}
 Observed routes (unofficial public API):
   GET  /api/nginx/proxy-hosts
   GET  /api/nginx/proxy-hosts/{id}
+  POST /api/nginx/proxy-hosts
   PUT  /api/nginx/proxy-hosts/{id}   (full object; migrate uses forward_host only)
+  DELETE /api/nginx/proxy-hosts/{id}
   GET  /api/nginx/certificates
   GET  /api/nginx/certificates/{id}/download  (zip)
   POST /api/nginx/certificates/{id}/renew
@@ -165,6 +167,42 @@ _PROXY_PUT_KEYS = (
 )
 
 
+def _post_json(
+    base_url: str,
+    token: str,
+    path: str,
+    body: dict[str, Any],
+    *,
+    tls_verify: bool = True,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> Any:
+    origin = normalize_base_url(base_url)
+    url = f"{origin}{path if path.startswith('/') else '/' + path}"
+    with httpx.Client(verify=tls_verify, timeout=timeout) as client:
+        r = client.post(url, headers=_auth_headers(token), json=body)
+        if r.status_code >= 400:
+            raise RuntimeError(f"NPM POST {path} HTTP {r.status_code}: {r.text[:200]}")
+        if not r.content:
+            return {}
+        return r.json()
+
+
+def _delete_json(
+    base_url: str,
+    token: str,
+    path: str,
+    *,
+    tls_verify: bool = True,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> None:
+    origin = normalize_base_url(base_url)
+    url = f"{origin}{path if path.startswith('/') else '/' + path}"
+    with httpx.Client(verify=tls_verify, timeout=timeout) as client:
+        r = client.delete(url, headers=_auth_headers(token))
+        if r.status_code >= 400:
+            raise RuntimeError(f"NPM DELETE {path} HTTP {r.status_code}: {r.text[:200]}")
+
+
 def _put_json(
     base_url: str,
     token: str,
@@ -255,6 +293,159 @@ def retarget_proxy_host_backend(
         "forward_host": new_host,
         "forward_port": body.get("forward_port"),
     }
+
+
+def parse_proxy_host_fields(
+    *,
+    domain_names: str,
+    forward_host: str,
+    forward_port: str | int,
+    forward_scheme: str,
+    enabled: bool = True,
+    certificate_id: str | int | None = None,
+    ssl_forced: bool = False,
+) -> dict[str, Any]:
+    """Fields an admin may set. No certificate request and no advanced config."""
+    names = []
+    for part in (domain_names or "").replace(",", " ").split():
+        name = part.strip().lower().rstrip(".")
+        if not name or "://" in name or "/" in name or "@" in name:
+            raise ValueError("A domain name cannot include a scheme or a path")
+        if len(name) > 253:
+            raise ValueError("A domain name is too long")
+        names.append(name)
+    if not names:
+        raise ValueError("At least one domain name is required")
+    host = (forward_host or "").strip()
+    if not host or any(ch.isspace() for ch in host) or "://" in host or "@" in host:
+        raise ValueError("Forward host must be a hostname or an address")
+    try:
+        port = int(forward_port)
+    except (TypeError, ValueError):
+        raise ValueError("Forward port must be a number") from None
+    if port < 1 or port > 65535:
+        raise ValueError("Forward port must be from 1 to 65535")
+    scheme = (forward_scheme or "http").strip().lower()
+    if scheme not in ("http", "https"):
+        raise ValueError("Forward scheme must be http or https")
+    cert_raw = "" if certificate_id is None else str(certificate_id).strip()
+    if not cert_raw or cert_raw == "0":
+        cert = 0
+    else:
+        try:
+            cert = int(cert_raw)
+        except ValueError:
+            raise ValueError("Certificate must be an id from this NPM") from None
+        if cert < 0:
+            raise ValueError("Certificate must be an id from this NPM")
+    return {
+        "domain_names": names,
+        "forward_host": host,
+        "forward_port": port,
+        "forward_scheme": scheme,
+        "enabled": bool(enabled),
+        "certificate_id": cert,
+        "ssl_forced": bool(ssl_forced) and cert > 0,
+    }
+
+
+def _create_body(fields: dict[str, Any]) -> dict[str, Any]:
+    body = {
+        "access_list_id": 0,
+        "caching_enabled": False,
+        "block_exploits": True,
+        "advanced_config": "",
+        "allow_websocket_upgrade": True,
+        "http2_support": False,
+        "hsts_enabled": False,
+        "hsts_subdomains": False,
+        "locations": [],
+        "meta": {"letsencrypt_agree": False, "dns_challenge": False},
+    }
+    body.update(fields)
+    if not body.get("certificate_id"):
+        body["certificate_id"] = 0
+        body["ssl_forced"] = False
+    return body
+
+
+def create_proxy_host(
+    base_url: str,
+    token: str,
+    fields: dict[str, Any],
+    *,
+    tls_verify: bool = True,
+) -> dict[str, Any]:
+    """POST a proxy host. Does not request a certificate."""
+    body = _create_body(fields)
+    created = _post_json(
+        base_url, token, "/api/nginx/proxy-hosts", body, tls_verify=tls_verify
+    )
+    if not isinstance(created, dict):
+        created = {}
+    host_id = str(created.get("id") or "")
+    return {
+        "id": host_id,
+        "domain_names": body["domain_names"],
+        "forward_host": body["forward_host"],
+        "forward_port": body["forward_port"],
+        "forward_scheme": body["forward_scheme"],
+    }
+
+
+def update_proxy_host(
+    base_url: str,
+    token: str,
+    host_id: str | int,
+    fields: dict[str, Any],
+    *,
+    tls_verify: bool = True,
+) -> dict[str, Any]:
+    """PUT the editable fields. Other keys on the host stay as NPM stored them."""
+    raw = get_proxy_host(base_url, token, host_id, tls_verify=tls_verify)
+    cid = str(raw.get("id") or host_id).strip()
+    body: dict[str, Any] = {}
+    for key in _PROXY_PUT_KEYS:
+        if key in raw:
+            body[key] = raw[key]
+    body["domain_names"] = fields["domain_names"]
+    body["forward_scheme"] = fields["forward_scheme"]
+    body["forward_host"] = fields["forward_host"]
+    body["forward_port"] = fields["forward_port"]
+    body["enabled"] = fields["enabled"]
+    body["certificate_id"] = fields["certificate_id"] or 0
+    body["ssl_forced"] = fields["ssl_forced"]
+    _put_json(
+        base_url,
+        token,
+        f"/api/nginx/proxy-hosts/{cid}",
+        body,
+        tls_verify=tls_verify,
+    )
+    return {
+        "id": cid,
+        "domain_names": fields["domain_names"],
+        "forward_host": fields["forward_host"],
+        "forward_port": fields["forward_port"],
+        "forward_scheme": fields["forward_scheme"],
+    }
+
+
+def delete_proxy_host(
+    base_url: str,
+    token: str,
+    host_id: str | int,
+    *,
+    tls_verify: bool = True,
+) -> str:
+    """DELETE one proxy host. Does not delete its certificate."""
+    cid = str(host_id).strip()
+    if not cid:
+        raise ValueError("proxy host id required")
+    _delete_json(
+        base_url, token, f"/api/nginx/proxy-hosts/{cid}", tls_verify=tls_verify
+    )
+    return cid
 
 
 def list_proxy_hosts(

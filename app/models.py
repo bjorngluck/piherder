@@ -488,7 +488,7 @@ class ApiToken(SQLModel, table=True):
     Plaintext shown once at creation; only hash is stored.
 
     Scopes (comma-separated):
-      Capability: read | jobs | edit
+      Capability: read | jobs | edit | files | admin
       Feature allowlist (optional): feature:backup | feature:os | feature:docker
       If no feature:* scopes → all features allowed (still subject to server flags).
 

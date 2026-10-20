@@ -865,13 +865,16 @@ _DRIVE_COPY_TIME_LIMIT = 7 * 24 * 3600
 
 
 def _start_direct_followup(destination_id: int, scope, user_id, folder_job_id: int) -> None:
-    """Start the direct-host row after the folder hop has a terminal status."""
+    """Start the direct-host row after this folder task ends.
+
+    A folder row left showing running does not hold the direct hop. A cancel does.
+    """
     from app.models import BackupDestination
     from app.services.backup_replicate import enqueue_direct_followup
 
     with Session(engine) as session:
         job = session.get(Job, folder_job_id)
-        if not job or job.status not in ("success", "failed"):
+        if job is not None and job.status == "cancelled":
             return
         dest = session.get(BackupDestination, destination_id)
         if dest is None:
@@ -1014,8 +1017,8 @@ def _queue_direct_after_folder_failure(session, details: dict) -> None:
     """A failed folder hop still starts the direct hop for that tick.
 
     The task ``finally`` does this on a normal failure. A worker kill that
-    only reaches ``fail_replicate_job`` uses this path. A kill that leaves
-    the row running does not.
+    only reaches ``fail_replicate_job`` uses this path. A folder row left
+    running does not hold the direct hop: the next copy enqueue starts it.
     """
     if details.get("direct_after") is not True:
         return

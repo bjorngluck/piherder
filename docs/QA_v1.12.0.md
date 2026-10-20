@@ -4,8 +4,9 @@
 **Code freeze:** not set  
 **Package:** stays **`1.11.0`** until freeze. About / footer say **1.11.0**. Release image tags stay `1.11.0` / `1.11` / `latest`.  
 **Operator QA:** not signed. Every box below is empty.  
-**Screenshots:** none reserved.  
-**Pull request:** not opened.
+**Release notes:** draft [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md). Not a ship.  
+**Screenshots:** reserved, not captured. [v1.12 pack](../wiki/assets/screenshots/README.md#v112--pack-status).  
+**Pull request:** draft. See [PR_v1.12.0.md](PR_v1.12.0.md). The number is filled when the PR is open.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
@@ -124,12 +125,15 @@ The capture log records the pass. `uv.lock` matches the exported locks at Mako 1
 
 ## Discover
 
-Not a walk until the row is promoted in [PLAN_v1.12.0.md](PLAN_v1.12.0.md).
+These rows are in. The walks stay empty until they are signed.
 
-- Remote restore from Drive, OneDrive, or a LAN share. Restore still reads `/backups`.
-- A direct hop does not wait on a folder hop that is still showing running.
-- NPM CRUD. Admin-only, audited, no MCP on this train. Move can still retarget a backend.
-- A read-only admin API for users, tokens, and the audit log. Needs a design and a Security review before it is built.
+- [ ] Restore can pull one selected folder from Google Drive, OneDrive, or a LAN share onto this PiHerder, then onto the host. Dry-run does not write the pull
+- [ ] A direct host only lists destinations it sends to
+
+Those copies do not keep a Unix owner. A named volume can come back as the wrong account, and the container may then fail to start. This walk does not cover repairing ownership or mode. That is a v1.13 note.
+- [ ] A folder row left running does not hold the direct hop. A second folder copy still waits on that row
+- [ ] An admin can create, edit, and delete a proxy host. An operator cannot. There is no MCP tool. Move still only changes `forward_host`
+- [ ] A token with `admin` can GET users, tokens, and the audit log. A `read` token cannot. The response omits the password hash, the TOTP secret, and the token prefix. MCP sign-in cannot receive `admin`
 
 ## Later
 
@@ -140,6 +144,18 @@ Not a walk on this train. Issues stay open.
 - Stuck queue alert.
 - OAuth token name suffix.
 - `get_engine()` accessor.
+
+## Screenshots
+
+Not captured. Do not photograph the public demo. Mask names, paths, tokens, and the job log. The file list is [v1.12 pack](../wiki/assets/screenshots/README.md#v112--pack-status).
+
+- [ ] `host-os-unsupported.png`
+- [ ] `docker-prune.png`
+- [ ] `about-scheduler.png`
+- [ ] `restore-from-copy.png`
+- [ ] `npm-proxy-host.png`
+- [ ] `settings-api-admin.png`
+- [ ] `alerts-backup-credential.png`
 
 ## 1.11 regression
 

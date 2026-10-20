@@ -528,6 +528,8 @@ def _viewer_write_allowed(path: str) -> bool:
 
 
 def _admin_only_path(path: str) -> bool:
+    if "/npm/proxy-hosts" in (path or ""):
+        return True
     return any(path.startswith(p) for p in _ADMIN_ONLY_PREFIXES)
 
 

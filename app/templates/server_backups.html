@@ -251,9 +251,8 @@
   <div class="ph-collapse-card-body">
     <p class="text-xs text-muted mb-3">
       Local backup destination → remote source. Uncheck dry-run and check confirm to write for real. Path policy still applies.
-      {% if server.backup_direct %}
-      This host sends files straight to the copy. Restore from Drive, OneDrive, or the NAS is not available. This wizard only reads a tree already on this PiHerder.
-      {% endif %}
+      A copy destination pulls that folder onto this PiHerder first. Dry-run does not write the pull. Confirm writes it here, then onto the host.
+      Drive, OneDrive, and a LAN share do not keep a Unix owner. A named volume can come back as the wrong account, and the container may then fail to start. This release does not repair that.
     </p>
 
     {% if restore_result %}
@@ -279,9 +278,20 @@
           · {% if c.exists %}ready{% else %}no local data{% endif %}
           · last {{ c.last_backup_str }}
         </div>
-        {% if c.exists %}
+        {% if c.exists or restore_places %}
         <form method="post" action="/servers/{{ server.id }}/backup/restore" class="mt-2 flex flex-wrap items-center gap-3 text-sm">
           <input type="hidden" name="source" value="{{ c.source }}">
+          {% if restore_places %}
+          <label class="flex items-center gap-2 min-h-11">
+            From
+            <select name="destination_id" class="bg-surface border border-border px-2 py-1 rounded text-xs min-h-11">
+              <option value="">This PiHerder</option>
+              {% for place in restore_places %}
+              <option value="{{ place.id }}">{{ place.place }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          {% endif %}
           <label class="flex items-center gap-2 min-h-11">
             <input type="checkbox" name="dry_run" value="1" checked>
             Dry-run
@@ -292,8 +302,11 @@
           </label>
           <button type="submit" class="btn btn-secondary min-h-11 text-xs">Run restore</button>
         </form>
+        {% if not c.exists %}
+        <p class="text-xs text-muted mt-2 mb-0">No local copy yet. Pick a destination to read that folder.</p>
+        {% endif %}
         {% else %}
-        <p class="text-xs text-muted mt-2 mb-0">No local backup data yet — run a backup first.</p>
+        <p class="text-xs text-muted mt-2 mb-0">No local backup data yet. Run a backup first.</p>
         {% endif %}
       </div>
       {% endfor %}
@@ -406,7 +419,7 @@
         {% else %}
         <p class="text-xs text-muted mt-1 mb-3" data-testid="backup-direct-none">No destination is saved yet. Add Google Drive, OneDrive, or a LAN share under Settings → PiHerder backup.</p>
         {% endif %}
-        <p class="text-xs text-muted mt-1 mb-3">Copy now on one destination still starts that push only. rclone is copied to the host for the run and removed when it ends. The image carries rclone for amd64 and arm64, and the copy sends the one that matches this host. The sign-in stays here. Files are read in place and sent straight on. The least-privilege script must allow <span class="font-mono">/var/lib/piherder/rclone</span>. Restore from the remote copy is not available.</p>
+        <p class="text-xs text-muted mt-1 mb-3">Copy now on one destination still starts that push only. rclone is copied to the host for the run and removed when it ends. The image carries rclone for amd64 and arm64, and the copy sends the one that matches this host. The sign-in stays here. Files are read in place and sent straight on. The least-privilege script must allow <span class="font-mono">/var/lib/piherder/rclone</span>. Restore can read a ticked destination back onto this PiHerder, then onto the host.</p>
         <div class="ph-config-section-title">Destination</div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>

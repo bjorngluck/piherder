@@ -53,6 +53,102 @@ def test_restore_defaults_to_dry_run():
     assert sig.parameters["dry_run"].default is True
 
 
+def test_rclone_pull_reads_remote_into_local():
+    from app.services.backup_replicate import rclone_pull_cmd
+
+    cmd = rclone_pull_cmd("/tmp/c", "/data/host/src", "PiHerder/host/src", dry_run=True)
+    assert cmd[1] == "sync"
+    assert cmd[2].endswith(":PiHerder/host/src")
+    assert cmd[3] == "/data/host/src"
+    assert "--dry-run" in cmd
+    assert "--drive-use-trash" not in cmd
+
+
+def test_pull_rel_rejects_a_folder_that_is_not_selected():
+    from app.services.backup_replicate import pull_rel
+
+    dest = SimpleNamespace(
+        provider="drive",
+        selection_json='{"checked":["other"],"skipped":[]}',
+        id=1,
+        config_json="{}",
+    )
+    res = pull_rel(dest, "host/src", dry_run=True)
+    assert res["ok"] is False
+    assert "not selected" in res["error"]
+
+
+def test_source_copy_rel_matches_the_copy_layout():
+    from app.services.backup_restore import source_copy_rel
+
+    assert source_copy_rel(_server(hostname="host", backup_folder_name="host"), "/var/lib/docker") == "host/docker"
+
+
+def test_restore_dry_run_pull_does_not_need_a_local_tree():
+    server = _server(hostname="host", backup_folder_name="host")
+    pull_from = SimpleNamespace(id=3, provider="drive")
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data", "destination": "/nonexistent/dest/xyz"}],
+    ):
+        with patch(
+            "app.services.backup_replicate.pull_rel",
+            return_value={"ok": True, "place": "Google Drive · PiHerder", "dry_run": True},
+        ) as pulled:
+            res = restore_backup_source(server, "/data", dry_run=True, pull_from=pull_from)
+    pulled.assert_called_once()
+    assert pulled.call_args.kwargs["dry_run"] is True
+    assert res["rc"] == 0
+    assert "Dry-run pull ok" in res["summary"]
+
+
+def test_restore_pull_failure_does_not_rsync():
+    server = _server(hostname="host", backup_folder_name="host")
+    pull_from = SimpleNamespace(id=3, provider="drive")
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data", "destination": "/nonexistent/dest/xyz"}],
+    ):
+        with patch(
+            "app.services.backup_replicate.pull_rel",
+            return_value={"ok": False, "error": "Reconnect Google Drive", "auth_failed": True},
+        ):
+            res = restore_backup_source(server, "/data", dry_run=False, pull_from=pull_from)
+    assert res["rc"] == 1
+    assert res["auth_failed"] is True
+    assert "Reconnect" in res["error"]
+
+
+def test_restore_apply_pulls_then_rsyncs(tmp_path):
+    dest_dir = tmp_path / "host" / "docker"
+    dest_dir.mkdir(parents=True)
+    server = _server(hostname="host", backup_folder_name="host")
+    pull_from = SimpleNamespace(id=4, provider="drive")
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data", "destination": str(dest_dir)}],
+    ):
+        with patch(
+            "app.services.backup_replicate.pull_rel",
+            return_value={"ok": True, "place": "Google Drive · PiHerder", "dry_run": False},
+        ) as pulled:
+            with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+                with patch("app.services.backup_restore.temp_key_file") as key:
+                    key.return_value.__enter__.return_value = str(tmp_path / "k")
+                    with patch(
+                        "app.services.backup_restore.subprocess.run",
+                        return_value=SimpleNamespace(returncode=0, stdout="ok", stderr=""),
+                    ):
+                        res = restore_backup_source(
+                            server, "/data", dry_run=False, pull_from=pull_from
+                        )
+    assert pulled.call_args.kwargs["dry_run"] is False
+    assert pulled.call_args.kwargs["local_dir"] == dest_dir
+    assert res["rc"] == 0
+    assert "Google Drive" in res["summary"]
+    assert res["destination_id"] == 4
+
+
 def test_restore_missing_local_dest():
     server = _server()
     with patch(

@@ -586,6 +586,7 @@
     var scopeJobs = document.getElementById('api-scope-jobs');
     var scopeEdit = document.getElementById('api-scope-edit');
     var scopeFiles = document.getElementById('api-scope-files');
+    var scopeAdmin = document.getElementById('api-scope-admin');
     var expiresPreset = document.getElementById('api-token-expires-preset');
     var expiresAt = document.getElementById('api-token-expires-at');
     var mcpName = form.getAttribute('data-mcp-name') || 'mcp-agent';
@@ -599,6 +600,7 @@
       if (scopeJobs) scopeJobs.checked = !on;
       if (scopeEdit && on) scopeEdit.checked = false;
       if (scopeFiles && on) scopeFiles.checked = false;
+      if (scopeAdmin && on) scopeAdmin.checked = false;
       if (nameInput && on && (!touchedName || !nameInput.value || nameInput.value.indexOf('mcp-') === 0)) {
         nameInput.value = mcpName;
         touchedName = false;

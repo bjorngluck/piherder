@@ -39,6 +39,7 @@ After create or rotate, copy the secret **and** the one-time **hosted MCP** bloc
 | `jobs` | `POST …/servers/{id}/jobs` (start work units) |
 | `edit` | `PATCH …/features` (feature flags) |
 | `files` | Host Files fleet list / download / upload / mkdir / rename / empty-delete — not in default scopes. Privileged, zip, edit, chmod, recursive delete stay UI + 2FA. Richer Files token API is still out of 1.4. |
+| `admin` | GET users, API tokens, and the audit log. Off unless you tick it. `read` does not include it. Responses omit the password hash, the TOTP secret, the token secret, the token hash, and the token prefix. No write route. |
 | `feature:backup` | Restrict `jobs` to backup-related types when any `feature:*` is set |
 | `feature:os` | OS patch / OS update-check jobs (apt **or** HAOS `ha` CLI when `os_type=haos`) |
 | `feature:docker` | Container patch, container update-check, compose stack check/deploy/stop/start/restart, and template deploy/redeploy jobs |
@@ -47,7 +48,7 @@ If **no** `feature:*` scopes are set, any job type allowed by `jobs` may run (st
 
 **409 / exclusive jobs:** a second start of the same exclusive type on a host returns **HTTP 409** with the existing `job_id` (same rule as the UI).
 
-A `read` call writes an audit row only when Settings, Security policy, **API and MCP read audit** is on. The row stores the token id and name, and the client IP. It does not store the token. Those rows stay off the default Audit list and keep their own retention (1-90 days, default 7). Turning the flag on or off writes its own audit row. Hosted `/mcp` reads follow the same flag. Writes stay audited either way.
+A `read` call writes an audit row only when Settings, Security policy, **API and MCP read audit** is on. The row stores the token id and name, and the client IP. It does not store the token. Those rows stay off the default Audit list and keep their own retention (1-90 days, default 7). Turning the flag on or off writes its own audit row. Hosted `/mcp` reads follow the same flag. Writes stay audited either way. `GET /api/v1/admin` does not write that row, even when the flag is on, so listing the log does not append a row. MCP sign-in cannot receive `admin`.
 
 ## IP allowlist
 
@@ -76,4 +77,4 @@ Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backu
 
 ## Agents (MCP)
 
-Cursor, Grok Build, Claude Code, and Codex call this same token API through **hosted MCP** at `POST /mcp` (Streamable HTTP). They can paste a Bearer header, or sign in in the browser against that URL. Scopes above are the tool list: `read` always, and `jobs` / `edit` / `files` only when the token has them. `uvx piherder-mcp` is the optional air-gapped client. It does not sign in in the browser. It needs `PIHERDER_TOKEN` set to a `ph_` secret you mint here. Operator page: [Agents (MCP)](mcp.md).
+Cursor, Grok Build, Claude Code, and Codex call this same token API through **hosted MCP** at `POST /mcp` (Streamable HTTP). They can paste a Bearer header, or sign in in the browser against that URL. Scopes above are the tool list: `read` always, and `jobs` / `edit` / `files` only when the token has them. `admin` is not an MCP tool and browser sign-in does not grant it. `uvx piherder-mcp` is the optional air-gapped client. It does not sign in in the browser. It needs `PIHERDER_TOKEN` set to a `ph_` secret you mint here. Operator page: [Agents (MCP)](mcp.md).

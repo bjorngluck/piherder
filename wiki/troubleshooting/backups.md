@@ -21,7 +21,8 @@ A host that sends files straight to Drive, OneDrive, or the NAS reads the origin
 - **Select a destination** — **Configure** has the straight-out tick on and no saved destination is ticked. Pick Google Drive, OneDrive, or the LAN share, then save.
 - **No rclone for this CPU.** The tick is grey when host facts name a CPU other than amd64 or arm64. Keep `/backups` for that host. An unknown architecture can still use the tick. If the binary that was sent cannot run, the job says so.
 - **sizes differ** on a live log, including a `.partial` log — the file grew while it was being sent. The copy sends the size it had when the transfer started and continues. A size mismatch on a file that is not changing is still a failed copy.
-- Restore of that host from Drive, OneDrive, or the NAS is not available. Restore still reads a tree already on this PiHerder.
+- Restore of that host reads a ticked Drive, OneDrive, or LAN share back onto this PiHerder, then onto the host. The folder must be selected on that copy. A dry-run does not write the pull. **This PiHerder** still reads a tree already here.
+- After a restore, a container fails to start or cannot write its data. Drive, OneDrive, and a LAN share do not keep a Unix owner. The files can land owned by the account that ran the pull, not the app user inside the container. Named volumes are the usual case. This release does not put the owner or mode back. Check the volume path on the host before starting the stack.
 
 ## Vanished files / busy sources
 

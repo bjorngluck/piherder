@@ -296,7 +296,7 @@ Full page: [Move a service](../docker/service-migration.md). Do **not** pick **R
 | Multi Pi-hole, DNS fan-out, gravity | [Pi-hole](../integrations/pihole.md) |
 | Host A records, service paths, Hosts/Path maps, runtime stack expand + container order | [Network maps](../integrations/dns-fabric.md) |
 | Switch light/dark; instance name and accent; hide Catalog in the nav | [Appearance](appearance.md) |
-| NPM proxy hosts (read-only) + pull cert | [NPM](../integrations/npm.md) |
+| NPM proxy hosts, admin create/edit/delete, pull cert | [NPM](../integrations/npm.md) |
 | Cert vault, maps, deploy, renew | [Certificates](../integrations/certificates.md) |
 
 ## Account, users, security

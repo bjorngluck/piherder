@@ -640,6 +640,125 @@ def test_worker_death_still_queues_the_direct_hop(tmp_path, monkeypatch):
     assert queued == [direct_id]
 
 
+def test_running_folder_hop_does_not_hold_the_direct_hop(tmp_path, monkeypatch):
+    queued = _delay_recorder(monkeypatch)
+    server = _host()
+
+    def partition(checked, hosts=None):
+        local = [path for path in checked if path != "pi.local"]
+        groups = [(server, ["pi.local"])] if "pi.local" in checked else []
+        return local, groups
+
+    monkeypatch.setattr("app.services.backup_direct.partition_checked", partition)
+    engine = _sqlite(tmp_path, "stuck-folder.db")
+    with Session(engine) as session:
+        dest = BackupDestination(
+            provider="drive",
+            name="Drive",
+            enabled=True,
+            credentials_encrypted="tok-value",
+            selection_json='{"checked":["other.local","pi.local"],"skipped":[]}',
+        )
+        session.add(dest)
+        session.commit()
+        session.refresh(dest)
+        folder = Job(
+            job_type="backup_replicate",
+            status="running",
+            details=json.dumps(
+                {"destination_id": dest.id, "direct_after": True, "current": "copying"}
+            ),
+        )
+        session.add(folder)
+        session.commit()
+        session.refresh(folder)
+        direct = copies.enqueue(session, dest)
+        assert direct.id != folder.id
+        details = json.loads(direct.details or "{}")
+        assert details["direct_host"] is True
+        again = copies.enqueue(session, dest)
+        assert again.id == direct.id
+        assert folder.status == "running"
+    assert queued == [direct.id]
+
+
+def test_folder_only_copy_still_waits_on_its_row(tmp_path, monkeypatch):
+    _delay_recorder(monkeypatch)
+
+    def partition(checked, hosts=None):
+        return list(checked), []
+
+    monkeypatch.setattr("app.services.backup_direct.partition_checked", partition)
+    engine = _sqlite(tmp_path, "folder-slot.db")
+    with Session(engine) as session:
+        dest = BackupDestination(
+            provider="drive",
+            name="Drive",
+            enabled=True,
+            credentials_encrypted="tok-value",
+            selection_json='{"checked":["other.local"],"skipped":[]}',
+        )
+        session.add(dest)
+        session.commit()
+        session.refresh(dest)
+        folder = Job(
+            job_type="backup_replicate",
+            status="running",
+            details=json.dumps({"destination_id": dest.id, "current": "copying"}),
+        )
+        session.add(folder)
+        session.commit()
+        session.refresh(folder)
+        again = copies.enqueue(session, dest)
+        assert again.id == folder.id
+
+
+def test_followup_starts_while_the_folder_row_is_still_running(tmp_path, monkeypatch):
+    queued = _delay_recorder(monkeypatch)
+    server = _host()
+
+    def partition(checked, hosts=None):
+        return ["other.local"], [(server, ["pi.local"])]
+
+    monkeypatch.setattr("app.services.backup_direct.partition_checked", partition)
+    engine = _sqlite(tmp_path, "follow-running.db")
+    monkeypatch.setattr("app.tasks.engine", engine)
+    with Session(engine) as session:
+        dest = BackupDestination(
+            provider="drive",
+            name="Drive",
+            enabled=True,
+            credentials_encrypted="tok-value",
+            selection_json='{"checked":["other.local","pi.local"],"skipped":[]}',
+        )
+        session.add(dest)
+        session.commit()
+        session.refresh(dest)
+        folder = Job(
+            job_type="backup_replicate",
+            status="running",
+            details=json.dumps(
+                {"destination_id": dest.id, "direct_after": True, "current": "copying"}
+            ),
+        )
+        session.add(folder)
+        session.commit()
+        session.refresh(folder)
+        folder_id = folder.id
+        dest_id = dest.id
+    from app.tasks import _start_direct_followup
+
+    _start_direct_followup(dest_id, None, None, folder_id)
+    with Session(engine) as session:
+        folder = session.get(Job, folder_id)
+        assert folder.status == "running"
+        rows = list(session.exec(select(Job).where(Job.job_type == "backup_replicate")).all())
+        assert len(rows) == 2
+        direct = next(row for row in rows if row.id != folder_id)
+        assert json.loads(direct.details)["direct_host"] is True
+    assert queued == [direct.id]
+
+
 def test_normal_host_still_errors_when_the_mirror_is_missing(monkeypatch, tmp_path):
     monkeypatch.setattr(copies, "backup_root", lambda: tmp_path)
     monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)

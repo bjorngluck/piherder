@@ -81,6 +81,7 @@ Client IP resolution is enforced in the **backend** on every authenticated API r
 | `jobs` | `POST /api/v1/servers/{id}/jobs` |
 | `edit` | `PATCH /api/v1/servers/{id}/features` |
 | `files` | Host Files (fleet identity only): list / download / upload / mkdir / rename / delete-empty. Not in default token scopes. Privileged Files, zip, edit, chmod, recursive delete stay **UI + 2FA**. Richer API Files is **under consideration for v1.4+**. |
+| `admin` | GET `/api/v1/admin/users`, `/tokens`, and `/audit`. Off unless ticked. `read` does not include it. MCP sign-in cannot grant it. No write route. |
 
 ### Feature allowlist scopes (optional)
 
@@ -294,6 +295,19 @@ Hosted MCP `trigger_job` uses this same list, including `container_start`, `cont
 ```
 
 The token must have `jobs` and **no** `feature:*` scope. A feature-restricted token is **403**. This route is not an MCP tool. The queued audit and the finished audit both store that token (`api_token_id`, `api_token_name`) and the client IP. The worker copies them off the job, because the Celery task has no request.
+
+### Admin read (Bearer `admin`)
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| `GET` | `/api/v1/admin/users` | `admin` | Users. No password hash, TOTP secret, or session version. `limit` default 50, max 100. |
+| `GET` | `/api/v1/admin/users/{id}` | `admin` | One user. **404** when missing. |
+| `GET` | `/api/v1/admin/tokens` | `admin` | API tokens. No secret, hash, or prefix. |
+| `GET` | `/api/v1/admin/tokens/{id}` | `admin` | One token. **404** when missing. |
+| `GET` | `/api/v1/admin/audit` | `admin` | Audit log, newest first. `details` and `output_snippet` are capped at 500 characters. `client_ip` is included. |
+| `GET` | `/api/v1/admin/audit/{id}` | `admin` | One audit row. **404** when missing. |
+
+A token with only `read`, `jobs`, `edit`, or `files` gets **403**. These GETs do not write an `api_read` row. There is no POST, PATCH, or DELETE on this path, and no MCP tool.
 
 ### Token management (admin **session**, not Bearer token)
 
