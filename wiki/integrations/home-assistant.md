@@ -9,7 +9,7 @@ A **HACS integration that runs on Home Assistant** and **observes** your PiHerde
 | Path 1 | This PiHerder image | SSH + `ha` CLI on an HAOS **server** |
 | Path 2 (this page) | Separate HACS repo | HA polls PiHerder snapshots; **Visit** opens the herder |
 
-The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). This branch documents plugin **0.5.0**. 0.4.0 was the one-card pass. 0.4.1 adds Start and Stop for one compose service. 0.4.2 keeps the tab, the selected host, and open sections when the card redraws. 0.4.3 writes the update counts in full, colors a container name when an image update is due, and adds Restart and Update for that one service. 0.4.4 is that same card, with the resource query bumped. **0.5.0** adds Move, fleet-jail Files, and stop project. The card stays poll-only. It does not call a herder webhook. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from PiHerder `main`. The 0.4.3 card pictures below were captured 2026-10-01. They do not show Move, Files, or Stop project. The 0.5.0 frames (Stop project, Move, and the Plugin sensor) were captured 2026-10-02. The Google Drive copy is a separate herder screen: [Backups](../day-to-day/backups.md#copy-to-google-drive-v18-train).
+The plugin is **not** inside the PiHerder Docker image. GitHub: [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). This page documents plugin **0.5.1**. **0.5.1** copies the dashboard card and logo off the Home Assistant event loop. Move, Files, and stop project stay the **0.5.0** behavior. 0.4.0 was the one-card pass. 0.4.1 adds Start and Stop for one compose service. 0.4.2 keeps the tab, the selected host, and open sections when the card redraws. 0.4.3 writes the update counts in full, colors a container name when an image update is due, and adds Restart and Update for that one service. 0.4.4 is that same card, with the resource query bumped. **0.5.0** adds Move, fleet-jail Files, and stop project. The card stays poll-only. It does not call a herder webhook. The public site [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) is built from PiHerder `main`. The 0.4.3 card pictures below were captured 2026-10-01. They do not show Move, Files, or Stop project. The 0.5.0 frames (Stop project, Move, and the Plugin sensor) were captured 2026-10-02. The Google Drive copy is a separate herder screen: [Backups](../day-to-day/backups.md#copy-to-google-drive-v18-train).
 
 Agent tools (Cursor, Grok, Claude, Codex) are a different client of the same token API: hosted **`/mcp`** on the herder. [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp) is the optional stdio fallback. [Agents (MCP)](../operations/mcp.md).
 
@@ -22,7 +22,7 @@ YAML `rest` sensors against an API token already work. Path 2 is that, first-cla
 1. In PiHerder: Settings → **API management** → create a token with **`read`**. Add **`jobs`** and **`edit`** if you want the confirm buttons and feature toggles. Set the **IP allowlist** to the HA host (HAOS ≈ appliance LAN IP; a container HA may egress as a Docker/bridge IP).  
 2. HACS → custom repository → **Integration** → `https://github.com/bjorngluck/piherder-ha`.  
 3. Add **PiHerder**: base URL (your herder origin, including scheme), token `ph_…`, TLS verify, poll interval. A bad URL or token keeps the fields filled (plugin ≥ 0.1.3).  
-4. Confirm fleet **Plugin** is **0.5.0** after you redownload this build. Device page **Visit** is still the host. Add the **PiHerder** card below. Memory, disk, and CPU load sensors sit on that same host device, plus one sensor per container and monitored service. The sensors stay status. Start, stop, restart, update, and stop project are on the card’s Host tab, under **Containers**, and only when the token has `jobs` and Docker is on. Move uses that same gate plus the herder Move flag. Files needs the `files` scope. Job buttons show only if the token has `jobs`.
+4. Confirm fleet **Plugin** is **0.5.1** after you redownload this build. Device page **Visit** is still the host. Add the **PiHerder** card below. Memory, disk, and CPU load sensors sit on that same host device, plus one sensor per container and monitored service. The sensors stay status. Start, stop, restart, update, and stop project are on the card’s Host tab, under **Containers**, and only when the token has `jobs` and Docker is on. Move uses that same gate plus the herder Move flag. Files needs the `files` scope. Job buttons show only if the token has `jobs`.
 
 HACS does **not** auto-refresh custom repos. New GitHub Release: HACS → PiHerder → **⋮ → Redownload** (pick the tag) → **restart Home Assistant**. Reload of the config entry is not enough for new files.
 
@@ -40,10 +40,10 @@ Host **hardware**, **OS**, CPU, memory, and disk come from PiHerder **[System In
 
 The built-in HA **device page** only has one Visit link. For fleet totals and per-host shortcuts, add the **PiHerder fleet** Lovelace card:
 
-1. HACS plugin **0.5.0**, **restart Home Assistant**, then **hard-refresh the browser** (Ctrl+Shift+R). Reload of the config entry is not enough.  
-2. Dashboard **⋮ → Resources** — delete any `/api/piherder/…` or older `/local/piherder-dashboard-card.js?v=0.2.2`, `?v=0.2.3`, `?v=0.2.4`, `?v=0.3.0`, `?v=0.4.0`, `?v=0.4.1`, `?v=0.4.2`, `?v=0.4.3`, or `?v=0.4.4` card URL. You want **one** resource:
+1. HACS plugin **0.5.1**, **restart Home Assistant**, then **hard-refresh the browser** (Ctrl+Shift+R). Reload of the config entry is not enough.  
+2. Dashboard **⋮ → Resources** — delete any `/api/piherder/…` or older `/local/piherder-dashboard-card.js?v=0.2.2`, `?v=0.2.3`, `?v=0.2.4`, `?v=0.3.0`, `?v=0.4.0`, `?v=0.4.1`, `?v=0.4.2`, `?v=0.4.3`, `?v=0.4.4`, or `?v=0.5.0` card URL. You want **one** resource:
 
-   - URL: `/local/piherder-dashboard-card.js?v=0.5.0`  
+   - URL: `/local/piherder-dashboard-card.js?v=0.5.1`  
    - Type: **JavaScript module** (not JavaScript)
 
    After setup, the integration copies the card into HA `config/www/` so `/local/…` works.  
@@ -94,9 +94,9 @@ Numbers come from the same **[System Info](../day-to-day/system-info.md)** snaps
 | Lovelace card | Fleet, Host, and Updates tabs. Host strip, model and OS icons. Click a stat for Home Assistant history. **Containers** starts, stops, restarts, or updates one service, and can stop a project. **Move** and **Files** (fleet jail) are on the Host tab when the token allows them |
 | Sensors | OS, features, alert, last seen, reboot, last backup, **memory %**, **disk %**, **CPU load**, plus one sensor per container (running / image / uptime text) and one per monitored service (up/down). All on the host device. Tapping a sensor opens HA history, not PiHerder |
 
-## The card (plugin 0.5.0)
+## The card (plugin 0.5.1)
 
-One card, three tabs: **Fleet**, **Host**, **Updates**. The same file still registers the 0.3.0 names, so an existing dashboard does not go blank. Dashboard **⋮ → Resources**: one URL, `/local/piherder-dashboard-card.js?v=0.5.0`. Delete an older `?v=0.3.0` through `?v=0.4.4` entry if it is still there. Restart Home Assistant, then hard-refresh. The card keeps the tab, the selected host, and open sections across its own redraw. The pictures below were captured on **0.4.3**.
+One card, three tabs: **Fleet**, **Host**, **Updates**. The same file still registers the 0.3.0 names, so an existing dashboard does not go blank. Dashboard **⋮ → Resources**: one URL, `/local/piherder-dashboard-card.js?v=0.5.1`. Delete an older `?v=0.3.0` through `?v=0.5.0` entry if it is still there. **0.5.1** copies that file off the Home Assistant event loop. Move, Files, and stop project stay the **0.5.0** behavior. Restart Home Assistant, then hard-refresh. The card keeps the tab, the selected host, and open sections across its own redraw. The pictures below were captured on **0.4.3**.
 
 ```yaml
 type: custom:piherder-dashboard-card
