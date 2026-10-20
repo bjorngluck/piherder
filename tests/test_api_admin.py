@@ -57,7 +57,8 @@ def test_public_dicts_omit_secrets():
     )
     audited = audit_admin_dict(log)
     assert len(audited["details"]) == 500
-    assert len(audited["output_snippet"]) == 500
+    assert "output_snippet" not in audited
+    assert "o" * 20 not in str(audited)
     assert audited["client_ip"] == "192.0.2.10"
 
 

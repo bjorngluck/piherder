@@ -141,7 +141,6 @@ def audit_admin_dict(row: AuditLog) -> dict[str, Any]:
         "action": row.action,
         "status": row.status,
         "details": _cap(row.details),
-        "output_snippet": _cap(row.output_snippet),
         "client_ip": row.client_ip,
         "started_at": _iso(row.started_at),
         "finished_at": _iso(row.finished_at),
