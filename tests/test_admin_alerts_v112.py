@@ -315,14 +315,7 @@ def test_http_user_token_and_2fa_open_the_alert(tmp_path, monkeypatch):
         assert "Force 2FA" not in (changes[1].body or "")
     finally:
         app.dependency_overrides.clear()
-        app_cfg.save_settings(
-            {
-                "force_2fa": saved.get("force_2fa", False),
-                "force_2fa_scope": saved.get("force_2fa_scope") or "off",
-                "template_require_2fa": bool(saved.get("template_require_2fa")),
-                "alert_type_policy": saved.get("alert_type_policy") or {},
-            }
-        )
+        app_cfg.save_settings(saved)
 
 
 def test_http_registration_opens_the_alert(tmp_path, monkeypatch):
