@@ -344,3 +344,125 @@ def test_http_registration_opens_the_alert(tmp_path, monkeypatch):
         assert "Client IP:" in body
     finally:
         app.dependency_overrides.clear()
+
+
+def test_scope_gain_and_promotion_name_the_change():
+    engine = _engine()
+    token = set_request_client_ip("192.0.2.15")
+    try:
+        with Session(engine) as session:
+            admin = _user(session, "off@test.local")
+            alerts.notify_api_token_scopes_gained(
+                session, actor=admin, token_id=4, name="ops", gained=[]
+            )
+            alerts.notify_api_token_scopes_gained(
+                session,
+                actor=admin,
+                token_id=4,
+                name="ops",
+                gained=["files", "edit", "admin"],
+            )
+            alerts.notify_user_promoted_to_admin(
+                session, actor=admin, email="reader@test.local", user_id=8
+            )
+            rows = _rows(session)
+        assert len(rows) == 2
+        scope = next(r for r in rows if r.title == "API token scopes gained")
+        body = scope.body or ""
+        assert "gained scopes: admin, edit, files" in body
+        assert "The admin scope was added" in body
+        assert "The files scope was added" in body
+        assert "ph_" not in body
+        assert "192.0.2.15" in body
+        promo = next(r for r in rows if r.title == "User promoted to admin")
+        assert "Promoted reader@test.local to admin." in (promo.body or "")
+        assert promo.link_url == "/auth/users"
+    finally:
+        reset_request_client_ip(token)
+
+
+def test_token_update_and_role_change_open_escalation_alerts(tmp_path, monkeypatch):
+    from app.services import api_tokens as tok
+
+    app, client, engine, get_password_hash, create_user_access_token = _http_client(
+        tmp_path, monkeypatch
+    )
+    try:
+        with Session(engine) as session:
+            admin = User(
+                email="off@test.local",
+                hashed_password=get_password_hash("SecretPass1"),
+                role="admin",
+                display_name="Ada",
+                is_active=True,
+                must_change_password=False,
+            )
+            reader = User(
+                email="reader@test.local",
+                hashed_password=get_password_hash("SecretPass1"),
+                role="operator",
+                is_active=True,
+                must_change_password=False,
+            )
+            session.add(admin)
+            session.add(reader)
+            session.commit()
+            session.refresh(admin)
+            session.refresh(reader)
+            client.cookies.set("access_token", create_user_access_token(admin))
+            row, plain = tok.create_api_token(
+                session, name="ops", created_by=admin, scopes=["read"]
+            )
+            token_id = row.id
+            prefix = row.token_prefix
+            reader_id = reader.id
+
+        def _update(scopes):
+            data = {"name": "ops"}
+            data.update(scopes)
+            return client.post(
+                f"/herder-backups/api-tokens/{token_id}/update",
+                data=data,
+                follow_redirects=False,
+            )
+
+        gained = _update(
+            {"scope_read": "on", "scope_admin": "on", "scope_files": "on"}
+        )
+        assert gained.status_code == 303
+        assert "token_updated=1" in gained.headers.get("location", "")
+        same = _update(
+            {"scope_read": "on", "scope_admin": "on", "scope_files": "on"}
+        )
+        assert same.status_code == 303
+        dropped = _update({"scope_read": "on"})
+        assert dropped.status_code == 303
+
+        promoted = client.post(
+            f"/auth/users/{reader_id}/role",
+            data={"role": "admin"},
+            follow_redirects=False,
+        )
+        assert promoted.status_code == 303
+        assert "role_saved" in promoted.headers.get("location", "")
+        changed = client.post(
+            f"/auth/users/{reader_id}/role",
+            data={"role": "operator"},
+            follow_redirects=False,
+        )
+        assert changed.status_code == 303
+
+        with Session(engine) as session:
+            rows = _rows(session)
+        scope_rows = [r for r in rows if r.title == "API token scopes gained"]
+        promo_rows = [r for r in rows if r.title == "User promoted to admin"]
+        assert len(scope_rows) == 1
+        body = scope_rows[0].body or ""
+        assert "The admin scope was added" in body
+        assert "The files scope was added" in body
+        assert plain not in body
+        assert prefix not in body
+        assert len(promo_rows) == 1
+        assert "reader@test.local" in (promo_rows[0].body or "")
+    finally:
+        app.dependency_overrides.clear()

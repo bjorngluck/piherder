@@ -1198,21 +1198,24 @@ async def update_api_token_form(
             _settings_url("api", error="Token not found", api_panel="tokens"),
             status_code=303,
         )
+    old_scopes = tok_svc.parse_scopes(row.scopes)
+    new_scopes = _scopes_from_form(
+        scope_read,
+        scope_jobs,
+        scope_edit,
+        scope_files,
+        scope_admin,
+        scope_feature_backup,
+        scope_feature_os,
+        scope_feature_docker,
+    )
+    gained = sorted(set(new_scopes) - old_scopes)
     try:
         tok_svc.update_api_token(
             session,
             row,
             name=name,
-            scopes=_scopes_from_form(
-                scope_read,
-                scope_jobs,
-                scope_edit,
-                scope_files,
-                scope_admin,
-                scope_feature_backup,
-                scope_feature_os,
-                scope_feature_docker,
-            ),
+            scopes=new_scopes,
             allowed_cidrs=allowed_cidrs or "",
             update_cidrs=True,
         )
@@ -1234,6 +1237,16 @@ async def update_api_token_form(
         session.commit()
     except Exception:
         session.rollback()
+    if gained:
+        from ..services.admin_alerts import notify_api_token_scopes_gained
+
+        notify_api_token_scopes_gained(
+            session,
+            actor=user,
+            token_id=int(row.id),
+            name=row.name,
+            gained=gained,
+        )
     return RedirectResponse(
         _settings_url(
             "api",

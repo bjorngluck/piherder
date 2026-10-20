@@ -1,4 +1,4 @@
-"""Admin inbox alerts for a new user, a new API token, or a 2FA policy change.
+"""Admin inbox alerts for a new user, a new API token, a scope gain, a promotion to admin, or a 2FA policy change.
 
 One catalog type (``admin_change``, warning). Each event keeps its own
 fingerprint so a later change does not replace an open row. The body names
@@ -132,6 +132,60 @@ def notify_api_token_created(
         detail=f"API token #{int(token_id)} {safe_name!r} was created.",
         actor=actor,
         link_url="/herder-backups?tab=api&api_panel=tokens",
+    )
+
+
+def notify_api_token_scopes_gained(
+    session: Session,
+    *,
+    actor: Any,
+    token_id: int,
+    name: str,
+    gained: Any,
+) -> None:
+    """Alert when an existing token gains scopes. Never the secret or prefix."""
+    added: list[str] = []
+    for raw in gained or []:
+        text = " ".join(str(raw).split()).lower()
+        if text and text not in added:
+            added.append(text)
+    added.sort()
+    if not added:
+        return
+    safe_name = " ".join((name or "unnamed").split())[:80] or "unnamed"
+    bits = [
+        f"API token #{int(token_id)} {safe_name!r} gained scopes: {', '.join(added)}"
+    ]
+    if "admin" in added:
+        bits.append("The admin scope was added")
+    if "files" in added:
+        bits.append("The files scope was added")
+    _open(
+        session,
+        fingerprint=f"admin_api_token_scopes:{int(token_id)}:{time.time_ns()}",
+        title="API token scopes gained",
+        detail=". ".join(bits) + ".",
+        actor=actor,
+        link_url="/herder-backups?tab=api&api_panel=tokens",
+    )
+
+
+def notify_user_promoted_to_admin(
+    session: Session,
+    *,
+    actor: Any,
+    email: str,
+    user_id: int,
+) -> None:
+    """Alert when an existing user becomes an admin."""
+    safe_email = " ".join((email or "").split())[:120] or "unknown"
+    _open(
+        session,
+        fingerprint=f"admin_user_promoted:{int(user_id)}:{time.time_ns()}",
+        title="User promoted to admin",
+        detail=f"Promoted {safe_email} to admin.",
+        actor=actor,
+        link_url="/auth/users",
     )
 
 

@@ -409,6 +409,15 @@ async def set_user_role(
         "user_role_changed",
         f"{target.email}: {old} → {new_role}",
     )
+    if old != ROLE_ADMIN and new_role == ROLE_ADMIN:
+        from ..services.admin_alerts import notify_user_promoted_to_admin
+
+        notify_user_promoted_to_admin(
+            session,
+            actor=admin,
+            email=target.email,
+            user_id=int(target.id),
+        )
     return RedirectResponse("/auth/users?msg=role_saved", status_code=303)
 
 
