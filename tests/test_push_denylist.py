@@ -37,6 +37,12 @@ def test_added_line_matches_and_a_removed_line_does_not():
     assert deny.matching_locations(lines, ["a.b"]) == []
 
 
+def test_upper_case_hit_matches():
+    assert deny.matching_locations(deny.added_lines(DIFF), ["fleetword"]) == [
+        ("docs/note.md", 4)
+    ]
+
+
 def test_literal_dot_is_not_a_regex():
     lines = [("a.txt", 1, "axb")]
     assert deny.matching_locations(lines, ["a.b"]) == []

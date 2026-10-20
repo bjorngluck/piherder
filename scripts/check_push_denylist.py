@@ -2,8 +2,9 @@
 """Fail when an added diff line contains a push-denylist term.
 
 Patterns live in PIHERDER_PUSH_DENYLIST, one literal per line. They are not
-regular expressions and they are not printed. An empty or missing value does
-not scan. The manual grep remains until a maintainer sets the secret.
+regular expressions and they are not printed. Matching ignores case. An empty
+or missing value does not scan. The manual grep remains until a maintainer
+sets the secret.
 
 Scans added lines only. A pull request uses the base commit. A push uses
 before..after. A new branch (before is all zeros) uses origin/main...HEAD.
@@ -81,9 +82,11 @@ def added_lines(diff: str) -> list[tuple[str, int, str]]:
 def matching_locations(
     lines: list[tuple[str, int, str]], patterns: list[str]
 ) -> list[tuple[str, int]]:
+    folded = [pattern.casefold() for pattern in patterns]
     hits: list[tuple[str, int]] = []
     for path, number, text in lines:
-        if any(pattern in text for pattern in patterns):
+        hay = text.casefold()
+        if any(pattern in hay for pattern in folded):
             hits.append((path, number))
     return hits
 
