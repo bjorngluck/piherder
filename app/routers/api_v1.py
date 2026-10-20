@@ -150,7 +150,7 @@ def get_api_auth(
             detail="Client IP not allowed for this API token",
         )
     tok_svc.touch_token_last_used(session, token)
-    # Admin GETs would append a row on every audit-log poll. Skip them.
+    # Admin routes write their own row, deduped per token and path.
     if request.method in ("GET", "HEAD") and not request.url.path.startswith("/api/v1/admin"):
         from ..services.api_read_audit import record_api_read
 

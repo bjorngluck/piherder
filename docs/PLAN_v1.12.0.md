@@ -28,7 +28,7 @@ v1.11.0 shipped a passkey that counts as 2FA, a host that can copy straight to D
 |------|------|
 | Must | **In. Audit API and MCP reads.** An optional flag. Off unless the operator turns it on. When it is on, a `read` call from an API token or from hosted `/mcp` writes an audit row. The row stores the token id and name only, never the token value or prefix. Turning the flag on or off writes its own audit row. Read rows stay out of the default Audit list and have their own retention. Writes stay audited either way |
 | Must | **In. Host facts clutter.** The 15-minute `host_facts` snapshot writes a Jobs row and an Audit row for every host. The default Jobs list and the default Audit list leave that routine snapshot out. A failed snapshot stays visible |
-| Discover | **In. Read-only admin API.** A token with the `admin` scope can GET users, API tokens, and the audit log. The scope is off by default and `read` does not include it. MCP sign-in cannot receive it. Responses omit the password hash, the TOTP secret, the token secret, the token hash, and the token prefix. These GETs do not write an `api_read` row. There is no write route and no MCP tool |
+| Discover | **In. Read-only admin API.** A token with the `admin` scope can GET users, API tokens, and the audit log. The scope is off by default and `read` does not include it. MCP sign-in cannot receive it. Responses omit the password hash, the TOTP secret, the token secret, the token hash, and the token prefix. These GETs write an `api_read` row when read audit is on, at most one per token and path every 5 minutes. There is no write route and no MCP tool |
 
 ### Backup
 
@@ -154,7 +154,7 @@ Nothing was voted **Out**.
 | 2026-10-19 | **History rewrite.** Published history was rewritten and force-pushed. `main` is `086400e`. `v1.12.0-dev` is `6e7ffb6` and its tree matches the pre-rewrite tip. Tags `v0.2.0` through `v1.11.0`, `gh-pages`, and the open side branches moved with it. `main` rejects force-push again. |
 | 2026-10-19 | **Supply-chain pass.** `uv.lock` was behind the exported locks. All three now pin Mako **1.4.3** and multidict **6.9.1**. Actions stay on major tags. The base image stays a tag. Dependabot still has six medium alerts on `main` for those two packages. They close when this branch lands. Secret scanning has no open alerts. |
 | 2026-10-20 | **Draft release notes.** [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) is a draft. Package stays `1.11.0`. Walks stay empty. Screenshots are reserved and not captured. Draft pull request [#54](https://github.com/bjorngluck/piherder/pull/54). |
-| 2026-10-20 | **Read-only admin API.** Scope `admin` is off by default and is not implied by `read`. GET `/api/v1/admin/users`, `/tokens`, and `/audit` (default 50, max 100). Responses omit the password hash, the TOTP secret, the token secret, the token hash, and the token prefix. These GETs do not write an `api_read` row. MCP sign-in cannot receive the scope. No write route and no MCP tool. |
+| 2026-10-20 | **Read-only admin API.** Scope `admin` is off by default and is not implied by `read`. GET `/api/v1/admin/users`, `/tokens`, and `/audit` (default 50, max 100). Responses omit the password hash, the TOTP secret, the token secret, the token hash, and the token prefix. These GETs write an `api_read` row when read audit is on, at most one per token and path every 5 minutes. MCP sign-in cannot receive the scope. No write route and no MCP tool. |
 
 ---
 

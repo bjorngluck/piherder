@@ -307,7 +307,7 @@ The token must have `jobs` and **no** `feature:*` scope. A feature-restricted to
 | `GET` | `/api/v1/admin/audit` | `admin` | Audit log, newest first. `details` and `output_snippet` are capped at 500 characters. `client_ip` is included. |
 | `GET` | `/api/v1/admin/audit/{id}` | `admin` | One audit row. **404** when missing. |
 
-A token with only `read`, `jobs`, `edit`, or `files` gets **403**. These GETs do not write an `api_read` row. There is no POST, PATCH, or DELETE on this path, and no MCP tool.
+A token with only `read`, `jobs`, `edit`, or `files` gets **403**. These GETs write an `api_read` row when read audit is on, at most one per token and path every 5 minutes. There is no POST, PATCH, or DELETE on this path, and no MCP tool.
 
 ### Token management (admin **session**, not Bearer token)
 

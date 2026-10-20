@@ -982,7 +982,7 @@ Probes tools needed for **enabled** features only (`rsync` / sudo path, `docker`
 | `read` | Catalog `GET /api/v1`, health, servers, jobs |
 | `jobs` | `POST /api/v1/servers/{id}/jobs` |
 | `edit` | `PATCH /api/v1/servers/{id}/features` |
-| `admin` | GET `/api/v1/admin/users`, `/tokens`, and `/audit`. No password hash, TOTP secret, token secret, hash, or prefix. These GETs do not write an `api_read` row |
+| `admin` | GET `/api/v1/admin/users`, `/tokens`, and `/audit`. No password hash, TOTP secret, token secret, hash, or prefix. These GETs write an `api_read` row when read audit is on, at most one per token and path every 5 minutes |
 | `feature:*` | Restrict which features jobs/edits may touch |
 
 **CORS:** Off by default. Server-side n8n/HA/curl do not need it. Only set `CORS_ORIGINS` for browser apps on other origins (exact origins; never `*`). See [API.md](API.md).

@@ -1,4 +1,6 @@
 """Read-only admin API. Scope admin is not implied by read and not granted by MCP."""
+from datetime import datetime, timedelta
+
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
@@ -169,13 +171,106 @@ def test_admin_gets_require_scope_and_skip_read_audit(tmp_path, monkeypatch):
         assert posted.status_code == 405
 
         with Session(engine) as s:
-            actions = [r.action for r in s.exec(select(AuditLog)).all()]
-        assert "api_read" not in actions
+            admin_reads = [
+                r
+                for r in s.exec(select(AuditLog)).all()
+                if r.action == "api_read"
+            ]
+        assert admin_reads
+        assert {r.details for r in admin_reads} >= {
+            "GET /api/v1/admin/users",
+            "GET /api/v1/admin/tokens",
+            "GET /api/v1/admin/audit",
+        }
+        assert all(r.api_token_name == "auditor" for r in admin_reads)
 
         health = client.get("/api/v1/health", headers=read_headers)
         assert health.status_code == 200
         with Session(engine) as s:
             actions = [r.action for r in s.exec(select(AuditLog)).all()]
         assert "api_read" in actions
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_admin_read_audit_follows_the_flag_and_dedupes(tmp_path, monkeypatch):
+    from app.database import get_session
+    from app.main import app
+
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+    monkeypatch.setattr("app.services.api_read_audit.reads_enabled", lambda cfg=None: False)
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'admin-reads.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    def _session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = _session
+    client = TestClient(app, raise_server_exceptions=False)
+    try:
+        with Session(engine) as s:
+            user = User(
+                email="off@test.local",
+                hashed_password=get_password_hash("SmokeTest1ok"),
+                role="admin",
+                is_active=True,
+            )
+            s.add(user)
+            s.commit()
+            s.refresh(user)
+            admin_row, admin_plain = tok.create_api_token(
+                s, name="auditor", created_by=user, scopes=["admin"]
+            )
+            token_id = admin_row.id
+            user_id = user.id
+        headers = {"Authorization": f"Bearer {admin_plain}"}
+
+        quiet = client.get("/api/v1/admin/users", headers=headers)
+        assert quiet.status_code == 200
+        with Session(engine) as s:
+            assert [r for r in s.exec(select(AuditLog)).all() if r.action == "api_read"] == []
+
+        monkeypatch.setattr("app.services.api_read_audit.reads_enabled", lambda cfg=None: True)
+        first = client.get("/api/v1/admin/users", headers=headers)
+        again = client.get("/api/v1/admin/users", headers=headers)
+        other = client.get(f"/api/v1/admin/users/{user_id}", headers=headers)
+        assert first.status_code == again.status_code == other.status_code == 200
+        with Session(engine) as s:
+            rows = [
+                r
+                for r in s.exec(select(AuditLog).order_by(AuditLog.id)).all()
+                if r.action == "api_read"
+            ]
+        assert [r.details for r in rows] == [
+            "GET /api/v1/admin/users",
+            f"GET /api/v1/admin/users/{user_id}",
+        ]
+        assert rows[0].api_token_id == token_id
+        assert rows[0].api_token_name == "auditor"
+        assert rows[0].user_id == user_id
+        assert rows[0].client_ip
+        assert admin_plain not in (rows[0].details or "")
+
+        with Session(engine) as s:
+            stale = s.exec(
+                select(AuditLog).where(AuditLog.details == "GET /api/v1/admin/users")
+            ).one()
+            stale.started_at = datetime.utcnow() - timedelta(minutes=6)
+            s.add(stale)
+            s.commit()
+        later = client.get("/api/v1/admin/users", headers=headers)
+        assert later.status_code == 200
+        with Session(engine) as s:
+            users_rows = [
+                r
+                for r in s.exec(select(AuditLog)).all()
+                if r.action == "api_read" and r.details == "GET /api/v1/admin/users"
+            ]
+        assert len(users_rows) == 2
     finally:
         app.dependency_overrides.clear()

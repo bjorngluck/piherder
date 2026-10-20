@@ -1,15 +1,16 @@
 """Read-only admin API. Bearer scope ``admin``. No writes and no MCP tools.
 
 GET /api/v1/admin/users, /tokens, and /audit. Responses omit password hashes,
-TOTP secrets, token secrets, token hashes, and token prefixes. These GETs do
-not write an api_read row (see get_api_auth).
+TOTP secrets, token secrets, token hashes, and token prefixes. When read audit
+is on, each GET writes one api_read row, at most one per token and path every
+5 minutes.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func
 from sqlmodel import Session, select
 
@@ -23,6 +24,7 @@ router = APIRouter()
 _PAGE_DEFAULT = 50
 _PAGE_MAX = 100
 _TEXT_CAP = 500
+_READ_DEDUPE = timedelta(minutes=5)
 
 def _page(limit: int, offset: int) -> tuple[int, int]:
     try:
@@ -59,6 +61,39 @@ def _cap(text: str | None) -> str | None:
 
 def _require_admin(auth: ApiAuth) -> None:
     auth.require(tok_svc.SCOPE_ADMIN)
+
+
+def _audit_admin_get(session: Session, auth: ApiAuth, request: Request) -> None:
+    """One read row per token and path every 5 minutes, when the flag is on."""
+    from ..services.api_read_audit import (
+        ACTION,
+        public_detail,
+        reads_enabled,
+        record_api_read,
+    )
+
+    if not reads_enabled():
+        return
+    what = public_detail(f"{request.method} {request.url.path}")
+    cutoff = datetime.utcnow() - _READ_DEDUPE
+    recent = session.exec(
+        select(AuditLog).where(
+            AuditLog.action == ACTION,
+            AuditLog.api_token_id == auth.token.id,
+            AuditLog.details == what,
+            AuditLog.started_at >= cutoff,
+        )
+    ).first()
+    if recent is not None:
+        return
+    record_api_read(
+        session,
+        token_id=auth.token.id,
+        token_name=auth.token.name,
+        user_id=auth.user_id,
+        client_ip=auth.client_ip,
+        what=f"{request.method} {request.url.path}",
+    )
 
 
 def user_admin_dict(user: User) -> dict[str, Any]:
@@ -119,12 +154,14 @@ def _missing(what: str) -> HTTPException:
 
 @router.get("/admin/users", summary="List users (admin scope)")
 def list_admin_users(
+    request: Request,
     session: Session = Depends(get_session),
     auth: ApiAuth = Depends(get_api_auth),
     limit: int = _PAGE_DEFAULT,
     offset: int = 0,
 ):
     _require_admin(auth)
+    _audit_admin_get(session, auth, request)
     lim, off = _page(limit, offset)
     total = int(session.exec(select(func.count()).select_from(User)).one() or 0)
     rows = list(session.exec(select(User).order_by(User.id).offset(off).limit(lim)).all())
@@ -134,10 +171,12 @@ def list_admin_users(
 @router.get("/admin/users/{user_id}", summary="One user (admin scope)")
 def get_admin_user_row(
     user_id: int,
+    request: Request,
     session: Session = Depends(get_session),
     auth: ApiAuth = Depends(get_api_auth),
 ):
     _require_admin(auth)
+    _audit_admin_get(session, auth, request)
     row = session.get(User, user_id)
     if not row:
         raise _missing("User")
@@ -146,12 +185,14 @@ def get_admin_user_row(
 
 @router.get("/admin/tokens", summary="List API tokens (admin scope)")
 def list_admin_tokens(
+    request: Request,
     session: Session = Depends(get_session),
     auth: ApiAuth = Depends(get_api_auth),
     limit: int = _PAGE_DEFAULT,
     offset: int = 0,
 ):
     _require_admin(auth)
+    _audit_admin_get(session, auth, request)
     lim, off = _page(limit, offset)
     total = int(session.exec(select(func.count()).select_from(ApiToken)).one() or 0)
     rows = list(
@@ -168,10 +209,12 @@ def list_admin_tokens(
 @router.get("/admin/tokens/{token_id}", summary="One API token (admin scope)")
 def get_admin_token_row(
     token_id: int,
+    request: Request,
     session: Session = Depends(get_session),
     auth: ApiAuth = Depends(get_api_auth),
 ):
     _require_admin(auth)
+    _audit_admin_get(session, auth, request)
     row = session.get(ApiToken, token_id)
     if not row:
         raise _missing("Token")
@@ -180,12 +223,14 @@ def get_admin_token_row(
 
 @router.get("/admin/audit", summary="Audit log (admin scope)")
 def list_admin_audit(
+    request: Request,
     session: Session = Depends(get_session),
     auth: ApiAuth = Depends(get_api_auth),
     limit: int = _PAGE_DEFAULT,
     offset: int = 0,
 ):
     _require_admin(auth)
+    _audit_admin_get(session, auth, request)
     lim, off = _page(limit, offset)
     total = int(session.exec(select(func.count()).select_from(AuditLog)).one() or 0)
     rows = list(
@@ -204,10 +249,12 @@ def list_admin_audit(
 @router.get("/admin/audit/{audit_id}", summary="One audit row (admin scope)")
 def get_admin_audit_row(
     audit_id: int,
+    request: Request,
     session: Session = Depends(get_session),
     auth: ApiAuth = Depends(get_api_auth),
 ):
     _require_admin(auth)
+    _audit_admin_get(session, auth, request)
     row = session.get(AuditLog, audit_id)
     if not row:
         raise _missing("Audit row")

@@ -60,7 +60,7 @@ An OS patch job keeps apt's error output when sudo drops `DEBIAN_FRONTEND`. A ca
 
 An admin can create, edit, and delete a proxy host from the NPM page. The form sets domains, forward scheme, host, and port, enabled, an existing certificate, and force SSL. It does not request a certificate. Each change writes an audit row and leaves out the NPM password. There is no MCP tool. Move still only changes `forward_host`. An operator can still bind a host. An operator cannot create, edit, or delete one.
 
-A token with the `admin` scope can GET users, API tokens, and the audit log at `/api/v1/admin`. The scope is off unless you tick it. `read` does not include it. MCP sign-in cannot receive it. Responses omit the password hash, the TOTP secret, the token secret, the token hash, and the token prefix. These GETs do not write an `api_read` row. There is no write route and no MCP tool.
+A token with the `admin` scope can GET users, API tokens, and the audit log at `/api/v1/admin`. The scope is off unless you tick it. `read` does not include it. MCP sign-in cannot receive it. Responses omit the password hash, the TOTP secret, the token secret, the token hash, and the token prefix. These GETs write an `api_read` row when read audit is on, at most one per token and path every 5 minutes. There is no write route and no MCP tool.
 
 ---
 
