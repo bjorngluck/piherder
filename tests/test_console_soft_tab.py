@@ -67,7 +67,7 @@ def test_consume_ime_echo_exact_and_charwise():
 
 def test_typed_from_screen_line_strips_prompt():
     assert (
-        _node("ime.typedFromScreenLine('piherder@rpi5-4:~/docker$ cd docker/')")
+        _node("ime.typedFromScreenLine('piherder@host-d:~/docker$ cd docker/')")
         == "cd docker/"
     )
     assert _node("ime.typedFromScreenLine('# ls')") == "ls"

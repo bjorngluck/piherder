@@ -14,10 +14,11 @@ Shared helpers: _initial_job_details, _merge_job_details, _flush_job_progress,
 _create_queued_job_with_audit, _finish, job_public_dict.
 """
 from fastapi import BackgroundTasks
+from sqlalchemy import and_, not_
 from sqlmodel import Session, select
 from ...database import engine
 from ...models import Job, AuditLog, Server
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import re
@@ -80,6 +81,7 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "service_migrate_undo",
         "service_migrate_dest_recover",
         "host_facts",
+        "docker_prune",
     }
 )
 
@@ -326,6 +328,7 @@ JOB_TYPE_LABELS = {
     "retention": "Retention",
     "diagnostics": "Diagnostics",
     "herder_backup": "PiHerder backup",
+    "docker_prune": "Docker prune",
     "backup_replicate": "Backup copy",
     "pihole_action": "Pi-hole action",
     "stale_data_cleanup": "Stale data cleanup",
@@ -386,6 +389,7 @@ def _jobs_filter_query(
     active_only: bool = False,
     date_from=None,
     date_to=None,
+    hide_routine: bool = False,
 ):
     q = select(Job)
     if server_id is not None:
@@ -396,6 +400,8 @@ def _jobs_filter_query(
         q = q.where(Job.status == status)
     if job_type:
         q = q.where(Job.job_type == job_type)
+    elif hide_routine:
+        q = q.where(not_(and_(Job.job_type == "host_facts", Job.status == "success")))
     if date_from is not None:
         q = q.where(Job.created_at >= date_from)
     if date_to is not None:
@@ -412,6 +418,7 @@ def list_jobs(
     active_only: bool = False,
     date_from=None,
     date_to=None,
+    hide_routine: bool = False,
     limit: int = 50,
     offset: int = 0,
 ) -> list[Job]:
@@ -423,6 +430,7 @@ def list_jobs(
         active_only=active_only,
         date_from=date_from,
         date_to=date_to,
+        hide_routine=hide_routine,
     )
     lim = max(1, min(int(limit), 100))
     off = max(0, int(offset or 0))
@@ -439,6 +447,7 @@ def count_jobs(
     active_only: bool = False,
     date_from=None,
     date_to=None,
+    hide_routine: bool = False,
 ) -> int:
     from sqlalchemy import func
 
@@ -451,6 +460,8 @@ def count_jobs(
         q = q.where(Job.status == status)
     if job_type:
         q = q.where(Job.job_type == job_type)
+    elif hide_routine:
+        q = q.where(not_(and_(Job.job_type == "host_facts", Job.status == "success")))
     if date_from is not None:
         q = q.where(Job.created_at >= date_from)
     if date_to is not None:
@@ -932,7 +943,16 @@ def create_job_and_run(
             active = get_active_job_for_source(session, server_id, source_filter)
             if active:
                 raise BackupAlreadyRunning(active)
-    elif job_type in _EXCLUSIVE_JOB_TYPES and server_id is not None:
+    prune_kind = None
+    if job_type == "docker_prune":
+        from ..input_validation import PRUNE_TYPES
+
+        prune_kind = (source_filter or "both").strip().lower() or "both"
+        if prune_kind not in PRUNE_TYPES:
+            raise ValueError(
+                "prune_type must be images, containers, both, networks, or volumes"
+            )
+    if job_type in _EXCLUSIVE_JOB_TYPES and server_id is not None:
         active = _active_job_of_type(session, server_id, job_type)
         if active:
             logger.info(
@@ -969,8 +989,11 @@ def create_job_and_run(
             "container_stop": f"Stop {(service or '').strip() or 'container'} queued…",
             "container_restart": f"Restart {(service or '').strip() or 'container'} queued…",
             "container_redeploy": f"Update {(service or '').strip() or 'container'} queued…",
+            "docker_prune": f"Docker prune ({prune_kind or 'both'}) queued…",
         }
         detail_extra = dict(actor_extra)
+        if prune_kind:
+            detail_extra["prune_type"] = prune_kind
         if job_type in _CONTAINER_SERVICE_JOB_TYPES:
             detail_extra["source_filter"] = (source_filter or "").strip()
             detail_extra["service"] = (service or "").strip()
@@ -1047,6 +1070,8 @@ def create_job_and_run(
         start_details = f"Job #{job.id} started"
         if job_type == "os_patch" and os_steps:
             start_details = f"Job #{job.id} started · {','.join(os_steps)}"
+        elif job_type == "docker_prune" and prune_kind:
+            start_details = f"Job #{job.id} started · {prune_kind}"
         audit = make_audit_log(
             user_id=user_id,
             server_id=server_id,
@@ -1128,6 +1153,20 @@ def create_job_and_run(
             background_tasks=background_tasks,
             bg_fn=_run_host_facts_job,
             bg_args=(job.id, server.id, audit.id),
+        )
+    elif job_type == "docker_prune":
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            payload={"prune_type": prune_kind or "both"},
+            background_tasks=background_tasks,
+            bg_fn=_run_docker_prune_job,
+            bg_args=(job.id, server.id, audit.id, prune_kind or "both"),
+            pool=_update_check_pool,
+            sync_fn=_execute_docker_prune,
+            sync_args=(job.id, server.id, audit.id, prune_kind or "both"),
         )
     elif job_type == "container_update_check":
         handoff_exclusive(
@@ -1756,8 +1795,18 @@ def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str
                     )
                 elif status == "success":
                     resolve_backup_failed(s, server_id)
+                    from ..schedule_watch import resolve_backup_schedule_missed
+
+                    resolve_backup_schedule_missed(s, server_id)
             except Exception as e:
                 logger.debug(f"backup notification: {e}")
+        if jt == "container_update_check" and server_id and status == "success":
+            try:
+                from ..schedule_watch import resolve_container_check_missed
+
+                resolve_container_check_missed(s, server_id)
+            except Exception as e:
+                logger.debug(f"container check schedule notification: {e}")
         if jt == "host_facts" and status in ("failed", "cancelled"):
             _release_host_facts_refresh(s, server_id)
             s.commit()
@@ -2086,9 +2135,68 @@ async def _run_retention_job(job_id: int, server_id: int, audit_id: int):
 HERDER_BACKUP_PENDING_SEC = 30 * 60
 
 
+def _latest_herder_archive_at() -> datetime | None:
+    """Newest archive on disk. A purged job row does not erase that success."""
+    try:
+        rows = herder_backup.list_backups()
+    except Exception:
+        return None
+    if not rows:
+        return None
+    from ..app_settings import parse_utc_datetime
+
+    return parse_utc_datetime(rows[0].get("mtime"))
+
+
+def _utc_naive(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
+def last_successful_herder_backup_at(session: Session) -> datetime | None:
+    """Last finished self-backup, or the newest archive when the job row is gone."""
+    when: datetime | None = None
+    try:
+        row = session.exec(
+            select(Job)
+            .where(Job.job_type == "herder_backup")
+            .where(Job.status == "success")
+            .order_by(Job.finished_at.desc())
+        ).first()
+    except Exception:
+        row = None
+    if row is not None:
+        when = _utc_naive(row.finished_at or row.started_at)
+    archive_at = _utc_naive(_latest_herder_archive_at())
+    candidates = [item for item in (when, archive_at) if item is not None]
+    return max(candidates) if candidates else None
+
+
+def herder_backup_failure_body(session: Session, message: str) -> str:
+    """Failure text plus the last success, or never. The time is not truncated away."""
+    when = last_successful_herder_backup_at(session)
+    if when is None:
+        last = "never"
+    else:
+        from ..app_settings import format_datetime_in_app_tz
+
+        last = format_datetime_in_app_tz(when) or "never"
+        if last == "Never":
+            last = "never"
+    suffix = f" Last successful self-backup: {last}."
+    detail = (message or "PiHerder self-backup failed").strip() or "PiHerder self-backup failed"
+    room = 300 - len(suffix)
+    if room < 1:
+        return suffix.strip()[:300]
+    return detail[:room].rstrip() + suffix
+
+
 def _notify_herder_backup_failed(message: str, *, link_url: str = "/herder-backups") -> None:
     try:
-        from .notifications import upsert_notification
+        from ..notifications import upsert_notification
 
         with _get_fresh_session() as s:
             upsert_notification(
@@ -2096,7 +2204,7 @@ def _notify_herder_backup_failed(message: str, *, link_url: str = "/herder-backu
                 fingerprint="herder_backup_failed",
                 type="herder_backup_failed",
                 title="PiHerder self-backup failed",
-                body=(message or "PiHerder self-backup failed")[:300],
+                body=herder_backup_failure_body(s, message),
                 link_url=link_url or "/herder-backups",
                 severity="critical",
             )
@@ -2121,7 +2229,7 @@ def _enqueue_herder_archive_copies(archive_path) -> None:
 
 def _resolve_herder_backup_failed() -> None:
     try:
-        from .notifications import resolve_by_fingerprint
+        from ..notifications import resolve_by_fingerprint
 
         with _get_fresh_session() as s:
             resolve_by_fingerprint(s, "herder_backup_failed")
@@ -2841,6 +2949,57 @@ def _execute_host_reboot(job_id: int, server_id: int, audit_id: int) -> None:
 
 async def _run_host_reboot_job(job_id: int, server_id: int, audit_id: int):
     await run_in_threadpool(_execute_host_reboot, job_id, server_id, audit_id)
+
+
+def _execute_docker_prune(
+    job_id: int, server_id: int, audit_id: int, prune_type: str = ""
+) -> None:
+    from ..docker_management import prune_unused
+
+    kind = (prune_type or "both").strip().lower() or "both"
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        server = session.get(Server, server_id)
+        if job and job.details:
+            try:
+                saved = json.loads(job.details or "{}")
+                if isinstance(saved, dict) and saved.get("prune_type"):
+                    kind = str(saved["prune_type"]).strip().lower() or kind
+            except Exception:
+                pass
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="pruning",
+                prune_type=kind,
+                log_lines=[f"Docker prune ({kind}) started…"],
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+        if not server:
+            _finish(audit_id, job_id, "failed", "Server not found", "", "docker_prune")
+            return
+        hostname = server.hostname or ""
+        try:
+            res = prune_unused(server, prune_type=kind)
+        except Exception as exc:
+            _finish(audit_id, job_id, "failed", f"{kind}: {exc}", hostname, "docker_prune")
+            return
+        output = str(res.get("output") or "").strip() or "Nothing to prune."
+        message = f"{kind}: {output}"
+        status = "success" if res.get("success") else "failed"
+        _finish(audit_id, job_id, status, message, hostname, "docker_prune")
+
+
+async def _run_docker_prune_job(
+    job_id: int, server_id: int, audit_id: int, prune_type: str = "both"
+):
+    await run_in_threadpool(
+        _execute_docker_prune, job_id, server_id, audit_id, prune_type
+    )
 
 
 def _execute_container_update_check(job_id: int, server_id: int, audit_id: int) -> None:

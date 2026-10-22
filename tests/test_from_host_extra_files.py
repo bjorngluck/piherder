@@ -68,24 +68,24 @@ def test_parameterize_host_literals_node_and_remote_url():
 server:
   http_listen_port: 9080
 clients:
-  - url: http://rpi5-2.example.com:3100/loki/api/v1/push
+  - url: http://host-b.example.com:3100/loki/api/v1/push
 scrape_configs:
-  - job_name: system-rpi5-1
+  - job_name: system-host-a
     static_configs:
       - labels:
-          host: rpi5-1
+          host: host-a
 """
     out, vars_, msgs = parameterize_host_literals(
-        body, node_name="rpi5-1", host_fqdn="rpi5-1.example.com"
+        body, node_name="host-a", host_fqdn="host-a.example.com"
     )
     assert "{{NODE_NAME}}" in out
-    assert "rpi5-1" not in out.replace("{{NODE_NAME}}", "")
+    assert "host-a" not in out.replace("{{NODE_NAME}}", "")
     assert "system-{{NODE_NAME}}" in out
     assert "host: {{NODE_NAME}}" in out
     assert any(v["name"] == "NODE_NAME" for v in vars_)
     assert any(v["name"] == "LOKI_URL" for v in vars_)
     assert "{{LOKI_URL}}" in out
-    assert "rpi5-2.example.com" not in out
+    assert "host-b.example.com" not in out
 
 
 def test_build_variables_includes_extra_files():
@@ -99,12 +99,12 @@ services:
 """
     promtail = """
 clients:
-  - url: http://rpi5-2.example.com:3100/loki/api/v1/push
+  - url: http://host-b.example.com:3100/loki/api/v1/push
 scrape_configs:
-  - job_name: system-rpi5-1
+  - job_name: system-host-a
     static_configs:
       - labels:
-          host: rpi5-1
+          host: host-a
 """
     new_c, variables, msgs, extra = build_variables_for_host_project(
         compose,
@@ -112,14 +112,14 @@ scrape_configs:
         project_name_default="grafana-monitoring",
         parameterize=True,
         extra_file_texts={"promtail-config.yaml": promtail},
-        node_name="rpi5-1",
-        host_fqdn="rpi5-1.example.com",
+        node_name="host-a",
+        host_fqdn="host-a.example.com",
     )
     assert "promtail-config.yaml" in extra
     assert "{{NODE_NAME}}" in extra["promtail-config.yaml"]
     by = {v["name"]: v for v in variables}
     assert "NODE_NAME" in by
-    assert by["NODE_NAME"]["default"] == "rpi5-1"
+    assert by["NODE_NAME"]["default"] == "host-a"
     assert "LOKI_URL" in by
 
 
@@ -144,7 +144,7 @@ def test_extra_files_round_trip_render():
         variables_json=(
             "["
             '{"name":"PROJECT_NAME","label":"Project","type":"string","default":"grafana-monitoring","required":true},'
-            '{"name":"NODE_NAME","label":"Node","type":"string","default":"rpi5-1","required":true},'
+            '{"name":"NODE_NAME","label":"Node","type":"string","default":"host-a","required":true},'
             '{"name":"LOKI_URL","label":"Loki","type":"url","default":"http://loki:3100/loki/api/v1/push","required":true}'
             "]"
         ),
@@ -161,12 +161,12 @@ def test_extra_files_round_trip_render():
         definition,
         {
             "PROJECT_NAME": "grafana-monitoring",
-            "NODE_NAME": "rpi5-3",
+            "NODE_NAME": "host-b",
             "LOKI_URL": "http://central:3100/loki/api/v1/push",
         },
     )
     files = render_template_files(definition, values)
-    assert "host: rpi5-3" in files["promtail-config.yaml"]
-    assert "system-rpi5-3" in files["promtail-config.yaml"]
+    assert "host: host-b" in files["promtail-config.yaml"]
+    assert "system-host-b" in files["promtail-config.yaml"]
     assert "http://central:3100/loki/api/v1/push" in files["promtail-config.yaml"]
     assert "./promtail-config.yaml:/etc/promtail/config.yml" in files["docker-compose.yml"]

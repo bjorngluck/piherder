@@ -224,7 +224,7 @@ def chown_remote_tree(
     """Make dest project files owned like dest docker root (not root / fleet SSH).
 
     Herder ``sudo rsync --numeric-ids`` lands ``root:root``. Dest SSH user is often
-    ``piherder`` while ``/home/user/docker`` is ``bjorn`` — use the docker-root
+    ``piherder`` while ``/home/user/docker`` is ``user``. Use the docker-root
     owner, else ``/home/<user>``.
     Named Docker volume mountpoints are not passed here.
     """

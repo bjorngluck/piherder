@@ -87,6 +87,8 @@
         Writes per-server check schedules and turns on the feature flags so the Servers list shows them as on.
         With Backups ticked, backups are turned on. The backup time is not written onto the host.
         A host with no saved schedule uses the fleet time. A saved schedule is left alone. This does not start a backup.
+        Turning container image checks off and applying clears each host's container check schedule.
+        A schedule that is still saved keeps running while this fleet check is on.
         Per-server cards still allow overrides.
       </p>
       <button type="submit" class="btn btn-accent min-h-11 text-sm">Save &amp; apply update checks</button>

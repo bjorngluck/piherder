@@ -122,6 +122,9 @@ def parse_oauth_scopes(raw: str | None) -> list[str]:
     out: list[str] = []
     for part in text.split():
         name = part.strip().lower()
+        # admin is a capability, but MCP consent never grants it.
+        if name == tok.SCOPE_ADMIN:
+            continue
         if name in tok.CAPABILITY_SCOPES and name not in out:
             out.append(name)
     if tok.SCOPE_READ not in out:
@@ -342,6 +345,14 @@ def _issue_grant(
         )
     )
     session.commit()
+    from .admin_alerts import notify_api_token_created
+
+    notify_api_token_created(
+        session,
+        actor=user,
+        token_id=int(api.id),
+        name=api.name,
+    )
     return _token_body(plain, refresh, scopes)
 
 

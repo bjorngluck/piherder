@@ -1,10 +1,13 @@
 """Git-rich onboard: parse a host report and refuse a bad remote or ref."""
 import os
 import subprocess
+from pathlib import Path
 
 from app.services.git_project import (
     GitProjectError,
+    _attach_script,
     _inspect_script,
+    _update_script,
     parse_git_report,
     redact_git_url,
     update_project,
@@ -79,8 +82,8 @@ def test_display_hides_a_token_in_an_existing_remote():
 
 def test_inspect_script_trusts_only_the_project_folder():
     script = _inspect_script("/tmp/proj")
-    assert "safe.directory='*'" not in script
-    assert "safe.directory=/tmp/proj" in script
+    assert "safe.directory" not in script
+    assert "result=unowned" in script
     assert "core.hooksPath=/dev/null" in script
     assert "core.sshCommand=ssh" in script
     assert "^{{commit}}" not in script
@@ -147,6 +150,31 @@ def test_inspect_script_marks_a_newer_tag(tmp_path):
     dash = subprocess.run(["sh", "-c", script], capture_output=True, text=True, env=env)
     assert dash.returncode == 0, dash.stderr
     assert parse_git_report(dash.stdout)["default_branch"] == "main"
+
+
+def test_unowned_checkout_is_refused(tmp_path):
+    repo = tmp_path / "proj"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    (bindir / "id").write_text("#!/bin/sh\necho 1000\n")
+    (bindir / "stat").write_text("#!/bin/sh\necho 999\n")
+    os.chmod(bindir / "id", 0o755)
+    os.chmod(bindir / "stat", 0o755)
+    env = {**os.environ, "PATH": f"{bindir}:{os.environ['PATH']}"}
+    scripts = [
+        _inspect_script(str(repo)),
+        _attach_script(str(repo), "https://github.com/acme/app.git"),
+        _update_script(str(repo), "branch", "main", "stop"),
+    ]
+    for script in scripts:
+        assert "safe.directory" not in script
+        proc = subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=env)
+        assert proc.returncode == 0, proc.stderr
+        assert parse_git_report(proc.stdout)["result"] == "unowned"
+    template = Path(__file__).resolve().parents[1] / "app/templates/docker_repository.html"
+    assert "not owned by the SSH user" in template.read_text()
 
 
 def test_update_requires_a_branch_or_tag():

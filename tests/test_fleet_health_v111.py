@@ -124,14 +124,21 @@ def test_nothing_to_send_is_not_a_copy_error(monkeypatch):
 
 
 def test_copy_auth_failure_opens_one_alert(monkeypatch):
-    monkeypatch.setattr("app.services.alert_policy.raw_policy", lambda: {})
+    monkeypatch.setattr(
+        "app.services.alert_policy.raw_policy",
+        lambda: {"categories": {"backup": {"enabled": True, "severity": "info"}}},
+    )
     engine = _engine()
     with Session(engine) as session:
         dest = BackupDestination(provider="drive", name="Drive", enabled=True)
         session.add(dest)
         session.commit()
         session.refresh(dest)
-        copies.note_copy_auth_failure(session, dest, "rclone: invalid_grant")
+        raw = (
+            "rclone: invalid_grant token=ya29.example "
+            '{"error":"invalid_grant"} [remote]\npass = hidden'
+        )
+        copies.note_copy_auth_failure(session, dest, raw)
         copies.note_copy_auth_failure(session, dest, "invalid_grant again")
         from sqlmodel import select
         from app.models import Notification
@@ -140,11 +147,34 @@ def test_copy_auth_failure_opens_one_alert(monkeypatch):
         assert len(rows) == 1
         assert rows[0].type == "backup_destination_auth_failed"
         assert rows[0].severity == "critical"
-        assert "Connect again" in rows[0].title
+        assert rows[0].title == "Reconnect Google Drive"
+        assert rows[0].body == (
+            "Reconnect Google Drive. The saved sign-in was rejected. (invalid_grant)"
+        )
+        assert "ya29" not in (rows[0].body or "")
+        assert "pass = " not in (rows[0].body or "")
         copies.resolve_copy_auth_failure(session, dest.id)
         session.refresh(rows[0])
         assert rows[0].status == "resolved"
         assert copies.copy_auth_failure("disk full") is False
+
+        smb = BackupDestination(provider="smb", name="Share", enabled=True)
+        session.add(smb)
+        session.commit()
+        session.refresh(smb)
+        copies.note_copy_auth_failure(
+            session,
+            smb,
+            "NT_STATUS_LOGON_FAILURE password=secret-value",
+        )
+        share = session.exec(
+            select(Notification).where(Notification.status == "open")
+        ).one()
+        assert share.severity == "critical"
+        assert share.title == "LAN NAS / SMB rejected the sign-in"
+        assert "NT_STATUS_LOGON_FAILURE" in (share.body or "")
+        assert "Reconnect" not in share.title
+        assert "secret-value" not in (share.body or "")
 
 
 def test_stale_backup_opens_and_resolves():

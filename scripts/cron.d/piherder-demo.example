@@ -2,26 +2,26 @@
 # This file is not installed by the app — copy it yourself after editing paths.
 #
 #   sudo mkdir -p /var/log/piherder-demo
-#   sudo chown bjorn:bjorn /var/log/piherder-demo
+#   sudo chown user:user /var/log/piherder-demo
 #   # edit user + REPO path in the lines below, then:
 #   sudo cp scripts/cron.d/piherder-demo.example /etc/cron.d/piherder-demo
 #   sudo chmod 644 /etc/cron.d/piherder-demo
 #
 # Prefer the deploy user who owns the git tree and is in the docker group.
-# Root is needed for DOCKER-USER (Turnstile siteverify on a locked Nomad node).
+# Root is needed for DOCKER-USER (Turnstile siteverify on a locked demo node).
 # cron.d requires a username field; paths must be absolute (no $VAR expansion).
 
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 MAILTO=""
 
-# After reboot: log dir must be writable by bjorn (else 6h/daily redirects fail
+# After reboot: log dir must be writable by user (else 6h/daily redirects fail
 # and the seed never runs). Then restore DOCKER-USER for Turnstile.
 # Set WAN / COMPOSE_NET / ADMIN_IP (`docker network inspect piherder_default`).
-@reboot root mkdir -p /var/log/piherder-demo; chown bjorn:bjorn /var/log/piherder-demo; sleep 20; WAN=eth0 COMPOSE_NET=172.18.0.0/16 ADMIN_IP= /home/user/docker/piherder/scripts/demo-docker-user.sh >>/var/log/piherder-demo/docker-user.log 2>&1
+@reboot root mkdir -p /var/log/piherder-demo; chown user:user /var/log/piherder-demo; sleep 20; WAN=eth0 COMPOSE_NET=172.18.0.0/16 ADMIN_IP= /home/user/docker/piherder/scripts/demo-docker-user.sh >>/var/log/piherder-demo/docker-user.log 2>&1
 
 # 00:00 / 06:00 / 12:00 / 18:00 UTC — force re-seed (no volume wipe)
-0 */6 * * * bjorn cd /home/user/docker/piherder && ./scripts/demo-maintain.sh data-reset >>/var/log/piherder-demo/data-reset.log 2>&1 || ./scripts/demo-maintain.sh data-reset >>/tmp/piherder-demo-data-reset.log 2>&1
+0 */6 * * * user cd /home/user/docker/piherder && ./scripts/demo-maintain.sh data-reset >>/var/log/piherder-demo/data-reset.log 2>&1 || ./scripts/demo-maintain.sh data-reset >>/tmp/piherder-demo-data-reset.log 2>&1
 
-# Daily 05:15 UTC: clean redeploy + re-apply DOCKER-USER (bjorn needs passwordless sudo)
-15 5 * * * bjorn cd /home/user/docker/piherder && DEMO_REAPPLY_FW=1 ./scripts/demo-maintain.sh redeploy >>/var/log/piherder-demo/redeploy.log 2>&1 || DEMO_REAPPLY_FW=1 ./scripts/demo-maintain.sh redeploy >>/tmp/piherder-demo-redeploy.log 2>&1
+# Daily 05:15 UTC: clean redeploy + re-apply DOCKER-USER (user needs passwordless sudo)
+15 5 * * * user cd /home/user/docker/piherder && DEMO_REAPPLY_FW=1 ./scripts/demo-maintain.sh redeploy >>/var/log/piherder-demo/redeploy.log 2>&1 || DEMO_REAPPLY_FW=1 ./scripts/demo-maintain.sh redeploy >>/tmp/piherder-demo-redeploy.log 2>&1

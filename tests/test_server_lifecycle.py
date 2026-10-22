@@ -50,22 +50,22 @@ def test_cleanup_script_refuses_root_username_fallback():
 def test_delete_requires_exact_name():
     server = SimpleNamespace(
         id=1,
-        name="RPI5-2",
-        hostname="rpi5-2.example",
+        name="host-b",
+        hostname="host-b.example",
         ssh_username="piherder",
         ssh_port=22,
     )
     session = MagicMock()
     with pytest.raises(ServerDeleteError) as ei:
-        delete_server_from_fleet(session, server, confirm_name="rpi5-2", user_id=1)
+        delete_server_from_fleet(session, server, confirm_name="not-host-b", user_id=1)
     assert ei.value.code == "confirm_name"
 
 
 def test_delete_server_from_fleet_happy_path():
     server = SimpleNamespace(
         id=42,
-        name="RPI5-2",
-        hostname="rpi5-2.example",
+        name="host-b",
+        hostname="host-b.example",
         ssh_username="piherder",
         ssh_port=22,
     )
@@ -81,11 +81,11 @@ def test_delete_server_from_fleet_happy_path():
         patch("app.services.server_lifecycle._unregister_schedules") as unreg,
     ):
         snap = delete_server_from_fleet(
-            session, server, confirm_name="RPI5-2", user_id=9
+            session, server, confirm_name="host-b", user_id=9
         )
 
     assert snap["former_server_id"] == 42
-    assert snap["name"] == "RPI5-2"
+    assert snap["name"] == "host-b"
     assert snap["host_left_intact"] is True
     assert snap["jobs_cancelled"] == 1
     unreg.assert_called_once_with(42)

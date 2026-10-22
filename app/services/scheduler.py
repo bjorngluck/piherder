@@ -102,6 +102,53 @@ def schedule_os_check_job(server_id: int):
         logger.warning(f"[SCHEDULER] Error OS check for {server_id}: {e}")
 
 
+def _container_checks_globally_enabled() -> bool:
+    """Fleet switch for container image checks. Missing settings stay on."""
+    try:
+        from .update_check_config import load_update_check_settings
+
+        return bool(load_update_check_settings().get("container_check_global_enabled", True))
+    except Exception:
+        logger.warning("[SCHEDULER] Container check fleet switch unavailable")
+        return True
+
+
+def container_check_should_run(server, *, global_enabled: bool | None = None) -> bool:
+    """Whether this host should have a container check cron job.
+
+    A saved schedule still runs when the fleet container check is on, even if
+    the per-host flag is off. Apply used to clear that flag and leave the cron.
+    The scheduler then removed the job, so the nightly check never started.
+    """
+    if not server:
+        return False
+    schedule = (getattr(server, "container_check_schedule", None) or "").strip()
+    if not schedule:
+        return False
+    if getattr(server, "container_check_enabled", False):
+        return True
+    if global_enabled is None:
+        global_enabled = _container_checks_globally_enabled()
+    return bool(global_enabled)
+
+
+def _restore_container_check_flag(server) -> None:
+    """Turn the per-host flag back on so the host page matches the cron job."""
+    if getattr(server, "container_check_enabled", False):
+        return
+    server.container_check_enabled = True
+    try:
+        from sqlalchemy.orm import object_session
+
+        sess = object_session(server)
+    except Exception:
+        sess = None
+    if sess is None:
+        return
+    sess.add(server)
+    sess.commit()
+
+
 def schedule_container_check_job(server_id: int):
     """Enqueue check-only container image scan (queued worker pool, non-blocking)."""
     try:
@@ -111,8 +158,10 @@ def schedule_container_check_job(server_id: int):
 
         with Session(engine) as db:
             server = db.get(Server, server_id)
-            if not server or not server.container_check_enabled:
+            if not container_check_should_run(server):
                 return
+            if not server.container_check_enabled:
+                _restore_container_check_flag(server)
             enqueue_container_update_check(server.id)
             logger.info(f"[SCHEDULER] Queued container update check for server {server_id}")
     except Exception as e:
@@ -281,10 +330,14 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
         except Exception as e:
             logger.warning(f"[SCHEDULER] OS check schedule failed for {sid}: {e}")
 
-    # Container update check
+    # Container update check. A saved cron still registers while the fleet
+    # switch is on. The per-host flag alone used to drop the job after Apply
+    # cleared it and left the cron in place.
     cid = f"container_check_{sid}"
     _remove_job(scheduler, cid)
-    if server.container_check_enabled and server.container_check_schedule:
+    if container_check_should_run(server):
+        if not server.container_check_enabled:
+            _restore_container_check_flag(server)
         try:
             trigger = _cron_trigger(server.container_check_schedule, timezone=tz)
             scheduler.add_job(
@@ -436,6 +489,12 @@ def sync_backup_copy_schedule(scheduler, HAS_SCHEDULER):
                     replace_existing=True,
                     name=f"Backup copy {dest.name}",
                 )
+            try:
+                from .copy_schedule_order import sync_copy_order_alerts
+
+                sync_copy_order_alerts(db)
+            except Exception:
+                logger.exception("[SCHEDULER] Copy order check failed")
     except Exception as e:
         logger.warning("[SCHEDULER] Drive copy schedule sync failed: %s", e)
 
@@ -696,6 +755,7 @@ def sync_template_drift_schedule(scheduler, HAS_SCHEDULER):
             replace_existing=True,
             max_instances=1,
             coalesce=True,
+            name="Template drift check",
         )
         logger.info(
             "[SCHEDULER] template drift every %sh id=%s",
@@ -839,6 +899,54 @@ def watch_pending_herder_backups():
         logger.exception("[SCHEDULER] Pending self-backup watch failed")
 
 
+def watch_missed_schedules():
+    """Open a warning when a host backup or container check missed its slot."""
+    from ..database import engine
+    from .schedule_watch import sync_missed_schedule_alerts
+
+    try:
+        with Session(engine) as session:
+            opened = sync_missed_schedule_alerts(session)
+            try:
+                from .copy_schedule_order import sync_copy_order_alerts
+
+                sync_copy_order_alerts(session)
+            except Exception:
+                logger.exception("[SCHEDULER] Copy order check failed")
+        if opened:
+            logger.warning("[SCHEDULER] Missed schedule warnings open: %s", opened)
+    except Exception:
+        logger.exception("[SCHEDULER] Missed schedule watch failed")
+
+
+def sync_missed_schedule_watch(scheduler, HAS_SCHEDULER):
+    """Check every few minutes, including while those crons are off."""
+    if not HAS_SCHEDULER or not scheduler:
+        return
+    from .schedule_watch import MISSED_RUN_WATCH_MINUTES, MISSED_SCHEDULE_WATCH_JOB_ID
+
+    try:
+        scheduler.remove_job(MISSED_SCHEDULE_WATCH_JOB_ID)
+    except Exception:
+        pass
+    try:
+        from apscheduler.triggers.interval import IntervalTrigger
+
+        scheduler.add_job(
+            func=watch_missed_schedules,
+            trigger=IntervalTrigger(minutes=MISSED_RUN_WATCH_MINUTES),
+            id=MISSED_SCHEDULE_WATCH_JOB_ID,
+            replace_existing=True,
+            name="Missed schedule watch",
+        )
+        logger.info(
+            "[SCHEDULER] Missed schedule watch every %sm",
+            MISSED_RUN_WATCH_MINUTES,
+        )
+    except Exception as e:
+        logger.warning("[SCHEDULER] Could not register missed schedule watch: %s", e)
+
+
 def sync_herder_backup_pending_watch(scheduler, HAS_SCHEDULER):
     """Check every few minutes. Runs even when the self-backup cron is off."""
     if not HAS_SCHEDULER or not scheduler:
@@ -898,17 +1006,8 @@ def schedule_herder_backup_job():
     except Exception as e:
         logger.error(f"[SCHEDULER] PiHerder self-backup error: {e}")
         try:
-            from .notifications import upsert_notification
+            from . import jobs as js
 
-            with Session(engine) as s:
-                upsert_notification(
-                    s,
-                    fingerprint="herder_backup_failed",
-                    type="herder_backup_failed",
-                    title="PiHerder self-backup failed",
-                    body=str(e)[:300],
-                    link_url="/herder-backups",
-                    severity="critical",
-                )
+            js._notify_herder_backup_failed(str(e))
         except Exception:
             pass

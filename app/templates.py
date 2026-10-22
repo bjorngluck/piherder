@@ -17,6 +17,9 @@ templates.env.auto_reload = True
 # Make timezone selection from Settings apply globally in all templates
 templates.env.globals["get_app_timezone"] = get_app_timezone
 templates.env.globals["utc_isoformat"] = utc_isoformat
+from .services.host_facts import os_support_warning as _os_support_warning
+
+templates.env.globals["os_support_warning"] = _os_support_warning
 
 
 def ph_brand(extra_class: str = "") -> Markup:

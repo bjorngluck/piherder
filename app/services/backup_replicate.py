@@ -251,6 +251,30 @@ def sync_plan(
     return plan
 
 
+def rclone_pull_cmd(
+    config_path: str,
+    local_dir: str,
+    remote_path: str,
+    *,
+    dry_run: bool = False,
+) -> list[str]:
+    """Sync one remote folder down onto this PiHerder. Does not delete on the remote."""
+    cmd = [
+        "rclone",
+        "sync",
+        f"{_REMOTE_NAME}:{remote_path}",
+        local_dir,
+        "--config",
+        config_path,
+        "--stats-one-line",
+        "--stats",
+        "0",
+    ]
+    if dry_run:
+        cmd.append("--dry-run")
+    return cmd
+
+
 def rclone_sync_cmd(
     config_path: str,
     local_dir: str,
@@ -1228,10 +1252,32 @@ def _run_rclone(cmd: list[str], secret: str = "") -> tuple[int, str]:
 
 _COPY_AUTH_MARKERS = (
     "invalid_grant",
+    "invalid_client",
+    "unauthorized_client",
     "rclone config reconnect",
     "did not return the default drive",
-    "invalid_client",
     "token has been expired or revoked",
+    "invalid username or password",
+    "nt_status_logon_failure",
+    "nt_status_wrong_password",
+    "nt_status_account_locked_out",
+    "nt_status_account_disabled",
+    "nt_status_no_such_user",
+)
+
+_OAUTH_CODES = (
+    "invalid_grant",
+    "invalid_client",
+    "unauthorized_client",
+    "access_denied",
+)
+
+_SMB_CODES = (
+    "NT_STATUS_LOGON_FAILURE",
+    "NT_STATUS_WRONG_PASSWORD",
+    "NT_STATUS_ACCOUNT_LOCKED_OUT",
+    "NT_STATUS_ACCOUNT_DISABLED",
+    "NT_STATUS_NO_SUCH_USER",
 )
 
 
@@ -1240,21 +1286,53 @@ def copy_auth_failure(message: str) -> bool:
     return any(marker in text for marker in _COPY_AUTH_MARKERS)
 
 
+def auth_error_code(message: str) -> str | None:
+    """A short provider code. Never the token, the rclone config, or the body."""
+    text = (message or "").lower()
+    for code in _OAUTH_CODES:
+        if code in text:
+            return code
+    for code in _SMB_CODES:
+        if code.lower() in text:
+            return code
+    if "token has been expired or revoked" in text or "rclone config reconnect" in text:
+        return "invalid_grant"
+    if "invalid username or password" in text:
+        return "NT_STATUS_LOGON_FAILURE"
+    return None
+
+
+def public_auth_failure(provider: str, message: str) -> tuple[str, str]:
+    """Title and one log line. Drive and OneDrive say reconnect."""
+    kind = (provider or "").strip().lower()
+    name = destination_name(kind)
+    code = auth_error_code(message)
+    if kind in ("drive", "onedrive"):
+        title = f"Reconnect {name}"
+        body = f"Reconnect {name}. The saved sign-in was rejected."
+    else:
+        title = f"{name} rejected the sign-in"
+        body = f"{name} rejected the saved sign-in."
+    if code:
+        body = f"{body} ({code})"
+    return title, body
+
+
 def note_copy_auth_failure(session: Session, destination: BackupDestination, message: str) -> None:
-    """One open alert per destination when the account rejected the token."""
+    """One open alert per destination when the account rejected the sign-in."""
     if destination is None or not getattr(destination, "id", None):
         return
     if not copy_auth_failure(message):
         return
     from .notifications import upsert_notification
 
-    name = destination_name(destination.provider)
+    title, body = public_auth_failure(destination.provider, message)
     upsert_notification(
         session,
         fingerprint=f"backup_destination_auth_failed:{int(destination.id)}",
         type="backup_destination_auth_failed",
-        title=f"{name} needs Connect again",
-        body=(message or "The destination rejected the sign-in.")[:300],
+        title=title,
+        body=body,
         link_url="/herder-backups?tab=backup",
         severity="critical",
         payload={"destination_id": int(destination.id), "provider": destination.provider},
@@ -1466,6 +1544,80 @@ def herder_archive_remote(destination: BackupDestination, filename: str) -> str:
     return f"{_remote_dir(destination)}/{sub}"
 
 
+def remote_root_for(destination: BackupDestination) -> str:
+    """Folder prefix on Drive, OneDrive, or the LAN share."""
+    if (destination.provider or "").strip().lower() == "smb":
+        return smb_remote_root(destination)
+    return _remote_dir(destination)
+
+
+def pull_rel(
+    destination: BackupDestination,
+    rel: str,
+    *,
+    dry_run: bool = True,
+    local_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Copy one backup-drive folder from the destination onto this PiHerder.
+
+    A dry run does not write the folder. The sign-in stays out of the result.
+    """
+    from .demo import demo_mode
+
+    cleaned = (rel or "").strip().strip("/")
+    if not cleaned or ".." in cleaned.split("/"):
+        return {"ok": False, "error": "That folder is not on the backup drive"}
+    if demo_mode():
+        return {"ok": False, "error": "Demo does not download"}
+    if (destination.provider or "").strip().lower() not in _SELECTABLE:
+        return {"ok": False, "error": f"Provider {destination.provider} is not built"}
+    checked, skipped = parse_selection(destination.selection_json)
+    if not path_included(cleaned, checked, skipped):
+        return {"ok": False, "error": "That folder is not selected for this copy"}
+    if local_dir is not None:
+        local_path = Path(local_dir)
+    else:
+        try:
+            local_path = resolve_under_root(cleaned)
+        except ValueError:
+            return {"ok": False, "error": "That folder is not on the backup drive"}
+    config_path = ""
+    secret = ""
+    refresh = ""
+    try:
+        config_path, secret, refresh, _use_trash = _open_destination_rclone(destination)
+        if not dry_run:
+            local_path.mkdir(parents=True, exist_ok=True)
+        cmd = rclone_pull_cmd(
+            config_path,
+            str(local_path),
+            f"{remote_root_for(destination)}/{cleaned}",
+            dry_run=dry_run,
+        )
+        rc, err = _run_rclone(cmd, secret)
+        err = scrub_job_text(_redact(err, refresh))
+        if (destination.provider or "").strip().lower() == "smb":
+            err = scrub_job_text(_redact(err, _config_pass(config_path)))
+        if rc != 0:
+            text = err or "rclone failed"
+            return {
+                "ok": False,
+                "error": text[:500],
+                "auth_failed": copy_auth_failure(text),
+            }
+        return {"ok": True, "rel": cleaned, "dry_run": dry_run, "place": destination_place(destination)}
+    except Exception as exc:
+        cleaned_err = scrub_job_text(_redact(_redact(str(exc)[:500], secret), refresh))
+        return {
+            "ok": False,
+            "error": cleaned_err,
+            "auth_failed": copy_auth_failure(cleaned_err),
+        }
+    finally:
+        if config_path:
+            discard_rclone_config(config_path)
+
+
 def _open_destination_rclone(destination: BackupDestination) -> tuple[str, str, str, bool]:
     """Temp rclone config plus secrets to redact. Caller deletes the config.
 
@@ -1634,12 +1786,29 @@ def get_or_create(session: Session, provider: str = "drive") -> BackupDestinatio
     return row
 
 
+def _replicate_details(job: Job) -> dict:
+    try:
+        data = json.loads(job.details or "{}")
+    except Exception:
+        data = {}
+    return data if isinstance(data, dict) else {}
+
+
+def _is_folder_hop(job: Job) -> bool:
+    """A herder-folder copy. A direct host push and a self-backup archive are not."""
+    data = _replicate_details(job)
+    if str(data.get("herder_archive") or "").strip():
+        return False
+    return data.get("direct_host") is not True
+
+
 def _active_replicate(session: Session, destination_id: int) -> Job | None:
     """Pending or running copy for this destination.
 
     A self-backup hop on the same destination is a different rclone call
     (one archive under ``herder/``). It does not take this slot. A direct
-    host push does: it shares the slot with a herder-folder copy.
+    host push and a herder-folder copy still share it with each other,
+    except that a folder row left running does not hold the direct hop.
     """
     rows = session.exec(
         select(Job)
@@ -1650,11 +1819,27 @@ def _active_replicate(session: Session, destination_id: int) -> Job | None:
         .order_by(Job.created_at.desc())
     ).all()
     for job in rows:
-        try:
-            data = json.loads(job.details or "{}")
-        except Exception:
-            data = {}
+        data = _replicate_details(job)
         if str(data.get("herder_archive") or "").strip():
+            continue
+        if int(data.get("destination_id") or 0) == int(destination_id):
+            return job
+    return None
+
+
+def _active_direct(session: Session, destination_id: int) -> Job | None:
+    """Pending or running direct hop. A folder row left running does not count."""
+    rows = session.exec(
+        select(Job)
+        .where(
+            Job.job_type == JOB_TYPE,
+            Job.status.in_(["pending", "running"]),
+        )
+        .order_by(Job.created_at.desc())
+    ).all()
+    for job in rows:
+        data = _replicate_details(job)
+        if data.get("direct_host") is not True:
             continue
         if int(data.get("destination_id") or 0) == int(destination_id):
             return job
@@ -1775,14 +1960,24 @@ def enqueue(
 ) -> Job:
     if not credentials_saved(destination):
         return _refused_copy_job(destination, server_id)
-    # Folder copies and direct host pushes share one slot. A self-backup copy does not.
+    # A second folder copy waits on the folder row. A direct hop does not.
+    # A self-backup copy does not take this slot.
     active = _active_replicate(session, int(destination.id or 0))
-    if active:
-        return active
     local, groups, _skipped = _scoped_parts(destination, scope)
     direct_only = bool(groups) and not local
     # Mixed ticks stay two rows. The folder hop starts the direct hop when it finishes.
+    # A folder row still showing running does not hold that direct hop.
     follow = bool(groups) and bool(local)
+    if active and _is_folder_hop(active) and groups:
+        direct = enqueue_direct_followup(
+            session,
+            destination,
+            scope=scope,
+            user_id=user_id,
+        )
+        return direct or active
+    if active:
+        return active
     return _create_replicate_job(
         session,
         destination,
@@ -1807,7 +2002,7 @@ def enqueue_direct_followup(
     _local, groups, _skipped = _scoped_parts(destination, scope)
     if not groups:
         return None
-    active = _active_replicate(session, int(destination.id or 0))
+    active = _active_direct(session, int(destination.id or 0))
     if active:
         return active
     return _create_replicate_job(

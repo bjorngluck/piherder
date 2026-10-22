@@ -27,13 +27,38 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.9.0** | **Captured** 2026-10-02. Drive and SMB rows, Remove confirm, herder Move, plugin **0.5.0** Stop project and Plugin sensor. [§ v1.9](#v190--pack-status). [QA](../../../docs/QA_v1.9.0.md) |
 | **v1.10.0** | **Captured** 2026-10-05. OneDrive row, self-backup copy checkbox, Reports cards, template fleet, Allow this agent. Package **1.10.0**. [§ v1.10](#v110--pack-status). [QA](../../../docs/QA_v1.10.0.md) |
 | **v1.11.0** | **Captured** 2026-10-18 and wired. Passkey as 2FA, straight-out backups, a finished Backup, and Repository. Names in the frames are masked. Package **1.11.0**. [§ v1.11](#v111--pack-status). [QA](../../../docs/QA_v1.11.0.md) |
+| **v1.12.0** | **Captured** 2026-10-22 and wired. Names, paths, and addresses in the frames are masked. About and the footer still say **1.11.0**. [§ v1.12](#v112--pack-status). [QA](../../../docs/QA_v1.12.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    **v1.11** frames are in [§ v1.11](#v111--pack-status). About / footer say **1.11.0**.  
+    **v1.12** frames are in [§ v1.12](#v112--pack-status). Captured 2026-10-22 and wired. About / footer still say **1.11.0**.  
     Do not photograph the public demo. Mask tokens, the SMB password, the Google client secret, and the Microsoft client secret.  
-    **v1.10 captures** stay. Do not retake them for this release.
+    **v1.11 captures** stay. Do not retake them for this release.
+
+---
+
+## v1.12.0 pack status {#v112--pack-status}
+
+**Captured** 2026-10-22 and wired. Code freeze is set. Maintainer walks in [QA_v1.12.0.md](../../../docs/QA_v1.12.0.md) are signed. About and the footer still say **1.11.0**. Names, paths, and addresses in the frames are masked. Do not photograph [the public demo](https://piherder-demo.hacknow.info).
+
+| File | Surface | What the frame shows | Where |
+|------|---------|----------------------|--------|
+| `host-os-unsupported.png` | Host system info | **Unsupported** next to the OS line. No upgrade button | [System info](../../day-to-day/system-info.md) |
+| `docker-prune.png` | Host Docker page | Prune images, exited containers, or unused networks. The volume confirm is visible and not ticked | [Docker](../../docker/overview.md) |
+| `about-scheduler.png` | About | View schedule open. The type control is above the list. Status is a short pill. Last run and next fire are shown. Host names are masked | [Appearance](../../getting-started/appearance.md) |
+| `restore-from-copy.png` | Restore wizard | **From** is on This PiHerder. Dry-run is on. Paths are masked. No sign-in | [Backups](../../day-to-day/backups.md) |
+| `npm-proxy-host.png` | NPM detail | New proxy host form. No NPM password | [NPM](../../integrations/npm.md) |
+| `settings-api-admin.png` | Settings → API | The `admin` checkbox is visible and not ticked on create | [API tokens](../../operations/api-tokens.md) |
+| `alerts-backup-credential.png` | Alerts | The copy-before-backups warning for Google Drive. Host names are masked. No token | [Alerts](../../operations/alerts-email-webhooks.md) |
+
+### Do not shoot for 1.12
+
+| Slice | Why |
+|-------|-----|
+| v1.11 pack | `account-passkey-2fa.png`, `host-backup-direct.png`, `jobs-direct-copy.png`, and `docker-repository.png` stay |
+| Public demo | Stays the production image |
+| Build cache prune | Note on v1.13 |
 
 ---
 
@@ -53,8 +78,8 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | Slice | Why |
 |-------|-----|
 | v1.10 pack | `settings-backup-onedrive.png`, `settings-herder-copy.png`, `herder-backup-copy-off.png`, `reports-cards.png`, `templates-on-the-fleet.png`, and `mcp-allow-agent.png` stay |
-| NPM CRUD | Note on v1.12. Proxy hosts stay read-only |
-| Remote restore | Note on v1.12. Restore still reads `/backups` |
+| NPM CRUD | Shoot on v1.12. See [§ v1.12](#v112--pack-status) |
+| Remote restore | Shoot on v1.12. See [§ v1.12](#v112--pack-status) |
 | Public demo | Stays the production image |
 
 ---

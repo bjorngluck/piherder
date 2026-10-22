@@ -243,7 +243,7 @@ def test_rsync_host_and_herder_mocked(tmp_path, monkeypatch):
     push_dir = tmp_path / "push"
     push_dir.mkdir()
     (push_dir / "x").write_text("1")
-    dest = Server(name="b", hostname="b.local", ssh_username="bjorn")
+    dest = Server(name="b", hostname="b.local", ssh_username="owner")
     cp.rsync_herder_to_host(dest, push_dir, "/home/user/docker/grafana", log=logs.append, delete=True)
 
     missing = tmp_path / "nope"
@@ -267,7 +267,7 @@ def test_rsync_host_and_herder_mocked(tmp_path, monkeypatch):
 def test_chown_remote_and_copy_named_volume(tmp_path, monkeypatch):
     from app.services.service_migrate import copy as cp
 
-    client = FakeSSH(replies=[(0, "bjorn:bjorn\n", "")])
+    client = FakeSSH(replies=[(0, "user:user\n", "")])
     monkeypatch.setattr(cp, "get_ssh_client", lambda *a, **k: client)
     monkeypatch.setattr(cp, "run_command", _run_on_fake)
     srv = Server(name="a", hostname="a.local")

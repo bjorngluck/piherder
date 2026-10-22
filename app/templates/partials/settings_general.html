@@ -274,6 +274,25 @@
           </span>
         </label>
       </fieldset>
+      <fieldset class="space-y-3" data-testid="settings-audit-reads">
+        <legend class="text-sm font-medium text-text">API and MCP read audit</legend>
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="audit_api_reads" value="1" class="mt-1"
+                 {% if cfg.audit_api_reads %}checked{% endif %}
+                 data-testid="audit-api-reads">
+          <span>
+            Write a row for token and hosted <code>/mcp</code> reads
+            <span class="block text-xs text-muted mt-0.5">Off unless you turn this on. The row stores the token id and name, and the client IP. It does not store the token. Those rows stay off the default Audit list. Writes stay audited either way. Turning this on or off writes its own audit row.</span>
+          </span>
+        </label>
+        <label class="block text-sm max-w-xs">
+          <span class="block text-xs text-muted mb-1">Keep read rows (days, 1-90)</span>
+          <input type="number" name="audit_read_retention_days" min="1" max="90"
+                 value="{{ cfg.audit_read_retention_days | default(7) }}"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                 data-testid="audit-read-retention">
+        </label>
+      </fieldset>
       <fieldset class="space-y-3">
         <legend class="text-sm font-medium text-text">Step-up windows (minutes)</legend>
         <div class="grid sm:grid-cols-3 gap-3">

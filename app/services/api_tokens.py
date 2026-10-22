@@ -9,6 +9,7 @@ Capability:
   jobs   — POST job triggers
   edit   — PATCH server feature flags (and future config writes)
   files  — Host Files (fleet identity only; list/get/put/mkdir/rename/delete)
+  admin  - GET users, API tokens, and the audit log. Not included in read.
 
 Feature allowlist (optional; if none listed, all features allowed):
   feature:backup — backup / retention jobs + toggle backup feature
@@ -36,7 +37,8 @@ SCOPE_READ = "read"
 SCOPE_JOBS = "jobs"
 SCOPE_EDIT = "edit"
 SCOPE_FILES = "files"
-CAPABILITY_SCOPES = frozenset({SCOPE_READ, SCOPE_JOBS, SCOPE_EDIT, SCOPE_FILES})
+SCOPE_ADMIN = "admin"
+CAPABILITY_SCOPES = frozenset({SCOPE_READ, SCOPE_JOBS, SCOPE_EDIT, SCOPE_FILES, SCOPE_ADMIN})
 
 # Feature scopes (restrict which server features a token may act on)
 FEATURE_BACKUP = "feature:backup"
@@ -100,6 +102,7 @@ SCOPE_HELP = {
     SCOPE_JOBS: "Trigger backup / patch / update-check jobs (POST)",
     SCOPE_EDIT: "Change server feature flags (PATCH)",
     SCOPE_FILES: "Host Files list / download / upload / mkdir / rename / delete (fleet identity only)",
+    SCOPE_ADMIN: "Read users, API tokens, and the audit log (GET). Not included in read.",
     FEATURE_BACKUP: "Limit jobs/edits to the Backups feature",
     FEATURE_OS: "Limit jobs/edits to the OS patch feature",
     FEATURE_DOCKER: "Limit jobs/edits to Docker / containers feature",
@@ -808,6 +811,15 @@ def api_meta_dict() -> dict:
             {"method": "POST", "path": "/api/v1/servers/{id}/jobs", "scope": "jobs", "summary": "Trigger job"},
             {
                 "method": "POST",
+                "path": "/api/v1/servers/{id}/docker/prune",
+                "scope": "edit",
+                "summary": (
+                    "Start a Docker prune job. images, containers, both, or networks. "
+                    "Volume prune stays on the Docker page."
+                ),
+            },
+            {
+                "method": "POST",
                 "path": "/api/v1/servers/{id}/moves",
                 "scope": "jobs",
                 "summary": (
@@ -899,6 +911,42 @@ def api_meta_dict() -> dict:
                     "Hosted MCP scan_discovery_device calls this route."
                 ),
             },
+            {
+                "method": "GET",
+                "path": "/api/v1/admin/users",
+                "scope": "admin",
+                "summary": "List users. No password hash or TOTP secret.",
+            },
+            {
+                "method": "GET",
+                "path": "/api/v1/admin/users/{id}",
+                "scope": "admin",
+                "summary": "One user. No password hash or TOTP secret.",
+            },
+            {
+                "method": "GET",
+                "path": "/api/v1/admin/tokens",
+                "scope": "admin",
+                "summary": "List API tokens. No secret, hash, or prefix.",
+            },
+            {
+                "method": "GET",
+                "path": "/api/v1/admin/tokens/{id}",
+                "scope": "admin",
+                "summary": "One API token. No secret, hash, or prefix.",
+            },
+            {
+                "method": "GET",
+                "path": "/api/v1/admin/audit",
+                "scope": "admin",
+                "summary": "Audit log. Details and output are capped. Does not write api_read.",
+            },
+            {
+                "method": "GET",
+                "path": "/api/v1/admin/audit/{id}",
+                "scope": "admin",
+                "summary": "One audit row. Details and output are capped. Does not write api_read.",
+            },
             {"method": "GET", "path": "/api/v1/jobs", "scope": "read", "summary": "List jobs"},
             {"method": "GET", "path": "/api/v1/jobs/{id}", "scope": "read", "summary": "Job detail"},
             {
@@ -925,7 +973,7 @@ def api_meta_dict() -> dict:
             "transport": "streamable-http",
             "auth": "Authorization: Bearer ph_… (header only; not a query parameter)",
             "summary": (
-                "Hosted MCP on this herder. Same scopes as /api/v1. "
+                "Hosted MCP on this herder. Same scopes as /api/v1 except admin. "
                 "stdio uvx piherder-mcp remains an optional air-gapped client."
             ),
         },

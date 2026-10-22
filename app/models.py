@@ -249,7 +249,7 @@ class Server(SQLModel, table=True):
     host_deps_checked_at: Optional[datetime] = None
 
     # LAN DNS identity (A/AAAA on Pi-hole) — apps CNAME to this name
-    # e.g. rpi5-1.example.com → ip_address (or dns_ip_override)
+    # e.g. host-a.example.com → ip_address (or dns_ip_override)
     dns_name: Optional[str] = Field(default=None, index=True, max_length=253)
     dns_manage_a: bool = False
     dns_ip_override: Optional[str] = Field(default=None, max_length=64)
@@ -488,7 +488,7 @@ class ApiToken(SQLModel, table=True):
     Plaintext shown once at creation; only hash is stored.
 
     Scopes (comma-separated):
-      Capability: read | jobs | edit
+      Capability: read | jobs | edit | files | admin
       Feature allowlist (optional): feature:backup | feature:os | feature:docker
       If no feature:* scopes → all features allowed (still subject to server flags).
 

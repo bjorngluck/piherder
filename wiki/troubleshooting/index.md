@@ -37,7 +37,7 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Move preflight blocks dest | Same page — remap dest **host port** or **project name/folder**, disk, DNS name, NPM poll cache, busy backup/stack/migrate job |
 | Move dest `up` `address already in use` | Recheck now uses live dest `ss` listen + docker. Remap dest host port. Leftover dest folder from a failed Move is overwrite, not a block. If the source stack uses **host network**, remap does not apply — dest must have that port free |
 | Move rsync `change_dir "/var/run/docker.sock"` / Not a directory | Host socket (Uptime Kuma Docker monitor). Rebuild this freeze branch — Move no longer rsyncs `docker.sock`; dest binds dest’s own socket |
-| Move dest project owned `root:root` / fleet SSH user | Rebuild this freeze branch — Move chowns dest project to dest **docker root owner** (`bjorn` for `/home/user/docker`), not `piherder` / root |
+| Move dest project owned `root:root` / fleet SSH user | Rebuild this freeze branch. Move chowns dest project to dest **docker root owner** (`user` for `/home/user/docker`), not `piherder` / root |
 | Recheck destination looks like a no-op | Wait modal should show for dest pick, port change, and Recheck. Rebuild web |
 | Move job overlay vanishes with no success/fail | Overlay now stays with Succeeded/Failed until Close. Rebuild web |
 | Move job TLS / Kuma red | No auto-rollback. Dest may already be up with names flipped. Fix dest. Staging kept under `/backups/_migrate/{job_id}` |

@@ -222,6 +222,55 @@ def test_request_refresh_queues_one_host_facts_job(monkeypatch):
         assert rows[0].status == "pending"
 
 
+def test_self_backup_alert_names_the_last_success_or_never(monkeypatch):
+    engine = _engine()
+    _bind(monkeypatch, engine)
+    monkeypatch.setattr(js.herder_backup, "list_backups", lambda: [])
+    captured: dict = {}
+
+    def _save(session, **kwargs):
+        captured.update(kwargs)
+        return None
+
+    monkeypatch.setattr("app.services.notifications.upsert_notification", _save)
+    js._notify_herder_backup_failed("disk full")
+    assert captured["title"] == "PiHerder self-backup failed"
+    assert captured["body"].endswith(" Last successful self-backup: never.")
+    assert captured["body"].startswith("disk full")
+
+    when = datetime(2026, 10, 1, 3, 30)
+    with Session(engine) as session:
+        session.add(
+            Job(
+                job_type="herder_backup",
+                status="success",
+                finished_at=when,
+                details="{}",
+            )
+        )
+        session.add(
+            Job(
+                job_type="herder_backup",
+                status="failed",
+                finished_at=datetime(2026, 10, 2, 1, 0),
+                details="{}",
+            )
+        )
+        session.commit()
+    js._notify_herder_backup_failed("disk full")
+    assert "Last successful self-backup: 2026-10-01 03:30." in captured["body"]
+    assert "2026-10-02" not in captured["body"]
+
+    monkeypatch.setattr(
+        js.herder_backup,
+        "list_backups",
+        lambda: [{"mtime": "2026-10-02T04:00:00Z"}],
+    )
+    js._notify_herder_backup_failed("x" * 400)
+    assert captured["body"].endswith(" Last successful self-backup: 2026-10-02 04:00.")
+    assert len(captured["body"]) <= 300
+
+
 def test_herder_execute_honors_mode_and_notifies(monkeypatch):
     engine = _engine()
     _bind(monkeypatch, engine)

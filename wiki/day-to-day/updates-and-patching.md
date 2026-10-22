@@ -49,7 +49,7 @@ Configured under **Edit → Schedules**.
 |----------|------|----------------|
 | **OS packages (apt)** | Count ready packages, phased count, reboot-pending | Run upgrade |
 | **HA updates** (`os_type=haos`) | Count Core / OS / Supervisor with `update_available` | Run `ha … update` |
-| **Container images** | Pull/compare image IDs per compose project | `compose up -d` |
+| **Container images** | Pull/compare image IDs per compose project. A saved schedule keeps running while fleet container checks are on. Turning those checks off and applying clears each host schedule. A check that does not start within 15 minutes of its slot opens one warning, and the next successful check resolves it | `compose up -d` |
 
 Results feed the dashboard, badges, and notifications.
 
@@ -70,7 +70,7 @@ Scheduled work is audited as **system / scheduler**.
 
 ### Manual apply
 
-- **Debian/Ubuntu:** update / **upgrade XOR full-upgrade** / autoremove; live apt log; Ubuntu **phased** packages counted separately. Apt exit **100** still fails the job (held packages, broken state, or a failed index on that host). The job summary includes the apt `E:` line, not only `rc=100`.  
+- **Debian/Ubuntu:** update / **upgrade XOR full-upgrade** / autoremove; live apt log; Ubuntu **phased** packages counted separately. Apt exit **100** still fails the job (held packages, broken state, or a failed index on that host). The job summary includes the apt `E:` line, not only `rc=100`. When sudo drops `DEBIAN_FRONTEND`, the log and the summary also keep the debconf or sudo error line. A later progress rewrite does not replace it.  
 - **HAOS:** refresh versions + apply available components (**supervisor → core → OS**); live CLI log; no apt / no full-upgrade.  
 - Container patch: `compose pull` + conditional `up -d` with live logs (not for HAOS fleet).
 
@@ -92,7 +92,7 @@ A second trigger (double-click, concurrent bulk, scheduler overlap) **does not**
 
 | UI action | Meaning |
 |-----------|---------|
-| **Check updates** | Pull / compare only |
+| **Check updates** | Pull, then compare each running container with that image. The update flag stays until the running container is the new image. A pull by itself does not clear it |
 | **Deploy** | Pull + `up -d` — surfaces pull/up results (not silent success) |
 
 Successful Deploy clears pending stack badges and resolves `container_updates` when none remain.

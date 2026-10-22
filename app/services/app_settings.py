@@ -61,6 +61,9 @@ DEFAULTS: Dict[str, Any] = {
     # True means that pass has finished and must not run again.
     "fleet_backup_inherit_cleaned": False,
     "force_2fa": False,
+    # Optional. Off until an admin turns it on. Read rows keep their own days.
+    "audit_api_reads": False,
+    "audit_read_retention_days": 7,
     # Require TOTP enabled to deploy templates / view deployment secrets
     "template_require_2fa": False,
     # v1.3 Stream P — instance password policy (floors applied in password_policy)

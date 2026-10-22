@@ -105,6 +105,11 @@ async def get_server_diagnostics(
         data = facts_svc._enrich_from_diagnostics(data)
         facts_svc.apply_snapshot(session, server, data)
         data["from_snapshot"] = False
+        data["os_support_warning"] = facts_svc.os_support_warning(
+            data.get("os_id"),
+            data.get("os_pretty") or data.get("os_version"),
+            getattr(server, "os_type", None) or data.get("profile"),
+        )
         return data
     except Exception as e:
         return {"error": str(e)[:200], "hostname": server.hostname}
@@ -381,8 +386,11 @@ async def save_container_check_schedule(
     if not server:
         raise HTTPException(404)
     cron = validate_cron(container_check_schedule)
-    server.container_check_schedule = cron
-    server.container_check_enabled = container_check_enabled in ("1", "on", "true") and bool(cron)
+    enabled = container_check_enabled in ("1", "on", "true") and bool(cron)
+    # An unchecked box clears the cron. A leftover cron is registered again
+    # while the fleet container check is on.
+    server.container_check_enabled = enabled
+    server.container_check_schedule = cron if enabled else None
     session.add(server)
     session.commit()
     record_server_audit(
@@ -390,7 +398,7 @@ async def save_container_check_schedule(
         server_id=server.id,
         user_id=user.id,
         action="server_container_check_schedule",
-        details={"enabled": server.container_check_enabled, "cron": cron},
+        details={"enabled": server.container_check_enabled, "cron": server.container_check_schedule},
     )
     session.commit()
     sync_server_schedules(server)

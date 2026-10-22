@@ -52,10 +52,15 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | Version history | Snapshots; rollback |
 | Build / redeploy | **POST-only** SSE stream of `docker compose build` for a **named** project (**operator+**). Paths are quoted; there is no GET `/path` fallback. Redeploy as Jobs. If a stopped container from the same project still holds the name, that container is removed and the deploy retries once. A container from another project, or one that is running, is left in place |
 | Check updates vs Deploy | Pull-only vs pull+up as **Jobs** — [Updates](../day-to-day/updates-and-patching.md) |
-| Cleanup unused | List dangling images / exited containers (escaped HTML); optional prune |
+| Cleanup unused | List dangling images and exited containers. Prune images, exited containers, or unused networks as a job. Unused volumes stay until the confirm on this page is ticked. The token API and hosted `/mcp` can start the same job with the `edit` scope, and they cannot prune volumes. Build cache and buildx cache are a later note |
 | New project wizard | Create a stack on the host |
-| **Repository…** | Project ⋯ menu. Attach a git remote to a project that is already on the host, pick a branch or a tag, and update the checkout. A tag ahead of the checkout is marked newer. A tracked local edit stops the update until you keep those files or take the remote copies. Untracked files stay. This does not deploy. An https URL with a user or token in it is refused. Use a deploy key or a credential helper |
+| **Repository…** | Project ⋯ menu. Attach a git remote to a project that is already on the host, pick a branch or a tag, and update the checkout. A tag ahead of the checkout is marked newer. A tracked local edit stops the update until you keep those files or take the remote copies. Untracked files stay. This does not deploy. A folder or checkout the SSH user does not own is refused. An https URL with a user or token in it is refused. Use a deploy key or a credential helper |
 | Template-managed stacks | Badge + gated full editor — [Templates](../service-templates/overview.md) |
+
+<figure class="ph-figure" markdown>
+  ![Docker cleanup](../assets/screenshots/docker-prune.png)
+  <figcaption>Prune dangling images, exited containers, or unused networks. The volume confirm is visible and not ticked. Image names are masked.</figcaption>
+</figure>
 
 <figure class="ph-figure" markdown>
   ![Repository on an existing checkout](../assets/screenshots/docker-repository.png)
@@ -96,7 +101,7 @@ From a compose project **⋯** menu:
 3. A **Job** runs `docker compose stop|start|restart` over SSH with a live log (same JobHold pattern as Deploy).  
 4. Success refreshes inventory; **Jobs** / **Audit** record `docker_stack_stop` / `_start` / `_restart`.  
 
-Only **one** stack mutation runs at a time per host (shared lane with Deploy and template deploy/redeploy). Operator+ only. Single-container start/stop/restart stay on the **service row** ⋯ menu. Home Assistant plugin **0.5.1** can start, stop, restart, or update that same one service, and can **Stop project** (`docker compose stop`, not down or remove) after a confirm. It can also start a stop-first Move. Files on that card stay in the fleet jail.
+Only **one** stack mutation runs at a time per host (shared lane with Deploy and template deploy/redeploy). Operator+ only. Single-container start/stop/restart stay on the **service row** ⋯ menu. Home Assistant plugin **0.5.2** can start, stop, restart, or update that same one service, and can **Stop project** (`docker compose stop`, not down or remove) after a confirm. It can also start a stop-first Move. Files on that card stay in the fleet jail.
 
 <figure class="ph-figure" markdown>
   ![Docker project lifecycle](../assets/screenshots/docker-project-lifecycle.png)

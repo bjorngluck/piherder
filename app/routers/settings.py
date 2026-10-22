@@ -160,6 +160,7 @@ def _scopes_from_form(
     scope_jobs: Optional[str],
     scope_edit: Optional[str],
     scope_files: Optional[str],
+    scope_admin: Optional[str],
     scope_feature_backup: Optional[str],
     scope_feature_os: Optional[str],
     scope_feature_docker: Optional[str],
@@ -170,6 +171,7 @@ def _scopes_from_form(
         (scope_jobs, "jobs"),
         (scope_edit, "edit"),
         (scope_files, "files"),
+        (scope_admin, "admin"),
         (scope_feature_backup, "feature:backup"),
         (scope_feature_os, "feature:os"),
         (scope_feature_docker, "feature:docker"),
@@ -572,6 +574,7 @@ async def settings_page(
     copy_can_test = False
     copy_can_remove = False
     copy_rows: list[dict] = []
+    copy_early: dict[str, str] = {}
     drive_saved = False
     smb_saved = False
     onedrive_saved = False
@@ -647,6 +650,12 @@ async def settings_page(
                 od_schedule = od_row.schedule or ""
                 od_after = bool(od_row.after_host_backup)
                 od_herder = copies.copies_herder_backup(od_row)
+            try:
+                from ..services.copy_schedule_order import early_text_by_provider
+
+                copy_early = early_text_by_provider(session)
+            except Exception:
+                copy_early = {}
             copy_rows = _backup_copy_rows(
                 drive_saved=drive_saved,
                 smb_saved=smb_saved,
@@ -755,6 +764,7 @@ async def settings_page(
             copy_can_test = False
             copy_can_remove = False
             copy_rows = []
+            copy_early = {}
             drive_saved = False
             smb_saved = False
             onedrive_saved = False
@@ -817,6 +827,7 @@ async def settings_page(
             "copy_removed": qp.get("copy_removed"),
             "copy_test": qp.get("copy_test"),
             "copy_rows": copy_rows,
+            "copy_early": copy_early,
             "drive_saved": drive_saved,
             "smb_saved": smb_saved,
             "onedrive_saved": onedrive_saved,
@@ -1076,6 +1087,7 @@ async def create_api_token_form(
     scope_jobs: Optional[str] = Form(None),
     scope_edit: Optional[str] = Form(None),
     scope_files: Optional[str] = Form(None),
+    scope_admin: Optional[str] = Form(None),
     scope_feature_backup: Optional[str] = Form(None),
     scope_feature_os: Optional[str] = Form(None),
     scope_feature_docker: Optional[str] = Form(None),
@@ -1101,6 +1113,7 @@ async def create_api_token_form(
         scope_jobs,
         scope_edit,
         scope_files,
+        scope_admin,
         scope_feature_backup,
         scope_feature_os,
         scope_feature_docker,
@@ -1142,6 +1155,14 @@ async def create_api_token_form(
         session.commit()
     except Exception:
         session.rollback()
+    from ..services.admin_alerts import notify_api_token_created
+
+    notify_api_token_created(
+        session,
+        actor=user,
+        token_id=int(row.id),
+        name=row.name,
+    )
     return RedirectResponse(
         _settings_url(
             "api",
@@ -1163,6 +1184,7 @@ async def update_api_token_form(
     scope_jobs: Optional[str] = Form(None),
     scope_edit: Optional[str] = Form(None),
     scope_files: Optional[str] = Form(None),
+    scope_admin: Optional[str] = Form(None),
     scope_feature_backup: Optional[str] = Form(None),
     scope_feature_os: Optional[str] = Form(None),
     scope_feature_docker: Optional[str] = Form(None),
@@ -1176,20 +1198,24 @@ async def update_api_token_form(
             _settings_url("api", error="Token not found", api_panel="tokens"),
             status_code=303,
         )
+    old_scopes = tok_svc.parse_scopes(row.scopes)
+    new_scopes = _scopes_from_form(
+        scope_read,
+        scope_jobs,
+        scope_edit,
+        scope_files,
+        scope_admin,
+        scope_feature_backup,
+        scope_feature_os,
+        scope_feature_docker,
+    )
+    gained = sorted(set(new_scopes) - old_scopes)
     try:
         tok_svc.update_api_token(
             session,
             row,
             name=name,
-            scopes=_scopes_from_form(
-                scope_read,
-                scope_jobs,
-                scope_edit,
-                scope_files,
-                scope_feature_backup,
-                scope_feature_os,
-                scope_feature_docker,
-            ),
+            scopes=new_scopes,
             allowed_cidrs=allowed_cidrs or "",
             update_cidrs=True,
         )
@@ -1211,6 +1237,16 @@ async def update_api_token_form(
         session.commit()
     except Exception:
         session.rollback()
+    if gained:
+        from ..services.admin_alerts import notify_api_token_scopes_gained
+
+        notify_api_token_scopes_gained(
+            session,
+            actor=user,
+            token_id=int(row.id),
+            name=row.name,
+            gained=gained,
+        )
     return RedirectResponse(
         _settings_url(
             "api",
@@ -1527,6 +1563,8 @@ async def save_security_policy(
     console_require_passkey: Optional[str] = Form(None),
     oidc_idp_mfa_satisfies_login_2fa: Optional[str] = Form(None),
     oidc_idp_mfa_claim: str = Form("amr"),
+    audit_api_reads: Optional[str] = Form(None),
+    audit_read_retention_days: int = Form(7),
     user: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
@@ -1562,6 +1600,21 @@ async def save_security_policy(
     elif prev_scope == "off":
         grace_since = datetime.utcnow().isoformat() + "Z"
     claim = (oidc_idp_mfa_claim or "amr").strip()[:64] or "amr"
+    from ..services.api_read_audit import (
+        RETENTION_DEFAULT,
+        RETENTION_MAX,
+        RETENTION_MIN,
+        reads_enabled,
+        record_flag_change,
+    )
+
+    read_flag = _form_on(audit_api_reads)
+    try:
+        read_days = int(audit_read_retention_days)
+    except (TypeError, ValueError):
+        read_days = RETENTION_DEFAULT
+    read_days = max(RETENTION_MIN, min(RETENTION_MAX, read_days))
+    flag_was = reads_enabled(prev)
 
     def _win(raw, default):
         return max(step.WINDOW_MIN, min(step.WINDOW_MAX, int(raw if raw is not None else default)))
@@ -1595,6 +1648,8 @@ async def save_security_policy(
         "console_require_passkey": _form_on(console_require_passkey),
         "oidc_idp_mfa_satisfies_login_2fa": _form_on(oidc_idp_mfa_satisfies_login_2fa),
         "oidc_idp_mfa_claim": claim,
+        "audit_api_reads": read_flag,
+        "audit_read_retention_days": read_days,
     }
     try:
         saved = app_cfg.save_settings({**t_keys, **policy_keys})
@@ -1630,6 +1685,18 @@ async def save_security_policy(
                 )
             )
         session.commit()
+    if flag_was != read_flag:
+        record_flag_change(session, user_id=user.id, enabled=read_flag)
+    from ..services.admin_alerts import notify_2fa_setting_change
+
+    notify_2fa_setting_change(
+        session,
+        actor=user,
+        prev_scope=prev_scope,
+        new_scope=scope,
+        prev_template=bool(prev.get("template_require_2fa")),
+        new_template=_form_on(template_require_2fa),
+    )
     return RedirectResponse(
         _settings_url("general", security_saved="1"), status_code=303
     )

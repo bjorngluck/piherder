@@ -19,7 +19,7 @@ from app.tasks import _remember_worker
 
 
 def test_normalize_worker_name():
-    assert normalize_worker_name("  celery@rpi5-1  ") == "celery@rpi5-1"
+    assert normalize_worker_name("  celery@host-a  ") == "celery@host-a"
     assert normalize_worker_name("") is None
     assert normalize_worker_name(None) is None
     assert normalize_worker_name("null") is None
@@ -64,8 +64,8 @@ def test_stamp_web_does_not_clobber_celery_name():
 def test_worker_label_pending_vs_claimed_vs_finished():
     pending = SimpleNamespace(status="pending", worker_hostname=None)
     assert job_worker_label(pending) == "not claimed"
-    claimed = SimpleNamespace(status="pending", worker_hostname="celery@rpi5-1")
-    assert job_worker_label(claimed) == "celery@rpi5-1"
+    claimed = SimpleNamespace(status="pending", worker_hostname="celery@host-a")
+    assert job_worker_label(claimed) == "celery@host-a"
     old = SimpleNamespace(status="success", worker_hostname=None)
     assert job_worker_label(old) is None
     web = SimpleNamespace(status="success", worker_hostname="web")
@@ -81,12 +81,12 @@ def test_job_public_dict_includes_worker():
         created_at=datetime(2026, 9, 28, 8, 0, 0),
         started_at=None,
         finished_at=None,
-        worker_hostname="celery@rpi5-2",
+        worker_hostname="celery@host-b",
         details=json.dumps({"current": "waiting_for_host", "summary": "wait"}),
     )
     pub = job_public_dict(job)
-    assert pub["worker_hostname"] == "celery@rpi5-2"
-    assert pub["worker_label"] == "celery@rpi5-2"
+    assert pub["worker_hostname"] == "celery@host-b"
+    assert pub["worker_label"] == "celery@host-b"
     assert pub["done"] is False
 
     queued = SimpleNamespace(

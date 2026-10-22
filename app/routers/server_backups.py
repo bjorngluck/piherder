@@ -130,6 +130,7 @@ async def server_backups(
 
     from ..services.backup_direct import (
         configured_destination_choices,
+        direct_copy_arch_block,
         direct_where_label,
         parse_direct_targets,
     )
@@ -162,8 +163,10 @@ async def server_backups(
             "default_deny_paths": list(DEFAULT_DENY_PREFIXES),
             **_nav,
             "restore_candidates": restore_candidates,
+            "restore_places": restore_svc.restore_places(session, server),
             "restore_result": None,
             "direct_choices": direct_choices,
+            "direct_arch_block": direct_copy_arch_block(getattr(server, "arch", None)),
             "direct_picked": direct_picked,
             "direct_where": direct_where_label(
                 getattr(server, "backup_direct_targets", None),
@@ -367,9 +370,13 @@ async def update_backup_config(
         from ..services.backup_direct import (
             SELECT_DEST_MSG,
             configured_destinations,
+            direct_copy_arch_block,
             selected_direct_providers,
         )
 
+        blocked = direct_copy_arch_block(getattr(server, "arch", None))
+        if blocked:
+            raise HTTPException(400, blocked)
         form = await request.form()
         saved = {row.provider for row in configured_destinations(session)}
         chosen = [
@@ -618,12 +625,15 @@ async def restore_backup_source(
     source: str = Form(...),
     dry_run: Optional[str] = Form("1"),
     confirm: Optional[str] = Form(None),
+    destination_id: Optional[str] = Form(None),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
     """Wizard step: dry-run (default) or apply reverse rsync restore for one source."""
+    from ..models import BackupDestination
     from ..services import backup_restore as restore_svc
     from ..services.backup_path_policy import parse_rules, DEFAULT_DENY_PREFIXES
+    from ..services.backup_replicate import note_copy_auth_failure
 
     server = session.get(Server, server_id)
     if not server:
@@ -632,10 +642,34 @@ async def restore_backup_source(
     # Apply only when dry_run is unchecked AND confirm is checked
     want_apply = dry_run not in ("1", "on", "true", "yes") and confirm in ("1", "on", "true")
     is_dry = not want_apply
+    pull_from = None
+    chosen = (destination_id or "").strip()
+    if chosen:
+        try:
+            dest_id = int(chosen)
+        except ValueError:
+            dest_id = 0
+        allowed = {int(row["id"]) for row in restore_svc.restore_places(session, server)}
+        pull_from = session.get(BackupDestination, dest_id) if dest_id in allowed else None
+        if pull_from is None:
+            result = {
+                "error": "That copy is not available for this host",
+                "rc": 1,
+                "dry_run": is_dry,
+                "source": source.strip(),
+            }
+            pull_from = False
 
-    result = await run_in_threadpool(
-        restore_svc.restore_backup_source, server, source.strip(), dry_run=is_dry
-    )
+    if pull_from is not False:
+        result = await run_in_threadpool(
+            restore_svc.restore_backup_source,
+            server,
+            source.strip(),
+            dry_run=is_dry,
+            pull_from=pull_from,
+        )
+        if result.get("auth_failed") and pull_from is not None:
+            note_copy_auth_failure(session, pull_from, result.get("error") or "")
     st = "success" if int(result.get("rc") or 1) == 0 and not result.get("error") else "failed"
     al = record_server_audit(
         session,
@@ -649,6 +683,8 @@ async def restore_backup_source(
             "dry_run": is_dry,
             "rc": result.get("rc"),
             "summary": result.get("summary") or result.get("error"),
+            "destination_id": result.get("destination_id"),
+            "place": result.get("place"),
         },
     )
     al.output_snippet = json.dumps(result)[:8000]
@@ -685,6 +721,7 @@ async def restore_backup_source(
             "path_rules": path_rules,
             "default_deny_paths": list(DEFAULT_DENY_PREFIXES),
             "restore_candidates": restore_candidates,
+            "restore_places": restore_svc.restore_places(session, server),
             "restore_result": result,
         },
     )

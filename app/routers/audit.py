@@ -46,7 +46,11 @@ def _apply_audit_filters(
     action,
     date_from,
     date_to,
+    hide_routine=False,
 ):
+    from sqlalchemy import and_, not_, or_
+
+    from ..services.api_read_audit import ACTION, HOST_FACTS_ACTION
     if search:
         query = query.where(
             (AuditLog.action.contains(search))
@@ -80,6 +84,18 @@ def _apply_audit_filters(
         query = query.where(AuditLog.started_at >= df)
     if dt is not None:
         query = query.where(AuditLog.started_at <= dt)
+    if hide_routine and (action or "") not in (ACTION, HOST_FACTS_ACTION):
+        query = query.where(
+            not_(
+                or_(
+                    AuditLog.action == ACTION,
+                    and_(
+                        AuditLog.action == HOST_FACTS_ACTION,
+                        AuditLog.status == "success",
+                    ),
+                )
+            )
+        )
     return query
 
 
@@ -96,6 +112,7 @@ async def audit_page(
     status: Optional[str] = None,
     action: Optional[str] = None,
     hide_noise: Optional[str] = "1",
+    show_routine: Optional[str] = None,
     page: int = 1,
     per_page: int = 20,
 ):
@@ -114,6 +131,8 @@ async def audit_page(
         "by_action": [],
     }
     hide_incomplete = hide_noise not in ("0", "false", "no")
+    show_snapshots = show_routine in ("1", "on", "true", "yes")
+    hide_routine = not show_snapshots
     per_page = lq.per_page_from_request(request)
     page = lq.page_from_request(request)
     total = 0
@@ -160,7 +179,11 @@ async def audit_page(
                 "by_action": [],
             }
             action_counts: dict[str, int] = {}
+            from ..services.api_read_audit import is_routine_audit
+
             for l in recent:
+                if hide_routine and (action or "") not in ("api_read", "host_facts") and is_routine_audit(l.action, l.status):
+                    continue
                 bucket = pulse_bucket(
                     {
                         "action": l.action,
@@ -198,6 +221,7 @@ async def audit_page(
                 action=action,
                 date_from=date_from,
                 date_to=date_to,
+                hide_routine=hide_routine,
             )
 
             def format_row(l: AuditLog) -> dict:
@@ -314,6 +338,7 @@ async def audit_page(
                 "server_features_updated",
             ],
             "hide_noise": hide_incomplete,
+            "show_routine": show_snapshots,
             "page": page,
             "per_page": per_page,
             "per_page_choices": list(PER_PAGE_CHOICES),

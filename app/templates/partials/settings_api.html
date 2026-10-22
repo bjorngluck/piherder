@@ -134,6 +134,10 @@ curl -sS "{{ public_url|default('') }}/openapi.json" | head -c 200</pre>
                 <input type="checkbox" name="scope_files" id="api-scope-files" value="1">
                 <span>files</span>
               </label>
+              <label class="flex items-center gap-2 min-h-10" title="GET users, tokens, and the audit log">
+                <input type="checkbox" name="scope_admin" id="api-scope-admin" value="1">
+                <span>admin</span>
+              </label>
             </div>
           </div>
           <div>
@@ -299,6 +303,10 @@ curl -sS "{{ public_url|default('') }}/openapi.json" | head -c 200</pre>
                   <label class="flex items-center gap-2 min-h-10">
                     <input type="checkbox" name="scope_files" value="1" {% if 'files' in t.scopes %}checked{% endif %}>
                     <span>files</span>
+                  </label>
+                  <label class="flex items-center gap-2 min-h-10">
+                    <input type="checkbox" name="scope_admin" value="1" {% if 'admin' in t.scopes %}checked{% endif %}>
+                    <span>admin</span>
                   </label>
                 </div>
               </div>

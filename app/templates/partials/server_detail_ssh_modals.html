@@ -326,7 +326,7 @@
       <div class="text-sm font-medium mb-1">Option B — share compose tree (ACL)</div>
       <p class="text-xs text-muted mb-1">
         Docker base resolves to <code class="font-mono">{{ docker_base_expanded }}</code>.
-        Run on the host as root so <code>{{ server.ssh_username }}</code> can <code>cd</code>, build, and compose-logs under the owner’s home (e.g. bjorn).
+        Run on the host as root so <code>{{ server.ssh_username }}</code> can <code>cd</code>, build, and compose-logs under the owner’s home (e.g. user).
       </p>
       <textarea id="compose-acl-script" readonly class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-36 resize-y">{{ compose_acl_script }}</textarea>
       <button type="button" data-ph-click="copyTextFrom" data-ph-args='["compose-acl-script","$el"]' class="btn btn-secondary text-sm min-h-11 mt-2">Copy ACL script</button>

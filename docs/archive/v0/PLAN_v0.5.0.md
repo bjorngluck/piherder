@@ -120,7 +120,7 @@ Elevated from nice-to-have / out-of-scope: **Pi-hole + NPM + TLS cert ops** are 
 | Hosts map topology | Internet → Router → LAN → home hosts; **cloud** hosts (public IP / outside CIDR) → Internet; RFC1918 fallback when no CIDR; spine always drawn | **Done** |
 | Kuma on infra | Optional Router + Public IP monitor dropdowns; status chip + Open in Kuma | **Done** |
 | Layout polish | LAN ring top-gap (no host on Router→LAN spine); theme-aware Internet/Router/LAN/NPM fills (light mode) | **Done** |
-| Focus UX | Path focus **and** node focus (any host incl. Nomad w/o services, Router, LAN, Internet); Open host / Open in Kuma; copy path; touch lock | **Done** |
+| Focus UX | Path focus **and** node focus (any host incl. a cloud host w/o services, Router, LAN, Internet); Open host / Open in Kuma; copy path; touch lock | **Done** |
 | Map chrome | viewBox pinch/zoom to 500%, pan, +/−/1:1, **Full screen**; mobile list-first + **View full map** + **Hide map**; filters; status dots | **Done** |
 | Mobile nav vs map | Body-level hamburger portal; z-index above map fullscreen (`100100` > `100000`); open menu fully exits fullscreen (label/aria/listeners) | **Done** |
 | Catalog label | UI **Network** / **Network maps** (URL `/dns*` kept; code package `dns_fabric`) | **Done** |
@@ -130,7 +130,7 @@ Elevated from nice-to-have / out-of-scope: **Pi-hole + NPM + TLS cert ops** are 
 | Tests / CI | `tests/test_dns_fabric.py` · `.github/workflows/test.yml` | **Done** |
 | Wiki / docs | [Network maps](../wiki/integrations/dns-fabric.md) · ADMIN · SPEC · README · ROADMAP · appearance / jobs-audit / architecture | **Done** (refreshed 2026-07-16) |
 
-**QA smoke (operator):** set network map (LAN/gateway/public ± Kuma) → host DNS on 2+ servers → import Pi-hole → Hosts map (spine + Nomad cloud + selectable empty hosts) → Path map → mobile **View full map** / **Hide map** / Full screen then **☰** (drawer on-screen) → sync path card → host identity → external checklist · hard-refresh after deploy (`?v=` CSS/JS bust).
+**QA smoke (operator):** set network map (LAN/gateway/public ± Kuma) → host DNS on 2+ servers → import Pi-hole → Hosts map (spine + cloud host + selectable empty hosts) → Path map → mobile **View full map** / **Hide map** / Full screen then **☰** (drawer on-screen) → sync path card → host identity → external checklist · hard-refresh after deploy (`?v=` CSS/JS bust).
 
 ### G — Stretch quality (B07–B09)
 

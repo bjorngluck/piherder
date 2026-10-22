@@ -103,7 +103,7 @@ def test_oauth_rclone_config_uses_the_user_token_not_a_shared_drive():
         client_secret="secret",
         refresh_token="refresh",
         access_token="access",
-        email="bjorn@gmail.com",
+        email="owner@example.com",
         expires_in=3600,
     )
     path = copies.write_rclone_config(raw, shared_with_me=False)
@@ -225,7 +225,7 @@ def test_onedrive_rclone_config_is_the_default_drive():
         client_secret="secret-value",
         refresh_token="refresh-value",
         access_token="access",
-        email="bjorn@outlook.com",
+        email="owner@example.com",
         expires_in=3600,
     )
     path = copies.write_onedrive_rclone_config(
@@ -265,7 +265,7 @@ def test_onedrive_copy_does_not_use_drive_trash(monkeypatch, tmp_path):
         client_secret="secret-value",
         refresh_token="refresh-value",
         access_token="access",
-        email="bjorn@outlook.com",
+        email="owner@example.com",
         expires_in=None,
     ))
     seen = {}

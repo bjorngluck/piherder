@@ -72,7 +72,7 @@ def test_diff_env_desired_vs_host_no_file_and_empty():
 
     # Real desired keys + no host file → clear missing-file detail
     d = diff_env_desired_vs_host(
-        "NODE_NAME=rpi5-1\nLOKI_URL=http://x\n",
+        "NODE_NAME=host-a\nLOKI_URL=http://x\n",
         None,
         host_has_file=False,
     )
@@ -623,7 +623,7 @@ def test_adopt_host_files_as_desired_updates_compose_and_clears_drift(monkeypatc
 
     live = {
         "docker-compose.yml": "services:\n  cadvisor:\n    ports:\n      - '8081:8080'\n",
-        ".env": "TOKEN=host-secret\nNODE_NAME=rpi5-3\n",
+        ".env": "TOKEN=host-secret\nNODE_NAME=host-c\n",
         "promtail-config.yaml": "server:\n  http_listen_port: 9080\n",
     }
     monkeypatch.setattr(
@@ -649,12 +649,12 @@ def test_adopt_host_files_as_desired_updates_compose_and_clears_drift(monkeypatc
             }
         ),
         secrets_encrypted=encrypt_str(json.dumps({"TOKEN": "old"})),
-        variables_json=json.dumps({"NODE_NAME": "rpi5-3"}),
+        variables_json=json.dumps({"NODE_NAME": "host-c"}),
         drift_status="drifted",
         updated_at=None,
     )
     session = MagicMock()
-    server = SimpleNamespace(id=5, name="RPI5-3")
+    server = SimpleNamespace(id=5, name="host-c")
 
     # get_template_definition may fail — fine; secrets still from encrypted store
     monkeypatch.setattr(

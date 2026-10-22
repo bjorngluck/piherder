@@ -305,13 +305,21 @@ def run_project_update(
 
 def check_project_images(client, proj_dir: str) -> dict:
     """
-    Pull registry images and compare IDs. Does not run `up -d`.
+    Pull registry images and compare them with what is running. Does not run `up -d`.
 
-    Local-build services (compose ``build:``) are excluded from update detection —
-    those are updated via Build, not pull-based "Update available".
+    The update flag stays when a running container still uses the previous image id.
+    A pull that only updates the local image does not clear it.
+
+    Local-build services (compose ``build:``) are excluded from update detection.
+    Those are updated via Build, not pull-based "Update available".
     """
     import shlex
-    from .docker_management import _image_id_remote, classify_compose_images
+    from .docker_management import (
+        _image_id_remote,
+        classify_compose_images,
+        pending_registry_images,
+        running_image_inspect_command,
+    )
 
     status, ls_out, _ = run_command(
         client, f"ls {proj_dir}/compose.* {proj_dir}/docker-compose.* 2>/dev/null || true"
@@ -338,7 +346,12 @@ def check_project_images(client, proj_dir: str) -> dict:
         client, f"cd {qdir} && docker compose pull 2>&1 || true", timeout=300
     )
     after_ids = {img: _image_id_remote(client, img) for img in images}
-    updated_images = [img for img in images if before_ids.get(img) != after_ids.get(img)]
+    _, running_raw, _ = run_command(
+        client, running_image_inspect_command(proj_dir), timeout=30
+    )
+    updated_images = pending_registry_images(
+        images, before_ids, after_ids, running_raw or ""
+    )
     has_updates = bool(updated_images)
 
     return {

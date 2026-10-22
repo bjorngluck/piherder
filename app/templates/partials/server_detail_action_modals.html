@@ -634,7 +634,7 @@ async function loadSystemInfoIntoModal(useCache = true) {
     }
     if (data.hardware || data.os_pretty) {
       html += `<div class="text-sm mb-3"><span class="text-muted">Hardware</span> ${esc(data.hardware || '—')}
-        <span class="text-muted ml-3">OS</span> ${esc(data.os_pretty || data.os_version || '—')}</div>`;
+        <span class="text-muted ml-3">OS</span> ${esc(data.os_pretty || data.os_version || '.')}${data.os_support_warning ? ' <span class="text-warning" title="This release is outside the supported list. PiHerder does not upgrade the OS.">Unsupported</span>' : ''}</div>`;
     }
     const isHaos = data.profile === 'haos' || (data.ha && data.ha.components);
     const ha = data.ha || {};
@@ -644,7 +644,7 @@ async function loadSystemInfoIntoModal(useCache = true) {
     html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-sm">
       <div class="bg-surface border border-border p-3 rounded">
         <div class="text-xs text-muted mb-1">System${isHaos ? ' · HAOS' : ''}</div>
-        <div><span class="text-muted">OS:</span> ${esc(data.os_version || 'n/a')}</div>
+        <div><span class="text-muted">OS:</span> ${esc(data.os_version || 'n/a')}${data.os_support_warning ? ' <span class="text-warning" title="This release is outside the supported list. PiHerder does not upgrade the OS.">Unsupported</span>' : ''}</div>
         <div><span class="text-muted">Kernel:</span> ${esc(data.kernel || 'n/a')}</div>
         ${host.chassis ? `<div><span class="text-muted">Chassis:</span> ${esc(host.chassis)}</div>` : ''}
         ${host.virtualization ? `<div><span class="text-muted">Virt:</span> ${esc(host.virtualization)}</div>` : ''}
@@ -889,8 +889,8 @@ function computeUsableSummary(drives) {
         <p class="text-[10px] text-muted mt-1">
           <strong>dest_root</strong> = path *inside container* (recommend /backups).<br>
           In docker-compose.yml: <code>- /mnt/backup:/backups</code><br>
-          Set dest_root=/backups , folder_name=rpi5-2.example.com<br>
-          → files land on host at /mnt/backup/rpi5-2.example.com/...
+          Set dest_root=/backups , folder_name=host-b.example.com<br>
+          → files land on host at /mnt/backup/host-b.example.com/...
         </p>
       </div>
 

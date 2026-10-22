@@ -150,7 +150,9 @@ Audit: `console_policy_changed`.
 | Audit purge | On when cleanup enabled · **30 days** (can differ from jobs) |
 | nmap runs / artifacts | **Off** until enabled · **30 days** when on |
 
-**Run now** enqueues Job type `stale_data_cleanup` (preview counts in the card). Admin-only. Removing a **server** still **keeps** unlinked Jobs/Audit by default — time purge is the bulk growth control ([Remove a server](../day-to-day/remove-server.md)).
+**Run now** enqueues Job type `stale_data_cleanup` (preview counts in the card). Admin-only. Removing a **server** still **keeps** unlinked Jobs/Audit by default. Time purge is the bulk growth control ([Remove a server](../day-to-day/remove-server.md)).
+
+API and MCP read rows, when that flag is on, use the days on Security policy (1-90, default 7). Cleanup removes those rows whenever it runs, including when the Audit purge toggle is off. They stay off the default Audit list.
 
 [Reports](../day-to-day/reports.md) reads these same rows. Purging Jobs shortens backup / OS / Docker history; purging Audit shortens console sessions; purging nmap runs shortens LAN live.
 

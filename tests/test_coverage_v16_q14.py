@@ -228,9 +228,9 @@ def test_host_files_dns_herder_docker_leftover(tmp_path, monkeypatch):
 
     session, _ = _memory()
     srv = Server(
-        name="rpi5-1",
-        hostname="rpi5-1.lan",
-        dns_name="rpi5-1.lan",
+        name="host-a",
+        hostname="host-a.lan",
+        dns_name="host-a.lan",
         ip_address="10.0.0.4",
         ssh_username="pi",
         docker_base_dir="/home/pi/docker",
@@ -239,7 +239,7 @@ def test_host_files_dns_herder_docker_leftover(tmp_path, monkeypatch):
     session.add(srv)
     session.commit()
     tokens = fabric._server_name_tokens(srv)
-    assert "rpi5-1" in tokens or "rpi5-1.lan" in tokens
+    assert "host-a" in tokens or "host-a.lan" in tokens
 
     class _Sess:
         pass
@@ -263,7 +263,7 @@ def test_host_files_dns_herder_docker_leftover(tmp_path, monkeypatch):
     monkeypatch.setattr(
         fabric.ph,
         "list_dns_hosts",
-        lambda s: [{"domain": "rpi5-1.lan", "ip": "10.0.0.4"}],
+        lambda s: [{"domain": "host-a.lan", "ip": "10.0.0.4"}],
     )
     hit = fabric.match_pihole_host_for_server(session, srv)
     assert hit is None or hit.get("domain")

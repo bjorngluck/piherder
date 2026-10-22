@@ -139,8 +139,12 @@
       <input type="checkbox" name="active_only" value="1" {% if active_only %}checked{% endif %}>
       Active only
     </label>
+    <label class="ops-f-check">
+      <input type="checkbox" name="show_routine" value="1" {% if show_routine %}checked{% endif %}>
+      Show routine host snapshots
+    </label>
     <div class="ops-f-actions">
-      {% if server_id or status or job_type or active_only or date_from or date_to %}
+      {% if server_id or status or job_type or active_only or date_from or date_to or show_routine %}
       <a href="/jobs" class="btn btn-secondary text-xs min-h-9 px-2.5">Clear</a>
       {% endif %}
       <button type="submit" class="btn btn-accent text-xs min-h-9 px-3">Apply</button>
@@ -217,6 +221,7 @@
   <div class="flex flex-wrap gap-2">
     {% set q = 'server_id=' ~ (server_id or '') ~ '&status=' ~ (status or '') ~ '&job_type=' ~ (job_type or '') ~ '&date_from=' ~ (date_from or '') ~ '&date_to=' ~ (date_to or '') ~ '&per_page=' ~ (per_page or 20) %}
     {% if active_only %}{% set q = q ~ '&active_only=1' %}{% endif %}
+    {% if show_routine %}{% set q = q ~ '&show_routine=1' %}{% endif %}
     {% if page and page > 1 %}
     <a class="btn btn-secondary min-h-11 text-sm" href="/jobs?{{ q }}&page={{ page - 1 }}">← Prev</a>
     {% endif %}

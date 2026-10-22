@@ -32,6 +32,7 @@ The page uses the shared **ops-hero** (role / 2FA coverage pulse). Each user car
 3. **Generate** password (or set manually). Strength meter + **needs …** hints follow the live Settings policy (min length, special character, etc.). Same meter on **Reset password**, **Reset access**, Account change, first-login, and self-service forgot-password.  
 4. After submit, a confirmation modal shows login URL, email, temporary password, and invite text — **shown once**. Copy before closing.  
 5. New users have **`must_change_password`** until first reset.
+6. The create opens an admin alert. It names the admin and the client IP. It does not include the password. The first registration, and an SSO account provisioned on first sign-in, open the same kind of alert.
 
 ### Password policy
 

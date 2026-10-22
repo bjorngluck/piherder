@@ -367,6 +367,16 @@ async def oidc_callback(request: Request, session: Session = Depends(get_session
                 "sso_link",
                 f"reason=jit iss={issuer} sub={str(claims.get('sub'))[:64]}",
             )
+            from ..services.admin_alerts import notify_user_created
+
+            notify_user_created(
+                session,
+                actor=user,
+                email=user.email,
+                role=user.role,
+                user_id=int(user.id),
+                how="provisioned",
+            )
         else:
             # existing link — refresh snapshot
             ident = oidc.get_identity_by_iss_sub(session, issuer, str(claims.get("sub")))

@@ -63,7 +63,7 @@ def test_notify_transition_down_and_up(monkeypatch):
         external_id="2",
         external_label="rpi SSH",
     )
-    server = Server(id=9, name="rpi5-2", hostname="rpi5-2")
+    server = Server(id=9, name="host-b", hostname="host-b")
     session = MagicMock()
     session.get.return_value = server
 

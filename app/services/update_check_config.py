@@ -286,7 +286,10 @@ def apply_global_update_checks_to_all(
                 s.container_patch_enabled = True
             cont_n += 1
         elif not container_enabled:
+            # Clear the cron too. A leftover schedule would be registered again
+            # on the next scheduler sync while the fleet switch is on.
             s.container_check_enabled = False
+            s.container_check_schedule = None
 
         # Backups. Turn the flag on and leave backup_schedule untouched.
         # Turning the checkbox off does not clear the flag or a saved schedule.

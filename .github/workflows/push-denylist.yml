@@ -1,0 +1,24 @@
+name: Push denylist
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  denylist:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check added lines
+        env:
+          PIHERDER_PUSH_DENYLIST: ${{ secrets.PIHERDER_PUSH_DENYLIST }}
+          PIHERDER_DENYLIST_BASE: ${{ github.event.pull_request.base.sha }}
+          PIHERDER_DENYLIST_BEFORE: ${{ github.event.before }}
+        run: python3 scripts/check_push_denylist.py

@@ -905,7 +905,7 @@ def build_piherder_user_cleanup_script(
     Optional flags (via env when running) can delete the user account.
     """
     user = re.sub(r"[^a-z0-9_-]", "", (username or "piherder").lower()) or "piherder"
-    if user in {"root", "daemon", "nobody", "bjorn"}:
+    if user in {"root", "daemon", "nobody"}:
         # Refuse destructive defaults on common primary accounts
         user = "piherder"
 

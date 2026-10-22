@@ -5,7 +5,7 @@
 #   docker compose -f docker-compose.yml -f docker-compose.demo.yml \
 #     -f docker-compose.demo-ports.yml up -d
 #
-# Restricted Docker egress (Nomad / demo VPS): do **not** `compose build`
+# Restricted Docker egress (locked demo VPS): do **not** `compose build`
 # (bridge has no PyPI). Build with host network, tag piherder:demo, then up:
 #   DOCKER_BUILDKIT=1 docker build --network=host -t piherder:demo .
 #   PIHERDER_IMAGE=piherder:demo docker compose -f docker-compose.yml \

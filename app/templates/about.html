@@ -109,6 +109,36 @@
     </p>
   </div>
 
+  <div class="card p-5 account-card account-card--wide" data-testid="scheduler-jobs">
+    <h2 class="font-semibold text-text mb-2">Scheduled jobs</h2>
+    <p class="text-xs text-muted mb-3">
+      Last run is the latest matching job. A restart does not clear it.
+      Next fire is when the scheduler will run it next. Times use {{ get_app_timezone() }}.
+    </p>
+    {% set sched = scheduler_jobs or {} %}
+    {% if not sched.available %}
+    <p class="text-sm text-muted">The scheduler is not available in this process.</p>
+    {% elif not sched.running %}
+    <p class="text-sm text-muted">The scheduler is not running.</p>
+    {% elif sched.unreadable %}
+    <p class="text-sm text-muted">The scheduler is running. Its job list could not be read.</p>
+    {% elif not sched.jobs %}
+    <p class="text-sm text-muted">No scheduled jobs.</p>
+    {% else %}
+    {% set job_count = sched.jobs|length %}
+    {% set type_count = (sched.groups or [])|length %}
+    <p class="text-sm text-text mb-1">
+      {{ job_count }} scheduled job{% if job_count != 1 %}s{% endif %}
+      in {{ type_count }} type{% if type_count != 1 %}s{% endif %}.
+    </p>
+    <p class="text-xs text-muted mb-3">
+      {% for group in sched.groups or [] %}{{ group.label }} {{ group.count }}{% if not loop.last %} · {% endif %}{% endfor %}
+    </p>
+    <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5"
+            data-ph-show="scheduler-jobs-modal" data-testid="scheduler-jobs-open">View schedule</button>
+    {% endif %}
+  </div>
+
   <div class="card p-5 account-card account-card--wide">
     <h2 class="font-semibold text-text mb-2">Links</h2>
     <ul class="text-sm space-y-1.5">
@@ -120,4 +150,66 @@
     </ul>
   </div>
 </div>
+
+{% if sched is defined and sched.jobs %}
+<div id="scheduler-jobs-modal"
+     class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
+     role="dialog" aria-modal="true" aria-labelledby="scheduler-jobs-title"
+     data-ph-backdrop>
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-3xl ph-modal-brand ph-detail-modal max-h-[90vh] flex flex-col"
+       data-ph-stop>
+    <div class="ph-detail-modal-head">
+      <div class="min-w-0">
+        <div class="ph-detail-kicker">About · scheduler</div>
+        <h2 id="scheduler-jobs-title" class="ph-detail-title">Scheduled jobs</h2>
+        <p class="text-xs text-muted mt-1">
+          Pick a type, then each host and its last run. Times use {{ get_app_timezone() }}.
+        </p>
+      </div>
+      <button type="button" class="ph-icon-close shrink-0" data-ph-hide="scheduler-jobs-modal" aria-label="Close">✕</button>
+    </div>
+    <label class="block text-sm mb-3 shrink-0" for="scheduler-job-type">
+      <span class="block text-xs text-muted mb-1">Type</span>
+      <select id="scheduler-job-type" data-testid="scheduler-job-type"
+              data-ph-change="showSchedulerGroup"
+              class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+        {% for group in sched.groups or [] %}
+        <option value="{{ group.key }}">{{ group.label }} ({{ group.count }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="scheduler-jobs-scroll min-h-0 flex-1 overflow-y-auto">
+      {% for group in sched.groups or [] %}
+      <div data-scheduler-group="{{ group.key }}" {% if not loop.first %}class="hidden"{% endif %}>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm scheduler-job-table">
+            <thead>
+              <tr class="text-left text-xs text-muted">
+                <th class="py-1 pr-3 font-medium">{{ group.heading }}</th>
+                <th class="py-1 pr-3 font-medium scheduler-status-cell">Status</th>
+                <th class="py-1 pr-3 font-medium">Last run</th>
+                <th class="py-1 font-medium">Next fire</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in group.jobs %}
+              <tr class="border-t border-border" data-testid="scheduler-job" data-job-id="{{ row.id }}">
+                <td class="py-1.5 pr-3 text-text">{{ row.subject }}</td>
+                <td class="py-1.5 pr-3 scheduler-status-cell">
+                  <span class="status-pill scheduler-status-pill {{ row.status_class }}">{{ row.status_label }}</span>
+                </td>
+                <td class="py-1.5 pr-3 font-mono text-xs text-muted">{{ row.last_display }}</td>
+                <td class="py-1.5 font-mono text-xs text-text whitespace-nowrap">{{ row.next_display }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+<script src="/static/js/scheduler-jobs.js?v=20261020-groups"></script>
+{% endif %}
 {% endblock %}

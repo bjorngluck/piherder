@@ -29,7 +29,7 @@ PiHerder stays the **fleet truth**; external tools enrich via adapters and deep 
 
 !!! tip "Home Assistant"
     **Path 1:** managing **HAOS** (SSH, System info, Core/OS/Supervisor) is day-to-day fleet work — [HAOS hosts](../day-to-day/haos-hosts.md).  
-    **Path 2:** HA **observes** the PiHerder fleet via HACS — [Home Assistant → PiHerder](home-assistant.md). Poll reads snapshots only. Plugin **0.5.1** is one card (Fleet, Host, Updates) with a host strip. Click a stat for Home Assistant history. **Containers** starts, stops, restarts, or updates one service, and can stop a whole project (`docker compose stop`). The card can Move and can browse the fleet jail. Poll only. A `read` token shows sensors only. `jobs` shows **Backup**, the **Actions** menu, those container buttons, stop project, and Move. `files` shows the jail. `edit` shows the feature toggles. Visit on the host device is unchanged. The console stays in PiHerder.
+    **Path 2:** HA **observes** the PiHerder fleet via HACS. [Home Assistant → PiHerder](home-assistant.md). Poll reads snapshots only. Plugin **0.5.2** is one card (Fleet, Host, Updates) with a host strip. Click a stat for Home Assistant history. **Containers** starts, stops, restarts, or updates one service, and can stop a whole project (`docker compose stop`). The card can Move and can browse the fleet jail. Poll only. A `read` token shows sensors only. `jobs` shows **Backup**, the **Actions** menu, those container buttons, stop project, and Move. `files` shows the jail. `edit` shows the feature toggles. Visit on the host device is unchanged. The console stays in PiHerder.
 
     **Agents (v1.7):** Cursor, Grok, Claude, and Codex call the same token API from a process on your computer — [Agents (MCP)](../operations/mcp.md). That program is not a Catalog entry and not part of this image.
 
@@ -55,7 +55,7 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
 | [Grafana](grafana.md) | Dashboard inventory, deep links, preferred names | Want one-click metrics from server/Docker |
 | [Pi-hole](pihole.md) | v6 multi-instance stats, local DNS/CNAME fan-out | Manage LAN DNS from the herder |
 | [LAN Discovery (nmap)](lan-discovery.md) | Opt-in CIDR scans, devices, map names/kinds, Hosts map overlay, schedules | Want an end-to-end LAN view without linking every host |
-| [Nginx Proxy Manager](npm.md) | Proxy hosts (read-only) + certificate pull | Inventory edge hosts and cert material |
+| [Nginx Proxy Manager](npm.md) | Proxy hosts, certificate pull, admin create/edit/delete | Inventory edge hosts and cert material |
 | [Generic links](generic-links.md) | HA / Frigate / n8n / custom URL + reachability + Services chips | Want a deep link without a full adapter |
 | [Certificates](certificates.md) | Encrypted store, PEM upload, deploy maps, NPM renew | Push TLS files to many consumers |
 | [Network maps](dns-fabric.md) | Host A + service paths; Hosts/Path maps; **runtime stack** expand + order | Visualise name → host → app → containers |

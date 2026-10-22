@@ -28,7 +28,9 @@ scrape_configs:
       credentials: "<METRICS_TOKEN>"
 ```
 
-Useful series: `piherder_up`, `piherder_db_up`, `piherder_servers*`, `piherder_jobs*`, `piherder_notifications_open*`, `piherder_servers_backup_stale`.
+Useful series: `piherder_up`, `piherder_db_up`, `piherder_servers*`, `piherder_jobs*`, `piherder_notifications_open*`, `piherder_servers_backup_stale`, `piherder_schedule_missed`.
+
+`piherder_schedule_missed{kind="backup",server_id="1"}` is 1 when that host's latest due backup slot did not start within 15 minutes and has not succeeded since. `kind="container_check"` is the same gauge for a container image check. Schedules that are off are omitted.
 
 If `METRICS_TOKEN` is empty, treat `/metrics` like private-network only.
 

@@ -81,6 +81,7 @@ Client IP resolution is enforced in the **backend** on every authenticated API r
 | `jobs` | `POST /api/v1/servers/{id}/jobs` |
 | `edit` | `PATCH /api/v1/servers/{id}/features` |
 | `files` | Host Files (fleet identity only): list / download / upload / mkdir / rename / delete-empty. Not in default token scopes. Privileged Files, zip, edit, chmod, recursive delete stay **UI + 2FA**. Richer API Files is **under consideration for v1.4+**. |
+| `admin` | GET `/api/v1/admin/users`, `/tokens`, and `/audit`. Off unless ticked. `read` does not include it. MCP sign-in cannot grant it. No write route. |
 
 ### Feature allowlist scopes (optional)
 
@@ -180,7 +181,7 @@ Base path: **`/api/v1`**
 
 Server-side feature flags still gate jobs: you cannot run a backup job if `features.backup` is false on the server (enable it first with `edit`, or in the UI).
 
-`backup_schedule` is the saved cron, or null. `effective_backup_schedule` is the cron that will run. `backup_schedule_source` is `host`, `fleet`, or null when backups are off. `next_backup_run` is the live job's next run. `backup_scheduled` is true when that job is registered, false only when backups are on, the scheduler is running, and no job is registered, and null when this process cannot see the scheduler. A saved schedule wins. Apply does not write `backup_schedule`.
+`backup_schedule` is the saved cron, or null. `effective_backup_schedule` is the cron that will run. `backup_schedule_source` is `host`, `fleet`, or null when backups are off. `next_backup_run` is the live job's next run. `backup_scheduled` is true when that job is registered, false only when backups are on, the scheduler is running, and no job is registered, and null when this process cannot see the scheduler. A saved schedule wins. Apply does not write `backup_schedule`. Hosted `list_servers` and `get_server` return these keys, and the tool text names `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`. The adapter returns the same JSON. The package that names those fields in its tool text ships with the herder.
 
 ### Jobs
 
@@ -190,6 +191,7 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 | `GET` | `/api/v1/jobs/{id}` | `read` | Job detail (`?detail=true` for longer log tail) |
 | `GET` | `/api/v1/servers/{id}/jobs` | `read` | Jobs for one server |
 | `POST` | `/api/v1/servers/{id}/jobs` | `jobs` | Trigger job (HTTP **202**) |
+| `POST` | `/api/v1/servers/{id}/docker/prune` | `edit` | Start a `docker_prune` job (HTTP **202**). `prune_type` is `images`, `containers`, `both`, or `networks`. Volume prune stays on the Docker page |
 
 **POST body**
 
@@ -254,9 +256,9 @@ That table is the allowlist (`JOB_FEATURE_KEY`). Anything else, including `docke
 
 Gates: `jobs`, `feature:docker` when the token is feature-restricted, the docker flag on **both** hosts, and the herder Move surface (`PIHERDER_SERVICE_MIGRATE`, off in demo). Health field `service_migrate` is that surface. **404** when it is off. **400** when `confirm` is not true or the project name is a path. **409** when source or dest already has a stack, Move, or backup job — poll that job. The audit row stores this token and the client IP.
 
-`POST /api/v1/servers/{id}/jobs` with `service_migrate` stays **400**. Hosted MCP `trigger_job` does not start a Move. Hosted `start_move` calls this route. There is no undo tool. Adapter **0.4.2** lists `start_move`. Adapter **0.3.1** does not.
+`POST /api/v1/servers/{id}/jobs` with `service_migrate` stays **400**. Hosted MCP `trigger_job` does not start a Move. Hosted `start_move` calls this route. There is no undo tool. Adapter **0.4.3** lists `start_move`. Adapter **0.3.1** does not.
 
-Hosted MCP `trigger_job` uses this same list, including `container_start`, `container_stop`, `container_restart`, and `container_redeploy` (**v1.9** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md)). Those four require `service` and `source_filter`, the same body as this POST. It does not add `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move, undo, nmap, the console, token admin, or stale-data cleanup. Move is `start_move`. A LAN Discovery scan is `read_discovery` and `start_discovery`. For a `docker_stack_*` job, `source_filter` is the compose project path. Feature flags and `feature:*` scopes still apply. Token gates stay `jobs`, `feature:docker` when the token is feature-restricted, and the server docker flag. Adapter **0.4.2** lists the four one-service types plus `start_move`, `read_discovery`, `start_discovery`, and the device tools. Adapter **0.4.0** lists the four plus those three scan and Move tools and does not list the device tools. Adapter **0.3.1** lists the four and does not list those three. `uvx` at **0.2.0** does not list the four one-service types.
+Hosted MCP `trigger_job` uses this same list, including `container_start`, `container_stop`, `container_restart`, and `container_redeploy` (**v1.9** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md)). Those four require `service` and `source_filter`, the same body as this POST. It does not add `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move, undo, nmap, the console, token admin, or stale-data cleanup. Move is `start_move`. A LAN Discovery scan is `read_discovery` and `start_discovery`. For a `docker_stack_*` job, `source_filter` is the compose project path. Feature flags and `feature:*` scopes still apply. Token gates stay `jobs`, `feature:docker` when the token is feature-restricted, and the server docker flag. Adapter **0.4.3** lists the four one-service types plus `prune_docker`, `start_move`, `read_discovery`, `start_discovery`, and the device tools. Adapter **0.4.2** lists those tools and does not list `prune_docker`. Adapter **0.4.0** lists the four plus those three scan and Move tools and does not list the device tools. Adapter **0.3.1** lists the four and does not list those three. `uvx` at **0.2.0** does not list the four one-service types.
 
 ### LAN Discovery
 
@@ -280,7 +282,7 @@ Hosted MCP `trigger_job` uses this same list, including `container_start`, `cont
 { "confirm": true, "intensity": "discovery" }
 ```
 
-`confirm` must be `true`. `intensity` is `discovery` (the default), `inventory`, `detailed`, or `deep`. The body cannot set targets or vulnerability scripts. The scan uses the CIDRs saved on that integration. **400** when Discovery is off, when no ranges are saved, or when `confirm` is not true. The response names the ranges. It does not include credentials, script output, or the scan file path. Hosted MCP `read_discovery` and `start_discovery` call the scan routes. Hosted `list_discovery_devices`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices`, and `scan_discovery_device` call the device routes. A rename leaves kind and map role alone. A new or offline device becomes known when it is named. A linked device cannot be marked new and cannot be purged. Purge has no undo. A one-device scan defaults to `deep`, must sit inside the saved ranges, and keeps vulnerability scripts off. The device payload is id, ip, hostname, display name, state, linked server, and last seen. No MAC, notes, or script output. Each write stores this token and the client IP. Adapter **0.4.2** lists the device tools and sends `confirm=true` on purge. Adapter **0.4.1** lists the tools and omits that query. Adapter **0.4.0** lists the scan tools and does not list the device tools. Demo does not start a scan.
+`confirm` must be `true`. `intensity` is `discovery` (the default), `inventory`, `detailed`, or `deep`. The body cannot set targets or vulnerability scripts. The scan uses the CIDRs saved on that integration. **400** when Discovery is off, when no ranges are saved, or when `confirm` is not true. The response names the ranges. It does not include credentials, script output, or the scan file path. Hosted MCP `read_discovery` and `start_discovery` call the scan routes. Hosted `list_discovery_devices`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices`, and `scan_discovery_device` call the device routes. A rename leaves kind and map role alone. A new or offline device becomes known when it is named. A linked device cannot be marked new and cannot be purged. Purge has no undo. A one-device scan defaults to `deep`, must sit inside the saved ranges, and keeps vulnerability scripts off. The device payload is id, ip, hostname, display name, state, linked server, and last seen. No MAC, notes, or script output. Each write stores this token and the client IP. Adapter **0.4.3** lists the device tools and sends `confirm=true` on purge. Adapter **0.4.2** sends that query and does not list `prune_docker`. Adapter **0.4.1** lists the tools and omits that query. Adapter **0.4.0** lists the scan tools and does not list the device tools. Demo does not start a scan.
 
 ### Stale data cleanup
 
@@ -293,6 +295,19 @@ Hosted MCP `trigger_job` uses this same list, including `container_start`, `cont
 ```
 
 The token must have `jobs` and **no** `feature:*` scope. A feature-restricted token is **403**. This route is not an MCP tool. The queued audit and the finished audit both store that token (`api_token_id`, `api_token_name`) and the client IP. The worker copies them off the job, because the Celery task has no request.
+
+### Admin read (Bearer `admin`)
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| `GET` | `/api/v1/admin/users` | `admin` | Users. No password hash, TOTP secret, or session version. `limit` default 50, max 100. |
+| `GET` | `/api/v1/admin/users/{id}` | `admin` | One user. **404** when missing. |
+| `GET` | `/api/v1/admin/tokens` | `admin` | API tokens. No secret, hash, or prefix. |
+| `GET` | `/api/v1/admin/tokens/{id}` | `admin` | One token. **404** when missing. |
+| `GET` | `/api/v1/admin/audit` | `admin` | Audit log, newest first. `details` is capped at 500 characters. `output_snippet` is omitted. `client_ip` is included. |
+| `GET` | `/api/v1/admin/audit/{id}` | `admin` | One audit row. **404** when missing. |
+
+A token with only `read`, `jobs`, `edit`, or `files` gets **403**. These GETs write an `api_read` row when read audit is on, at most one per token and path every 5 minutes. There is no POST, PATCH, or DELETE on this path, and no MCP tool.
 
 ### Token management (admin **session**, not Bearer token)
 

@@ -25,15 +25,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get install -y --no-install-recommends postgresql-client-16 \
     && rm -rf /var/lib/apt/lists/*
 
-# rclone copies /backups to Drive. Pinned release, both image arches.
+# rclone copies /backups to Drive. Pinned release. The native package stays
+# on PATH. Both image CPUs are kept so a direct copy can run on the other one.
 ARG RCLONE_VERSION=1.68.2
 RUN arch="$(dpkg --print-architecture)" \
-    && case "$arch" in amd64) rarch=amd64 ;; arm64) rarch=arm64 ;; *) echo "unsupported $arch"; exit 1 ;; esac \
+    && case "$arch" in \
+         amd64) native=amd64; other=arm64 ;; \
+         arm64) native=arm64; other=amd64 ;; \
+         *) echo "unsupported $arch"; exit 1 ;; \
+       esac \
     && curl -fsSL -o /tmp/rclone.deb \
-         "https://github.com/rclone/rclone/releases/download/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-${rarch}.deb" \
+         "https://github.com/rclone/rclone/releases/download/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-${native}.deb" \
     && apt-get update \
     && apt-get install -y --no-install-recommends /tmp/rclone.deb \
-    && rm -rf /var/lib/apt/lists/* /tmp/rclone.deb
+    && rm -rf /var/lib/apt/lists/* /tmp/rclone.deb \
+    && mkdir -p /usr/lib/piherder \
+    && install -m 0755 /usr/bin/rclone "/usr/lib/piherder/rclone-${native}" \
+    && curl -fsSL -o /tmp/rclone-other.deb \
+         "https://github.com/rclone/rclone/releases/download/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-${other}.deb" \
+    && dpkg-deb -x /tmp/rclone-other.deb /tmp/rclone-extract \
+    && install -m 0755 /tmp/rclone-extract/usr/bin/rclone "/usr/lib/piherder/rclone-${other}" \
+    && rm -rf /tmp/rclone-other.deb /tmp/rclone-extract
 
 WORKDIR /app
 

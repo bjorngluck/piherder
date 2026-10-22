@@ -1,9 +1,12 @@
-"""Server backup restore wizard — reverse rsync from local dest → remote source.
+"""Server backup restore wizard. Reverse rsync from the local tree to the host.
+
+A chosen copy destination is pulled onto this PiHerder first. Dry-run does not
+write that pull. The host write still needs the confirm checkbox.
 
 Safety:
 - Default dry_run=True
 - Path policy checked on remote target
-- Requires existing local backup destination with content
+- Requires a local tree, or a selected copy that has that folder
 """
 from __future__ import annotations
 
@@ -54,11 +57,21 @@ def list_restore_candidates(server: Server) -> List[Dict[str, Any]]:
     return out
 
 
+def source_copy_rel(server: Server, source: str) -> str:
+    """Backup-drive path the copy uses for this source. host-folder/dest-name."""
+    from .backup_replicate import host_folder_name
+
+    name = Path(source).name or "root"
+    folder = host_folder_name(server)
+    return f"{folder}/{name}" if folder else name
+
+
 def restore_backup_source(
     server: Server,
     source: str,
     *,
     dry_run: bool = True,
+    pull_from=None,
 ) -> Dict[str, Any]:
     """
     Reverse rsync: local destination → remote source path.
@@ -89,6 +102,36 @@ def restore_backup_source(
         # fallback: compute dest
         dest_name = Path(source).name or "root"
         dest_path = backup_profiles.get_backup_root_for_server(server) / dest_name
+
+    pulled = None
+    if pull_from is not None:
+        from . import backup_replicate
+
+        rel = source_copy_rel(server, source)
+        pulled = backup_replicate.pull_rel(
+            pull_from, rel, dry_run=dry_run, local_dir=dest_path
+        )
+        if not pulled.get("ok"):
+            return {
+                "error": pulled.get("error") or "Could not read that copy",
+                "rc": 1,
+                "dry_run": dry_run,
+                "source": source,
+                "destination": str(dest_path),
+                "auth_failed": bool(pulled.get("auth_failed")),
+                "destination_id": getattr(pull_from, "id", None),
+            }
+        if dry_run and not dest_path.is_dir():
+            place = pulled.get("place") or "the copy"
+            return {
+                "rc": 0,
+                "dry_run": True,
+                "source": source,
+                "destination": str(dest_path),
+                "place": place,
+                "error": None,
+                "summary": f"Dry-run pull ok · {source} · {place}",
+            }
 
     if not dest_path.is_dir():
         return {
@@ -153,18 +196,24 @@ def restore_backup_source(
                 timeout=3600,
             )
             out = (proc.stdout or "") + (proc.stderr or "")
+            place = (pulled or {}).get("place")
+            summary = (
+                f"{'Dry-run restore' if dry_run else 'Restore'} "
+                f"{'ok' if proc.returncode == 0 else 'failed'} · {source}"
+            )
+            if place:
+                summary = f"{summary} · {place}"
             return {
                 "rc": proc.returncode,
                 "dry_run": dry_run,
                 "source": source,
                 "destination": str(dest_path),
                 "remote": remote,
+                "place": place,
                 "output": out[-4000:],
                 "error": None if proc.returncode == 0 else f"rsync exit {proc.returncode}",
-                "summary": (
-                    f"{'Dry-run restore' if dry_run else 'Restore'} "
-                    f"{'ok' if proc.returncode == 0 else 'failed'} · {source}"
-                ),
+                "summary": summary,
+                "destination_id": getattr(pull_from, "id", None) if pull_from is not None else None,
             }
         except subprocess.TimeoutExpired:
             return {
@@ -182,3 +231,23 @@ def restore_backup_source(
                 "source": source,
                 "destination": str(dest_path),
             }
+
+
+def restore_places(session, server: Server) -> List[Dict[str, Any]]:
+    """Enabled copies this restore can read. A direct host only sees its ticked ones."""
+    from sqlmodel import select
+
+    from ..models import BackupDestination
+    from .backup_direct import parse_direct_targets
+    from .backup_replicate import credentials_saved, destination_place
+
+    rows = list(session.exec(select(BackupDestination).where(BackupDestination.enabled == True)).all())  # noqa: E712
+    if getattr(server, "backup_direct", False):
+        allowed = set(parse_direct_targets(getattr(server, "backup_direct_targets", None)))
+        rows = [row for row in rows if (row.provider or "") in allowed]
+    out: List[Dict[str, Any]] = []
+    for row in rows:
+        if not credentials_saved(row):
+            continue
+        out.append({"id": row.id, "place": destination_place(row)})
+    return out

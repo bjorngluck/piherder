@@ -44,7 +44,7 @@ def _open_nmap_detail(page, base_url: str) -> None:
             has=page.locator('textarea[name="cidrs"]')
         )
     expect(form.first).to_be_visible(timeout=10_000)
-    form.locator('textarea[name="cidrs"]').fill("192.0.2.0/24")
+    form.locator('textarea[name="cidrs"]').fill("10.0.2.0/24")
     name = form.locator('input[name="name"]')
     if name.count():
         name.fill("LAN Discovery E2E")

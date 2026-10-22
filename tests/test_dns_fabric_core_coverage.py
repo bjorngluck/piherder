@@ -501,11 +501,11 @@ def test_plan_from_pihole_cname_direct():
 
 def test_match_pihole_host_for_server_and_list_cnames():
     session, _ = _engine_session()
-    server = _server(session, name="rpi5-1", dns_name=None, ip="192.168.1.50")
+    server = _server(session, name="host-a", dns_name=None, ip="192.168.1.50")
     _pihole(session)
 
     hosts = [
-        {"domain": "rpi5-1.example.com", "ip": "192.168.1.50"},
+        {"domain": "host-a.example.com", "ip": "192.168.1.50"},
         {"domain": "other.example.com", "ip": "10.0.0.1"},
     ]
     cnames = [
@@ -521,7 +521,7 @@ def test_match_pihole_host_for_server_and_list_cnames():
         listed = fabric.list_pihole_cnames(session)
 
     assert match is not None
-    assert match["domain"] == "rpi5-1.example.com"
+    assert match["domain"] == "host-a.example.com"
     assert match["ip"] == "192.168.1.50"
     assert len(listed) == 1
     assert listed[0]["domain"] == "app.example.com"
@@ -615,7 +615,7 @@ def test_pihole_login_urls_uses_npm_lan():
                     {
                         "id": "2",
                         "domain_names": ["pihole.example.test"],
-                        "forward_host": "192.0.2.34",
+                        "forward_host": "10.0.2.34",
                         "forward_port": 88,
                         "forward_scheme": "http",
                     }
@@ -627,7 +627,7 @@ def test_pihole_login_urls_uses_npm_lan():
     session.commit()
     urls = fabric.pihole_login_urls(session, ph_row)
     assert urls[0].rstrip("/") == "https://pihole.example.test"
-    assert "http://192.0.2.34:88" in urls
+    assert "http://10.0.2.34:88" in urls
 
 
 def test_pihole_login_fallback_second_url():
@@ -890,7 +890,7 @@ def test_resolve_app_layers_and_find_container():
 def test_resolve_app_layers_matches_kuma_monitor_url_to_host_fqdn():
     """Host-identity TLS: monitor URL is the host FQDN, project is frigate."""
     session, _ = _engine_session()
-    host = _server(session, name="RPI5-4", dns_name="rpi5-4.example.com", ip="192.0.2.40")
+    host = _server(session, name="host-b", dns_name="host-b.example.com", ip="10.0.2.40")
     from app.services.integrations import registry as reg
 
     integ = Integration(
@@ -914,7 +914,7 @@ def test_resolve_app_layers_matches_kuma_monitor_url_to_host_fqdn():
             external_label="Frigate",
             docker_project="frigate",
             docker_container="frigate",
-            external_meta_json='{"url": "https://rpi5-4.example.com:8971/"}',
+            external_meta_json='{"url": "https://host-b.example.com:8971/"}',
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
         )
@@ -922,7 +922,7 @@ def test_resolve_app_layers_matches_kuma_monitor_url_to_host_fqdn():
     session.commit()
 
     layers = fabric.resolve_app_layers(
-        session, host.id, fqdn="rpi5-4.example.com", docker_project=None
+        session, host.id, fqdn="host-b.example.com", docker_project=None
     )
     assert layers.get("docker_project") == "frigate"
     assert layers.get("docker_container") == "frigate"

@@ -50,9 +50,9 @@ PiHerder stays **SSH-first**. No agent on the Pis. The herder is the staging hop
 
 | Project | Move? | Why |
 |---------|-------|-----|
-| **Frigate** on rpi5-4 | **Lock** | Coral / TPU (`devices:` / USB). Operator sets host lock + reason |
+| **Frigate** on host-d | **Lock** | Coral / TPU (`devices:` / USB). Operator sets host lock + reason |
 | **Anything on HAOS** | **Refuse** | Unique appliance; not a compose dest |
-| **Grafana** / **Authentik** (`sso`) on rpi5-6 | **Yes** (direct) | Direct TLS. DNS CNAME follows dest host. Cert target + `/certs` bind re-applied on dest |
+| **Grafana** / **Authentik** (`sso`) on host-f | **Yes** (direct) | Direct TLS. DNS CNAME follows dest host. Cert target + `/certs` bind re-applied on dest |
 | **Pi-hole** itself | **Out of happy path** | Fabric depends on it; document “do not migrate the resolver you are using to migrate” |
 | **NPM-fronted** app (CNAME → NPM, `via_proxy=true`) | **Yes** (**M-npm**) | Public name stays on NPM; proxy-host `forward_host` updates to dest LAN/SSH address |
 | **NPM edge** (`nginx…` / NPM compose project) | **Yes** | Public names stay **CNAME → NPM hostname**. Only that alias CNAME → dest. Pi-hole admin URLs through the edge use LAN `forward_host` during cutover |
@@ -179,7 +179,7 @@ Matches the original verbal list (DNS before dest listen). Not built: longer hol
 
 **Start source stack** is pre-flip only. Auto-rollback is **not** Must and **not** a silent `finally`.
 
-**M-undo (landed v1.6 Undo-1, 2026-09-21):** fail-path only. After names have flipped, named job `service_migrate_undo` previews then confirms: revert DNS/NPM to source, `restartdns`, revert control-plane rows, re-enable the source cert target (dest clone stays), **compose stop dest**, **compose start source**. Dest dir + volumes stay. Never dest `down -v` / volume rm / project rm. Do **not** reverse a green Move (run a new Move B→A). Pre-flip failure is still **Start source stack**. Undo stays on the UI. There is no undo route on the token API. `POST /api/v1/servers/{id}/moves` with `confirm: true` starts a stop-first Move (v1.9, #24; the Home Assistant card uses it). `POST /jobs` with `service_migrate` stays **400**. Hosted `/mcp` `start_move` calls that moves route. There is no MCP undo. Adapter **0.4.2** lists `start_move`. Adapter **0.3.1** does not. Kill switch `PIHERDER_SERVICE_MIGRATE`. Demo never. See [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
+**M-undo (landed v1.6 Undo-1, 2026-09-21):** fail-path only. After names have flipped, named job `service_migrate_undo` previews then confirms: revert DNS/NPM to source, `restartdns`, revert control-plane rows, re-enable the source cert target (dest clone stays), **compose stop dest**, **compose start source**. Dest dir + volumes stay. Never dest `down -v` / volume rm / project rm. Do **not** reverse a green Move (run a new Move B→A). Pre-flip failure is still **Start source stack**. Undo stays on the UI. There is no undo route on the token API. `POST /api/v1/servers/{id}/moves` with `confirm: true` starts a stop-first Move (v1.9, #24; the Home Assistant card uses it). `POST /jobs` with `service_migrate` stays **400**. Hosted `/mcp` `start_move` calls that moves route. There is no MCP undo. Adapter **0.4.3** lists `start_move`. Adapter **0.3.1** does not. Kill switch `PIHERDER_SERVICE_MIGRATE`. Demo never. See [PLAN_v1.6.0.md](PLAN_v1.6.0.md).
 
 **Undo-2 (v1.8, built on `v1.8.0-dev`):** only a worker death during `dest_up`. Job `service_migrate_dest_recover` inspects dest, then `compose stop` dest and `compose start` source. DNS and NPM stay. A green Move is not this helper.
 
@@ -229,7 +229,7 @@ Existing `upsert_service_record` already:
 
 ### NPM edge (moving the proxy stack)
 
-Public names are **CNAME → NPM hostname** (e.g. `ai.example.com` → `nginx.example.com`). Moving the NPM compose project:
+Public names are **CNAME → NPM hostname** (e.g. `app.example.com` → `edge.example.com`). Moving the NPM compose project:
 
 1. Retarget **only** the edge FQDN CNAME to dest `dns_name`.  
 2. Leave dependent CNAMEs on the alias — flip fabric `target_server_id` to dest, no Pi-hole rewrite of those names.  
@@ -258,7 +258,7 @@ Not in 1.4: POST new proxy host, DELETE, certificate_id changes, `enabled` toggl
 | Check | When | Pass |
 |-------|------|------|
 | `docker compose ps` dest | always | expected services running |
-| TLS fingerprint | `CertificateTarget.verify_url` or fabric `certificate_id` + known port | `openssl s_client -servername <fqdn>` matches vault fingerprint (SNI matters — Authentik default cert vs `*.hacknow.info`) |
+| TLS fingerprint | `CertificateTarget.verify_url` or fabric `certificate_id` + known port | `openssl s_client -servername <fqdn>` matches vault fingerprint (SNI matters. Authentik default cert vs `*.example.com`) |
 | Kuma | any service binding | metrics `up` for that monitor after DNS; rebind `server_id` so coverage / down-alerts follow dest |
 | Inventory | always | dest project present; source project stopped or absent from running |
 
@@ -450,7 +450,7 @@ An operator can:
 | 2026-08-25 | **M-rm:** optional source project + named volume delete after green migrate. Preview + danger confirm + `leftover_remove_ack`. Dest never wiped. |
 | 2026-08-25 | Operator wiki pass: full pipeline + leftover + Journey Move; maintainer QA/PLAN/ROADMAP/SPEC aligned for live validation. |
 | 2026-08-30 | **NPM edge move:** dependents keep CNAME on the NPM hostname; alias follows dest; Pi-hole login falls back to NPM LAN backend; cutover retries DNS when fabric already points at dest. |
-| 2026-08-30 | **NPM proxy-host binding:** PUT ``forward_host`` for the compose project even with no fabric DNS row (openwebui / ``ai.example.com``). Rebind follows the project, not only the source host. |
+| 2026-08-30 | **NPM proxy-host binding:** PUT ``forward_host`` for the compose project even with no fabric DNS row (openwebui / ``app.example.com``). Rebind follows the project, not only the source host. |
 | 2026-09-01 | Grafana **container** dashboard binds follow dest. Optional **Adopt into fabric** (via_proxy, no cert, no Pi-hole rewrite). JobHold **Start source stack** after copy / dest-up fail. ``dns_then_start`` stays out. |
 | 2026-09-06 | **M-worker** parked for **v1.5 candidate**: Celery Move + heartbeats. 1.4 stays web `BackgroundTasks`. |
 | 2026-09-07 | **M-worker** promoted: [PLAN_v1.5.0.md](PLAN_v1.5.0.md) Must on `v1.5.0-dev`. |

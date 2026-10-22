@@ -37,7 +37,7 @@ Relative config mounts and host-name variables (`NODE_NAME`, remote URLs) are in
 
 ## Example: grafana-monitoring + promtail
 
-On a host such as **rpi5-1**, a stack like `grafana-monitoring` often has:
+On a host such as **host-a**, a stack like `grafana-monitoring` often has:
 
 ```yaml
 # docker-compose.yml (excerpt)
@@ -49,12 +49,12 @@ promtail:
 ```yaml
 # promtail-config.yaml (excerpt)
 scrape_configs:
-  - job_name: system-rpi5-1
+  - job_name: system-host-a
     static_configs:
       - labels:
-          host: rpi5-1
+          host: host-a
 clients:
-  - url: http://rpi5-2.example.com:3100/loki/api/v1/push
+  - url: http://host-b.example.com:3100/loki/api/v1/push
 ```
 
 **From host** will:
@@ -62,7 +62,7 @@ clients:
 | Capture | Variable | Deploy meaning |
 |---------|----------|----------------|
 | `promtail-config.yaml` body | (file kept) | Written next to compose on deploy |
-| `rpi5-1` labels / job names | `{{NODE_NAME}}` | Node / host label for this fleet member |
+| `host-a` labels / job names | `{{NODE_NAME}}` | Node / host label for this fleet member |
 | Loki push URL on another host | `{{LOKI_URL}}` | Remote endpoint — change per environment |
 | Ports / data volumes | port & volume vars | Same as other templates |
 

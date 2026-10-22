@@ -85,7 +85,12 @@ Live docs URL (custom domain only): **[piherder-docs.hacknow.info](https://piher
 
 ### About & updates
 
-Avatar menu → **About** shows the project story, wordmark (theme-aware), running version, and links to GitHub / docs / releases.
+Avatar menu → **About** shows the project story, wordmark (theme-aware), running version, a short scheduled-jobs count, and links to GitHub / docs / releases. **View schedule** uses the same dialog chrome as the other modals. The type control sits above the list. Pick a type, then each host with its status, last run, and next fire. Last run is the latest matching job. A restart does not clear it.
+
+<figure class="ph-figure" markdown>
+  ![Scheduled jobs by type](../assets/screenshots/about-scheduler.png)
+  <figcaption>View schedule, with the type control above the list. Status is a short pill. Host names are masked.</figcaption>
+</figure>
 If a newer **GitHub release** is available, a dismissible banner appears under the header (per browser).
 **Check for updates** on the About page forces a refresh (wait modal). Disable checks with `PIHERDER_UPDATE_CHECK=false` (air-gapped).
 

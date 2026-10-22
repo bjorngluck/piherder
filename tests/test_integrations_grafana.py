@@ -26,8 +26,8 @@ def test_dashboard_path_and_open_url():
 
 
 def test_hostname_short():
-    assert gf.hostname_short("rpi5-1.example.com") == "rpi5-1"
-    assert gf.hostname_short("", "RPI5-2") == "rpi5-2"
+    assert gf.hostname_short("host-a.example.com") == "host-a"
+    assert gf.hostname_short("", "Host-B") == "host-b"
 
 
 def test_binding_grafana_kind_infers_containers_from_docker_scope():
@@ -56,26 +56,26 @@ def test_binding_grafana_kind_infers_containers_from_docker_scope():
 def test_apply_query_template():
     q = gf.apply_query_template(
         "var-job={hostname_short}_exporter&var-instance={hostname}",
-        hostname="rpi5-1.example.com",
-        name="RPI5-1",
+        hostname="host-a.example.com",
+        name="host-a",
     )
-    assert q == "var-job=rpi5-1_exporter&var-instance=rpi5-1.example.com"
+    assert q == "var-job=host-a_exporter&var-instance=host-a.example.com"
     assert gf.apply_query_template("", hostname="x") == ""
 
 
 def test_apply_query_template_container_and_logs():
     q = gf.apply_query_template(
         "var-job={hostname_short}_cadvisor&var-container={container}",
-        hostname="rpi5-1.example.com",
+        hostname="host-a.example.com",
         container="pihole",
         project="dns",
     )
-    assert q == "var-job=rpi5-1_cadvisor&var-container=pihole"
+    assert q == "var-job=host-a_cadvisor&var-container=pihole"
     logs = gf.apply_query_template(
         "var-host={hostname_short}",
-        hostname="rpi5-2.example.com",
+        hostname="host-b.example.com",
     )
-    assert logs == "var-host=rpi5-2"
+    assert logs == "var-host=host-b"
 
 
 def test_open_dashboard_url_with_query():
@@ -84,10 +84,10 @@ def test_open_dashboard_url_with_query():
         uid="uid1",
         slug="hosts",
         query_template="var-job={hostname_short}_exporter",
-        hostname="rpi5-1.example.com",
+        hostname="host-a.example.com",
     )
     assert url.startswith("https://g.example.com/d/uid1/hosts")
-    assert "var-job=rpi5-1_exporter" in url
+    assert "var-job=host-a_exporter" in url
 
 
 def test_open_dashboard_url_relative():
@@ -221,14 +221,14 @@ def test_binding_open_url_grafana():
     binding.docker_project = None
 
     server = MagicMock()
-    server.hostname = "rpi5-2.example.com"
-    server.name = "RPI5-2"
+    server.hostname = "host-b.example.com"
+    server.name = "host-b"
     server.ip_address = "10.0.0.2"
     server.id = 3
 
     url = reg.binding_open_url(integ, binding, server=server)
     assert "https://g.example.com/d/dashuid/hosts" in url
-    assert "var-job=rpi5-2_exporter" in url
+    assert "var-job=host-b_exporter" in url
 
 
 def test_binding_open_url_grafana_container_and_logs():
@@ -242,8 +242,8 @@ def test_binding_open_url_grafana_container_and_logs():
         }
     )
     server = MagicMock()
-    server.hostname = "rpi5-1.example.com"
-    server.name = "RPI5-1"
+    server.hostname = "host-a.example.com"
+    server.name = "host-a"
     server.ip_address = ""
     server.id = 11
 
@@ -265,7 +265,7 @@ def test_binding_open_url_grafana_container_and_logs():
     logs_b.docker_container = None
     logs_b.docker_project = None
     url_l = reg.binding_open_url(integ, logs_b, server=server)
-    assert "var-host=rpi5-1" in url_l
+    assert "var-host=host-a" in url_l
 
 
 def test_resolve_grafana_query_template_picks_by_kind_and_scope():
@@ -338,8 +338,8 @@ def test_grafana_chip_dict_touch_friendly_fields():
     )
 
     server = MagicMock()
-    server.hostname = "rpi5-1.example.com"
-    server.name = "RPI5-1"
+    server.hostname = "host-a.example.com"
+    server.name = "host-a"
     server.ip_address = "10.0.0.1"
     server.id = 1
 

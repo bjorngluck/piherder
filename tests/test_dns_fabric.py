@@ -12,8 +12,8 @@ from app.services import dns_fabric as fabric
 
 
 def test_normalize_and_validate_fqdn():
-    assert fabric.normalize_fqdn("  RPi5-1.example.com. ") == "rpi5-1.example.com"
-    assert fabric.is_valid_fqdn("rpi5-1.example.com")
+    assert fabric.normalize_fqdn("  Host-A.example.com. ") == "host-a.example.com"
+    assert fabric.is_valid_fqdn("host-a.example.com")
     assert fabric.is_valid_fqdn("piherder-dev.example.com")
     assert not fabric.is_valid_fqdn("noperiod")
     assert not fabric.is_valid_fqdn("")
@@ -35,7 +35,7 @@ def test_host_focus_key_and_map_urls():
 def test_fabric_rack_for_server_backend_and_npm_edge():
     """Rack lists backend apps; target-only proxy edge marks is_npm_edge."""
     backend = SimpleNamespace(
-        id=1, name="rpi5-1", dns_name="rpi5-1.example.com",
+        id=1, name="host-a", dns_name="host-a.example.com",
         hostname="10.0.0.1", ip_address="10.0.0.1", dns_ip_override=None,
     )
     edge = SimpleNamespace(
@@ -74,7 +74,7 @@ def test_fabric_rack_for_server_backend_and_npm_edge():
             "via_proxy": True,
             "path_kind": "npm_app",
             "path_title": "via NPM",
-            "chain": "app.example.com → npm → rpi5-1 → web",
+            "chain": "app.example.com → npm → host-a → web",
             "docker_project": "web",
             "docker_container": "web",
         },
@@ -98,7 +98,7 @@ def test_fabric_rack_for_server_backend_and_npm_edge():
 
 def test_fabric_rack_same_host_npm_is_edge():
     host = SimpleNamespace(
-        id=4, name="RPI5-6", dns_name="rpi5-6.example.com",
+        id=4, name="host-f", dns_name="host-f.example.com",
         hostname="10.0.0.4", ip_address="10.0.0.4", dns_ip_override=None,
     )
     rec = SimpleNamespace(
@@ -123,7 +123,7 @@ def test_fabric_rack_same_host_npm_is_edge():
             "via_proxy": True,
             "path_kind": "npm_app",
             "path_title": "name → NPM → host → app (same host)",
-            "chain": "n8n.example.com → nginx → RPI5-6 → n8n",
+            "chain": "n8n.example.com → nginx → host-f → n8n",
             "docker_project": "n8n",
             "docker_container": "n8n",
         },
@@ -162,7 +162,7 @@ def test_is_valid_ipv4():
     assert fabric.is_valid_ipv4("192.168.1.10")
     assert fabric.is_valid_ipv4("10.0.0.1")
     assert not fabric.is_valid_ipv4("999.1.1.1")
-    assert not fabric.is_valid_ipv4("rpi5-1")
+    assert not fabric.is_valid_ipv4("host-a")
 
 
 def test_host_ip_for_dns_prefers_override():
@@ -180,22 +180,22 @@ def test_host_ip_for_dns_prefers_override():
 
 
 def test_suggest_host_dns_name():
-    s = SimpleNamespace(name="RPI5-1", hostname="rpi5-1")
-    assert fabric.suggest_host_dns_name(s, "example.com") == "rpi5-1.example.com"
+    s = SimpleNamespace(name="host-a", hostname="host-a")
+    assert fabric.suggest_host_dns_name(s, "example.com") == "host-a.example.com"
     assert fabric.suggest_host_dns_name(s, "") == ""
 
 
 def test_server_name_tokens():
-    s = SimpleNamespace(name="RPI5-1", hostname="rpi5-1", dns_name=None)
+    s = SimpleNamespace(name="host-a", hostname="host-a", dns_name=None)
     tokens = fabric._server_name_tokens(s)
-    assert "rpi5-1" in tokens
+    assert "host-a" in tokens
 
 
 def test_host_dns_form_defaults_saved_wins():
     s = SimpleNamespace(
-        name="RPI5-1",
+        name="host-a",
         hostname="10.0.0.5",
-        dns_name="rpi5-1.example.com",
+        dns_name="host-a.example.com",
         ip_address="10.0.0.9",
         dns_ip_override=None,
         dns_manage_a=True,
@@ -203,7 +203,7 @@ def test_host_dns_form_defaults_saved_wins():
     session = MagicMock()
     with patch.object(fabric.core, "match_pihole_host_for_server", return_value=None):
         d = fabric.host_dns_form_defaults(session, s, base_domain="example.com")
-    assert d["dns_name"] == "rpi5-1.example.com"
+    assert d["dns_name"] == "host-a.example.com"
     assert d["ip_address"] == "10.0.0.9"
     assert d["is_saved"] is True
     assert d["dns_manage_a"] is True
@@ -211,18 +211,18 @@ def test_host_dns_form_defaults_saved_wins():
 
 def test_host_dns_form_defaults_from_pihole():
     s = SimpleNamespace(
-        name="RPI5-1",
-        hostname="rpi5-1",
+        name="host-a",
+        hostname="host-a",
         dns_name=None,
         ip_address=None,
         dns_ip_override=None,
         dns_manage_a=False,
     )
     session = MagicMock()
-    match = {"domain": "rpi5-1.example.com", "ip": "192.168.1.51", "source": "pi1"}
+    match = {"domain": "host-a.example.com", "ip": "192.168.1.51", "source": "pi1"}
     with patch.object(fabric.core, "match_pihole_host_for_server", return_value=match):
         d = fabric.host_dns_form_defaults(session, s, base_domain="example.com")
-    assert d["dns_name"] == "rpi5-1.example.com"
+    assert d["dns_name"] == "host-a.example.com"
     assert d["ip_address"] == "192.168.1.51"
     assert d["is_saved"] is False
     assert "pihole" in d["source"]
@@ -231,7 +231,7 @@ def test_host_dns_form_defaults_from_pihole():
 
 def test_host_dns_form_defaults_hostname_ip():
     s = SimpleNamespace(
-        name="RPI5-2",
+        name="host-b",
         hostname="10.0.0.22",
         dns_name=None,
         ip_address=None,
@@ -241,14 +241,14 @@ def test_host_dns_form_defaults_hostname_ip():
     session = MagicMock()
     with patch.object(fabric.core, "match_pihole_host_for_server", return_value=None):
         d = fabric.host_dns_form_defaults(session, s, base_domain="example.com")
-    assert d["dns_name"] == "rpi5-2.example.com"
+    assert d["dns_name"] == "host-b.example.com"
     assert d["ip_address"] == "10.0.0.22"
     assert d["is_saved"] is False
 
 
 def test_plan_summary_direct_and_proxy():
     s = fabric._plan_summary(
-        "app.example.com", "rpi5-3.example.com", "RPI4-1", True, "NPM edge"
+        "app.example.com", "host-c.example.com", "RPI4-1", True, "NPM edge"
     )
     assert "CNAME" in s and "via NPM" in s
     s2 = fabric._plan_summary("app.example.com", "rpi4-1.example.com", "RPI4-1", False, "direct")
@@ -259,7 +259,7 @@ def test_build_access_path_host_direct():
     session = MagicMock()
     host = SimpleNamespace(
         id=8, name="3DPRINT", dns_name="3dprint.example.com", hostname="3dprint.example.com",
-        ip_address="192.0.2.41", dns_ip_override=None,
+        ip_address="10.0.2.41", dns_ip_override=None,
     )
     with patch.object(fabric.core, "_servers_by_id", return_value={8: host}), patch.object(fabric.core, "_find_npm_forward", return_value=None
     ), patch.object(fabric.core, "_find_docker_container", return_value=None), patch.object(fabric.core, "resolve_app_layers",
@@ -290,15 +290,15 @@ def test_is_host_identity_name():
 def test_build_access_path_npm_app():
     session = MagicMock()
     edge = SimpleNamespace(
-        id=5, name="RPI5-3", dns_name="rpi5-3.example.com", hostname="rpi5-3",
-        ip_address="192.0.2.35", dns_ip_override=None,
+        id=5, name="host-c", dns_name="host-c.example.com", hostname="host-c",
+        ip_address="10.0.2.35", dns_ip_override=None,
     )
     backend = SimpleNamespace(
-        id=1, name="RPI5-2", dns_name="rpi5-2.example.com", hostname="rpi5-2",
-        ip_address="192.0.2.49", dns_ip_override=None,
+        id=1, name="host-b", dns_name="host-b.example.com", hostname="host-b",
+        ip_address="10.0.2.49", dns_ip_override=None,
     )
     with patch.object(fabric.core, "_servers_by_id", return_value={5: edge, 1: backend}), patch.object(fabric.core, "_find_npm_forward",
-        return_value={"forward_host": "192.0.2.49", "forward_port": 8090, "domain_names": ["download.example.com"]},
+        return_value={"forward_host": "10.0.2.49", "forward_port": 8090, "domain_names": ["download.example.com"]},
     ), patch.object(fabric.core, "_find_docker_container", return_value="qbittorrent"), patch.object(fabric.core, "resolve_app_layers",
         return_value={"docker_project": "qbittorrent", "docker_container": "qbittorrent", "source": "explicit"},
     ):
@@ -319,8 +319,8 @@ def test_build_access_path_host_direct_with_app_layers():
     """Grafana-style: CNAME → host, plus Docker service/container from Kuma."""
     session = MagicMock()
     host = SimpleNamespace(
-        id=4, name="RPI5-6", dns_name="rpi5-6.example.com", hostname="rpi5-6",
-        ip_address="192.0.2.34", dns_ip_override=None,
+        id=4, name="host-f", dns_name="host-f.example.com", hostname="host-f",
+        ip_address="10.0.2.34", dns_ip_override=None,
     )
     with patch.object(fabric.core, "_servers_by_id", return_value={4: host}), patch.object(fabric.core, "_find_npm_forward", return_value=None
     ), patch.object(fabric.core, "resolve_app_layers",
@@ -348,11 +348,11 @@ def test_build_access_path_direct_ignores_stale_npm():
     """CNAME already on the backend host — leftover NPM inventory is not the edge."""
     session = MagicMock()
     host = SimpleNamespace(
-        id=4, name="RPI5-4", dns_name="rpi5-4.example.com", hostname="rpi5-4",
-        ip_address="192.0.2.40", dns_ip_override=None,
+        id=4, name="host-d", dns_name="host-d.example.com", hostname="host-d",
+        ip_address="10.0.2.40", dns_ip_override=None,
     )
     stale_npm = {
-        "forward_host": "192.0.2.40",
+        "forward_host": "10.0.2.40",
         "forward_port": 8971,
         "domain_names": ["frigate.example.com"],
     }
@@ -386,11 +386,11 @@ def test_build_access_path_npm_same_host():
     """n8n-style: public name CNAME → NPM hostname, backend on the same Pi."""
     session = MagicMock()
     host = SimpleNamespace(
-        id=4, name="RPI5-6", dns_name="rpi5-6.example.com", hostname="rpi5-6",
-        ip_address="192.0.2.34", dns_ip_override=None,
+        id=4, name="host-f", dns_name="host-f.example.com", hostname="host-f",
+        ip_address="10.0.2.34", dns_ip_override=None,
     )
     npm_fwd = {
-        "forward_host": "192.0.2.34",
+        "forward_host": "10.0.2.34",
         "forward_port": 5678,
         "domain_names": ["n8n.example.com"],
     }
@@ -425,10 +425,10 @@ def test_build_access_path_npm_same_host():
 
 def test_link_service_project_sets_docker_and_clears_proxy():
     backend = SimpleNamespace(
-        id=4, name="RPI5-4", dns_name="rpi5-4.example.com",
+        id=4, name="host-d", dns_name="host-d.example.com",
     )
     row = SimpleNamespace(
-        fqdn="rpi5-4.example.com",
+        fqdn="host-d.example.com",
         docker_project=None,
         label=None,
         via_proxy=True,
@@ -454,15 +454,15 @@ def test_link_service_project_sets_docker_and_clears_proxy():
 
 
 def test_hostname_from_urlish_and_binding_hosts():
-    assert fabric._hostname_from_urlish("https://rpi5-4.example.com:8971/") == "rpi5-4.example.com"
-    assert fabric._hostname_from_urlish("rpi5-4.example.com") == "rpi5-4.example.com"
+    assert fabric._hostname_from_urlish("https://host-d.example.com:8971/") == "host-d.example.com"
+    assert fabric._hostname_from_urlish("host-d.example.com") == "host-d.example.com"
     assert fabric._hostname_from_urlish("frigate") == ""
     b = SimpleNamespace(
         external_label="Frigate",
         external_id="12",
-        external_meta_json='{"url": "https://rpi5-4.example.com/", "hostname": ""}',
+        external_meta_json='{"url": "https://host-d.example.com/", "hostname": ""}',
     )
-    assert "rpi5-4.example.com" in fabric._binding_monitor_hosts(b)
+    assert "host-d.example.com" in fabric._binding_monitor_hosts(b)
 
 
 def test_build_path_mesh_from_hops():
@@ -472,8 +472,8 @@ def test_build_path_mesh_from_hops():
             "path_kind": "npm_app",
             "hops": [
                 {"kind": "name", "label": "app.example.com", "sub": "CNAME"},
-                {"kind": "npm", "label": "RPI5-3", "sub": "edge", "href": "/servers/5"},
-                {"kind": "host", "label": "RPI5-2", "sub": "backend", "href": "/servers/1"},
+                {"kind": "npm", "label": "host-c", "sub": "edge", "href": "/servers/5"},
+                {"kind": "host", "label": "host-b", "sub": "backend", "href": "/servers/1"},
                 {"kind": "service", "label": "qbittorrent", "sub": "compose project"},
                 {"kind": "container", "label": "qbittorrent", "sub": "container"},
             ],
@@ -819,15 +819,15 @@ def test_physical_mesh_svg_path_ids():
     hosts = [
         {
             "server_id": 1,
-            "name": "RPI5-1",
-            "dns_name": "rpi5-1.example",
+            "name": "host-a",
+            "dns_name": "host-a.example",
             "ip": "10.0.0.1",
             "href": "/servers/1",
         },
         {
             "server_id": 2,
-            "name": "RPI5-2",
-            "dns_name": "rpi5-2.example",
+            "name": "host-b",
+            "dns_name": "host-b.example",
             "ip": "10.0.0.2",
             "href": "/servers/2",
         },
@@ -842,7 +842,7 @@ def test_physical_mesh_svg_path_ids():
             "docker_project": "app",
             "docker_container": "app",
             "path_kind": "npm_app",
-            "path_chain": "app.example → RPI5-2 → RPI5-1",
+            "path_chain": "app.example → host-b → host-a",
             "dep_href": None,
             "backend_href": "/servers/1",
         },
@@ -855,7 +855,7 @@ def test_physical_mesh_svg_path_ids():
             "docker_project": None,
             "docker_container": None,
             "path_kind": "host",
-            "path_chain": "direct.example → RPI5-1",
+            "path_chain": "direct.example → host-a",
             "dep_href": None,
             "backend_href": "/servers/1",
         },
@@ -880,11 +880,11 @@ def test_logical_mesh_svg_path_ids():
             "id": 7,
             "url": "app.example",
             "via_npm": True,
-            "npm_edge": "RPI5-2",
-            "dest_host": "RPI5-1",
+            "npm_edge": "host-b",
+            "dest_host": "host-a",
             "dest_project": "app",
             "dest_container": "app",
-            "dest_summary": "RPI5-1 / app / app",
+            "dest_summary": "host-a / app / app",
             "path_kind": "npm_app",
             "href": None,
             "dest_host_href": "/servers/1",
@@ -894,10 +894,10 @@ def test_logical_mesh_svg_path_ids():
             "url": "host.example",
             "via_npm": False,
             "npm_edge": None,
-            "dest_host": "RPI5-3",
+            "dest_host": "host-c",
             "dest_project": None,
             "dest_container": None,
-            "dest_summary": "RPI5-3",
+            "dest_summary": "host-c",
             "path_kind": "host_identity",
             "href": None,
             "dest_host_href": "/servers/3",
@@ -1040,23 +1040,23 @@ def test_build_fabric_view_lazy_and_no_persist():
 
 
 def test_ip_in_lan():
-    assert fabric._ip_in_lan("192.0.2.10", "192.0.2.0/24") is True
-    assert fabric._ip_in_lan("10.0.0.5", "192.0.2.0/24") is False
-    assert fabric._ip_in_lan(None, "192.0.2.0/24") is None
-    assert fabric._ip_in_lan("192.0.2.10", "") is None
+    assert fabric._ip_in_lan("10.0.2.10", "10.0.2.0/24") is True
+    assert fabric._ip_in_lan("10.0.0.5", "10.0.2.0/24") is False
+    assert fabric._ip_in_lan(None, "10.0.2.0/24") is None
+    assert fabric._ip_in_lan("10.0.2.10", "") is None
 
 
 def test_host_is_cloud_rfc1918_fallback():
     """Without LAN CIDR, public IPs are cloud; private stay on LAN."""
     assert fabric._host_is_cloud("203.0.113.50", "") is True
-    assert fabric._host_is_cloud("192.0.2.20", "") is False
+    assert fabric._host_is_cloud("10.0.2.20", "") is False
     assert fabric._host_is_cloud("10.0.0.5", "") is False
     assert fabric._host_is_cloud(None, "") is False
-    assert fabric._host_is_cloud("203.0.113.50", "192.0.2.0/24") is True
-    assert fabric._host_is_cloud("192.0.2.20", "192.0.2.0/24") is False
+    assert fabric._host_is_cloud("203.0.113.50", "10.0.2.0/24") is True
+    assert fabric._host_is_cloud("10.0.2.20", "10.0.2.0/24") is False
     # Private, but outside the saved CIDR: still LAN, not the Internet node.
-    assert fabric._host_is_cloud("192.0.2.49", "10.0.0.0/24") is False
-    assert fabric._host_is_cloud("10.0.0.5", "192.0.2.0/24") is False
+    assert fabric._host_is_cloud("10.0.2.49", "10.0.0.0/24") is False
+    assert fabric._host_is_cloud("10.0.0.5", "10.0.2.0/24") is False
 
 
 def test_physical_mesh_places_cloud_and_infra():
@@ -1065,13 +1065,13 @@ def test_physical_mesh_places_cloud_and_infra():
             "server_id": 1,
             "name": "RPI",
             "dns_name": "rpi.example",
-            "ip": "192.0.2.20",
+            "ip": "10.0.2.20",
             "href": "/servers/1",
         },
         {
             "server_id": 2,
-            "name": "Nomad",
-            "dns_name": "nomad.example",
+            "name": "cloud-a",
+            "dns_name": "cloud-a.example",
             "ip": "203.0.113.50",
             "href": "/servers/2",
         },
@@ -1090,8 +1090,8 @@ def test_physical_mesh_places_cloud_and_infra():
         }
     ]
     net = {
-        "lan_subnet": "192.0.2.0/24",
-        "gateway_ip": "192.0.2.1",
+        "lan_subnet": "10.0.2.0/24",
+        "gateway_ip": "10.0.2.1",
         "public_ip": "198.51.100.9",
         "gateway_kuma": {
             "external_id": "router-ping",
@@ -1107,11 +1107,11 @@ def test_physical_mesh_places_cloud_and_infra():
     assert "lan" in kinds
     hosts_n = [n for n in svg["nodes"] if n["kind"] == "host"]
     by_name = {n["label"]: n for n in hosts_n}
-    assert by_name["Nomad"].get("is_cloud") is True
+    assert by_name["cloud-a"].get("is_cloud") is True
     assert by_name["RPI"].get("is_cloud") is False
     assert any(e.get("kind") == "wan" for e in svg["edges"])
     assert any(e.get("kind") == "lan" for e in svg["edges"])
-    # Spine edges: Internet→gateway, gateway→LAN, LAN→RPI, Internet→Nomad
+    # Spine edges: Internet→gateway, gateway→LAN, LAN→RPI, Internet→cloud-a
     edge_kinds = [e["kind"] for e in svg["edges"]]
     assert edge_kinds.count("wan") >= 2  # uplink + cloud host (and maybe public badge)
     assert edge_kinds.count("lan") >= 2  # gateway→lan + host→lan
@@ -1120,7 +1120,7 @@ def test_physical_mesh_places_cloud_and_infra():
     assert gw.get("split") is True
     assert "up" in (gw.get("path_chain") or "")
     assert "198.51.100.9" in (gw.get("sub_top") or "")
-    assert "192.0.2.1" in (gw.get("sub_bottom") or gw.get("lan_ip") or "")
+    assert "10.0.2.1" in (gw.get("sub_bottom") or gw.get("lan_ip") or "")
     # No separate Public IP card — WAN IP is on the Router
     assert not any(n.get("kind") == "public_ip" for n in svg["nodes"])
 
@@ -1132,13 +1132,13 @@ def test_physical_mesh_links_without_network_settings():
             "server_id": 1,
             "name": "RPI",
             "dns_name": "rpi.example",
-            "ip": "192.0.2.20",
+            "ip": "10.0.2.20",
             "href": "/servers/1",
         },
         {
             "server_id": 2,
-            "name": "Nomad",
-            "dns_name": "nomad.example",
+            "name": "cloud-a",
+            "dns_name": "cloud-a.example",
             "ip": "203.0.113.50",
             "href": "/servers/2",
         },
@@ -1149,15 +1149,15 @@ def test_physical_mesh_links_without_network_settings():
     assert "gateway" in kinds
     assert "lan" in kinds
     by_name = {n["label"]: n for n in svg["nodes"] if n["kind"] == "host"}
-    assert by_name["Nomad"]["is_cloud"] is True
+    assert by_name["cloud-a"]["is_cloud"] is True
     assert by_name["RPI"]["is_cloud"] is False
     assert svg["lan_count"] == 1
     assert svg["cloud_count"] == 1
     # Every host must have a topology edge (LAN or WAN)
     assert len([e for e in svg["edges"] if e["kind"] in ("lan", "wan")]) >= 4
     # Selectable without services
-    assert by_name["Nomad"].get("node_id") == "host-2"
-    assert by_name["Nomad"].get("path_chain")
+    assert by_name["cloud-a"].get("node_id") == "host-2"
+    assert by_name["cloud-a"].get("path_chain")
     assert any(n.get("node_id") == "gateway" for n in svg["nodes"])
     assert any(n.get("node_id") == "lan" for n in svg["nodes"])
 
@@ -1169,14 +1169,14 @@ def test_physical_mesh_hosts_not_on_router_spine():
             "server_id": i,
             "name": f"H{i}",
             "dns_name": f"h{i}.example",
-            "ip": f"192.0.2.{10 + i}",
+            "ip": f"10.0.2.{10 + i}",
             "href": f"/servers/{i}",
         }
         for i in range(1, 10)
     ]
     net = {
-        "lan_subnet": "192.0.2.0/24",
-        "gateway_ip": "192.0.2.1",
+        "lan_subnet": "10.0.2.0/24",
+        "gateway_ip": "10.0.2.1",
         "public_ip": "198.51.100.9",
     }
     svg = fabric._build_physical_mesh_svg(hosts, [], network=net)
@@ -1201,14 +1201,14 @@ def test_physical_mesh_lan_hosts_inside_zone_apps_outside():
             "server_id": 1,
             "name": "RPI",
             "dns_name": "rpi.example",
-            "ip": "192.0.2.20",
+            "ip": "10.0.2.20",
             "href": "/servers/1",
         },
         {
             "server_id": 2,
             "name": "Pi2",
             "dns_name": "pi2.example",
-            "ip": "192.0.2.21",
+            "ip": "10.0.2.21",
             "href": "/servers/2",
         },
     ]
@@ -1226,14 +1226,14 @@ def test_physical_mesh_lan_hosts_inside_zone_apps_outside():
         }
     ]
     net = {
-        "lan_subnet": "192.0.2.0/24",
-        "gateway_ip": "192.0.2.1",
+        "lan_subnet": "10.0.2.0/24",
+        "gateway_ip": "10.0.2.1",
         "public_ip": "198.51.100.9",
     }
     svg = fabric._build_physical_mesh_svg(hosts, services, network=net)
     lan = next(n for n in svg["nodes"] if n["kind"] == "lan")
     assert lan.get("zone_rx") and lan.get("zone_ry")
-    assert lan.get("sub") == "192.0.2.0/24"
+    assert lan.get("sub") == "10.0.2.0/24"
     # Circular centre badge (fan hub)
     assert lan.get("rx") == lan.get("ry")
     zrx = float(lan.get("zone_rx_full") or lan["zone_rx"])
@@ -1262,7 +1262,7 @@ def test_physical_mesh_lan_hosts_inside_zone_apps_outside():
     assert (inet.get("sub") or "") == ""
     assert gw.get("split") is True
     assert gw.get("sub_top") == "198.51.100.9"
-    assert gw.get("sub_bottom") == "192.0.2.1"
+    assert gw.get("sub_bottom") == "10.0.2.1"
     zone_top = zcy - zry
     assert abs(gw["y"] - zone_top) < 2.0  # on the rim
     assert inet["y"] < gw["y"]
@@ -1270,35 +1270,35 @@ def test_physical_mesh_lan_hosts_inside_zone_apps_outside():
 
 
 def test_physical_mesh_cloud_hooks_internet_side():
-    """Cloud host (e.g. Nomad) attaches to the side of the Internet ellipse."""
+    """A cloud host attaches to the side of the Internet ellipse."""
     hosts = [
         {
             "server_id": 1,
             "name": "RPI",
             "dns_name": "rpi.example",
-            "ip": "192.0.2.20",
+            "ip": "10.0.2.20",
             "href": "/servers/1",
         },
         {
             "server_id": 2,
-            "name": "Nomad",
-            "dns_name": "nomad.example",
+            "name": "cloud-a",
+            "dns_name": "cloud-a.example",
             "ip": "203.0.113.50",
             "href": "/servers/2",
         },
     ]
     net = {
-        "lan_subnet": "192.0.2.0/24",
-        "gateway_ip": "192.0.2.1",
+        "lan_subnet": "10.0.2.0/24",
+        "gateway_ip": "10.0.2.1",
         "public_ip": "198.51.100.9",
     }
     svg = fabric._build_physical_mesh_svg(hosts, [], network=net)
     inet = next(n for n in svg["nodes"] if n["kind"] == "internet")
-    nomad = next(n for n in svg["nodes"] if n.get("label") == "Nomad")
-    assert nomad.get("is_cloud") is True
+    cloud_host = next(n for n in svg["nodes"] if n.get("label") == "cloud-a")
+    assert cloud_host.get("is_cloud") is True
     # Side of cloud: similar y to Internet, offset in x beyond ellipse
-    assert abs(nomad["y"] - inet["y"]) < 30
-    assert abs(nomad["x"] - inet["x"]) > float(inet.get("rx") or 52)
+    assert abs(cloud_host["y"] - inet["y"]) < 30
+    assert abs(cloud_host["x"] - inet["x"]) > float(inet.get("rx") or 52)
     assert not any(n.get("kind") == "public_ip" for n in svg["nodes"])
 
 
@@ -1311,13 +1311,13 @@ def test_physical_mesh_edges_meet_node_borders():
             "server_id": 1,
             "name": "RPI",
             "dns_name": "rpi.example",
-            "ip": "192.0.2.20",
+            "ip": "10.0.2.20",
             "href": "/servers/1",
         },
         {
             "server_id": 2,
-            "name": "Nomad",
-            "dns_name": "nomad.example",
+            "name": "cloud-a",
+            "dns_name": "cloud-a.example",
             "ip": "203.0.113.50",
             "href": "/servers/2",
         },
@@ -1336,8 +1336,8 @@ def test_physical_mesh_edges_meet_node_borders():
         }
     ]
     net = {
-        "lan_subnet": "192.0.2.0/24",
-        "gateway_ip": "192.0.2.1",
+        "lan_subnet": "10.0.2.0/24",
+        "gateway_ip": "10.0.2.1",
         "public_ip": "198.51.100.9",
     }
     svg = fabric._build_physical_mesh_svg(hosts, services, network=net)

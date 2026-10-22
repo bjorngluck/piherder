@@ -62,7 +62,8 @@
     toggleWizardAuth: 1,
     toggleAuthFields: 1,
     showAuditDetailsModal: 1,
-    hideAuditDetailsModal: 1
+    hideAuditDetailsModal: 1,
+    showSchedulerGroup: 1
   };
   var LISTS = { JOBS: 1, AUDIT_LOGS: 1 };
   var SET_KEYS = { activePollJobId: 1, activePollSource: 1 };

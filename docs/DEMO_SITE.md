@@ -59,7 +59,7 @@ Never point demo at the home-lab network or reuse production `PIHERDER_MASTER_KE
 
 Use the demo overlay [`docker-compose.demo.yml`](../docker-compose.demo.yml) on the VPS.
 
-**If the Docker bridge has no egress** (common on Nomad / locked VPS), `compose build` hangs on pip `Installing build dependencies`. Build with **host network**, then start **without** a compose rebuild:
+**If the Docker bridge has no egress** (common on a locked VPS), `compose build` hangs on pip `Installing build dependencies`. Build with **host network**, then start **without** a compose rebuild:
 
 ```bash
 # preferred (git pull + this pair + seed):
@@ -117,7 +117,7 @@ The **browser** widget talks to Cloudflare directly. Login still needs the **web
 
 | Login `code=` | Meaning | Fix |
 |---------------|---------|-----|
-| `verify-unreachable` | Container cannot reach siteverify | **DNS inside `web`** (`Temporary failure in name resolution`) **or** `DOCKER-USER` dropped replies. On the **Nomad** demo node the restricted chain must start with **RELATED,ESTABLISHED**, then allow compose-net **DNS** to `1.1.1.1` / `8.8.8.8` / `9.9.9.9` and **HTTPS 443** to Cloudflare ranges — inbound-only `DROP -i eth0` without ESTABLISHED breaks siteverify. Re-apply: `sudo WAN=eth0 COMPOSE_NET=172.18.0.0/16 ./scripts/demo-docker-user.sh` then `netfilter-persistent save`. Overlay `dns:` only applies on **recreate**, not restart. Probe from `web`: `getaddrinfo('challenges.cloudflare.com',443)` then siteverify POST — expect **HTTP 400** + `invalid-input-secret`. |
+| `verify-unreachable` | Container cannot reach siteverify | **DNS inside `web`** (`Temporary failure in name resolution`) **or** `DOCKER-USER` dropped replies. On the locked demo node the restricted chain must start with **RELATED,ESTABLISHED**, then allow compose-net **DNS** to `1.1.1.1` / `8.8.8.8` / `9.9.9.9` and **HTTPS 443** to Cloudflare ranges. Inbound-only `DROP -i eth0` without ESTABLISHED breaks siteverify. Re-apply: `sudo WAN=eth0 COMPOSE_NET=172.18.0.0/16 ./scripts/demo-docker-user.sh` then `netfilter-persistent save`. Overlay `dns:` only applies on **recreate**, not restart. Probe from `web`: `getaddrinfo('challenges.cloudflare.com',443)` then siteverify POST. Expect **HTTP 400** + `invalid-input-secret`. |
 | `invalid-input-secret` | Wrong secret in env | Match `PIHERDER_TURNSTILE_SECRET_KEY` to dashboard secret for the same site key |
 | `missing-remoteip` | Proxy did not pass visitor IP | Caddy / CF: `CF-Connecting-IP` or first `X-Forwarded-For` hop |
 | `timeout-or-duplicate` / `invalid-input-response` | Stale or empty token | Complete the widget once, submit login once (do not spam refresh) |
