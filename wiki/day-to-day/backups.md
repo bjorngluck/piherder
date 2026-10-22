@@ -228,6 +228,11 @@ From the **Servers** list you can multi-select hosts and run **Backup** in bulk 
 
     Drive, OneDrive, and a LAN share do not keep a Unix owner. The pull lands as the account that runs rclone on this PiHerder, and the reverse rsync writes that owner onto the host. A named volume that must belong to the app user inside the container can come back as the wrong account. The container may then fail to start or refuse to write. This release does not repair ownership or mode. Putting them back is noted for the next release.
 
+<figure class="ph-figure" markdown>
+  ![Restore wizard](../assets/screenshots/restore-from-copy.png)
+  <figcaption>From stays on This PiHerder until you pick a saved copy. Dry-run is on. Paths are masked.</figcaption>
+</figure>
+
 ## Retention
 
 Retention cleanup is a separate job type (`retention`) driven by configured keep rules. **Why separate:** deleting old trees is independent of “did tonight’s rsync succeed?”

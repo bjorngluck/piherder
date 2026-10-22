@@ -40,6 +40,11 @@ NPM is often the edge of a homelab. Operators need to see which hostnames are pr
 - Each change writes an audit row. The row names the proxy host id, the domains, and the forward target. It does not include the NPM password. There is no MCP tool for these writes.
 - Proxy host **binding** UI is card-based (mobile-friendly selects; host service or Docker cascade)
 
+<figure class="ph-figure" markdown>
+  ![New proxy host](../assets/screenshots/npm-proxy-host.png)
+  <figcaption>Create sets the domain, the forward target, an existing certificate, and force SSL. It does not request a certificate. No NPM password is on this form.</figcaption>
+</figure>
+
 **Move a service (v1.4):** preflight matches the FQDN against this **poll cache**. The migrate job **PUT**s `forward_host` to dest. It does not create or delete a proxy host. A fabric DNS row is **not** required. An NPM **proxy-host binding** on the compose project is enough (e.g. `app.example.com` → Open WebUI). Public CNAME stays on the NPM hostname. Optional **Adopt into fabric** (default off) adds a `via_proxy` DNS list row; it does not rewrite Pi-hole CNAMEs or invent certs. Poll NPM before moving.
 
 **Moving NPM itself:** keep the fleet pattern **service FQDN → CNAME → NPM hostname** (e.g. `app.example.com` → `edge.example.com`). Only the NPM hostname CNAME follows dest. Pi-hole APIs that use `https://pihole…` through this proxy fall back to the poll-cache LAN backend during cutover. [Move a service](../docker/service-migration.md).

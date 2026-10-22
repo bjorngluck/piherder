@@ -71,6 +71,11 @@ A host backup or a container image check that does not start within 15 minutes o
 
 A destination copy that is scheduled earlier the same day than a host backup whose folder on `/backups` is ticked opens one warning, `backup_copy_early`. The body names those hosts. The clock is the Settings timezone, and the check looks 35 days ahead. It clears when that copy is no longer earlier. Turning the copy schedule off, or unticking the folder, clears it too. A host that sends files straight out is not included, because that copy reads the host rather than `/backups`. Mute **Backups** to stop it. The Settings copy list shows the same sentence. Web Push follows the master switch.
 
+<figure class="ph-figure" markdown>
+  ![Copy runs before the backups](../assets/screenshots/alerts-backup-credential.png)
+  <figcaption>One warning when the Google Drive copy is scheduled before the host backups. Host names are masked. No token is shown.</figcaption>
+</figure>
+
 ### Debounce and re-alert
 
 Fingerprint upsert still refreshes an **open** row without re-POSTing. After **dismiss**, a still-true condition re-opens only after **debounce**. **Re-alert** re-fires webhook/email/push on a still-open row after N hours (host-down default 24h).

@@ -1,10 +1,10 @@
 # PiHerder v1.12.0
 
-**Draft. 20 October 2026.** Code freeze is set. Not tagged. Package stays **1.11.0** until the ship bump. About and the footer still say **1.11.0**. Image tags stay `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image. This note is the text for the tag. It is not a ship.
+**20 October 2026.** The work on this train is done. Operator walks are signed. Screenshots are captured and wired. Code freeze is set. Not tagged. Package stays **1.11.0** until the ship bump. About and the footer still say **1.11.0**. Image tags stay `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image. This note is the text for the tag.
 
 The default Jobs and Audit lists leave routine noise out. Backup and image signals stay honest: a rejected copy sign-in stays critical, a running container keeps an image flagged until it is actually on that image, and an unsupported OS is named. A host can pull one backup folder back from Drive, OneDrive, or a LAN share. An admin can create, edit, and delete an NPM proxy host. Remote restore, NPM CRUD, and the read-only admin API were promoted from Discover.
 
-Operator how-to stays on the wiki: [Jobs and audit](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/) · [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Alerts](https://piherder-docs.hacknow.info/operations/alerts-email-webhooks/) · [Docker](https://piherder-docs.hacknow.info/docker/overview/) · [NPM](https://piherder-docs.hacknow.info/integrations/npm/) · [API tokens](https://piherder-docs.hacknow.info/operations/api-tokens/). Technical record: [PLAN_v1.12.0](PLAN_v1.12.0.md). Maintainer QA: [QA_v1.12.0](QA_v1.12.0.md). Walks are signed 2026-10-20. Screenshots are not captured.
+Operator how-to stays on the wiki: [Jobs and audit](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/) · [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Alerts](https://piherder-docs.hacknow.info/operations/alerts-email-webhooks/) · [Docker](https://piherder-docs.hacknow.info/docker/overview/) · [NPM](https://piherder-docs.hacknow.info/integrations/npm/) · [API tokens](https://piherder-docs.hacknow.info/operations/api-tokens/). Technical record: [PLAN_v1.12.0](PLAN_v1.12.0.md). Maintainer QA: [QA_v1.12.0](QA_v1.12.0.md). Walks are signed 2026-10-20. Screenshots are captured and wired.
 
 Home Assistant plugin is **[0.5.1](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.1)** (card copy off the event loop). This herder cut does not ship the plugin. Adapter stays **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** until the cut that ships with this herder. The GitHub adapter readme already badges herder 1.11.0. PyPI 0.4.2 still freezes the 1.10.0 readme. The public demo stays the production image.
 
@@ -56,6 +56,10 @@ About keeps a short count of scheduled jobs. View schedule opens them grouped by
 
 An OS patch job keeps apt's error output when sudo drops `DEBIAN_FRONTEND`. A carriage-return rewrite no longer replaces a debconf, sudo, or `E:` line.
 
+### Dependency patches
+
+The three lockfiles pin aiohttp **3.14.4**, yarl **1.25.1**, Mako **1.4.3**, and multidict **6.9.1**. aiohttp 3.14.4 needs that yarl. These pins cover the Dependabot advisories still open on `main`: the aiohttp high, medium, and low issues, the Mako path check, and the multidict items-view leak. Those alerts clear when this branch lands. Pull request [#56](https://github.com/bjorngluck/piherder/pull/56) stops at aiohttp 3.14.4, Mako 1.4.2, and multidict 6.9.1, and it does not pin yarl. This branch is ahead of it.
+
 ### NPM proxy hosts and a read-only admin API
 
 An admin can create, edit, and delete a proxy host from the NPM page. The form sets domains, forward scheme, host, and port, enabled, an existing certificate, and force SSL. It does not request a certificate. Each change writes an audit row and leaves out the NPM password. There is no MCP tool. Move still only changes `forward_host`. An operator can still bind a host. An operator cannot create, edit, or delete one.
@@ -66,7 +70,7 @@ A token with the `admin` scope can GET users, API tokens, and the audit log at `
 
 ## Not in this release
 
-- The package bump, the `v1.12.0` tag, and the Hub push. Freeze is set. They wait for a separate ship step.
+- The package bump, the `v1.12.0` tag, and the Hub push. The product work is done. Those three are the ship step.
 - The public demo. It stays the production image.
 - Adapter **0.4.2** on PyPI. The tool text for backup time and `prune_docker` ships with this herder, not ahead of it.
 - Issues [#47](https://github.com/bjorngluck/piherder/issues/47), [#48](https://github.com/bjorngluck/piherder/issues/48), [#49](https://github.com/bjorngluck/piherder/issues/49), and [#50](https://github.com/bjorngluck/piherder/issues/50). Close them with the release, only when asked. [#50](https://github.com/bjorngluck/piherder/issues/50) is Later. Device identity stays the MAC.
@@ -74,7 +78,7 @@ A token with the `admin` scope can GET users, API tokens, and the audit log at `
 - Putting the Unix owner, group, and mode back on a restore. [PLAN_v1.13.0](PLAN_v1.13.0.md).
 - Backup stagger past about 1,320 hosts, a stuck-queue alert, an OAuth token name suffix, and one `get_engine()` accessor.
 - The push denylist secret. The workflow is in. An empty secret does not pretend it checked.
-- Six medium Dependabot alerts for Mako and multidict on `main`. They close when this branch lands and is green. The locks on this branch already pin Mako **1.4.3** and multidict **6.9.1**.
+
 
 ---
 

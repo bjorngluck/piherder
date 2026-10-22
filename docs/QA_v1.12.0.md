@@ -3,9 +3,9 @@
 **Branch:** `v1.12.0-dev` → `main` · tag **`v1.12.0`** (cut after merge, only when asked)  
 **Code freeze:** set 2026-10-20. No new product work on this branch.  
 **Package:** stays **`1.11.0`** until the ship bump. About / footer say **1.11.0**. Release image tags stay `1.11.0` / `1.11` / `latest`.  
-**Operator QA:** signed 2026-10-20. Screenshot boxes stay open.  
+**Operator QA:** signed 2026-10-20. Screenshot boxes are ticked.  
 **Release notes:** draft [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md). Not a ship.  
-**Screenshots:** reserved, not captured. [v1.12 pack](../wiki/assets/screenshots/README.md#v112--pack-status).  
+**Screenshots:** captured 2026-10-22 and wired. Names, paths, and addresses are masked. [v1.12 pack](../wiki/assets/screenshots/README.md#v112--pack-status).  
 **Pull request:** draft [#54](https://github.com/bjorngluck/piherder/pull/54). See [PR_v1.12.0.md](PR_v1.12.0.md).
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
@@ -14,7 +14,7 @@ Plan: [PLAN_v1.12.0.md](PLAN_v1.12.0.md). v1.11 sign-off stays [QA_v1.11.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch.
 
-Walks below are signed 2026-10-20. Later is not a walk on this train. Do not tick a screenshot box until that file is in the repo.
+Walks below are signed 2026-10-20. Screenshot files were captured 2026-10-22. Later is not a walk on this train.
 
 ---
 
@@ -118,7 +118,7 @@ Published history was rewritten on 2026-10-19. The home path, the home subnet, a
 
 - [x] A grep of main and the wiki comes back clean
 - [x] `main`, the release tags, and `gh-pages` no longer carry the home path, the home subnet, or an internal hostname
-The capture log records the pass. `uv.lock` matches the exported locks at Mako 1.4.3 and multidict 6.9.1. Actions stay on major tags. The base image stays a tag. Six medium Dependabot alerts stay open on main until this branch lands. Secret scanning has no open alerts. Signed 2026-10-20.
+The capture log records the pass. `uv.lock` matches the exported locks at Mako 1.4.3 and multidict 6.9.1. Actions stay on major tags. The base image stays a tag. Open Dependabot alerts on main clear when this branch lands. This branch pins aiohttp 3.14.4, yarl 1.25.1, Mako 1.4.3, and multidict 6.9.1. Secret scanning has no open alerts. Signed 2026-10-20.
 
 - [x] The capture log records the pass over pinned actions, the dependency lock, image digest pinning, Dependabot, and secret scanning
 - [x] The denylist workflow is in. The secret is not set, so that check does not fail a push. The manual grep remains
@@ -147,15 +147,15 @@ Not a walk on this train. Issues stay open.
 
 ## Screenshots
 
-Not captured. Do not photograph the public demo. Mask names, paths, tokens, and the job log. The file list is [v1.12 pack](../wiki/assets/screenshots/README.md#v112--pack-status).
+Captured 2026-10-22 and wired. Names, paths, and addresses are masked. Do not photograph the public demo. The file list is [v1.12 pack](../wiki/assets/screenshots/README.md#v112--pack-status).
 
-- [ ] `host-os-unsupported.png`
-- [ ] `docker-prune.png`
-- [ ] `about-scheduler.png`
-- [ ] `restore-from-copy.png`
-- [ ] `npm-proxy-host.png`
-- [ ] `settings-api-admin.png`
-- [ ] `alerts-backup-credential.png`
+- [x] `host-os-unsupported.png`
+- [x] `docker-prune.png`
+- [x] `about-scheduler.png`
+- [x] `restore-from-copy.png`
+- [x] `npm-proxy-host.png`
+- [x] `settings-api-admin.png`
+- [x] `alerts-backup-credential.png`
 
 ## 1.11 regression
 

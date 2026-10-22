@@ -58,6 +58,11 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | Template-managed stacks | Badge + gated full editor — [Templates](../service-templates/overview.md) |
 
 <figure class="ph-figure" markdown>
+  ![Docker cleanup](../assets/screenshots/docker-prune.png)
+  <figcaption>Prune dangling images, exited containers, or unused networks. The volume confirm is visible and not ticked. Image names are masked.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
   ![Repository on an existing checkout](../assets/screenshots/docker-repository.png)
   <figcaption>v1.11. Repository on a project that is already a checkout. The remote default branch is selected. This frame has no newer tag. The project path and the remote URL are masked. Update checkout does not deploy.</figcaption>
 </figure>

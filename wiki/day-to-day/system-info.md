@@ -29,6 +29,11 @@ One snapshot, three consumers: this modal, `/api/v1/servers` + `/api/v1/summary`
 | Usable space + drives | `df` (HAOS: `ha host info` when present) |
 | HAOS Core / OS / Supervisor | `ha` CLI (path 1), still in the same snapshot |
 
+<figure class="ph-figure" markdown>
+  ![Unsupported next to the OS line](../assets/screenshots/host-os-unsupported.png)
+  <figcaption>Raspbian 11 shows Unsupported beside the OS line. The host name and the address are masked. The warning does not start an upgrade.</figcaption>
+</figure>
+
 Container **count** on the HA card comes from Docker inventory meta, not this snapshot.
 
 Opening the modal does **not** SSH. The header **refresh icon** SSHs once (`/servers/{id}/diagnostics?force=1`) and writes the row. Footer text says so.

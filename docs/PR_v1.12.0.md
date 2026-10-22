@@ -2,7 +2,7 @@
 
 **Title:** `v1.12.0: quieter lists, honest backup and image signals`
 
-**Base:** `main` · **Head:** `v1.12.0-dev` · [QA_v1.12.0.md](QA_v1.12.0.md) walks are signed 2026-10-20. Screenshots are reserved and not captured. Tag and Hub follow approval.
+**Base:** `main` · **Head:** `v1.12.0-dev` · [QA_v1.12.0.md](QA_v1.12.0.md) walks are signed 2026-10-20. Screenshots are captured and wired. Tag and Hub follow approval.
 
 **State:** draft [#54](https://github.com/bjorngluck/piherder/pull/54). Code freeze is set 2026-10-20. Notes are [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md). Package stays **1.11.0** until the ship bump. Tag and Hub publish stay for the ship step.
 
@@ -12,7 +12,7 @@
 
 Twelfth minor after production **v1.11.0**. The default Jobs and Audit lists leave a successful host snapshot out. A rejected Drive, OneDrive, or LAN sign-in stays one critical alert. An image stays flagged while a running container is still on the previous id. An unsupported OS is named and is not upgraded. Restore can pull one selected folder from a copy destination. An admin can create, edit, and delete an NPM proxy host. A token with `admin` can read users, tokens, and the audit log.
 
-Operator walks are signed 2026-10-20. Screenshots are not captured. Package stays **1.11.0**. Release notes are a draft. Image tags stay `1.11.0` / `1.11` / `latest` until the ship step.
+Operator walks are signed 2026-10-20. Screenshots are captured and wired. The work on this train is done. Package stays **1.11.0**. Image tags stay `1.11.0` / `1.11` / `latest` until the ship step.
 
 Design: [PLAN_v1.12.0.md](PLAN_v1.12.0.md). Maintainer ticks: [QA_v1.12.0.md](QA_v1.12.0.md). Screenshot list: [v1.12 pack](../wiki/assets/screenshots/README.md#v112--pack-status).
 
@@ -31,7 +31,7 @@ No new Alembic revision. Recreate **web** and **celery-worker** after merge so t
 
 ## Test plan
 
-Walk [QA_v1.12.0.md](QA_v1.12.0.md). Signed 2026-10-20. Do not retick the 1.11 boxes. Screenshot files stay open.
+Walk [QA_v1.12.0.md](QA_v1.12.0.md). Signed 2026-10-20. Screenshots captured 2026-10-22. Do not retick the 1.11 boxes.
 
 - [x] Jobs and audit walks
 - [x] Alert walks, including the critical backup credential and the admin alert
@@ -41,7 +41,7 @@ Walk [QA_v1.12.0.md](QA_v1.12.0.md). Signed 2026-10-20. Do not retick the 1.11 b
 - [x] NPM proxy create, edit, and delete. Operator cannot. No MCP tool
 - [x] Admin API: `admin` can GET, `read` cannot, no token prefix, MCP sign-in cannot receive `admin`
 - [x] `.venv-docs/bin/mkdocs build --strict`
-- [ ] Screenshot files named in the [v1.12 pack](../wiki/assets/screenshots/README.md#v112--pack-status)
+- [x] Screenshot files named in the [v1.12 pack](../wiki/assets/screenshots/README.md#v112--pack-status)
 
 ## Out of scope
 
@@ -58,7 +58,7 @@ Walk [QA_v1.12.0.md](QA_v1.12.0.md). Signed 2026-10-20. Do not retick the 1.11 b
 - [x] QA boxes signed in [QA_v1.12.0.md](QA_v1.12.0.md)
 - [ ] Run the RELEASE_SYNC.md check against origin/main of all three repos
 - [ ] End-user notes (`RELEASE_v1.12.0.md`) moved from draft to the shipped release
-- [ ] Screenshot files dropped in `wiki/assets/screenshots/`
+- [x] Screenshot files dropped in `wiki/assets/screenshots/`
 - [ ] `.venv-docs/bin/mkdocs build --strict`
 - [x] Freeze. Package bump is a separate ask
 - [ ] Merge this PR to main
