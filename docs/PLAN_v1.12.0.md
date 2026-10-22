@@ -1,9 +1,9 @@
 # PiHerder v1.12.0: quieter lists, then honest backup and image signals
 
-**Status:** **Code freeze** 2026-10-20. Quiet lists, the backup credential alert, the self-backup last-success line, the admin alert, the image update flag, the OS end-of-life warning, the update-check gap, and git checkout ownership are in. Direct copy on a different CPU is in. A missed scheduled run opens a warning. A destination copy scheduled before its host backups opens a warning. `list_servers` and `get_server` return the backup time. The adapter package that names those fields ships with the herder. Docker prune is a job. The GitHub adapter readme badges herder v1.12.0. About opens scheduled jobs by type, with each host's last run and next fire. An OS patch job keeps apt's error output, including when sudo drops DEBIAN_FRONTEND. Published history was rewritten. The restore wizard can pull one selected folder from a copy destination. A folder row left running does not hold the direct hop. An admin can create, edit, and delete an NPM proxy host. A token with the admin scope can read users, tokens, and the audit log. Draft notes are written. The tag is not cut. The push denylist checks added lines when its secret is set. The three lockfiles pin Mako 1.4.3 and multidict 6.9.1. Actions stay on major tags. Open Dependabot alerts on main clear when this branch lands. This branch pins aiohttp 3.14.4, yarl 1.25.1, Mako 1.4.3, and multidict 6.9.1. Adapter **0.4.3** is on PyPI and includes that readme. Operator walks are signed. Screenshots are captured and wired. The draft pull request stays a draft.  
+**Status:** **Released** 2026-10-22. Tag **v1.12.0**. Package **1.12.0**. Image `1.12.0` / `1.12` / `latest`. Pin `1.11.0` / `1.11` stays the previous image. Operator walks are signed. Screenshots are captured and wired. Pull request [#54](https://github.com/bjorngluck/piherder/pull/54) is merged.  
 **Date opened:** 2026-10-18  
-**Git branch:** `v1.12.0-dev` → `main` · tag `v1.12.0` after merge, only when asked  
-**Package / image version:** package stays **`1.11.0`** until the ship bump. About / footer say **1.11.0**. Release image tags stay `1.11.0` / `1.11` / `latest`. Pin `1.10.0` / `1.10` stays the previous image.  
+**Git branch:** `v1.12.0-dev` → `main` · tag `v1.12.0`  
+**Package / image version:** package **`1.12.0`**. About / footer say **1.12.0**. Release image tags are `1.12.0` / `1.12` / `latest`. Pin `1.11.0` / `1.11` stays the previous image.  
 **Theme:** quieter Jobs and Audit lists, then backup and image signals that stay honest  
 **Baseline:** `v1.11.0` (tagged 2026-10-18; Hub digest `sha256:5b1a0ec8cfa5e2da26a486c5bc0f6d400ec86a8285e6eb9c2bbe64cfd30671b7`)  
 **Mode:** **Must → Should → Discover.** Tiers were voted 2026-10-18. Code freeze is set 2026-10-20. Operator walks are signed. Screenshots are captured and wired.  
@@ -110,7 +110,7 @@ The read-audit flag under Jobs and audit covers hosted `/mcp` as well as API tok
 
 | Topic | Lock |
 |-------|------|
-| Version bump | Package stays **1.11.0** until the ship bump. This freeze does not bump About |
+| Version bump | Package is **1.12.0**. About reports **1.12.0**. Image tags are `1.12.0` / `1.12` / `latest` |
 | Demo | Do not point the public demo at this branch |
 | Plugin | The Home Assistant card stays the separate HACS repo. Putting it in this image is not a backlog row |
 | Issues | [#47](https://github.com/bjorngluck/piherder/issues/47), [#48](https://github.com/bjorngluck/piherder/issues/48), [#49](https://github.com/bjorngluck/piherder/issues/49), and [#50](https://github.com/bjorngluck/piherder/issues/50) stay open. Close an issue with the release, only when asked |
@@ -173,9 +173,10 @@ Nothing was voted **Out**.
 | 2 | Must, by area | **Done.** Jobs and audit, the backup credential alert, the self-backup last-success line, the admin alert, the image update flag, the OS end-of-life warning, the update-check gap, and git checkout ownership are in |
 | 3 | Should, if it fits | Direct copy on a different CPU is in. Missed scheduled run is in. Copy before the backups is in. Backup time is on `list_servers` and `get_server`. Docker prune is a job. The GitHub adapter readme badges herder v1.12.0. About opens scheduled jobs by type, with each host's last run and next fire. An OS patch job keeps apt's error output, including when sudo drops DEBIAN_FRONTEND. Published history was rewritten. The restore wizard can pull one selected folder from a copy destination. A folder row left running does not hold the direct hop. An admin can create, edit, and delete an NPM proxy host. The push denylist checks added lines when its secret is set. The three lockfiles pin Mako 1.4.3 and multidict 6.9.1. Adapter **0.4.3** is on PyPI and includes that readme |
 | 4 | Discover | A direct hop no longer waits on a folder row left running. Remote restore, NPM CRUD, and the read-only admin API were promoted from Discover. Draft notes are [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md). The tag is not cut |
-| 5 | Freeze | **Set** 2026-10-20. Package stays `1.11.0` until the ship bump. Tag and Hub are not cut |
+| 5 | Freeze | **Set** 2026-10-20. Package is **1.12.0**. Tag **v1.12.0** cut 2026-10-22 |
 | 6 | Operator QA | **Signed** 2026-10-20. Screenshots captured 2026-10-22 and wired |
+| 7 | Tag and Hub | **Tagged** 2026-10-22. Image `1.12.0` / `1.12` / `latest` |
 
 ---
 
-*Code freeze 2026-10-20. Package stays `1.11.0` until the ship bump. Operator walks are signed in [QA_v1.12.0.md](QA_v1.12.0.md). Screenshots were captured 2026-10-22 and wired. The tag is not cut.*
+*Released 2026-10-22. Package is `1.12.0`. Tag **v1.12.0**. Operator walks are signed in [QA_v1.12.0.md](QA_v1.12.0.md). Notes: [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md).*

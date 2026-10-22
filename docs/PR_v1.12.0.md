@@ -2,9 +2,9 @@
 
 **Title:** `v1.12.0: quieter lists, honest backup and image signals`
 
-**Base:** `main` · **Head:** `v1.12.0-dev` · [QA_v1.12.0.md](QA_v1.12.0.md) walks are signed 2026-10-20. Screenshots are captured and wired. Tag and Hub follow approval.
+**Base:** `main` · **Head:** `v1.12.0-dev` · [QA_v1.12.0.md](QA_v1.12.0.md) walks are signed 2026-10-20. Screenshots are captured and wired.
 
-**State:** draft [#54](https://github.com/bjorngluck/piherder/pull/54). Code freeze is set 2026-10-20. Notes are [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md). Package stays **1.11.0** until the ship bump. Tag and Hub publish stay for the ship step.
+**State:** merged [#54](https://github.com/bjorngluck/piherder/pull/54) on 2026-10-22. Notes are [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md). Package **1.12.0**. Tag **v1.12.0**. Image `1.12.0` / `1.12` / `latest`. Pin `1.11.0` / `1.11` stays the previous image.
 
 ---
 
@@ -12,7 +12,7 @@
 
 Twelfth minor after production **v1.11.0**. The default Jobs and Audit lists leave a successful host snapshot out. A rejected Drive, OneDrive, or LAN sign-in stays one critical alert. An image stays flagged while a running container is still on the previous id. An unsupported OS is named and is not upgraded. Restore can pull one selected folder from a copy destination. An admin can create, edit, and delete an NPM proxy host. A token with `admin` can read users, tokens, and the audit log.
 
-Operator walks are signed 2026-10-20. Screenshots are captured and wired. The work on this train is done. Package stays **1.11.0**. Image tags stay `1.11.0` / `1.11` / `latest` until the ship step.
+Operator walks are signed 2026-10-20. Screenshots are captured and wired. Released 2026-10-22. Package **1.12.0**. Image tags are `1.12.0` / `1.12` / `latest`.
 
 Design: [PLAN_v1.12.0.md](PLAN_v1.12.0.md). Maintainer ticks: [QA_v1.12.0.md](QA_v1.12.0.md). Screenshot list: [v1.12 pack](../wiki/assets/screenshots/README.md#v112--pack-status).
 
@@ -23,11 +23,11 @@ Design: [PLAN_v1.12.0.md](PLAN_v1.12.0.md). Maintainer ticks: [QA_v1.12.0.md](QA
 | **Backup** | rclone for amd64 and arm64, missed schedule, copy before the backups, backup time on `list_servers` and `get_server`, remote restore, direct hop no longer waits on a stuck folder row |
 | **Docker** | `docker_prune` from the page, the token API, and hosted MCP ([#48](https://github.com/bjorngluck/piherder/issues/48)). Volume prune stays on the page |
 | **NPM and admin API** | Admin create, edit, and delete of a proxy host. GET `/api/v1/admin` with scope `admin` |
-| **Demo** | Stays the production image. Not this branch |
+| **Demo** | Updated separately |
 
 ## Migrations
 
-No new Alembic revision. Recreate **web** and **celery-worker** after merge so this code is in the running image. About still says **1.11.0** until the ship bump.
+No new Alembic revision. Recreate **web** and **celery-worker**. About should say **1.12.0**.
 
 ## Test plan
 

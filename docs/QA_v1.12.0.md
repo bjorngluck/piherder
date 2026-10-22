@@ -1,12 +1,12 @@
 # PiHerder v1.12.0 (operator QA / sign-off)
 
-**Branch:** `v1.12.0-dev` → `main` · tag **`v1.12.0`** (cut after merge, only when asked)  
+**Branch:** `v1.12.0-dev` → `main` · tag **`v1.12.0`** cut 2026-10-22  
 **Code freeze:** set 2026-10-20. No new product work on this branch.  
-**Package:** stays **`1.11.0`** until the ship bump. About / footer say **1.11.0**. Release image tags stay `1.11.0` / `1.11` / `latest`.  
+**Package:** **`1.12.0`**. About / footer say **1.12.0**. Release image tags are `1.12.0` / `1.12` / `latest`. Pin `1.11.0` / `1.11` stays the previous image.  
 **Operator QA:** signed 2026-10-20. Screenshot boxes are ticked.  
-**Release notes:** draft [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md). Not a ship.  
+**Release notes:** [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md). Released 2026-10-22.  
 **Screenshots:** captured 2026-10-22 and wired. Names, paths, and addresses are masked. [v1.12 pack](../wiki/assets/screenshots/README.md#v112--pack-status).  
-**Pull request:** draft [#54](https://github.com/bjorngluck/piherder/pull/54). See [PR_v1.12.0.md](PR_v1.12.0.md).
+**Pull request:** merged [#54](https://github.com/bjorngluck/piherder/pull/54). See [PR_v1.12.0.md](PR_v1.12.0.md).
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
