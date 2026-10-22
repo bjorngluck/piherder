@@ -6,7 +6,7 @@ The default Jobs and Audit lists leave routine noise out. Backup and image signa
 
 Operator how-to stays on the wiki: [Jobs and audit](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/) · [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Alerts](https://piherder-docs.hacknow.info/operations/alerts-email-webhooks/) · [Docker](https://piherder-docs.hacknow.info/docker/overview/) · [NPM](https://piherder-docs.hacknow.info/integrations/npm/) · [API tokens](https://piherder-docs.hacknow.info/operations/api-tokens/). Technical record: [PLAN_v1.12.0](PLAN_v1.12.0.md). Maintainer QA: [QA_v1.12.0](QA_v1.12.0.md). Walks are signed 2026-10-20. Screenshots are captured and wired.
 
-Home Assistant plugin is **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)** (card and logo served from `/piherder/`, not copied into `config/www`). Tag `v0.5.2` is the plugin for this herder. It needs Home Assistant **2024.7** or newer. Adapter stays **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** until the cut that ships with this herder. The GitHub adapter readme already badges herder 1.11.0. PyPI 0.4.2 still freezes the 1.10.0 readme. The public demo stays the production image.
+Home Assistant plugin is **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)** (card and logo served from `/piherder/`, not copied into `config/www`). Tag `v0.5.2` is the plugin for this herder. It needs Home Assistant **2024.7** or newer. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is tagged and on PyPI. It names the backup schedule fields and adds `prune_docker`. The GitHub adapter readme badges herder v1.12.0. The public demo stays the production image.
 
 ---
 
@@ -72,7 +72,7 @@ A token with the `admin` scope can GET users, API tokens, and the audit log at `
 
 - The package bump, the `v1.12.0` tag, and the Hub push. The product work is done. Those three are the ship step.
 - The public demo. It stays the production image.
-- Adapter **0.4.2** on PyPI. The tool text for backup time and `prune_docker` ships with this herder, not ahead of it.
+- Another adapter tag. **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is already on PyPI.
 - Issues [#47](https://github.com/bjorngluck/piherder/issues/47), [#48](https://github.com/bjorngluck/piherder/issues/48), [#49](https://github.com/bjorngluck/piherder/issues/49), and [#50](https://github.com/bjorngluck/piherder/issues/50). Close them with the release, only when asked. [#50](https://github.com/bjorngluck/piherder/issues/50) is Later. Device identity stays the MAC.
 - Build cache and buildx cache. [PLAN_v1.13.0](PLAN_v1.13.0.md).
 - Putting the Unix owner, group, and mode back on a restore. [PLAN_v1.13.0](PLAN_v1.13.0.md).

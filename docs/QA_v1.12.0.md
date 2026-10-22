@@ -86,9 +86,10 @@ Repository refuses a folder or checkout the SSH user does not own, before git ru
 The adapter cut ships with the herder.
 
 - [x] `list_servers` and `get_server` return `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`, and the tool text names those fields
-- [x] The GitHub piherder-mcp readme badges herder 1.11.0
+- [x] The GitHub piherder-mcp readme badges herder v1.12.0
+- [x] Adapter **0.4.3** is tagged and on PyPI, including `prune_docker` and the backup schedule fields
 
-The GitHub readme on adapter main badges herder 1.11.0. PyPI 0.4.2 still freezes the 1.10.0 readme until the adapter cut that ships with this herder. The adapter stays 0.4.2 until then.
+The GitHub readme on adapter main badges herder v1.12.0. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is on PyPI and includes that readme. A cached **0.4.2** does not list `prune_docker`.
 
 ## Docker prune (Should)
 

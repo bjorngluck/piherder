@@ -47,7 +47,7 @@ Walk [QA_v1.12.0.md](QA_v1.12.0.md). Signed 2026-10-20. Screenshots captured 202
 
 - Package bump, tag, and Hub publish
 - Public demo pointed at this branch
-- Adapter publish ahead of this herder. Adapter stays **0.4.2**
+- Adapter **0.4.3** is already tagged and on PyPI. Do not cut another adapter tag from this herder pull request
 - Closing [#47](https://github.com/bjorngluck/piherder/issues/47), [#48](https://github.com/bjorngluck/piherder/issues/48), [#49](https://github.com/bjorngluck/piherder/issues/49), or [#50](https://github.com/bjorngluck/piherder/issues/50)
 - Build cache prune and restore ownership. Notes in [PLAN_v1.13.0.md](PLAN_v1.13.0.md)
 - Setting the push denylist secret
