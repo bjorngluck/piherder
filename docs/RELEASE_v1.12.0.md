@@ -6,7 +6,7 @@ The default Jobs and Audit lists leave routine noise out. Backup and image signa
 
 Operator how-to stays on the wiki: [Jobs and audit](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/) · [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Alerts](https://piherder-docs.hacknow.info/operations/alerts-email-webhooks/) · [Docker](https://piherder-docs.hacknow.info/docker/overview/) · [NPM](https://piherder-docs.hacknow.info/integrations/npm/) · [API tokens](https://piherder-docs.hacknow.info/operations/api-tokens/). Technical record: [PLAN_v1.12.0](PLAN_v1.12.0.md). Maintainer QA: [QA_v1.12.0](QA_v1.12.0.md). Walks are signed 2026-10-20. Screenshots are captured and wired.
 
-Home Assistant plugin is **[0.5.1](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.1)** (card copy off the event loop). This herder cut does not ship the plugin. Adapter stays **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** until the cut that ships with this herder. The GitHub adapter readme already badges herder 1.11.0. PyPI 0.4.2 still freezes the 1.10.0 readme. The public demo stays the production image.
+Home Assistant plugin is **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)** (card and logo served from `/piherder/`, not copied into `config/www`). Tag `v0.5.2` is the plugin for this herder. Adapter stays **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)** until the cut that ships with this herder. The GitHub adapter readme already badges herder 1.11.0. PyPI 0.4.2 still freezes the 1.10.0 readme. The public demo stays the production image.
 
 ---
 
@@ -84,4 +84,4 @@ A token with the `admin` scope can GET users, API tokens, and the audit log at `
 
 ## Upgrade
 
-No new Alembic revision. Recreate **web** and **celery-worker** so the image includes this branch. About still says **1.11.0** until the ship bump. Plugin **0.5.1** is the current card. Set the resource to `?v=0.5.1`. Do not point the public demo at this branch.
+No new Alembic revision. Recreate **web** and **celery-worker** so the image includes this branch. About still says **1.11.0** until the ship bump. Plugin **0.5.2** is the card for this release. Set the resource to `/piherder/piherder-dashboard-card.js?v=0.5.2`. Delete a `/local/piherder-dashboard-card.js` or `/api/piherder/…` resource. Do not point the public demo at this branch.

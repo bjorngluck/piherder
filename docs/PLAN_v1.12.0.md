@@ -10,7 +10,7 @@
 **QA:** [QA_v1.12.0.md](QA_v1.12.0.md) (maintainer stub. **Not** the operator wiki.)  
 **Related:** [PLAN_v1.11.0.md](PLAN_v1.11.0.md) · [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) · wiki [Jobs, audit, notifications](../wiki/day-to-day/jobs-audit-notifications.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [API tokens](../wiki/operations/api-tokens.md)
 
-> Opened 2026-10-18 from `main` after **v1.11.0** shipped. Package stays `1.11.0`. The public demo is not pointed at this branch. Plugin **0.5.1** is the current card (the www copy runs off the event loop). This herder train does not ship the plugin. Adapter **0.4.2** stays. An adapter cut on this train ships with the herder, not ahead of it.
+> Opened 2026-10-18 from `main` after **v1.11.0** shipped. Package stays `1.11.0`. The public demo is not pointed at this branch. Plugin **0.5.2** is the card for this herder (served from `/piherder/`, not copied into `config/www`). Tag `v0.5.2` is that release. Adapter **0.4.2** stays. An adapter cut on this train ships with the herder, not ahead of it.
 
 ---
 
