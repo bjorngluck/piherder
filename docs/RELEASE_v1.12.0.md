@@ -4,13 +4,13 @@
 
 About and `/api/v1` report **1.12.0**.
 
-**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.12.0` · `1.12` · `latest` (amd64 + arm64). Pin `1.11.0` / `1.11` stays the previous image. Pins `1.10.0` / `1.10` and `1.9.0` / `1.9` stay valid. Home Assistant plugin **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)**. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is on PyPI. The public demo is updated separately.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.12.0` · `1.12` · `latest` (amd64 + arm64). Pin `1.11.0` / `1.11` stays the previous image. Pins `1.10.0` / `1.10` and `1.9.0` / `1.9` stay valid. Home Assistant plugin **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)**. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is on PyPI. The public demo is being updated to this release.
 
 The default Jobs and Audit lists leave routine noise out. Backup and image signals stay honest: a rejected copy sign-in stays critical, a running container keeps an image flagged until it is actually on that image, and an unsupported OS is named. A host can pull one backup folder back from Drive, OneDrive, or a LAN share. An admin can create, edit, and delete an NPM proxy host. Remote restore, NPM CRUD, and the read-only admin API were promoted from Discover.
 
 Operator how-to stays on the wiki: [Jobs and audit](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/) · [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Alerts](https://piherder-docs.hacknow.info/operations/alerts-email-webhooks/) · [Docker](https://piherder-docs.hacknow.info/docker/overview/) · [NPM](https://piherder-docs.hacknow.info/integrations/npm/) · [API tokens](https://piherder-docs.hacknow.info/operations/api-tokens/). Technical record: [PLAN_v1.12.0](PLAN_v1.12.0.md). Maintainer QA: [QA_v1.12.0](QA_v1.12.0.md). Walks are signed 2026-10-20. Screenshots are captured and wired.
 
-Home Assistant plugin is **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)** (card and logo served from `/piherder/`, not copied into `config/www`). Tag `v0.5.2` is the plugin for this herder. It needs Home Assistant **2024.7** or newer. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is tagged and on PyPI. It names the backup schedule fields and adds `prune_docker`. The GitHub adapter readme badges herder v1.12.0. The public demo is updated separately.
+Home Assistant plugin is **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)** (card and logo served from `/piherder/`, not copied into `config/www`). Tag `v0.5.2` is the plugin for this herder. It needs Home Assistant **2024.7** or newer. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is tagged and on PyPI. It names the backup schedule fields and adds `prune_docker`. The GitHub adapter readme badges herder v1.12.0. The public demo is being updated to this release.
 
 ---
 
@@ -30,9 +30,9 @@ A failed self-backup alert includes the last successful self-backup time, or "ne
 
 Creating a user, creating an API token, or changing force 2FA or template 2FA opens one warning. The body names the actor and the client IP. It does not include a password or a token.
 
-An image stays flagged after a pull while any running container for that image is still on the previous id. The flag clears once every running container uses the id on disk. This is issue [#47](https://github.com/bjorngluck/piherder/issues/47). The issue stays open.
+An image stays flagged after a pull while any running container for that image is still on the previous id. The flag clears once every running container uses the id on disk. This is issue [#47](https://github.com/bjorngluck/piherder/issues/47), closed with this release.
 
-Ubuntu, Debian, or Raspbian outside Ubuntu 22.04, 24.04, and 26.04 LTS, or Debian and Raspbian 12 and 13, shows **Unsupported** next to the OS line. HAOS is not in this check. The warning does not start an upgrade. This is issue [#49](https://github.com/bjorngluck/piherder/issues/49). The issue stays open.
+Ubuntu, Debian, or Raspbian outside Ubuntu 22.04, 24.04, and 26.04 LTS, or Debian and Raspbian 12 and 13, shows **Unsupported** next to the OS line. HAOS is not in this check. The warning does not start an upgrade. This is issue [#49](https://github.com/bjorngluck/piherder/issues/49), closed with this release.
 
 A saved container check cron registers while fleet container checks are on. Applying with that check off clears the cron. Scheduled container checks had stopped because Apply cleared the per-host flag and left the cron.
 
@@ -54,7 +54,7 @@ A folder row left running does not hold that tick's direct hop. The direct hop s
 
 ### Docker prune and the schedule list
 
-The host Docker page, `POST /api/v1/servers/{id}/docker/prune`, and hosted `prune_docker` start a `docker_prune` job. The API and MCP need the `edit` scope. `both` is dangling images, then exited containers. Networks are their own type. Volume prune stays on the Docker page until the operator confirms it. Every run writes an audit row. This is issue [#48](https://github.com/bjorngluck/piherder/issues/48). The issue stays open. Build cache and buildx cache are not in this prune.
+The host Docker page, `POST /api/v1/servers/{id}/docker/prune`, and hosted `prune_docker` start a `docker_prune` job. The API and MCP need the `edit` scope. `both` is dangling images, then exited containers. Networks are their own type. Volume prune stays on the Docker page until the operator confirms it. Every run writes an audit row. This is issue [#48](https://github.com/bjorngluck/piherder/issues/48), closed with this release. Build cache and buildx cache are not in this prune.
 
 About keeps a short count of scheduled jobs. View schedule opens them grouped by type, with each host's status, last run, and next fire. Last run is the latest matching job. A restart does not clear it. A missed slot is not a run.
 
@@ -74,9 +74,8 @@ A token with the `admin` scope can GET users, API tokens, and the audit log at `
 
 ## Not in this release
 
-- The public demo. It is updated separately.
 - Another adapter tag. **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is already on PyPI.
-- Issues [#47](https://github.com/bjorngluck/piherder/issues/47), [#48](https://github.com/bjorngluck/piherder/issues/48), [#49](https://github.com/bjorngluck/piherder/issues/49), and [#50](https://github.com/bjorngluck/piherder/issues/50). Close them with the release, only when asked. [#50](https://github.com/bjorngluck/piherder/issues/50) is Later. Device identity stays the MAC.
+- Issue [#50](https://github.com/bjorngluck/piherder/issues/50). Later. Device identity stays the MAC. A laptop that changes MAC can still leave two discovery rows.
 - Build cache and buildx cache. [PLAN_v1.13.0](PLAN_v1.13.0.md).
 - Putting the Unix owner, group, and mode back on a restore. [PLAN_v1.13.0](PLAN_v1.13.0.md).
 - Backup stagger past about 1,320 hosts, a stuck-queue alert, an OAuth token name suffix, and one `get_engine()` accessor.
@@ -87,4 +86,4 @@ A token with the `admin` scope can GET users, API tokens, and the audit log at `
 
 ## Upgrade
 
-No new Alembic revision. Recreate **web** and **celery-worker**. About should say **1.12.0**. Pull `bjorngluck/piherder:1.12.0`. Tags `1.12` and `latest` are that same image. Plugin **0.5.2** is the card for this release. It needs Home Assistant **2024.7** or newer. Set the resource to `/piherder/piherder-dashboard-card.js?v=0.5.2`. Delete a `/local/piherder-dashboard-card.js` or `/api/piherder/…` resource. The public demo is updated separately.
+No new Alembic revision. Recreate **web** and **celery-worker**. About should say **1.12.0**. Pull `bjorngluck/piherder:1.12.0`. Tags `1.12` and `latest` are that same image. Plugin **0.5.2** is the card for this release. It needs Home Assistant **2024.7** or newer. Set the resource to `/piherder/piherder-dashboard-card.js?v=0.5.2`. Delete a `/local/piherder-dashboard-card.js` or `/api/piherder/…` resource. The public demo is being updated to this release.

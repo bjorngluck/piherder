@@ -111,9 +111,9 @@ The read-audit flag under Jobs and audit covers hosted `/mcp` as well as API tok
 | Topic | Lock |
 |-------|------|
 | Version bump | Package is **1.12.0**. About reports **1.12.0**. Image tags are `1.12.0` / `1.12` / `latest` |
-| Demo | Do not point the public demo at this branch |
+| Demo | The public demo is being updated to **v1.12.0** |
 | Plugin | The Home Assistant card stays the separate HACS repo. Putting it in this image is not a backlog row |
-| Issues | [#47](https://github.com/bjorngluck/piherder/issues/47), [#48](https://github.com/bjorngluck/piherder/issues/48), [#49](https://github.com/bjorngluck/piherder/issues/49), and [#50](https://github.com/bjorngluck/piherder/issues/50) stay open. Close an issue with the release, only when asked |
+| Issues | [#47](https://github.com/bjorngluck/piherder/issues/47), [#48](https://github.com/bjorngluck/piherder/issues/48), and [#49](https://github.com/bjorngluck/piherder/issues/49) closed with the release. [#50](https://github.com/bjorngluck/piherder/issues/50) stays open. Later |
 
 Nothing was voted **Out**.
 
