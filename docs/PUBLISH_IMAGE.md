@@ -182,8 +182,8 @@ Add when account + token exist and first manual push has worked once.
 - [x] `APP_VERSION` / `pyproject.toml` = `1.12.0`
 - [x] [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) published with tag `v1.12.0`
 - [x] Merge `v1.12.0-dev` → `main` · git tag `v1.12.0`
-- [ ] Multi-arch push: `1.12.0` / `1.12` / `latest` (amd64 + arm64) · digest recorded after the push
-- [ ] Pin `1.11.0` / `1.11` left on the previous image (`sha256:5b1a0ec8cfa5e2da26a486c5bc0f6d400ec86a8285e6eb9c2bbe64cfd30671b7`)
+- [x] Multi-arch push: `1.12.0` / `1.12` / `latest` (amd64 + arm64) · digest `sha256:3e0cf9c438b75500e64aebc5eb80fc89c640ae24bf18190ed2a950c40dd77f5e`
+- [x] Pin `1.11.0` / `1.11` left on the previous image (`sha256:5b1a0ec8cfa5e2da26a486c5bc0f6d400ec86a8285e6eb9c2bbe64cfd30671b7`)
 
 ## v1.11.0 publish checklist (maintainer)
 

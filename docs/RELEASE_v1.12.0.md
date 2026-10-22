@@ -4,7 +4,7 @@
 
 About and `/api/v1` report **1.12.0**.
 
-**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.12.0` · `1.12` · `latest` (amd64 + arm64). Pin `1.11.0` / `1.11` stays the previous image. Pins `1.10.0` / `1.10` and `1.9.0` / `1.9` stay valid. Home Assistant plugin **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)**. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is on PyPI. The public demo is being updated to this release.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) `1.12.0` · `1.12` · `latest` (amd64 + arm64). Manifest `sha256:3e0cf9c438b75500e64aebc5eb80fc89c640ae24bf18190ed2a950c40dd77f5e`. Pin `1.11.0` / `1.11` stays the previous image. Pins `1.10.0` / `1.10` and `1.9.0` / `1.9` stay valid. Home Assistant plugin **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)**. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is on PyPI. The public demo is being updated to this release.
 
 The default Jobs and Audit lists leave routine noise out. Backup and image signals stay honest: a rejected copy sign-in stays critical, a running container keeps an image flagged until it is actually on that image, and an unsupported OS is named. A host can pull one backup folder back from Drive, OneDrive, or a LAN share. An admin can create, edit, and delete an NPM proxy host. Remote restore, NPM CRUD, and the read-only admin API were promoted from Discover.
 
