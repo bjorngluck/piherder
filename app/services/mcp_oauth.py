@@ -304,9 +304,13 @@ def _burn(session: Session, row: McpOAuthCode) -> None:
 
 
 def _token_name(client_name: str) -> str:
+    """Name plus a short random suffix. The suffix is not the token or its prefix."""
     slug = "".join(ch if ch.isalnum() or ch in "-_" else "-" for ch in (client_name or "").lower())
     slug = "-".join(part for part in slug.split("-") if part)[:40] or "agent"
-    return f"mcp-oauth-{slug}"[:120]
+    suffix = secrets.token_hex(3)
+    base = f"mcp-oauth-{slug}"
+    room = 120 - len(suffix) - 1
+    return f"{base[:room]}-{suffix}"
 
 
 def _issue_grant(

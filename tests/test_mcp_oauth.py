@@ -375,3 +375,19 @@ def test_login_returns_to_the_agent_consent(tmp_path, monkeypatch):
         assert post_login_path(_User(), None, request) == "/mcp/oauth/authorize?client_id=abc"
     finally:
         app.dependency_overrides.clear()
+
+
+def test_oauth_token_names_differ_for_the_same_client_name():
+    from app.services.mcp_oauth import _token_name
+
+    first = _token_name("Cursor")
+    second = _token_name("Cursor")
+    assert first != second
+    assert first.startswith("mcp-oauth-cursor-")
+    assert second.startswith("mcp-oauth-cursor-")
+    for name in (first, second):
+        suffix = name.rsplit("-", 1)[-1]
+        assert len(suffix) == 6
+        assert suffix.isalnum()
+        assert not name.startswith("ph_")
+        assert "ph_oa_" not in name

@@ -53,11 +53,9 @@ def fleet_backup_cron(base_cron: str, server_id: int) -> str:
 
     A daily base at one hour, such as ``0 2 * * *``, keeps ids below 60 on
     that hour at minute ``(id + 30) % 60``. Later ids take the following
-    hours, one minute each, and stop at 23:00. They do not wrap to the
-    morning of the same day. That window is ``(24 - hour) * 60`` minutes.
-    The default 02:00 base therefore has 1320 distinct minutes, which covers
-    a fleet of hundreds or a thousand hosts. Past the window, a few hosts
-    share a minute. The worker queues them.
+    hours, one minute each, then the hours before the base hour. The first
+    1,440 ids each get a distinct minute of the day. Past that, a host
+    shares a minute with the id 1,440 earlier. The worker queues them.
 
     Any other base only changes the minute. A list or a step hour stays as
     written, so hosts 60 apart share that minute instead of silently picking
@@ -78,13 +76,18 @@ def fleet_backup_cron(base_cron: str, server_id: int) -> str:
         parts[0] = str((sid + BACKUP_STAGGER_OFFSET) % 60)
         return " ".join(parts)
     extra = sid - 60
-    shifted = hour + 1 + extra // 60
-    if shifted <= 23:
+    minutes_after = max(0, (23 - hour) * 60)
+    if extra < minutes_after:
         parts[0] = str(extra % 60)
-        parts[1] = str(shifted)
+        parts[1] = str(hour + 1 + extra // 60)
         return " ".join(parts)
-    window = (24 - hour) * 60
-    return fleet_backup_cron(base_cron, sid % window)
+    wrapped = extra - minutes_after
+    morning = hour * 60
+    if wrapped < morning:
+        parts[0] = str(wrapped % 60)
+        parts[1] = str(wrapped // 60)
+        return " ".join(parts)
+    return fleet_backup_cron(base_cron, sid % 1440)
 
 
 def host_backup_cron(base_cron: str, server_id: int, jitter: bool = True) -> str:
