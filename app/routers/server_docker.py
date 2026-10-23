@@ -1385,6 +1385,8 @@ async def prune_unused_route(
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
+    if not server.container_patch_enabled:
+        raise HTTPException(400, "Enable the Docker feature on this server first")
 
     try:
         job = job_svc.create_job_and_run(
@@ -1424,6 +1426,8 @@ async def prune_build_cache_route(
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
+    if not server.container_patch_enabled:
+        raise HTTPException(400, "Enable the Docker feature on this server first")
     try:
         result = docker_svc.prune_build_cache(server)
         ok = bool(result.get("success"))

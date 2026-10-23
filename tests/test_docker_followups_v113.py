@@ -1,14 +1,17 @@
 """Dangling prune after an update, prune schedule, and build cache."""
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
+from fastapi import HTTPException
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from app.models import AuditLog, Notification, Server
+from app.models import AuditLog, Job, Notification, Server
 from app.routers.api_v1 import prune_build_cache
 from app.services import docker_management as docker_svc
 from app.services import jobs as jobs_svc
@@ -202,3 +205,42 @@ def test_build_cache_api_writes_one_audit_per_run(monkeypatch):
     assert "prune_build_cache" in {tool["name"] for tool in tool_catalog()}
     edit = [tool for tool in tool_catalog() if tool["name"] == "prune_build_cache"][0]
     assert edit["scope"] == "edit"
+
+
+def test_ui_prune_routes_reject_when_docker_feature_is_off(monkeypatch):
+    from app.routers.server_docker import prune_build_cache_route, prune_unused_route
+
+    def _forbidden(*_args, **_kwargs):
+        raise AssertionError("docker or job work must not run")
+
+    monkeypatch.setattr(docker_svc, "prune_build_cache", _forbidden)
+    monkeypatch.setattr(docker_svc, "prune_unused", _forbidden)
+    monkeypatch.setattr(jobs_svc, "create_job_and_run", _forbidden)
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        server = Server(
+            name="host-a",
+            hostname="host-a.example.com",
+            ssh_username="pi",
+            container_patch_enabled=False,
+        )
+        session.add(server)
+        session.commit()
+        session.refresh(server)
+        user = SimpleNamespace(id=1)
+        calls = (
+            prune_unused_route(server.id, MagicMock(), "both", "", session, user),
+            prune_build_cache_route(server.id, session, user),
+        )
+        for call in calls:
+            with pytest.raises(HTTPException) as caught:
+                asyncio.run(call)
+            assert caught.value.status_code == 400
+            assert caught.value.detail == "Enable the Docker feature on this server first"
+        assert list(session.exec(select(AuditLog)).all()) == []
+        assert list(session.exec(select(Job)).all()) == []
