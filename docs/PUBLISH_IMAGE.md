@@ -1,6 +1,6 @@
 # Publishing a PiHerder image (Docker Hub / GHCR)
 
-**Status:** Docker Hub **live**. [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64**. Production line **v1.12.0**. Pin `1.11.0` / `1.11` stays the previous image. Pin `1.10.0` / `1.10` stays valid. Pin `1.9.0` / `1.9` stays valid. Pin `1.8.1` / `1.8` stays valid. Pin `1.8.0` stays valid. Pins `1.7.0` / `1.7` stay valid.
+**Status:** Docker Hub **live**. [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64**. Production line **v1.12.1**. Tags `1.12.1` / `1.12` / `latest` follow this patch once published. Pin `1.12.0` stays that patch. Pin `1.11.0` / `1.11` stays the previous minor image until `1.11.1` is published. Pin `1.10.0` / `1.10` stays valid. Pin `1.9.0` / `1.9` stays valid. Pin `1.8.1` / `1.8` stays valid. Pin `1.8.0` stays valid. Pins `1.7.0` / `1.7` stay valid.
 **Related:** [ADMIN](https://piherder-docs.hacknow.info/operations/upgrades/) · [wiki publish page](https://piherder-docs.hacknow.info/developers/publish-image/) · live docs: https://piherder-docs.hacknow.info/
 
 Official compose pulls the published image:
@@ -176,6 +176,14 @@ Add when account + token exist and first manual push has worked once.
 
 
 ---
+
+## v1.12.1 publish checklist (maintainer)
+
+- [x] `APP_VERSION` / `pyproject.toml` = `1.12.1`
+- [ ] [RELEASE_v1.12.1.md](RELEASE_v1.12.1.md) published with tag `v1.12.1`
+- [ ] Merge `release/1.12.1` → `main` · git tag `v1.12.1`
+- [ ] Multi-arch push: `1.12.1` / `1.12` / `latest` (amd64 + arm64). Digest filled after publish
+- [ ] Pin `1.12.0` left on the previous patch. Pin `1.11.0` / `1.11` left on the previous minor image until `1.11.1`
 
 ## v1.12.0 publish checklist (maintainer)
 

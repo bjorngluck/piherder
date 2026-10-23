@@ -151,9 +151,15 @@ Alembic **049** and **050** run on web start. Recreate **web** and **celery-work
 
 ## 1.11 → 1.12 {#111--112}
 
-**v1.12.0** is the current release. Notes: [RELEASE_v1.12.0.md](https://github.com/bjorngluck/piherder/blob/v1.12.0/docs/RELEASE_v1.12.0.md). Image `1.12.0` / `1.12` / `latest`. Pin `1.11.0` / `1.11` stays the previous image.
+**v1.12.0** is tagged. Notes: [RELEASE_v1.12.0.md](https://github.com/bjorngluck/piherder/blob/v1.12.0/docs/RELEASE_v1.12.0.md). Pin `1.12.0` stays that patch. The next jump is [1.12.0 → 1.12.1](#1120--1121).
 
 No new Alembic revision. Recreate **web** and **celery-worker**. About should say **1.12.0**. The default Jobs and Audit lists leave a successful host snapshot out. A rejected copy sign-in stays one critical alert. An image stays flagged while a running container is still on the previous id. Restore can pull one selected folder from a copy destination. Plugin **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)** and adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** are the companions for this release. The public demo is updated separately.
+
+## 1.12.0 → 1.12.1 {#1120--1121}
+
+**v1.12.1** is the current release. Notes: [RELEASE_v1.12.1.md](https://github.com/bjorngluck/piherder/blob/v1.12.1/docs/RELEASE_v1.12.1.md). Image `1.12.1` / `1.12` / `latest`. Pin `1.12.0` stays that patch.
+
+No new Alembic revision. Recreate **web** and **celery-worker**. About should say **1.12.1**. certifi is **2026.10.19**. Plugin **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)** and adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stay the companions for this release.
 
 ## Breaking notes
 
