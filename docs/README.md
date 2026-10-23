@@ -10,7 +10,7 @@ Maintainer plans and release notes. Operator wiki is `wiki/` (MkDocs).
 | Prior release | [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) · [PLAN_v1.12.0.md](PLAN_v1.12.0.md) · [QA_v1.12.0.md](QA_v1.12.0.md). Tag **v1.12.0**. Pin `1.12.0` |
 | Prior release | [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) · [PLAN_v1.11.0.md](PLAN_v1.11.0.md) · [QA_v1.11.0.md](QA_v1.11.0.md). Tag **v1.11.0**. Pin `1.11.0` / `1.11` |
 | Prior release | [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md) · [QA_v1.10.0.md](QA_v1.10.0.md). Tag **v1.10.0**. Pin `1.10.0` / `1.10` |
-| Next notes | [PLAN_v1.13.0.md](PLAN_v1.13.0.md). Not a train. Build cache and buildx cache from the host page, the token API, and hosted MCP. Not built |
+| Next | [PLAN_v1.13.0.md](PLAN_v1.13.0.md) · [QA_v1.13.0.md](QA_v1.13.0.md). Open on `v1.13.0-dev`. Not built. Not an upgrade path. Package stays **1.12.1** |
 | Prior release | [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [QA_v1.9.0.md](QA_v1.9.0.md). Tag **v1.9.0**. Pin `1.9.0` / `1.9` stays valid |
 | Prior release | [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) |
 | Prior production | [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md) |
