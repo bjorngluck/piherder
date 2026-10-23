@@ -300,6 +300,26 @@ def collect_samples(session: Session) -> list[tuple[str, str, list[str]]]:
             missed_lines,
         )
     )
+    try:
+        from .queue_watch import queue_gauges
+
+        oldest_pending, stuck = queue_gauges(session)
+    except Exception:
+        oldest_pending, stuck = 0, 0
+    samples.append(
+        (
+            "piherder_queue_oldest_pending_seconds",
+            "Age in seconds of the oldest pending job, or 0 when none are pending",
+            [_line("piherder_queue_oldest_pending_seconds", oldest_pending)],
+        )
+    )
+    samples.append(
+        (
+            "piherder_stuck_queue",
+            "1 when a job has been pending for more than 15 minutes and no Celery worker answered",
+            [_line("piherder_stuck_queue", stuck)],
+        )
+    )
 
     return samples
 

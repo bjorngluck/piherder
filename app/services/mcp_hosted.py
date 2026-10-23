@@ -81,6 +81,7 @@ _QUERY_SECRET_KEYS = frozenset(
 )
 _SERVER_INSTRUCTIONS = (
     "Call summary before changing anything. "
+    "list_alerts returns open notifications. "
     "trigger_job starts backup, retention, os_patch, container_patch, "
     "os_update_check, container_update_check, container_start, container_stop, "
     "container_restart, container_redeploy, host_reboot, "
@@ -267,6 +268,19 @@ def tool_catalog() -> list[dict[str, Any]]:
                     "detail": {"type": "boolean", "description": "Include a longer log tail"},
                 },
                 ["job_id"],
+            ),
+            "annotations": _READ_ANN,
+        },
+        {
+            "name": "list_alerts",
+            "description": "Open notifications. Does not include dismissed or resolved rows.",
+            "scope": tok_svc.SCOPE_READ,
+            "inputSchema": _obj_schema(
+                {
+                    "limit": _int_prop("Page size (default 100, max 100)"),
+                    "offset": _int_prop("Page offset"),
+                },
+                [],
             ),
             "annotations": _READ_ANN,
         },
@@ -995,6 +1009,13 @@ async def call_tool(
                 detail=_opt_bool(args, "detail"),
                 session=session,
                 auth=auth,
+            )
+        elif name == "list_alerts":
+            payload = api_v1.list_alerts(
+                session,
+                auth,
+                limit=_opt_int(args, "limit") if args.get("limit") is not None else 100,
+                offset=_opt_int(args, "offset") or 0,
             )
         elif name == "set_features":
             fields = {

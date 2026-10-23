@@ -922,6 +922,12 @@ def watch_missed_schedules():
                 sync_copy_order_alerts(session)
             except Exception:
                 logger.exception("[SCHEDULER] Copy order check failed")
+            try:
+                from .queue_watch import sync_stuck_queue_alert
+
+                sync_stuck_queue_alert(session)
+            except Exception:
+                logger.exception("[SCHEDULER] Stuck queue check failed")
         if opened:
             logger.warning("[SCHEDULER] Missed schedule warnings open: %s", opened)
     except Exception:

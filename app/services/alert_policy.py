@@ -85,6 +85,7 @@ CATALOG: tuple[TypeSpec, ...] = (
     TypeSpec("nmap_device_offline", "discovery", "LAN device offline", "info", True, 0, 0),
     TypeSpec("lan_discovery", "discovery", "Possible NIC change", "info", True, 0, 0),
     TypeSpec("stack_health", "stack", "PiHerder stack health", None, True, 0, 0),
+    TypeSpec("stuck_queue", "stack", "Job queue stuck", "warning", True, 0, 0),
     TypeSpec("cert_expiring", "cert", "Certificate expiring", "warning", True, 0, 0),
     TypeSpec("cert_renew_failed", "cert", "Certificate renew failed", "critical", True, 0, 0),
     TypeSpec("cert_deploy_failed", "cert", "Certificate deploy failed", "critical", True, 0, 0),

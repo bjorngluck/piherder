@@ -12,7 +12,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from ..database import get_session
 from ..models import ApiToken, Job, Notification, Server, User
@@ -384,6 +384,7 @@ def _inventory_public(server: Server) -> dict[str, Any]:
         "disk_used_bytes": getattr(server, "disk_used_bytes", None),
         "containers": containers,
         "container_count": len(containers),
+        "projects": inventory_svc.snapshot_update_targets(server),
     }
 
 
@@ -432,6 +433,54 @@ def api_server_inventory(
     if not server:
         raise HTTPException(404, detail="Server not found")
     return _inventory_public(server)
+
+
+def _alert_public(row: Notification) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "type": row.type,
+        "severity": row.severity,
+        "title": row.title,
+        "body": row.body,
+        "server_id": row.server_id,
+        "link_url": row.link_url,
+        "status": row.status,
+        "created_at": _api_utc_iso(row.created_at),
+        "updated_at": _api_utc_iso(row.updated_at),
+    }
+
+
+@router.get(
+    "/alerts",
+    summary="Open alerts",
+    description="Open in-app notifications (scope read). Does not include dismissed or resolved rows.",
+)
+def list_alerts(
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+    limit: int = 100,
+    offset: int = 0,
+):
+    auth.require(tok_svc.SCOPE_READ)
+    from ..services import list_query as lq
+    from ..services.notifications import list_notifications
+
+    lim = lq.clamp_api_limit(limit)
+    off = lq.parse_offset(offset)
+    rows = list_notifications(session, status="open", limit=lim, offset=off)
+    total = session.exec(
+        select(func.count()).select_from(Notification).where(Notification.status == "open")
+    ).one()
+    try:
+        total_n = int(total)
+    except (TypeError, ValueError):
+        total_n = len(rows)
+    return {
+        "alerts": [_alert_public(row) for row in rows],
+        "total": total_n,
+        "limit": lim,
+        "offset": off,
+    }
 
 
 @router.get("/services", summary="Fleet service monitor snapshots")

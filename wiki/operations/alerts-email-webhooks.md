@@ -69,6 +69,10 @@ A host backup or a container image check that does not start within 15 minutes o
 
 `/metrics` exposes `piherder_schedule_missed` with `kind` and `server_id`. It is 1 while the latest due slot was missed and no success has finished since.
 
+### Stuck queue
+
+One warning (`stuck_queue`) opens when any job stays `pending` for more than 15 minutes and no Celery worker answers. It resolves when that pending queue drains, or when a worker answers again. A worker check that cannot tell leaves an open warning as it is. Mute **PiHerder stack** to stop it. `GET /api/v1/alerts` (`read`) and hosted MCP `list_alerts` return open notifications. `/metrics` exposes `piherder_queue_oldest_pending_seconds` and `piherder_stuck_queue`. This alert is on the v1.13 train and is not in the 1.12.1 image.
+
 ### Copy before the backups
 
 A destination copy that is scheduled earlier the same day than a host backup whose folder on `/backups` is ticked opens one warning, `backup_copy_early`. The body names those hosts. The clock is the Settings timezone, and the check looks 35 days ahead. It clears when that copy is no longer earlier. Turning the copy schedule off, or unticking the folder, clears it too. A host that sends files straight out is not included, because that copy reads the host rather than `/backups`. Mute **Backups** to stop it. The Settings copy list shows the same sentence. Web Push follows the master switch.

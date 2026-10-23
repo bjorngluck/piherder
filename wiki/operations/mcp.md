@@ -100,7 +100,7 @@ Tool names match adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/bl
 
 | Scope | Tools |
 |-------|--------|
-| `read` | `health`, `summary`, `list_servers`, `get_server`, `inventory`, `services`, `list_jobs`, `get_job`, `read_discovery`, `list_discovery_devices` |
+| `read` | `health`, `summary`, `list_servers`, `get_server`, `inventory`, `services`, `list_jobs`, `get_job`, `list_alerts`, `read_discovery`, `list_discovery_devices` |
 | `jobs` | `trigger_job`, `start_move`, `start_discovery`, `scan_discovery_device` |
 | `edit` | `set_features`, `prune_docker`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices` |
 | `files` | `list_files`, `read_file`, `write_file`, `mkdir`, `rename_file`, `delete_file` |
@@ -117,6 +117,7 @@ Tool names match adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/bl
 | `services` | `read` | Stored service up/down chips. Does not poll Uptime Kuma or Nginx Proxy Manager. |
 | `list_jobs` | `read` | Jobs. Optional `server_id`, `status_filter`, `job_type`, `active_only`, `limit`, `offset`. |
 | `get_job` | `read` | One job. `detail` true includes a longer log tail. |
+| `list_alerts` | `read` | Open notifications. Adapter 0.4.3 does not list this tool. It is on the v1.13 train and is not in the 1.12.1 image. |
 | `trigger_job` | `jobs` | Start one job type from the table below. |
 | `start_move` | `jobs` | Start a stop-first Move. `confirm` must be true. The source stack is left stopped. There is no undo. |
 | `read_discovery` | `read` | Read saved LAN Discovery ranges and recent scans. |

@@ -60,7 +60,56 @@ def _public_container(c: Dict[str, Any], project: str) -> Dict[str, Any]:
         "service": c.get("compose_service") or "",
         "path": (c.get("compose_workdir") or "").strip(),
         "update": bool(c.get("has_pending_update")),
+        "update_available": bool(c.get("has_pending_update")),
     }
+
+
+def _image_rows(containers: list) -> list[Dict[str, Any]]:
+    """One row per image. update_available is true if any container of that image has one."""
+    seen: Dict[str, bool] = {}
+    order: list[str] = []
+    for container in containers or []:
+        if not isinstance(container, dict) or container.get("placeholder"):
+            continue
+        image = (container.get("image") or "").strip()
+        if not image:
+            continue
+        flagged = bool(container.get("has_pending_update"))
+        if image not in seen:
+            order.append(image)
+            seen[image] = flagged
+        elif flagged:
+            seen[image] = True
+    return [{"image": image, "update_available": seen[image]} for image in order]
+
+
+def snapshot_update_targets(server: Server) -> list[Dict[str, Any]]:
+    """Compose projects and images with update_available. Never SSHs."""
+    inv = parse_inventory(server) or {}
+    out: list[Dict[str, Any]] = []
+    for project in inv.get("projects") or []:
+        if not isinstance(project, dict):
+            continue
+        images = _image_rows(project.get("containers") or [])
+        out.append(
+            {
+                "name": (project.get("name") or "").strip(),
+                "path": (project.get("path") or "").strip(),
+                "update_available": bool(project.get("has_pending_update")),
+                "images": images,
+            }
+        )
+    orphan_images = _image_rows(inv.get("orphan_containers") or [])
+    if orphan_images:
+        out.append(
+            {
+                "name": "",
+                "path": "",
+                "update_available": any(row["update_available"] for row in orphan_images),
+                "images": orphan_images,
+            }
+        )
+    return out
 
 
 def snapshot_containers(server: Server) -> list[Dict[str, Any]]:
