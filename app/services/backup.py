@@ -672,6 +672,13 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
                         row["warning"] = (
                             f"Completed after {attempt} vanished-file retry(ies) (busy source)"
                         )
+                    _stamp_ownership_manifest(
+                        row,
+                        dest=dest,
+                        source=src,
+                        is_local=is_local,
+                        ssh_client=ssh_client,
+                    )
                     results.append(row)
                     _set_progress(
                         hostname,
@@ -688,7 +695,7 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
                         f"Busy source: rsync rc={rc} (vanished files) after {attempt} retry(ies); "
                         "treated as soft success. Prefer excluding high-churn paths if needed."
                     )
-                    results.append({
+                    soft_row = {
                         "source": src,
                         "dest": str(dest),
                         "rc": rc,
@@ -697,7 +704,15 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
                         "vanished_soft_ok": True,
                         "vanished_retries": attempt,
                         "warning": warn,
-                    })
+                    }
+                    _stamp_ownership_manifest(
+                        soft_row,
+                        dest=dest,
+                        source=src,
+                        is_local=is_local,
+                        ssh_client=ssh_client,
+                    )
+                    results.append(soft_row)
                     _set_progress(
                         hostname,
                         log_line=f"Soft-OK {src} (vanished/busy; rc={rc})",
@@ -741,6 +756,32 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
             "ok": success,
             "timestamp": datetime.utcnow().isoformat(),
         }
+
+def _stamp_ownership_manifest(
+    row: dict,
+    *,
+    dest: Path,
+    source: str,
+    is_local: bool,
+    ssh_client,
+) -> None:
+    """Write the sidecar after a successful copy. A failure is a warning, not a lost backup."""
+    try:
+        from .backup_ownership import collect_local_tree, collect_remote_tree, write_manifest
+
+        if is_local:
+            entries = collect_local_tree(source)
+        elif ssh_client is not None:
+            entries = collect_remote_tree(ssh_client, source)
+        else:
+            raise RuntimeError("no SSH session for ownership")
+        write_manifest(dest, entries)
+        row["ownership_entries"] = len(entries)
+    except Exception as exc:
+        logger.warning("[backup] ownership manifest failed for %s: %s", source, exc)
+        note = f"Ownership manifest not written: {exc}"[:200]
+        row["warning"] = f"{row['warning']}; {note}" if row.get("warning") else note
+
 
 def run_retention(server: Server) -> dict:
     """Basic retention (matches spirit of backup_cleanup.sh). Full prune logic can be expanded."""
