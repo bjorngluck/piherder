@@ -645,7 +645,7 @@ def test_backup_server_success_and_fail(monkeypatch):
     session.add(job)
     session.commit()
     session.refresh(job)
-    monkeypatch.setattr(tasks_mod, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(tasks_mod, "try_acquire_server_lock", lambda *a, **k: "tok")
     monkeypatch.setattr(tasks_mod, "release_server_lock", lambda *a, **k: None)
     monkeypatch.setattr(
@@ -757,7 +757,7 @@ def test_app_settings_legacy_and_db(tmp_path, monkeypatch):
     from app.models import AppSetting
 
     session, engine = _memory()
-    monkeypatch.setattr(st, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     st._cache = None
     st._migrated_files = True
     paths = st._legacy_file_paths()

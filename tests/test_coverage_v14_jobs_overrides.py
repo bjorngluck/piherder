@@ -469,7 +469,7 @@ def test_jobs_enqueue_and_execute_mocked(monkeypatch):
     src = _server(session, name="src", hostname="src.local")
     dest = _server(session, name="dest", hostname="dest.local")
 
-    monkeypatch.setattr(jobs_mod, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(jobs_mod, "_patch_apply_pool", _Pool())
     monkeypatch.setattr(jobs_mod, "_update_check_pool", _Pool())
 

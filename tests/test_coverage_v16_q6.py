@@ -196,7 +196,7 @@ def test_jobs_template_enqueue_and_execute(monkeypatch):
 
     session, engine = _memory()
     srv = _server(session)
-    monkeypatch.setattr(js, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
 
     @contextmanager
     def _fresh():
@@ -309,7 +309,7 @@ def test_herder_restore_dry_run(tmp_path, monkeypatch):
     from app.services import herder_backup as hb
 
     session, engine = _memory()
-    monkeypatch.setattr(hb, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(hb.settings, "DATA_ROOT", str(tmp_path / "data"))
 
     payload = {
@@ -421,7 +421,7 @@ def test_stack_health_reports_and_disks(tmp_path, monkeypatch):
     assert sh.celery_pool_slots_from_report(None) == 0
     assert sh.celery_pool_slots_from_report(report) >= 0
     assert sh.celery_pool_slots_from_report({"components": [{"id": "celery", "detail": {"workers": "x"}}]}) == 0
-    monkeypatch.setattr(sh, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     out = sh.run_stack_health_check(session, notify=True)
     assert out["overall"]
 

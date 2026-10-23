@@ -238,7 +238,7 @@ def test_cancel_job_edges(tmp_path, monkeypatch):
     from app.models import Job, Server
 
     engine = _engine(tmp_path / "cancel.db")
-    monkeypatch.setattr(jobs, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(jobs.backup, "stop_backup", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("stop")))
     monkeypatch.setattr(jobs.os_patching, "_append_os_log", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("log")))
     monkeypatch.setattr(

@@ -135,7 +135,7 @@ def test_herder_restore_live_sqlite_settings_noop(tmp_path, monkeypatch):
     from app.services import app_settings as aset
 
     session, engine = _memory()
-    monkeypatch.setattr(hb, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(aset, "replace_settings", lambda full: full or {})
     monkeypatch.setattr(aset, "save_settings", lambda partial: partial or {})
     monkeypatch.setattr(aset, "clear_cache", lambda: None)

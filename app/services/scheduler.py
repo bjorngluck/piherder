@@ -514,6 +514,14 @@ def schedule_docker_inventory_fleet():
             for server in servers:
                 if not server.id:
                     continue
+                try:
+                    inventory_svc.release_expired_inventory_refresh(db, server)
+                except Exception as e:
+                    logger.warning(
+                        "[SCHEDULER] docker inventory refresh reset failed for %s: %s",
+                        server.id,
+                        e,
+                    )
                 if inventory_svc.is_stale(server, max_age_sec=inventory_svc.SCHEDULER_STALE_SEC):
                     try:
                         inventory_svc.refresh_server_inventory(server.id, force=False)
@@ -564,6 +572,7 @@ def schedule_host_facts_fleet():
                 from . import jobs as jobs_svc
 
                 jobs_svc.cleanup_stale_backup_jobs(db)
+                jobs_svc.reconcile_orphaned_running_jobs(db)
             except Exception as e:
                 logger.warning("[SCHEDULER] stale job sweep failed: %s", e)
             for server in db.exec(select(Server)).all():

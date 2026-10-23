@@ -755,7 +755,7 @@ def test_inventory_slim_save_refresh(monkeypatch):
     with pytest.raises(RuntimeError):
         inv.build_inventory_l1(_srv())
 
-    monkeypatch.setattr(inv, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(
         inv,
         "build_inventory_l1",

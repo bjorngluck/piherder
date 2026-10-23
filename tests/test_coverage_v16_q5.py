@@ -69,7 +69,7 @@ def test_jobs_stack_check_deploy_enqueue_execute(monkeypatch):
 
     session, engine = _memory()
     srv = _server(session)
-    monkeypatch.setattr(js, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
 
     @contextmanager
     def _fresh():

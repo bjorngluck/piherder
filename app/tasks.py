@@ -858,6 +858,25 @@ except Exception:
     logger.debug("Housekeeping failure signal not connected", exc_info=True)
 
 
+def _on_worker_ready(**_kwargs):
+    """A worker that just came up fails running jobs left by a dead worker."""
+    from app.services.jobs import reconcile_orphaned_running_jobs
+
+    try:
+        with Session(get_engine()) as session:
+            reconcile_orphaned_running_jobs(session)
+    except Exception:
+        logger.warning("Orphaned running job check skipped", exc_info=True)
+
+
+try:
+    from celery.signals import worker_ready
+
+    worker_ready.connect(_on_worker_ready)
+except Exception:
+    logger.debug("Worker ready signal not connected", exc_info=True)
+
+
 # Host rsync stays on the 2h global limit. A Drive copy can run much longer.
 # Ack on receive so Redis does not start a second rclone while the first is still going.
 # 7 days is the safety stop; the failure signal below records it on the job row.

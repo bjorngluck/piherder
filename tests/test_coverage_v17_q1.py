@@ -142,9 +142,9 @@ def _client(engine, monkeypatch):
     import app.routers.server_console as console_mod
     import app.services.ssh as ssh_mod
 
-    monkeypatch.setattr(dbmod, "engine", engine)
-    monkeypatch.setattr(console_mod, "engine", engine)
-    monkeypatch.setattr(app_cfg, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(app_cfg, "_cache", None)
     monkeypatch.setattr(ssh_mod, "get_ssh_client", lambda *a, **k: _Ssh())
     import app.services.docker_inventory as inv
@@ -304,7 +304,7 @@ def test_console_websocket_paths(tmp_path, monkeypatch):
     engine = _engine(tmp_path / "ws.db")
     client, uid, sid = _client(engine, monkeypatch)
     token = client.cookies.get("access_token")
-    monkeypatch.setattr(console_mod, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(cons, "consume_ticket", lambda *a, **k: {"console": True, "role": "fleet", "n": 0})
     monkeypatch.setattr(cons, "try_acquire_slot", lambda *a, **k: None)
     monkeypatch.setattr(cons, "idle_sec", lambda: 3600)
@@ -378,7 +378,7 @@ def test_backup_and_undo_tasks(tmp_path, monkeypatch):
     from app.services import jobs_migrate as jm
 
     engine = _engine(tmp_path / "tasks.db")
-    monkeypatch.setattr(tasks, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(tasks, "try_acquire_server_lock", lambda *a, **k: "tok")
     monkeypatch.setattr(tasks, "release_server_lock", lambda *a, **k: None)
     monkeypatch.setattr(tasks, "try_acquire_dual_server_lock", lambda *a, **k: ("a", "b"))

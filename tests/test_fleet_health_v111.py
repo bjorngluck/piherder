@@ -218,7 +218,7 @@ def test_docker_off_does_not_refresh(monkeypatch):
         "build_inventory_l1",
         lambda server: called.append(server.id) or {"meta": {}, "projects": []},
     )
-    monkeypatch.setattr(inv, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     with Session(engine) as session:
         server = Server(
             name="host-f",

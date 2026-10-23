@@ -873,6 +873,75 @@ def cleanup_orphan_web_jobs(
     return n
 
 
+_ORPHAN_GRACE = timedelta(seconds=60)
+_ORPHAN_REASON = "Interrupted. The Celery worker is no longer alive."
+
+
+def celery_worker_activity() -> tuple[bool, set[str]] | None:
+    """Whether a Celery worker answered, and the active task ids.
+
+    None means the check could not tell, so callers leave running jobs alone.
+    ``(False, set())`` means no worker answered.
+    """
+    try:
+        from ...celery_app import celery
+
+        inspector = celery.control.inspect(timeout=1.0)
+        if inspector is None:
+            return False, set()
+        ping = inspector.ping() or {}
+        if not ping:
+            return False, set()
+        active = inspector.active() or {}
+        ids: set[str] = set()
+        for tasks in active.values():
+            if not isinstance(tasks, list):
+                continue
+            for task in tasks:
+                if isinstance(task, dict) and task.get("id"):
+                    ids.add(str(task["id"]))
+        return True, ids
+    except Exception:
+        logger.warning("[Jobs] Celery worker check failed", exc_info=True)
+        return None
+
+
+def reconcile_orphaned_running_jobs(session: Session) -> int:
+    """Fail a running job whose Celery worker is no longer alive.
+
+    When workers still answer, a task that is not active is interrupted only
+    after a short grace so a row that just became running is not failed.
+    """
+    state = celery_worker_activity()
+    if state is None:
+        return 0
+    alive, active = state
+    rows = session.exec(select(Job).where(Job.status == "running")).all()
+    now = datetime.utcnow()
+    n = 0
+    for job in rows:
+        if not _is_celery_owned_job(job):
+            continue
+        task_id = (job.celery_task_id or "").strip()
+        if alive and task_id and task_id in active:
+            continue
+        if alive:
+            started = job.started_at or job.created_at or now
+            if now - started < _ORPHAN_GRACE:
+                continue
+        _mark_job_failed(job, _ORPHAN_REASON, session, record_audit=False)
+        _finish_running_audit_for_job(
+            session, job, status="failed", message=_ORPHAN_REASON
+        )
+        if (job.job_type or "") == "host_facts":
+            _release_host_facts_refresh(session, job.server_id)
+        n += 1
+    if n:
+        session.commit()
+        logger.info("[Jobs] Interrupted %s running job(s) with no live worker", n)
+    return n
+
+
 def _send_summary_webhook(server_hostname: str, job_type: str, status: str, summary: str):
     try:
         from ..alert_channels import send_webhook

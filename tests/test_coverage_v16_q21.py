@@ -39,7 +39,7 @@ def test_login_console_ticket_dns_posts(tmp_path, monkeypatch):
     # DNS saves go through app_settings' own engine, not get_session.
     import app.services.app_settings as app_cfg
 
-    monkeypatch.setattr(app_cfg, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(app_cfg, "_cache", None)
 
     def _session():

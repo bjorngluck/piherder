@@ -118,7 +118,7 @@ def test_jobs_create_backup_and_exclusive(monkeypatch):
 
     session, engine = _memory()
     srv = _server(session)
-    monkeypatch.setattr(js, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
     monkeypatch.setattr(js, "HAS_CELERY", True)
 

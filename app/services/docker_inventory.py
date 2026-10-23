@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_STALE_SEC = 120
 # Periodic scheduler cadence (see scheduler registration)
 SCHEDULER_STALE_SEC = 600
+# A refresh still marked refreshing after this long did not finish.
+REFRESH_EXPIRED_SEC = 30 * 60
 
 # Single-flight: server ids currently refreshing in this process
 _refreshing: Set[int] = set()
@@ -122,7 +124,7 @@ def is_stale(server: Server, max_age_sec: int = DEFAULT_STALE_SEC) -> bool:
     if status == "stale":
         return True  # mutation invalidated; keep last JSON for display
     if status == "refreshing":
-        return False  # already in flight (or stuck — force handles that)
+        return inventory_refresh_expired(server)
     at = getattr(server, "docker_inventory_at", None)
     if not at:
         return True
@@ -131,6 +133,40 @@ def is_stale(server: Server, max_age_sec: int = DEFAULT_STALE_SEC) -> bool:
     except Exception:
         return True
     return age > max_age_sec
+
+
+def inventory_refresh_expired(
+    server: Server, max_refresh_sec: int = REFRESH_EXPIRED_SEC
+) -> bool:
+    """True when a refreshing row is older than 30 minutes.
+
+    The clock is the last snapshot time, the same way a stuck host facts
+    refresh is judged. A row with no timestamp is left for the process lock.
+    """
+    if (getattr(server, "docker_inventory_status", None) or "") != "refreshing":
+        return False
+    at = getattr(server, "docker_inventory_at", None)
+    if not at:
+        return False
+    try:
+        return (datetime.utcnow() - at).total_seconds() > max_refresh_sec
+    except Exception:
+        return False
+
+
+def release_expired_inventory_refresh(session: Session, server: Server) -> bool:
+    """Reset a refresh that has stayed refreshing for 30 minutes."""
+    if not inventory_refresh_expired(server):
+        return False
+    if getattr(server, "docker_inventory_json", None):
+        server.docker_inventory_status = "stale"
+    else:
+        server.docker_inventory_status = "never"
+    session.add(server)
+    session.commit()
+    if getattr(server, "id", None) is not None:
+        end_refresh_slot(int(server.id))
+    return True
 
 
 def is_refresh_stuck(server: Server, max_refresh_sec: int = 180) -> bool:

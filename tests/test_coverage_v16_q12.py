@@ -133,7 +133,7 @@ def test_jobs_revoke_supersede_enqueue_backup(monkeypatch):
 
     session, engine = _memory()
     srv = _server(session)
-    monkeypatch.setattr(js, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(js, "_get_fresh_session", _fresh(engine))
     monkeypatch.setattr(js, "HAS_CELERY", False)
     js._revoke_celery_task(None)
@@ -198,7 +198,7 @@ def test_jobs_create_and_run_and_async_runners(monkeypatch):
 
     session, engine = _memory()
     srv = _server(session)
-    monkeypatch.setattr(js, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(js, "_get_fresh_session", _fresh(engine))
     monkeypatch.setattr(js, "_send_summary_webhook", lambda *a, **k: None)
     monkeypatch.setattr(
@@ -396,7 +396,7 @@ def test_herder_backup_helpers(tmp_path, monkeypatch):
     from app.services import herder_backup as hb
 
     session, engine = _memory()
-    monkeypatch.setattr(hb, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(hb.settings, "DATA_ROOT", str(tmp_path))
     monkeypatch.setattr(hb.settings, "HERDER_BACKUP_ROOT", str(tmp_path / "hb"))
     monkeypatch.setattr(hb.settings, "AVATAR_MAX_BYTES", 1024)

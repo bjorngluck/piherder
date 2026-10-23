@@ -134,7 +134,7 @@ def test_job_human_summary_and_queued_create(monkeypatch):
 
     session, engine = _memory()
     srv = _server(session)
-    monkeypatch.setattr(js, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(
         js,
         "make_audit_log",

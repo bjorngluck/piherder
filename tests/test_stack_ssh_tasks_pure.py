@@ -205,7 +205,7 @@ def test_nmap_tasks_dispatch_mocked(monkeypatch):
             pass
 
     monkeypatch.setattr(tasks_mod, "Session", lambda *a, **k: FakeSession())
-    monkeypatch.setattr(tasks_mod, "engine", MagicMock())
+    monkeypatch.setattr("app.database.engine", MagicMock())
 
     with patch("app.services.nmap.scan.run_nmap_scan") as run:
         run.return_value = {"status": "success"}

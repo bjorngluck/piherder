@@ -35,7 +35,7 @@ def test_integrations_and_settings_status(tmp_path, monkeypatch):
     )
     SQLModel.metadata.create_all(engine)
     # cleanup_config reads settings on app_settings.engine, not the request session.
-    monkeypatch.setattr(app_cfg, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(app_cfg, "_cache", None)
     sent: list = []
 

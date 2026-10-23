@@ -21,7 +21,7 @@ def engine(tmp_path, monkeypatch):
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(eng)
-    monkeypatch.setattr(ra, "engine", eng)
+    monkeypatch.setattr("app.database.engine", eng)
     return eng
 
 

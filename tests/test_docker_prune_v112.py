@@ -52,8 +52,8 @@ def _client(engine, monkeypatch):
     import app.database as dbmod
     import app.services.jobs as jobs
 
-    monkeypatch.setattr(dbmod, "engine", engine)
-    monkeypatch.setattr(jobs, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
     monkeypatch.setattr(
         dm,
