@@ -326,15 +326,6 @@
       Prune {{ request.query_params.get('prune_type', 'unused') }} did not start.
     </div>
   {% endif %}
-  <form method="post" action="/servers/{{ server.id }}/schedule/docker-prune" class="mb-3 flex flex-wrap items-end gap-2">
-    <label class="text-xs text-muted">
-      Prune schedule
-      <input type="text" name="docker_prune_schedule" value="{{ server.docker_prune_schedule or '' }}"
-             placeholder="0 3 * * 0" class="mt-1 block bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
-    </label>
-    <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save prune schedule</button>
-    <p class="text-[10px] text-muted m-0">Blank turns it off. The run is dangling images and exited containers. Volumes and build cache stay off.</p>
-  </form>
 
   {# Compose projects with nested services (and orphans) #}
   {% include "docker_stack.html" %}
@@ -835,10 +826,55 @@ function initDockerFilters() {
   });
   applyDockerFilters();
 }
+function bindCleanupPruneSchedule() {
+  var form = document.querySelector('form[data-testid="cleanup-prune-schedule-form"]');
+  if (!form || form.dataset.bound === '1') return;
+  form.dataset.bound = '1';
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var button = form.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
+    fetch(form.action, {
+      method: 'POST',
+      body: new FormData(form),
+      headers: { 'X-PiHerder-Async': '1' },
+      credentials: 'same-origin'
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        return { ok: res.ok, data: data || {} };
+      });
+    }).then(function (pack) {
+      if (pack.ok && pack.data.ok) {
+        setCleanupStatus('ok', pack.data.message || 'Prune schedule saved. Volumes and build cache stay off.');
+        return;
+      }
+      var detail = pack.data.detail || pack.data.message || 'Could not save the prune schedule';
+      if (Array.isArray(detail)) {
+        detail = detail.map(function (row) { return row.msg || String(row); }).join(' ');
+      }
+      setCleanupStatus('error', String(detail));
+    }).catch(function () {
+      setCleanupStatus('error', 'Could not save the prune schedule');
+    }).finally(function () {
+      if (button) button.disabled = false;
+    });
+  });
+}
+
+function openCleanupAfterScheduleSave() {
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('prune') !== 'schedule') return;
+  showCleanupModal();
+}
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initDockerFilters);
+  document.addEventListener('DOMContentLoaded', bindCleanupPruneSchedule);
+  document.addEventListener('DOMContentLoaded', openCleanupAfterScheduleSave);
 } else {
   initDockerFilters();
+  bindCleanupPruneSchedule();
+  openCleanupAfterScheduleSave();
 }
 // Re-apply filters after HTMX refreshes #docker-stack (innerHTML)
 function highlightDockerProjectFromUrl() {

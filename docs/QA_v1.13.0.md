@@ -52,14 +52,14 @@ Issue [#50](https://github.com/bjorngluck/piherder/issues/50). Device identity s
 
 ## Docker (Should)
 
-Build cache is its own action. The saved prune schedule starts `docker_prune` with `both`. Volumes stay off that schedule.
+Build cache is its own action. The prune schedule form is inside the **Cleanup…** modal (`#cleanup-modal`). The saved prune schedule starts `docker_prune` with `both`. Volumes stay off that schedule.
 
 - [ ] The host Docker page can prune the Docker build cache and the buildx cache (`docker builder prune -f`, then `docker buildx prune -f`)
 - [ ] `POST /api/v1/servers/{id}/docker/build-cache` (`edit`) does that prune in the request. It is not a job and not scheduled
 - [ ] A `read` token cannot call that route
 - [ ] Hosted `/mcp` `prune_build_cache` (`edit`) does the same prune
 - [ ] Each of those three writes one audit row, `docker_build_cache_prune`, and does not write a `docker_prune` job
-- [ ] Saving a per-host prune cron stores `docker_prune_schedule`. Empty means off. The host needs container patch enabled
+- [ ] Saving a per-host prune cron in the **Cleanup…** modal (`#cleanup-modal`) stores `docker_prune_schedule`. Empty means off. The host needs container patch enabled. The Docker page itself does not show that form
 - [ ] That cron starts `docker_prune` with source `both` (dangling images and exited containers). Volumes are not included. Build cache is not included
 - [ ] Saving the cron writes audit action `server_docker_prune_schedule`
 - [ ] About **View schedule** lists that job under `docker_prune`

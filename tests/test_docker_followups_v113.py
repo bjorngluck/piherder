@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -244,3 +245,13 @@ def test_ui_prune_routes_reject_when_docker_feature_is_off(monkeypatch):
             assert caught.value.detail == "Enable the Docker feature on this server first"
         assert list(session.exec(select(AuditLog)).all()) == []
         assert list(session.exec(select(Job)).all()) == []
+
+
+def test_prune_schedule_form_is_inside_cleanup_modal():
+    root = Path(__file__).resolve().parents[1]
+    docker = (root / "app/templates/docker.html").read_text()
+    modals = (root / "app/templates/partials/docker_modals.html").read_text()
+    assert 'action="/servers/{{ server.id }}/schedule/docker-prune"' not in docker
+    assert 'id="cleanup-modal"' in modals
+    assert 'action="/servers/{{ server.id }}/schedule/docker-prune"' in modals
+    assert 'data-testid="cleanup-prune-schedule-form"' in modals

@@ -489,6 +489,7 @@ async def save_container_apply_schedule(
 
 @router.post("/{server_id}/schedule/docker-prune")
 async def save_docker_prune_schedule(
+    request: Request,
     server_id: int,
     docker_prune_schedule: str = Form(""),
     session: Session = Depends(get_session),
@@ -513,6 +514,14 @@ async def save_docker_prune_schedule(
     )
     session.commit()
     sync_server_schedules(server)
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse(
+            {
+                "ok": True,
+                "docker_prune_schedule": cron or "",
+                "message": "Prune schedule saved. Volumes and build cache stay off.",
+            }
+        )
     return RedirectResponse(
         f"/servers/{server_id}/docker?prune=schedule",
         status_code=303,
