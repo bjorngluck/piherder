@@ -462,7 +462,7 @@ def test_mixed_copy_keeps_the_folder_row_and_queues_direct_after(tmp_path, monke
 
     monkeypatch.setattr("app.services.backup_direct.partition_checked", partition)
     engine = _sqlite(tmp_path, "mixed-job.db")
-    monkeypatch.setattr("app.tasks.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
 
     def folder_only(destination, scope=None):
         assert scope is None
@@ -514,7 +514,7 @@ def test_mixed_copy_keeps_the_folder_row_and_queues_direct_after(tmp_path, monke
 
 def test_direct_worker_stores_a_scrubbed_error(tmp_path, monkeypatch):
     engine = _sqlite(tmp_path, "direct-err.db")
-    monkeypatch.setattr("app.tasks.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     with Session(engine) as session:
         dest = BackupDestination(
             provider="drive",
@@ -562,7 +562,7 @@ def test_direct_worker_stores_a_scrubbed_error(tmp_path, monkeypatch):
 
 def test_worker_death_line_names_a_direct_copy(tmp_path, monkeypatch):
     engine = _sqlite(tmp_path, "direct-stop.db")
-    monkeypatch.setattr("app.tasks.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     with Session(engine) as session:
         job = Job(
             job_type="backup_replicate",
@@ -589,7 +589,7 @@ def test_worker_death_line_names_a_direct_copy(tmp_path, monkeypatch):
 def test_worker_death_still_queues_the_direct_hop(tmp_path, monkeypatch):
     queued = _delay_recorder(monkeypatch)
     engine = _sqlite(tmp_path, "direct-after-kill.db")
-    monkeypatch.setattr("app.tasks.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     server = _host()
 
     def partition(checked, hosts=None):
@@ -722,7 +722,7 @@ def test_followup_starts_while_the_folder_row_is_still_running(tmp_path, monkeyp
 
     monkeypatch.setattr("app.services.backup_direct.partition_checked", partition)
     engine = _sqlite(tmp_path, "follow-running.db")
-    monkeypatch.setattr("app.tasks.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     with Session(engine) as session:
         dest = BackupDestination(
             provider="drive",

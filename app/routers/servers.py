@@ -5,7 +5,7 @@ from sqlalchemy import func
 import json
 from typing import Optional, List
 from starlette.concurrency import run_in_threadpool
-from ..database import get_session, engine
+from ..database import get_session, get_engine
 from ..models import Server, AuditLog, Job, UserFavourite
 from datetime import datetime
 from ..security import encryption

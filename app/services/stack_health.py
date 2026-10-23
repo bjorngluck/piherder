@@ -17,7 +17,7 @@ from sqlmodel import Session
 from sqlalchemy import text
 
 from ..config import settings
-from ..database import engine
+from ..database import get_engine
 from . import app_settings as app_cfg
 from . import notifications as notif_svc
 
@@ -62,7 +62,7 @@ def check_web() -> dict[str, Any]:
 
 def check_db() -> dict[str, Any]:
     try:
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             session.execute(text("SELECT 1"))
         return _component("db", "PostgreSQL", "ok", message="SELECT 1 ok")
     except Exception as e:
@@ -590,7 +590,7 @@ def run_stack_health_check(
     if notify:
         own = session is None
         if own:
-            session = Session(engine)
+            session = Session(get_engine())
         try:
             assert session is not None
             apply_stack_health_notifications(session, report)

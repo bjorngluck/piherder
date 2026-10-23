@@ -264,9 +264,9 @@ def delete_schedule(session: Session, row: NmapScanSchedule) -> None:
 def fire_schedule(schedule_id: int) -> None:
     """APScheduler callback — enqueue scan for one schedule."""
     try:
-        from ...database import engine
+        from ...database import get_engine
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             row = db.get(NmapScanSchedule, schedule_id)
             if not row or not row.enabled:
                 return
@@ -349,7 +349,7 @@ def sync_nmap_schedules(scheduler, has_scheduler: bool) -> int:
     """Register/remove APScheduler jobs for all enabled nmap schedules."""
     if not has_scheduler or not scheduler:
         return 0
-    from ...database import engine
+    from ...database import get_engine
 
     try:
         for job in list(scheduler.get_jobs()):
@@ -363,7 +363,7 @@ def sync_nmap_schedules(scheduler, has_scheduler: bool) -> int:
         logger.debug("nmap schedule cleanup: %s", e)
 
     count = 0
-    with Session(engine) as db:
+    with Session(get_engine()) as db:
         rows = list(
             db.exec(
                 select(NmapScanSchedule).where(NmapScanSchedule.enabled == True)  # noqa: E712

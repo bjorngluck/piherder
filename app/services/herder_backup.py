@@ -32,7 +32,7 @@ import logging
 from urllib.parse import urlparse, unquote
 
 from ..config import settings
-from ..database import engine
+from ..database import get_engine
 from sqlmodel import Session, select, SQLModel
 from ..models import (
     Server,
@@ -235,7 +235,7 @@ def _model_to_dict(row: SQLModel) -> Dict[str, Any]:
 
 def _snapshot_table(model: Type[SQLModel], limit: Optional[int] = None) -> List[Dict[str, Any]]:
     try:
-        with Session(engine) as s:
+        with Session(get_engine()) as s:
             q = select(model)
             rows = s.exec(q).all()
             if limit is not None:
@@ -285,7 +285,7 @@ def _snapshot_push_preferences() -> List[Dict[str, Any]]:
 
 
 def _snapshot_notifications(limit: int = _NOTIFICATION_SNAPSHOT_LIMIT) -> List[Dict[str, Any]]:
-    with Session(engine) as s:
+    with Session(get_engine()) as s:
         rows = s.exec(
             select(Notification).order_by(Notification.created_at.desc()).limit(limit)
         ).all()
@@ -356,7 +356,7 @@ def restore_pg_dump(dump_path: Path) -> None:
     try:
         from sqlalchemy import text as sa_text
 
-        with Session(engine) as s:
+        with Session(get_engine()) as s:
             s.execute(
                 sa_text(
                     "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
@@ -388,7 +388,7 @@ def restore_pg_dump(dump_path: Path) -> None:
         if "error:" in err.lower() and "FATAL" in err:
             raise RuntimeError(f"pg_restore failed: {err[:500]}")
         # Many "errors" are ignoreable with --clean; verify core table
-        with Session(engine) as s:
+        with Session(get_engine()) as s:
             from sqlalchemy import text as sa_text
 
             n = s.execute(sa_text('SELECT count(*) FROM "user"')).scalar()
@@ -487,7 +487,7 @@ def _snapshot_api_tokens() -> List[Dict[str, Any]]:
 
 def _snapshot_jobs(limit: int = _JOB_SNAPSHOT_LIMIT) -> List[Dict[str, Any]]:
     """All job rows (newest first, safety cap). Required for full DR of Jobs UI."""
-    with Session(engine) as s:
+    with Session(get_engine()) as s:
         rows = s.exec(select(Job).order_by(Job.id.desc()).limit(limit)).all()
         # restore prefers stable id order
         rows = list(reversed(list(rows)))
@@ -499,7 +499,7 @@ def _snapshot_nmap_scan_schedules() -> List[Dict[str, Any]]:
 
 
 def _snapshot_nmap_scan_runs(limit: int = _NMAP_RUN_SNAPSHOT_LIMIT) -> List[Dict[str, Any]]:
-    with Session(engine) as s:
+    with Session(get_engine()) as s:
         rows = s.exec(select(NmapScanRun).order_by(NmapScanRun.id.desc()).limit(limit)).all()
         rows = list(reversed(list(rows)))
         return [_model_to_dict(r) for r in rows]
@@ -550,7 +550,7 @@ def _snapshot_audit(
     since_days: Optional[int] = None, limit: int = _AUDIT_SNAPSHOT_LIMIT
 ) -> List[Dict[str, Any]]:
     """Config-only path only — full DR uses pg_dump (no cap)."""
-    with Session(engine) as s:
+    with Session(get_engine()) as s:
         q = select(AuditLog).order_by(AuditLog.started_at.desc())
         if since_days:
             cutoff = datetime.utcnow() - timedelta(days=since_days)
@@ -1336,7 +1336,7 @@ def restore_herder_backup(
             result["would_restore_audit"] = len(payload.get("audit_logs") or [])
         return result
 
-    with Session(engine) as s:
+    with Session(get_engine()) as s:
         # Order: users → user children → servers → integrations → nmap → …
         result["restored_users"] = _upsert_users(s, payload.get("users") or [])
         s.flush()
@@ -1573,7 +1573,7 @@ def _fix_postgres_sequences() -> None:
         "nmapscriptresult",
         "consoletranscript",
     ]
-    with engine.connect() as conn:
+    with get_engine().connect() as conn:
         for table in tables:
             try:
                 conn.execute(

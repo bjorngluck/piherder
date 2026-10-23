@@ -16,7 +16,7 @@ _create_queued_job_with_audit, _finish, job_public_dict.
 from fastapi import BackgroundTasks
 from sqlalchemy import and_, not_
 from sqlmodel import Session, select
-from ...database import engine
+from ...database import get_engine
 from ...models import Job, AuditLog, Server
 from datetime import datetime, timedelta, timezone
 import json
@@ -157,7 +157,7 @@ from ..jobs_exclusive import EXCLUSIVE_CELERY_TYPES, handoff_exclusive
 
 
 def _get_fresh_session() -> Session:
-    return Session(engine)
+    return Session(get_engine())
 
 
 def _load_server_for_job(server_id: int) -> tuple[Server | None, str]:
@@ -167,7 +167,7 @@ def _load_server_for_job(server_id: int) -> tuple[Server | None, str]:
     DetachedInstanceError (expire_on_commit) — which was leaving OS patch
     jobs stuck at "running" with no live log progress.
     """
-    with Session(engine, expire_on_commit=False) as s:
+    with Session(get_engine(), expire_on_commit=False) as s:
         server = s.get(Server, server_id)
         if not server:
             return None, str(server_id)

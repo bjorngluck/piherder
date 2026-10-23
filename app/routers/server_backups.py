@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, Form, Request, HTTPException, Background
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
-from ..database import get_session, engine
+from ..database import get_session, get_engine
 from ..models import Server, Job
 from ..services.audit_write import make_audit_log
 from datetime import datetime
@@ -269,7 +269,7 @@ async def get_backup_progress(
     cache_key = f"{server_id}:{job_id or source or 'default'}"
 
     def _read_progress():
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             server = db.get(Server, server_id)
             if not server:
                 return None

@@ -178,9 +178,9 @@ def resolve_vapid_keys(session: Optional[Session] = None) -> Optional[VapidCrede
 
     own = False
     if session is None:
-        from ..database import engine
+        from ..database import get_engine
 
-        session = Session(engine)
+        session = Session(get_engine())
         own = True
     try:
         return ensure_vapid_keys(session)

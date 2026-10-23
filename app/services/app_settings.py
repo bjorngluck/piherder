@@ -22,7 +22,7 @@ from zoneinfo import ZoneInfo
 from sqlmodel import Session, select
 
 from ..config import settings
-from ..database import engine
+from ..database import get_engine
 from ..models import AppSetting
 
 logger = logging.getLogger(__name__)
@@ -250,7 +250,7 @@ def _load_raw_from_db() -> dict:
     """Return stored JSON object (no defaults). Empty dict if table missing / empty."""
     global _migrated_files
     try:
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             row = session.get(AppSetting, 1) or session.exec(select(AppSetting).limit(1)).first()
             raw = _parse_row(row)
             if raw:
@@ -276,7 +276,7 @@ def _load_raw_from_db() -> dict:
 
 
 def _write_raw_to_db(data: dict) -> None:
-    with Session(engine) as session:
+    with Session(get_engine()) as session:
         row = _get_or_create_row(session)
         row.data_json = json.dumps(data)
         row.updated_at = datetime.utcnow()

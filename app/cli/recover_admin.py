@@ -24,7 +24,7 @@ from typing import Callable, Optional
 
 from sqlmodel import Session, select
 
-from app.database import engine
+from app.database import get_engine
 from app.models import AuditLog, User
 from app.services.webauthn_svc import has_passkeys
 from app.services.password_policy import generate_password, policy_rules_text, validate_password
@@ -355,7 +355,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     if not cmd:
         parser.error(f"unknown command: {args.command}")
     try:
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             return cmd(session, args)
     except SystemExit:
         raise

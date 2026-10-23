@@ -160,7 +160,7 @@ def scan_after_inventory_refresh(server_id: int) -> None:
     try:
         if not inventory_down_alerts_enabled():
             return
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             server = session.get(Server, int(server_id))
             if not server:
                 return
@@ -170,4 +170,4 @@ def scan_after_inventory_refresh(server_id: int) -> None:
 
 
 # late import for engine
-from ..database import engine  # noqa: E402
+from ..database import get_engine  # noqa: E402

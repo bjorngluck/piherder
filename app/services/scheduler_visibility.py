@@ -336,9 +336,9 @@ def last_runs_for(job_ids: list[str]) -> dict[str, tuple[datetime | None, str]]:
     try:
         from sqlmodel import Session
 
-        from ..database import engine
+        from ..database import get_engine
 
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             indexed = _latest_host_and_fleet(session, host_types)
             copies = _latest_copies(session, copy_ids)
             scans = _latest_nmap(session, nmap_ids)

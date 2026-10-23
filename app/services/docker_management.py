@@ -30,7 +30,6 @@ import paramiko
 import time
 from datetime import datetime
 from sqlmodel import Session, select
-from ..database import engine  # for direct if needed, but prefer passed session
 
 # Docker versioning extracted to docker_versions.py.
 # Re-export for backward compatibility (routers use `from ..services import docker_management as docker_svc`).

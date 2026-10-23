@@ -24,7 +24,7 @@ from app.services.server_job_lock import (
     release_server_lock,
     release_dual_server_lock,
 )
-from app.database import engine
+from app.database import get_engine
 from app.models import Server, Job
 from datetime import datetime
 import json
@@ -72,7 +72,7 @@ def nmap_scan(
     from app.services.nmap.runtime import touch_worker_heartbeat
 
     touch_worker_heartbeat(worker_id=str(self.request.hostname or "nmap"))
-    db = Session(engine)
+    db = Session(get_engine())
     try:
         if job_id:
             job = db.get(Job, job_id)
@@ -110,7 +110,7 @@ def stale_data_cleanup(self, job_id: int | None = None, dry_run: bool = False):
     """Purge old Jobs / Audit / nmap runs per Settings (stream R)."""
     from app.services.stale_data_cleanup import run_stale_data_cleanup
 
-    db = Session(engine)
+    db = Session(get_engine())
     try:
         if job_id:
             job = db.get(Job, job_id)
@@ -155,7 +155,7 @@ def nmap_vuln_db_update(
     from app.services.nmap.runtime import touch_worker_heartbeat
 
     touch_worker_heartbeat(worker_id=str(self.request.hostname or "nmap"))
-    db = Session(engine)
+    db = Session(get_engine())
     try:
         if job_id:
             job = db.get(Job, job_id)
@@ -194,7 +194,7 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
     Acquires a per-server backup mutex before rsync so concurrent workers
     never run two backups against the same host at once.
     """
-    db = Session(engine)
+    db = Session(get_engine())
     server = None
     lock_token: str | None = None
     work_started = False
@@ -412,7 +412,7 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
             })
             clear_job_progress_buffer(job_id)
             try:
-                with Session(engine) as s:
+                with Session(get_engine()) as s:
                     job = s.get(Job, job_id)
                     if job and job.status == "failed":
                         try:
@@ -482,7 +482,7 @@ def service_migrate(
         fail_migrate_worker_restart,
     )
 
-    db = Session(engine)
+    db = Session(get_engine())
     lock_tokens: tuple[str, str] | None = None
     try:
         job = db.get(Job, job_id)
@@ -619,7 +619,7 @@ def _migrate_dual_lock_task(
     """Shared Celery body for undo and dest-up recover. Never dest down -v."""
     from celery.exceptions import Retry
 
-    db = Session(engine)
+    db = Session(get_engine())
     lock_tokens: tuple[str, str] | None = None
     try:
         job = db.get(Job, job_id)
@@ -872,7 +872,7 @@ def _start_direct_followup(destination_id: int, scope, user_id, folder_job_id: i
     from app.models import BackupDestination
     from app.services.backup_replicate import enqueue_direct_followup
 
-    with Session(engine) as session:
+    with Session(get_engine()) as session:
         job = session.get(Job, folder_job_id)
         if job is not None and job.status == "cancelled":
             return
@@ -895,7 +895,7 @@ def _start_direct_followup(destination_id: int, scope, user_id, folder_job_id: i
 )
 def replicate_backup(self, job_id: int):
     """Copy checked /backups paths, or push a direct host, to one destination."""
-    db = Session(engine)
+    db = Session(get_engine())
     dest = None
     follow_direct = False
     follow_dest_id = None
@@ -1057,7 +1057,7 @@ def _queue_direct_after_folder_failure(session, details: dict) -> None:
 def fail_replicate_job(job_id: int, message: str) -> bool:
     """Mark a copy failed when the worker process dies outside execute()."""
     try:
-        with Session(engine) as s:
+        with Session(get_engine()) as s:
             job = s.get(Job, job_id)
             if not job or job.job_type != "backup_replicate":
                 return False
@@ -1133,7 +1133,7 @@ except Exception:
 def _update_job_status(job_id: int, status: str, extra: dict):
     """Update Job status + merge details JSON (worker feeds DB)."""
     try:
-        with Session(engine) as s:
+        with Session(get_engine()) as s:
             job = s.get(Job, job_id)
             if job:
                 # Do not clobber a user cancel (or other terminal state) from the worker

@@ -291,9 +291,9 @@ def _index_rows(rows: list[Server]) -> dict[str, Server]:
 
 def load_direct_index() -> dict[str, Server]:
     try:
-        from ..database import engine
+        from ..database import get_engine
 
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             session.expire_on_commit = False
             rows = session.exec(
                 select(Server).where(Server.backup_direct == True)  # noqa: E712
@@ -545,9 +545,9 @@ def run_direct_backup(
         backup_mod._active_job_id.pop(hostname, None)
         return {"server": hostname, "direct": True, "error": "No backup sources on this host", "results": []}
 
-    from ..database import engine
+    from ..database import get_engine
 
-    with Session(engine) as session:
+    with Session(get_engine()) as session:
         session.expire_on_commit = False
         dests = followup_destinations(session, server)
         for dest in dests:

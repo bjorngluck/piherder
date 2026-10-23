@@ -11,7 +11,7 @@ from typing import Any, Optional
 
 from sqlmodel import Session, select
 
-from ...database import engine
+from ...database import get_engine
 from ...models import Integration, IntegrationBinding, Server
 from .. import notifications as notif_svc
 from . import grafana as gf
@@ -72,7 +72,7 @@ def poll_integration(
 ) -> dict[str, Any]:
     """Poll one integration; update cache + bindings. Returns summary dict."""
     own_session = session is None
-    db = session or Session(engine)
+    db = session or Session(get_engine())
     rclient = None
     rtoken = None
     try:
@@ -590,7 +590,7 @@ def _poll_npm(
 
 def poll_all_enabled(*, notify: bool = True) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
-    with Session(engine) as db:
+    with Session(get_engine()) as db:
         rows = list(
             db.exec(
                 select(Integration).where(

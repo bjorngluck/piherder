@@ -158,11 +158,11 @@ def _flush_job_progress_db(job_id: int, force: bool = False) -> None:
     _job_db_last_update[job_id] = now
     try:
         from sqlmodel import Session
-        from ..database import engine
+        from ..database import get_engine
         from ..models import Job
         import json as _json
 
-        with Session(engine) as s:
+        with Session(get_engine()) as s:
             job = s.get(Job, job_id)
             if not job:
                 return

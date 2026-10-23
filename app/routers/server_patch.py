@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Stre
 from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
 
-from ..database import get_session, engine
+from ..database import get_session, get_engine
 from ..models import Server, AuditLog, Job, User
 from ..security.auth import get_current_user, get_operator_user
 from ..services import jobs as job_service

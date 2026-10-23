@@ -28,7 +28,7 @@ from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
 from .. import templates as templates_mod
-from ..database import engine, get_session
+from ..database import get_session
 from ..models import User
 from ..security.auth import (
     ROLE_ADMIN,
@@ -2452,7 +2452,7 @@ async def save_update_check_defaults(
         from .. import database as dbmod
 
         if do_apply:
-            with Session(dbmod.engine) as db:
+            with Session(dbmod.get_engine()) as db:
                 applied = ucc.apply_global_update_checks_to_all(
                     db,
                     os_enabled=os_on,
@@ -2470,7 +2470,7 @@ async def save_update_check_defaults(
             sync_all_server_cron_jobs(sched, has)
         from ..services.server_audit import record_server_audit
 
-        with Session(dbmod.engine) as db:
+        with Session(dbmod.get_engine()) as db:
             record_server_audit(
                 db,
                 server_id=None,

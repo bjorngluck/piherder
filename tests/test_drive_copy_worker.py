@@ -37,7 +37,7 @@ def test_fail_replicate_job_closes_a_running_copy(tmp_path, monkeypatch):
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
-    monkeypatch.setattr("app.tasks.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     with Session(engine) as session:
         running = Job(
             job_type="backup_replicate",

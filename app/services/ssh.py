@@ -92,14 +92,14 @@ def persist_host_key_if_needed(server: Server, key: Optional[paramiko.PKey]) -> 
     try:
         from sqlmodel import Session
 
-        from ..database import engine
+        from ..database import get_engine
     except Exception:
         return
     fp = host_key_fingerprint(key)
     typ = key.get_name()
     b64 = key.get_base64()
     try:
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             row = session.get(Server, int(server.id))
             if not row or (getattr(row, "ssh_hostkey_b64", None) or "").strip():
                 return

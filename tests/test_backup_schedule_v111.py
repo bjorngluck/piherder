@@ -409,7 +409,6 @@ def test_base_change_moves_an_inheriting_hosts_job(monkeypatch):
     monkeypatch.setattr("app.main.HAS_SCHEDULER", True)
     engine = _engine()
     monkeypatch.setattr("app.database.engine", engine)
-    monkeypatch.setattr("app.routers.settings.engine", engine)
     with Session(engine) as session:
         host = Server(id=5, name="host-a", hostname="host-a.local", backup_enabled=True)
         session.add(host)

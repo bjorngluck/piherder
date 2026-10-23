@@ -306,7 +306,7 @@ def test_worker_failure_marks_only_the_copy_job(tmp_path, monkeypatch):
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
-    monkeypatch.setattr("app.tasks.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     when = datetime(2026, 1, 2, 3, 4, 5)
     with Session(engine) as session:
         server = Server(name="pi", hostname="pi.local", last_backup_at=when)

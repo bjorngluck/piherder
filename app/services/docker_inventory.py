@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional, Set
 
 from sqlmodel import Session
 
-from ..database import engine
+from ..database import get_engine
 from ..models import Server
 
 logger = logging.getLogger(__name__)
@@ -335,7 +335,7 @@ def refresh_server_inventory(server_id: int, *, force: bool = False) -> bool:
         _refreshing.add(server_id)
 
     try:
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             server = session.get(Server, server_id)
             if not server:
                 return False
