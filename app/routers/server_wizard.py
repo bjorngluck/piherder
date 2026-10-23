@@ -216,6 +216,10 @@ async def wizard_get(
                 "ssh_public_key": pub,
                 "has_real_public_key": has_real_pub,
                 "key_install_script": key_install_script,
+                "host_deps": host_deps_svc.parse_host_deps(server) if server else None,
+                "bootstrap_script": (
+                    ssh_onboarding.preview_feature_bootstrap_script(server) if server else ""
+                ),
                 "prefill_hostname": prefill_host,
                 "prefill_name": prefill_name,
             },
@@ -560,6 +564,8 @@ async def wizard_features_post(
 ):
     """Step 5 — feature toggles (reuse Server flags)."""
     server = _require_server(session, server_id)
+    prev_backup = bool(server.backup_enabled)
+    prev_docker = bool(server.container_patch_enabled)
 
     def _on(v: Optional[str]) -> bool:
         return (v or "").strip().lower() in ("1", "on", "true", "yes")
@@ -596,6 +602,18 @@ async def wizard_features_post(
         logging.getLogger(__name__).warning(
             "Could not sync backup schedule for server %s", server.id
         )
+    if (server.backup_enabled and not prev_backup) or (
+        server.container_patch_enabled and not prev_docker
+    ):
+        try:
+            await run_in_threadpool(host_deps_svc.check_and_persist, session, server)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Host dependency check failed after wizard features for server %s",
+                server.id,
+            )
     return RedirectResponse(wizard_path("schedules", server.id), status_code=303)
 
 

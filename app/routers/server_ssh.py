@@ -413,6 +413,67 @@ async def check_host_dependencies(
         )
 
 
+@router.post("/{server_id}/ssh/bootstrap-tools")
+async def ssh_bootstrap_tools(
+    server_id: int,
+    confirm_docker_bootstrap: Optional[str] = Form(None),
+    sudo_password: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Install missing rsync and/or Docker CE. UI only. Password stays in this request."""
+    http_403_if_demo("ssh_bootstrap")
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    confirmed = (confirm_docker_bootstrap or "").strip().lower() in {"1", "on", "true", "yes"}
+    secret = sudo_password.strip() if sudo_password and sudo_password.strip() else None
+    result = await run_in_threadpool(
+        ssh_onboarding.bootstrap_host_tools,
+        server,
+        session,
+        confirm_docker_bootstrap=confirmed,
+        sudo_password=secret,
+    )
+    features = list((result.details or {}).get("features") or [])
+    message = (result.message or "")[:200]
+    if secret:
+        message = message.replace(secret, "")
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="host_bootstrap",
+        status="success" if result.ok else "failed",
+        message=message,
+        details={
+            "os_id": (result.details or {}).get("os_id") or "",
+            "codename": (result.details or {}).get("codename") or "",
+            "features": features,
+        },
+    )
+    session.commit()
+    if result.ok:
+        return RedirectResponse(
+            server_redirect(
+                server_id,
+                show_ssh_key="1",
+                msg="bootstrap_ok",
+                detail=",".join(features),
+            ),
+            status_code=303,
+        )
+    return RedirectResponse(
+        server_redirect(
+            server_id,
+            show_ssh_key="1",
+            error="bootstrap_fail",
+            detail=message[:180],
+        ),
+        status_code=303,
+    )
+
+
 @router.post("/{server_id}/ssh/deploy-key")
 async def ssh_deploy_key(
     server_id: int,

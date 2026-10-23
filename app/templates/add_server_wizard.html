@@ -429,6 +429,8 @@
       <a href="/servers/new/exit?server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-save-exit">Save &amp; exit</a>
     </div>
   </form>
+  {% set server = srv %}
+  {% include "partials/host_bootstrap_card.html" %}
   {% endif %}
 
   {# ── 6 Schedules (checks-only guidance; deep edit on server) ── #}
@@ -443,6 +445,8 @@
       Full schedule editing (interval/cron, apply jobs) lives on the server page after you finish the wizard.
       You can skip this step and configure later.
     </p>
+    {% set server = srv %}
+    {% include "partials/host_bootstrap_card.html" %}
     <a href="/servers/{{ srv.id }}?edit=1" class="btn btn-secondary min-h-11 text-sm">Open server schedules</a>
     <form method="post" action="/servers/new/continue" class="flex flex-wrap gap-2 pt-2 border-t border-border">
       <input type="hidden" name="server_id" value="{{ srv.id }}">

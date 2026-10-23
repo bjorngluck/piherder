@@ -665,6 +665,8 @@ document.addEventListener('DOMContentLoaded', function() {
     {% if flash_detail %}— <code class="font-mono">{{ flash_detail }}</code>{% endif %}.
   {% elif flash_msg == 'host_deps_ok' %}<strong>Host dependency check finished</strong>
     {% if flash_detail %}— overall <code class="font-mono">{{ flash_detail }}</code>{% endif %}.
+  {% elif flash_msg == 'bootstrap_ok' %}<strong>Host bootstrap finished</strong>
+    {% if flash_detail %}<span class="font-mono">{{ flash_detail }}</span>{% endif %}.
   {% elif flash_msg == 'key_deployed' %}<strong>SSH key deployed</strong> and key-only login verified. You can clear any stored password if you have not already.
   {% elif flash_msg == 'key_rotated' %}<strong>SSH key rotated</strong> successfully. Old public key removed when possible.
   {% elif flash_msg == 'user_provisioned' %}<strong>Least-priv user provisioned</strong> — {{ ph_brand() }} now connects as
@@ -701,6 +703,7 @@ document.addEventListener('DOMContentLoaded', function() {
   {% elif flash_error == 'mux_fail' %}<strong>Console session list failed.</strong>
   {% elif flash_error == 'mux_bad' %}<strong>That session was not killed.</strong> It is not a PiHerder console on this host.
   {% elif flash_error == 'host_deps_fail' %}<strong>Host dependency check failed.</strong>
+  {% elif flash_error == 'bootstrap_fail' %}<strong>Host bootstrap failed.</strong>
   {% elif flash_error == 'key_deploy_fail' %}<strong>Key deploy failed.</strong>
   {% elif flash_error == 'key_rotate_fail' %}<strong>Key rotation failed.</strong> Previous key left in place.
   {% elif flash_error == 'key_rotate_confirm' %}<strong>Rotation cancelled.</strong> Type <code>rotate</code> in the confirm field.

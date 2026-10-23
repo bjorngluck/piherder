@@ -99,13 +99,20 @@ Optional **Web SSH console** (browser terminal; flag off by default): [Web SSH c
 |--------|----------------|-----|
 | **Test connection** | Verifies key (or password) login, then refreshes **host dependency** probes when login succeeds. First success **pins** the SSH host key | Proves the path before you queue jobs |
 | **Reset host-key pin** | Clears the stored fingerprint after a **rebuild** (or a replaced machine at the same address) | Mismatch is **refused** until you reset; do not reset on a surprise change |
-| **Check dependencies** | Probes `rsync` / docker / apt for **enabled** features only | Failures become hints, not silent job fails later |
+| **Check dependencies** | Probes `rsync` / docker / apt for **enabled** features only. Also reads `/etc/os-release` and the CPU architecture | Failures become hints, not silent job fails later |
+| **Bootstrap missing tools** | Operator action on SSH access and the add-server wizard. Installs `rsync` when Backups are on, and official Docker CE when Docker is on. Asks before adding the SSH user to the `docker` group. A one-time sudo password is not stored | Avoids `get.docker.com` and does not widen the standing sudoers file |
 | **Deploy key** | Installs public key into `authorized_keys`; verifies key-only login | Stops depending on passwords |
 | **Rotate key** | New keypair, deploy, swap only after verify succeeds | Safe rotation if a key may have leaked |
 | **Least-priv user** | Optional `piherder` user + limited sudoers (Pi OS / Ubuntu) | Limits blast radius of the **fleet** account |
 | **Privileged identity** | Optional second key/user (e.g. `piherder-admin`). Generate or paste a key, download the setup script, run it on the host, then **Test privileged** | Break-glass **Connect as…** only. Not “Run on host”. HAOS: skip |
 
 SSH access shows **two labeled public keys** when privileged exists: **Fleet public key** (jobs + default console) and **Privileged public key**. They are different keypairs. Copy the one that matches the user you are installing.
+
+### Bootstrap missing tools
+
+After SSH works, **Bootstrap missing tools** uses the last host check. Backups on, and `rsync` missing, can install `rsync`. Docker on, and Docker CE, the Compose plugin, or docker group membership missing, can install official Docker CE from `download.docker.com` for Ubuntu, Debian, and Raspbian. The script checks that Docker has published that distro codename, removes conflicting distro packages with `apt-get remove` (not purge), checks the Docker GPG fingerprint, then installs `docker-ce` and `docker-compose-plugin`. It does not call `get.docker.com` and it does not add `apt-get` to `/etc/sudoers.d/piherder`.
+
+Tick the confirm box before Docker bootstrap. Adding the SSH user to the `docker` group lets that user start containers as root. If distro Docker packages or running containers were seen, the same box covers replacing those packages. `/var/lib/docker` is left in place. The optional password is used once for `sudo -S` and is not written to the audit row. The audit action is `host_bootstrap`. There is no token API and no hosted MCP tool for this install. A Pi with only Backups on is not offered Docker CE. This is on the v1.13 train and is not in the 1.12.1 image. The frame is reserved as `host-bootstrap.png` and is not captured yet.
 
 !!! tip "Clear stored passwords"
     After key auth works, clear any stored SSH password (wizard Connect or server edit) so secrets stay keys-only.

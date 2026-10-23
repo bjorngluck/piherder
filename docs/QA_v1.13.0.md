@@ -125,6 +125,21 @@ Published adapter **0.4.3** does not list `list_alerts`, `prune_build_cache`, or
 - [ ] Sessions in `app/` take the engine from `get_engine()`. A test fails if anything outside `app/database.py` imports the module-level engine
 - [ ] No new operator control appears for that engine change
 
+## Host tools (Must)
+
+Ubuntu, Debian (including 64-bit Raspberry Pi OS), and Raspbian (32-bit). The route is `POST /servers/{id}/ssh/bootstrap-tools`. It is not on `/api/v1` or hosted `/mcp`.
+
+- [ ] With only Backups on, the host check probes rsync and does not probe Docker packages or offer Docker CE
+- [ ] With only Docker on, and the host is not HAOS, the check reports `docker-ce`, `docker compose version`, docker group membership, conflicting distro packages, and `docker ps -q`
+- [ ] `/etc/os-release` maps `ubuntu`, `debian`, and `raspbian` to `https://download.docker.com/linux/<id>`. Another OS is not offered bootstrap
+- [ ] The copied script checks `dists/<codename>/Release` before it changes apt, runs `apt-get remove` and not `purge`, checks fingerprint `9DC858229FC7DD38854AE2D88D81803C0EBFCD88`, and does not call `get.docker.com`
+- [ ] A form field that asks for Docker CE is ignored when the Docker feature is off
+- [ ] Docker bootstrap stays refused until **confirm** is ticked. The confirm text says the docker group is root-equivalent, and names package replacement when conflicts or running containers were seen
+- [ ] An optional one-time sudo password is not stored and is not in the `host_bootstrap` audit row
+- [ ] After `usermod -aG docker`, a new SSH session can run `docker info` and `docker compose version` without sudo
+- [ ] Demo mode refuses the route
+- [ ] Turning Backups or Docker on from the wizard or server edit refreshes the host check, and a failed SSH probe does not undo the save
+
 ## Later
 
 Not a walk on this train. These stay on v1.14.0+.
@@ -144,6 +159,7 @@ Reserved, not captured. Names, paths, addresses, and secrets must be masked. Do 
 - [ ] `docker-build-cache-prune.png`
 - [ ] `alerts-stuck-queue.png`
 - [ ] `about-scheduler-prune.png`
+- [ ] `host-bootstrap.png`
 
 ## 1.12 regression
 

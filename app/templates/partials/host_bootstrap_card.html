@@ -1,0 +1,71 @@
+{% set deps = host_deps or {} %}
+{% set boot = deps.bootstrap or {} %}
+{% set osinfo = deps.os or {} %}
+{% if deps %}
+<div class="border border-border rounded p-3 mb-3 space-y-2" data-testid="host-bootstrap-card">
+  <div class="text-sm font-medium">Bootstrap missing tools</div>
+  {% if osinfo.os_id %}
+  <p class="text-xs text-muted">
+    Detected
+    <span class="font-mono text-text">{{ osinfo.pretty_name or osinfo.os_id }}</span>
+    {% if osinfo.codename %}· <span class="font-mono">{{ osinfo.codename }}</span>{% endif %}
+    {% if osinfo.arch %}· <span class="font-mono">{{ osinfo.arch }}</span>{% endif %}
+    {% if osinfo.docker_repo_url %}
+    · Docker apt <span class="font-mono break-all">{{ osinfo.docker_repo_url }}</span>
+    {% elif osinfo.supported_os == false %}
+    · this OS is not in the Ubuntu, Debian, or Raspbian bootstrap list
+    {% endif %}
+  </p>
+  {% endif %}
+  {% if deps.checks %}
+  <ul class="text-xs space-y-1" data-testid="host-deps-checks">
+    {% for row in deps.checks %}
+    <li>
+      <span class="font-mono">{{ row.status }}</span>
+      {{ row.label }}
+      {% if row.message %}<span class="text-muted">· {{ row.message }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if boot.bootstrap_available and (is_operator|default(true)) %}
+  <form method="post" action="/servers/{{ server.id }}/ssh/bootstrap-tools" class="space-y-2"
+        data-testid="host-bootstrap-form"
+        data-wait-title="Bootstrapping host tools"
+        data-wait-message="Installing missing tools over SSH. This can take a few minutes.">
+    <p class="text-xs text-muted">
+      Runs on this host for features that are already on.
+      Backups can install rsync. Docker can install official Docker CE.
+      The script does not use get.docker.com and does not change sudoers.
+    </p>
+    {% if boot.install_docker_ce %}
+    <label class="flex items-start gap-2 text-xs min-h-11">
+      <input type="checkbox" name="confirm_docker_bootstrap" value="1" class="mt-1" data-testid="host-bootstrap-confirm">
+      <span>
+        Add <span class="font-mono">{{ server.ssh_username }}</span> to the docker group.
+        That group grants root-equivalent container access on this host.
+        {% if boot.conflicting_packages or boot.running_containers %}
+        Distro Docker packages will be replaced with official Docker CE.
+        apt-get remove is used. /var/lib/docker is left in place.
+        {% endif %}
+      </span>
+    </label>
+    {% endif %}
+    <input type="password" name="sudo_password" autocomplete="off"
+           placeholder="One-time sudo or SSH password, if passwordless sudo is not set"
+           class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
+           data-testid="host-bootstrap-password">
+    <button type="submit" class="btn btn-accent min-h-11 text-sm" data-testid="host-bootstrap-run">Run on host</button>
+  </form>
+  {% elif boot.bootstrap_available %}
+  <p class="text-xs text-muted">An operator can run bootstrap from SSH access.</p>
+  {% endif %}
+  {% if bootstrap_script %}
+  <details class="text-xs">
+    <summary class="cursor-pointer text-muted">Copy setup script</summary>
+    <textarea readonly class="mt-2 w-full font-mono text-xs code-surface border border-border p-3 rounded h-40 resize-y"
+              data-testid="host-bootstrap-script">{{ bootstrap_script }}</textarea>
+  </details>
+  {% endif %}
+</div>
+{% endif %}

@@ -31,6 +31,7 @@ _ACTION_LABELS = {
     "server_ssh_identity_rotated": "SSH identity rotated",
     "server_ssh_identity_tested": "SSH identity tested",
     "server_host_deps": "Host dependency check",
+    "host_bootstrap": "Host tool bootstrap",
     "server_backup_config": "Backup config",
     "server_backup_source_add": "Backup source added",
     "server_backup_source_remove": "Backup source removed",

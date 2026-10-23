@@ -64,6 +64,12 @@ v1.12.1 is a certifi patch on v1.12.0. v1.12.0 shipped remote restore and Docker
 |------|------|
 | Must | **One-time token banner off the query string.** After create or rotate, the redirect URL does not carry `token_secret`. The secret is a one-shot HttpOnly cookie `api_token_once` (5 minutes, JWT claim `ats`) |
 
+### Hosts
+
+| Tier | Lock |
+|------|------|
+| Must | **Host tool bootstrap and feature preflight.** `run_host_deps_check` reads `/etc/os-release` and `dpkg --print-architecture` and maps `ubuntu`, `debian`, and `raspbian` to the official Docker apt repository. rsync is probed only when backups are on. Docker CE, Compose, the docker group, conflicting distro packages, and running containers are probed only when the Docker feature is on and the host is not HAOS. `POST /servers/{id}/ssh/bootstrap-tools` (operator, refused in demo) installs only those missing tools. The script checks `dists/<codename>/Release` before apt changes, uses `apt-get remove` (not purge), verifies Docker GPG fingerprint `9DC858229FC7DD38854AE2D88D81803C0EBFCD88`, and does not use `get.docker.com` or widen sudoers. Docker bootstrap needs `confirm_docker_bootstrap`. A one-time sudo password stays in that request. After `usermod -aG docker`, a fresh SSH session checks `docker info` and `docker compose version`. One `host_bootstrap` audit row. Not on `/api/v1` or `/mcp` |
+
 ### Internals
 
 | Tier | Lock |
@@ -96,6 +102,7 @@ Nothing was voted **Out**.
 | 2026-10-23 | **Team review.** Lock tightened the same day. Restore ownership records numeric `uid`, `gid`, and octal `mode` in a sidecar and strips `setuid` and `setgid`. NIC change adds a Discovery badge, a `lan_discovery` `info` notification, and one-click **Replace stale MAC** (ignore the stale row, copy display name, kind override, and notes, one audit row). Backup stagger uses all 1,440 minutes. Docker adds build-cache prune (adapter bumps to **0.4.4**), prune on a schedule in About and the missed-run watch, `docker image prune -f` after a successful update, a 30-minute reset for a stuck inventory refresh, and per-project `update_available` on the inventory API. Alerts add the stuck-queue gauges and read-only `GET /api/v1/alerts` plus MCP `list_alerts`. Must also covers the docs and release-sync sweep, and keeping `token_secret` off the redirect query string. Should also covers orphaned `running` jobs and a `get_engine()` guard. Pushed to v1.14.0+: pre-restore host rollback snapshot, backup manifest file-count and byte verification, dry-run restore preview API, compose git checkout drift badge. Not built. |
 | 2026-10-23 | **Should built** on `v1.13.0-dev`. `get_engine()`, OAuth token suffix, backup minutes across all 1,440 slots, orphaned running jobs, a 30 minute inventory refresh reset, the stuck-queue alert and gauges, `GET /api/v1/alerts` and hosted `list_alerts`, inventory `update_available`, `docker image prune -f` after a successful container update or redeploy, a per-host `docker_prune` schedule (volumes off) in About and the missed-run watch, and build-cache prune on the Docker page, `POST /api/v1/servers/{id}/docker/build-cache`, and hosted `prune_build_cache`. Package stays `1.12.1`. Published adapter stays **0.4.3** so release sync matches `origin/main`. Hosted MCP adds `list_alerts` and `prune_build_cache` ahead of that adapter. |
 | 2026-10-23 | **Docs.** Operator walks are written in [QA_v1.13.0.md](QA_v1.13.0.md) and are not signed. Screenshot names are reserved in the [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status). Wiki and [API.md](API.md) name `.piherder-ownership.json`, cookie `api_token_once`, `nic_change`, `POST /api/v1/discovery/{id}/devices/{device_id}/replace-stale-mac`, `docker_prune_schedule`, `POST /api/v1/servers/{id}/docker/build-cache`, inventory `update_available`, hosted `list_alerts`, `prune_build_cache`, and `replace_stale_mac`, the OAuth `client_name` suffix, and the Prometheus gauges including `piherder_queue_oldest_pending_seconds` and `piherder_stuck_queue`. Package stays `1.12.1`. Published adapter stays **0.4.3**. |
+| 2026-10-23 | **Host tool bootstrap.** Must. Feature-gated preflight for Ubuntu, Debian, and Raspbian. UI route `POST /servers/{id}/ssh/bootstrap-tools` only. Fresh SSH check after `usermod`. Audit action `host_bootstrap`. Package stays `1.12.1`. |
 
 ---
 
@@ -104,7 +111,7 @@ Nothing was voted **Out**.
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.13.0-dev`** | **Done** 2026-10-23 |
-| 2 | Must, by area | **Done** on `v1.13.0-dev`, including documentation. Restore ownership, the possible NIC change notice and Replace stale MAC, the docs and release-sync sweep, and the one-time token secret off the query string |
+| 2 | Must, by area | **Done** on `v1.13.0-dev`, including documentation. Restore ownership, the possible NIC change notice and Replace stale MAC, the docs and release-sync sweep, the one-time token secret off the query string, and host tool bootstrap |
 | 3 | Should, if it fits | **Done** on `v1.13.0-dev`, including documentation. Stagger ceiling, Docker prune follow-ups, stuck queue and read-only alerts, OAuth token suffix, orphaned running jobs, `get_engine()` |
 | 4 | Freeze | Not set. Package stays **1.12.1** |
 | 5 | Operator QA | Walks are written in [QA_v1.13.0.md](QA_v1.13.0.md). Screenshot names are reserved. Walks are not signed |
