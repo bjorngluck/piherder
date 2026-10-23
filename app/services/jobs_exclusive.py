@@ -46,6 +46,7 @@ EXCLUSIVE_CELERY_TYPES = frozenset(
         "template_drift_check",
         "host_facts",
         "docker_prune",
+        "host_bootstrap",
     }
 )
 
@@ -321,7 +322,9 @@ def run_exclusive_job(task, job_id: int, server_id: int, audit_id: int, job_type
                     js._finish_demo_job(session, job)
             return {"status": "demo", "job_id": job_id}
 
-        if not _ssh_ready(server_id):
+        # Bootstrap may log in as another user, or with a password, before fleet
+        # SSH works. A bad password must fail now, not sit in the host wait.
+        if jt != "host_bootstrap" and not _ssh_ready(server_id):
             return _wait_for_host(task, job_id, audit_id, jt)
 
         _execute(jt, job_id, server_id, audit_id, body)
@@ -515,6 +518,8 @@ def _execute(job_type: str, job_id: int, server_id: int, audit_id: int, payload:
         js._execute_docker_prune(
             job_id, server_id, audit_id, payload.get("prune_type") or ""
         )
+    elif job_type == "host_bootstrap":
+        js._execute_host_bootstrap(job_id, server_id, audit_id, payload)
     elif job_type in (
         "container_start",
         "container_stop",

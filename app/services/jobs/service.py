@@ -82,6 +82,7 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "service_migrate_dest_recover",
         "host_facts",
         "docker_prune",
+        "host_bootstrap",
     }
 )
 
@@ -341,6 +342,7 @@ JOB_TYPE_LABELS = {
     "service_migrate_undo": "Undo move",
     "service_migrate_dest_recover": "Stop dest, start source",
     "host_facts": "Host facts",
+    "host_bootstrap": "Host tool bootstrap",
 }
 
 
@@ -973,6 +975,7 @@ def create_job_and_run(
     service: str | None = None,
     api_token_id: int | None = None,
     api_token_name: str | None = None,
+    bootstrap_options: dict | None = None,
 ):
     server_id = server.id if server is not None else None
     actor_extra: dict = {}
@@ -982,6 +985,10 @@ def create_job_and_run(
         actor_extra["api_token_id"] = api_token_id
     if api_token_name:
         actor_extra["api_token_name"] = str(api_token_name)[:120]
+    boot_opts = bootstrap_options or {}
+    boot_user = str(boot_opts.get("bootstrap_username") or "").strip()[:32]
+    boot_confirm = bool(boot_opts.get("confirm_docker_bootstrap"))
+    boot_password = str(boot_opts.get("sudo_password") or "")
     if server_id and job_type in ("host_reboot", "os_patch", "container_patch", "backup"):
         blocker = _reboot_lane_blocker(session, server_id, job_type)
         if blocker:
@@ -1059,8 +1066,12 @@ def create_job_and_run(
             "container_restart": f"Restart {(service or '').strip() or 'container'} queued…",
             "container_redeploy": f"Update {(service or '').strip() or 'container'} queued…",
             "docker_prune": f"Docker prune ({prune_kind or 'both'}) queued…",
+            "host_bootstrap": "Host tool bootstrap queued…",
         }
         detail_extra = dict(actor_extra)
+        if job_type == "host_bootstrap":
+            detail_extra["bootstrap_username"] = boot_user
+            detail_extra["confirm_docker_bootstrap"] = boot_confirm
         if prune_kind:
             detail_extra["prune_type"] = prune_kind
         if job_type in _CONTAINER_SERVICE_JOB_TYPES:
@@ -1141,6 +1152,9 @@ def create_job_and_run(
             start_details = f"Job #{job.id} started · {','.join(os_steps)}"
         elif job_type == "docker_prune" and prune_kind:
             start_details = f"Job #{job.id} started · {prune_kind}"
+        elif job_type == "host_bootstrap":
+            who = boot_user or (getattr(server, "ssh_username", None) or "")
+            start_details = f"Job #{job.id} started · {who}"[:500]
         audit = make_audit_log(
             user_id=user_id,
             server_id=server_id,
@@ -1336,6 +1350,30 @@ def create_job_and_run(
             background_tasks=background_tasks,
             bg_fn=_run_retention_job,
             bg_args=(job.id, server.id, audit.id),
+        )
+    elif job_type == "host_bootstrap":
+        enc_pw = ""
+        if boot_password:
+            from ...security import encryption as encmod
+
+            enc_pw = encmod.encrypt_str(boot_password)
+        boot_payload = {
+            "confirm_docker_bootstrap": boot_confirm,
+            "bootstrap_username": boot_user,
+            "sudo_password_encrypted": enc_pw,
+        }
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            payload=boot_payload,
+            background_tasks=background_tasks,
+            bg_fn=_run_host_bootstrap_job,
+            bg_args=(job.id, server.id, audit.id, boot_payload),
+            pool=_patch_apply_pool,
+            sync_fn=_execute_host_bootstrap,
+            sync_args=(job.id, server.id, audit.id, boot_payload),
         )
     elif job_type == "herder_backup":
         handoff_housekeeping(
@@ -1766,6 +1804,22 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
         return (snippet or status)[:200]
     if job_type == "retention":
         return (snippet or "Retention complete")[:200]
+    if job_type == "host_bootstrap":
+        if isinstance(data, dict):
+            msg = str(data.get("message") or status)
+            feats = data.get("features") or []
+            if isinstance(feats, list) and feats:
+                msg = f"{msg} ({', '.join(str(item) for item in feats)})"
+            os_id = str(data.get("os_id") or "")
+            codename = str(data.get("codename") or "")
+            who = str(data.get("bootstrap_username") or "")
+            bits = [msg]
+            if os_id or codename:
+                bits.append(" ".join(part for part in (os_id, codename) if part))
+            if who:
+                bits.append(who)
+            return " · ".join(bits)[:200]
+        return (snippet or status)[:200]
     return (snippet or status)[:200]
 
 
@@ -3083,6 +3137,128 @@ async def _run_docker_prune_job(
 ):
     await run_in_threadpool(
         _execute_docker_prune, job_id, server_id, audit_id, prune_type
+    )
+
+
+def _execute_host_bootstrap(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    payload: dict | None = None,
+) -> None:
+    """Install missing host tools. The sudo password stays in this process."""
+    from ...security import encryption as encmod
+    from .. import ssh_onboarding
+
+    body = dict(payload or {})
+    confirm = bool(body.get("confirm_docker_bootstrap"))
+    boot_user = str(body.get("bootstrap_username") or "").strip()
+    enc_pw = str(body.get("sudo_password_encrypted") or "")
+    password = ""
+    if enc_pw:
+        try:
+            password = encmod.decrypt_str(enc_pw) or ""
+        except Exception:
+            password = ""
+    server, hostname = _load_server_for_job(server_id)
+    fleet = (getattr(server, "ssh_username", None) or "") if server else ""
+    ssh_user = boot_user or fleet
+    host_name = (getattr(server, "name", None) or hostname or "host") if server else "host"
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="bootstrapping",
+                bootstrap_username=ssh_user,
+                confirm_docker_bootstrap=confirm,
+                log_line=(
+                    f"Bootstrapping missing host tools on {host_name} "
+                    f"(SSH user: {ssh_user}, fleet user: {fleet})…"
+                ),
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "host_bootstrap")
+        return
+
+    def _safe(text: str) -> str:
+        cleaned = ssh_onboarding._redact_secret(text or "", password)
+        if enc_pw:
+            cleaned = cleaned.replace(enc_pw, "")
+        return cleaned
+
+    with _get_fresh_session() as session:
+        live = session.get(Server, server_id)
+        if not live:
+            _finish(audit_id, job_id, "failed", "Server not found", hostname, "host_bootstrap")
+            return
+        try:
+            result = ssh_onboarding.run_host_bootstrap(
+                live,
+                session,
+                confirm_docker_bootstrap=confirm,
+                sudo_password=password or None,
+                bootstrap_username=boot_user or None,
+            )
+        except Exception as exc:
+            _finish(
+                audit_id,
+                job_id,
+                "failed",
+                _safe(str(exc))[:800],
+                hostname,
+                "host_bootstrap",
+            )
+            return
+        raw = dict(result.details or {})
+        for secret_key in ("sudo_password", "sudo_password_encrypted"):
+            raw.pop(secret_key, None)
+        summary = {
+            "ok": bool(result.ok),
+            "message": _safe(result.message or "")[:500],
+            "os_id": raw.get("os_id") or "",
+            "codename": raw.get("codename") or "",
+            "features": list(raw.get("features") or []),
+            "bootstrap_username": raw.get("bootstrap_username") or ssh_user,
+        }
+    feats = ", ".join(str(item) for item in summary["features"]) or "none"
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job and job.status in ("pending", "running"):
+            _merge_job_details(
+                job,
+                log_line=(
+                    f"OS {summary['os_id']} {summary['codename']}. "
+                    f"Features: {feats}. SSH user: {summary['bootstrap_username']}. "
+                    f"{summary['message']}"
+                )[:400],
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+    _finish(
+        audit_id,
+        job_id,
+        "success" if result.ok else "failed",
+        json.dumps(summary),
+        hostname,
+        "host_bootstrap",
+    )
+
+
+async def _run_host_bootstrap_job(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    payload: dict | None = None,
+):
+    await run_in_threadpool(
+        _execute_host_bootstrap, job_id, server_id, audit_id, payload
     )
 
 

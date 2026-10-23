@@ -11,7 +11,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.database import get_session
 from app.main import app
-from app.models import AuditLog, Server, User
+from app.models import AuditLog, Job, Server, User
 from app.security.auth import create_user_access_token, get_password_hash
 from app.services import host_deps as hd
 from app.services import ssh_onboarding as onboard
@@ -327,8 +327,12 @@ def test_backup_only_refuses_docker_even_if_status_asks_for_it(monkeypatch):
 
 def test_elevated_sudo_uses_dash_h(monkeypatch):
     def _run(_client, cmd, timeout=15):
-        del cmd, timeout
-        return 0, "1000\n", ""
+        del timeout
+        if (cmd or "").strip() == "id -u":
+            return 0, "1000\n", ""
+        if (cmd or "").strip() == "sudo -H -n true":
+            return 1, "", "a password is required"
+        return 0, "", ""
 
     monkeypatch.setattr(onboard.ssh_service, "run_command", _run)
     plain = _Client()
@@ -359,6 +363,8 @@ def test_docker_confirm_and_fresh_ssh(monkeypatch):
         del client, timeout
         if cmd.strip() == "id -u":
             return 0, "1000\n", ""
+        if cmd.strip() == "sudo -H -n true":
+            return 1, "", "a password is required"
         if cmd.strip() in {"docker info", "docker compose version"}:
             return 0, "ok\n", ""
         return 0, "", ""
@@ -422,10 +428,11 @@ def test_bootstrap_route_audits_without_the_password(monkeypatch):
     app.dependency_overrides[get_session] = _session
     captured = {}
 
-    def _boot(server, session, *, confirm_docker_bootstrap=False, sudo_password=None):
+    def _boot(server, session, *, confirm_docker_bootstrap=False, sudo_password=None, bootstrap_username=None):
         del server, session
         captured["confirm"] = confirm_docker_bootstrap
         captured["password"] = sudo_password
+        captured["bootstrap_username"] = bootstrap_username
         captured["keys"] = set()
         return onboard.OnboardingResult(
             ok=True,
@@ -495,7 +502,9 @@ def test_bootstrap_route_audits_without_the_password(monkeypatch):
             follow_redirects=False,
         )
         assert ok.status_code == 303
-        assert "bootstrap_ok" in ok.headers["location"]
+        assert "show_ssh_key=1" in ok.headers["location"]
+        assert "bootstrap_queued" in ok.headers["location"]
+        assert "bootstrap_job=" in ok.headers["location"]
         assert captured["confirm"] is False
         assert captured["password"] == "one-time-secret"
         assert "install_docker_ce" not in captured
@@ -506,5 +515,237 @@ def test_bootstrap_route_audits_without_the_password(monkeypatch):
         assert "one-time-secret" not in blob
         assert "rsync" in blob
         assert "ubuntu" in blob
+        with Session(engine) as session:
+            jobs = list(session.exec(select(Job).where(Job.job_type == "host_bootstrap")).all())
+        assert len(jobs) == 1
+        assert "one-time-secret" not in (jobs[0].details or "")
+        assert "sudo_password" not in (jobs[0].details or "")
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_elevated_nopasswd_does_not_feed_bash(monkeypatch):
+    def _run(_client, cmd, timeout=15):
+        del timeout
+        if (cmd or "").strip() == "id -u":
+            return 0, "1000\n", ""
+        if (cmd or "").strip() == "sudo -H -n true":
+            return 0, "", ""
+        return 1, "", ""
+
+    monkeypatch.setattr(onboard.ssh_service, "run_command", _run)
+    client = _Client()
+    rc, out, err = onboard._exec_elevated(client, "echo hi\n", "one-time-secret")
+    assert rc == 0
+    assert client.commands == ["sudo -H -n bash -s"]
+    assert "one-time-secret" not in (client.stdin.buf or "")
+    assert "one-time-secret" not in out
+    assert "one-time-secret" not in err
+
+
+def test_bootstrap_username_configures_fleet_user(monkeypatch):
+    seen = {}
+
+    def _connect(server, session, ssh_user, sudo_password):
+        del server, session
+        seen["user"] = ssh_user
+        seen["password"] = sudo_password
+        return _Client()
+
+    def _exec(client, script, sudo_password, timeout=300):
+        del sudo_password, timeout
+        seen["script"] = script
+        client.close()
+        return 0, "ok", ""
+
+    monkeypatch.setattr(onboard, "_connect_bootstrap_client", _connect)
+    monkeypatch.setattr(onboard, "_exec_elevated", _exec)
+    monkeypatch.setattr(
+        "app.services.host_deps.check_and_persist",
+        lambda *_a, **_k: _deps(install_rsync=True),
+    )
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+    server = SimpleNamespace(
+        id=9,
+        hostname="host-a.example.com",
+        ssh_username="piherder",
+        os_type="debian",
+        backup_enabled=True,
+        container_patch_enabled=False,
+    )
+    result = onboard.bootstrap_host_tools(
+        server,
+        MagicMock(),
+        sudo_password="one-time-secret",
+        bootstrap_username="pi",
+    )
+    assert result.ok is True
+    assert seen["user"] == "pi"
+    assert seen["password"] == "one-time-secret"
+    assert "TARGET_USER=piherder" in seen["script"]
+    assert result.details["bootstrap_username"] == "pi"
+    assert "one-time-secret" not in result.message
+
+
+def test_other_user_without_password_asks_for_one(monkeypatch):
+    monkeypatch.setattr(onboard, "_bootstrap_private_key", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        "app.services.host_deps.check_and_persist",
+        lambda *_a, **_k: _deps(install_rsync=True),
+    )
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+    server = SimpleNamespace(
+        id=10,
+        hostname="host-a.example.com",
+        ssh_username="piherder",
+        os_type="debian",
+        backup_enabled=True,
+        container_patch_enabled=False,
+    )
+    result = onboard.bootstrap_host_tools(server, MagicMock(), bootstrap_username="pi")
+    assert result.ok is False
+    assert "Enter the SSH and sudo password for pi" in result.message
+
+
+def test_host_bootstrap_job_skips_ssh_wait(monkeypatch):
+    from app.services import jobs_exclusive as exclusive
+
+    engine = _engine()
+    monkeypatch.setattr("app.database.engine", engine)
+    with Session(engine) as session:
+        host = Server(name="host-a", hostname="host-a.example.com", ssh_username="piherder")
+        session.add(host)
+        session.commit()
+        session.refresh(host)
+        job = Job(server_id=host.id, job_type="host_bootstrap", status="pending", details="{}")
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        jid, sid = job.id, host.id
+    monkeypatch.setattr(exclusive, "_ssh_ready", lambda _sid: False)
+
+    def _wait(*_a, **_k):
+        raise AssertionError("host_bootstrap waited for fleet SSH")
+
+    seen = {}
+    monkeypatch.setattr(exclusive, "_wait_for_host", _wait)
+    monkeypatch.setattr(
+        exclusive,
+        "_execute",
+        lambda job_type, job_id, server_id, audit_id, payload: seen.update(
+            job_type=job_type, payload=payload
+        ),
+    )
+
+    class _Task:
+        request = SimpleNamespace(id="task-1")
+
+        def retry(self, countdown=0):
+            raise AssertionError("retried")
+
+    out = exclusive.run_exclusive_job(
+        _Task(), jid, sid, 0, "host_bootstrap", {"bootstrap_username": "pi"}
+    )
+    assert out["status"] == "ok"
+    assert seen["job_type"] == "host_bootstrap"
+    assert seen["payload"]["bootstrap_username"] == "pi"
+    assert "host_bootstrap" in exclusive.EXCLUSIVE_CELERY_TYPES
+
+
+def test_bootstrap_async_job_and_modal_stay_open(monkeypatch):
+    engine = _engine()
+    monkeypatch.setattr("app.database.engine", engine)
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+
+    def _session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = _session
+
+    def _boot(server, session, *, confirm_docker_bootstrap=False, sudo_password=None, bootstrap_username=None):
+        del server, session, confirm_docker_bootstrap
+        assert sudo_password == "one-time-secret"
+        assert bootstrap_username == "pi"
+        return onboard.OnboardingResult(
+            ok=False,
+            message="login failed",
+            details={"os_id": "debian", "codename": "bookworm", "features": [], "bootstrap_username": "pi"},
+        )
+
+    monkeypatch.setattr(onboard, "bootstrap_host_tools", _boot)
+    client = TestClient(app, raise_server_exceptions=False)
+    try:
+        with Session(engine) as session:
+            user = User(
+                email="boot2@example.com",
+                hashed_password=get_password_hash("SmokeTest1ok"),
+                role="operator",
+                is_active=True,
+                must_change_password=False,
+                totp_enabled=False,
+            )
+            host = Server(
+                name="host-b",
+                hostname="host-b.example.com",
+                ssh_username="piherder",
+                ssh_public_key=None,
+                backup_enabled=True,
+                container_patch_enabled=False,
+                host_deps_json=(
+                    '{"os":{"os_id":"debian","supported_os":true},'
+                    '"bootstrap":{"bootstrap_available":true,"install_rsync":true},'
+                    '"checks":[{"status":"fail","label":"rsync","message":"missing"}]}'
+                ),
+            )
+            session.add(user)
+            session.add(host)
+            session.commit()
+            session.refresh(user)
+            session.refresh(host)
+            sid = host.id
+            cookie = create_user_access_token(user)
+        client.cookies.set("access_token", cookie)
+        bad_user = client.post(
+            f"/servers/{sid}/host-deps/bootstrap",
+            data={"bootstrap_username": "bad user"},
+            headers={"X-PiHerder-Async": "1"},
+        )
+        assert bad_user.status_code == 400
+        assert "Invalid bootstrap SSH username" in bad_user.text
+
+        queued = client.post(
+            f"/servers/{sid}/host-deps/bootstrap",
+            data={"bootstrap_username": "pi", "sudo_password": "one-time-secret"},
+            headers={"X-PiHerder-Async": "1"},
+        )
+        assert queued.status_code == 200
+        body = queued.json()
+        assert body["job_type"] == "host_bootstrap"
+        assert body["job_id"]
+        assert body["poll_url"].endswith(f"/jobs/{body['job_id']}")
+        with Session(engine) as session:
+            job = session.get(Job, body["job_id"])
+            assert job is not None
+            assert job.status == "failed"
+            blob = job.details or ""
+            assert "one-time-secret" not in blob
+            assert "sudo_password" not in blob
+            rows = list(session.exec(select(AuditLog).where(AuditLog.action == "host_bootstrap")).all())
+        audit_blob = "".join((row.details or "") + (row.output_snippet or "") for row in rows)
+        assert "one-time-secret" not in audit_blob
+        assert "login failed" in audit_blob
+
+        page = client.get(f"/servers/{sid}?show_ssh_key=1&error=bootstrap_fail&detail=bad-login")
+        assert page.status_code == 200
+        html = page.text
+        assert "showSshAccessModal()" in html
+        assert 'data-testid="host-bootstrap-username"' in html
+        assert 'data-testid="host-bootstrap-job-panel"' in html
+        assert "bad-login" in html
+        card = html.split('data-testid="host-bootstrap-card"', 1)[1].split("</form>", 1)[0]
+        assert "bad-login" in card
+        form = html.split('data-testid="host-bootstrap-form"', 1)[1].split("</form>", 1)[0]
+        assert "data-wait-title" not in form
     finally:
         app.dependency_overrides.clear()

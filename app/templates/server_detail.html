@@ -582,7 +582,7 @@ function downloadTextAsFile(id, filename, btn) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  {% if (show_ssh_key and server.ssh_public_key) or mux_listed or flash_error == 'mux_fail' or flash_error == 'mux_bad' or flash_msg == 'mux_killed' %}
+  {% if show_ssh_key or mux_listed or flash_error == 'mux_fail' or flash_error == 'mux_bad' or flash_msg == 'mux_killed' or flash_error == 'bootstrap_fail' or flash_msg in ('bootstrap_ok', 'bootstrap_queued') %}
   showSshAccessModal();
   {% endif %}
 });

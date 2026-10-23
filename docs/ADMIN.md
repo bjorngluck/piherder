@@ -937,7 +937,7 @@ Optional multi-container scale: remove `container_name` from `celery-worker` and
 
 Redis visibility for an unacked task is **3 hours**, above the 2-hour hard limit, so a still-running host backup is not started twice. **Drive copy** acks when received and may run for **7 days**.
 
-**Celery default queue:** `backup`, `backup_replicate`, `service_migrate`, `service_migrate_undo`, `service_migrate_dest_recover`, stale cleanup, `housekeeping_job` (`retention`, `herder_backup`), and `exclusive_job` (OS/container patch, update checks, stack lifecycle, templates, `host_reboot`, `host_facts`). **nmap queue:** LAN scans and the vuln pack, on `celery-worker-nmap` only. Exclusive DB rules still prevent two concurrent jobs of the same type on one host. `retention` and `herder_backup` do not take that host slot. Raising `CELERY_CONCURRENCY` does not double-run a container patch. Recycling **web** does not fail a Celery job. Recycling **celery-worker** fails one that is **running**. Wiki: [Multi-worker](../wiki/operations/multi-worker.md).
+**Celery default queue:** `backup`, `backup_replicate`, `service_migrate`, `service_migrate_undo`, `service_migrate_dest_recover`, stale cleanup, `housekeeping_job` (`retention`, `herder_backup`), and `exclusive_job` (OS/container patch, update checks, stack lifecycle, templates, `host_reboot`, `host_facts`, `host_bootstrap`). **nmap queue:** LAN scans and the vuln pack, on `celery-worker-nmap` only. Exclusive DB rules still prevent two concurrent jobs of the same type on one host. `retention` and `herder_backup` do not take that host slot. Raising `CELERY_CONCURRENCY` does not double-run a container patch. Recycling **web** does not fail a Celery job. Recycling **celery-worker** fails one that is **running**. Wiki: [Multi-worker](../wiki/operations/multi-worker.md).
 
 Full env list: [`.env.example`](../.env.example).
 
@@ -945,7 +945,7 @@ Full env list: [`.env.example`](../.env.example).
 
 **Where:** Server detail shows a **read-only** snapshot. Re-check under **SSH access → Check dependencies** (also runs after successful **Test connection**, key deploy, and least-priv provision).
 
-Probes tools needed for **enabled** features only (`rsync` / sudo path when Backups are on, `docker` when Docker is on, `apt` on Debian, or **`ha` CLI** on HAOS). Stores a snapshot on the server row. The check does not install packages. On `v1.13.0-dev`, **Bootstrap missing tools** (`POST /servers/{id}/host-deps/bootstrap`, operator, refused in demo) can install missing `rsync` or official Docker CE for Ubuntu, Debian, and Raspbian. Audit action `host_bootstrap`. It is not on `/api/v1` or `/mcp`. Package stays **1.12.1**. Wiki: [Add a server](../wiki/day-to-day/add-server.md).
+Probes tools needed for **enabled** features only (`rsync` / sudo path when Backups are on, `docker` when Docker is on, `apt` on Debian, or **`ha` CLI** on HAOS). Stores a snapshot on the server row. The check does not install packages. On `v1.13.0-dev`, **Bootstrap missing tools** (`POST /servers/{id}/host-deps/bootstrap`, operator, refused in demo) queues exclusive Celery job `host_bootstrap` and can install missing `rsync` or official Docker CE for Ubuntu, Debian, and Raspbian. Optional bootstrap SSH username covers a host already on restricted `piherder`. Progress and errors stay in the SSH access window. Audit action `host_bootstrap`. It is not on `/api/v1` or `/mcp`. Package stays **1.12.1**. Wiki: [Add a server](../wiki/day-to-day/add-server.md).
 
 ### Stack Status
 

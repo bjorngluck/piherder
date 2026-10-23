@@ -1,9 +1,23 @@
 {% set deps = host_deps or {} %}
 {% set boot = deps.bootstrap or {} %}
 {% set osinfo = deps.os or {} %}
+{% set priv_user = '' %}
+{% if server is mapping %}
+  {% set ident = server.get('privileged_identity') %}
+  {% if ident and ident.get('enabled', true) %}
+    {% set priv_user = ident.get('username') or '' %}
+  {% endif %}
+{% endif %}
+{% set poll_job = '' %}
+{% if request is defined %}
+  {% set poll_job = request.query_params.get('bootstrap_job', '') %}
+{% endif %}
 {% if deps %}
 <div class="border border-border rounded p-3 mb-3 space-y-2" data-testid="host-bootstrap-card">
-  <div class="text-sm font-medium">Bootstrap missing tools</div>
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <div class="text-sm font-medium">Bootstrap missing tools</div>
+    <a href="/jobs?server_id={{ server.id }}&amp;job_type=host_bootstrap" class="text-xs text-accent underline" data-testid="host-bootstrap-jobs-link">Job history</a>
+  </div>
   {% if osinfo.os_id %}
   <p class="text-xs text-muted">
     Detected
@@ -28,15 +42,46 @@
     {% endfor %}
   </ul>
   {% endif %}
+  {% if (flash_error|default('')) == 'bootstrap_fail' %}
+  <div class="p-2 banner-warning border border-border rounded text-xs" data-testid="host-bootstrap-flash">
+    <strong>Bootstrap failed.</strong>
+    {% if flash_detail|default('') %}<span class="block font-mono break-all mt-1">{{ flash_detail }}</span>{% endif %}
+  </div>
+  {% elif (flash_msg|default('')) == 'bootstrap_ok' %}
+  <div class="p-2 banner-success border border-border rounded text-xs" data-testid="host-bootstrap-flash">
+    <strong>Bootstrap finished.</strong>
+    {% if flash_detail|default('') %}<span class="font-mono">{{ flash_detail }}</span>{% endif %}
+  </div>
+  {% elif (flash_msg|default('')) == 'bootstrap_queued' %}
+  <div class="p-2 border border-border rounded text-xs" data-testid="host-bootstrap-flash">
+    <strong>Bootstrap queued.</strong>
+    Progress stays in this window.
+    <a class="text-accent underline" href="/jobs?server_id={{ server.id }}&amp;job_type=host_bootstrap">Job history</a>
+  </div>
+  {% endif %}
+  <div class="hidden p-2 border border-border rounded text-xs space-y-1" data-testid="host-bootstrap-job-panel" data-poll-job="{{ poll_job }}">
+    <div class="font-medium" data-testid="host-bootstrap-job-status">Queued…</div>
+    <pre class="font-mono whitespace-pre-wrap break-all text-muted" data-testid="host-bootstrap-job-log"></pre>
+    <a class="text-accent underline" href="/jobs?server_id={{ server.id }}&amp;job_type=host_bootstrap">Job history</a>
+  </div>
   {% if boot.bootstrap_available and (is_operator|default(true)) %}
   <form method="post" action="/servers/{{ server.id }}/host-deps/bootstrap" class="space-y-2"
-        data-testid="host-bootstrap-form"
-        data-wait-title="Bootstrapping host tools"
-        data-wait-message="Installing missing tools over SSH. This can take a few minutes.">
+        data-testid="host-bootstrap-form">
     <p class="text-xs text-muted">
-      Runs on this host for features that are already on.
+      Runs as a job for features that are already on.
       Backups can install rsync. Docker can install official Docker CE.
       The script does not use get.docker.com and does not change sudoers.
+    </p>
+    <p class="text-xs text-muted">
+      This host already uses the restricted least-privilege user
+      <span class="font-mono">{{ server.ssh_username }}</span>?
+      Enter an admin SSH username (such as pi, ubuntu, or your privileged user)
+      and that user's SSH and sudo password.
+      Leave the username blank to log in as <span class="font-mono">{{ server.ssh_username }}</span>.
+      {% if priv_user %}
+      Privileged identity on file: <span class="font-mono">{{ priv_user }}</span>.
+      {% endif %}
+      Docker group membership is still applied to <span class="font-mono">{{ server.ssh_username }}</span>.
     </p>
     {% if boot.install_docker_ce %}
     <label class="flex items-start gap-2 text-xs min-h-11">
@@ -51,6 +96,10 @@
       </span>
     </label>
     {% endif %}
+    <input type="text" name="bootstrap_username" autocomplete="off"
+           placeholder="Bootstrap SSH user (blank = {{ server.ssh_username }})"
+           class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+           data-testid="host-bootstrap-username">
     <input type="password" name="sudo_password" autocomplete="off"
            placeholder="One-time sudo or SSH password, if passwordless sudo is not set"
            class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
@@ -68,4 +117,120 @@
   </details>
   {% endif %}
 </div>
+<script>
+(function () {
+  var form = document.querySelector('form[data-testid="host-bootstrap-form"]');
+  var panel = document.querySelector('[data-testid="host-bootstrap-job-panel"]');
+  if (!panel || panel.dataset.bound === '1') return;
+  panel.dataset.bound = '1';
+  var statusEl = panel.querySelector('[data-testid="host-bootstrap-job-status"]');
+  var logEl = panel.querySelector('[data-testid="host-bootstrap-job-log"]');
+  var button = form ? form.querySelector('[data-testid="host-bootstrap-run"]') : null;
+  var timer = null;
+
+  function showPanel() {
+    panel.classList.remove('hidden');
+  }
+
+  function setStatus(text) {
+    if (statusEl) statusEl.textContent = text;
+  }
+
+  function setLog(lines, summary) {
+    var text = (lines || []).join('\n');
+    if (summary) text = text ? (text + '\n' + summary) : summary;
+    if (logEl) logEl.textContent = text;
+  }
+
+  function enableButton() {
+    if (button) button.disabled = false;
+  }
+
+  function stop() {
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
+  }
+
+  function finish(data) {
+    stop();
+    showPanel();
+    var lines = (data && data.log_lines) || [];
+    var summary = (data && data.summary) || '';
+    setLog(lines, summary);
+    if (data && data.status === 'success') {
+      setStatus('✓ Bootstrap finished');
+      var path = window.location.pathname || '';
+      window.setTimeout(function () {
+        if (path.indexOf('/servers/new') === 0) {
+          window.location.reload();
+          return;
+        }
+        var id = {{ server.id }};
+        window.location.assign('/servers/' + id + '?show_ssh_key=1&msg=bootstrap_ok');
+      }, 700);
+      return;
+    }
+    setStatus('✗ Bootstrap failed');
+    enableButton();
+  }
+
+  function poll(jobId) {
+    stop();
+    showPanel();
+    setStatus('Queued…');
+    if (button) button.disabled = true;
+    function tick() {
+      fetch('/servers/{{ server.id }}/jobs/' + jobId, { credentials: 'same-origin' })
+        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+        .then(function (pack) {
+          if (!pack.ok) {
+            finish({ status: 'failed', summary: (pack.data && pack.data.detail) || 'Job status failed' });
+            return;
+          }
+          var data = pack.data || {};
+          setLog(data.log_lines, data.summary);
+          if (data.status === 'running') setStatus('Running…');
+          else if (data.status === 'pending') setStatus('Queued…');
+          if (data.status === 'success' || data.status === 'failed' || data.done) finish(data);
+        })
+        .catch(function () {
+          finish({ status: 'failed', summary: 'Could not read job status' });
+        });
+    }
+    tick();
+    timer = setInterval(tick, 1500);
+  }
+
+  if (form) {
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      showPanel();
+      setStatus('Queued…');
+      setLog([], '');
+      if (button) button.disabled = true;
+      fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'X-PiHerder-Async': '1' },
+        credentials: 'same-origin'
+      }).then(function (res) {
+        return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; });
+      }).then(function (pack) {
+        var data = pack.data || {};
+        if (data.job_id && (pack.ok || pack.status === 409)) {
+          poll(data.job_id);
+          return;
+        }
+        finish({ status: 'failed', summary: data.detail || 'Bootstrap failed' });
+      }).catch(function () {
+        finish({ status: 'failed', summary: 'Bootstrap request failed' });
+      });
+    });
+  }
+
+  if (panel.dataset.pollJob) poll(panel.dataset.pollJob);
+})();
+</script>
 {% endif %}

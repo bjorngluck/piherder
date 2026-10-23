@@ -1355,18 +1355,30 @@ def _redact_secret(text: str, secret: Optional[str]) -> str:
 
 
 def _exec_elevated(client, script: str, sudo_password: Optional[str], timeout: int = 300):
-    """Run script as root. A one-time password is written to sudo stdin only."""
+    """Run script as root.
+
+    Passwordless sudo is probed first. Writing the SSH password into
+    ``sudo -S`` when sudo does not read stdin would hand that password to
+    ``bash -s`` as the first command.
+    """
     status, out, _err = ssh_service.run_command(client, "id -u", timeout=15)
     is_root = status == 0 and (out or "").strip() == "0"
     secret = (sudo_password or "").strip() or None
     if is_root:
         cmd = "bash -s"
         secret = None
-    elif secret:
-        cmd = "sudo -H -S -p '' bash -s"
     else:
-        cmd = "sudo -H -n bash -s"
-        secret = None
+        np_rc, _np_out, _np_err = ssh_service.run_command(
+            client, "sudo -H -n true", timeout=15
+        )
+        if np_rc == 0:
+            cmd = "sudo -H -n bash -s"
+            secret = None
+        elif secret:
+            cmd = "sudo -H -S -p '' bash -s"
+        else:
+            cmd = "sudo -H -n bash -s"
+            secret = None
     stdin, stdout, stderr = client.exec_command(cmd, timeout=timeout)
     if secret:
         stdin.write(secret + "\n")
@@ -1388,6 +1400,74 @@ def _exec_elevated(client, script: str, sudo_password: Optional[str], timeout: i
         err_s = err_s.decode(errors="replace")
     rc = stdout.channel.recv_exit_status()
     return rc, _redact_secret(out_s or "", sudo_password), _redact_secret(err_s or "", sudo_password)
+
+
+def _bootstrap_private_key(server: Server, session, ssh_user: str) -> Optional[str]:
+    """Privileged identity key when that username matches, otherwise the fleet key."""
+    ident = None
+    try:
+        from . import ssh_identities
+
+        ident = ssh_identities.get_by_role(session, server.id, "privileged")
+    except Exception:
+        ident = None
+    if (
+        ident is not None
+        and getattr(ident, "enabled", True)
+        and (getattr(ident, "username", "") or "").strip() == ssh_user
+        and getattr(ident, "private_key_encrypted", None)
+    ):
+        try:
+            _pub, priv = _ensure_server_key_material(server, ident)
+            return priv
+        except Exception:
+            pass
+    try:
+        _pub, priv = _ensure_server_key_material(server)
+        return priv
+    except Exception:
+        return None
+
+
+def _connect_bootstrap_client(server: Server, session, ssh_user: str, sudo_password: Optional[str]):
+    """SSH as the bootstrap user. Fleet login stays on the stored key when it works."""
+    fleet = (server.ssh_username or "").strip()
+    password = (sudo_password or "").strip() or None
+    key_hint = (
+        f"Key login as {ssh_user} failed. Enter the SSH and sudo password for {ssh_user} and try again."
+    )
+    if ssh_user == fleet:
+        try:
+            return ssh_service.get_ssh_client(server)
+        except Exception:
+            if not password:
+                raise
+            return connect_with_auth(
+                server,
+                username=ssh_user,
+                password=password,
+                private_key_plain=None,
+            )
+    priv = _bootstrap_private_key(server, session, ssh_user)
+    if priv:
+        try:
+            return connect_with_auth(
+                server,
+                username=ssh_user,
+                private_key_plain=priv,
+                password=None,
+            )
+        except Exception:
+            if not password:
+                raise RuntimeError(key_hint)
+    if password:
+        return connect_with_auth(
+            server,
+            username=ssh_user,
+            password=password,
+            private_key_plain=None,
+        )
+    raise RuntimeError(key_hint)
 
 
 def _verify_docker_fresh(server: Server) -> tuple[bool, str]:
@@ -1414,6 +1494,7 @@ def bootstrap_host_tools(
     *,
     confirm_docker_bootstrap: bool = False,
     sudo_password: Optional[str] = None,
+    bootstrap_username: Optional[str] = None,
 ) -> OnboardingResult:
     """Install missing rsync and/or Docker CE for features already enabled on the server.
 
@@ -1425,6 +1506,9 @@ def bootstrap_host_tools(
 
     if demo_mode():
         return OnboardingResult(ok=False, message="Bootstrap is disabled in demo mode")
+    ssh_user = (bootstrap_username or "").strip() or (server.ssh_username or "").strip()
+    if not _USER_RE.match(ssh_user or ""):
+        return OnboardingResult(ok=False, message="Bootstrap SSH username is invalid")
     try:
         deps = host_deps_svc.check_and_persist(session, server)
     except Exception as exc:
@@ -1490,10 +1574,14 @@ def bootstrap_host_tools(
 
     client = None
     try:
-        client = ssh_service.get_ssh_client(server)
+        client = _connect_bootstrap_client(server, session, ssh_user, sudo_password)
         rc, out, err = _exec_elevated(client, script, sudo_password)
     except Exception as exc:
-        return OnboardingResult(ok=False, message=f"Bootstrap SSH failed: {exc}"[:200])
+        return OnboardingResult(
+            ok=False,
+            message=_redact_secret(f"Bootstrap SSH failed: {exc}", sudo_password)[:200],
+            details={"bootstrap_username": ssh_user},
+        )
     finally:
         if client is not None:
             try:
@@ -1505,7 +1593,12 @@ def bootstrap_host_tools(
         return OnboardingResult(
             ok=False,
             message=f"Bootstrap failed (exit {rc}). {detail}".strip(),
-            details={"os_id": os_id, "codename": codename, "features": []},
+            details={
+                "os_id": os_id,
+                "codename": codename,
+                "features": [],
+                "bootstrap_username": ssh_user,
+            },
         )
 
     features: list[str] = []
@@ -1527,12 +1620,22 @@ def bootstrap_host_tools(
                 "Bootstrap ran but a fresh SSH session could not use docker without sudo. "
                 + _redact_secret(verify_msg, sudo_password)
             )[:300],
-            details={"os_id": os_id, "codename": codename, "features": features},
+            details={
+                "os_id": os_id,
+                "codename": codename,
+                "features": features,
+                "bootstrap_username": ssh_user,
+            },
         )
     return OnboardingResult(
         ok=True,
         message="Bootstrap finished",
-        details={"os_id": os_id, "codename": codename, "features": features},
+        details={
+            "os_id": os_id,
+            "codename": codename,
+            "features": features,
+            "bootstrap_username": ssh_user,
+        },
     )
 
 
@@ -1542,6 +1645,7 @@ def run_host_bootstrap(
     *,
     confirm_docker_bootstrap: bool = False,
     sudo_password: Optional[str] = None,
+    bootstrap_username: Optional[str] = None,
 ) -> OnboardingResult:
     """Install missing tools for features already enabled on this server.
 
@@ -1554,4 +1658,5 @@ def run_host_bootstrap(
         session,
         confirm_docker_bootstrap=confirm_docker_bootstrap,
         sudo_password=sudo_password,
+        bootstrap_username=bootstrap_username,
     )

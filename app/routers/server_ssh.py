@@ -18,6 +18,7 @@ from ..models import Server, User
 from ..security import encryption
 from ..security.auth import get_current_user, get_operator_user
 from ..services import host_deps as host_deps_svc
+from ..services import jobs as job_service
 from ..services import ssh as ssh_service
 from ..services import ssh_console
 from ..services import ssh_onboarding
@@ -413,65 +414,115 @@ async def check_host_dependencies(
         )
 
 
-@router.post("/{server_id}/host-deps/bootstrap")
-async def host_deps_bootstrap(
-    server_id: int,
-    confirm_docker_bootstrap: Optional[str] = Form(None),
-    sudo_password: str = Form(""),
-    session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
-):
-    """Install missing rsync and/or Docker CE. UI only. Password stays in this request."""
-    http_403_if_demo("host_bootstrap")
-    server = session.get(Server, server_id)
-    if not server:
-        raise HTTPException(404)
-    confirmed = (confirm_docker_bootstrap or "").strip().lower() in {"1", "on", "true", "yes"}
-    secret = sudo_password.strip() if sudo_password and sudo_password.strip() else None
-    result = await run_in_threadpool(
-        ssh_onboarding.run_host_bootstrap,
-        server,
-        session,
-        confirm_docker_bootstrap=confirmed,
-        sudo_password=secret,
-    )
-    features = list((result.details or {}).get("features") or [])
-    message = (result.message or "")[:200]
-    if secret:
-        message = message.replace(secret, "")
-    record_server_audit(
-        session,
-        server_id=server.id,
-        user_id=user.id,
-        action="host_bootstrap",
-        status="success" if result.ok else "failed",
-        message=message,
-        details={
-            "os_id": (result.details or {}).get("os_id") or "",
-            "codename": (result.details or {}).get("codename") or "",
-            "features": features,
-        },
-    )
-    session.commit()
-    if result.ok:
-        return RedirectResponse(
-            server_redirect(
-                server_id,
-                show_ssh_key="1",
-                msg="bootstrap_ok",
-                detail=",".join(features),
-            ),
-            status_code=303,
-        )
+def _bootstrap_async(request: Request) -> bool:
+    return (request.headers.get("X-PiHerder-Async") or "") == "1"
+
+
+def _bootstrap_reject(request: Request, server_id: int, detail: str, *, need_confirm: bool = False):
+    if _bootstrap_async(request):
+        body = {"detail": detail}
+        if need_confirm:
+            body["need_confirm"] = True
+        return JSONResponse(body, status_code=400)
     return RedirectResponse(
         server_redirect(
             server_id,
             show_ssh_key="1",
             error="bootstrap_fail",
-            detail=message[:180],
+            detail=detail[:180],
         ),
         status_code=303,
     )
+
+
+@router.post("/{server_id}/host-deps/bootstrap")
+async def host_deps_bootstrap(
+    request: Request,
+    server_id: int,
+    background_tasks: BackgroundTasks,
+    bootstrap_username: str = Form(""),
+    confirm_docker_bootstrap: Optional[str] = Form(None),
+    sudo_password: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Queue host tool bootstrap. The sudo password is not stored on the job row."""
+    http_403_if_demo("host_bootstrap")
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    boot_user = (bootstrap_username or "").strip()
+    if boot_user and not ssh_onboarding._USER_RE.match(boot_user):
+        return _bootstrap_reject(request, server_id, "Invalid bootstrap SSH username")
+    confirmed = (confirm_docker_bootstrap or "").strip().lower() in {"1", "on", "true", "yes"}
+    deps = host_deps_svc.parse_host_deps(server) or {}
+    needs_docker = bool((deps.get("bootstrap") or {}).get("install_docker_ce"))
+    if needs_docker and not confirmed:
+        msg = (
+            "Confirm Docker bootstrap before adding the SSH user to the docker group. "
+            "That group grants root-equivalent container access."
+        )
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="host_bootstrap",
+            status="failed",
+            message=msg[:200],
+            details={"need_confirm": True, "bootstrap_username": boot_user},
+        )
+        session.commit()
+        return _bootstrap_reject(request, server_id, msg, need_confirm=True)
+    secret = sudo_password.strip() if sudo_password and sudo_password.strip() else ""
+    reused = False
+    try:
+        job = job_service.create_job_and_run(
+            background_tasks,
+            session,
+            server,
+            "host_bootstrap",
+            user_id=user.id,
+            bootstrap_options={
+                "confirm_docker_bootstrap": confirmed,
+                "bootstrap_username": boot_user,
+                "sudo_password": secret,
+            },
+        )
+    except job_service.JobAlreadyActive as exc:
+        job = exc.job
+        reused = True
+    if _bootstrap_async(request):
+        return JSONResponse(
+            {
+                "job_id": job.id,
+                "status": job.status,
+                "job_type": "host_bootstrap",
+                "already_active": reused,
+                "poll_url": f"/servers/{server_id}/jobs/{job.id}",
+            },
+            status_code=409 if reused else 200,
+        )
+    try:
+        session.refresh(job)
+    except Exception:
+        pass
+    detail = ""
+    try:
+        parsed = json.loads(job.details or "{}")
+        if isinstance(parsed, dict):
+            detail = str(parsed.get("summary") or "")[:180]
+    except Exception:
+        detail = ""
+    params = {"show_ssh_key": "1", "bootstrap_job": str(job.id)}
+    if job.status == "success":
+        params["msg"] = "bootstrap_ok"
+    elif job.status in ("pending", "running"):
+        params["msg"] = "bootstrap_queued"
+    elif job.status == "failed":
+        params["error"] = "bootstrap_fail"
+    if detail:
+        params["detail"] = detail
+    return RedirectResponse(server_redirect(server_id, **params), status_code=303)
 
 
 @router.post("/{server_id}/ssh/deploy-key")

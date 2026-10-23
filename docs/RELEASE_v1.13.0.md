@@ -24,7 +24,7 @@ The script is for Ubuntu, Debian, and Raspbian when Docker has published that co
 
 It installs `ca-certificates`, `curl`, and `gnupg` before it checks `https://download.docker.com/linux/<distro>/dists/<codename>/Release`. It verifies GPG fingerprint `9DC858229FC7DD38854AE2D88D81803C0EBFCD88` with `gpg --batch --show-keys` in an ephemeral `GNUPGHOME`. sudo is `sudo -H`, so that directory is not created in the SSH user's home. It removes only conflicting packages that `dpkg-query` reports as installed (`ii`), with `apt-get remove`, not purge. `/var/lib/docker` is left in place. It does not call `get.docker.com` and it does not widen sudoers.
 
-After `usermod -aG docker`, a new SSH session checks `docker info` and `docker compose version` without sudo. The host check is saved again. One audit row is written, action `host_bootstrap`. A one-time sudo password stays in that request and is not stored.
+After `usermod -aG docker`, a new SSH session checks `docker info` and `docker compose version` without sudo. The host check is saved again. The install is exclusive Celery job `host_bootstrap`, so it shows in Job history and on the server job list. The web request only queues it. An optional bootstrap SSH username logs in as an admin (`pi`, `ubuntu`, or a privileged identity) when the fleet user is already the restricted `piherder` account. Docker group membership is still applied to the fleet user. A one-time sudo password is Fernet-encrypted in the task payload and is not written to the job row or the audit row. If that admin has passwordless sudo, the password is used for SSH only. The SSH access window stays open, polls the job, and shows the error in the card when the run fails.
 
 ### API token secret handoff and OAuth token suffixes
 
