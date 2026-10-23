@@ -4,7 +4,7 @@
 **Code freeze:** not set.  
 **Package:** stays **`1.12.1`**. About / footer stay **1.12.1**.  
 **Operator QA:** walks below are written. They are not signed.  
-**Release notes:** not drafted.  
+**Release notes:** draft [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Not tagged.  
 **Screenshots:** reserved in [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).  
 **Pull request:** not opened.
 
