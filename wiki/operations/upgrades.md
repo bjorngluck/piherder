@@ -147,7 +147,7 @@ Alembic **048** runs on web start. Recreate **web** and **celery-worker**. About
 
 **v1.11.0** is tagged. Notes: [RELEASE_v1.11.0.md](https://github.com/bjorngluck/piherder/blob/v1.11.0/docs/RELEASE_v1.11.0.md). Image `1.11.0` / `1.11`. Pin `1.10.0` / `1.10` stays the previous image for that line. The next jump is [1.11 → 1.12](#111--112).
 
-Alembic **049** and **050** run on web start. Recreate **web** and **celery-worker**. About should say **1.11.0**. A passkey counts as 2FA when Force 2FA is on. A host can send files straight to a saved Drive, OneDrive, or LAN share. Hosted `/mcp` can start a Move, read or start a LAN Discovery scan, and tidy devices. Docker → **Repository…** can update an existing checkout. Plugin **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)** is the current card. It needs Home Assistant **2024.7** or newer. Set the resource to `/piherder/piherder-dashboard-card.js?v=0.5.2`. **0.5.1** still runs on Home Assistant **2024.1**. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is on PyPI. **0.4.2** sends `confirm=true` on discovery purge and does not list `prune_docker`. `uvx --refresh piherder-mcp`, then restart the MCP client. The public demo is updated separately.
+Alembic **049** and **050** run on web start. Recreate **web** and **celery-worker**. About should say **1.11.0**. A passkey counts as 2FA when Force 2FA is on. A host can send files straight to a saved Drive, OneDrive, or LAN share. Hosted `/mcp` can start a Move, read or start a LAN Discovery scan, and tidy devices. Docker → **Repository…** can update an existing checkout. Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** is the current card. It needs Home Assistant **2024.7** or newer. Set the resource to `/piherder/piherder-dashboard-card.js?v=0.5.3`. Do not also list that URL as a frontend extra module. **0.5.1** still runs on Home Assistant **2024.1**. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is on PyPI. **0.4.2** sends `confirm=true` on discovery purge and does not list `prune_docker`. `uvx --refresh piherder-mcp`, then restart the MCP client. The public demo is updated separately.
 
 ## 1.11 → 1.12 {#111--112}
 
@@ -159,7 +159,7 @@ No new Alembic revision. Recreate **web** and **celery-worker**. About should sa
 
 **v1.12.1** is the current release. Notes: [RELEASE_v1.12.1.md](https://github.com/bjorngluck/piherder/blob/v1.12.1/docs/RELEASE_v1.12.1.md). Image `1.12.1` / `1.12` / `latest`. Pin `1.12.0` stays that patch.
 
-No new Alembic revision. Recreate **web** and **celery-worker**. About should say **1.12.1**. certifi is **2026.10.19**. Plugin **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)** and adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stay the companions for this release.
+No new Alembic revision. Recreate **web** and **celery-worker**. About should say **1.12.1**. certifi is **2026.10.19**. Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** is the current card. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the companion for this release.
 
 ## Breaking notes
 
