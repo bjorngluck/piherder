@@ -11,7 +11,7 @@
 **Docs:** https://piherder-docs.hacknow.info/
 
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) multi-arch `linux/amd64` + `linux/arm64`
-**Tags:** `1.12.1`, `1.12`, and `latest`. The manifest digest is filled in after the image is published. Pin `1.12.0` stays that patch. Pin `1.11.0` / `1.11` stays the previous minor image until `1.11.1` is published. Plugin **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)**. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)**.
+**Tags:** `1.12.1`, `1.12`, and `latest`. Manifest `sha256:4c88b673dfa9d94cf275487c3a6303d9113f7667c9cb43349d04c08c11d14a21`. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Pin `1.10.1` / `1.10` stays valid. Plugin **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)**. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)**.
 
 ---
 
