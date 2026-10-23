@@ -116,7 +116,7 @@ SSH access shows **two labeled public keys** when privileged exists: **Fleet pub
 
 - Creates e.g. `piherder` with key-only login  
 - Optional `docker` group  
-- Sudoers for rsync/test, `/var/lib/piherder/rclone` for a host that sends files straight out, and optional apt/reboot (`visudo -cf` before install). A host set up before that rclone path existed needs the script copied again from **SSH access** and applied again  
+- Sudoers for rsync/test, `/var/lib/piherder/rclone` for a host that sends files straight out, and optional apt/reboot (`visudo -cf` before install). A host set up before that rclone path existed needs the script copied again from **SSH access** and applied again. Sudo resets the environment, so a `DEBIAN_FRONTEND` prefix is often gone when apt runs. The OS patch job keeps debconf, apt, and sudo error lines. A freshly generated script also allows `find`, `chown`, and `chmod` so a restore can put numeric ownership back. Apply that script again on a host created before it. That ownership step is on the v1.13 train and is not in the 1.12.1 image  
 - **Run on host** re-points `ssh_username` after verify  
 - **HAOS / specialised:** instructions only — not automated  
 

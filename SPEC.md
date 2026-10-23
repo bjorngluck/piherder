@@ -3,7 +3,7 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** Historical phase checklist (v1.0 era). **Current package:** [v1.12.0](docs/RELEASE_v1.12.0.md) · [PLAN](docs/PLAN_v1.12.0.md). Package **1.12.0**. Image `1.12.0` / `1.12` / `latest`. Pin `1.11.0` / `1.11` stays the previous image. Released 2026-10-22. Prior: [v1.11.0](docs/RELEASE_v1.11.0.md) · [v1.10.0](docs/RELEASE_v1.10.0.md) · [v1.9.0](docs/RELEASE_v1.9.0.md) · [v1.8.1](docs/RELEASE_v1.8.1.md) · [v1.7.0](docs/RELEASE_v1.7.0.md).  
+> **Status:** Historical phase checklist (v1.0 era). **Current package:** [v1.12.1](docs/RELEASE_v1.12.1.md) · [PLAN](docs/PLAN_v1.12.0.md). Package **1.12.1**. Image `1.12.1` / `1.12` / `latest`. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Released 2026-10-23. Prior: [v1.12.0](docs/RELEASE_v1.12.0.md) · [v1.11.0](docs/RELEASE_v1.11.0.md) · [v1.10.0](docs/RELEASE_v1.10.0.md) · [v1.9.0](docs/RELEASE_v1.9.0.md) · [v1.8.1](docs/RELEASE_v1.8.1.md) · [v1.7.0](docs/RELEASE_v1.7.0.md).  
 > **Last updated:** 2026-10-02 — do not treat this file as the operator guide (use the wiki + RELEASE).
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
@@ -46,7 +46,7 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 - **Bindings:** SSH per server; **host services** (no Docker); **Docker project/container**; TLS days from metrics.
 - **UI:** server Services page, fleet `/services` icon grid, dashboard Services tile, logos (favicon + upload); server detail dest cards for Grafana + Kuma SSH next to Backups/Docker/Services/Host status.
 - **Grafana (v0.3.0+):** service account token; `/api/health` + dashboard inventory; bindings with kinds **metrics / containers / logs**; query templates (`var-` + `{hostname_short}`, `{container}`, …); **preferred name** per dashboard UID on Inventory tab (`config_json.display_names`; current + future binds; survives poll); binding rows **Clone** / **Remove**; Docker **Grafana** chip + ⋯ menu + expanded-row links (touch-friendly).
-- **Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · **Release:** [docs/RELEASE_v0.3.0.md](docs/RELEASE_v0.3.0.md).
+- **Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · **Release:** [docs/RELEASE_v0.3.0.md](docs/archive/v0/RELEASE_v0.3.0.md).
 
 ### Platform reliability & deployment (2026-07-10)
 - **Remote host dependency check** (done): after SSH / least-priv onboard (and **Test connection**), probe tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`); read-only chips on server detail; re-check under SSH access; no auto-install on the remote host.
@@ -184,8 +184,8 @@ Carried refinements + ship blockers for a clean install story. Detail: [docs/ROA
 - [x] **Token REST API** — admin-managed API tokens; `/api/v1` fleet read + job triggers
 - [x] **Compose volume defaults** — `./backups`, `./piherder_backups`, `./piherder_data`, `./certs`
 - [x] **Production ADMIN section** — TLS, upgrades, metrics, webhooks, API tokens
-- [x] **Git tag `v0.2.0`** + release notes — [docs/RELEASE_v0.2.0.md](docs/RELEASE_v0.2.0.md)
-- [x] **Git tag `v0.3.0`** + release notes — [docs/RELEASE_v0.3.0.md](docs/RELEASE_v0.3.0.md)
+- [x] **Git tag `v0.2.0`** + release notes, [docs/RELEASE_v0.2.0.md](docs/archive/v0/RELEASE_v0.2.0.md)
+- [x] **Git tag `v0.3.0`** + release notes, [docs/RELEASE_v0.3.0.md](docs/archive/v0/RELEASE_v0.3.0.md)
 - [x] Pre-built multi-arch image on Docker Hub + README/compose pull path (`bjorngluck/piherder:latest`; process: [docs/PUBLISH_IMAGE.md](docs/PUBLISH_IMAGE.md))
 
 ---
@@ -206,7 +206,7 @@ Implement **in order** after or alongside H0 image work. Not required to tag `v0
 
 Read-mostly integrations: registry, status, deep links, **server / Docker / host-service bindings**. No full remote control of external products (create-monitor = H2).
 
-**Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · **Ops:** [docs/ADMIN.md](docs/ADMIN.md) § Uptime Kuma / Grafana · **Release:** [docs/RELEASE_v0.3.0.md](docs/RELEASE_v0.3.0.md)
+**Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · **Ops:** [docs/ADMIN.md](docs/ADMIN.md) § Uptime Kuma / Grafana · **Release:** [docs/RELEASE_v0.3.0.md](docs/archive/v0/RELEASE_v0.3.0.md)
 
 ### Shipped — Uptime Kuma (H1 slice)
 
@@ -240,8 +240,8 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 
 ## Phase 6 — Service templates (v0.4 foundation → v0.5.0 RC / Horizon 2)
 
-**Shipped foundation:** [docs/PLAN_v0.4.0.md](docs/PLAN_v0.4.0.md) · [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md)  
-**Active plan:** [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md)  
+**Shipped foundation:** [docs/PLAN_v0.4.0.md](docs/archive/v0/PLAN_v0.4.0.md) · [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · [docs/RELEASE_v0.4.0.md](docs/archive/v0/RELEASE_v0.4.0.md)  
+**Active plan:** [docs/PLAN_v0.5.0.md](docs/archive/v0/PLAN_v0.5.0.md)  
 **Decision:** All post-`v0.3.0` work for the foundation shipped in **`v0.4.0`** (bug IDs B01… in PLAN §2).  
 **Production path:** ~~v0.4.0~~ **done** → ~~**v0.5.0**~~ **tagged** (ops + polish + first RC; former v0.4.x folded in).
 
@@ -272,7 +272,7 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 
 ### Phase 6 → v0.5.0 (ops + polish + first RC)
 
-Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
+Living detail: [docs/PLAN_v0.5.0.md](docs/archive/v0/PLAN_v0.5.0.md).
 
 **Primary**
 
@@ -323,7 +323,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 
 ## Phase 6.5 — Host lifecycle & operator console (Horizon 2.75 · v0.6.0+)
 
-**v0.8.0 release:** [docs/RELEASE_v0.8.0.md](docs/RELEASE_v0.8.0.md) · [docs/PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md) · **v0.9.0:** [docs/PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md) · Design: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md) · [docs/FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md) · Prior: [PLAN_v0.7.0.md](docs/PLAN_v0.7.0.md) · [ROADMAP H2.75](docs/ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc).
+**v0.8.0 release:** [docs/RELEASE_v0.8.0.md](docs/archive/v0/RELEASE_v0.8.0.md) · [docs/PLAN_v0.8.0.md](docs/archive/v0/PLAN_v0.8.0.md) · **v0.9.0:** [docs/PLAN_v0.9.0.md](docs/archive/v0/PLAN_v0.9.0.md) · Design: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md) · [docs/FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md) · Prior: [PLAN_v0.7.0.md](docs/archive/v0/PLAN_v0.7.0.md) · [ROADMAP H2.75](docs/ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc).
 
 **Shipped on 0.6 track:** Kuma coverage (H3); runtime topology (H2); Docker bulk (P1); template deploy Jobs; cert first-setup + presets + self-managed edge map + stage_sudo.  
 **v0.7.0 tagged:** add-host wizard (P2); **Playwright E2E** Phase A + Phase B wizard; topology annotations + compose sets; drift-check Job.  
@@ -343,7 +343,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [x] **Cert RC2 UX** (v0.6 track) — first-cert setup; map presets; stage_sudo; self-managed Caddy edge mapping + renew re-apply; Grafana UID 472 cookbook
 - [x] **Topology annotations** (0.7) — fixed category/tags vocab, visual service stacks within compose project, exact project match, map columns from category vocab ([FEATURE_PLAN_RUNTIME_TOPOLOGY.md](docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md) § 12c)
 - [ ] Per-project column profiles / explicit link-to-column layout (topology residual)
-- [x] **LAN discovery (nmap-class)** — opt-in LAN CIDR scan, network view, Hosts overlay, map identity + wiki screenshots — **v0.8.0 tagged** ([RELEASE_v0.8.0.md](docs/RELEASE_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md)); operator chrome polish continues in [PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md)
+- [x] **LAN discovery (nmap-class)**, opt-in LAN CIDR scan, network view, Hosts overlay, map identity + wiki screenshots, **v0.8.0 tagged** ([RELEASE_v0.8.0.md](docs/archive/v0/RELEASE_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md)); operator chrome polish continues in [PLAN_v0.9.0.md](docs/archive/v0/PLAN_v0.9.0.md)
 - [ ] Cloudflare DNS automation from template hints / fabric
 - [ ] Pi-hole / NPM write paths beyond local DNS (full proxy host CRUD, lists, etc.) — **v1.4 M-npm** is backend retarget only
 - [x] Service migrate host→host; destructive service remove — **v1.4.0 tagged**; **v1.5.0** Move on Celery (web recycle safe) ([RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · wiki [Move a service](wiki/docker/service-migration.md))

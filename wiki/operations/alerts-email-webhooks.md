@@ -36,6 +36,8 @@ Settings → Alerts → **Alert policy** is the taxonomy + volume control so map
 | **Templates** | config drift | warning |
 | **Admin** | user created · API token created · force 2FA or template 2FA changed | warning |
 
+v1.12 also opens `backup_destination_auth_failed` (critical, a Drive, OneDrive, or SMB credential was rejected), `backup_stale` (warning), `backup_schedule_missed` (warning), `backup_copy_early` (warning), and `container_updates` (warning). A possible NIC change (`lan_discovery`, info) is on the v1.13 train and is not in the 1.12.1 image.
+
 Per category you can **mute**, override **severity** (`default` keeps the table above), set **debounce** (minutes before a dismissed flap re-opens), and **re-alert** (hours; `0` = no channel nudge while still open).
 
 **Severity `default`** means each type keeps its catalog / emitter hint (so stack-health fail vs warn, and cert verify partial vs fail, stay distinct).

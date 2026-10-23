@@ -53,7 +53,7 @@ If **no** `feature:*` scopes are set, any job type allowed by `jobs` may run (st
 
 **409 / exclusive jobs:** a second start of the same exclusive type on a host returns **HTTP 409** with the existing `job_id` (same rule as the UI).
 
-A `read` call writes an audit row only when Settings, Security policy, **API and MCP read audit** is on. The row stores the token id and name, and the client IP. It does not store the token. Those rows stay off the default Audit list and keep their own retention (1-90 days, default 7). Turning the flag on or off writes its own audit row. Hosted `/mcp` reads follow the same flag. Writes stay audited either way. `GET /api/v1/admin` does not write that row, even when the flag is on, so listing the log does not append a row. MCP sign-in cannot receive `admin`.
+A `read` call writes an audit row only when Settings, Security policy, **API and MCP read audit** is on. The row stores the token id and name, and the client IP. It does not store the token. Those rows stay off the default Audit list and keep their own retention (1-90 days, default 7). Turning the flag on or off writes its own audit row. Hosted `/mcp` reads follow the same flag. Writes stay audited either way. Admin GETs under `/api/v1/admin` write an `api_read` row when that flag is on, at most one per token and path every 5 minutes, including the audit log. MCP sign-in cannot receive `admin`.
 
 ## IP allowlist
 
@@ -61,7 +61,7 @@ Optional IPs/CIDRs per token. Enforced using Caddy-forwarded client IP — call 
 
 ## CORS
 
-Off by default. Server-side n8n/HA/curl do **not** need CORS. Set `CORS_ORIGINS` only for browser apps on other origins (exact origins; never `*`). A first-class **HACS integration** (HA dashboard of the fleet) is **v1.6 Must** — operator page: [Home Assistant → PiHerder](../integrations/home-assistant.md). Token **`read`**. YAML `rest` remains possible ([API.md](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/docs/API.md)).
+Off by default. Server-side n8n/HA/curl do **not** need CORS. Set `CORS_ORIGINS` only for browser apps on other origins (exact origins; never `*`). A first-class **HACS integration** (HA dashboard of the fleet) is **v1.6 Must**. Operator page: [Home Assistant, PiHerder](../integrations/home-assistant.md). Token **`read`**. YAML `rest` remains possible ([API.md](https://github.com/bjorngluck/piherder/blob/v1.6.0/docs/API.md)).
 
 ## Examples
 

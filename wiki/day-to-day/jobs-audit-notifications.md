@@ -48,6 +48,7 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 | `os_update_check` / `container_update_check` | Manual or check schedule | **Celery** (default queue) |
 | `docker_stack_check` / `docker_stack_deploy` | Stack ⋯ Check updates / Deploy | **Celery** (default queue) |
 | `docker_stack_stop` / `_start` / `_restart` | Project ⋯ Stop/Start/Restart all | **Celery** (default queue) |
+| `docker_prune` | Docker page, the token API, or hosted MCP | **Celery** (default queue). `both` prunes dangling images and exited containers. `images`, `containers`, and `networks` prune that one category. `volumes` runs only after the operator confirms it |
 | `service_migrate` | Docker **Move to another host…** (flag `PIHERDER_SERVICE_MIGRATE`) | **Celery** (same worker as backups). Recycle **web** is safe. Recycle **worker** mid-copy **fails** the job (staging kept; **Start source stack** when copy/dest-up had begun). JobHold stays until Close. |
 | `service_migrate_undo` | **Undo move** on a Move that failed after names flipped (cutover / rebind / validate). Preview, then confirm | **Celery**, same dual-host lock. Stops dest (`compose stop`, not `down -v`) and starts source. A green Move has no Undo. Recycle **worker** mid-undo fails that undo and leaves the dest tree |
 | `service_migrate_dest_recover` | **Inspect destination** on a Move that died while starting dest. Then **Stop dest and start source** | **Celery**, same dual-host lock. `compose stop` on dest, then start source. DNS and NPM stay. A green Move does not offer it |
@@ -129,7 +130,7 @@ Actors may be:
 | Scheduler / cron only | **—** (no HTTP request) |
 | Job finish (Celery etc.) | IP **snapshotted when the job was queued** |
 
-Also audited with IP: **login** / **login failed** / **2FA**, and **API token** create/update/rotate/revoke. A `read` call from an API token or from hosted `/mcp` writes an audit row only when Settings, Security policy, **API and MCP read audit** is on. The row stores the token id and name, and the client IP. It does not store the token. Those rows stay off the default Audit list until **Show routine rows** is on, and they keep their own retention (1-90 days, default 7). Turning the flag on or off writes its own audit row. Writes stay audited either way. Free-text search matches IPs. Detail modal shows **IP**.
+Also audited with IP: **login** / **login failed** / **2FA**, and **API token** create/update/rotate/revoke. A `read` call from an API token or from hosted `/mcp` writes an audit row only when Settings, Security policy, **API and MCP read audit** is on. The row stores the token id and name, and the client IP. It does not store the token. Those rows stay off the default Audit list until **Show routine rows** is on, and they keep their own retention (1-90 days, default 7). Turning the flag on or off writes its own audit row. Writes stay audited either way. A restore from a backup writes one audit row, action `backup_restore` (label **Backup restore**). It is not its own job type. Free-text search matches IPs. Detail modal shows **IP**.
 
 Filter by user, server, token, action, status, **date range** (same **7d / 30d / 90d** presets as Jobs — app timezone), or free-text (includes IP). Per-page is the same **10 / 20 / 50 / 100** cookie as Jobs.
 

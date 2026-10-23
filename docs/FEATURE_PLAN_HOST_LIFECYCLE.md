@@ -1,8 +1,8 @@
 # Feature plan — Host lifecycle & operator console (H2.75)
 
-**Status:** Design agreed 2026-07-17 · **P1 Docker bulk shipped** (2026-07-18) · **P2 wizard shipped in v0.7.0** ([RELEASE_v0.7.0.md](RELEASE_v0.7.0.md)) · **P3+ capacity in [v0.8.0 RC3](PLAN_v0.8.0.md)**  
-**Horizon:** H2.75 · P1 via [PLAN_v0.6.0.md](PLAN_v0.6.0.md); **P2 → [PLAN_v0.7.0.md](PLAN_v0.7.0.md)**; P3 capacity in RC3; P4–P5 later  
-**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § [Horizon 2.75](ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · Wiki [Docker](../wiki/docker/overview.md) · [Add server](../wiki/day-to-day/add-server.md)
+**Status:** Design agreed 2026-07-17 · **P1 Docker bulk shipped** (2026-07-18) · **P2 wizard shipped in v0.7.0** ([RELEASE_v0.7.0.md](archive/v0/RELEASE_v0.7.0.md)) · **P3+ capacity in [v0.8.0 RC3](archive/v0/PLAN_v0.8.0.md)**  
+**Horizon:** H2.75 · P1 via [PLAN_v0.6.0.md](archive/v0/PLAN_v0.6.0.md); **P2 → [PLAN_v0.7.0.md](archive/v0/PLAN_v0.7.0.md)**; P3 capacity in RC3; P4 to P5 later  
+**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § [Horizon 2.75](ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc) · [PLAN_v0.7.0.md](archive/v0/PLAN_v0.7.0.md) · [PLAN_v0.8.0.md](archive/v0/PLAN_v0.8.0.md) · [PLAN_v0.6.0.md](archive/v0/PLAN_v0.6.0.md) · [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · Wiki [Docker](../wiki/docker/overview.md) · [Add server](../wiki/day-to-day/add-server.md)
 
 ## Goal
 
@@ -22,7 +22,7 @@ Deepen **day-to-day host operations** and **first-time host bring-up** without c
 
 | # | Decision |
 |---|----------|
-| 1 | **v0.6.0 RC2** — P1 Docker bulk **shipped**; **P2 wizard product-done in v0.7.0** — [PLAN_v0.7.0.md](PLAN_v0.7.0.md) |
+| 1 | **v0.6.0 RC2**, P1 Docker bulk **shipped**; **P2 wizard product-done in v0.7.0**, [PLAN_v0.7.0.md](archive/v0/PLAN_v0.7.0.md) |
 | 2 | Ship order = **risk/value:** Docker bulk (0.6) → wizard (0.7) → stats/commands (0.8 capacity) → bootstrap/DNS → web SSH last |
 | 3 | **Not required for minimal 1.0.0** unless we deliberately pull P1 into 1.0 as polish |
 | 4 | Web SSH: private key **never** sent to the browser; decrypt only in server memory for the PTY session |
@@ -32,7 +32,7 @@ Deepen **day-to-day host operations** and **first-time host bring-up** without c
 | 8 | Static IP remains **script + docs**; PiHerder does not become DHCP/server networking UI |
 | 9 | All privileged actions: **preview → confirm → audit** (+ Job when long-running) |
 | 10 | Reuse existing patterns: server bulk (`POST /servers/bulk`), stack jobs (`docker_stack_*`), least-priv scripts, Pi-hole A fan-out |
-| 11 | **Data lifecycle (stream R):** fleet **server delete** keeps unlinked Jobs/Audit by default (history); product-owned children cascade with preview. Time-based Jobs/Audit purge is **opt-in** (default 30 days when enabled) — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) § R · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) H0.5 2b/2c |
+| 11 | **Data lifecycle (stream R):** fleet **server delete** keeps unlinked Jobs/Audit by default (history); product-owned children cascade with preview. Time-based Jobs/Audit purge is **opt-in** (default 30 days when enabled), [PLAN_v0.8.0.md](archive/v0/PLAN_v0.8.0.md) § R · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) H0.5 2b/2c |
 
 ### Server delete — current behavior (baseline for R2)
 
@@ -57,8 +57,8 @@ Gaps for later: cascade matrix for integrations, nmap links, annotations; option
 | Phase | Name | Target | Status |
 |-------|------|--------|--------|
 | **P1** | Docker project bulk control | 0.6.0 nice-to-have | **Done** (2026-07-18) |
-| **P2** | Add-host wizard | **v0.7.0** | **Done** — `/servers/new` 8-step + E2E B; [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md); screenshots → 0.8 |
-| **P3** | Host stats + healthcheck + allowlisted commands | **v0.8.0 RC3** capacity | Parked — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) |
+| **P2** | Add-host wizard | **v0.7.0** | **Done**, `/servers/new` 8-step + E2E B; [RELEASE_v0.7.0.md](archive/v0/RELEASE_v0.7.0.md); screenshots → 0.8 |
+| **P3** | Host stats + healthcheck + allowlisted commands | **v0.8.0 RC3** capacity | Parked, [PLAN_v0.8.0.md](archive/v0/PLAN_v0.8.0.md) |
 | **P4** | Bootstrap scripts + hostname + DNS handoff | post-0.8 | Planned |
 | **P5** | Web SSH console | Last; separate ship bar | Planned / under consideration |
 
@@ -361,6 +361,6 @@ An operator can:
 | Date | Note |
 |------|------|
 | 2026-07-17 | Initial plan; aligned with ROADMAP H2.75; operator agreement on order and security bar |
-| 2026-07-18 | P1 shipped in 0.6; P2 deferred at freeze then opened under [PLAN_v0.7.0.md](PLAN_v0.7.0.md) |
+| 2026-07-18 | P1 shipped in 0.6; P2 deferred at freeze then opened under [PLAN_v0.7.0.md](archive/v0/PLAN_v0.7.0.md) |
 | 2026-08-16 | Host file transfer parked on **v1.3 Stream F** |
 | 2026-08-17 | Service migration parked on **v1.4 Stream M** (not P1 bulk lifecycle) |

@@ -1,7 +1,7 @@
 # Feature Plan: Pi-hole + NPM + TLS certificates (v0.5.0)
 
 **Status:** Implemented on main (v0.5.0 track)  
-**Related:** [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · Wiki [DNS fabric](../wiki/integrations/dns-fabric.md) (host/service topology beyond raw Pi-hole CRUD)
+**Related:** [PLAN_v0.5.0.md](archive/v0/PLAN_v0.5.0.md) · [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · Wiki [DNS fabric](../wiki/integrations/dns-fabric.md) (host/service topology beyond raw Pi-hole CRUD)
 
 ## Goal
 

@@ -607,9 +607,9 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Auth chrome** | Unauthenticated `/` redirects to login; version string only when signed in |
 | **Roles** | Viewer cannot mutate fleet; Docker **build** stream is operator+ — [wiki roles](../wiki/account-security/roles.md) |
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
-| **Image pin** | Hub **`1.10.0`** / `1.10` / `latest` (`1.9.0` / `1.9` stays the previous image. Pin `1.8.1` / `1.8` stays valid. Pins `1.8.0` and `1.7.0` / `1.7` stay valid) |
+| **Image pin** | Hub **`1.12.1`** / `1.12` / `latest` (Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Pin `1.10.1` / `1.10` stays valid) |
 
-Current release: [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) · [QA_v1.12.0.md](QA_v1.12.0.md) · [PLAN_v1.12.0.md](PLAN_v1.12.0.md). Package **1.12.0**. Image `1.12.0` / `1.12` / `latest`. Pin `1.11.0` / `1.11` stays the previous image. Released 2026-10-22. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is on PyPI. Plugin **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)** is the current card. Train: [PLAN_v1.13.0.md](PLAN_v1.13.0.md) on `v1.13.0-dev`. Not an upgrade path. Prior: [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) · [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current release: [RELEASE_v1.12.1.md](RELEASE_v1.12.1.md) · [QA_v1.12.0.md](QA_v1.12.0.md) · [PLAN_v1.12.0.md](PLAN_v1.12.0.md). Package **1.12.1**. Image `1.12.1` / `1.12` / `latest`. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Released 2026-10-23. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is on PyPI. Plugin **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)** is the current card. Train: [PLAN_v1.13.0.md](PLAN_v1.13.0.md) on `v1.13.0-dev`. Not an upgrade path. Prior: [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) · [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) · [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 
@@ -674,8 +674,8 @@ Typical pattern: PiHerder → n8n webhook → Signal CLI. In-app notifications a
 
 **Templates** live under top-nav **Catalog** (`/catalog` → Settings-style tabs **Integrations | Certificates | Templates | Network**). They are **your** versioned stack definitions. You **create**, **edit**, and **save** them; deploy is separate.
 
-**Shipped in v0.4.0** (foundation; ops + polish → [PLAN_v0.5.0.md](PLAN_v0.5.0.md)).  
-**Docs:** [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · active [PLAN_v0.5.0.md](PLAN_v0.5.0.md)
+**Shipped in v0.4.0** (foundation; ops + polish → [PLAN_v0.5.0.md](archive/v0/PLAN_v0.5.0.md)).  
+**Docs:** [RELEASE_v0.4.0.md](archive/v0/RELEASE_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [PLAN_v0.4.0.md](archive/v0/PLAN_v0.4.0.md) · active [PLAN_v0.5.0.md](archive/v0/PLAN_v0.5.0.md)
 
 #### Create / edit (operator-owned)
 
@@ -1066,4 +1066,4 @@ Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backu
 | Unit tests | `tests/test_rbac.py`, `test_api_tokens.py`, `test_app_settings.py`, `test_cors_policy.py`, `test_herder_backup.py`, … |
 | Herder self-backup | `app/services/herder_backup.py` |
 | Ecosystem roadmap | `docs/ROADMAP_ECOSYSTEM.md` |
-| Host lifecycle plan (H2.75) | `docs/FEATURE_PLAN_HOST_LIFECYCLE.md` — Docker bulk (**0.6**); wizard onboard (**0.7**); LAN Discovery (**0.8** — `docs/RELEASE_v0.8.0.md`); host stats/commands and bootstrap/DNS, web SSH later (`docs/PLAN_v0.9.0.md`) |
+| Host lifecycle plan (H2.75) | `docs/FEATURE_PLAN_HOST_LIFECYCLE.md`. Docker bulk (**0.6**); wizard onboard (**0.7**); LAN Discovery (**0.8**, `docs/archive/v0/RELEASE_v0.8.0.md`); host stats/commands and bootstrap/DNS, web SSH later (`docs/archive/v0/PLAN_v0.9.0.md`) |

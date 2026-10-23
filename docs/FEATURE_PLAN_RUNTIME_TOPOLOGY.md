@@ -2,7 +2,7 @@
 
 **Status:** **Stream closed for v0.6** (2026-07-18) — P0–P5 + P4b **shipped**; residual → later / **v0.8**  
 **Horizon:** H2.5 · builds on Network maps (v0.5) + Kuma coverage (v0.6 H3)  
-**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § H2.5 · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) § H · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · Wiki [Network maps](../wiki/integrations/dns-fabric.md) · Coverage `/dns/coverage`
+**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § H2.5 · [PLAN_v0.6.0.md](archive/v0/PLAN_v0.6.0.md) § H · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · Wiki [Network maps](../wiki/integrations/dns-fabric.md) · Coverage `/dns/coverage`
 
 ---
 
@@ -266,7 +266,7 @@ TCP/DB monitors require published ports, shared Docker network with Kuma, or hos
 | **P5** | Monitor depth | TCP bind in panel; **optional alert** when Kuma-bound container down in inventory | **Done** |
 | **P6** | Shared-service catalog polish | Catalog of shared DB/redis/services for better cross-host suggest | **Later** (not 0.6) |
 | **Later** | **Configurable columns & links** | Operator-defined map columns, pin roles to columns, explicit edge→column layout (beyond order-driven L→R) | **Partial (0.7):** categories/tags/visual stacks + vocab-driven columns — see § 12c |
-| **—** | **LAN discovery (nmap)** | Orthogonal device discovery — not stack deps | **v0.8.0 RC3 product done (N0–N10)**; screenshots open — [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) |
+| **n/a** | **LAN discovery (nmap)** | Orthogonal device discovery, not stack deps | **v0.8.0 RC3 product done (N0 to N10)**; screenshots open, [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [PLAN_v0.8.0.md](archive/v0/PLAN_v0.8.0.md) |
 
 ### Shipped vs not done (stream close-out)
 
@@ -402,7 +402,7 @@ Operator presentation layer on top of compose projects — **does not** change d
 
 Still later: per-project column profiles, explicit edge→column layout, Docker UI full parity (T6).
 
-**Related (Docker, not fabric):** **compose sets** — multiple compose files under one project folder with under-project pills and optional `-f` deploy. Orthogonal to view groups. See [PLAN_v0.7.0.md](PLAN_v0.7.0.md) stream C · wiki Docker overview.
+**Related (Docker, not fabric):** **compose sets**, multiple compose files under one project folder with under-project pills and optional `-f` deploy. Orthogonal to view groups. See [PLAN_v0.7.0.md](archive/v0/PLAN_v0.7.0.md) stream C · wiki Docker overview.
 
 ---
 
@@ -439,8 +439,8 @@ Still later: per-project column profiles, explicit edge→column layout, Docker 
 | 2026-07-18 | **P4.5** expandable container detail; map node click → detail; **P5** inventory down alerts for Kuma-bound containers |
 | 2026-07-18 | **P4b** stack container order (long-press/drag); map column L→R from order; **data** keeps db+redis; no expand link chips; later: configurable columns / link-to-column |
 | 2026-07-18 | **Stream closed for v0.6** — P0–P5+P4b done; residual column/layout/P6 later; **nmap → v0.8.0** |
-| 2026-07-19 | **v0.8.0 framed as RC3** — nmap must + 0.7 residual polish parked ([PLAN_v0.8.0.md](PLAN_v0.8.0.md)); T0–T4 + compose sets ship in 0.7 |
+| 2026-07-19 | **v0.8.0 framed as RC3**, nmap must + 0.7 residual polish parked ([PLAN_v0.8.0.md](archive/v0/PLAN_v0.8.0.md)); T0 to T4 + compose sets ship in 0.7 |
 | 2026-07-19 | **0.7 annotations:** exact project match; category/tags/visual stacks (DB); map columns from category vocab; stack panel editor |
 | 2026-07-19 | View groups UX polish (Main token, pill chrome); multi-fan map on All; **compose sets** shipped on Docker page (orthogonal) |
 
-**End of plan** — dual-altitude product + 0.7 annotations + Docker compose sets. Residual: link-to-column profiles, cross-host picker polish, P6 catalog; LAN scan + residual polish → **[v0.8.0 RC3](PLAN_v0.8.0.md)**.
+**End of plan**, dual-altitude product + 0.7 annotations + Docker compose sets. Residual: link-to-column profiles, cross-host picker polish, P6 catalog; LAN scan + residual polish → **[v0.8.0 RC3](archive/v0/PLAN_v0.8.0.md)**.

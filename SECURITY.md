@@ -4,7 +4,7 @@
 
 | Version | Support |
 |---------|---------|
-| **v1.12.x** | Current release ([RELEASE_v1.12.0.md](docs/RELEASE_v1.12.0.md) · [PLAN_v1.12.0.md](docs/PLAN_v1.12.0.md)). Tag **v1.12.0**. Image `1.12.0` / `1.12` / `latest` |
+| **v1.12.x** | Current release ([RELEASE_v1.12.1.md](docs/RELEASE_v1.12.1.md) · [PLAN_v1.12.0.md](docs/PLAN_v1.12.0.md)). Tag **v1.12.1**. Image `1.12.1` / `1.12` / `latest`. Pin `1.12.0` stays that patch |
 | **v1.11.x** | Previous image pin; still valid ([RELEASE_v1.11.0.md](docs/RELEASE_v1.11.0.md) · [PLAN_v1.11.0.md](docs/PLAN_v1.11.0.md)). Tag **v1.11.0**. Pin `1.11.0` / `1.11` |
 | **v1.10.x** | Previous image pin; still valid ([RELEASE_v1.10.0.md](docs/RELEASE_v1.10.0.md) · [PLAN_v1.10.0.md](docs/PLAN_v1.10.0.md)). Tag **v1.10.0**. Pin `1.10.0` / `1.10` |
 | **v1.9.x** | Previous production pin; still valid ([RELEASE_v1.9.0.md](docs/RELEASE_v1.9.0.md) · [PLAN_v1.9.0.md](docs/PLAN_v1.9.0.md)). Tag **v1.9.0** |
@@ -20,7 +20,7 @@
 | **`main`** | Development tip; security fixes land here first |
 | **v0.9.x and older** | Best-effort; prefer upgrade to latest production |
 
-Security fixes are applied on the default branch (`main`) and released as patch tags when warranted. The current release is **v1.12.0**. Image `1.12.0` / `1.12` / `latest`. Pin `1.11.0` / `1.11` stays the previous image. Pins **v1.10.0**, **v1.9.0**, **v1.8.1**, and **v1.7.0** stay valid ([PLAN_v1.10.0.md](docs/PLAN_v1.10.0.md)).
+Security fixes are applied on the default branch (`main`) and released as patch tags when warranted. The current release is **v1.12.1**. Image `1.12.1` / `1.12` / `latest`. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Pins **v1.10.0**, **v1.9.0**, **v1.8.1**, and **v1.7.0** stay valid ([PLAN_v1.10.0.md](docs/PLAN_v1.10.0.md)).
 
 ## Reporting a vulnerability
 

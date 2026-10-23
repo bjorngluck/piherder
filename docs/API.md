@@ -142,7 +142,7 @@ Base path: **`/api/v1`**
 {
   "id": 1,
   "name": "pi-media",
-  "hostname": "pi-media.local",
+  "hostname": "pi-media.example.com",
   "features": {
     "backup": true,
     "os_patch": true,
@@ -272,6 +272,7 @@ Hosted MCP `trigger_job` uses this same list, including `container_start`, `cont
 | `PATCH` | `/api/v1/discovery/{id}/devices/{device_id}` | `edit` | `display_name` and/or `state` (`known`, `new`, `ignored`) |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/ignore` | `edit` | Hide the device |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/unignore` | `edit` | Mark known. A linked device stays linked |
+| `POST` | `/api/v1/discovery/{id}/devices/{device_id}/replace-stale-mac` | `edit` | Body `stale_device_id`. The path id is the new MAC row. Marks the stale row ignored and copies a non-empty display name, kind override, and notes. On the v1.13 train. Not in the 1.12.1 image |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/link` | `edit` | Body `server_id` |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/unlink` | `edit` | Device becomes known |
 | `DELETE` | `/api/v1/discovery/{id}/devices/{device_id}?confirm=true` | `edit` | Purge one device. `confirm=true` is required. A linked device is **400** |
@@ -282,7 +283,7 @@ Hosted MCP `trigger_job` uses this same list, including `container_start`, `cont
 { "confirm": true, "intensity": "discovery" }
 ```
 
-`confirm` must be `true`. `intensity` is `discovery` (the default), `inventory`, `detailed`, or `deep`. The body cannot set targets or vulnerability scripts. The scan uses the CIDRs saved on that integration. **400** when Discovery is off, when no ranges are saved, or when `confirm` is not true. The response names the ranges. It does not include credentials, script output, or the scan file path. Hosted MCP `read_discovery` and `start_discovery` call the scan routes. Hosted `list_discovery_devices`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices`, and `scan_discovery_device` call the device routes. A rename leaves kind and map role alone. A new or offline device becomes known when it is named. A linked device cannot be marked new and cannot be purged. Purge has no undo. A one-device scan defaults to `deep`, must sit inside the saved ranges, and keeps vulnerability scripts off. The device payload is id, ip, hostname, display name, state, linked server, and last seen. No MAC, notes, or script output. Each write stores this token and the client IP. Adapter **0.4.3** lists the device tools and sends `confirm=true` on purge. Adapter **0.4.2** sends that query and does not list `prune_docker`. Adapter **0.4.1** lists the tools and omits that query. Adapter **0.4.0** lists the scan tools and does not list the device tools. Demo does not start a scan.
+`confirm` must be `true`. `intensity` is `discovery` (the default), `inventory`, `detailed`, or `deep`. The body cannot set targets or vulnerability scripts. The scan uses the CIDRs saved on that integration. **400** when Discovery is off, when no ranges are saved, or when `confirm` is not true. The response names the ranges. It does not include credentials, script output, or the scan file path. Hosted MCP `read_discovery` and `start_discovery` call the scan routes. Hosted `list_discovery_devices`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices`, and `scan_discovery_device` call the device routes. A rename leaves kind and map role alone. A new or offline device becomes known when it is named. A linked device cannot be marked new and cannot be purged. Purge has no undo. A one-device scan defaults to `deep`, must sit inside the saved ranges, and keeps vulnerability scripts off. The device payload is id, ip, hostname, display name, state, linked server, and last seen. No MAC, notes, or script output. Each write stores this token and the client IP. Adapter **0.4.3** lists the device tools and sends `confirm=true` on purge. Adapter **0.4.2** sends that query and does not list `prune_docker`. Adapter **0.4.1** lists the tools and omits that query. Adapter **0.4.0** lists the scan tools and does not list the device tools. Demo does not start a scan. Hosted `replace_stale_mac` calls the replace-stale-mac route. The tool is listed only when the token has `read` and `edit`. That action is on the v1.13 train and is not in the 1.12.1 image.
 
 ### Stale data cleanup
 

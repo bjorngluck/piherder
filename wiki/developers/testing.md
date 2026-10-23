@@ -90,4 +90,4 @@ CI covers unit + Playwright on fixtures. Live fleet validation (real SSH, HAOS, 
 1. Unit `pytest -q` green  
 2. **E2E** `pytest e2e -q` green (CI or local; rebuild e2e image if app templates changed)  
 3. Manual smoke on a live fleet: add-server wizard, HAOS check, from-host, template deploy, backup, metrics, API token  
-4. Release notes: current production [RELEASE_v1.12.0](https://github.com/bjorngluck/piherder/blob/v1.12.0/docs/RELEASE_v1.12.0.md); [PLAN_v1.12.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.12.0.md)
+4. Release notes: current production [RELEASE_v1.12.1](https://github.com/bjorngluck/piherder/blob/v1.12.1/docs/RELEASE_v1.12.1.md); prior plan [PLAN_v1.12.0](https://github.com/bjorngluck/piherder/blob/v1.12.0/docs/PLAN_v1.12.0.md)

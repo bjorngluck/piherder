@@ -238,7 +238,7 @@ sudo install -o root -g root -m 644 /home/piherder/certs/snakeoil.pem /etc/ssl/s
    systemctl is-active haproxy
    ```
 
-3. Browser: `https://3dprint.local` (or the FQDN that matches the cert SANs).
+3. Browser: `https://3dprint.example.com` (or the FQDN that matches the cert SANs).
 
 #### Using a full-sudo user (`user`) instead
 

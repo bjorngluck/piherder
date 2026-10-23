@@ -23,7 +23,7 @@ When backups stay pending or the UI feels dead, you need a single place that ans
 | PostgreSQL | `SELECT 1` |
 | Redis | Broker ping |
 | Celery | Nodes + **pool slots** (`CELERY_CONCURRENCY`) |
-| APScheduler | Running + jobs registered. About lists each job's last fire and next fire |
+| APScheduler | Running + jobs registered. About **View schedule** lists each job's last fire and next fire |
 | Disk (fast) | Mount free on `/backups`, `/data`, `/herder_backups` |
 | Disk (lazy) | Full tree `du` + host folders as a **dense list** — **View details** only |
 

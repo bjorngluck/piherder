@@ -180,4 +180,4 @@ The herder has **no MCP env var and no MCP port**. `PIHERDER_URL` and `PIHERDER_
 - [ADMIN.md — production env](https://github.com/bjorngluck/piherder/blob/main/docs/ADMIN.md)  
 - [v1.4.0 QA](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.4.0.md) (maintainer `docs/` — not this wiki)  
 - [v1.3.0 QA](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.3.0.md) (maintainer `docs/` — not this wiki)  
-- [v1.2.0 QA / sign-off](qa-v1.2.0.md) (prior)
+- [v1.2.0 QA / sign-off](../../docs/QA_v1.2.0.md) (prior)

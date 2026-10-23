@@ -13,8 +13,8 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | Release | Screenshot bar |
 |---------|----------------|
 | **v0.6.0–v0.7.0** | Historical — PNG pack deferred / prose-first |
-| **v0.8.0 RC3** (tagged) | Full pack landed — [RELEASE_v0.8.0.md](../../../docs/RELEASE_v0.8.0.md) |
-| **v0.9.0** (tagged) | Operator recapture pack for 0.9 chrome — [RELEASE_v0.9.0.md](../../../docs/RELEASE_v0.9.0.md) |
+| **v0.8.0 RC3** (tagged) | Full pack landed, [RELEASE_v0.8.0.md](../../../docs/archive/v0/RELEASE_v0.8.0.md) |
+| **v0.9.0** (tagged) | Operator recapture pack for 0.9 chrome, [RELEASE_v0.9.0.md](../../../docs/archive/v0/RELEASE_v0.9.0.md) |
 | **v1.0.0** (tagged) | Full pack in place (operator-confirmed) — [PLAN_v1.0.0.md §8.2](../../../docs/PLAN_v1.0.0.md) · [RELEASE_v1.0.0.md](../../../docs/RELEASE_v1.0.0.md) |
 | **v1.1.0** | Freeze pack landed — [RELEASE_v1.1.0.md](../../../docs/RELEASE_v1.1.0.md) |
 | **v1.2.0** | Prior Hub — screenshot pack **landed** 2026-08-18. [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) |
@@ -618,7 +618,7 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 6. **Alerts** — policy card if chrome drifted  
 7. **1.2 pack** — only if a caption/PNG disagree  
 
-Maintainer freeze clicks (not wiki): [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/QA_v1.3.0.md) (historical). Current train: [QA_v1.7.0.md](../../../docs/QA_v1.7.0.md). Cap (not this pack): ACME · M-live · full NPM CRUD · Bak-alt · AC-fg · Undo-2 · Mux-2.
+Maintainer freeze clicks (not wiki): [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0/docs/QA_v1.3.0.md) (historical). Current train: [QA_v1.7.0.md](../../../docs/QA_v1.7.0.md). Cap (not this pack): ACME · M-live · full NPM CRUD · Bak-alt · AC-fg · Undo-2 · Mux-2.
 
 ---
 
@@ -627,7 +627,7 @@ Maintainer freeze clicks (not wiki): [QA_v1.3.0.md](https://github.com/bjorngluc
 **Best practice: local git → commit → push** (binaries + markdown).
 
 ```bash
-git checkout v1.7.0-dev && git pull
+git checkout v1.7.0 && git pull
 # optional: git checkout -b docs/screenshots-1.7
 
 python3 -m venv .venv-docs && source .venv-docs/bin/activate
