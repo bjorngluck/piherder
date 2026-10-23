@@ -199,7 +199,7 @@ Full page: [Move a service](../docker/service-migration.md). Do **not** pick **R
 | 4 | If you enable it: **Settings → Console** for idle / max / slots; Security for 2FA grant | [Web SSH console](../day-to-day/web-ssh-console.md) · [Settings](../operations/settings.md#console) |
 | 5 | Then: operator + 2FA → Console → **+ Shell** | Same wiki |
 | 6 | **Test connection** pins the host key; reset only after a rebuild | TOFU — mismatch is refused |
-| 7 | Smoke the [v1.2 QA](../../docs/QA_v1.2.0.md) identity + console rows if you turn these on | Optional surfaces. They stay off until you enable them |
+| 7 | Smoke the [v1.2 QA](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.2.0.md) identity + console rows if you turn these on | Optional surfaces. They stay off until you enable them |
 
 ---
 
@@ -320,7 +320,7 @@ Full page: [Move a service](../docker/service-migration.md). Do **not** pick **R
 | Stack Status healthy? | [Status](../operations/status.md) |
 | Herder self-backup / restore (**admin only**) | [Self-backup](../operations/self-backup.md) · [Roles](../account-security/roles.md) |
 | Upgrade compose / image | [Upgrades](../operations/upgrades.md) |
-| **v1.2 freeze QA / sign-off** | [QA checklist](../../docs/QA_v1.2.0.md) (historical Hub 1.2) |
+| **v1.2 freeze QA / sign-off** | [QA checklist](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.2.0.md) (historical Hub 1.2) |
 | More backup parallelism | [Multi-worker](../operations/multi-worker.md) |
 | Prometheus / env webhook fallback | [Metrics](../operations/metrics-webhooks.md) |
 | Webhook + SMTP alerts / forgot password | [Alerts](../operations/alerts-email-webhooks.md) |
