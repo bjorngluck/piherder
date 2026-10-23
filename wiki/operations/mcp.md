@@ -238,7 +238,7 @@ Call `summary` before changing anything. `trigger_job` for the jobs POST types l
 
 ## Known follow-up
 
-The Settings create and rotate redirect still puts the new secret in `token_secret` on the query string so the one-time banner can render. That predates hosted MCP. The page removes it from the address bar on copy. It can still show up in the access log for that redirect. The MCP URL does not carry the token. Moving that flash off the query string is a separate change.
+The Settings create and rotate redirect keeps the new secret in an HttpOnly cookie for the one-time banner. It is not a query parameter, so it does not land in the address bar, Referer, or the access log for that redirect. The MCP URL does not carry the token.
 
 ## Related
 

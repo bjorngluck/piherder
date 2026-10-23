@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlencode, urlparse
@@ -30,7 +30,16 @@ from starlette.concurrency import run_in_threadpool
 from .. import templates as templates_mod
 from ..database import engine, get_session
 from ..models import User
-from ..security.auth import ROLE_ADMIN, get_admin_user, get_current_user, user_role
+from ..security.auth import (
+    ROLE_ADMIN,
+    cookie_auth_kwargs,
+    cookie_delete_kwargs,
+    create_access_token,
+    decode_token_payload,
+    get_admin_user,
+    get_current_user,
+    user_role,
+)
 from ..services import api_tokens as tok_svc
 from ..services import app_settings as app_cfg
 from ..services import password_policy as pwpol
@@ -179,6 +188,39 @@ def _scopes_from_form(
         if _form_on(flag):
             scopes.append(scope)
     return scopes or ["read", "jobs"]
+
+
+TOKEN_SECRET_COOKIE = "api_token_once"
+TOKEN_SECRET_FLASH_MINUTES = 5
+
+
+def _set_token_secret_flash(response: RedirectResponse, user_id: int, secret: str) -> None:
+    """HttpOnly one-shot cookie. The secret never goes on the redirect URL."""
+    token = create_access_token(
+        {"sub": str(user_id), "ats": True, "secret": secret},
+        expires_delta=timedelta(minutes=TOKEN_SECRET_FLASH_MINUTES),
+    )
+    response.set_cookie(
+        TOKEN_SECRET_COOKIE,
+        token,
+        **cookie_auth_kwargs(max_age=TOKEN_SECRET_FLASH_MINUTES * 60),
+    )
+
+
+def _read_token_secret_flash(request: Request, user: User) -> Optional[str]:
+    raw = request.cookies.get(TOKEN_SECRET_COOKIE)
+    if not raw:
+        return None
+    payload = decode_token_payload(raw)
+    if not payload or not payload.get("ats"):
+        return None
+    try:
+        if int(payload.get("sub")) != int(user.id):
+            return None
+    except (TypeError, ValueError):
+        return None
+    secret = str(payload.get("secret") or "").strip()
+    return secret or None
 
 
 def _settings_url(tab: str = "general", **params) -> str:
@@ -788,6 +830,10 @@ async def settings_page(
             copy_draft_secret = ""
             clear_copy_draft = False
 
+    flashed_secret = _read_token_secret_flash(request, user)
+    show_new_token = bool(qp.get("token_created") or qp.get("token_rotated"))
+    new_api_token_secret = flashed_secret if show_new_token else None
+
     response = templates_mod.templates.TemplateResponse(
         request=request,
         name="herder_backups.html",
@@ -859,23 +905,23 @@ async def settings_page(
             "alert_categories": apol.CATEGORIES,
             "api_docs_html": api_docs_html,
             "api_meta": api_meta,
-            "new_api_token_secret": qp.get("token_secret"),
+            "new_api_token_secret": new_api_token_secret,
             "new_api_token_name": qp.get("token_name"),
             "new_api_token_mcp_snippet": (
                 tok_svc.mcp_hosted_client_snippet(
                     public_url=public_url,
-                    token_secret=qp.get("token_secret") or "",
+                    token_secret=new_api_token_secret or "",
                 )
-                if qp.get("token_secret")
+                if new_api_token_secret
                 and (qp.get("token_created") or qp.get("token_rotated"))
                 else None
             ),
             "new_api_token_mcp_local_snippet": (
                 tok_svc.mcp_stdio_client_snippet(
                     public_url=public_url,
-                    token_secret=qp.get("token_secret") or "",
+                    token_secret=new_api_token_secret or "",
                 )
-                if qp.get("token_secret")
+                if new_api_token_secret
                 and (qp.get("token_created") or qp.get("token_rotated"))
                 else None
             ),
@@ -924,10 +970,11 @@ async def settings_page(
         },
     )
     if clear_copy_draft:
-        from ..security.auth import cookie_delete_kwargs
         from ..routers.backup_copies import COPY_DRAFT_COOKIE
 
         response.delete_cookie(COPY_DRAFT_COOKIE, **cookie_delete_kwargs())
+    if flashed_secret:
+        response.delete_cookie(TOKEN_SECRET_COOKIE, **cookie_delete_kwargs())
     return response
 
 
@@ -1163,17 +1210,18 @@ async def create_api_token_form(
         token_id=int(row.id),
         name=row.name,
     )
-    return RedirectResponse(
+    resp = RedirectResponse(
         _settings_url(
             "api",
             token_created="1",
             token_name=row.name,
-            token_secret=plain,
             api_panel="tokens",
             token_status="active",
         ),
         status_code=303,
     )
+    _set_token_secret_flash(resp, int(user.id), plain)
+    return resp
 
 
 @router.post("/herder-backups/api-tokens/{token_id}/update")
@@ -1291,17 +1339,18 @@ async def rotate_api_token_form(
         session.commit()
     except Exception:
         session.rollback()
-    return RedirectResponse(
+    resp = RedirectResponse(
         _settings_url(
             "api",
             token_rotated="1",
             token_name=row.name,
-            token_secret=plain,
             api_panel="tokens",
             token_status="active",
         ),
         status_code=303,
     )
+    _set_token_secret_flash(resp, int(user.id), plain)
+    return resp
 
 
 @router.post("/herder-backups/api-tokens/{token_id}/revoke")
