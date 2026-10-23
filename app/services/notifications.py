@@ -755,6 +755,38 @@ def resolve_nmap_device_offline(session: Session, device_id: int) -> None:
     resolve_by_fingerprint(session, nmap_offline_fingerprint(device_id))
 
 
+def lan_nic_fingerprint(integration_id: int, new_device_id: int, stale_device_id: int) -> str:
+    return f"lan_nic:{int(integration_id)}:{int(new_device_id)}:{int(stale_device_id)}"
+
+
+def notify_lan_nic_change(
+    session: Session,
+    *,
+    integration_id: int,
+    new_device_id: int,
+    stale_device_id: int,
+    hostname: str = "",
+    ip: str = "",
+) -> None:
+    """Info only. The rows stay separate until an operator replaces the stale MAC."""
+    host = (hostname or ip or f"device #{new_device_id}").strip()
+    where = f" at {ip}" if ip else ""
+    upsert_notification(
+        session,
+        fingerprint=lan_nic_fingerprint(integration_id, new_device_id, stale_device_id),
+        type="lan_discovery",
+        title=f"Possible NIC change: {host}",
+        body=f"{host}{where} has a new MAC. The previous row is still there."[:400],
+        link_url=f"/integrations/{int(integration_id)}?tab=devices&device={int(new_device_id)}",
+        severity="info",
+        payload={
+            "integration_id": int(integration_id),
+            "new_device_id": int(new_device_id),
+            "stale_device_id": int(stale_device_id),
+        },
+    )
+
+
 def map_infra_fingerprint(slot: str) -> str:
     return f"map_infra:{(slot or '').strip() or 'unknown'}"
 

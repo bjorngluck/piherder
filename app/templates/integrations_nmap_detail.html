@@ -571,6 +571,9 @@
               title="{% if d.state == 'stale' %}Not seen recently — flagged offline; never auto-deleted — purge manually if unwanted{% elif d.state == 'ignored' %}Hidden from maps{% else %}{{ d.state }}{% endif %}">
           {% if d.state == 'stale' %}offline{% elif d.state == 'ignored' %}hidden{% else %}{{ d.state }}{% endif %}
         </span>
+        {% if item.nic_change %}
+        <span class="nmap-state" data-testid="nic-change-badge">possible NIC change</span>
+        {% endif %}
       </div>
     </a>
     {% endfor %}
@@ -642,6 +645,9 @@
                   title="{% if n.state == 'stale' %}Not seen recently — flagged offline; never auto-deleted{% else %}{{ n.state }}{% endif %}">
               {% if n.state == 'stale' %}offline{% else %}{{ n.state }}{% endif %}
             </span>
+            {% if n.nic_change %}
+            <span class="nmap-state" data-testid="nic-change-badge">possible NIC change</span>
+            {% endif %}
           </span>
         </div>
         <div class="nmap-host-name truncate">{% if n.display_name %}<strong class="text-text">{{ n.display_name }}</strong>{% else %}{{ n.hostname or '—' }}{% endif %}</div>

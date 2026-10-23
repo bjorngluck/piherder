@@ -106,6 +106,7 @@ _ACTION_LABELS = {
     "template.drift_check": "Template drift check",
     "template.env_migrate": "Import host .env",
     "template.apply_config": "Apply last known config",
+    "nmap_replace_stale_mac": "Replaced stale MAC",
 }
 
 

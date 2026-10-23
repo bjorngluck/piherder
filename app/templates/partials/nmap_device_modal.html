@@ -177,6 +177,27 @@
           <button type="submit" class="btn btn-secondary text-xs min-h-9" title="Back to inbox — closes modal">Mark new</button>
         </form>
         {% endif %}
+        {% if nic_stale_ids %}
+        {% for sid in nic_stale_ids %}
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/replace-stale-mac"
+              data-testid="replace-stale-mac-form">
+          <input type="hidden" name="return_tab" value="{{ rtab }}">
+          <input type="hidden" name="return_to" value="{{ rto }}">
+          <input type="hidden" name="return_view" value="{{ rview }}">
+          <input type="hidden" name="stale_device_id" value="{{ sid }}">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9" data-testid="replace-stale-mac">Replace stale MAC</button>
+        </form>
+        {% endfor %}
+        {% elif nic_new_id %}
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ nic_new_id }}/replace-stale-mac"
+              data-testid="replace-stale-mac-form">
+          <input type="hidden" name="return_tab" value="{{ rtab }}">
+          <input type="hidden" name="return_to" value="{{ rto }}">
+          <input type="hidden" name="return_view" value="{{ rview }}">
+          <input type="hidden" name="stale_device_id" value="{{ device.id }}">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9" data-testid="replace-stale-mac">Replace stale MAC</button>
+        </form>
+        {% endif %}
         {% if device.state != 'ignored' %}
         <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/ignore"
               data-testid="nmap-device-hide-form">

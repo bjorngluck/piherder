@@ -255,8 +255,16 @@ def devices_page(
             .limit(limit)
         ).all()
     )
+    from .nic_change import nic_index
+
+    nic = nic_index(session, int(integration.id))
+    devices = []
+    for row in rows:
+        item = device_public(row)
+        item["nic_change"] = int(row.id or 0) in nic
+        devices.append(item)
     return {
-        "devices": [device_public(row) for row in rows],
+        "devices": devices,
         "total": total,
         "limit": limit,
         "offset": offset,
@@ -327,6 +335,35 @@ def set_device_operator_state(
         **who,
     )
     return {"device": device_public(device)}
+
+
+def replace_stale_mac_action(
+    session: Session,
+    integration: Integration,
+    device_id: int,
+    stale_device_id: int,
+    **caller: Any,
+) -> dict[str, Any]:
+    """Ignore the stale row and copy custom fields onto the new MAC. One audit row."""
+    from .nic_change import replace_stale_mac
+
+    who = _caller(caller)
+    result = replace_stale_mac(
+        session,
+        integration_id=int(integration.id),
+        new_device_id=int(device_id),
+        stale_device_id=int(stale_device_id),
+        user_id=who["user_id"],
+        api_token_id=who["api_token_id"],
+        api_token_name=who["api_token_name"],
+        client_ip=who["client_ip"],
+    )
+    device = _device(session, integration, int(result["new_device_id"]))
+    return {
+        "device": device_public(device),
+        "stale_device_id": int(result["stale_device_id"]),
+        "stale_state": "ignored",
+    }
 
 
 def ignore_device(session: Session, integration: Integration, device_id: int, **caller: Any) -> dict[str, Any]:

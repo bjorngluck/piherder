@@ -96,6 +96,7 @@ _SERVER_INSTRUCTIONS = (
     "list_discovery_devices pages devices. state filters new, known, linked, ignored, or stale. "
     "rename_discovery_device sets the operator name. "
     "set_discovery_device_state sets known, new, or ignored. "
+    "replace_stale_mac ignores a quiet row with the same hostname and IP and copies its custom fields. "
     "link_discovery_device and unlink_discovery_device tie a device to a fleet server. "
     "purge_discovery_device and purge_stale_discovery_devices need confirm true. "
     "A linked device cannot be purged. There is no undo. "
@@ -449,6 +450,24 @@ def tool_catalog() -> list[dict[str, Any]]:
                     "state": _str_prop("known, new, or ignored"),
                 },
                 ["integration_id", "device_id", "state"],
+            ),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "replace_stale_mac",
+            "description": (
+                "Ignore a stale LAN Discovery row that shares this device's hostname and IP. "
+                "Copies display name, kind override, and notes onto this MAC. "
+                "One audit row. Identity stays the MAC."
+            ),
+            "scope": tok_svc.SCOPE_EDIT,
+            "inputSchema": _obj_schema(
+                {
+                    "integration_id": _int_prop("LAN Discovery integration id"),
+                    "device_id": _int_prop("New MAC device id"),
+                    "stale_device_id": _int_prop("Stale row to ignore"),
+                },
+                ["integration_id", "device_id", "stale_device_id"],
             ),
             "annotations": _WRITE_ANN,
         },
@@ -1140,6 +1159,16 @@ async def call_tool(
                 _require_int(args, "integration_id"),
                 _require_int(args, "device_id"),
                 api_v1.DiscoveryDevicePatch(display_name=_opt_str(args, "display_name")),
+                session,
+                auth,
+            )
+        elif name == "replace_stale_mac":
+            payload = api_v1.replace_discovery_stale_mac(
+                _require_int(args, "integration_id"),
+                _require_int(args, "device_id"),
+                api_v1.ReplaceStaleMacBody(
+                    stale_device_id=_require_int(args, "stale_device_id")
+                ),
                 session,
                 auth,
             )

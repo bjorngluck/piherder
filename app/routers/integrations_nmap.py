@@ -207,6 +207,11 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             apply_stale=False,
         )
         device_rows = [nmap_cfg.device_list_item(d) for d in devices]
+        from ..services.nmap.nic_change import nic_index
+
+        nic = nic_index(session, int(integration.id))
+        for item in device_rows:
+            item["nic_change"] = int(item["row"].id or 0) in nic
     runs = nmap_cfg.list_runs(session, integration.id) if tab in ("runs", "overview") else []
     schedules = (
         nmap_cfg.list_schedules(session, integration.id)
@@ -280,6 +285,22 @@ async def render_nmap_detail(request, session, user, integration: Integration):
         device_last_seen = nmap_cfg.format_last_seen(
             getattr(device, "last_seen_at", None)
         )
+    from ..services.nmap.nic_change import nic_index as _nic_index
+
+    nic_all = _nic_index(session, int(integration.id))
+    nic_info = (
+        nic_all.get(int(device.id))
+        if device is not None and device.id is not None
+        else None
+    )
+    nic_stale_ids = (
+        list(nic_info.get("stale_device_ids") or [])
+        if nic_info and nic_info.get("role") == "new"
+        else []
+    )
+    nic_new_id = (
+        nic_info.get("new_device_id") if nic_info and nic_info.get("role") == "stale" else None
+    )
     kind_choices = list(KIND_CHOICES)
     return_to = _device_return_to(request.query_params.get("return"))
     # Annotate ports with finding/error counts for row highlight + anchors
@@ -346,6 +367,8 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             "network": network,
             "servers": servers,
             "device": device,
+            "nic_stale_ids": nic_stale_ids,
+            "nic_new_id": nic_new_id,
             "device_ports": device_ports,
             "device_scripts": device_scripts,
             "device_scripts_classified": device_scripts_classified,
@@ -695,6 +718,44 @@ async def nmap_device_ignore(
         return_view=return_view,
         close=True,
         msg="device_ignored",
+    )
+
+
+@router.post("/integrations/{integration_id}/nmap/device/{device_id}/replace-stale-mac")
+async def nmap_replace_stale_mac(
+    integration_id: int,
+    device_id: int,
+    stale_device_id: int = Form(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    return_tab: str = Form(""),
+    return_to: str = Form(""),
+    return_view: str = Form(""),
+):
+    """Ignore the stale MAC row and copy its custom name, kind, and notes."""
+    integration = _require_nmap(session, integration_id)
+    from ..services.nmap.nic_change import replace_stale_mac
+
+    try:
+        replace_stale_mac(
+            session,
+            integration_id=int(integration.id),
+            new_device_id=int(device_id),
+            stale_device_id=int(stale_device_id),
+            user_id=user.id,
+        )
+    except ValueError as exc:
+        if str(exc) == "missing":
+            raise HTTPException(404, "Device not found") from exc
+        raise HTTPException(400, "That row is not a stale MAC for this device") from exc
+    return _device_redirect(
+        integration_id,
+        device_id,
+        return_tab=return_tab,
+        return_to=return_to,
+        return_view=return_view,
+        close=True,
+        msg="nic_replaced",
     )
 
 

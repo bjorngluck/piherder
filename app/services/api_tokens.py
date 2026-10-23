@@ -868,6 +868,12 @@ def api_meta_dict() -> dict:
             },
             {
                 "method": "POST",
+                "path": "/api/v1/discovery/{id}/devices/{device_id}/replace-stale-mac",
+                "scope": "edit",
+                "summary": "Ignore a stale MAC row and copy its custom fields onto this device",
+            },
+            {
+                "method": "POST",
                 "path": "/api/v1/discovery/{id}/devices/{device_id}/ignore",
                 "scope": "edit",
                 "summary": "Hide a LAN Discovery device",

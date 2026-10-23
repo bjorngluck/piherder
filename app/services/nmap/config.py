@@ -421,8 +421,11 @@ def network_view_payload(
     """Build subnet-grouped nodes for network view (WebMap-style host cards)."""
     import ipaddress
 
+    from .nic_change import nic_index
+
     cfg = parse_nmap_config(integration)
     devices = list_devices(session, integration.id, limit=1000)
+    nic = nic_index(session, int(integration.id))
     groups: dict[str, list[dict[str, Any]]] = {}
     by_state: dict[str, int] = {}
     total_open = 0
@@ -479,6 +482,7 @@ def network_view_payload(
             "kind_overridden": bool(profile.get("overridden")),
             "map_role": (getattr(d, "map_role", None) or "").strip() or "",
             "profile": profile,
+            "nic_change": int(d.id or 0) in nic,
         }
         groups.setdefault(net, []).append(node)
     for g in groups.values():

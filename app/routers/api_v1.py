@@ -1327,6 +1327,14 @@ class DiscoveryDevicePatch(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class ReplaceStaleMacBody(BaseModel):
+    """Ignore one stale MAC row and copy its custom fields onto this device."""
+
+    stale_device_id: int
+
+    model_config = {"extra": "forbid"}
+
+
 class DiscoveryLinkBody(BaseModel):
     """Link a discovery device to a fleet server."""
 
@@ -1358,6 +1366,7 @@ def _device_error(exc: ValueError) -> HTTPException:
         "disabled": (400, "LAN Discovery is off"),
         "no_ranges": (400, "No scan ranges are saved"),
         "outside_ranges": (400, "This device is outside the saved ranges"),
+        "not_a_nic_change": (400, "That row is not a stale MAC for this device"),
     }
     if code == "bad_intensity":
         from ..services.nmap.argv import INTENSITIES
@@ -1447,6 +1456,38 @@ def patch_discovery_device(
     except ValueError as exc:
         raise _device_error(exc) from exc
     return payload
+
+
+@router.post(
+    "/discovery/{integration_id}/devices/{device_id}/replace-stale-mac",
+    summary="Replace a stale MAC with this device",
+    description=(
+        "Scope edit. Marks the stale row ignored and copies its display name, "
+        "kind override, and notes onto this MAC. One audit row. "
+        "Does not merge the rows by itself."
+    ),
+)
+def replace_discovery_stale_mac(
+    integration_id: int,
+    device_id: int,
+    body: ReplaceStaleMacBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services.nmap.public_api import replace_stale_mac_action
+
+    auth.require(tok_svc.SCOPE_EDIT)
+    row = _discovery_or_404(session, integration_id)
+    try:
+        return replace_stale_mac_action(
+            session,
+            row,
+            device_id,
+            int(body.stale_device_id),
+            **_device_caller(auth),
+        )
+    except ValueError as exc:
+        raise _device_error(exc) from exc
 
 
 @router.post(
