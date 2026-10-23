@@ -6,7 +6,8 @@ Maintainer plans and release notes. Operator wiki is `wiki/` (MkDocs).
 
 | Kind | Where |
 |------|--------|
-| Current release | [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md) · [QA_v1.10.0.md](QA_v1.10.0.md). Package **1.10.0**. Code freeze 2026-10-05. Tag not cut. Hub `latest` stays **1.9.0** until publish. Adapter **0.3.1**. Plugin **0.5.0** |
+| Current release | [RELEASE_v1.10.1.md](RELEASE_v1.10.1.md). Tag **v1.10.1**. Package **1.10.1**. Image `1.10.1` / `1.10`. `latest` stays on **1.12.1**. Pin `1.10.0` stays that patch. Adapter **0.3.1**. Plugin **0.5.0**. Released 2026-10-23 |
+| Prior release | [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md) · [QA_v1.10.0.md](QA_v1.10.0.md). Tag **v1.10.0**. Pin `1.10.0` |
 | Prior release | [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [PLAN_v1.9.0.md](PLAN_v1.9.0.md) · [QA_v1.9.0.md](QA_v1.9.0.md). Tag **v1.9.0**. Image `1.9.0` / `1.9` / `latest` until the 1.10.0 publish |
 | Prior release | [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md) · [PLAN_v1.8.0.md](PLAN_v1.8.0.md) · [QA_v1.8.0.md](QA_v1.8.0.md) |
 | Prior production | [RELEASE_v1.7.0.md](RELEASE_v1.7.0.md) · [PLAN_v1.7.0.md](PLAN_v1.7.0.md) · [QA_v1.7.0.md](QA_v1.7.0.md) |
