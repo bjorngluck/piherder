@@ -14,7 +14,7 @@ Open notifications via the **bell** icon (no separate Alerts nav link).
 
 ## Why they exist
 
-Long SSH work must not block the browser (jobs). Homelab and multi-operator setups need accountability (audit). Noise should not bury failures (notifications + optional Web Push). Together they replace “did that cron fire?” shell archaeology. **About** keeps a short count. **View schedule** groups jobs by type and lists each host with its status, the latest matching job, and the next time it will run. A restart does not clear that time. A missed slot is not a run.
+Long SSH work must not block the browser (jobs). Homelab and multi-operator setups need accountability (audit). Noise should not bury failures (notifications + optional Web Push). Together they replace “did that cron fire?” shell archaeology. **About** keeps a short count. **View schedule** groups jobs by type and lists each host with its status, the latest matching job, and the next time it will run. A saved per-host `docker_prune` is one of those types. A restart does not clear that time. A missed slot is not a run.
 
 ---
 
@@ -68,6 +68,8 @@ Statuses: `pending` → `running` → `success` / `failed`.
 </figure>
 
 A host-facts row still pending or running after its task is gone is failed on the fleet tick (30 minutes for host facts, 2 hours for the other exclusive types and for backups). The host leaves **refreshing**, and a failed refresh keeps the previous OS and kernel.
+
+A `running` job whose Celery worker is gone is failed with `Interrupted. The Celery worker is no longer alive.` The check runs when a worker starts and on the host-facts fleet tick. If workers answer but the task id is missing, the job waits 60 seconds. If the worker check itself fails, running jobs are left alone. If no worker answers, the job fails immediately. Web startup does not run this check. `docker_build_cache_prune` is an audit action for the build-cache prune, not a job type. This reconcile is on the v1.13 train and is not in the 1.12.1 image.
 
 **Web restart:** retention, the herder’s own backup, host facts, OS/container patch, host reboot, update checks, stack jobs, template jobs, backups, nmap, and Move are Celery — a web recycle does **not** fail them. Recycle **celery-worker** while one of those is **running** **fails** that job (it is not resumed mid-flight). If SSH is down at the start of a patch or stack job, the row stays **pending** and is probed again until the host answers or the wait limit (Settings → General → Jobs, default 30 minutes). A Kuma “host down” alert or a `last_seen` older than 15 minutes can show **waiting on host** on that pending job. Those are labels. The job resumes only when SSH works, and they do not fail it. See [Multi-worker](../operations/multi-worker.md).
 

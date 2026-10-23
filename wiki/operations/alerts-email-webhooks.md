@@ -56,6 +56,7 @@ Herder does **not** ping or SSH-probe hosts for health. Bind an **Uptime Kuma SS
 - **Offline:** nmap last-seen older than the stale window (~14 days). Resolve when the device is seen again.
 - **Mute LAN discovery** in Alert policy before the first large scan if you do not want the inbox filled.
 - Port add/remove is **not** an alert.
+- **Possible NIC change:** a new MAC for a hostname that already has a non-ignored row at that IP, stale for longer than one scan interval, opens one `lan_discovery` row at `info`. **Replace stale MAC** is the Discovery action, not an alert button. This row is on the v1.13 train and is not in the 1.12.1 image.
 
 ### Admin changes
 

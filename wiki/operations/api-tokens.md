@@ -20,8 +20,9 @@ Authorization: Bearer ph_<secret>
 ```
 
 - Secret shown **once** at create or rotate; only a hash is stored.
+- That one-shot secret is an HttpOnly cookie named `api_token_once` (5 minutes, JWT claim `ats`). The Settings redirect never puts `token_secret` on the query string, so the secret is not in browser history or access logs. A later load does not show it again.
 - Creating a token opens an admin alert. It names the admin and the client IP. It does not include the secret or the token prefix. The Settings form, `POST /api/v1/tokens`, and a browser MCP sign-in all open it. Refreshing an MCP token does not.  
-- **Rotate** issues a new secret immediately.  
+- **Rotate** issues a new secret immediately. The new secret uses the same cookie and stays off the redirect URL.  
 - **Revoke** soft-disables; row kept for audit.
 - Optional **expires** (never / 30d / 90d / custom). Expired tokens fail lookup the same as revoked.
 

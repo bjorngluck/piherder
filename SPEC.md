@@ -474,6 +474,16 @@ Configurable per-server fields that map 1:1: `backup_paths`, `docker_base_dir`, 
 
 ---
 
+## Current train (`v1.13.0-dev`)
+
+Package stays **1.12.1**. About and the footer stay **1.12.1**. Image tags stay `1.12.1` / `1.12` / `latest`. This file's status line above is that package. The train is not tagged.
+
+Must and Should are on `v1.13.0-dev`: restore ownership (`.piherder-ownership.json`, numeric `uid`, `gid`, and octal `mode`, `setuid` and `setgid` stripped), a possible NIC change with **Replace stale MAC** ([#50](https://github.com/bjorngluck/piherder/issues/50)), the one-shot token cookie `api_token_once`, backup minutes across all 1,440 slots, Docker build-cache prune, per-host `docker_prune_schedule`, dangling image prune after a successful update, a 30 minute inventory refresh reset, inventory `update_available`, the stuck-queue alert and gauges, `GET /api/v1/alerts` and hosted `list_alerts`, an OAuth `client_name` suffix, orphaned running jobs, and `get_engine()`. Published adapter stays **0.4.3**. Hosted `/mcp` lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter.
+
+Operator walks are written and not signed. Screenshot names are reserved. Plan: [docs/PLAN_v1.13.0.md](docs/PLAN_v1.13.0.md). Walks: [docs/QA_v1.13.0.md](docs/QA_v1.13.0.md).
+
+---
+
 ## License
 
 **MIT** — see [LICENSE](LICENSE).

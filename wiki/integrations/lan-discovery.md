@@ -94,6 +94,12 @@ Journey: [Operator scenarios — Journey H](../getting-started/operator-scenario
 
 New devices and **offline** (stale last-seen) can open Alerts inbox rows. Webhooks get a **digest per scan** for new devices, not one POST each. Mute **LAN discovery** under Settings → Alerts → Alert policy before the first large CIDR scan. Port churn is not an alert. See [Alerts](../operations/alerts-email-webhooks.md).
 
+### Possible NIC change
+
+A scan that inserts a new MAC, when another non-ignored row has the same hostname and the same IP and has been stale for longer than one scan interval, shows a **possible NIC change** badge. The same event opens a `lan_discovery` notification at `info`. Device identity stays the MAC. Rows are not merged and are not auto-ignored.
+
+**Replace stale MAC** marks that stale row `ignored` and copies a non-empty display name, kind override, and notes onto the new MAC row. It writes one audit row, `nmap_replace_stale_mac`. The same step is `POST /api/v1/discovery/{id}/devices/{device_id}/replace-stale-mac` (`edit`, body `stale_device_id`) and hosted MCP `replace_stale_mac`. A row that is not that pair is refused. `GET /api/v1/discovery/{id}/devices` sets `nic_change` on the new row. This is on the v1.13 train and is not in the 1.12.1 image. The frame is reserved as `discovery-nic-change.png` and is not captured yet.
+
 There are **two** maps:
 
 | Map | URL | What it shows |

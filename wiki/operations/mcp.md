@@ -78,6 +78,8 @@ Reload the window. Cursor opens the browser. Sign in as an admin and approve the
 
 The access token starts with `ph_oa_`. It works on `POST /mcp` only. Revoke it under Settings → API management. This walk was signed 2026-10-04 in Cursor.
 
+The stored token name is the OAuth `client_name`, slugged, plus a 6 character hex suffix (`secrets.token_hex(3)` in `mcp_oauth.py`). The suffix is not the access token and not the `ph_oa_` prefix. Two agents that send the same client name get different token names. The name is capped at 120 characters. The secret shown after a Settings create or rotate is the HttpOnly cookie `api_token_once` and is never a query parameter. See [API tokens](api-tokens.md).
+
 **Claude Code** — project `.mcp.json` or the user `mcpServers` entry, same JSON. Claude Desktop’s remote connector can use the browser sign-in above instead of a pasted Bearer header. Leave the URL as `https://your-herder/mcp` and do not set a header.
 
 **Codex** — `~/.codex/config.toml`. The env var is the **raw** `ph_…` secret. Codex adds `Bearer` itself.
@@ -96,13 +98,13 @@ Call the herder through the published HTTPS port (Caddy **8443**, or **8888** fo
 
 ## What a token can do
 
-Tool names match adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/blob/v0.4.3/docs/RELEASE_v0.4.3.md)**, including `prune_docker`, `start_move`, `read_discovery`, and `start_discovery`. Adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)** does not list those three. Hosted `trigger_job` accepts the four one-service types below. Adapter **0.3.1** and **0.4.0** both send those four. `uvx` at **0.2.0** still refuses them. Tools appear only for scopes on the token. A token **without `read` fails closed**: initialize returns an error and no tools are listed.
+Published tool names match adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/blob/v0.4.3/docs/RELEASE_v0.4.3.md)**, including `prune_docker`, `start_move`, `read_discovery`, and `start_discovery`. Adapter **[0.3.1](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.3.1)** does not list those three. Hosted `/mcp` on this branch also lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. Adapter **0.4.3** does not. Hosted `trigger_job` accepts the four one-service types below. Adapter **0.3.1** and **0.4.0** both send those four. `uvx` at **0.2.0** still refuses them. Tools appear only for scopes on the token. A token **without `read` fails closed**: initialize returns an error and no tools are listed.
 
 | Scope | Tools |
 |-------|--------|
 | `read` | `health`, `summary`, `list_servers`, `get_server`, `inventory`, `services`, `list_jobs`, `get_job`, `list_alerts`, `read_discovery`, `list_discovery_devices` |
 | `jobs` | `trigger_job`, `start_move`, `start_discovery`, `scan_discovery_device` |
-| `edit` | `set_features`, `prune_docker`, `prune_build_cache`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices` |
+| `edit` | `set_features`, `prune_docker`, `prune_build_cache`, `replace_stale_mac`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices` |
 | `files` | `list_files`, `read_file`, `write_file`, `mkdir`, `rename_file`, `delete_file` |
 
 ### Tools
@@ -132,7 +134,8 @@ Tool names match adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/bl
 | `purge_stale_discovery_devices` | `edit` | Delete offline devices. `confirm` must be true. Linked devices stay. |
 | `set_features` | `edit` | Toggle `backup`, `os_patch`, or `docker`. Omit a field to leave it unchanged. |
 | `prune_docker` | `edit` | Start a Docker prune job. `prune_type` is `images`, `containers`, `both`, or `networks`. Volume prune stays on the Docker page. |
-| `prune_build_cache` | `edit` | Prune the Docker build cache and the buildx cache. One audit row. Not a `docker_prune` job and not scheduled. Adapter 0.4.3 does not list this tool. It is on the v1.13 train and is not in the 1.12.1 image. |
+| `prune_build_cache` | `edit` | Prune the Docker build cache and the buildx cache (`docker builder prune -f`, then `docker buildx prune -f`). One audit row, `docker_build_cache_prune`. Not a `docker_prune` job and not scheduled. Adapter 0.4.3 does not list this tool. It is on the v1.13 train and is not in the 1.12.1 image. |
+| `replace_stale_mac` | `read` and `edit` | Mark a stale Discovery row ignored and copy a non-empty display name, kind override, and notes onto the new MAC. One audit row, `nmap_replace_stale_mac`. Adapter 0.4.3 does not list this tool. It is on the v1.13 train and is not in the 1.12.1 image. |
 | `list_files` | `files` | List a fleet-jail directory. `p` is jail-relative. `""` is the jail root. |
 | `read_file` | `files` | Download one fleet-jail file. Capped around 256 KiB. The result says when it was cut. |
 | `write_file` | `files` | Upload text. `p` is the directory, `name` is the basename. Cap 256 KiB. |

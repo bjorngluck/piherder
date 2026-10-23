@@ -28,13 +28,39 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.10.0** | **Captured** 2026-10-05. OneDrive row, self-backup copy checkbox, Reports cards, template fleet, Allow this agent. Package **1.10.0**. [§ v1.10](#v110--pack-status). [QA](../../../docs/QA_v1.10.0.md) |
 | **v1.11.0** | **Captured** 2026-10-18 and wired. Passkey as 2FA, straight-out backups, a finished Backup, and Repository. Names in the frames are masked. Package **1.11.0**. [§ v1.11](#v111--pack-status). [QA](../../../docs/QA_v1.11.0.md) |
 | **v1.12.0** | **Captured** 2026-10-22 and wired. Names, paths, and addresses in the frames are masked. About and the footer still say **1.11.0**. [§ v1.12](#v112--pack-status). [QA](../../../docs/QA_v1.12.0.md) |
+| **v1.13.0** | Reserved on v1.13.0-dev. About and the footer still say 1.12.1. [§ v1.13](#v113--pack-status). [QA](../../../docs/QA_v1.13.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    **v1.12** frames are in [§ v1.12](#v112--pack-status). Captured 2026-10-22 and wired. About / footer still say **1.11.0**.  
-    Do not photograph the public demo. Mask tokens, the SMB password, the Google client secret, and the Microsoft client secret.  
-    **v1.11 captures** stay. Do not retake them for this release.
+    **v1.13** frames are reserved in [§ v1.13](#v113--pack-status). About / footer still say **1.12.1**.  
+    Do not photograph the public demo. Mask names, paths, addresses, tokens, the SMB password, the Google client secret, and the Microsoft client secret.  
+    **v1.12 captures** stay. Do not retake them for this release.
+
+---
+
+## v1.13.0 pack status {#v113--pack-status}
+
+**Reserved** on `v1.13.0-dev`. Not captured. About and the footer say **1.12.1**. Mask names, paths, addresses, and secrets. Do not photograph the public demo. Maintainer walks are [QA_v1.13.0.md](../../../docs/QA_v1.13.0.md).
+
+| File | Surface | What the frame shows | Where |
+|------|---------|----------------------|--------|
+| `discovery-nic-change.png` | LAN Discovery devices | **possible NIC change** badge and the **Replace stale MAC** button. Host names and addresses are masked | [LAN Discovery](../../integrations/lan-discovery.md) |
+| `docker-build-cache-prune.png` | Host Docker page | Build cache and buildx cache prune, and the per-host scheduled prune. Volume confirm stays visible and not ticked. Image names are masked | [Docker](../../docker/overview.md) |
+| `alerts-stuck-queue.png` | Alerts | The stuck-queue warning. No token and no job log secret | [Alerts](../../operations/alerts-email-webhooks.md) |
+| `about-scheduler-prune.png` | About | **View schedule** open on the Docker prune type. Host names are masked | [Status](../../operations/status.md) |
+
+### Do not shoot for 1.13
+
+| Slice | Why |
+|-------|-----|
+| v1.12 pack | `host-os-unsupported.png`, `docker-prune.png`, `about-scheduler.png`, `restore-from-copy.png`, `npm-proxy-host.png`, `settings-api-admin.png`, and `alerts-backup-credential.png` stay |
+| Restore ownership | Walk only. The sidecar is not a new screen. `restore-from-copy.png` stays |
+| Token cookie | Walk only. The secret must not be photographed. `settings-api-admin.png` stays |
+| Backup stagger | Walk only. No new screen |
+| Orphaned running jobs | Walk only. The Jobs page already has a frame |
+| Read-only alerts API | Walk only. `GET /api/v1/alerts` and `list_alerts` have no new screen |
+| Public demo | Stays the production image |
 
 ---
 
