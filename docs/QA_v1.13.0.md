@@ -132,7 +132,7 @@ Ubuntu, Debian (including 64-bit Raspberry Pi OS), and Raspbian (32-bit). The ro
 - [ ] With only Backups on, the host check probes rsync and does not probe Docker packages or offer Docker CE
 - [ ] With only Docker on, and the host is not HAOS, the check reports `docker-ce`, `docker compose version`, docker group membership, conflicting distro packages, and `docker ps -q`
 - [ ] `/etc/os-release` maps `ubuntu`, `debian`, and `raspbian` to `https://download.docker.com/linux/<id>`. Another OS is not offered bootstrap
-- [ ] The copied script checks `dists/<codename>/Release` before it changes apt, runs `apt-get remove` and not `purge`, checks fingerprint `9DC858229FC7DD38854AE2D88D81803C0EBFCD88`, and does not call `get.docker.com`
+- [ ] The copied script installs `ca-certificates`, `curl`, and `gnupg` before `dists/<codename>/Release`. It then removes only conflicting packages that `dpkg-query` shows as installed (`apt-get remove`, not `purge`), checks fingerprint `9DC858229FC7DD38854AE2D88D81803C0EBFCD88` under an ephemeral `GNUPGHOME`, and does not call `get.docker.com`. sudo is `sudo -H`
 - [ ] A form field that asks for Docker CE is ignored when the Docker feature is off
 - [ ] Docker bootstrap stays refused until **confirm** is ticked. The confirm text says the docker group is root-equivalent, and names package replacement when conflicts or running containers were seen
 - [ ] An optional one-time sudo password is not stored and is not in the `host_bootstrap` audit row

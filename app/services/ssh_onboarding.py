@@ -1212,6 +1212,11 @@ def build_feature_bootstrap_script(
         )
         lines.append("")
     if install_docker_ce:
+        # curl is not guaranteed on a minimal image. Install it before the suite probe.
+        lines.append(
+            "DEBIAN_FRONTEND=noninteractive apt-get update && "
+            "DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg"
+        )
         lines.extend(
             [
                 'if ! curl -fsSLI "https://download.docker.com/linux/${OS_ID}/dists/${CODENAME}/Release" >/dev/null; then',
@@ -1221,20 +1226,41 @@ def build_feature_bootstrap_script(
             ]
         )
         if remove_docker_conflicts:
-            lines.append(
-                "DEBIAN_FRONTEND=noninteractive apt-get remove -y "
-                "docker.io docker-compose docker-compose-v2 docker-doc "
-                "podman-docker containerd runc"
+            # docker-compose-v2 is Ubuntu-only. apt-get remove of a name that is
+            # not installed exits 100, so only remove packages dpkg already has.
+            lines.extend(
+                [
+                    "_conflict_pkgs=",
+                    "for _pkg in docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc; do",
+                    "  _st=$(dpkg-query -W -f='${db:Status-Abbrev}' \"$_pkg\" 2>/dev/null || true)",
+                    '  case "$_st" in',
+                    '    ii*) _conflict_pkgs="${_conflict_pkgs:+${_conflict_pkgs} }$_pkg" ;;',
+                    "  esac",
+                    "done",
+                    'if [ -n "${_conflict_pkgs:-}" ]; then',
+                    "  DEBIAN_FRONTEND=noninteractive apt-get remove -y $_conflict_pkgs",
+                    "fi",
+                ]
             )
         lines.extend(
             [
-                "DEBIAN_FRONTEND=noninteractive apt-get update && "
-                "DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg",
                 "install -m 0755 -d /etc/apt/keyrings",
                 'curl -fsSL "https://download.docker.com/linux/${OS_ID}/gpg" -o /etc/apt/keyrings/docker.asc.tmp',
                 "chmod a+r /etc/apt/keyrings/docker.asc.tmp",
-                "FPR=$(gpg --show-keys --with-colons /etc/apt/keyrings/docker.asc.tmp | awk -F: '$1==\"fpr\" {print $10; exit}')",
+                "GNUPGHOME=$(mktemp -d)",
+                "export GNUPGHOME",
+                "FPR=$(gpg --batch --show-keys --with-colons /etc/apt/keyrings/docker.asc.tmp | awk -F: '$1==\"fpr\" {print $10; exit}') || {",
+                '  rm -rf "$GNUPGHOME"',
+                "  unset GNUPGHOME",
+                '  echo "Docker GPG fingerprint mismatch" >&2',
+                "  rm -f /etc/apt/keyrings/docker.asc.tmp",
+                "  exit 1",
+                "}",
+                'rm -rf "$GNUPGHOME"',
+                "unset GNUPGHOME",
                 f'if [ "$FPR" != "{_DOCKER_FPR}" ]; then',
+                '  rm -rf "${GNUPGHOME:-}"',
+                "  unset GNUPGHOME",
                 '  echo "Docker GPG fingerprint mismatch" >&2',
                 "  rm -f /etc/apt/keyrings/docker.asc.tmp",
                 "  exit 1",
@@ -1337,9 +1363,9 @@ def _exec_elevated(client, script: str, sudo_password: Optional[str], timeout: i
         cmd = "bash -s"
         secret = None
     elif secret:
-        cmd = "sudo -S -p '' bash -s"
+        cmd = "sudo -H -S -p '' bash -s"
     else:
-        cmd = "sudo -n bash -s"
+        cmd = "sudo -H -n bash -s"
         secret = None
     stdin, stdout, stderr = client.exec_command(cmd, timeout=timeout)
     if secret:

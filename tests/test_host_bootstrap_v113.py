@@ -145,11 +145,21 @@ def test_script_preflight_gpg_remove_and_group():
         install_docker_ce=True,
     )
     assert 'curl -fsSLI "https://download.docker.com/linux/${OS_ID}/dists/${CODENAME}/Release"' in script
-    assert "apt-get remove -y docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc" in script
+    prep = script.index("apt-get install -y ca-certificates curl gnupg")
+    suite = script.index('curl -fsSLI "https://download.docker.com/linux/${OS_ID}/dists/${CODENAME}/Release"')
+    guarded = script.index("dpkg-query -W -f='${db:Status-Abbrev}'")
+    assert prep < suite < guarded
+    assert "for _pkg in docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc; do" in script
+    assert 'ii*) _conflict_pkgs=' in script
+    assert "apt-get remove -y $_conflict_pkgs" in script
+    assert "apt-get remove -y docker.io docker-compose docker-compose-v2" not in script
     assert "purge" not in script
     assert "/var/lib/docker" not in script
     assert "9DC858229FC7DD38854AE2D88D81803C0EBFCD88" in script
-    assert "gpg --show-keys --with-colons" in script
+    assert "gpg --batch --show-keys --with-colons" in script
+    assert "GNUPGHOME=$(mktemp -d)" in script
+    assert 'rm -rf "$GNUPGHOME"' in script
+    assert suite < script.index("GNUPGHOME=$(mktemp -d)")
     assert "docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" in script
     assert 'usermod -aG docker "$TARGET_USER"' in script
     assert "get.docker.com" not in script
@@ -315,6 +325,25 @@ def test_backup_only_refuses_docker_even_if_status_asks_for_it(monkeypatch):
     assert seen["opens"] == 1
 
 
+def test_elevated_sudo_uses_dash_h(monkeypatch):
+    def _run(_client, cmd, timeout=15):
+        del cmd, timeout
+        return 0, "1000\n", ""
+
+    monkeypatch.setattr(onboard.ssh_service, "run_command", _run)
+    plain = _Client()
+    rc, _out, _err = onboard._exec_elevated(plain, "echo hi\n", None)
+    assert rc == 0
+    assert plain.commands == ["sudo -H -n bash -s"]
+    with_password = _Client()
+    rc, out, err = onboard._exec_elevated(with_password, "echo hi\n", "one-time-secret")
+    assert rc == 0
+    assert with_password.commands == ["sudo -H -S -p '' bash -s"]
+    assert with_password.stdin.buf.startswith("one-time-secret\n")
+    assert "one-time-secret" not in out
+    assert "one-time-secret" not in err
+
+
 def test_docker_confirm_and_fresh_ssh(monkeypatch):
     clients = []
 
@@ -371,7 +400,7 @@ def test_docker_confirm_and_fresh_ssh(monkeypatch):
     assert clients[0].closed is True
     assert clients[1].closed is True
     elevated = [cmd for cmd in clients[0].commands if "bash -s" in cmd]
-    assert elevated == ["sudo -S -p '' bash -s"]
+    assert elevated == ["sudo -H -S -p '' bash -s"]
     stdin = clients[0].stdin.buf
     assert stdin.startswith("one-time-secret\n")
     assert "one-time-secret" not in stdin.split("\n", 1)[1]
