@@ -252,6 +252,7 @@ def server_cron_job_ids(server_id: int) -> list[str]:
         f"container_check_{sid}",
         f"os_apply_{sid}",
         f"container_apply_{sid}",
+        f"docker_prune_{sid}",
     ]
 
 
@@ -404,6 +405,66 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
             )
         except Exception as e:
             logger.warning(f"[SCHEDULER] Container apply schedule failed for {sid}: {e}")
+
+    # Docker prune. Volumes stay off. Build cache is a separate action.
+    prid = f"docker_prune_{sid}"
+    _remove_job(scheduler, prid)
+    prune_cron = (getattr(server, "docker_prune_schedule", None) or "").strip()
+    if server.container_patch_enabled and prune_cron:
+        try:
+            trigger = _cron_trigger(prune_cron, timezone=tz)
+            scheduler.add_job(
+                func=schedule_docker_prune_job,
+                trigger=trigger,
+                args=[sid],
+                id=prid,
+                replace_existing=True,
+                name=f"Docker prune {server.name}",
+            )
+            logger.info(
+                f"[SCHEDULER] Docker prune scheduled for server {sid}: {prune_cron} ({tz})"
+            )
+        except Exception as e:
+            logger.warning(f"[SCHEDULER] Docker prune schedule failed for {sid}: {e}")
+
+
+def schedule_docker_prune_job(server_id: int):
+    """Enqueue the same prune the API starts by hand. Volumes stay off."""
+    try:
+        from ..database import get_engine
+        from ..models import Server
+        from .jobs import JobAlreadyActive, create_job_and_run
+
+        with Session(get_engine()) as db:
+            server = db.get(Server, server_id)
+            cron = (getattr(server, "docker_prune_schedule", None) or "").strip()
+            if (
+                not server
+                or not getattr(server, "container_patch_enabled", False)
+                or not cron
+            ):
+                return
+            try:
+                job = create_job_and_run(
+                    None,
+                    db,
+                    server,
+                    "docker_prune",
+                    source_filter="both",
+                )
+            except JobAlreadyActive:
+                logger.info(
+                    "[SCHEDULER] Docker prune already active for server %s", server_id
+                )
+                return
+            if job:
+                logger.info(
+                    "[SCHEDULER] Queued docker prune job #%s for server %s",
+                    job.id,
+                    server_id,
+                )
+    except Exception as e:
+        logger.warning("[SCHEDULER] Docker prune enqueue failed for %s: %s", server_id, e)
 
 
 def sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER):

@@ -339,6 +339,16 @@
             <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save container apply</button>
           </form>
         </div>
+        <div class="border border-border rounded p-3 space-y-2">
+          <div class="font-medium text-sm">Docker prune</div>
+          <p class="text-xs text-muted mb-0">Dangling images and exited containers. Volumes and the build cache stay off. Blank turns the schedule off.</p>
+          <form method="post" action="/servers/{{ server.id }}/schedule/docker-prune" class="space-y-2">
+            <input type="text" name="docker_prune_schedule" value="{{ server.docker_prune_schedule or '' }}"
+                   placeholder="0 3 * * 0"
+                   class="w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
+            <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save Docker prune</button>
+          </form>
+        </div>
         {% endif %}
       </div>
 

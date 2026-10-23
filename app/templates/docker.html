@@ -309,11 +309,32 @@
     <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
       A prune is already running for this host.
     </div>
+  {% elif _prune == 'schedule' %}
+    <div class="mb-3 p-2 text-xs rounded banner-success border border-border">
+      Prune schedule saved. Volumes stay off. Build cache is a separate action.
+    </div>
+  {% elif _prune == 'build_cache' %}
+    <div class="mb-3 p-2 text-xs rounded banner-success border border-border">
+      Build cache prune finished. One audit row records it.
+    </div>
+  {% elif _prune == 'build_cache_fail' %}
+    <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
+      Build cache prune did not finish. The audit row has the output.
+    </div>
   {% elif _prune %}
     <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
       Prune {{ request.query_params.get('prune_type', 'unused') }} did not start.
     </div>
   {% endif %}
+  <form method="post" action="/servers/{{ server.id }}/schedule/docker-prune" class="mb-3 flex flex-wrap items-end gap-2">
+    <label class="text-xs text-muted">
+      Prune schedule
+      <input type="text" name="docker_prune_schedule" value="{{ server.docker_prune_schedule or '' }}"
+             placeholder="0 3 * * 0" class="mt-1 block bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
+    </label>
+    <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save prune schedule</button>
+    <p class="text-[10px] text-muted m-0">Blank turns it off. The run is dangling images and exited containers. Volumes and build cache stay off.</p>
+  </form>
 
   {# Compose projects with nested services (and orphans) #}
   {% include "docker_stack.html" %}

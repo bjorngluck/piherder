@@ -94,6 +94,7 @@ Nothing was voted **Out**.
 | 2026-10-19 | **Restore ownership.** Noted from the v1.12 remote restore. Record the Unix owner, group, and mode at backup time and put them back on restore, especially for named volumes. A wrong owner can stop the container from starting. Not on the v1.12 train. Not built. |
 | 2026-10-23 | **Train opened** from `main` after **v1.12.1** shipped. Tiers voted. Must: restore ownership, NIC change ([#50](https://github.com/bjorngluck/piherder/issues/50)). Should: backup stagger ceiling, build cache, prune on a schedule, prune dangling images after a successful update, stuck queue, OAuth token name suffix, `get_engine()`. Nothing was voted Discover, Later, or Out. Open issues reviewed: [#50](https://github.com/bjorngluck/piherder/issues/50) is the only open issue. piherder-ha and piherder-mcp have none. No open pull request. Package stays `1.12.1`. Nothing is built. |
 | 2026-10-23 | **Team review.** Lock tightened the same day. Restore ownership records numeric `uid`, `gid`, and octal `mode` in a sidecar and strips `setuid` and `setgid`. NIC change adds a Discovery badge, a `lan_discovery` `info` notification, and one-click **Replace stale MAC** (ignore the stale row, copy display name, kind override, and notes, one audit row). Backup stagger uses all 1,440 minutes. Docker adds build-cache prune (adapter bumps to **0.4.4**), prune on a schedule in About and the missed-run watch, `docker image prune -f` after a successful update, a 30-minute reset for a stuck inventory refresh, and per-project `update_available` on the inventory API. Alerts add the stuck-queue gauges and read-only `GET /api/v1/alerts` plus MCP `list_alerts`. Must also covers the docs and release-sync sweep, and keeping `token_secret` off the redirect query string. Should also covers orphaned `running` jobs and a `get_engine()` guard. Pushed to v1.14.0+: pre-restore host rollback snapshot, backup manifest file-count and byte verification, dry-run restore preview API, compose git checkout drift badge. Not built. |
+| 2026-10-23 | **Should built** on `v1.13.0-dev`. `get_engine()`, OAuth token suffix, backup minutes across all 1,440 slots, orphaned running jobs, a 30 minute inventory refresh reset, the stuck-queue alert and gauges, `GET /api/v1/alerts` and hosted `list_alerts`, inventory `update_available`, `docker image prune -f` after a successful container update or redeploy, a per-host `docker_prune` schedule (volumes off) in About and the missed-run watch, and build-cache prune on the Docker page, `POST /api/v1/servers/{id}/docker/build-cache`, and hosted `prune_build_cache`. Package stays `1.12.1`. Published adapter stays **0.4.3** so release sync matches `origin/main`. Hosted MCP adds `list_alerts` and `prune_build_cache` ahead of that adapter. |
 
 ---
 
@@ -102,12 +103,12 @@ Nothing was voted **Out**.
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.13.0-dev`** | **Done** 2026-10-23 |
-| 2 | Must, by area | Not started. Restore ownership, the possible NIC change notice and Replace stale MAC, the docs and release-sync sweep, and the one-time token secret off the query string |
-| 3 | Should, if it fits | Not started. Stagger ceiling, Docker prune follow-ups, stuck queue and read-only alerts, OAuth token suffix, orphaned running jobs, `get_engine()` |
+| 2 | Must, by area | **Done** on `v1.13.0-dev`. Restore ownership, the possible NIC change notice and Replace stale MAC, the docs and release-sync sweep, and the one-time token secret off the query string |
+| 3 | Should, if it fits | **Done** on `v1.13.0-dev`. Stagger ceiling, Docker prune follow-ups, stuck queue and read-only alerts, OAuth token suffix, orphaned running jobs, `get_engine()` |
 | 4 | Freeze | Not set. Package stays **1.12.1** |
 | 5 | Operator QA | Walks are empty |
 | 6 | Tag and Hub | Not cut |
 
 ---
 
-*Opened 2026-10-23. Not built.*
+*Opened 2026-10-23. Must and Should are on `v1.13.0-dev`. Package stays 1.12.1. Not tagged.*

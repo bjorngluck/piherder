@@ -64,13 +64,14 @@ def test_remove_job_and_server_cron_ids():
         "container_check_3",
         "os_apply_3",
         "container_apply_3",
+        "docker_prune_3",
     ]
 
 
 def test_unregister_server_cron_jobs():
     s = _sched()
     sched_mod.unregister_server_cron_jobs(s, True, 7)
-    assert s.remove_job.call_count == 5
+    assert s.remove_job.call_count == 6
     # early outs
     sched_mod.unregister_server_cron_jobs(None, True, 7)
     sched_mod.unregister_server_cron_jobs(s, False, 7)
@@ -103,7 +104,7 @@ def test_sync_server_cron_jobs_all_arms():
     )
     sched_mod.sync_server_cron_jobs(s2, True, off)
     assert s2.add_job.call_count == 0
-    assert s2.remove_job.call_count == 5
+    assert s2.remove_job.call_count == 6
 
     # early outs
     sched_mod.sync_server_cron_jobs(s, False, server)

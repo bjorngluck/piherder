@@ -47,6 +47,8 @@ _ACTION_LABELS = {
     "os_update_check": "OS update check",
     "container_update_check": "Container update check",
     "docker_prune": "Docker prune",
+    "docker_build_cache_prune": "Docker build cache prune",
+    "server_docker_prune_schedule": "Docker prune schedule",
     "docker_stack_check": "Stack update check",
     "docker_stack_deploy": "Stack deploy",
     "docker_check-updates": "Stack update check",

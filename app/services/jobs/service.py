@@ -1914,6 +1914,18 @@ def _flush_container_progress_to_job(job_id: int, current: str, log_line: str) -
     _flush_job_progress(job_id, current, log_line, default_current="patching")
 
 
+def _prune_dangling_images_after_update(server, job_id: int) -> None:
+    """After a successful update, drop dangling images. A prune error stays a log line."""
+    from ..docker_management import prune_dangling_images
+
+    try:
+        res = prune_dangling_images(server)
+        line = "Dangling image prune: " + str(res.get("output") or "done")[:240]
+        _flush_job_progress(job_id, "pruning", line, default_current="patching")
+    except Exception as exc:
+        logger.warning("dangling image prune after update failed: %s", exc)
+
+
 async def _run_container_job(job_id: int, server_id: int, audit_id: int):
     server, hostname = _load_server_for_job(server_id)
     with _get_fresh_session() as s:
@@ -1976,6 +1988,8 @@ async def _run_container_job(job_id: int, server_id: int, audit_id: int):
             container_patching.append_container_log(hostname, f"[containers] all done — {status}")
         except Exception:
             pass
+        if status == "success":
+            _prune_dangling_images_after_update(server, job_id)
         if isinstance(res, dict) and not res.get("summary"):
             res["summary"] = container_patching.summarize_container_patch(res)
         snippet = json.dumps(res) if isinstance(res, dict) else str(res)
@@ -2817,6 +2831,7 @@ def _execute_container_patch_sync(job_id: int, server_id: int, audit_id: int) ->
                     _apply_container_check_result(s, server_id, check)
             except Exception as e:
                 logger.debug(f"post-container-patch recheck: {e}")
+            _prune_dangling_images_after_update(server, job_id)
         try:
             container_patching.mark_container_patch_done(hostname, finished_ok=(status == "success"))
             container_patching.append_container_log(hostname, f"[containers] all done — {status}")
@@ -3879,6 +3894,8 @@ def _execute_container_service(
                         inventory_svc.invalidate_after_mutation(s, srv, None)
             except Exception as inv_e:
                 logger.debug("inventory invalidate after container %s: %s", act, inv_e)
+            if act == "redeploy":
+                _prune_dangling_images_after_update(server, job_id)
         payload = {
             "service": svc,
             "project_path": path,

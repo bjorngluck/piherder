@@ -487,5 +487,37 @@ async def save_container_apply_schedule(
     return RedirectResponse(server_redirect(server_id), status_code=303)
 
 
+@router.post("/{server_id}/schedule/docker-prune")
+async def save_docker_prune_schedule(
+    server_id: int,
+    docker_prune_schedule: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Save a prune cron. Blank turns it off. Volumes and build cache stay off."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    if not server.container_patch_enabled:
+        raise HTTPException(400, "Enable the Docker feature on this server first")
+    cron = validate_cron(docker_prune_schedule)
+    server.docker_prune_schedule = cron
+    session.add(server)
+    session.commit()
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_docker_prune_schedule",
+        details={"cron": cron or ""},
+    )
+    session.commit()
+    sync_server_schedules(server)
+    return RedirectResponse(
+        f"/servers/{server_id}/docker?prune=schedule",
+        status_code=303,
+    )
+
+
 # Docker routes extracted to server_docker.py (sub-router included at top of file)
 

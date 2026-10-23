@@ -812,6 +812,15 @@ def api_meta_dict() -> dict:
             {"method": "POST", "path": "/api/v1/servers/{id}/jobs", "scope": "jobs", "summary": "Trigger job"},
             {
                 "method": "POST",
+                "path": "/api/v1/servers/{id}/docker/build-cache",
+                "scope": "edit",
+                "summary": (
+                    "Prune the Docker build cache and the buildx cache. "
+                    "One audit row. Not a docker_prune job and not scheduled."
+                ),
+            },
+            {
+                "method": "POST",
                 "path": "/api/v1/servers/{id}/docker/prune",
                 "scope": "edit",
                 "summary": (

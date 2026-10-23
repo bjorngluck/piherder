@@ -20,13 +20,14 @@ def test_server_cron_job_ids():
     assert "backup_7" in ids
     assert "os_check_7" in ids
     assert "container_apply_7" in ids
-    assert len(ids) == 5
+    assert "docker_prune_7" in ids
+    assert len(ids) == 6
 
 
 def test_unregister_server_cron_jobs():
     sched = MagicMock()
     unregister_server_cron_jobs(sched, True, 3)
-    assert sched.remove_job.call_count == 5
+    assert sched.remove_job.call_count == 6
     unregister_server_cron_jobs(None, True, 3)  # no-op
 
 

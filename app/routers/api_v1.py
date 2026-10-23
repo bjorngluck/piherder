@@ -1114,6 +1114,53 @@ async def prune_docker(
     )
 
 
+@router.post(
+    "/servers/{server_id}/docker/build-cache",
+    summary="Prune Docker build cache",
+    description=(
+        "Requires scope `edit`. Runs docker builder prune and docker buildx prune "
+        "on the host. One audit row. Not a docker_prune job and not scheduled."
+    ),
+)
+def prune_build_cache(
+    server_id: int,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import docker_management as docker_svc
+    from ..services.server_audit import record_server_audit
+
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404, detail="Server not found")
+    auth.require(tok_svc.SCOPE_EDIT)
+    auth.require_feature("docker")
+    auth.require_server_feature(server, "docker")
+    try:
+        result = docker_svc.prune_build_cache(server)
+    except Exception as exc:
+        result = {"success": False, "output": str(exc)[:500]}
+    ok = bool(result.get("success"))
+    output = str(result.get("output") or "")[:1500]
+    audit = record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=auth.user_id,
+        action="docker_build_cache_prune",
+        status="success" if ok else "failed",
+        message=output or ("Build cache pruned" if ok else "Build cache prune failed"),
+        api_token_id=auth.token_id,
+        api_token_name=auth.token_name,
+        client_ip=auth.client_ip,
+    )
+    session.commit()
+    return {
+        "ok": ok,
+        "audit_id": audit.id,
+        "output": output,
+    }
+
+
 class MoveCreateBody(BaseModel):
     """Stop-first Move. Leftover on the source is always stopped. No undo."""
 

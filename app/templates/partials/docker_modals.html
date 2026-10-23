@@ -51,6 +51,12 @@
             Prune unused volumes
           </button>
         </form>
+        <form method="post" action="/servers/{{ server.id }}/docker/prune-build-cache" class="cleanup-prune-form" data-prune-label="build cache">
+          <button type="submit" class="btn btn-secondary text-sm min-h-11 w-full text-danger border-danger/30">
+            Prune build cache
+          </button>
+          <p class="text-[10px] text-muted mt-1 mb-0">Builder cache and buildx cache. Not part of a prune job. No schedule.</p>
+        </form>
       </div>
     </div>
   </div>

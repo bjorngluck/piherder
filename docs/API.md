@@ -126,7 +126,7 @@ Base path: **`/api/v1`**
 | `GET` | `/api/v1/servers` | `read` | List servers (`features` object). Optional `q`, `limit` (default **100**, max 100), `offset`. Response includes `total`, `limit`, `offset`. Previously unbounded. |
 | `GET` | `/api/v1/servers/{id}` | `read` | One server |
 | `GET` | `/api/v1/inventory` | `read` | Last Docker inventory for every host (DB snapshot, never SSH). Slim containers include `name`, `running`, `state`, `image`, `status` (uptime text), `project`, and `update_available`. `projects` lists each compose project and its images with `update_available` |
-| `GET` | `/api/v1/servers/{id}/inventory` | `read` | Same snapshot for one host, plus `os_pretty`, `hardware`, `disk_*_bytes` |
+| `GET` | `/api/v1/servers/{id}/inventory` | `read` | Same snapshot for one host, plus `os_pretty`, `hardware`, `disk_*_bytes`. `projects` and each image include `update_available` |
 | `GET` | `/api/v1/services` | `read` | Fleet service chips (`state` up/down) from stored monitor rows. Does not poll Kuma or NPM |
 | `PATCH` | `/api/v1/servers/{id}/features` | `edit` | Toggle feature flags |
 | `GET` | `/api/v1/servers/{id}/files?p=` | `files` | List jail-relative directory (fleet) |
@@ -192,7 +192,8 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 | `GET` | `/api/v1/jobs/{id}` | `read` | Job detail (`?detail=true` for longer log tail) |
 | `GET` | `/api/v1/servers/{id}/jobs` | `read` | Jobs for one server |
 | `POST` | `/api/v1/servers/{id}/jobs` | `jobs` | Trigger job (HTTP **202**) |
-| `POST` | `/api/v1/servers/{id}/docker/prune` | `edit` | Start a `docker_prune` job (HTTP **202**). `prune_type` is `images`, `containers`, `both`, or `networks`. Volume prune stays on the Docker page |
+| `POST` | `/api/v1/servers/{id}/docker/prune` | `edit` | Start a `docker_prune` job (HTTP **202**). `prune_type` is `images`, `containers`, `both`, or `networks`. Volume prune stays on the Docker page. A saved per-host cron starts `both` (dangling images and exited containers). Volumes stay off that schedule |
+| `POST` | `/api/v1/servers/{id}/docker/build-cache` | `edit` | Prune the Docker build cache and the buildx cache. One audit row. Not a `docker_prune` job and not scheduled. On the v1.13 train, not in the 1.12.1 image |
 
 **POST body**
 

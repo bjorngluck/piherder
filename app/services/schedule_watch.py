@@ -41,6 +41,13 @@ _KINDS = {
         "noun": "container check",
         "link": "/servers/{server_id}/docker",
     },
+    "docker_prune": {
+        "job_type": "docker_prune",
+        "type_id": "docker_prune_missed",
+        "title": "Scheduled Docker prune did not start",
+        "noun": "Docker prune",
+        "link": "/servers/{server_id}/docker",
+    },
 }
 
 
@@ -196,11 +203,20 @@ def container_cron_for(server) -> Optional[str]:
     return (getattr(server, "container_check_schedule", None) or "").strip() or None
 
 
+def docker_prune_cron_for(server) -> Optional[str]:
+    """Saved prune cron, or None when Docker is off or the field is empty."""
+    if not server or not getattr(server, "container_patch_enabled", False):
+        return None
+    return (getattr(server, "docker_prune_schedule", None) or "").strip() or None
+
+
 def _cron_for(kind: str, server) -> Optional[str]:
     if kind == "backup":
         return backup_cron_for(server)
     if kind == "container_check":
         return container_cron_for(server)
+    if kind == "docker_prune":
+        return docker_prune_cron_for(server)
     return None
 
 
@@ -221,11 +237,19 @@ def resolve_container_check_missed(session: Session, server_id: int) -> None:
     resolve_by_fingerprint(session, _fingerprint("container_check", server_id))
 
 
+def resolve_docker_prune_missed(session: Session, server_id: int) -> None:
+    from .notifications import resolve_by_fingerprint
+
+    resolve_by_fingerprint(session, _fingerprint("docker_prune", server_id))
+
+
 def _resolve_kind(session: Session, kind: str, server_id: int) -> None:
     if kind == "backup":
         resolve_backup_schedule_missed(session, server_id)
     elif kind == "container_check":
         resolve_container_check_missed(session, server_id)
+    elif kind == "docker_prune":
+        resolve_docker_prune_missed(session, server_id)
 
 
 def _jobs_by_server(session: Session, now: datetime) -> dict[tuple[int, str], list]:

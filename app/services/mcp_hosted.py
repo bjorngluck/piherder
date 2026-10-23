@@ -109,6 +109,8 @@ _SERVER_INSTRUCTIONS = (
     "prune_type is images, containers, both, or networks. "
     "both is dangling images and exited containers. "
     "Volume prune stays on the Docker page. "
+    "prune_build_cache clears the Docker build cache and the buildx cache. "
+    "It needs the edit scope. It is not a docker_prune job and it has no schedule. "
     "Do not invent SSH, undo, a console, token admin, "
     "docker_stack_down, docker_stack_remove, or stale-data cleanup. "
     "Tools appear only for scopes on this token. A token without read has no tools."
@@ -321,6 +323,16 @@ def tool_catalog() -> list[dict[str, Any]]:
                 },
                 ["server_id"],
             ),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "prune_build_cache",
+            "description": (
+                "Prune the Docker build cache and the buildx cache on one host. "
+                "Needs the edit scope. One audit row. Not a docker_prune job and not scheduled."
+            ),
+            "scope": tok_svc.SCOPE_EDIT,
+            "inputSchema": _obj_schema({"server_id": sid}, ["server_id"]),
             "annotations": _WRITE_ANN,
         },
         {
@@ -1056,6 +1068,12 @@ async def call_tool(
                 if status_code == 409:
                     payload["already_active"] = True
             await _drain_background(background)
+        elif name == "prune_build_cache":
+            payload = api_v1.prune_build_cache(
+                _require_int(args, "server_id"),
+                session,
+                auth,
+            )
         elif name == "trigger_job":
             job_type = _opt_str(args, "job_type").strip().lower()
             if job_type not in MCP_JOB_TYPES:

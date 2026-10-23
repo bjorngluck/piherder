@@ -24,6 +24,7 @@ _HOST_JOB_TYPES = (
     ("container_check_", "container_update_check"),
     ("os_apply_", "os_patch"),
     ("container_apply_", "container_patch"),
+    ("docker_prune_", "docker_prune"),
 )
 # One scheduler row covers every host. The last run is the newest of that type.
 _FLEET_JOB_TYPES = {
@@ -48,6 +49,7 @@ _KINDS = (
     ("container_check_", "container_check", "Container check", "host", "Container check "),
     ("os_apply_", "os_apply", "OS apply", "host", "OS apply "),
     ("container_apply_", "container_apply", "Container apply", "host", "Container apply "),
+    ("docker_prune_", "docker_prune", "Docker prune", "host", "Docker prune "),
     ("nmap_scan_", "nmap", "LAN discovery", "schedule", "Nmap: "),
 )
 _GROUP_ORDER = (
@@ -56,6 +58,7 @@ _GROUP_ORDER = (
     "container_check",
     "os_apply",
     "container_apply",
+    "docker_prune",
     "backup_copy",
     "nmap",
     "instance",

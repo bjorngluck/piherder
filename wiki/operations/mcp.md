@@ -102,7 +102,7 @@ Tool names match adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/bl
 |-------|--------|
 | `read` | `health`, `summary`, `list_servers`, `get_server`, `inventory`, `services`, `list_jobs`, `get_job`, `list_alerts`, `read_discovery`, `list_discovery_devices` |
 | `jobs` | `trigger_job`, `start_move`, `start_discovery`, `scan_discovery_device` |
-| `edit` | `set_features`, `prune_docker`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices` |
+| `edit` | `set_features`, `prune_docker`, `prune_build_cache`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices` |
 | `files` | `list_files`, `read_file`, `write_file`, `mkdir`, `rename_file`, `delete_file` |
 
 ### Tools
@@ -132,6 +132,7 @@ Tool names match adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/bl
 | `purge_stale_discovery_devices` | `edit` | Delete offline devices. `confirm` must be true. Linked devices stay. |
 | `set_features` | `edit` | Toggle `backup`, `os_patch`, or `docker`. Omit a field to leave it unchanged. |
 | `prune_docker` | `edit` | Start a Docker prune job. `prune_type` is `images`, `containers`, `both`, or `networks`. Volume prune stays on the Docker page. |
+| `prune_build_cache` | `edit` | Prune the Docker build cache and the buildx cache. One audit row. Not a `docker_prune` job and not scheduled. Adapter 0.4.3 does not list this tool. It is on the v1.13 train and is not in the 1.12.1 image. |
 | `list_files` | `files` | List a fleet-jail directory. `p` is jail-relative. `""` is the jail root. |
 | `read_file` | `files` | Download one fleet-jail file. Capped around 256 KiB. The result says when it was cut. |
 | `write_file` | `files` | Upload text. `p` is the directory, `name` is the basename. Cap 256 KiB. |
