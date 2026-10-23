@@ -21,7 +21,8 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 | 3 | Optional [HTTPS](https-tls.md) | Trust for browsers and later push |
 | 4 | [Add a server](../day-to-day/add-server.md) | **Wizard** — Identity → Trust → Connect (**install key → test → clear password**) |
 | 5 | Wizard **Features** (or Edit → Features) | Enable only backups / OS updates (or HA updates) / Docker you need |
-| 6 | Open [Dashboard](../day-to-day/dashboard-and-services.md) | Confirm the host appears; no mystery tiles yet |
+| 6 | Optional **Bootstrap missing tools** on SSH access | Ubuntu, Debian, or Raspbian only. Installs `rsync` when Backups are on, or official Docker CE when Docker is on. Confirm before the docker group. [Add a server](../day-to-day/add-server.md#bootstrap-missing-tools) |
+| 7 | Open [Dashboard](../day-to-day/dashboard-and-services.md) | Confirm the host appears; no mystery tiles yet |
 
 **Done when:** Server detail shows green-enough SSH/deps for enabled features; no password left stored if key auth works.
 
@@ -235,6 +236,7 @@ Full page: [Move a service](../docker/service-migration.md). Do **not** pick **R
 | Light / dark, instance name, one accent, Catalog in the nav | [Appearance](appearance.md) |
 | About PiHerder / GitHub / new version notice | Avatar menu → **About** (`/about`) |
 | Add a Pi, deploy SSH key, features (wizard) | [Add a server](../day-to-day/add-server.md) · Journey A |
+| Missing `rsync` or Docker CE on Ubuntu, Debian, or Raspbian | [Bootstrap missing tools](../day-to-day/add-server.md#bootstrap-missing-tools) |
 | HAOS appliance (SSH + HA updates) | [HAOS hosts](../day-to-day/haos-hosts.md) · Journey C2 |
 | Dashboard tiles & fleet services | [Dashboard & Services](../day-to-day/dashboard-and-services.md) |
 | Backup / patch / LAN / Docker / console history (not Grafana) | [Reports](../day-to-day/reports.md) |

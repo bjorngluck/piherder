@@ -127,7 +127,7 @@ Published adapter **0.4.3** does not list `list_alerts`, `prune_build_cache`, or
 
 ## Host tools (Must)
 
-Ubuntu, Debian (including 64-bit Raspberry Pi OS), and Raspbian (32-bit). The route is `POST /servers/{id}/host-deps/bootstrap`. It is not on `/api/v1` or hosted `/mcp`. A host with only Backups on is checked and bootstrapped for `rsync` only.
+Ubuntu, Debian (including 64-bit Raspberry Pi OS), and Raspbian (32-bit). `run_host_deps_check` probes enabled features. `build_host_bootstrap_script` and `bootstrap_host_tools` in `app/services/ssh_onboarding.py` install only those missing tools. The route is `POST /servers/{id}/host-deps/bootstrap` and calls `run_host_bootstrap`. It is not on `/api/v1` or hosted `/mcp`. A host with only Backups on is checked and bootstrapped for `rsync` only. Audit action `host_bootstrap`.
 
 - [ ] With only Backups on, the host check probes rsync and does not probe Docker packages or offer Docker CE
 - [ ] With only Docker on, and the host is not HAOS, the check reports `docker-ce`, `docker compose version`, docker group membership, conflicting distro packages, and `docker ps -q`

@@ -12,6 +12,10 @@ Anything committed here is public. Use generic names in code, tests, docs, and c
 - Do not use `.local` or `.internal` hostnames in examples.
 - Do not add em dashes or en dashes in new prose. Use a period, a comma, or parentheses.
 
+## Current train
+
+`v1.13.0-dev` has Must and Should code and docs. Package stays `1.12.1`. Do not bump it on that train. Host tool bootstrap is `POST /servers/{id}/host-deps/bootstrap` and is not on `/api/v1` or `/mcp`.
+
 ## Opening a version pull request (maintainer)
 
 `gh` on a maintainer machine may not be logged in. That is not a blocker and it is not the release path. Do not stop to run `gh auth login`.

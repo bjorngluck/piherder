@@ -18,7 +18,7 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 ## End-to-end: open a stack and redeploy
 
 1. Enable **Docker / containers**; set **Docker base dir** correctly.  
-2. Confirm dependency check for docker is green ([SSH access](../day-to-day/add-server.md)).  
+2. Confirm the dependency check for docker is green ([SSH access](../day-to-day/add-server.md)). On Ubuntu, Debian, or Raspbian, **Bootstrap missing tools** can install official Docker CE when this feature is already on ([Add a server](../day-to-day/add-server.md#bootstrap-missing-tools)).  
 3. Open **Docker** — inventory snapshot appears immediately ([Inventory](inventory.md)).  
 4. Expand a project; open logs if needed.  
 5. **Check updates** vs **Deploy** when you want pull-only vs pull+up ([Updates](../day-to-day/updates-and-patching.md)).  
@@ -33,7 +33,7 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 1. Feature flag **Docker / containers** on. Off leaves the Docker page on **off** and does not SSH.  
 2. Remote `docker` usable by the SSH user (group/socket).  
 3. **Docker base dir** set correctly (absolute path if using least-priv).  
-4. Dependency check green for docker — [SSH troubleshooting](../troubleshooting/ssh-rsync.md).
+4. Dependency check green for docker. If `docker-ce`, the Compose plugin, or docker group membership is missing, use **Bootstrap missing tools** ([Add a server](../day-to-day/add-server.md#bootstrap-missing-tools)). Other failures: [SSH troubleshooting](../troubleshooting/ssh-rsync.md). The same v1.13 train also covers restore ownership ([Backups](../day-to-day/backups.md)), a possible NIC change ([LAN Discovery](../integrations/lan-discovery.md)), and the stuck-queue warning ([Alerts](../operations/alerts-email-webhooks.md)). None of that is in the 1.12.1 image.
 
 ## What you can do
 

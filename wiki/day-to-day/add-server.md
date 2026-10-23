@@ -108,7 +108,7 @@ Optional **Web SSH console** (browser terminal; flag off by default): [Web SSH c
 
 SSH access shows **two labeled public keys** when privileged exists: **Fleet public key** (jobs + default console) and **Privileged public key**. They are different keypairs. Copy the one that matches the user you are installing.
 
-### Bootstrap missing tools
+### Bootstrap missing tools {#bootstrap-missing-tools}
 
 After SSH works, **Bootstrap missing tools** uses the last host check. Backups on, and `rsync` missing, can install `rsync`. Docker on, and Docker CE, the Compose plugin, or docker group membership missing, can install official Docker CE from `download.docker.com` for Ubuntu, Debian, and Raspbian. The script installs `ca-certificates`, `curl`, and `gnupg` first, checks that Docker has published that distro codename, then removes only conflicting distro packages that are already installed (`apt-get remove`, not purge). It checks the Docker GPG fingerprint in a temporary `GNUPGHOME` and installs `docker-ce` and `docker-compose-plugin`. It does not call `get.docker.com` and it does not add `apt-get` to `/etc/sudoers.d/piherder`.
 

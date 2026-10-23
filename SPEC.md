@@ -49,7 +49,7 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 - **Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · **Release:** [docs/RELEASE_v0.3.0.md](docs/archive/v0/RELEASE_v0.3.0.md).
 
 ### Platform reliability & deployment (2026-07-10)
-- **Remote host dependency check** (done): after SSH / least-priv onboard (and **Test connection**), probe tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`); read-only chips on server detail; re-check under SSH access; no auto-install on the remote host.
+- **Remote host dependency check** (done): after SSH / least-priv onboard (and **Test connection**), probe tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`); read-only chips on server detail; re-check under SSH access. The check does not install packages. On `v1.13.0-dev`, operators can run **Bootstrap missing tools** separately (`POST /servers/{id}/host-deps/bootstrap`).
 - **Settings → Status tab** (done): scheduled health (web, PostgreSQL, Redis, Celery nodes/pool slots, scheduler, **mount free**); backup tree breakdown **on demand**; alert on state change only.
 - **Multi-worker** (done): `CELERY_CONCURRENCY` (default 2 pool slots in one node) + Redis **per-server backup mutex**; parallel across hosts; prefer concurrency over multi-node unless HA; cancel + stale recovery still correct. **v1.5:** `service_migrate` on the same worker; dual-host backup mutex (lower id first); web recycle does not fail a running Move.
 - **Deployment:** **Docker Compose is the supported architecture**. Kubernetes and local/bare install are **under consideration only** — no committed Helm charts or dual-path installers in H0–H2.
@@ -194,7 +194,7 @@ Carried refinements + ship blockers for a clean install story. Detail: [docs/ROA
 
 Implement **in order** after or alongside H0 image work. Not required to tag `v0.2.0`. Full notes: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) § Horizon 0.5.
 
-- [x] **Remote host dependency check** — probe `rsync` / sudo-or-plain rsync / `docker` / `apt` by enabled features; server detail + post-onboard/test; snapshot + chips; install hints only (no auto-install)
+- [x] **Remote host dependency check**: probe `rsync` / sudo-or-plain rsync / `docker` / `apt` by enabled features; server detail + post-onboard/test; snapshot + chips; install hints only. The check does not install packages. Host tool bootstrap is a separate operator action on `v1.13.0-dev`.
 - [x] **Settings → Status tab** — web, PostgreSQL, Redis, Celery (nodes + pool slots), APScheduler, mount free (fast); lazy backup-tree `du` + host folders; scheduled poll; notify on unhealthy; metrics from last check
 - [x] **Multi-worker** — Redis per-server backup mutex; `CELERY_CONCURRENCY` (default 2 pool slots); parallel across hosts; cancel via `celery_task_id` + lock TTL on worker death
 
@@ -478,7 +478,7 @@ Configurable per-server fields that map 1:1: `backup_paths`, `docker_base_dir`, 
 
 Package stays **1.12.1**. About and the footer stay **1.12.1**. Image tags stay `1.12.1` / `1.12` / `latest`. This file's status line above is that package. The train is not tagged.
 
-Must and Should are on `v1.13.0-dev`: restore ownership (`.piherder-ownership.json`, numeric `uid`, `gid`, and octal `mode`, `setuid` and `setgid` stripped), a possible NIC change with **Replace stale MAC** ([#50](https://github.com/bjorngluck/piherder/issues/50)), the one-shot token cookie `api_token_once`, backup minutes across all 1,440 slots, Docker build-cache prune, per-host `docker_prune_schedule`, dangling image prune after a successful update, a 30 minute inventory refresh reset, inventory `update_available`, the stuck-queue alert and gauges, `GET /api/v1/alerts` and hosted `list_alerts`, an OAuth `client_name` suffix, orphaned running jobs, and `get_engine()`. Published adapter stays **0.4.3**. Hosted `/mcp` lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter.
+Must and Should are on `v1.13.0-dev`: restore ownership (`.piherder-ownership.json`, numeric `uid`, `gid`, and octal `mode`, `setuid` and `setgid` stripped), a possible NIC change with **Replace stale MAC** ([#50](https://github.com/bjorngluck/piherder/issues/50)), the one-shot token cookie `api_token_once`, host tool bootstrap and feature preflight (`POST /servers/{id}/host-deps/bootstrap`, feature-gated `rsync` and official `docker-ce` for `ubuntu`, `debian`, and `raspbian`, `confirm_docker_bootstrap`, a fresh SSH check after `usermod`, audit action `host_bootstrap`), backup minutes across all 1,440 slots, Docker build-cache prune, per-host `docker_prune_schedule`, dangling image prune after a successful update, a 30 minute inventory refresh reset, inventory `update_available`, the stuck-queue alert and gauges, `GET /api/v1/alerts` and hosted `list_alerts`, an OAuth `client_name` suffix, orphaned running jobs, and `get_engine()`. Published adapter stays **0.4.3**. Hosted `/mcp` lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Host bootstrap is not on `/api/v1` or `/mcp`.
 
 Operator walks are written and not signed. Screenshot names are reserved. Plan: [docs/PLAN_v1.13.0.md](docs/PLAN_v1.13.0.md). Walks: [docs/QA_v1.13.0.md](docs/QA_v1.13.0.md).
 

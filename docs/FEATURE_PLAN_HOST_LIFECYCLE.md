@@ -16,6 +16,8 @@ Deepen **day-to-day host operations** and **first-time host bring-up** without c
 
 **Non-goals for this plan:** replace Uptime Kuma; VNC/RDP; agent-based management; arbitrary root shell without console product; full network-manager / static-IP product; anonymous first-boot registration.
 
+**v1.13.0-dev (separate from P4):** host tool bootstrap is shipped on that branch as `POST /servers/{id}/host-deps/bootstrap`. It installs missing `rsync` or official `docker-ce` only for features already enabled, for Ubuntu, Debian, and Raspbian. Audit action `host_bootstrap`. It does not set the hostname, write Pi-hole DNS, or replace the P4 key-install script. Package stays **1.12.1**. See [PLAN_v1.13.0.md](PLAN_v1.13.0.md).
+
 ---
 
 ## Decisions (locked unless reversed)

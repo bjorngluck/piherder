@@ -945,7 +945,7 @@ Full env list: [`.env.example`](../.env.example).
 
 **Where:** Server detail shows a **read-only** snapshot. Re-check under **SSH access → Check dependencies** (also runs after successful **Test connection**, key deploy, and least-priv provision).
 
-Probes tools needed for **enabled** features only (`rsync` / sudo path, `docker`, `apt` on Debian, or **`ha` CLI** on HAOS). Stores a snapshot on the server row. Does not install packages on the remote host — failures include short install/privilege hints.
+Probes tools needed for **enabled** features only (`rsync` / sudo path when Backups are on, `docker` when Docker is on, `apt` on Debian, or **`ha` CLI** on HAOS). Stores a snapshot on the server row. The check does not install packages. On `v1.13.0-dev`, **Bootstrap missing tools** (`POST /servers/{id}/host-deps/bootstrap`, operator, refused in demo) can install missing `rsync` or official Docker CE for Ubuntu, Debian, and Raspbian. Audit action `host_bootstrap`. It is not on `/api/v1` or `/mcp`. Package stays **1.12.1**. Wiki: [Add a server](../wiki/day-to-day/add-server.md).
 
 ### Stack Status
 
