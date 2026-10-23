@@ -49,7 +49,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | `docker-build-cache-prune.png` | Host Docker page | Build cache and buildx cache prune, and the per-host scheduled prune. Volume confirm stays visible and not ticked. Image names are masked | [Docker](../../docker/overview.md) |
 | `alerts-stuck-queue.png` | Alerts | The stuck-queue warning. No token and no job log secret | [Alerts](../../operations/alerts-email-webhooks.md) |
 | `about-scheduler-prune.png` | About | **View schedule** open on the Docker prune type. Host names are masked | [Status](../../operations/status.md) |
-| `host-bootstrap.png` | SSH access | Bootstrap missing tools. Detected OS, confirm checkbox, and the copy script. No password in the frame | [Add a server](../../day-to-day/add-server.md) |
+| `host-bootstrap.png` | SSH access | Bootstrap missing tools on `POST /servers/{id}/host-deps/bootstrap`. Detected OS, confirm checkbox, and the copy script. No password in the frame | [Add a server](../../day-to-day/add-server.md) |
 
 ### Do not shoot for 1.13
 

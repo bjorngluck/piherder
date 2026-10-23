@@ -413,8 +413,8 @@ async def check_host_dependencies(
         )
 
 
-@router.post("/{server_id}/ssh/bootstrap-tools")
-async def ssh_bootstrap_tools(
+@router.post("/{server_id}/host-deps/bootstrap")
+async def host_deps_bootstrap(
     server_id: int,
     confirm_docker_bootstrap: Optional[str] = Form(None),
     sudo_password: str = Form(""),
@@ -422,14 +422,14 @@ async def ssh_bootstrap_tools(
     user: User = Depends(get_operator_user),
 ):
     """Install missing rsync and/or Docker CE. UI only. Password stays in this request."""
-    http_403_if_demo("ssh_bootstrap")
+    http_403_if_demo("host_bootstrap")
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
     confirmed = (confirm_docker_bootstrap or "").strip().lower() in {"1", "on", "true", "yes"}
     secret = sudo_password.strip() if sudo_password and sudo_password.strip() else None
     result = await run_in_threadpool(
-        ssh_onboarding.bootstrap_host_tools,
+        ssh_onboarding.run_host_bootstrap,
         server,
         session,
         confirm_docker_bootstrap=confirmed,

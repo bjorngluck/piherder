@@ -29,7 +29,7 @@
   </ul>
   {% endif %}
   {% if boot.bootstrap_available and (is_operator|default(true)) %}
-  <form method="post" action="/servers/{{ server.id }}/ssh/bootstrap-tools" class="space-y-2"
+  <form method="post" action="/servers/{{ server.id }}/host-deps/bootstrap" class="space-y-2"
         data-testid="host-bootstrap-form"
         data-wait-title="Bootstrapping host tools"
         data-wait-message="Installing missing tools over SSH. This can take a few minutes.">

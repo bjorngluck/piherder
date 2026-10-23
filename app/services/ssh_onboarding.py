@@ -1261,29 +1261,62 @@ def build_feature_bootstrap_script(
     return "\n".join(lines) + "\n"
 
 
+def build_host_bootstrap_script(
+    server,
+    os_id: str,
+    codename: str,
+    target_user: Optional[str] = None,
+    *,
+    deps: Optional[dict] = None,
+) -> str:
+    """Script for one server. Feature flags on the row decide rsync and Docker CE.
+
+    install_rsync is true only when backups are on and the preflight says rsync
+    is missing. install_docker is true only when the Docker feature is on and
+    the preflight says Docker CE is missing. A caller cannot pass those flags.
+    """
+    from . import host_deps as host_deps_svc
+
+    data = deps if deps is not None else (host_deps_svc.parse_host_deps(server) or {})
+    boot = data.get("bootstrap") or {}
+    is_haos = "haos" in (getattr(server, "os_type", None) or "").lower()
+    install_rsync = (
+        bool(getattr(server, "backup_enabled", False))
+        and bool(boot.get("install_rsync"))
+        and not is_haos
+    )
+    install_docker = (
+        bool(getattr(server, "container_patch_enabled", False))
+        and bool(boot.get("install_docker_ce"))
+        and not is_haos
+    )
+    user = target_user if target_user is not None else (getattr(server, "ssh_username", None) or "")
+    return build_feature_bootstrap_script(
+        os_id,
+        codename,
+        user,
+        install_rsync=install_rsync,
+        install_docker_ce=install_docker,
+        remove_docker_conflicts=bool(install_docker),
+    )
+
+
 def preview_feature_bootstrap_script(server: Server) -> str:
     """Script for the copy box. Empty when this host has nothing to install."""
     from . import host_deps as host_deps_svc
 
     data = host_deps_svc.parse_host_deps(server) or {}
     os_meta = data.get("os") or {}
-    boot = data.get("bootstrap") or {}
     if "haos" in (getattr(server, "os_type", None) or "").lower():
         return ""
-    install_rsync = bool(getattr(server, "backup_enabled", False)) and bool(boot.get("install_rsync"))
-    install_docker = bool(getattr(server, "container_patch_enabled", False)) and bool(
-        boot.get("install_docker_ce")
-    )
-    if not os_meta.get("supported_os") or not (install_rsync or install_docker):
+    if not os_meta.get("supported_os"):
         return ""
     try:
-        return build_feature_bootstrap_script(
+        return build_host_bootstrap_script(
+            server,
             str(os_meta.get("os_id") or ""),
             str(os_meta.get("codename") or ""),
-            server.ssh_username or "",
-            install_rsync=install_rsync,
-            install_docker_ce=install_docker,
-            remove_docker_conflicts=True if install_docker else False,
+            deps=data,
         )
     except ValueError:
         return ""
@@ -1425,14 +1458,7 @@ def bootstrap_host_tools(
             details={"os_id": os_id, "codename": codename, "features": []},
         )
     try:
-        script = build_feature_bootstrap_script(
-            os_id,
-            codename,
-            server.ssh_username or "",
-            install_rsync=install_rsync,
-            install_docker_ce=install_docker,
-            remove_docker_conflicts=bool(install_docker),
-        )
+        script = build_host_bootstrap_script(server, os_id, codename, deps=deps)
     except ValueError as exc:
         return OnboardingResult(ok=False, message=str(exc)[:200])
 
@@ -1481,4 +1507,25 @@ def bootstrap_host_tools(
         ok=True,
         message="Bootstrap finished",
         details={"os_id": os_id, "codename": codename, "features": features},
+    )
+
+
+def run_host_bootstrap(
+    server: Server,
+    session,
+    *,
+    confirm_docker_bootstrap: bool = False,
+    sudo_password: Optional[str] = None,
+) -> OnboardingResult:
+    """Install missing tools for features already enabled on this server.
+
+    Same path as bootstrap_host_tools. Docker is not installed when
+    container_patch_enabled is false, and rsync is not installed when
+    backup_enabled is false.
+    """
+    return bootstrap_host_tools(
+        server,
+        session,
+        confirm_docker_bootstrap=confirm_docker_bootstrap,
+        sudo_password=sudo_password,
     )

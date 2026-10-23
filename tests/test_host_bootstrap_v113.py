@@ -167,6 +167,43 @@ def test_script_preflight_gpg_remove_and_group():
     assert "https://download.docker.com" not in rsync_only
 
 
+def test_build_host_bootstrap_script_follows_server_flags():
+    backup_only = SimpleNamespace(
+        hostname="host-a.example.com",
+        ssh_username="pi",
+        os_type="debian",
+        backup_enabled=True,
+        container_patch_enabled=False,
+    )
+    poisoned = _deps(install_rsync=True, install_docker=True, conflicts=["docker.io"], running=2)
+    script = onboard.build_host_bootstrap_script(
+        backup_only, "debian", "bookworm", deps=poisoned
+    )
+    assert "apt-get install -y rsync" in script
+    assert "docker-ce" not in script
+    assert "download.docker.com" not in script
+    docker_on = SimpleNamespace(
+        hostname="host-b.example.com",
+        ssh_username="pi",
+        os_type="debian",
+        backup_enabled=False,
+        container_patch_enabled=True,
+    )
+    docker_script = onboard.build_host_bootstrap_script(
+        docker_on, "ubuntu", "noble", deps=_deps(install_docker=True)
+    )
+    assert "docker-ce" in docker_script
+    assert "apt-get install -y rsync" not in docker_script
+    with pytest.raises(TypeError):
+        onboard.build_host_bootstrap_script(
+            backup_only,
+            "debian",
+            "bookworm",
+            deps=poisoned,
+            install_docker_ce=True,
+        )
+
+
 class _Chan:
     def shutdown_write(self):
         return None
@@ -405,13 +442,14 @@ def test_bootstrap_route_audits_without_the_password(monkeypatch):
             op_cookie = create_user_access_token(user)
             view_cookie = create_user_access_token(viewer)
         paths = set((app.openapi().get("paths") or {}))
-        assert "/servers/{server_id}/ssh/bootstrap-tools" in paths
+        assert "/servers/{server_id}/host-deps/bootstrap" in paths
+        assert "/servers/{server_id}/ssh/bootstrap-tools" not in paths
         assert not any(path.startswith("/api/") and "bootstrap" in path for path in paths)
         assert not any(path.startswith("/mcp") and "bootstrap" in path for path in paths)
 
         client.cookies.set("access_token", view_cookie)
         denied = client.post(
-            f"/servers/{sid}/ssh/bootstrap-tools",
+            f"/servers/{sid}/host-deps/bootstrap",
             data={"install_docker_ce": "on", "sudo_password": "one-time-secret"},
             follow_redirects=False,
         )
@@ -419,7 +457,7 @@ def test_bootstrap_route_audits_without_the_password(monkeypatch):
 
         client.cookies.set("access_token", op_cookie)
         ok = client.post(
-            f"/servers/{sid}/ssh/bootstrap-tools",
+            f"/servers/{sid}/host-deps/bootstrap",
             data={
                 "install_docker_ce": "on",
                 "install_rsync": "on",
