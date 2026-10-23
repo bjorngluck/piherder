@@ -115,7 +115,7 @@ Published adapter **0.4.3** does not list `list_alerts`, `prune_build_cache`, or
 
 - [ ] `SECURITY.md`, `CONTRIBUTING.md`, `SPEC.md`, `docs/ADMIN.md`, `docs/ROADMAP_ECOSYSTEM.md`, `docs/API.md`, and `wiki/` agree the package is `1.12.1`
 - [ ] About and the footer still say **1.12.1**
-- [ ] `python3 scripts/check_release_sync.py` passes. Published adapter stays **0.4.3**. Plugin stays **0.5.2**
+- [ ] `python3 scripts/check_release_sync.py` passes. Published adapter stays **0.4.3**. Plugin stays **0.5.3**
 - [ ] `mkdocs build --strict` passes
 - [ ] A `running` job whose Celery worker is gone is failed with `Interrupted. The Celery worker is no longer alive.`
 - [ ] That check runs on worker startup and on the host-facts fleet tick. It does not run from web startup

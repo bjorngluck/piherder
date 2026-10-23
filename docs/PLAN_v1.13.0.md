@@ -10,7 +10,7 @@
 **QA:** [QA_v1.13.0.md](QA_v1.13.0.md) (operator walks and screenshot reservations. **Not** the operator wiki. Walks are not signed.)  
 **Related:** [PLAN_v1.12.0.md](PLAN_v1.12.0.md) · [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) (draft) · [RELEASE_v1.12.1.md](RELEASE_v1.12.1.md) · [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [LAN Discovery](../wiki/integrations/lan-discovery.md) · wiki [Add a server](../wiki/day-to-day/add-server.md) · wiki [Docker](../wiki/docker/overview.md)
 
-> Opened 2026-10-23 from `main` after **v1.12.1** shipped. Package stays `1.12.1`. The public demo is not pointed at this branch. Plugin **0.5.2** stays the card. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter. Hosted `/mcp` on this branch lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Open issues were reviewed the same day. PiHerder has one open issue, [#50](https://github.com/bjorngluck/piherder/issues/50). piherder-ha and piherder-mcp have none. PiHerder has no open pull request.
+> Opened 2026-10-23 from `main` after **v1.12.1** shipped. Package stays `1.12.1`. The public demo is not pointed at this branch. Plugin **0.5.3** is the card. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter. Hosted `/mcp` on this branch lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Open issues were reviewed the same day. PiHerder has one open issue, [#50](https://github.com/bjorngluck/piherder/issues/50). piherder-ha and piherder-mcp have none. PiHerder has no open pull request.
 
 ---
 

@@ -6,7 +6,7 @@ Must and Should code and docs are built. Maintainer walks in [QA_v1.13.0](QA_v1.
 
 Baseline is [v1.12.1](RELEASE_v1.12.1.md) (2026-10-23) and [v1.12.0](RELEASE_v1.12.0.md) (2026-10-22). This draft is not an upgrade path. The published image stays `bjorngluck/piherder:1.12.1`.
 
-Home Assistant plugin stays **[0.5.2](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.2)** (Home Assistant **2024.7** or newer). Published PyPI adapter is **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)**. Hosted `/mcp` on this branch adds `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of the **0.4.4** adapter tag at freeze.
+Home Assistant plugin is **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** (Home Assistant **2024.7** or newer). Published PyPI adapter is **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)**. Hosted `/mcp` on this branch adds `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of the **0.4.4** adapter tag at freeze.
 
 Operator how-to stays on the wiki: [Add a server](https://piherder-docs.hacknow.info/day-to-day/add-server/) · [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Discovery](https://piherder-docs.hacknow.info/integrations/lan-discovery/) · [Docker](https://piherder-docs.hacknow.info/docker/overview/) · [Jobs and audit](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/) · [Alerts](https://piherder-docs.hacknow.info/operations/alerts-email-webhooks/) · [API tokens](https://piherder-docs.hacknow.info/operations/api-tokens/) · [Settings](https://piherder-docs.hacknow.info/operations/settings/). Technical record: [PLAN_v1.13.0](PLAN_v1.13.0.md). Maintainer QA: [QA_v1.13.0](QA_v1.13.0.md). Prior notes: [RELEASE_v1.12.1](RELEASE_v1.12.1.md) · [RELEASE_v1.12.0](RELEASE_v1.12.0.md).
 
@@ -86,4 +86,4 @@ Nothing was voted Out. These stay off this train:
 
 ## Upgrade
 
-No new Alembic revision. When this release is tagged, recreate **web** and **celery-worker**. `1.12.1` remains the published image until `v1.13.0` is tagged after QA sign-off. Do not point the public demo at this branch. Plugin **0.5.2** stays the card. It needs Home Assistant **2024.7** or newer.
+No new Alembic revision. When this release is tagged, recreate **web** and **celery-worker**. `1.12.1` remains the published image until `v1.13.0` is tagged after QA sign-off. Do not point the public demo at this branch. Plugin **0.5.3** is the card. It needs Home Assistant **2024.7** or newer.
