@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Release](https://img.shields.io/badge/release-v1.11.0-green.svg)](docs/RELEASE_v1.11.0.md)
+[![Release](https://img.shields.io/badge/release-v1.11.1-green.svg)](docs/RELEASE_v1.11.1.md)
 [![HA plugin](https://img.shields.io/badge/HA%20plugin-v0.5.0-green.svg)](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.0)
 [![MCP](https://img.shields.io/badge/MCP-v0.4.2-blue.svg)](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)
 [![Docker Hub](https://img.shields.io/badge/docker-bjorngluck%2Fpiherder-blue.svg)](https://hub.docker.com/r/bjorngluck/piherder)
@@ -67,7 +67,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Full docs & wiki: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
-- **Current release:** [docs/RELEASE_v1.11.0.md](docs/RELEASE_v1.11.0.md). Tag **v1.11.0**. A passkey counts as 2FA. A host can send files straight to a saved Drive, OneDrive, or LAN share. Package **1.11.0**. Image `bjorngluck/piherder:1.11.0` · `1.11` · `latest`. Pin `1.10.0` / `1.10` stays the previous image. Plugin **[0.5.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.0)**. MCP adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)**. Wiki: [Backups](wiki/day-to-day/backups.md) · [Self-backup](wiki/operations/self-backup.md) · [Agents (MCP)](wiki/operations/mcp.md) · [Home Assistant](wiki/integrations/home-assistant.md).
+- **Current release:** [docs/RELEASE_v1.11.1.md](docs/RELEASE_v1.11.1.md). Tag **v1.11.1**. certifi **2026.10.19**. Package **1.11.1**. Image `bjorngluck/piherder:1.11.1` · `1.11`. `latest` stays on **1.12.1**. Pin `1.11.0` stays that patch. Plugin **[0.5.0](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.0)**. MCP adapter **[0.4.2](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.2)**. Wiki: [Backups](wiki/day-to-day/backups.md) · [Self-backup](wiki/operations/self-backup.md) · [Agents (MCP)](wiki/operations/mcp.md) · [Home Assistant](wiki/integrations/home-assistant.md).
 - **Plan:** [docs/PLAN_v1.11.0.md](docs/PLAN_v1.11.0.md). [QA](docs/QA_v1.11.0.md) signed 2026-10-18. Next notes: [docs/PLAN_v1.12.0.md](docs/PLAN_v1.12.0.md), branch not cut. Prior image notes: [docs/RELEASE_v1.10.0.md](docs/RELEASE_v1.10.0.md).
 - **Prior:** [docs/RELEASE_v1.9.0.md](docs/RELEASE_v1.9.0.md) · [docs/RELEASE_v1.8.1.md](docs/RELEASE_v1.8.1.md) · [docs/RELEASE_v1.8.0.md](docs/RELEASE_v1.8.0.md). Sync rule: [docs/RELEASE_SYNC.md](docs/RELEASE_SYNC.md).
 - Prior: [docs/RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · [docs/RELEASE_v1.4.0.md](docs/RELEASE_v1.4.0.md) · [docs/RELEASE_v1.3.0.md](docs/RELEASE_v1.3.0.md) · [docs/RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md) · [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
