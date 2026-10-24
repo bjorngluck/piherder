@@ -28,13 +28,13 @@ Build order: **#62, #63, #61, then #64.**
 
 | Tier | Lock |
 |------|------|
-| Must | **Missed slot catch-up and why it was missed.** Issue [#62](https://github.com/bjorngluck/piherder/issues/62). Opt-in per schedule. Safe kinds only: image checks, update checks, and backups. One catch-up per missed slot, idempotent, no overlap with a run that is already active, and skip the slot when a newer run of that schedule has already finished. Each catch-up is audited. Never patch, redeploy, or prune. The same work records why the slot was missed |
+| Must | **Missed slot catch-up and why it was missed.** Issue [#62](https://github.com/bjorngluck/piherder/issues/62). Opt-in per schedule. Safe kinds only: image checks, update checks, and backups. One catch-up per missed slot, idempotent, no overlap with a run that is already active, and skip the slot when a newer run of that schedule has already finished. Each catch-up is audited. Never patch, redeploy, or prune. The same work records why the slot was missed. A successful catch-up auto-resolves the matching `*_missed` alert. Prometheus counter `piherder_schedule_catchup_total{kind,result}` |
 
 ### Drive
 
 | Tier | Lock |
 |------|------|
-| Must | **Google Drive OAuth health.** Issue [#63](https://github.com/bjorngluck/piherder/issues/63). Alert when a refresh fails. Warn from day 5 when a testing-mode token is ageing. The alert carries presence and age only. Never log the token |
+| Must | **Google Drive OAuth health.** Issue [#63](https://github.com/bjorngluck/piherder/issues/63). Alert when a refresh fails. Warn from day 5 when a testing-mode token is ageing. The alert carries presence and age only. Never log the token. Catalog types, same shape as `TypeSpec`: `drive_oauth_refresh_failed` (critical, refresh failure) and `drive_oauth_token_aging` (warning, testing-mode token older than 5 days) |
 
 ### Fleet read
 
@@ -46,7 +46,7 @@ Build order: **#62, #63, #61, then #64.**
 
 | Tier | Lock |
 |------|------|
-| Should | **Mute rules.** Issue [#64](https://github.com/bjorngluck/piherder/issues/64). One model, scoped to a host or an alert type. An optional time window must have an end time. Mute availability alerts only. Never skip schedules. Audited. Auth, OAuth, and backup failures still fire. Sensor-level ignores stay in Prometheus |
+| Should | **Mute rules.** Issue [#64](https://github.com/bjorngluck/piherder/issues/64). One model, scoped to a host or an alert type. An optional time window must have an end time. Mute availability alerts only. Never skip schedules. Audited. Auth, OAuth, and backup failures still fire. Sensor-level ignores stay in Prometheus. Muted alerts stay visible: a `muted` flag on items in `/api/v1/alerts`, and a `piherder_alerts_muted` gauge so a forgotten mute does not hide a problem |
 
 ### Plugin
 
@@ -79,6 +79,7 @@ Build order: **#62, #63, #61, then #64.**
 |------|----------------|
 | 2026-10-24 | **Train opened** from the `v1.13.0-dev` tip. `v1.13.0-dev` stays frozen for new scope. Must, in build order: [#62](https://github.com/bjorngluck/piherder/issues/62) missed-slot catch-up for checks and backups, plus why the slot was missed; [#63](https://github.com/bjorngluck/piherder/issues/63) Google Drive OAuth health; [#61](https://github.com/bjorngluck/piherder/issues/61) `GET /api/v1/fleet/summary?since=` and hosted `fleet_summary`. Should: [#64](https://github.com/bjorngluck/piherder/issues/64) mute rules. Out: Prometheus sensor ignore, and scrape status that Grafana already owns. Package stays `1.12.1`. Nothing is built. |
 | 2026-10-24 | **HACS default merged.** [hacs/default#11444](https://github.com/hacs/default/pull/11444) approved and merged. Should: [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) drops the root icon and logo copies. Should: point the plugin README, the HACS badge, and the herder wiki at the default HACS integration instead of a custom repository. Nothing is built. |
+| 2026-10-24 | **Acceptance detail.** [#62](https://github.com/bjorngluck/piherder/issues/62): a successful catch-up auto-resolves the matching `*_missed` alert, and `piherder_schedule_catchup_total{kind,result}` counts the runs. [#63](https://github.com/bjorngluck/piherder/issues/63): `TypeSpec` ids `drive_oauth_refresh_failed` (critical) and `drive_oauth_token_aging` (warning, testing-mode token older than 5 days). [#64](https://github.com/bjorngluck/piherder/issues/64): muted alerts stay visible via a `muted` flag on `/api/v1/alerts` and gauge `piherder_alerts_muted`. Nothing is built. |
 
 ---
 
