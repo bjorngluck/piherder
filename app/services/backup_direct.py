@@ -186,12 +186,86 @@ def remote_sync_command(
     )
     if use_trash:
         argv.append("--drive-use-trash")
+    # The sidecar is uploaded after the sync. A later sync must not delete it.
+    argv.extend(["--exclude", ".piherder-ownership.json"])
     for rel in excludes:
         pattern = rel.rstrip("/")
         if not pattern or pattern.startswith("/") or ".." in pattern.split("/"):
             continue
         argv.extend(["--exclude", pattern if "." in Path(pattern).name else f"{pattern}/**"])
     return " ".join(shlex.quote(part) for part in argv)
+
+
+def ownership_copyto_command(
+    binary: str,
+    *,
+    config_path: str,
+    local_file: str,
+    remote_file: str,
+    use_sudo: bool,
+) -> str:
+    argv = ["sudo", "-n", binary] if use_sudo else [binary]
+    argv.extend(
+        [
+            "copyto",
+            local_file,
+            f"dest:{remote_file}",
+            "--config",
+            config_path,
+        ]
+    )
+    return " ".join(shlex.quote(part) for part in argv)
+
+
+def _stamp_direct_ownership(
+    client,
+    row: dict,
+    *,
+    source: str,
+    remote_path: str,
+    binary: str,
+    config_path: str,
+    use_sudo: bool,
+) -> None:
+    """Upload the sidecar after a straight-out sync. A failure keeps the copy."""
+    remote_tmp = ""
+    try:
+        from .backup_ownership import MANIFEST_NAME, SCHEMA, collect_remote_tree
+
+        entries = collect_remote_tree(client, source)
+        payload = json.dumps(
+            {"schema": SCHEMA, "entries": entries},
+            separators=(",", ":"),
+        ).encode("utf-8")
+        remote_tmp = f"/tmp/ph-own-{secrets.token_hex(6)}.json"
+        sftp = client.open_sftp()
+        try:
+            with sftp.open(remote_tmp, "w") as handle:
+                handle.write(payload)
+            sftp.chmod(remote_tmp, 0o600)
+        finally:
+            sftp.close()
+        command = ownership_copyto_command(
+            binary,
+            config_path=config_path,
+            local_file=remote_tmp,
+            remote_file=f"{remote_path}/{MANIFEST_NAME}",
+            use_sudo=use_sudo,
+        )
+        rc, _out, err = run_command(client, command, timeout=120)
+        if rc != 0:
+            raise RuntimeError((err or "ownership upload failed")[:200])
+        row["ownership_entries"] = len(entries)
+    except Exception as exc:
+        logger.warning("[backup] direct ownership manifest failed for %s: %s", source, exc)
+        note = f"Ownership manifest not written: {exc}"[:200]
+        row["warning"] = f"{row['warning']}; {note}" if row.get("warning") else note
+    finally:
+        if remote_tmp and client is not None:
+            try:
+                run_command(client, "rm -f " + shlex.quote(remote_tmp), timeout=20)
+            except Exception:
+                logger.warning("[backup] ownership temp cleanup failed for %s", source)
 
 
 def sudo_rclone_install_command(user_bin: str) -> str:
@@ -831,12 +905,20 @@ def _push_unlocked(
                     )
                 )
             else:
-                results.append(
-                    _stamp_place(
-                        destination,
-                        {"source": src, "rel": plan["rel"], "rc": 0, "direct": True},
-                    )
+                row = _stamp_place(
+                    destination,
+                    {"source": src, "rel": plan["rel"], "rc": 0, "direct": True},
                 )
+                _stamp_direct_ownership(
+                    client,
+                    row,
+                    source=plan["local"],
+                    remote_path=remote_path,
+                    binary=binary,
+                    config_path=config_remote,
+                    use_sudo=use_sudo,
+                )
+                results.append(row)
         return results
     except Exception as exc:
         logger.warning("direct backup failed for %s: %s", hostname, exc)

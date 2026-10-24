@@ -25,6 +25,11 @@ from .ssh import get_private_key_plain, temp_key_file, LEGACY_SSH_OPTS_STR
 logger = logging.getLogger(__name__)
 
 
+def ownership_remote_command(source: str) -> str:
+    """One remote argv. OpenSSH joins extra arguments with spaces."""
+    return "sh -s -- " + shlex.quote(source)
+
+
 def list_restore_candidates(server: Server) -> List[Dict[str, Any]]:
     """List backup destinations that have local data and can be restored.
 
@@ -255,10 +260,7 @@ def restore_backup_source(
                     "-o",
                     "ConnectTimeout=15",
                     f"{user}@{host}",
-                    "sh",
-                    "-s",
-                    "--",
-                    source,
+                    ownership_remote_command(source),
                 ],
                 input=script,
                 capture_output=True,

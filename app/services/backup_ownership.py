@@ -231,9 +231,24 @@ def apply_manifest_tree(root: Path | str, entries: list[dict[str, Any]]) -> dict
 def render_apply_script(entries: list[dict[str, Any]], *, use_sudo: bool) -> str:
     """POSIX sh for the host. chown -h does not follow a final symlink."""
     if use_sudo:
-        chown_fn = "chown_cmd() { sudo -n chown \"$@\"; }\nchmod_cmd() { sudo -n chmod \"$@\"; }\n"
+        # Least-privilege sudoers names these paths. A plain [ -e ] runs as
+        # the SSH user and skips a 0700 directory that user cannot search.
+        chown_fn = (
+            'chown_cmd() { sudo -n /usr/bin/chown "$@"; }\n'
+            'chmod_cmd() { sudo -n /usr/bin/chmod "$@"; }\n'
+            'path_exists() { sudo -n /usr/bin/test -e "$1" || sudo -n /usr/bin/test -h "$1"; }\n'
+            'path_link() { sudo -n /usr/bin/test -h "$1"; }\n'
+            'path_dir() { sudo -n /usr/bin/test -d "$1"; }\n'
+            "sudo -n /usr/bin/true\n"
+        )
     else:
-        chown_fn = "chown_cmd() { chown \"$@\"; }\nchmod_cmd() { chmod \"$@\"; }\n"
+        chown_fn = (
+            'chown_cmd() { chown "$@"; }\n'
+            'chmod_cmd() { chmod "$@"; }\n'
+            'path_exists() { [ -e "$1" ] || [ -L "$1" ]; }\n'
+            'path_link() { [ -L "$1" ]; }\n'
+            'path_dir() { [ -d "$1" ]; }\n'
+        )
     calls: list[str] = []
     for raw in entries:
         if not isinstance(raw, dict):
@@ -288,17 +303,17 @@ apply_rel() {
     case $comp in ''|.|..) return 0 ;; esac
     path=$dir/$comp
     if [ "$rest" = "$comp" ]; then
-      if [ ! -e "$path" ] && [ ! -L "$path" ]; then
+      if ! path_exists "$path"; then
         return 0
       fi
       chown_cmd -h "$uid:$gid" "$path"
-      if [ ! -L "$path" ]; then
+      if ! path_link "$path"; then
         chmod_cmd "$mode" "$path"
       fi
       applied=$((applied + 1))
       return 0
     fi
-    if [ -L "$path" ] || [ ! -d "$path" ]; then
+    if path_link "$path" || ! path_dir "$path"; then
       return 0
     fi
     dir=$path

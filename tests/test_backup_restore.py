@@ -181,9 +181,11 @@ def test_restore_applies_ownership_and_keeps_old_archives_working(tmp_path):
     assert calls[0][0][0] == "rsync"
     assert ".piherder-ownership.json" in calls[0][0]
     assert calls[1][0][0] == "ssh"
+    assert calls[1][0][-1] == "sh -s -- /data/app"
     assert "0755" in calls[1][1]
     assert "4755" not in calls[1][1]
-    assert "sudo -n chown" in calls[1][1]
+    assert "sudo -n /usr/bin/chown" in calls[1][1]
+    assert "sudo -n /usr/bin/test -e" in calls[1][1]
 
 
 def test_restore_missing_local_dest():

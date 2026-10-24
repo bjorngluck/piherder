@@ -233,7 +233,7 @@ uvx --from git+https://github.com/bjorngluck/piherder-mcp.git piherder-mcp
 
 `${PIHERDER_TOKEN}` in older samples is a human placeholder. Many hosts do **not** expand it. Paste the real secret, or set it in the environment the host already inherits.
 
-Adapter **0.4.3** matches this hosted list, including `prune_docker`, the backup schedule fields, and the device tools. Adapter **0.4.2** sends `confirm=true` on purge and does not list `prune_docker`. Adapter **0.4.0** lists `start_move`, `read_discovery`, and `start_discovery` and does not list the device tools. Adapter **0.3.1** offers the four one-service job types and does not list those three. A token without `read` makes the stdio process exit on stderr.
+Adapter **0.4.3** matches the published tool list, including `prune_docker`, the backup schedule fields, and the device tools. It does not list `list_alerts`, `prune_build_cache`, or `replace_stale_mac`. Those three are on this branch and are not in the **1.12.1** image. Adapter **0.4.2** sends `confirm=true` on purge and does not list `prune_docker`. Adapter **0.4.0** lists `start_move`, `read_discovery`, and `start_discovery` and does not list the device tools. Adapter **0.3.1** offers the four one-service job types and does not list those three. A token without `read` makes the stdio process exit on stderr.
 
 ## Operating note
 

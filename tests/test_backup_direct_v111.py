@@ -170,7 +170,23 @@ def test_remote_command_points_at_the_temp_config():
     assert "sync /home/pi/docker dest:PiHerder/pi.local/docker" in command
     assert "--local-no-check-updated" in command
     assert "--drive-use-trash" in command
+    assert "--exclude .piherder-ownership.json" in command
     assert "secret-value" not in command
+
+
+def test_ownership_upload_uses_copyto():
+    from app.services.backup_direct import ownership_copyto_command
+
+    command = ownership_copyto_command(
+        "/var/lib/piherder/rclone",
+        config_path="/tmp/ph-rclone-abc.conf",
+        local_file="/tmp/ph-own-abc.json",
+        remote_file="PiHerder/host-a/docker/.piherder-ownership.json",
+        use_sudo=True,
+    )
+    assert command.startswith("sudo -n /var/lib/piherder/rclone copyto ")
+    assert "/tmp/ph-own-abc.json" in command
+    assert "dest:PiHerder/host-a/docker/.piherder-ownership.json" in command
 
 
 def test_service_account_path_is_rewritten_for_the_host():

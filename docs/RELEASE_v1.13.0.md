@@ -34,7 +34,7 @@ OAuth dynamic token issuance names the token from the client name plus a 6-hex s
 
 ### Backup restore ownership sidecar
 
-A backup writes `.piherder-ownership.json` beside the tree (mode `0600`). Entries are relative paths with numeric `uid`, `gid`, and mode. `setuid` and `setgid` are stripped (`mode & 0o1777`). Symlinks are not recorded. The file is written before the copy, so a Drive, OneDrive, or LAN share copy carries it too.
+A backup writes `.piherder-ownership.json` beside the tree (mode `0600`). Entries are relative paths with numeric `uid`, `gid`, and mode. `setuid` and `setgid` are stripped (`mode & 0o1777`). Symlinks are not recorded. A copy of `/backups` carries that file. A straight-out copy uploads it into the remote folder after the sync, and the sync excludes that name so the next run does not delete it.
 
 On a real restore, paths are checked and an ancestor symlink is not followed. `chown -h` sets the numeric owner without following a final symlink. Mode is applied only on a path that is not a symlink. The sidecar is excluded from the rsync onto the host, so it is not left in the restored tree. Dry-run does not apply it. An older archive with no sidecar still restores, and the result notes that the manifest was missing.
 

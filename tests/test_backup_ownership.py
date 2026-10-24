@@ -132,3 +132,22 @@ def test_host_script_jails_symlink_and_strips_setuid(tmp_path: Path):
     assert "applied 1" in proc.stdout
     assert stat.S_IMODE(db.stat().st_mode) == 0o755
     assert stat.S_IMODE(secret.stat().st_mode) == 0o600
+
+
+def test_sudo_script_checks_paths_as_root():
+    script = render_apply_script(
+        [{"path": "data/app.db", "uid": 1, "gid": 1, "mode": "0640"}],
+        use_sudo=True,
+    )
+    assert "sudo -n /usr/bin/test -e" in script
+    assert "sudo -n /usr/bin/test -d" in script
+    assert "sudo -n /usr/bin/chown" in script
+    assert "sudo -n /usr/bin/true" in script
+    assert "[ -e " not in script
+
+
+def test_ownership_remote_command_is_one_shell_word():
+    from app.services.backup_restore import ownership_remote_command
+
+    assert ownership_remote_command("/data/my files") == "sh -s -- '/data/my files'"
+    assert ownership_remote_command("/data/a;id") == "sh -s -- '/data/a;id'"
