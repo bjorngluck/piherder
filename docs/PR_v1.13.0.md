@@ -4,7 +4,7 @@
 
 **Base:** `main` · **Head:** `v1.13.0-dev` · [QA_v1.13.0.md](QA_v1.13.0.md) walks are written and not signed. Screenshots are reserved.
 
-**State:** draft. Notes are [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Package stays **1.12.1**. Not tagged. Not an upgrade path.
+**State:** draft [#60](https://github.com/bjorngluck/piherder/pull/60). Notes are [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Package stays **1.12.1**. Not tagged. Not an upgrade path.
 
 ---
 

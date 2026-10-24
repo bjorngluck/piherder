@@ -6,7 +6,7 @@
 **Operator QA:** walks below are written. They are not signed.  
 **Release notes:** draft [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Not tagged.  
 **Screenshots:** reserved in [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).  
-**Pull request:** not opened.
+**Pull request:** draft [#60](https://github.com/bjorngluck/piherder/pull/60).
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 

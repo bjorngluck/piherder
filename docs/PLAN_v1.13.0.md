@@ -10,7 +10,7 @@
 **QA:** [QA_v1.13.0.md](QA_v1.13.0.md) (operator walks and screenshot reservations. **Not** the operator wiki. Walks are not signed.)  
 **Related:** [PLAN_v1.12.0.md](PLAN_v1.12.0.md) · [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) (draft) · [RELEASE_v1.12.1.md](RELEASE_v1.12.1.md) · [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [LAN Discovery](../wiki/integrations/lan-discovery.md) · wiki [Add a server](../wiki/day-to-day/add-server.md) · wiki [Docker](../wiki/docker/overview.md)
 
-> Opened 2026-10-23 from `main` after **v1.12.1** shipped. Package stays `1.12.1`. The public demo is not pointed at this branch. Plugin **0.5.3** is the card. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter. Hosted `/mcp` on this branch lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Open issues were reviewed the same day. PiHerder has one open issue, [#50](https://github.com/bjorngluck/piherder/issues/50). piherder-ha and piherder-mcp have none. PiHerder has no open pull request.
+> Opened 2026-10-23 from `main` after **v1.12.1** shipped. Package stays `1.12.1`. The public demo is not pointed at this branch. Plugin **0.5.3** is the card. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter. Hosted `/mcp` on this branch lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Open issues were reviewed the same day. PiHerder has one open issue, [#50](https://github.com/bjorngluck/piherder/issues/50). piherder-ha and piherder-mcp have none. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) is open. Walks are not signed.
 
 ---
 
@@ -104,6 +104,7 @@ Nothing was voted **Out**.
 | 2026-10-23 | **Docs.** Operator walks are written in [QA_v1.13.0.md](QA_v1.13.0.md) and are not signed. Screenshot names are reserved in the [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status). Wiki and [API.md](API.md) name `.piherder-ownership.json`, cookie `api_token_once`, `nic_change`, `POST /api/v1/discovery/{id}/devices/{device_id}/replace-stale-mac`, `docker_prune_schedule`, `POST /api/v1/servers/{id}/docker/build-cache`, inventory `update_available`, hosted `list_alerts`, `prune_build_cache`, and `replace_stale_mac`, `POST /servers/{id}/host-deps/bootstrap`, audit action `host_bootstrap`, the OAuth `client_name` suffix, and the Prometheus gauges including `piherder_queue_oldest_pending_seconds` and `piherder_stuck_queue`. Package stays `1.12.1`. Published adapter stays **0.4.3**. |
 | 2026-10-23 | **Host tool bootstrap.** Must. Feature-gated preflight for Ubuntu, Debian, and Raspbian. UI route `POST /servers/{id}/host-deps/bootstrap` only. `build_host_bootstrap_script` and `bootstrap_host_tools` in `app/services/ssh_onboarding.py` take rsync and Docker from the server feature flags. The route queues exclusive job `host_bootstrap` (Celery `exclusive_job`, Job history). Optional `bootstrap_username` is the SSH login when the fleet user is already restricted `piherder`. The sudo password is encrypted in the task payload only. Passwordless sudo is probed with `sudo -H -n true` before `sudo -S`, so a NOPASSWD admin password is not written into `bash -s`. The SSH access window stays open and shows the job log. Audit action `host_bootstrap`. Package stays `1.12.1`. |
 | 2026-10-23 | **Draft notes.** [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) is a draft on `v1.13.0-dev`. Walks are written and not signed. Screenshots are reserved. Package stays `1.12.1`. Not tagged. |
+| 2026-10-23 | **Draft pull request.** [#60](https://github.com/bjorngluck/piherder/pull/60). Walks stay unsigned. Screenshots stay reserved. Package stays `1.12.1`. |
 
 ---
 
@@ -115,7 +116,7 @@ Nothing was voted **Out**.
 | 2 | Must, by area | **Done** on `v1.13.0-dev`, including documentation. Restore ownership, the possible NIC change notice and Replace stale MAC, the docs and release-sync sweep, the one-time token secret off the query string, and host tool bootstrap |
 | 3 | Should, if it fits | **Done** on `v1.13.0-dev`, including documentation. Stagger ceiling, Docker prune follow-ups, stuck queue and read-only alerts, OAuth token suffix, orphaned running jobs, `get_engine()` |
 | 4 | Freeze | Not set. Package stays **1.12.1** |
-| 5 | Operator QA | Walks are written in [QA_v1.13.0.md](QA_v1.13.0.md). Screenshot names are reserved. Walks are not signed |
+| 5 | Operator QA | Walks are written in [QA_v1.13.0.md](QA_v1.13.0.md). Screenshot names are reserved. Walks are not signed. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) |
 | 6 | Tag and Hub | Not cut |
 
 ---
