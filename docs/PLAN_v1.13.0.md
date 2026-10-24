@@ -90,7 +90,7 @@ Not on this train: the push-denylist secret (the workflow is in), volume prune o
 
 ### Open question
 
-**Coverage floor.** CI `--cov-fail-under` stays **80** on `app`. This train does not raise it. A compose run before the headroom packs was **80.08%** line (46,299 / 57,813), about 48 lines above a strict 80%. `tests/test_coverage_v113_headroom.py` brought a later run to **80.49%** (46,534 / 57,813), about 283 lines above a strict 80%. `tests/test_coverage_v113_more.py` adds Move dest-up recovery, a sudo rsync retry, a straight-out pull, and diagnostics. Whether a later train raises the fail-under is not voted. Not a v1.13 tag blocker.
+**Coverage floor.** CI `--cov-fail-under` stays **80** on `app`. This train does not raise it. A compose run before the headroom packs was **80.08%** line (46,299 / 57,813), about 48 lines above a strict 80%. `tests/test_coverage_v113_headroom.py` brought a later run to **80.49%** (46,534 / 57,813), about 283 lines above a strict 80%. `tests/test_coverage_v113_more.py` brought the same tree to **80.91%** (46,774 / 57,813), about 523 lines above a strict 80%. That pack covers Move dest-up recovery, a sudo rsync retry, a straight-out pull, and diagnostics. Whether a later train raises the fail-under is not voted. Not a v1.13 tag blocker.
 
 Nothing was voted **Out**.
 
@@ -109,7 +109,7 @@ Nothing was voted **Out**.
 | 2026-10-23 | **Host tool bootstrap.** Must. Feature-gated preflight for Ubuntu, Debian, and Raspbian. UI route `POST /servers/{id}/host-deps/bootstrap` only. `build_host_bootstrap_script` and `bootstrap_host_tools` in `app/services/ssh_onboarding.py` take rsync and Docker from the server feature flags. The route queues exclusive job `host_bootstrap` (Celery `exclusive_job`, Job history). Optional `bootstrap_username` is the SSH login when the fleet user is already restricted `piherder`. The sudo password is encrypted in the task payload only. Passwordless sudo is probed with `sudo -H -n true` before `sudo -S`, so a NOPASSWD admin password is not written into `bash -s`. The SSH access window stays open and shows the job log. Audit action `host_bootstrap`. Package stays `1.12.1`. |
 | 2026-10-23 | **Draft notes.** [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) is a draft on `v1.13.0-dev`. Walks are written and not signed. Screenshots are reserved. Package stays `1.12.1`. Not tagged. |
 | 2026-10-23 | **Draft pull request.** [#60](https://github.com/bjorngluck/piherder/pull/60). Walks stay unsigned. Screenshots stay reserved. Package stays `1.12.1`. |
-| 2026-10-24 | **Coverage headroom.** Packs `tests/test_coverage_v113_headroom.py` and `tests/test_coverage_v113_more.py`. CI fail-under stays **80**. Open question: raise that floor on a later train, or leave it. Not a v1.13 tag blocker. |
+| 2026-10-24 | **Coverage headroom.** Packs `tests/test_coverage_v113_headroom.py` and `tests/test_coverage_v113_more.py`. Compose run **80.91%** line (46,774 / 57,813). CI fail-under stays **80**. Open question: raise that floor on a later train, or leave it. Not a v1.13 tag blocker. |
 
 ---
 
