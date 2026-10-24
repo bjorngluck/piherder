@@ -10,7 +10,7 @@
 **QA:** not opened.  
 **Related:** [PLAN_v1.13.0.md](PLAN_v1.13.0.md) · [RELEASE_v1.12.1.md](RELEASE_v1.12.1.md)
 
-> Opened 2026-10-24 from the `v1.13.0-dev` tip. `v1.13.0-dev` is frozen for new scope. Package stays `1.12.1`. The public demo is not pointed at this branch. Plugin **0.5.2** stays the card. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter.
+> Opened 2026-10-24 from the `v1.13.0-dev` tip. `v1.13.0-dev` is frozen for new scope. Package stays `1.12.1`. The public demo is not pointed at this branch. Plugin **0.5.3** stays the card. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter.
 
 ---
 
