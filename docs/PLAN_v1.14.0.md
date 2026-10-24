@@ -48,13 +48,20 @@ Build order: **#62, #63, #61, then #64.**
 |------|------|
 | Should | **Mute rules.** Issue [#64](https://github.com/bjorngluck/piherder/issues/64). One model, scoped to a host or an alert type. An optional time window must have an end time. Mute availability alerts only. Never skip schedules. Audited. Auth, OAuth, and backup failures still fire. Sensor-level ignores stay in Prometheus |
 
+### Plugin
+
+| Tier | Lock |
+|------|------|
+| Should | **Drop root brand copies.** [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6). Remove `icon.png`, `icon@2x.png`, `logo.png`, and `logo@2x.png` from the integration root. Home Assistant only reads `brand/`. The `brand/` files stay. Noted on the merged [hacs/default#11444](https://github.com/hacs/default/pull/11444) approval. Not herder code |
+| Should | **Official HACS install.** [hacs/default#11444](https://github.com/hacs/default/pull/11444) is merged. The plugin README, the HACS badge, and the herder wiki stop saying to add a custom repository. Install is HACS, Integrations, PiHerder |
+
 | Topic | Lock |
 |-------|------|
 | Version bump | Package stays **1.12.1** until freeze. About stays **1.12.1** |
 | Demo | The public demo is not pointed at this branch |
 | Plugin | The Home Assistant card stays the separate HACS repo |
 | Adapter | Published adapter stays **0.4.3** |
-| Issues | [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#61](https://github.com/bjorngluck/piherder/issues/61) are Must. [#64](https://github.com/bjorngluck/piherder/issues/64) is Should. They stay open until the release |
+| Issues | [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#61](https://github.com/bjorngluck/piherder/issues/61) are Must. [#64](https://github.com/bjorngluck/piherder/issues/64) is Should. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is the brand-file cleanup. They stay open until the release |
 | Frozen branch | Do not add this scope to `v1.13.0-dev` |
 
 ### Out
@@ -71,6 +78,7 @@ Build order: **#62, #63, #61, then #64.**
 | Date | What changed |
 |------|----------------|
 | 2026-10-24 | **Train opened** from the `v1.13.0-dev` tip. `v1.13.0-dev` stays frozen for new scope. Must, in build order: [#62](https://github.com/bjorngluck/piherder/issues/62) missed-slot catch-up for checks and backups, plus why the slot was missed; [#63](https://github.com/bjorngluck/piherder/issues/63) Google Drive OAuth health; [#61](https://github.com/bjorngluck/piherder/issues/61) `GET /api/v1/fleet/summary?since=` and hosted `fleet_summary`. Should: [#64](https://github.com/bjorngluck/piherder/issues/64) mute rules. Out: Prometheus sensor ignore, and scrape status that Grafana already owns. Package stays `1.12.1`. Nothing is built. |
+| 2026-10-24 | **HACS default merged.** [hacs/default#11444](https://github.com/hacs/default/pull/11444) approved and merged. Should: [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) drops the root icon and logo copies. Should: point the plugin README, the HACS badge, and the herder wiki at the default HACS integration instead of a custom repository. Nothing is built. |
 
 ---
 
@@ -81,6 +89,7 @@ Build order: **#62, #63, #61, then #64.**
 | 1 | Open **`v1.14.0-dev`** | **Done** 2026-10-24 |
 | 2 | Must, in order #62, #63, #61 | Not started |
 | 3 | Should #64, if it fits | Not started |
+| 3b | Plugin: [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6), and point install docs at default HACS | Not started |
 | 4 | Freeze | Not set. Package stays **1.12.1** |
 | 5 | Operator QA | Not opened |
 | 6 | Tag and Hub | Not cut |
