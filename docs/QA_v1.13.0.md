@@ -3,7 +3,7 @@
 **Branch:** `v1.13.0-dev`  
 **Code freeze:** not set.  
 **Package:** stays **`1.12.1`**. About / footer stay **1.12.1**.  
-**Operator QA:** Host tools and Internals signed 2026-10-25. The other walks are not signed.  
+**Operator QA:** Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. Backups, Discovery, the 1.12 regression walk, and screenshots are not signed.  
 **Release notes:** draft [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Not tagged.  
 **Screenshots:** reserved in [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).  
 **Pull request:** draft [#60](https://github.com/bjorngluck/piherder/pull/60).
@@ -14,7 +14,7 @@ Plan: [PLAN_v1.13.0.md](PLAN_v1.13.0.md). v1.12 sign-off stays [QA_v1.12.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch.
 
-Must and Should code and documentation are on `v1.13.0-dev`. Host tools and Internals are signed 2026-10-25. The other walks are not signed. Later is not a walk on this train. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
+Must and Should code and documentation are on `v1.13.0-dev`. Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. Backups, Discovery, the 1.12 regression walk, and screenshots are not signed. Later is not a walk on this train. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
 
 ---
 
@@ -54,62 +54,70 @@ Issue [#50](https://github.com/bjorngluck/piherder/issues/50). Device identity s
 
 Build cache is its own action. The prune schedule form is inside the **Cleanup…** modal (`#cleanup-modal`). The saved prune schedule starts `docker_prune` with `both`. Volumes stay off that schedule.
 
-- [ ] The host Docker page can prune the Docker build cache and the buildx cache (`docker builder prune -f`, then `docker buildx prune -f`)
-- [ ] `POST /api/v1/servers/{id}/docker/build-cache` (`edit`) does that prune in the request. It is not a job and not scheduled
-- [ ] A `read` token cannot call that route
-- [ ] Hosted `/mcp` `prune_build_cache` (`edit`) does the same prune
-- [ ] Each of those three writes one audit row, `docker_build_cache_prune`, and does not write a `docker_prune` job
-- [ ] Saving a per-host prune cron in the **Cleanup…** modal (`#cleanup-modal`) stores `docker_prune_schedule`. Empty means off. The host needs container patch enabled. The Docker page itself does not show that form
-- [ ] That cron starts `docker_prune` with source `both` (dangling images and exited containers). Volumes are not included. Build cache is not included
-- [ ] Saving the cron writes audit action `server_docker_prune_schedule`
-- [ ] About **View schedule** lists that job under `docker_prune`
-- [ ] A slot that does not start within 15 minutes opens `docker_prune_missed`. The next successful prune of that host resolves it. Clearing the cron resolves it too
-- [ ] A successful container update or redeploy then runs `docker image prune -f`. Dangling images only
-- [ ] A failed update does not run that prune. A prune that fails does not fail the update job
-- [ ] Volumes, exited containers, and the build cache are left alone by that inline prune
-- [ ] `docker_inventory_status` left at `refreshing` for 30 minutes, measured from `docker_inventory_at`, resets to stale when a snapshot exists and to never when it does not
-- [ ] A refreshing host with no `docker_inventory_at` is not treated as expired
-- [ ] `GET /api/v1/inventory` and `GET /api/v1/servers/{id}/inventory` (`read`) set `update_available` on each container, each image, and each compose project
-- [ ] Those flags match the stored inventory. The call does not SSH and does not require a `container_update_check` job log
+Signed 2026-10-25.
+
+- [x] The host Docker page can prune the Docker build cache and the buildx cache (`docker builder prune -f`, then `docker buildx prune -f`)
+- [x] `POST /api/v1/servers/{id}/docker/build-cache` (`edit`) does that prune in the request. It is not a job and not scheduled
+- [x] A `read` token cannot call that route
+- [x] Hosted `/mcp` `prune_build_cache` (`edit`) does the same prune
+- [x] Each of those three writes one audit row, `docker_build_cache_prune`, and does not write a `docker_prune` job
+- [x] Saving a per-host prune cron in the **Cleanup…** modal (`#cleanup-modal`) stores `docker_prune_schedule`. Empty means off. The host needs container patch enabled. The Docker page itself does not show that form
+- [x] That cron starts `docker_prune` with source `both` (dangling images and exited containers). Volumes are not included. Build cache is not included
+- [x] Saving the cron writes audit action `server_docker_prune_schedule`
+- [x] About **View schedule** lists that job under `docker_prune`
+- [x] A slot that does not start within 15 minutes opens `docker_prune_missed`. The next successful prune of that host resolves it. Clearing the cron resolves it too
+- [x] A successful container update or redeploy then runs `docker image prune -f`. Dangling images only
+- [x] A failed update does not run that prune. A prune that fails does not fail the update job
+- [x] Volumes, exited containers, and the build cache are left alone by that inline prune
+- [x] `docker_inventory_status` left at `refreshing` for 30 minutes, measured from `docker_inventory_at`, resets to stale when a snapshot exists and to never when it does not
+- [x] A refreshing host with no `docker_inventory_at` is not treated as expired
+- [x] `GET /api/v1/inventory` and `GET /api/v1/servers/{id}/inventory` (`read`) set `update_available` on each container, each image, and each compose project
+- [x] Those flags match the stored inventory. The call does not SSH and does not require a `container_update_check` job log
 
 ## Alerts (Should)
 
-- [ ] One `stuck_queue` warning opens when the oldest `pending` job is older than 15 minutes and no Celery worker answers
-- [ ] It resolves when that age drops to 15 minutes or less
-- [ ] It resolves when a worker answers again, even if old pending rows remain
-- [ ] A worker check that cannot tell leaves an existing warning as it is and does not open a new one
-- [ ] Mute **PiHerder stack** stops the warning
-- [ ] `/metrics` exposes `piherder_queue_oldest_pending_seconds` as that age, or 0 when nothing is pending
-- [ ] `piherder_stuck_queue` is 1 only when the age is over 15 minutes and no worker answered. An unknown heartbeat leaves the gauge at 0
-- [ ] The gauges do not probe Celery when the oldest pending job is 15 minutes old or newer
-- [ ] `GET /api/v1/alerts` (`read`) returns open notifications with `limit` and `offset`. Dismissed and resolved rows are omitted
-- [ ] The payload has `id`, `type`, `severity`, `title`, `body`, `server_id`, `link_url`, `status`, `created_at`, and `updated_at`. It has no token secret
-- [ ] A token without `read` cannot call it
-- [ ] Hosted `/mcp` `list_alerts` (`read`) returns the same open set
-- [ ] A `lan_discovery` info row for a possible NIC change is in that list while it is open
+Signed 2026-10-25.
+
+- [x] One `stuck_queue` warning opens when the oldest `pending` job is older than 15 minutes and no Celery worker answers
+- [x] It resolves when that age drops to 15 minutes or less
+- [x] It resolves when a worker answers again, even if old pending rows remain
+- [x] A worker check that cannot tell leaves an existing warning as it is and does not open a new one
+- [x] Mute **PiHerder stack** stops the warning
+- [x] `/metrics` exposes `piherder_queue_oldest_pending_seconds` as that age, or 0 when nothing is pending
+- [x] `piherder_stuck_queue` is 1 only when the age is over 15 minutes and no worker answered. An unknown heartbeat leaves the gauge at 0
+- [x] The gauges do not probe Celery when the oldest pending job is 15 minutes old or newer
+- [x] `GET /api/v1/alerts` (`read`) returns open notifications with `limit` and `offset`. Dismissed and resolved rows are omitted
+- [x] The payload has `id`, `type`, `severity`, `title`, `body`, `server_id`, `link_url`, `status`, `created_at`, and `updated_at`. It has no token secret
+- [x] A token without `read` cannot call it
+- [x] Hosted `/mcp` `list_alerts` (`read`) returns the same open set
+- [x] A `lan_discovery` info row for a possible NIC change is in that list while it is open
 
 ## MCP (Should)
 
 Published adapter **0.4.3** does not list `list_alerts`, `prune_build_cache`, or `replace_stale_mac`. Hosted `/mcp` on this branch does. Do not expect `uvx` at 0.4.3 to show them.
 
-- [ ] Two browser sign-ins that send the same OAuth `client_name` get different token names
-- [ ] The extra part is 6 hex characters. It is not the access token and not the `ph_oa_` prefix
-- [ ] The stored name stays within 120 characters
-- [ ] Hosted `list_alerts` is listed for a token with `read` and is absent without it
-- [ ] Hosted `prune_build_cache` is listed for a token with `edit` and is absent without it
-- [ ] Hosted `replace_stale_mac` is listed only when the token has `read` and `edit`
-- [ ] `uvx piherder-mcp` at **0.4.3** still does not list those three tools
-- [ ] `prune_docker` is still a `docker_prune` job. It is not the build-cache action
+Signed 2026-10-25.
+
+- [x] Two browser sign-ins that send the same OAuth `client_name` get different token names
+- [x] The extra part is 6 hex characters. It is not the access token and not the `ph_oa_` prefix
+- [x] The stored name stays within 120 characters
+- [x] Hosted `list_alerts` is listed for a token with `read` and is absent without it
+- [x] Hosted `prune_build_cache` is listed for a token with `edit` and is absent without it
+- [x] Hosted `replace_stale_mac` is listed only when the token has `read` and `edit`
+- [x] `uvx piherder-mcp` at **0.4.3** still does not list those three tools
+- [x] `prune_docker` is still a `docker_prune` job. It is not the build-cache action
 
 ## Security (Must)
 
-- [ ] After create, the redirect URL has no `token_secret` query parameter
-- [ ] After rotate, the redirect URL has no `token_secret` query parameter
-- [ ] The new secret is shown once from the HttpOnly cookie `api_token_once`
-- [ ] That cookie expires in 5 minutes and is not readable from page script
-- [ ] A later load of the settings page does not show the secret again
-- [ ] Browser history and a copied redirect link do not contain the secret
-- [ ] The admin alert for token create still names the actor and the client IP and still omits the secret and the token prefix
+Signed 2026-10-25.
+
+- [x] After create, the redirect URL has no `token_secret` query parameter
+- [x] After rotate, the redirect URL has no `token_secret` query parameter
+- [x] The new secret is shown once from the HttpOnly cookie `api_token_once`
+- [x] That cookie expires in 5 minutes and is not readable from page script
+- [x] A later load of the settings page does not show the secret again
+- [x] Browser history and a copied redirect link do not contain the secret
+- [x] The admin alert for token create still names the actor and the client IP and still omits the secret and the token prefix
 
 ## Internals (Must & Should)
 
