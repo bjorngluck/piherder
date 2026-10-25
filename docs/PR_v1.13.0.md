@@ -26,7 +26,7 @@ Design: [PLAN_v1.13.0.md](PLAN_v1.13.0.md). Maintainer ticks: [QA_v1.13.0.md](QA
 | **Discovery** | NIC notice for [#50](https://github.com/bjorngluck/piherder/issues/50). Replace stale MAC. The issue stays open |
 | **Docker** | Build cache, scheduled prune without volumes, dangling images after a successful update, inventory `update_available` |
 | **Alerts** | `stuck_queue` and `GET /api/v1/alerts` |
-| **Hosts** | `POST /servers/{id}/host-deps/bootstrap`. Not on `/api/v1` or `/mcp` |
+| **Hosts** | `POST /servers/{id}/host-deps/bootstrap`. Not on `/api/v1` or `/mcp`. The sudo password expires after 120 seconds and is not retried |
 | **Tokens** | HttpOnly cookie `api_token_once`. OAuth client name plus a 6-hex suffix |
 | **Companions** | Plugin **0.5.3**. Adapter **0.4.3**. No new companion tag |
 
@@ -38,12 +38,12 @@ Alembic **051** adds `docker_prune_schedule`. Recreate **web** and **celery-work
 
 Walk [QA_v1.13.0.md](QA_v1.13.0.md). Screenshots are not captured. Do not retick the 1.12 boxes.
 
-- [ ] Restore ownership and the backup stagger ceiling
-- [ ] NIC change notice and Replace stale MAC. [#50](https://github.com/bjorngluck/piherder/issues/50) stays open
-- [ ] Build cache, scheduled prune, and prune after an update. Volumes stay off the schedule and off the API
-- [ ] Stuck queue, read-only alerts, orphaned running jobs
-- [ ] Host tool bootstrap. Refused in demo. Not on `/api/v1` or hosted `/mcp`
-- [ ] Token secret stays off the query string. OAuth names stay distinct
+- [x] Restore ownership and the backup stagger ceiling
+- [x] NIC change notice and Replace stale MAC. [#50](https://github.com/bjorngluck/piherder/issues/50) stays open
+- [x] Build cache, scheduled prune, and prune after an update. Volumes stay off the schedule and off the API
+- [x] Stuck queue, read-only alerts, orphaned running jobs
+- [x] Host tool bootstrap. Refused in demo. Not on `/api/v1` or hosted `/mcp`
+- [x] Token secret stays off the query string. OAuth names stay distinct
 - [ ] `.venv-docs/bin/mkdocs build --strict`
 - [ ] Screenshot files named in the [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status)
 
