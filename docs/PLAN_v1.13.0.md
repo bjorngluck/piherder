@@ -1,6 +1,6 @@
 # PiHerder v1.13.0: ownership on restore, and a hint when a MAC changes
 
-**Status:** **Built** on `v1.13.0-dev` 2026-10-23. Must and Should code and documentation are on the branch. Operator QA walks and screenshot reservations are ready in [QA_v1.13.0.md](QA_v1.13.0.md) and [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status). Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed. Freeze is not set. No tag.  
+**Status:** **Built** on `v1.13.0-dev` 2026-10-23. Must and Should code and documentation are on the branch. Operator QA walks and screenshot reservations are ready in [QA_v1.13.0.md](QA_v1.13.0.md) and [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status). Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed. Code freeze is set 2026-10-25. No tag.  
 **Date opened:** 2026-10-23  
 **Git branch:** `v1.13.0-dev`  
 **Package / image version:** package stays **`1.12.1`**. About / footer stay **1.12.1**. This train does not bump the package.  
@@ -117,6 +117,7 @@ Nothing was voted **Out**.
 | 2026-10-25 | **QA.** The 1.12 regression walk is signed in [QA_v1.13.0.md](QA_v1.13.0.md). Screenshots are not signed. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) stays a draft. |
 | 2026-10-25 | **Host bootstrap broker lifetime.** `host_bootstrap_job` acks on receipt, does not retry, and the message expires after 120 seconds. The one-time sudo password is Fernet-encrypted in the broker only until a worker picks it up and is never logged. A worker crash marks the job failed and the operator reruns with a fresh password. An expired message fails the pending job with `expired before a worker picked it up, rerun with a fresh password` and frees the host. Other exclusive tasks stay on `exclusive_job`. Package stays `1.12.1`. |
 | 2026-10-25 | **Host bootstrap when the host is busy.** A second `host_bootstrap` fails at once with `another job holds this host, rerun when it finishes` and does not queue the sudo password. Wiki [Add a server](../wiki/day-to-day/add-server.md), [Jobs and audit](../wiki/day-to-day/jobs-audit-notifications.md), and [Multi-worker](../wiki/operations/multi-worker.md) name that failure and the expired-message failure. [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) stays a draft. Walks are signed. Screenshots are not captured. Package stays `1.12.1`. |
+| 2026-10-25 | **Code freeze.** No new product work on `v1.13.0-dev`. Walks are signed. Screenshots are not captured. Package stays `1.12.1`. Pull request [#60](https://github.com/bjorngluck/piherder/pull/60) stays open. Not tagged. |
 
 ---
 
@@ -127,10 +128,10 @@ Nothing was voted **Out**.
 | 1 | Open **`v1.13.0-dev`** | **Done** 2026-10-23 |
 | 2 | Must, by area | **Done** on `v1.13.0-dev`, including documentation. Restore ownership, the possible NIC change notice and Replace stale MAC, the docs and release-sync sweep, the one-time token secret off the query string, and host tool bootstrap |
 | 3 | Should, if it fits | **Done** on `v1.13.0-dev`, including documentation. Stagger ceiling, Docker prune follow-ups, stuck queue and read-only alerts, OAuth token suffix, orphaned running jobs, `get_engine()` |
-| 4 | Freeze | Not set. Package stays **1.12.1** |
+| 4 | Freeze | **Set** 2026-10-25. No new product work on this branch. Package stays **1.12.1** |
 | 5 | Operator QA | Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25 in [QA_v1.13.0.md](QA_v1.13.0.md). The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed. Pull request [#60](https://github.com/bjorngluck/piherder/pull/60) is open. |
 | 6 | Tag and Hub | Not cut |
 
 ---
 
-*Opened 2026-10-23. Must and Should code and documentation are on `v1.13.0-dev`. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed. Package stays 1.12.1. Not tagged.*
+*Opened 2026-10-23. Must and Should code and documentation are on `v1.13.0-dev`. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed. Code freeze is set 2026-10-25. Package stays 1.12.1. Not tagged.*

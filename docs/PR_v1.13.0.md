@@ -4,7 +4,7 @@
 
 **Base:** `main` · **Head:** `v1.13.0-dev` · [QA_v1.13.0.md](QA_v1.13.0.md): Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed. Screenshots are reserved.
 
-**State:** open [#60](https://github.com/bjorngluck/piherder/pull/60). Notes are [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Package stays **1.12.1**. Not tagged. Not an upgrade path.
+**State:** open [#60](https://github.com/bjorngluck/piherder/pull/60). Code freeze is set 2026-10-25. Notes are [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Package stays **1.12.1**. Not tagged. Not an upgrade path.
 
 ---
 
@@ -64,7 +64,7 @@ Walk [QA_v1.13.0.md](QA_v1.13.0.md). Screenshots are not captured. Do not retick
 - [ ] End-user notes (`RELEASE_v1.13.0.md`) moved from draft to the shipped release
 - [ ] Screenshot files dropped in `wiki/assets/screenshots/`
 - [ ] `.venv-docs/bin/mkdocs build --strict`
-- [ ] Freeze. Package bump is a separate ask
+- [x] Freeze. Package bump is a separate ask
 - [ ] Merge this PR to main
 - [ ] Tag v1.13.0 and publish the release notes
 - [ ] Push Docker Hub image tags for that release

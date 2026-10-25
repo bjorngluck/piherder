@@ -2,7 +2,7 @@
 
 **Draft on `v1.13.0-dev`.** Not tagged. Not released.
 
-Must and Should code and docs are built. Maintainer walks in [QA_v1.13.0](QA_v1.13.0.md) are signed 2026-10-25. Screenshots are not captured. Package version on `main` and on `v1.13.0-dev` stays **1.12.1**. About and the footer stay **1.12.1**. Freeze is not set.
+Must and Should code and docs are built. Maintainer walks in [QA_v1.13.0](QA_v1.13.0.md) are signed 2026-10-25. Screenshots are not captured. Package version on `main` and on `v1.13.0-dev` stays **1.12.1**. About and the footer stay **1.12.1**. Code freeze is set 2026-10-25.
 
 Baseline is [v1.12.1](RELEASE_v1.12.1.md) (2026-10-23) and [v1.12.0](RELEASE_v1.12.0.md) (2026-10-22). This draft is not an upgrade path. The published image stays `bjorngluck/piherder:1.12.1`.
 

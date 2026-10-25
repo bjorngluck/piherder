@@ -41,7 +41,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 
 ## v1.13.0 pack status {#v113--pack-status}
 
-**Reserved** on `v1.13.0-dev`. Not captured. About and the footer say **1.12.1**. Mask names, paths, addresses, and secrets. Do not photograph the public demo. Maintainer walks are [QA_v1.13.0.md](../../../docs/QA_v1.13.0.md).
+**Reserved** on `v1.13.0-dev`. Not captured. Code freeze is set 2026-10-25. About and the footer say **1.12.1**. Mask names, paths, addresses, and secrets. Do not photograph the public demo. Maintainer walks are [QA_v1.13.0.md](../../../docs/QA_v1.13.0.md).
 
 | File | Surface | What the frame shows | Where |
 |------|---------|----------------------|--------|

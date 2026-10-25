@@ -1,7 +1,7 @@
 # PiHerder v1.13.0 (operator QA / sign-off)
 
 **Branch:** `v1.13.0-dev`  
-**Code freeze:** not set.  
+**Code freeze:** set 2026-10-25. No new product work on this branch. Package bump, merge, tag, and Hub stay a separate ask.  
 **Package:** stays **`1.12.1`**. About / footer stay **1.12.1**.  
 **Operator QA:** Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed.  
 **Release notes:** draft [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Not tagged.  

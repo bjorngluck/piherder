@@ -163,7 +163,7 @@ No new Alembic revision. Recreate **web** and **celery-worker**. About should sa
 
 ## 1.12.1 → 1.13.0 {#1121--1130}
 
-**v1.13.0** is not tagged. Draft notes: [RELEASE_v1.13.0.md](https://github.com/bjorngluck/piherder/blob/v1.13.0-dev/docs/RELEASE_v1.13.0.md). Package stays **1.12.1**. About stays **1.12.1**. This is not an upgrade path. When it ships, Alembic **051** adds `docker_prune_schedule`. Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** and adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stay. Hosted `/mcp` on this train lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Do not point the public demo at `v1.13.0-dev`.
+**v1.13.0** is not tagged. Code freeze is set 2026-10-25. Draft notes: [RELEASE_v1.13.0.md](https://github.com/bjorngluck/piherder/blob/v1.13.0-dev/docs/RELEASE_v1.13.0.md). Package stays **1.12.1**. About stays **1.12.1**. This is not an upgrade path. Screenshots are not captured. When it ships, Alembic **051** adds `docker_prune_schedule`. Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** and adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stay. Hosted `/mcp` on this train lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Do not point the public demo at `v1.13.0-dev`.
 
 ## Breaking notes
 
