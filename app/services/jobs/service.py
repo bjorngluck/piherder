@@ -884,6 +884,7 @@ _HOST_BOOTSTRAP_EXPIRE_GRACE_SEC = 30
 HOST_BOOTSTRAP_EXPIRED_REASON = (
     "expired before a worker picked it up, rerun with a fresh password"
 )
+HOST_BOOTSTRAP_BUSY_REASON = "another job holds this host, rerun when it finishes"
 
 
 def celery_worker_activity() -> tuple[bool, set[str]] | None:
@@ -1087,7 +1088,11 @@ def create_job_and_run(
             raise ValueError(
                 "prune_type must be images, containers, both, networks, or volumes"
             )
-    if job_type in _EXCLUSIVE_JOB_TYPES and server_id is not None:
+    if (
+        job_type in _EXCLUSIVE_JOB_TYPES
+        and job_type != "host_bootstrap"
+        and server_id is not None
+    ):
         active = _active_job_of_type(session, server_id, job_type)
         if active:
             logger.info(
@@ -1411,6 +1416,20 @@ def create_job_and_run(
             bg_args=(job.id, server.id, audit.id),
         )
     elif job_type == "host_bootstrap":
+        holder = _other_active_job(session, server.id, "host_bootstrap", job.id)
+        if holder is not None:
+            # Do not enqueue. A retry would put the sudo password on the broker again.
+            _mark_job_failed(
+                job, HOST_BOOTSTRAP_BUSY_REASON, session, record_audit=False
+            )
+            _finish_running_audit_for_job(
+                session,
+                job,
+                status="failed",
+                message=HOST_BOOTSTRAP_BUSY_REASON,
+            )
+            session.commit()
+            return job
         enc_pw = ""
         if boot_password:
             from ...security import encryption as encmod
@@ -2714,6 +2733,19 @@ def _active_job_of_type(session: Session, server_id: int, job_type: str) -> Job 
         .where(Job.job_type == job_type)
         .where(Job.status.in_(["pending", "running"]))
         .order_by(Job.created_at.desc())
+    ).first()
+
+
+def _other_active_job(
+    session: Session, server_id: int, job_type: str, job_id: int
+) -> Job | None:
+    """Another pending or running row of this exclusive type on the host."""
+    return session.exec(
+        select(Job)
+        .where(Job.server_id == server_id)
+        .where(Job.job_type == job_type)
+        .where(Job.id != int(job_id))
+        .where(Job.status.in_(["pending", "running"]))
     ).first()
 
 

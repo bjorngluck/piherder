@@ -340,7 +340,19 @@ def run_exclusive_job(task, job_id: int, server_id: int, audit_id: int, job_type
 
         # Bootstrap may log in as another user, or with a password, before fleet
         # SSH works. A bad password must fail now, not sit in the host wait.
-        if jt != "host_bootstrap" and not _ssh_ready(server_id):
+        # A busy exclusive slot fails at once. Retrying would publish the
+        # sudo password again.
+        if jt == "host_bootstrap":
+            with js._get_fresh_session() as session:
+                holder = js._other_active_job(
+                    session, server_id, "host_bootstrap", job_id
+                )
+            if holder is not None:
+                _fail_message(
+                    job_id, audit_id, jt, js.HOST_BOOTSTRAP_BUSY_REASON
+                )
+                return {"status": "failed", "job_id": job_id, "reason": "host_busy"}
+        elif not _ssh_ready(server_id):
             return _wait_for_host(task, job_id, audit_id, jt)
 
         _execute(jt, job_id, server_id, audit_id, body)

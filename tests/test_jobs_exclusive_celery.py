@@ -353,6 +353,116 @@ def test_demo_does_not_probe_ssh(monkeypatch):
         assert "demo" in (row.details or "").lower() or "Demo" in (row.details or "")
 
 
+def test_host_bootstrap_lock_conflict_fails_without_retry(monkeypatch):
+    engine = _engine()
+    _bind(monkeypatch, engine)
+    srv = _server(engine)
+    with Session(engine) as session:
+        holder = Job(
+            server_id=srv.id,
+            job_type="host_bootstrap",
+            status="running",
+            details="{}",
+        )
+        pending = Job(
+            server_id=srv.id,
+            job_type="host_bootstrap",
+            status="pending",
+            details="{}",
+        )
+        session.add(holder)
+        session.add(pending)
+        session.commit()
+        session.refresh(holder)
+        session.refresh(pending)
+        audit = AuditLog(
+            server_id=srv.id,
+            action="host_bootstrap",
+            status="running",
+            details=f"Job #{pending.id} started",
+        )
+        session.add(audit)
+        session.commit()
+        session.refresh(audit)
+        holder_id, pending_id, aid = holder.id, pending.id, audit.id
+
+    class _NoRetry(_Task):
+        def retry(self, countdown=None):
+            raise AssertionError("host_bootstrap must not retry")
+
+    result = run_exclusive_job(
+        _NoRetry(),
+        pending_id,
+        srv.id,
+        aid,
+        "host_bootstrap",
+        {"sudo_password_encrypted": "ciphertext", "bootstrap_username": "pi"},
+    )
+    assert result["reason"] == "host_busy"
+    with Session(engine) as session:
+        row = session.get(Job, pending_id)
+        kept = session.get(Job, holder_id)
+        audit_row = session.get(AuditLog, aid)
+        assert row.status == "failed"
+        assert js.HOST_BOOTSTRAP_BUSY_REASON in (row.details or "")
+        assert "ciphertext" not in (row.details or "")
+        assert kept.status == "running"
+        assert audit_row.status == "failed"
+        assert js.HOST_BOOTSTRAP_BUSY_REASON in (audit_row.details or "")
+
+
+def test_host_bootstrap_busy_host_is_not_enqueued(monkeypatch):
+    engine = _engine()
+    _bind(monkeypatch, engine)
+    srv = _server(engine)
+    with Session(engine) as session:
+        holder = Job(
+            server_id=srv.id,
+            job_type="host_bootstrap",
+            status="running",
+            details="{}",
+        )
+        session.add(holder)
+        session.commit()
+
+    def apply_async(*args, **kwargs):
+        raise AssertionError("busy host must not enqueue")
+
+    def delay(*args, **kwargs):
+        raise AssertionError("exclusive_job.delay must not send host_bootstrap")
+
+    monkeypatch.setattr(js.host_bootstrap_job_task, "apply_async", apply_async)
+    monkeypatch.setattr(js.exclusive_job_task, "delay", delay)
+    monkeypatch.setattr(
+        "app.services.jobs_exclusive.exclusive_runs_inline", lambda: False
+    )
+
+    class _BG:
+        def add_task(self, *args, **kwargs):
+            raise AssertionError("must not run in the web process")
+
+    with Session(engine) as session:
+        live = session.get(Server, srv.id)
+        job = js.create_job_and_run(
+            _BG(),
+            session,
+            live,
+            "host_bootstrap",
+            user_id=1,
+            bootstrap_options={
+                "bootstrap_username": "pi",
+                "sudo_password": "one-time-secret",
+                "confirm_docker_bootstrap": False,
+            },
+        )
+        session.refresh(job)
+        assert job.status == "failed"
+        blob = job.details or ""
+        assert js.HOST_BOOTSTRAP_BUSY_REASON in blob
+        assert "one-time-secret" not in blob
+        assert "sudo_password" not in blob
+
+
 def test_host_bootstrap_acks_on_receipt_and_does_not_retry():
     assert host_bootstrap_job.name == "app.tasks.host_bootstrap_job"
     assert host_bootstrap_job.acks_late is False
