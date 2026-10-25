@@ -70,6 +70,27 @@ def test_missing_task_waits_out_the_grace_then_fails(monkeypatch):
         _clear_running(session)
 
 
+def test_crashed_host_bootstrap_is_failed(monkeypatch):
+    monkeypatch.setattr(jobs_svc, "celery_worker_activity", lambda: (False, set()))
+    with Session(get_engine()) as session:
+        _clear_running(session)
+        job = Job(
+            job_type="host_bootstrap",
+            status="running",
+            celery_task_id="task-bootstrap-dead",
+            started_at=datetime.utcnow() - timedelta(minutes=2),
+            details="{}",
+        )
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        assert jobs_svc.reconcile_orphaned_running_jobs(session) == 1
+        session.refresh(job)
+        assert job.status == "failed"
+        assert "no longer alive" in (job.details or "")
+        _clear_running(session)
+
+
 def test_unknown_worker_check_leaves_jobs_alone(monkeypatch):
     monkeypatch.setattr(jobs_svc, "celery_worker_activity", lambda: None)
     with Session(get_engine()) as session:

@@ -151,7 +151,7 @@ Signed 2026-10-25.
 - [x] The copied script installs `ca-certificates`, `curl`, and `gnupg` before `dists/<codename>/Release`. It then removes only conflicting packages that `dpkg-query` shows as installed (`apt-get remove`, not `purge`), checks fingerprint `9DC858229FC7DD38854AE2D88D81803C0EBFCD88` under an ephemeral `GNUPGHOME`, and does not call `get.docker.com`. sudo is `sudo -H`
 - [x] A form field that asks for Docker CE is ignored when the Docker feature is off
 - [x] Docker bootstrap stays refused until **confirm** is ticked. The confirm text says the docker group is root-equivalent, and names package replacement when conflicts or running containers were seen
-- [x] An optional one-time sudo password is not stored and is not in the `host_bootstrap` audit row or `Job.details`
+- [x] The one-time sudo password is Fernet-encrypted in the broker only until a worker picks it up, acked on receipt, expires after 120 seconds, is never retried or redelivered, and is never logged. A worker crash marks the job failed and the operator reruns with a fresh password. It is not in the `host_bootstrap` audit row or `Job.details`
 - [x] Run on host creates a `host_bootstrap` job visible in Job history. The SSH access window stays open. A failure is shown in the card and the button can be used again
 - [x] On a host whose fleet user is already `piherder`, an admin bootstrap username (and its password) can log in, and the docker group change still targets `piherder`
 - [x] When that admin has passwordless sudo, the password is not passed to `bash -s`

@@ -440,6 +440,7 @@ flowchart TB
 | `PIHERDER_MASTER_KEY` | Host `.env` only — never committed |
 | SSH private keys | Fernet-encrypted in DB; decrypted in-memory per job |
 | SSH passwords (optional) | Fernet-encrypted; discouraged; clear after key deploy |
+| One-time sudo password (`host_bootstrap`) | Fernet-encrypted in the broker only until a worker picks it up, acked on receipt, expires after 120 seconds, never retried or redelivered, and never logged. A worker crash marks the job failed and the operator reruns with a fresh password. Not stored on the job row or the audit row |
 | User passwords | bcrypt; policy min 10 + upper/lower/digit; soft max ~72 characters; admin-created users forced reset on first login |
 | 2FA | TOTP secret Fernet-encrypted; hashed backup codes; optional trusted device cookie; optional global force-2FA |
 | Sessions | JWT (HS256) cookie via PyJWT + cryptography |

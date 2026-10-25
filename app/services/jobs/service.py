@@ -139,6 +139,7 @@ def container_service_target(source_filter: str | None, service: str | None) -> 
 try:
     from ...tasks import backup_server
     from ...tasks import exclusive_job as exclusive_job_task
+    from ...tasks import host_bootstrap_job as host_bootstrap_job_task
     from ...tasks import service_migrate as service_migrate_task
     from ...tasks import service_migrate_undo as service_migrate_undo_task
     from ...tasks import service_migrate_dest_recover as service_migrate_dest_recover_task
@@ -148,6 +149,7 @@ except Exception as e:
     HAS_CELERY = False
     backup_server = None
     exclusive_job_task = None
+    host_bootstrap_job_task = None
     service_migrate_task = None
     service_migrate_undo_task = None
     service_migrate_dest_recover_task = None
@@ -3146,7 +3148,7 @@ def _execute_host_bootstrap(
     audit_id: int,
     payload: dict | None = None,
 ) -> None:
-    """Install missing host tools. The sudo password stays in this process."""
+    """Install missing host tools. Decrypt the sudo password here and do not log it."""
     from ...security import encryption as encmod
     from .. import ssh_onboarding
 

@@ -1,6 +1,7 @@
 """Jr-1: exclusive jobs on the default Celery queue. No live SSH."""
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from types import SimpleNamespace
@@ -14,9 +15,10 @@ from app.models import AuditLog, Job, Server
 from app.services import jobs as js
 from app.services.jobs_exclusive import (
     EXCLUSIVE_CELERY_TYPES,
+    _enqueue_celery,
     run_exclusive_job,
 )
-from app.tasks import exclusive_job
+from app.tasks import HOST_BOOTSTRAP_EXPIRES_SEC, exclusive_job, host_bootstrap_job
 
 
 def _engine():
@@ -349,3 +351,113 @@ def test_demo_does_not_probe_ssh(monkeypatch):
         row = session.get(Job, jid)
         assert row.status == "success"
         assert "demo" in (row.details or "").lower() or "Demo" in (row.details or "")
+
+
+def test_host_bootstrap_acks_on_receipt_and_does_not_retry():
+    assert host_bootstrap_job.name == "app.tasks.host_bootstrap_job"
+    assert host_bootstrap_job.acks_late is False
+    assert host_bootstrap_job.reject_on_worker_lost is False
+    assert host_bootstrap_job.max_retries == 0
+    assert host_bootstrap_job.autoretry_for == ()
+    assert host_bootstrap_job.ignore_result is True
+    assert HOST_BOOTSTRAP_EXPIRES_SEC == 120
+    assert exclusive_job.acks_late is True
+    assert exclusive_job.max_retries == 3000
+    assert exclusive_job.ignore_result is False
+
+
+def test_host_bootstrap_enqueue_sets_expires(monkeypatch, caplog):
+    engine = _engine()
+    _bind(monkeypatch, engine)
+    srv = _server(engine)
+    seen: dict = {}
+
+    def apply_async(*args, **kwargs):
+        seen["args"] = args
+        seen["kwargs"] = kwargs
+        return SimpleNamespace(id="boot-task-1")
+
+    def delay(*args, **kwargs):
+        raise AssertionError("exclusive_job.delay must not send host_bootstrap")
+
+    monkeypatch.setattr(js.host_bootstrap_job_task, "apply_async", apply_async)
+    monkeypatch.setattr(js.exclusive_job_task, "delay", delay)
+    with Session(engine) as session:
+        job = Job(server_id=srv.id, job_type="host_bootstrap", status="pending", details="{}")
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        jid = job.id
+    secret = "one-time-secret"
+    from app.security.encryption import encrypt_str
+
+    enc = encrypt_str(secret)
+    with caplog.at_level(logging.INFO):
+        _enqueue_celery(
+            jid,
+            srv.id,
+            0,
+            "host_bootstrap",
+            {"sudo_password_encrypted": enc, "bootstrap_username": "pi"},
+        )
+    assert seen["kwargs"]["expires"] == 120
+    assert seen["kwargs"]["args"][0] == jid
+    assert seen["kwargs"]["args"][3]["sudo_password_encrypted"] == enc
+    assert secret not in caplog.text
+    assert enc not in caplog.text
+    with Session(engine) as session:
+        row = session.get(Job, jid)
+        assert row.celery_task_id == "boot-task-1"
+        assert secret not in (row.details or "")
+        assert enc not in (row.details or "")
+
+
+def test_host_bootstrap_failure_redacts_password(monkeypatch, caplog):
+    engine = _engine()
+    _bind(monkeypatch, engine)
+    srv = _server(engine)
+    secret = "one-time-secret"
+    from app.security.encryption import encrypt_str
+
+    enc = encrypt_str(secret)
+    with Session(engine) as session:
+        job = Job(server_id=srv.id, job_type="host_bootstrap", status="pending", details="{}")
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        audit = AuditLog(
+            server_id=srv.id,
+            action="host_bootstrap",
+            status="running",
+            details=f"Job #{job.id} started",
+        )
+        session.add(audit)
+        session.commit()
+        session.refresh(audit)
+        jid, aid = job.id, audit.id
+
+    def boom(*args, **kwargs):
+        raise RuntimeError(f"ssh failed {secret} blob {enc}")
+
+    monkeypatch.setattr("app.services.jobs_exclusive._execute", boom)
+    monkeypatch.setattr("app.services.jobs_exclusive._ssh_ready", lambda *_a, **_k: True)
+    with caplog.at_level(logging.ERROR):
+        result = run_exclusive_job(
+            _Task(),
+            jid,
+            srv.id,
+            aid,
+            "host_bootstrap",
+            {"sudo_password_encrypted": enc},
+        )
+    assert result["status"] == "error"
+    assert secret not in caplog.text
+    assert enc not in caplog.text
+    with Session(engine) as session:
+        row = session.get(Job, jid)
+        audit_row = session.get(AuditLog, aid)
+        blob = (row.details or "") + (audit_row.details or "")
+        assert row.status == "failed"
+        assert secret not in blob
+        assert enc not in blob
+        assert "ssh failed" in blob

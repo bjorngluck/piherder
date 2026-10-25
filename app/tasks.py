@@ -773,6 +773,7 @@ def exclusive_job(
 
     Does not take the backup / Move mutex. Host-down stays pending and
     redelivers. A redelivery that finds the job already running fails it.
+    host_bootstrap is not this task.
     """
     from celery.exceptions import Retry
 
@@ -784,6 +785,36 @@ def exclusive_job(
         )
     except Retry:
         raise
+
+
+# Ack on receipt. The global task_acks_late and the 3h visibility window must
+# not redeliver this message after a worker crash. The broker copy expires if
+# no worker takes it. The result backend does not store the arguments.
+HOST_BOOTSTRAP_EXPIRES_SEC = 120
+
+
+@celery.task(
+    name="app.tasks.host_bootstrap_job",
+    bind=True,
+    acks_late=False,
+    reject_on_worker_lost=False,
+    max_retries=0,
+    autoretry_for=(),
+    ignore_result=True,
+)
+def host_bootstrap_job(
+    self,
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    payload: dict | None = None,
+):
+    """Install missing host tools. One attempt. No result row."""
+    from app.services.jobs_exclusive import run_exclusive_job
+
+    return run_exclusive_job(
+        self, job_id, server_id, audit_id, "host_bootstrap", payload or {}
+    )
 
 
 # Same 2h cap as host jobs, and under the 3h Redis visibility window, so a
