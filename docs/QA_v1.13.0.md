@@ -3,7 +3,7 @@
 **Branch:** `v1.13.0-dev`  
 **Code freeze:** not set.  
 **Package:** stays **`1.12.1`**. About / footer stay **1.12.1**.  
-**Operator QA:** Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. Backups, Discovery, the 1.12 regression walk, and screenshots are not signed.  
+**Operator QA:** Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. Backup testing is in progress. The 1.12 regression walk and screenshots are not signed.  
 **Release notes:** draft [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Not tagged.  
 **Screenshots:** reserved in [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).  
 **Pull request:** draft [#60](https://github.com/bjorngluck/piherder/pull/60).
@@ -14,13 +14,15 @@ Plan: [PLAN_v1.13.0.md](PLAN_v1.13.0.md). v1.12 sign-off stays [QA_v1.12.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch.
 
-Must and Should code and documentation are on `v1.13.0-dev`. Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. Backups, Discovery, the 1.12 regression walk, and screenshots are not signed. Later is not a walk on this train. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
+Must and Should code and documentation are on `v1.13.0-dev`. Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. Backup testing is in progress. The 1.12 regression walk and screenshots are not signed. Later is not a walk on this train. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
 
 ---
 
 ## Backups (Must & Should)
 
 A backup writes `.piherder-ownership.json` beside the tree. Restore applies numeric `uid`, `gid`, and octal `mode` on the host and strips `setuid` and `setgid` (`mode & 0o1777`). An archive with no sidecar still restores. On a daily base, the first 1,440 host ids each get a distinct minute of the day.
+
+Testing in progress 2026-10-25. Not signed.
 
 - [ ] A successful backup of a tree writes `.piherder-ownership.json` with numeric `uid`, `gid`, and octal `mode` for the recorded paths
 - [ ] A failure to write that sidecar is a warning. The backup itself is kept
@@ -38,17 +40,19 @@ A backup writes `.piherder-ownership.json` beside the tree. Restore applies nume
 
 Issue [#50](https://github.com/bjorngluck/piherder/issues/50). Device identity stays the MAC. Rows are not merged and are not auto-ignored.
 
-- [ ] A new MAC for a hostname that already has a non-ignored row at that IP, stale for longer than one scan interval, shows a **possible NIC change** badge on Discovery
-- [ ] The same event opens one `lan_discovery` notification at `info`
-- [ ] A recent row, or a row at a different IP or hostname, does not show the badge and does not open that notification
-- [ ] `GET /api/v1/discovery/{id}/devices` (`read`) sets `nic_change` on the new row. The integrations list `GET /api/v1/discovery` does not
-- [ ] **Replace stale MAC** marks the old row `ignored` and copies a non-empty display name, kind override, and notes onto the new MAC row
-- [ ] That click writes one audit row, `nmap_replace_stale_mac`
-- [ ] `POST /api/v1/discovery/{id}/devices/{device_id}/replace-stale-mac` (`edit`) with body `stale_device_id` does the same step. The path id is the new MAC row
-- [ ] A body that is not that stale pair returns **400** and the text `That row is not a stale MAC for this device`
-- [ ] A `read` token cannot call that route
-- [ ] Hosted `/mcp` `replace_stale_mac` (`read` and `edit`) calls that route and writes the same audit row
-- [ ] The two rows stay separate. Nothing is merged, and the stale row is not ignored until the operator asks
+Signed 2026-10-25.
+
+- [x] A new MAC for a hostname that already has a non-ignored row at that IP, stale for longer than one scan interval, shows a **possible NIC change** badge on Discovery
+- [x] The same event opens one `lan_discovery` notification at `info`
+- [x] A recent row, or a row at a different IP or hostname, does not show the badge and does not open that notification
+- [x] `GET /api/v1/discovery/{id}/devices` (`read`) sets `nic_change` on the new row. The integrations list `GET /api/v1/discovery` does not
+- [x] **Replace stale MAC** marks the old row `ignored` and copies a non-empty display name, kind override, and notes onto the new MAC row
+- [x] That click writes one audit row, `nmap_replace_stale_mac`
+- [x] `POST /api/v1/discovery/{id}/devices/{device_id}/replace-stale-mac` (`edit`) with body `stale_device_id` does the same step. The path id is the new MAC row
+- [x] A body that is not that stale pair returns **400** and the text `That row is not a stale MAC for this device`
+- [x] A `read` token cannot call that route
+- [x] Hosted `/mcp` `replace_stale_mac` (`read` and `edit`) calls that route and writes the same audit row
+- [x] The two rows stay separate. Nothing is merged, and the stale row is not ignored until the operator asks
 
 ## Docker (Should)
 
