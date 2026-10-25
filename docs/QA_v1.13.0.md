@@ -3,7 +3,7 @@
 **Branch:** `v1.13.0-dev`  
 **Code freeze:** not set.  
 **Package:** stays **`1.12.1`**. About / footer stay **1.12.1**.  
-**Operator QA:** Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk and screenshots are not signed.  
+**Operator QA:** Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed.  
 **Release notes:** draft [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Not tagged.  
 **Screenshots:** reserved in [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).  
 **Pull request:** draft [#60](https://github.com/bjorngluck/piherder/pull/60).
@@ -14,7 +14,7 @@ Plan: [PLAN_v1.13.0.md](PLAN_v1.13.0.md). v1.12 sign-off stays [QA_v1.12.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch.
 
-Must and Should code and documentation are on `v1.13.0-dev`. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk and screenshots are not signed. Later is not a walk on this train. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
+Must and Should code and documentation are on `v1.13.0-dev`. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed. Later is not a walk on this train. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
 
 ---
 
@@ -182,8 +182,10 @@ Reserved, not captured. Names, paths, addresses, and secrets must be masked. Do 
 
 ## 1.12 regression
 
-- [ ] Restore from Google Drive, OneDrive, or a LAN share still pulls the selected folder onto this PiHerder, then onto the host. Dry-run still does not write the pull
-- [ ] Docker prune still leaves volumes alone until the operator confirms that part on the Docker page. The token API and hosted `/mcp` still cannot prune volumes
-- [ ] About **View schedule** still groups scheduled jobs by type and shows each host's status, last run, and next fire
-- [ ] A token with `admin` can still GET users, tokens, and the audit log. A `read` token cannot. Responses still omit the password hash, the TOTP secret, and the token prefix
-- [ ] With **API and MCP read audit** off, a `read` call still writes no audit row. With it on, that call writes one `api_read` row and the row has no token value
+Signed 2026-10-25.
+
+- [x] Restore from Google Drive, OneDrive, or a LAN share still pulls the selected folder onto this PiHerder, then onto the host. Dry-run still does not write the pull
+- [x] Docker prune still leaves volumes alone until the operator confirms that part on the Docker page. The token API and hosted `/mcp` still cannot prune volumes
+- [x] About **View schedule** still groups scheduled jobs by type and shows each host's status, last run, and next fire
+- [x] A token with `admin` can still GET users, tokens, and the audit log. A `read` token cannot. Responses still omit the password hash, the TOTP secret, and the token prefix
+- [x] With **API and MCP read audit** off, a `read` call still writes no audit row. With it on, that call writes one `api_read` row and the row has no token value
