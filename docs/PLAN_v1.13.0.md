@@ -10,7 +10,7 @@
 **QA:** [QA_v1.13.0.md](QA_v1.13.0.md) (operator walks and screenshot reservations. **Not** the operator wiki. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed.)  
 **Related:** [PLAN_v1.12.0.md](PLAN_v1.12.0.md) · [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) (draft) · [RELEASE_v1.12.1.md](RELEASE_v1.12.1.md) · [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [LAN Discovery](../wiki/integrations/lan-discovery.md) · wiki [Add a server](../wiki/day-to-day/add-server.md) · wiki [Docker](../wiki/docker/overview.md)
 
-> Opened 2026-10-23 from `main` after **v1.12.1** shipped. Package stays `1.12.1`. The public demo is not pointed at this branch. Plugin **0.5.3** is the card. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter. Hosted `/mcp` on this branch lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Open issues were reviewed the same day. PiHerder has one open issue, [#50](https://github.com/bjorngluck/piherder/issues/50). piherder-ha and piherder-mcp have none. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) is open. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed.
+> Opened 2026-10-23 from `main` after **v1.12.1** shipped. Package stays `1.12.1`. The public demo is not pointed at this branch. Plugin **0.5.3** is the card. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter. Hosted `/mcp` on this branch lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Open issues were reviewed the same day. PiHerder has one open issue, [#50](https://github.com/bjorngluck/piherder/issues/50). piherder-ha and piherder-mcp have none. Pull request [#60](https://github.com/bjorngluck/piherder/pull/60) is open. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed.
 
 ---
 
@@ -127,7 +127,7 @@ Nothing was voted **Out**.
 | 2 | Must, by area | **Done** on `v1.13.0-dev`, including documentation. Restore ownership, the possible NIC change notice and Replace stale MAC, the docs and release-sync sweep, the one-time token secret off the query string, and host tool bootstrap |
 | 3 | Should, if it fits | **Done** on `v1.13.0-dev`, including documentation. Stagger ceiling, Docker prune follow-ups, stuck queue and read-only alerts, OAuth token suffix, orphaned running jobs, `get_engine()` |
 | 4 | Freeze | Not set. Package stays **1.12.1** |
-| 5 | Operator QA | Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25 in [QA_v1.13.0.md](QA_v1.13.0.md). The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) |
+| 5 | Operator QA | Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25 in [QA_v1.13.0.md](QA_v1.13.0.md). The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed. Pull request [#60](https://github.com/bjorngluck/piherder/pull/60) is open. |
 | 6 | Tag and Hub | Not cut |
 
 ---
