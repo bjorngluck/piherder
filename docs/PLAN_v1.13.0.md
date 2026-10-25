@@ -1,16 +1,16 @@
 # PiHerder v1.13.0: ownership on restore, and a hint when a MAC changes
 
-**Status:** **Built** on `v1.13.0-dev` 2026-10-23. Must and Should code and documentation are on the branch. Operator QA walks and screenshot reservations are ready in [QA_v1.13.0.md](QA_v1.13.0.md) and [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status). Walks are not signed. Freeze is not set. No tag.  
+**Status:** **Built** on `v1.13.0-dev` 2026-10-23. Must and Should code and documentation are on the branch. Operator QA walks and screenshot reservations are ready in [QA_v1.13.0.md](QA_v1.13.0.md) and [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status). Host tools and Internals are signed 2026-10-25. The other walks are not signed. Freeze is not set. No tag.  
 **Date opened:** 2026-10-23  
 **Git branch:** `v1.13.0-dev`  
 **Package / image version:** package stays **`1.12.1`**. About / footer stay **1.12.1**. This train does not bump the package.  
 **Theme:** ownership on restore, and a hint when a MAC changes  
 **Baseline:** `v1.12.1` (tagged 2026-10-23)  
 **Mode:** **Must → Should.** Tiers were voted 2026-10-23. Nothing was voted Discover, Later, or Out.  
-**QA:** [QA_v1.13.0.md](QA_v1.13.0.md) (operator walks and screenshot reservations. **Not** the operator wiki. Walks are not signed.)  
+**QA:** [QA_v1.13.0.md](QA_v1.13.0.md) (operator walks and screenshot reservations. **Not** the operator wiki. Host tools and Internals signed 2026-10-25. The other walks are not signed.)  
 **Related:** [PLAN_v1.12.0.md](PLAN_v1.12.0.md) · [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) (draft) · [RELEASE_v1.12.1.md](RELEASE_v1.12.1.md) · [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [LAN Discovery](../wiki/integrations/lan-discovery.md) · wiki [Add a server](../wiki/day-to-day/add-server.md) · wiki [Docker](../wiki/docker/overview.md)
 
-> Opened 2026-10-23 from `main` after **v1.12.1** shipped. Package stays `1.12.1`. The public demo is not pointed at this branch. Plugin **0.5.3** is the card. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter. Hosted `/mcp` on this branch lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Open issues were reviewed the same day. PiHerder has one open issue, [#50](https://github.com/bjorngluck/piherder/issues/50). piherder-ha and piherder-mcp have none. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) is open. Walks are not signed.
+> Opened 2026-10-23 from `main` after **v1.12.1** shipped. Package stays `1.12.1`. The public demo is not pointed at this branch. Plugin **0.5.3** is the card. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter. Hosted `/mcp` on this branch lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Open issues were reviewed the same day. PiHerder has one open issue, [#50](https://github.com/bjorngluck/piherder/issues/50). piherder-ha and piherder-mcp have none. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) is open. Host tools and Internals are signed 2026-10-25. The other walks are not signed.
 
 ---
 
@@ -110,6 +110,7 @@ Nothing was voted **Out**.
 | 2026-10-23 | **Draft notes.** [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) is a draft on `v1.13.0-dev`. Walks are written and not signed. Screenshots are reserved. Package stays `1.12.1`. Not tagged. |
 | 2026-10-23 | **Draft pull request.** [#60](https://github.com/bjorngluck/piherder/pull/60). Walks stay unsigned. Screenshots stay reserved. Package stays `1.12.1`. |
 | 2026-10-24 | **Coverage headroom.** Packs `tests/test_coverage_v113_headroom.py` and `tests/test_coverage_v113_more.py`. Compose run **80.91%** line (46,774 / 57,813). CI fail-under stays **80**. Open question: raise that floor on a later train, or leave it. Not a v1.13 tag blocker. |
+| 2026-10-25 | **QA.** Host tools (Must) and Internals (Must and Should) signed in [QA_v1.13.0.md](QA_v1.13.0.md). The other walks are not signed. Screenshots stay reserved. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) stays a draft. |
 
 ---
 
@@ -121,9 +122,9 @@ Nothing was voted **Out**.
 | 2 | Must, by area | **Done** on `v1.13.0-dev`, including documentation. Restore ownership, the possible NIC change notice and Replace stale MAC, the docs and release-sync sweep, the one-time token secret off the query string, and host tool bootstrap |
 | 3 | Should, if it fits | **Done** on `v1.13.0-dev`, including documentation. Stagger ceiling, Docker prune follow-ups, stuck queue and read-only alerts, OAuth token suffix, orphaned running jobs, `get_engine()` |
 | 4 | Freeze | Not set. Package stays **1.12.1** |
-| 5 | Operator QA | Walks are written in [QA_v1.13.0.md](QA_v1.13.0.md). Screenshot names are reserved. Walks are not signed. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) |
+| 5 | Operator QA | Host tools and Internals signed 2026-10-25 in [QA_v1.13.0.md](QA_v1.13.0.md). The other walks are not signed. Screenshot names are reserved. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) |
 | 6 | Tag and Hub | Not cut |
 
 ---
 
-*Opened 2026-10-23. Must and Should code and documentation are on `v1.13.0-dev`. Operator walks are written and not signed. Package stays 1.12.1. Not tagged.*
+*Opened 2026-10-23. Must and Should code and documentation are on `v1.13.0-dev`. Host tools and Internals are signed 2026-10-25. The other walks are not signed. Package stays 1.12.1. Not tagged.*

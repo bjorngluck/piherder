@@ -3,7 +3,7 @@
 **Branch:** `v1.13.0-dev`  
 **Code freeze:** not set.  
 **Package:** stays **`1.12.1`**. About / footer stay **1.12.1**.  
-**Operator QA:** walks below are written. They are not signed.  
+**Operator QA:** Host tools and Internals signed 2026-10-25. The other walks are not signed.  
 **Release notes:** draft [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Not tagged.  
 **Screenshots:** reserved in [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).  
 **Pull request:** draft [#60](https://github.com/bjorngluck/piherder/pull/60).
@@ -14,7 +14,7 @@ Plan: [PLAN_v1.13.0.md](PLAN_v1.13.0.md). v1.12 sign-off stays [QA_v1.12.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch.
 
-Must and Should code and documentation are on `v1.13.0-dev`. Walks below are not signed. Later is not a walk on this train. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
+Must and Should code and documentation are on `v1.13.0-dev`. Host tools and Internals are signed 2026-10-25. The other walks are not signed. Later is not a walk on this train. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
 
 ---
 
@@ -113,35 +113,39 @@ Published adapter **0.4.3** does not list `list_alerts`, `prune_build_cache`, or
 
 ## Internals (Must & Should)
 
-- [ ] `SECURITY.md`, `CONTRIBUTING.md`, `SPEC.md`, `docs/ADMIN.md`, `docs/ROADMAP_ECOSYSTEM.md`, `docs/API.md`, and `wiki/` agree the package is `1.12.1`
-- [ ] About and the footer still say **1.12.1**
-- [ ] `python3 scripts/check_release_sync.py` passes. Published adapter stays **0.4.3**. Plugin stays **0.5.3**
-- [ ] `mkdocs build --strict` passes
-- [ ] A `running` job whose Celery worker is gone is failed with `Interrupted. The Celery worker is no longer alive.`
-- [ ] That check runs on worker startup and on the host-facts fleet tick. It does not run from web startup
-- [ ] When workers answer but the task id is missing, the job waits 60 seconds before it fails
-- [ ] A failed worker inspect leaves running jobs alone
-- [ ] When no worker answers, the job fails immediately
-- [ ] Sessions in `app/` take the engine from `get_engine()`. A test fails if anything outside `app/database.py` imports the module-level engine
-- [ ] No new operator control appears for that engine change
+Signed 2026-10-25.
+
+- [x] `SECURITY.md`, `CONTRIBUTING.md`, `SPEC.md`, `docs/ADMIN.md`, `docs/ROADMAP_ECOSYSTEM.md`, `docs/API.md`, and `wiki/` agree the package is `1.12.1`
+- [x] About and the footer still say **1.12.1**
+- [x] `python3 scripts/check_release_sync.py` passes. Published adapter stays **0.4.3**. Plugin stays **0.5.3**
+- [x] `mkdocs build --strict` passes
+- [x] A `running` job whose Celery worker is gone is failed with `Interrupted. The Celery worker is no longer alive.`
+- [x] That check runs on worker startup and on the host-facts fleet tick. It does not run from web startup
+- [x] When workers answer but the task id is missing, the job waits 60 seconds before it fails
+- [x] A failed worker inspect leaves running jobs alone
+- [x] When no worker answers, the job fails immediately
+- [x] Sessions in `app/` take the engine from `get_engine()`. A test fails if anything outside `app/database.py` imports the module-level engine
+- [x] No new operator control appears for that engine change
 
 ## Host tools (Must)
 
 Ubuntu, Debian (including 64-bit Raspberry Pi OS), and Raspbian (32-bit). `run_host_deps_check` probes enabled features. `build_host_bootstrap_script` and `bootstrap_host_tools` in `app/services/ssh_onboarding.py` install only those missing tools. The route is `POST /servers/{id}/host-deps/bootstrap`. It queues exclusive Celery job `host_bootstrap` and does not run SSH inside the web request. It is not on `/api/v1` or hosted `/mcp`. A host with only Backups on is checked and bootstrapped for `rsync` only. Audit action `host_bootstrap`. Optional `bootstrap_username` is the SSH login when the fleet user is already restricted `piherder`. The SSH access window stays open and shows job progress and errors in the card.
 
-- [ ] With only Backups on, the host check probes rsync and does not probe Docker packages or offer Docker CE
-- [ ] With only Docker on, and the host is not HAOS, the check reports `docker-ce`, `docker compose version`, docker group membership, conflicting distro packages, and `docker ps -q`
-- [ ] `/etc/os-release` maps `ubuntu`, `debian`, and `raspbian` to `https://download.docker.com/linux/<id>`. Another OS is not offered bootstrap
-- [ ] The copied script installs `ca-certificates`, `curl`, and `gnupg` before `dists/<codename>/Release`. It then removes only conflicting packages that `dpkg-query` shows as installed (`apt-get remove`, not `purge`), checks fingerprint `9DC858229FC7DD38854AE2D88D81803C0EBFCD88` under an ephemeral `GNUPGHOME`, and does not call `get.docker.com`. sudo is `sudo -H`
-- [ ] A form field that asks for Docker CE is ignored when the Docker feature is off
-- [ ] Docker bootstrap stays refused until **confirm** is ticked. The confirm text says the docker group is root-equivalent, and names package replacement when conflicts or running containers were seen
-- [ ] An optional one-time sudo password is not stored and is not in the `host_bootstrap` audit row or `Job.details`
-- [ ] Run on host creates a `host_bootstrap` job visible in Job history. The SSH access window stays open. A failure is shown in the card and the button can be used again
-- [ ] On a host whose fleet user is already `piherder`, an admin bootstrap username (and its password) can log in, and the docker group change still targets `piherder`
-- [ ] When that admin has passwordless sudo, the password is not passed to `bash -s`
-- [ ] After `usermod -aG docker`, a new SSH session can run `docker info` and `docker compose version` without sudo
-- [ ] Demo mode refuses the route
-- [ ] Turning Backups or Docker on from the wizard or server edit refreshes the host check, and a failed SSH probe does not undo the save
+Signed 2026-10-25.
+
+- [x] With only Backups on, the host check probes rsync and does not probe Docker packages or offer Docker CE
+- [x] With only Docker on, and the host is not HAOS, the check reports `docker-ce`, `docker compose version`, docker group membership, conflicting distro packages, and `docker ps -q`
+- [x] `/etc/os-release` maps `ubuntu`, `debian`, and `raspbian` to `https://download.docker.com/linux/<id>`. Another OS is not offered bootstrap
+- [x] The copied script installs `ca-certificates`, `curl`, and `gnupg` before `dists/<codename>/Release`. It then removes only conflicting packages that `dpkg-query` shows as installed (`apt-get remove`, not `purge`), checks fingerprint `9DC858229FC7DD38854AE2D88D81803C0EBFCD88` under an ephemeral `GNUPGHOME`, and does not call `get.docker.com`. sudo is `sudo -H`
+- [x] A form field that asks for Docker CE is ignored when the Docker feature is off
+- [x] Docker bootstrap stays refused until **confirm** is ticked. The confirm text says the docker group is root-equivalent, and names package replacement when conflicts or running containers were seen
+- [x] An optional one-time sudo password is not stored and is not in the `host_bootstrap` audit row or `Job.details`
+- [x] Run on host creates a `host_bootstrap` job visible in Job history. The SSH access window stays open. A failure is shown in the card and the button can be used again
+- [x] On a host whose fleet user is already `piherder`, an admin bootstrap username (and its password) can log in, and the docker group change still targets `piherder`
+- [x] When that admin has passwordless sudo, the password is not passed to `bash -s`
+- [x] After `usermod -aG docker`, a new SSH session can run `docker info` and `docker compose version` without sudo
+- [x] Demo mode refuses the route
+- [x] Turning Backups or Docker on from the wizard or server edit refreshes the host check, and a failed SSH probe does not undo the save
 
 ## Later
 

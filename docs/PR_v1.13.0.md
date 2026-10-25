@@ -2,7 +2,7 @@
 
 **Title:** `v1.13.0: ownership on restore, and a hint when a MAC changes`
 
-**Base:** `main` · **Head:** `v1.13.0-dev` · [QA_v1.13.0.md](QA_v1.13.0.md) walks are written and not signed. Screenshots are reserved.
+**Base:** `main` · **Head:** `v1.13.0-dev` · [QA_v1.13.0.md](QA_v1.13.0.md): Host tools and Internals signed 2026-10-25. The other walks are not signed. Screenshots are reserved.
 
 **State:** draft [#60](https://github.com/bjorngluck/piherder/pull/60). Notes are [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Package stays **1.12.1**. Not tagged. Not an upgrade path.
 
@@ -16,7 +16,7 @@ Should work on the same branch: backup minutes spread across the day, Docker bui
 
 Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** and adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stay. Hosted `/mcp` lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Those three are not in the **1.12.1** image.
 
-Operator walks are not signed. Screenshot names are reserved. Package stays **1.12.1**.
+Host tools and Internals are signed 2026-10-25. The other walks are not signed. Screenshot names are reserved. Package stays **1.12.1**.
 
 Design: [PLAN_v1.13.0.md](PLAN_v1.13.0.md). Maintainer ticks: [QA_v1.13.0.md](QA_v1.13.0.md). Screenshot list: [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).
 
@@ -36,7 +36,7 @@ Alembic **051** adds `docker_prune_schedule`. Recreate **web** and **celery-work
 
 ## Test plan
 
-Walk [QA_v1.13.0.md](QA_v1.13.0.md). Walks are not signed. Screenshots are not captured. Do not retick the 1.12 boxes.
+Walk [QA_v1.13.0.md](QA_v1.13.0.md). Host tools and Internals are signed 2026-10-25. The other walks are not signed. Screenshots are not captured. Do not retick the 1.12 boxes.
 
 - [ ] Restore ownership and the backup stagger ceiling
 - [ ] NIC change notice and Replace stale MAC. [#50](https://github.com/bjorngluck/piherder/issues/50) stays open
