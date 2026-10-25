@@ -3,7 +3,7 @@
 **Branch:** `v1.13.0-dev`  
 **Code freeze:** not set.  
 **Package:** stays **`1.12.1`**. About / footer stay **1.12.1**.  
-**Operator QA:** Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. Backup testing is in progress. The 1.12 regression walk and screenshots are not signed.  
+**Operator QA:** Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk and screenshots are not signed.  
 **Release notes:** draft [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Not tagged.  
 **Screenshots:** reserved in [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).  
 **Pull request:** draft [#60](https://github.com/bjorngluck/piherder/pull/60).
@@ -14,7 +14,7 @@ Plan: [PLAN_v1.13.0.md](PLAN_v1.13.0.md). v1.12 sign-off stays [QA_v1.12.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch.
 
-Must and Should code and documentation are on `v1.13.0-dev`. Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. Backup testing is in progress. The 1.12 regression walk and screenshots are not signed. Later is not a walk on this train. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
+Must and Should code and documentation are on `v1.13.0-dev`. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk and screenshots are not signed. Later is not a walk on this train. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
 
 ---
 
@@ -22,19 +22,19 @@ Must and Should code and documentation are on `v1.13.0-dev`. Discovery, Docker, 
 
 A backup writes `.piherder-ownership.json` beside the tree. Restore applies numeric `uid`, `gid`, and octal `mode` on the host and strips `setuid` and `setgid` (`mode & 0o1777`). An archive with no sidecar still restores. On a daily base, the first 1,440 host ids each get a distinct minute of the day.
 
-Testing in progress 2026-10-25. Not signed.
+Signed 2026-10-25.
 
-- [ ] A successful backup of a tree writes `.piherder-ownership.json` with numeric `uid`, `gid`, and octal `mode` for the recorded paths
-- [ ] A failure to write that sidecar is a warning. The backup itself is kept
-- [ ] Restore of that archive applies the numeric owner, group, and mode on the host
-- [ ] A mode with `setuid` or `setgid` is stored, then applied with those bits cleared (`mode & 0o1777`)
-- [ ] A named volume that must belong to the app user does not come back as the rclone account
-- [ ] An archive from before this sidecar (no `.piherder-ownership.json`) restores the files and does not fail on ownership
-- [ ] The audit row for the restore is still `backup_restore` and does not include the destination sign-in
-- [ ] On a daily base such as `0 2 * * *`, host ids below 60 stay on that hour, and the first 1,440 ids use 1,440 distinct minutes
-- [ ] Host id 60 on an hour-23 daily base wraps to `0 0 * * *`
-- [ ] Past 1,440 hosts, two hosts can share a minute. A list, step, or weekday base only changes the minute
-- [ ] One host still does not run two backups at once
+- [x] A successful backup of a tree writes `.piherder-ownership.json` with numeric `uid`, `gid`, and octal `mode` for the recorded paths
+- [x] A failure to write that sidecar is a warning. The backup itself is kept
+- [x] Restore of that archive applies the numeric owner, group, and mode on the host
+- [x] A mode with `setuid` or `setgid` is stored, then applied with those bits cleared (`mode & 0o1777`)
+- [x] A named volume that must belong to the app user does not come back as the rclone account
+- [x] An archive from before this sidecar (no `.piherder-ownership.json`) restores the files and does not fail on ownership
+- [x] The audit row for the restore is still `backup_restore` and does not include the destination sign-in
+- [x] On a daily base such as `0 2 * * *`, host ids below 60 stay on that hour, and the first 1,440 ids use 1,440 distinct minutes
+- [x] Host id 60 on an hour-23 daily base wraps to `0 0 * * *`
+- [x] Past 1,440 hosts, two hosts can share a minute. A list, step, or weekday base only changes the minute
+- [x] One host still does not run two backups at once
 
 ## Discovery (Must)
 
