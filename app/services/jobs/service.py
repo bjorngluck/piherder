@@ -879,6 +879,11 @@ def cleanup_orphan_web_jobs(
 
 _ORPHAN_GRACE = timedelta(seconds=60)
 _ORPHAN_REASON = "Interrupted. The Celery worker is no longer alive."
+# Broker expiry is 120s. Wait a little longer so the message is already gone.
+_HOST_BOOTSTRAP_EXPIRE_GRACE_SEC = 30
+HOST_BOOTSTRAP_EXPIRED_REASON = (
+    "expired before a worker picked it up, rerun with a fresh password"
+)
 
 
 def celery_worker_activity() -> tuple[bool, set[str]] | None:
@@ -910,19 +915,71 @@ def celery_worker_activity() -> tuple[bool, set[str]] | None:
         return None
 
 
+def fail_expired_host_bootstrap(session: Session, job: Job) -> bool:
+    """Fail a pending host bootstrap. That drops the exclusive lane for the host."""
+    if job is None or (job.job_type or "") != "host_bootstrap" or job.status != "pending":
+        return False
+    _mark_job_failed(
+        job, HOST_BOOTSTRAP_EXPIRED_REASON, session, record_audit=False
+    )
+    _finish_running_audit_for_job(
+        session, job, status="failed", message=HOST_BOOTSTRAP_EXPIRED_REASON
+    )
+    return True
+
+
+def fail_expired_host_bootstrap_by_id(job_id: int) -> None:
+    """Celery discarded the message. The row must not stay pending."""
+    with _get_fresh_session() as session:
+        job = session.get(Job, int(job_id))
+        if not fail_expired_host_bootstrap(session, job):
+            return
+        session.commit()
+        logger.info("[Jobs] host_bootstrap job #%s expired before a worker took it", job_id)
+
+
+def _fail_expired_pending_host_bootstrap(session: Session, now: datetime) -> int:
+    try:
+        from ...tasks import HOST_BOOTSTRAP_EXPIRES_SEC
+
+        limit = int(HOST_BOOTSTRAP_EXPIRES_SEC)
+    except Exception:
+        limit = 120
+    cutoff = now - timedelta(seconds=limit + _HOST_BOOTSTRAP_EXPIRE_GRACE_SEC)
+    rows = session.exec(
+        select(Job).where(
+            Job.job_type == "host_bootstrap",
+            Job.status == "pending",
+        )
+    ).all()
+    n = 0
+    for job in rows:
+        created = job.created_at or now
+        if created > cutoff:
+            continue
+        if fail_expired_host_bootstrap(session, job):
+            n += 1
+    return n
+
+
 def reconcile_orphaned_running_jobs(session: Session) -> int:
     """Fail a running job whose Celery worker is no longer alive.
 
     When workers still answer, a task that is not active is interrupted only
     after a short grace so a row that just became running is not failed.
+    A pending host_bootstrap older than the broker expiry, plus a short grace,
+    is failed too. Celery drops that message without running it.
     """
+    now = datetime.utcnow()
+    n = _fail_expired_pending_host_bootstrap(session, now)
     state = celery_worker_activity()
     if state is None:
-        return 0
+        if n:
+            session.commit()
+            logger.info("[Jobs] Failed %s expired host_bootstrap job(s)", n)
+        return n
     alive, active = state
     rows = session.exec(select(Job).where(Job.status == "running")).all()
-    now = datetime.utcnow()
-    n = 0
     for job in rows:
         if not _is_celery_owned_job(job):
             continue
@@ -942,7 +999,7 @@ def reconcile_orphaned_running_jobs(session: Session) -> int:
         n += 1
     if n:
         session.commit()
-        logger.info("[Jobs] Interrupted %s running job(s) with no live worker", n)
+        logger.info("[Jobs] Interrupted %s running or expired job(s)", n)
     return n
 
 

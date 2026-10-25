@@ -889,6 +889,37 @@ except Exception:
     logger.debug("Housekeeping failure signal not connected", exc_info=True)
 
 
+def _on_host_bootstrap_revoked(
+    sender=None,
+    request=None,
+    expired=False,
+    **_kwargs,
+) -> None:
+    """An expired host_bootstrap message never runs. Fail the pending row."""
+    if not expired:
+        return
+    if getattr(sender, "name", "") != "app.tasks.host_bootstrap_job":
+        return
+    args = getattr(request, "args", None) or ()
+    if not args:
+        return
+    try:
+        job_id = int(args[0])
+    except (TypeError, ValueError):
+        return
+    from app.services.jobs import fail_expired_host_bootstrap_by_id
+
+    fail_expired_host_bootstrap_by_id(job_id)
+
+
+try:
+    from celery.signals import task_revoked
+
+    task_revoked.connect(_on_host_bootstrap_revoked)
+except Exception:
+    logger.debug("host_bootstrap revoke signal not connected", exc_info=True)
+
+
 def _on_worker_ready(**_kwargs):
     """A worker that just came up fails running jobs left by a dead worker."""
     from app.services.jobs import reconcile_orphaned_running_jobs

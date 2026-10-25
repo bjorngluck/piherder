@@ -115,7 +115,7 @@ Nothing was voted **Out**.
 | 2026-10-25 | **QA.** Discovery (Must) signed in [QA_v1.13.0.md](QA_v1.13.0.md). Backup testing is in progress and those boxes stay open. The 1.12 regression walk and screenshots are not signed. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) stays a draft. |
 | 2026-10-25 | **QA.** Backups (Must and Should) signed in [QA_v1.13.0.md](QA_v1.13.0.md). The 1.12 regression walk and screenshots are not signed. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) stays a draft. |
 | 2026-10-25 | **QA.** The 1.12 regression walk is signed in [QA_v1.13.0.md](QA_v1.13.0.md). Screenshots are not signed. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) stays a draft. |
-| 2026-10-25 | **Host bootstrap broker lifetime.** `host_bootstrap_job` acks on receipt, does not retry, and the message expires after 120 seconds. The one-time sudo password is Fernet-encrypted in the broker only until a worker picks it up and is never logged. A worker crash marks the job failed and the operator reruns with a fresh password. Other exclusive tasks stay on `exclusive_job`. Package stays `1.12.1`. |
+| 2026-10-25 | **Host bootstrap broker lifetime.** `host_bootstrap_job` acks on receipt, does not retry, and the message expires after 120 seconds. The one-time sudo password is Fernet-encrypted in the broker only until a worker picks it up and is never logged. A worker crash marks the job failed and the operator reruns with a fresh password. An expired message fails the pending job with `expired before a worker picked it up, rerun with a fresh password` and frees the host. Other exclusive tasks stay on `exclusive_job`. Package stays `1.12.1`. |
 
 ---
 
