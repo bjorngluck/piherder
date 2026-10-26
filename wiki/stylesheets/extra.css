@@ -198,7 +198,16 @@
   margin: 0.75rem 0 0;
 }
 
-.ph-btn {
+.md-typeset a.ph-btn,
+.md-typeset a.ph-btn:hover,
+.md-typeset a.ph-btn:focus,
+.md-typeset a.ph-btn:active,
+.md-typeset a.ph-btn:visited,
+[data-md-color-scheme="slate"] .md-typeset a.ph-btn,
+[data-md-color-scheme="slate"] .md-typeset a.ph-btn:hover,
+[data-md-color-scheme="slate"] .md-typeset a.ph-btn:focus,
+[data-md-color-scheme="slate"] .md-typeset a.ph-btn:active,
+[data-md-color-scheme="slate"] .md-typeset a.ph-btn:visited {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -208,16 +217,17 @@
   font-weight: 700;
   line-height: 1.2;
   text-decoration: none;
-  color: #fff;
+  color: #ffffff;
 }
 
-.ph-btn:hover,
-.ph-btn:focus {
-  color: #fff;
-  filter: brightness(1.06);
+.md-typeset a.ph-btn svg,
+[data-md-color-scheme="slate"] .md-typeset a.ph-btn svg {
+  fill: #ffffff;
+  color: #ffffff;
 }
 
-.ph-btn--star {
+.ph-btn--star,
+.ph-btn--fork {
   background: #111827;
 }
 
