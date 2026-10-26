@@ -58,21 +58,22 @@
           <p class="text-[10px] text-muted mt-1 mb-0">Builder cache and buildx cache. Not part of a prune job. No schedule.</p>
         </form>
       </div>
+    </div>
+    <form method="post" action="/servers/{{ server.id }}/schedule/docker-prune" class="cleanup-schedule space-y-2 border-t border-border pt-3" data-testid="cleanup-prune-schedule-form">
       {% if request.query_params.get('prune') == 'schedule' %}
-      <div class="mt-3 p-2 text-xs rounded banner-success border border-border" data-testid="cleanup-prune-schedule-banner">
+      <div class="p-2 text-xs rounded banner-success border border-border" data-testid="cleanup-prune-schedule-banner">
         Prune schedule saved. Volumes and build cache stay off.
       </div>
       {% endif %}
-      <form method="post" action="/servers/{{ server.id }}/schedule/docker-prune" class="mt-4 space-y-2 border-t border-border pt-3" data-testid="cleanup-prune-schedule-form">
-        <label class="text-xs text-muted block">
-          Prune schedule
-          <input type="text" name="docker_prune_schedule" value="{{ server.docker_prune_schedule or '' }}"
-                 placeholder="0 3 * * 0" class="mt-1 block w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
-        </label>
-        <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save prune schedule</button>
-        <p class="text-[10px] text-muted m-0">Blank turns it off. The run is dangling images and exited containers. Volumes and build cache stay off.</p>
-      </form>
-    </div>
+      <label class="text-xs text-muted block">
+        Prune schedule
+        <input type="text" name="docker_prune_schedule" value="{{ server.docker_prune_schedule or '' }}"
+               placeholder="0 3 * * 0" class="mt-1 block w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
+      </label>
+      <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save prune schedule</button>
+      <p id="cleanup-prune-schedule-status" class="hidden text-xs m-0" role="status" data-testid="cleanup-prune-schedule-status"></p>
+      <p class="text-[10px] text-muted m-0">Blank turns it off. The run is dangling images and exited containers. Volumes and build cache stay off.</p>
+    </form>
   </div>
 </div>
 

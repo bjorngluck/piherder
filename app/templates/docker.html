@@ -826,14 +826,26 @@ function initDockerFilters() {
   });
   applyDockerFilters();
 }
+function setPruneScheduleStatus(state, message) {
+  var line = document.getElementById('cleanup-prune-schedule-status');
+  if (!line) return;
+  line.classList.remove('hidden', 'text-danger', 'banner-success');
+  if (state === 'error') line.classList.add('text-danger');
+  else if (state === 'ok') line.classList.add('banner-success');
+  line.textContent = message || '';
+  if (line.scrollIntoView) line.scrollIntoView({ block: 'nearest' });
+}
+
 function bindCleanupPruneSchedule() {
   var form = document.querySelector('form[data-testid="cleanup-prune-schedule-form"]');
   if (!form || form.dataset.bound === '1') return;
   form.dataset.bound = '1';
   form.addEventListener('submit', function (ev) {
     ev.preventDefault();
+    ev.stopPropagation();
     var button = form.querySelector('button[type="submit"]');
     if (button) button.disabled = true;
+    setPruneScheduleStatus('busy', 'Saving prune schedule…');
     fetch(form.action, {
       method: 'POST',
       body: new FormData(form),
@@ -841,20 +853,28 @@ function bindCleanupPruneSchedule() {
       credentials: 'same-origin'
     }).then(function (res) {
       return res.json().then(function (data) {
-        return { ok: res.ok, data: data || {} };
+        return { ok: res.ok, status: res.status, data: data || {} };
+      }, function () {
+        return { ok: false, status: res.status, data: {} };
       });
     }).then(function (pack) {
       if (pack.ok && pack.data.ok) {
-        setCleanupStatus('ok', pack.data.message || 'Prune schedule saved. Volumes and build cache stay off.');
+        var field = form.querySelector('input[name="docker_prune_schedule"]');
+        if (field && Object.prototype.hasOwnProperty.call(pack.data, 'docker_prune_schedule')) {
+          field.value = pack.data.docker_prune_schedule || '';
+        }
+        setPruneScheduleStatus('ok', pack.data.message || 'Prune schedule saved. Volumes and build cache stay off.');
         return;
       }
       var detail = pack.data.detail || pack.data.message || 'Could not save the prune schedule';
       if (Array.isArray(detail)) {
         detail = detail.map(function (row) { return row.msg || String(row); }).join(' ');
+      } else if (detail && typeof detail === 'object') {
+        detail = detail.msg || 'Could not save the prune schedule';
       }
-      setCleanupStatus('error', String(detail));
+      setPruneScheduleStatus('error', String(detail));
     }).catch(function () {
-      setCleanupStatus('error', 'Could not save the prune schedule');
+      setPruneScheduleStatus('error', 'Could not save the prune schedule');
     }).finally(function () {
       if (button) button.disabled = false;
     });

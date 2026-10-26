@@ -404,6 +404,9 @@
   min-height: 0;
   flex: 1 1 auto;
 }
+.cleanup-schedule {
+  flex: 0 0 auto;
+}
 .cleanup-status {
   display: flex;
   align-items: center;

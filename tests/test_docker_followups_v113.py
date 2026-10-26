@@ -255,3 +255,6 @@ def test_prune_schedule_form_is_inside_cleanup_modal():
     assert 'id="cleanup-modal"' in modals
     assert 'action="/servers/{{ server.id }}/schedule/docker-prune"' in modals
     assert 'data-testid="cleanup-prune-schedule-form"' in modals
+    assert 'id="cleanup-prune-schedule-status"' in modals
+    assert "setPruneScheduleStatus(" in docker
+    assert "Saving prune schedule" in docker
