@@ -119,7 +119,7 @@ Published tool names match adapter **[0.4.3](https://github.com/bjorngluck/piher
 | `services` | `read` | Stored service up/down chips. Does not poll Uptime Kuma or Nginx Proxy Manager. |
 | `list_jobs` | `read` | Jobs. Optional `server_id`, `status_filter`, `job_type`, `active_only`, `limit`, `offset`. |
 | `get_job` | `read` | One job. `detail` true includes a longer log tail. |
-| `list_alerts` | `read` | Open notifications. Adapter 0.4.3 does not list this tool. It is on the v1.13 train and is not in the 1.12.1 image. |
+| `list_alerts` | `read` | Open notifications. Adapter 0.4.3 does not list this tool. It ships in **1.13.0**. |
 | `trigger_job` | `jobs` | Start one job type from the table below. |
 | `start_move` | `jobs` | Start a stop-first Move. `confirm` must be true. The source stack is left stopped. There is no undo. |
 | `read_discovery` | `read` | Read saved LAN Discovery ranges and recent scans. |
@@ -134,8 +134,8 @@ Published tool names match adapter **[0.4.3](https://github.com/bjorngluck/piher
 | `purge_stale_discovery_devices` | `edit` | Delete offline devices. `confirm` must be true. Linked devices stay. |
 | `set_features` | `edit` | Toggle `backup`, `os_patch`, or `docker`. Omit a field to leave it unchanged. |
 | `prune_docker` | `edit` | Start a Docker prune job. `prune_type` is `images`, `containers`, `both`, or `networks`. Volume prune stays on the Docker page. |
-| `prune_build_cache` | `edit` | Prune the Docker build cache and the buildx cache (`docker builder prune -f`, then `docker buildx prune -f`). One audit row, `docker_build_cache_prune`. Not a `docker_prune` job and not scheduled. Adapter 0.4.3 does not list this tool. It is on the v1.13 train and is not in the 1.12.1 image. |
-| `replace_stale_mac` | `read` and `edit` | Mark a stale Discovery row ignored and copy a non-empty display name, kind override, and notes onto the new MAC. One audit row, `nmap_replace_stale_mac`. Adapter 0.4.3 does not list this tool. It is on the v1.13 train and is not in the 1.12.1 image. |
+| `prune_build_cache` | `edit` | Prune the Docker build cache and the buildx cache (`docker builder prune -f`, then `docker buildx prune -f`). One audit row, `docker_build_cache_prune`. Not a `docker_prune` job and not scheduled. Adapter 0.4.3 does not list this tool. It ships in **1.13.0**. |
+| `replace_stale_mac` | `read` and `edit` | Mark a stale Discovery row ignored and copy a non-empty display name, kind override, and notes onto the new MAC. One audit row, `nmap_replace_stale_mac`. Adapter 0.4.3 does not list this tool. It ships in **1.13.0**. |
 | `list_files` | `files` | List a fleet-jail directory. `p` is jail-relative. `""` is the jail root. |
 | `read_file` | `files` | Download one fleet-jail file. Capped around 256 KiB. The result says when it was cut. |
 | `write_file` | `files` | Upload text. `p` is the directory, `name` is the basename. Cap 256 KiB. |
@@ -233,7 +233,7 @@ uvx --from git+https://github.com/bjorngluck/piherder-mcp.git piherder-mcp
 
 `${PIHERDER_TOKEN}` in older samples is a human placeholder. Many hosts do **not** expand it. Paste the real secret, or set it in the environment the host already inherits.
 
-Adapter **0.4.3** matches the published tool list, including `prune_docker`, the backup schedule fields, and the device tools. It does not list `list_alerts`, `prune_build_cache`, or `replace_stale_mac`. Those three are on this branch and are not in the **1.12.1** image. Adapter **0.4.2** sends `confirm=true` on purge and does not list `prune_docker`. Adapter **0.4.0** lists `start_move`, `read_discovery`, and `start_discovery` and does not list the device tools. Adapter **0.3.1** offers the four one-service job types and does not list those three. A token without `read` makes the stdio process exit on stderr.
+Adapter **0.4.3** matches the published tool list, including `prune_docker`, the backup schedule fields, and the device tools. It does not list `list_alerts`, `prune_build_cache`, or `replace_stale_mac`. Those three are in the **1.13.0** image. Adapter **0.4.3** does not list them. Adapter **0.4.2** sends `confirm=true` on purge and does not list `prune_docker`. Adapter **0.4.0** lists `start_move`, `read_discovery`, and `start_discovery` and does not list the device tools. Adapter **0.3.1** offers the four one-service job types and does not list those three. A token without `read` makes the stdio process exit on stderr.
 
 ## Operating note
 

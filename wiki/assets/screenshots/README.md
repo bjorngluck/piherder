@@ -28,7 +28,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.10.0** | **Captured** 2026-10-05. OneDrive row, self-backup copy checkbox, Reports cards, template fleet, Allow this agent. Package **1.10.0**. [§ v1.10](#v110--pack-status). [QA](../../../docs/QA_v1.10.0.md) |
 | **v1.11.0** | **Captured** 2026-10-18 and wired. Passkey as 2FA, straight-out backups, a finished Backup, and Repository. Names in the frames are masked. Package **1.11.0**. [§ v1.11](#v111--pack-status). [QA](../../../docs/QA_v1.11.0.md) |
 | **v1.12.0** | **Captured** 2026-10-22 and wired. Names, paths, and addresses in the frames are masked. About and the footer still say **1.11.0**. [§ v1.12](#v112--pack-status). [QA](../../../docs/QA_v1.12.0.md) |
-| **v1.13.0** | Pack landed 2026-10-26. About and the footer still say 1.12.1. [§ v1.13](#v113--pack-status). [QA](../../../docs/QA_v1.13.0.md) |
+| **v1.13.0** | Pack landed 2026-10-26. About and the footer say **1.13.0**. [§ v1.13](#v113--pack-status). [QA](../../../docs/QA_v1.13.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
@@ -41,7 +41,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 
 ## v1.13.0 pack status {#v113--pack-status}
 
-**Landed** on `v1.13.0-dev`. About Docker prune, Docker cleanup, host bootstrap, NIC change, and the stuck-queue frames are wired. NIC change and the stuck-queue frames use example names. Code freeze is set 2026-10-25. About and the footer say **1.12.1**. Mask names, paths, addresses, and secrets. Do not photograph the public demo. Maintainer walks are [QA_v1.13.0.md](../../../docs/QA_v1.13.0.md).
+**Landed** with **v1.13.0**. About Docker prune, Docker cleanup, host bootstrap, NIC change, and the stuck-queue frames are wired. NIC change and the stuck-queue frames use example names. About and the footer say **1.13.0**. Mask names, paths, addresses, and secrets. Do not photograph the public demo. Maintainer walks are [QA_v1.13.0.md](../../../docs/QA_v1.13.0.md).
 
 | File | Surface | What the frame shows | Where |
 |------|---------|----------------------|--------|
