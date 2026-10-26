@@ -256,5 +256,21 @@ def test_prune_schedule_form_is_inside_cleanup_modal():
     assert 'action="/servers/{{ server.id }}/schedule/docker-prune"' in modals
     assert 'data-testid="cleanup-prune-schedule-form"' in modals
     assert 'id="cleanup-prune-schedule-status"' in modals
+    assert 'placeholder="0 3 * * 0"' not in modals
+    assert "Type a cron" in modals
+    assert "Leave the field blank" in modals
     assert "setPruneScheduleStatus(" in docker
     assert "Saving prune schedule" in docker
+
+
+def test_docker_prune_registration_flag(monkeypatch):
+    from app.routers.server_patch import docker_prune_job_registered
+
+    class _Sched:
+        def get_job(self, job_id):
+            return object() if job_id == "docker_prune_4" else None
+
+    monkeypatch.setattr("app.main.HAS_SCHEDULER", True)
+    monkeypatch.setattr("app.main.scheduler", _Sched())
+    assert docker_prune_job_registered(4) is True
+    assert docker_prune_job_registered(5) is False

@@ -307,6 +307,21 @@ def sync_server_schedules(server: Server):
         logger.warning(f"Could not sync schedules for server {server.id}: {e}")
 
 
+def docker_prune_job_registered(server_id: int) -> bool:
+    """True when this process's scheduler has the host's prune job."""
+    try:
+        from ..main import HAS_SCHEDULER, scheduler
+    except Exception:
+        return False
+    if not HAS_SCHEDULER or scheduler is None or not server_id:
+        return False
+    try:
+        return scheduler.get_job(f"docker_prune_{int(server_id)}") is not None
+    except Exception:
+        logger.warning("Could not read the docker prune scheduler job", exc_info=True)
+        return False
+
+
 @router.post("/{server_id}/check/os-updates")
 async def check_os_updates_now(
     request: Request,
@@ -514,16 +529,46 @@ async def save_docker_prune_schedule(
     )
     session.commit()
     sync_server_schedules(server)
+    registered = docker_prune_job_registered(server.id) if cron else False
+    if cron and not registered:
+        message = (
+            "The cron is stored, but the scheduler did not register it. "
+            "About will not list Docker prune for this host."
+        )
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "docker_prune_schedule": cron,
+                    "detail": message,
+                },
+                status_code=409,
+            )
+        return RedirectResponse(
+            f"/servers/{server_id}/docker?prune=schedule_miss",
+            status_code=303,
+        )
+    if cron:
+        message = (
+            "Prune schedule saved. On About, open View schedule and choose Docker prune."
+        )
+        flag = "schedule"
+    else:
+        message = (
+            "Prune schedule is off. About will not list Docker prune for this host."
+        )
+        flag = "schedule_off"
     if request.headers.get("X-PiHerder-Async") == "1":
         return JSONResponse(
             {
                 "ok": True,
                 "docker_prune_schedule": cron or "",
-                "message": "Prune schedule saved. Volumes and build cache stay off.",
+                "registered": registered,
+                "message": message,
             }
         )
     return RedirectResponse(
-        f"/servers/{server_id}/docker?prune=schedule",
+        f"/servers/{server_id}/docker?prune={flag}",
         status_code=303,
     )
 

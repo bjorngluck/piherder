@@ -311,7 +311,15 @@
     </div>
   {% elif _prune == 'schedule' %}
     <div class="mb-3 p-2 text-xs rounded banner-success border border-border">
-      Prune schedule saved. Volumes stay off. Build cache is a separate action.
+      Prune schedule saved. On About, open View schedule and choose Docker prune.
+    </div>
+  {% elif _prune == 'schedule_off' %}
+    <div class="mb-3 p-2 text-xs rounded border border-border">
+      Prune schedule is off. About will not list Docker prune for this host.
+    </div>
+  {% elif _prune == 'schedule_miss' %}
+    <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
+      The cron is stored, but the scheduler did not register it. About will not list Docker prune for this host.
     </div>
   {% elif _prune == 'build_cache' %}
     <div class="mb-3 p-2 text-xs rounded banner-success border border-border">
@@ -846,10 +854,16 @@ function bindCleanupPruneSchedule() {
     var button = form.querySelector('button[type="submit"]');
     if (button) button.disabled = true;
     setPruneScheduleStatus('busy', 'Saving prune schedule…');
+    var field = form.querySelector('input[name="docker_prune_schedule"]');
+    var body = new URLSearchParams();
+    body.set('docker_prune_schedule', field ? field.value : '');
     fetch(form.action, {
       method: 'POST',
-      body: new FormData(form),
-      headers: { 'X-PiHerder-Async': '1' },
+      body: body,
+      headers: {
+        'X-PiHerder-Async': '1',
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
       credentials: 'same-origin'
     }).then(function (res) {
       return res.json().then(function (data) {
@@ -859,11 +873,10 @@ function bindCleanupPruneSchedule() {
       });
     }).then(function (pack) {
       if (pack.ok && pack.data.ok) {
-        var field = form.querySelector('input[name="docker_prune_schedule"]');
         if (field && Object.prototype.hasOwnProperty.call(pack.data, 'docker_prune_schedule')) {
           field.value = pack.data.docker_prune_schedule || '';
         }
-        setPruneScheduleStatus('ok', pack.data.message || 'Prune schedule saved. Volumes and build cache stay off.');
+        setPruneScheduleStatus('ok', pack.data.message || 'Prune schedule saved.');
         return;
       }
       var detail = pack.data.detail || pack.data.message || 'Could not save the prune schedule';
