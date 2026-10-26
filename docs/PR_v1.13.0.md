@@ -2,7 +2,7 @@
 
 **Title:** `v1.13.0: ownership on restore, and a hint when a MAC changes`
 
-**Base:** `main` · **Head:** `v1.13.0-dev` · [QA_v1.13.0.md](QA_v1.13.0.md): Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed. Screenshots are reserved.
+**Base:** `main` · **Head:** `v1.13.0-dev` · [QA_v1.13.0.md](QA_v1.13.0.md): Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap, NIC change, and the stuck-queue frame are not in the pack.
 
 **State:** open [#60](https://github.com/bjorngluck/piherder/pull/60). Code freeze is set 2026-10-25. Notes are [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Package stays **1.12.1**. Not tagged. Not an upgrade path.
 
@@ -32,11 +32,11 @@ Design: [PLAN_v1.13.0.md](PLAN_v1.13.0.md). Maintainer ticks: [QA_v1.13.0.md](QA
 
 ## Migrations
 
-Alembic **051** adds `docker_prune_schedule`. Recreate **web** and **celery-worker** when this ships. About stays **1.12.1** until freeze.
+Alembic **051** adds `docker_prune_schedule`. Recreate **web** and **celery-worker** when this ships. About stays **1.12.1** until the package bump.
 
 ## Test plan
 
-Walk [QA_v1.13.0.md](QA_v1.13.0.md). Screenshots are not captured. Do not retick the 1.12 boxes.
+Walk [QA_v1.13.0.md](QA_v1.13.0.md). About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap, NIC change, and the stuck-queue frame are not in the pack. Do not retick the 1.12 boxes.
 
 - [x] Restore ownership and the backup stagger ceiling
 - [x] NIC change notice and Replace stale MAC. [#50](https://github.com/bjorngluck/piherder/issues/50) stays open
@@ -44,8 +44,8 @@ Walk [QA_v1.13.0.md](QA_v1.13.0.md). Screenshots are not captured. Do not retick
 - [x] Stuck queue, read-only alerts, orphaned running jobs
 - [x] Host tool bootstrap. Refused in demo. Not on `/api/v1` or hosted `/mcp`
 - [x] Token secret stays off the query string. OAuth names stay distinct
-- [ ] `.venv-docs/bin/mkdocs build --strict`
-- [ ] Screenshot files named in the [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status)
+- [x] `.venv-docs/bin/mkdocs build --strict`
+- [ ] Screenshot files named in the [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status). About and Docker cleanup are wired. Three frames are not in the pack
 
 ## Out of scope
 
@@ -63,7 +63,7 @@ Walk [QA_v1.13.0.md](QA_v1.13.0.md). Screenshots are not captured. Do not retick
 - [ ] Run the RELEASE_SYNC.md check against origin/main of all three repos
 - [ ] End-user notes (`RELEASE_v1.13.0.md`) moved from draft to the shipped release
 - [ ] Screenshot files dropped in `wiki/assets/screenshots/`
-- [ ] `.venv-docs/bin/mkdocs build --strict`
+- [x] `.venv-docs/bin/mkdocs build --strict`
 - [x] Freeze. Package bump is a separate ask
 - [ ] Merge this PR to main
 - [ ] Tag v1.13.0 and publish the release notes

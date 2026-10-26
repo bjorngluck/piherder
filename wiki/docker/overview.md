@@ -62,7 +62,12 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
   <figcaption>Prune dangling images, exited containers, or unused networks. The volume confirm is visible and not ticked. Image names are masked.</figcaption>
 </figure>
 
-A Docker inventory left at `refreshing` for 30 minutes, measured from `docker_inventory_at`, resets to stale when a snapshot exists and to never when it does not. A missing timestamp is not treated as expired. `GET /api/v1/inventory` and `GET /api/v1/servers/{id}/inventory` set `update_available` on each container, each image, and each compose project. Callers do not read `container_update_check` job logs for that flag. Both are on the v1.13 train and are not in the 1.12.1 image. The build-cache and scheduled-prune frame is reserved as `docker-build-cache-prune.png` and is not captured yet.
+A Docker inventory left at `refreshing` for 30 minutes, measured from `docker_inventory_at`, resets to stale when a snapshot exists and to never when it does not. A missing timestamp is not treated as expired. `GET /api/v1/inventory` and `GET /api/v1/servers/{id}/inventory` set `update_available` on each container, each image, and each compose project. Callers do not read `container_update_check` job logs for that flag. Both are on the v1.13 train and are not in the 1.12.1 image.
+
+<figure class="ph-figure" markdown>
+  ![Cleanup with a saved prune schedule](../assets/screenshots/docker-build-cache-prune.png)
+  <figcaption>Cleanup lists dangling images, keeps the volume confirm unticked, and shows a saved prune schedule. Build cache is its own button.</figcaption>
+</figure>
 
 <figure class="ph-figure" markdown>
   ![Repository on an existing checkout](../assets/screenshots/docker-repository.png)

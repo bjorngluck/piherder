@@ -3,7 +3,7 @@
 **Branch:** `v1.13.0-dev`  
 **Code freeze:** set 2026-10-25. No new product work on this branch. Package bump, merge, tag, and Hub stay a separate ask.  
 **Package:** stays **`1.12.1`**. About / footer stay **1.12.1**.  
-**Operator QA:** Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed.  
+**Operator QA:** Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap, NIC change, and the stuck-queue frame are not in the pack.  
 **Release notes:** draft [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Not tagged.  
 **Screenshots:** reserved in [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).  
 **Pull request:** draft [#60](https://github.com/bjorngluck/piherder/pull/60).
@@ -14,7 +14,7 @@ Plan: [PLAN_v1.13.0.md](PLAN_v1.13.0.md). v1.12 sign-off stays [QA_v1.12.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch.
 
-Must and Should code and documentation are on `v1.13.0-dev`. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. Screenshots are not signed. Later is not a walk on this train. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
+Must and Should code and documentation are on `v1.13.0-dev`. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap, NIC change, and the stuck-queue frame are not in the pack. Later is not a walk on this train. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
 
 ---
 
@@ -172,13 +172,13 @@ Volume prune on the API, borg, kopia, rclone crypt, fine-grained roles, and putt
 
 ## Screenshots
 
-Reserved, not captured. Names, paths, addresses, and secrets must be masked. Do not photograph the public demo. The file list is [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).
+Two frames wired 2026-10-26. Three uploads are not in the public pack. Names, paths, addresses, and secrets must be masked. Do not photograph the public demo. The file list is [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).
 
-- [ ] `discovery-nic-change.png`
-- [ ] `docker-build-cache-prune.png`
-- [ ] `alerts-stuck-queue.png`
-- [ ] `about-scheduler-prune.png`
-- [ ] `host-bootstrap.png`
+- [ ] `discovery-nic-change.png`. The upload does not show the NIC badge
+- [x] `docker-build-cache-prune.png`
+- [ ] `alerts-stuck-queue.png`. The upload is a host-facts job, not the stuck-queue warning
+- [x] `about-scheduler-prune.png`
+- [ ] `host-bootstrap.png`. The upload names the fleet SSH user
 
 ## 1.12 regression
 
