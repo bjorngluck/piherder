@@ -16,7 +16,7 @@ Should work on the same branch: backup minutes spread across the day, Docker bui
 
 Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** and adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stay. Hosted `/mcp` lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Those three are not in the **1.12.1** image.
 
-Screenshot names are reserved. Package stays **1.12.1**.
+About Docker prune and Docker cleanup frames are wired. Host bootstrap, NIC change, and the stuck-queue frame are not in the pack. Package stays **1.12.1**.
 
 Design: [PLAN_v1.13.0.md](PLAN_v1.13.0.md). Maintainer ticks: [QA_v1.13.0.md](QA_v1.13.0.md). Screenshot list: [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).
 
