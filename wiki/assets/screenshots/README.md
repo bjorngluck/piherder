@@ -41,15 +41,15 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 
 ## v1.13.0 pack status {#v113--pack-status}
 
-**Partial** on `v1.13.0-dev`. About Docker prune and Docker cleanup are wired 2026-10-26. Host bootstrap, NIC change, and the stuck-queue frame were uploaded and are not in the pack. Code freeze is set 2026-10-25. About and the footer say **1.12.1**. Mask names, paths, addresses, and secrets. Do not photograph the public demo. Maintainer walks are [QA_v1.13.0.md](../../../docs/QA_v1.13.0.md).
+**Partial** on `v1.13.0-dev`. About Docker prune and Docker cleanup are wired 2026-10-26. NIC change and the stuck-queue frame wait for a real example. Host bootstrap stays out until the fleet user in the frame is `piherder`. Code freeze is set 2026-10-25. About and the footer say **1.12.1**. Mask names, paths, addresses, and secrets. Do not photograph the public demo. Maintainer walks are [QA_v1.13.0.md](../../../docs/QA_v1.13.0.md).
 
 | File | Surface | What the frame shows | Where |
 |------|---------|----------------------|--------|
-| `discovery-nic-change.png` | LAN Discovery devices | Not in the pack. The upload does not show the NIC badge | [LAN Discovery](../../integrations/lan-discovery.md) |
+| `discovery-nic-change.png` | LAN Discovery devices | Not in the pack. No live NIC change to photograph yet | [LAN Discovery](../../integrations/lan-discovery.md) |
 | `docker-build-cache-prune.png` | Host Docker page | **Wired.** Build cache prune, volume confirm unticked, and a saved prune schedule | [Docker](../../docker/overview.md) |
-| `alerts-stuck-queue.png` | Alerts | Not in the pack. The upload is a host-facts job, not the stuck-queue warning | [Alerts](../../operations/alerts-email-webhooks.md) |
+| `alerts-stuck-queue.png` | Alerts | Not in the pack. No stuck-queue warning to photograph yet | [Alerts](../../operations/alerts-email-webhooks.md) |
 | `about-scheduler-prune.png` | About | **Wired.** View schedule open on Docker prune. The host name is masked | [Status](../../operations/status.md) |
-| `host-bootstrap.png` | SSH access | Not in the pack. The upload names the fleet SSH user | [Add a server](../../day-to-day/add-server.md) |
+| `host-bootstrap.png` | SSH access | Not in the pack. The frame prints that host's SSH username. A capture whose fleet user is `piherder` can ship | [Add a server](../../day-to-day/add-server.md) |
 
 ### Do not shoot for 1.13
 

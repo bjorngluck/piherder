@@ -119,6 +119,7 @@ Nothing was voted **Out**.
 | 2026-10-25 | **Host bootstrap when the host is busy.** A second `host_bootstrap` fails at once with `another job holds this host, rerun when it finishes` and does not queue the sudo password. Wiki [Add a server](../wiki/day-to-day/add-server.md), [Jobs and audit](../wiki/day-to-day/jobs-audit-notifications.md), and [Multi-worker](../wiki/operations/multi-worker.md) name that failure and the expired-message failure. [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) stays a draft. Walks are signed. Screenshots are not captured. Package stays `1.12.1`. |
 | 2026-10-25 | **Code freeze.** No new product work on `v1.13.0-dev`. Walks are signed. Screenshots are not captured. Package stays `1.12.1`. Pull request [#60](https://github.com/bjorngluck/piherder/pull/60) stays open. Not tagged. |
 | 2026-10-26 | **Screenshots.** About Docker prune and Docker cleanup are wired. Host bootstrap, NIC change, and the stuck-queue uploads are not in the pack. [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) stays a draft and names Alembic **051**. Package stays `1.12.1`. Not tagged. |
+| 2026-10-26 | **Screenshot hold.** NIC change and the stuck-queue frame wait for a real example. Host bootstrap stays out until the fleet user in the frame is `piherder`. Package stays `1.12.1`. |
 
 ---
 

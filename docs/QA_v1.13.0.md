@@ -174,11 +174,11 @@ Volume prune on the API, borg, kopia, rclone crypt, fine-grained roles, and putt
 
 Two frames wired 2026-10-26. Three uploads are not in the public pack. Names, paths, addresses, and secrets must be masked. Do not photograph the public demo. The file list is [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).
 
-- [ ] `discovery-nic-change.png`. The upload does not show the NIC badge
+- [ ] `discovery-nic-change.png`. No live NIC change to photograph yet
 - [x] `docker-build-cache-prune.png`
-- [ ] `alerts-stuck-queue.png`. The upload is a host-facts job, not the stuck-queue warning
+- [ ] `alerts-stuck-queue.png`. No stuck-queue warning to photograph yet
 - [x] `about-scheduler-prune.png`
-- [ ] `host-bootstrap.png`. The upload names the fleet SSH user
+- [ ] `host-bootstrap.png`. The frame prints that host's SSH username. A capture whose fleet user is `piherder` can ship
 
 ## 1.12 regression
 

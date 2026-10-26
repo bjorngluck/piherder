@@ -72,7 +72,7 @@ A host backup or a container image check that does not start within 15 minutes o
 
 ### Stuck queue
 
-One warning (`stuck_queue`) opens when any job stays `pending` for more than 15 minutes and no Celery worker answers. It resolves when that pending queue drains, or when a worker answers again. A worker check that cannot tell leaves an open warning as it is. Mute **PiHerder stack** to stop it. `GET /api/v1/alerts` (`read`) and hosted MCP `list_alerts` return open notifications. `/metrics` exposes `piherder_queue_oldest_pending_seconds` and `piherder_stuck_queue`. This alert is on the v1.13 train and is not in the 1.12.1 image. The uploaded frame is a host-facts job, not this warning, so it is not in the public pack.
+One warning (`stuck_queue`) opens when any job stays `pending` for more than 15 minutes and no Celery worker answers. It resolves when that pending queue drains, or when a worker answers again. A worker check that cannot tell leaves an open warning as it is. Mute **PiHerder stack** to stop it. `GET /api/v1/alerts` (`read`) and hosted MCP `list_alerts` return open notifications. `/metrics` exposes `piherder_queue_oldest_pending_seconds` and `piherder_stuck_queue`. This alert is on the v1.13 train and is not in the 1.12.1 image. There is no stuck-queue warning to photograph yet. The frame waits until one occurs.
 
 ### Scheduled Docker prune
 
