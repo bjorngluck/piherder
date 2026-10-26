@@ -116,7 +116,7 @@ Tick the confirm box before Docker bootstrap. Adding the fleet SSH user to the `
 
 <figure class="ph-figure" markdown>
   ![Bootstrap missing tools](../assets/screenshots/host-bootstrap.png)
-  <figcaption>SSH access, Bootstrap missing tools. The password fields are masked.</figcaption>
+  <figcaption>SSH access, Bootstrap missing tools. The fleet user is piherder. The password fields are empty.</figcaption>
 </figure>
 
 !!! tip "Clear stored passwords"
