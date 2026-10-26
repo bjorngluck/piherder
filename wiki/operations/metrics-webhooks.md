@@ -59,9 +59,9 @@ Useful series, and the full set exported by `app/services/metrics.py`:
 | `piherder_queue_oldest_pending_seconds` | Age in seconds of the oldest `pending` job, or 0 when none are pending |
 | `piherder_stuck_queue` | 1 when that age is over 15 minutes and no Celery worker answered. An unknown heartbeat leaves this at 0 |
 
-`piherder_schedule_missed{kind="backup",server_id="1"}` is 1 when that host's latest due backup slot did not start within 15 minutes and has not succeeded since. `kind="container_check"` is the same gauge for a container image check. `kind="docker_prune"` is the same gauge for a saved per-host Docker prune. Schedules that are off are omitted. The prune kind is on the v1.13 train and is not in the 1.12.1 image.
+`piherder_schedule_missed{kind="backup",server_id="1"}` is 1 when that host's latest due backup slot did not start within 15 minutes and has not succeeded since. `kind="container_check"` is the same gauge for a container image check. `kind="docker_prune"` is the same gauge for a saved per-host Docker prune. Schedules that are off are omitted. The prune kind ships in **1.13.0**.
 
-`piherder_queue_oldest_pending_seconds` is the age of the oldest `pending` job, or 0 when none are pending. `piherder_stuck_queue` is 1 when that age is over 15 minutes and no Celery worker answered. A failed worker check leaves the gauge at 0. Both are on the v1.13 train and are not in the 1.12.1 image.
+`piherder_queue_oldest_pending_seconds` is the age of the oldest `pending` job, or 0 when none are pending. `piherder_stuck_queue` is 1 when that age is over 15 minutes and no Celery worker answered. A failed worker check leaves the gauge at 0. Both ship in **1.13.0**.
 
 If `METRICS_TOKEN` is empty, treat `/metrics` like private-network only.
 

@@ -14,7 +14,7 @@ Anything committed here is public. Use generic names in code, tests, docs, and c
 
 ## Current train
 
-`v1.13.0-dev` has Must and Should code and docs. Package stays `1.12.1`. Do not bump it on that train. Host tool bootstrap is `POST /servers/{id}/host-deps/bootstrap` and is not on `/api/v1` or `/mcp`.
+`v1.13.0` is the current release. Package is `1.13.0`. Host tool bootstrap is `POST /servers/{id}/host-deps/bootstrap` and is not on `/api/v1` or `/mcp`.
 
 ## Opening a version pull request (maintainer)
 

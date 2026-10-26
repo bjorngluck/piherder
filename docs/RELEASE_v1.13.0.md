@@ -1,10 +1,15 @@
 # PiHerder v1.13.0
 
-**Draft on `v1.13.0-dev`.** Not tagged. Not released.
+**Status:** Released
+**Date:** 2026-10-26
+**Git tag:** `v1.13.0`
+**Package / image version:** `1.13.0`
+**Baseline:** `v1.12.1` (2026-10-23)
 
-Must and Should code and docs are built. Maintainer walks in [QA_v1.13.0](QA_v1.13.0.md) are signed 2026-10-25. Code freeze is set 2026-10-25. About **View schedule** on Docker prune, and Docker **Cleanup…** with a saved prune schedule, are wired. Host bootstrap, the NIC change, and the stuck-queue frames are wired. The NIC and queue frames use example names. Package version on `main` and on `v1.13.0-dev` stays **1.12.1**. About and the footer stay **1.12.1**.
+Maintainer walks in [QA_v1.13.0](QA_v1.13.0.md) are signed 2026-10-25. About **View schedule** on Docker prune, and Docker **Cleanup…** with a saved prune schedule, are wired. Host bootstrap, the NIC change, and the stuck-queue frames are wired. The NIC and queue frames use example names. About and the footer say **1.13.0**.
 
-Baseline is [v1.12.1](RELEASE_v1.12.1.md) (2026-10-23) and [v1.12.0](RELEASE_v1.12.0.md) (2026-10-22). This draft is not an upgrade path. The published image stays `bjorngluck/piherder:1.12.1`.
+**Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) multi-arch `linux/amd64` + `linux/arm64`
+**Tags:** `1.13.0`, `1.13`, and `latest`. The manifest digest is added after the Hub push. Pin `1.12.1` stays that patch. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image.
 
 Home Assistant plugin is **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** (Home Assistant **2024.7** or newer). Published PyPI adapter is **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)**. Hosted `/mcp` on this branch adds `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. This release does not cut a new adapter tag.
 
@@ -80,10 +85,10 @@ Nothing was voted Out. These stay off this train:
 - Volume prune on the API or hosted `/mcp`.
 - borg, kopia, rclone crypt, fine-grained roles, and putting the Home Assistant plugin in the image.
 - A pre-restore host rollback snapshot, backup manifest file-count and byte verification, a dry-run restore preview API, and a compose git checkout drift badge. Those are v1.14.0+.
-- Another adapter tag. **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter on this draft.
+- Another adapter tag. **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter.
 
 ---
 
 ## Upgrade
 
-Alembic **051** adds `docker_prune_schedule`. When this release is tagged, recreate **web** and **celery-worker**. `1.12.1` remains the published image until the tag. Do not point the public demo at this branch. Plugin **0.5.3** is the card. It needs Home Assistant **2024.7** or newer. The notes stay a draft until that tag.
+Alembic **051** adds `docker_prune_schedule`. Recreate **web** and **celery-worker**. About should say **1.13.0**. Plugin **0.5.3** is the card. It needs Home Assistant **2024.7** or newer. The public demo is updated only when asked.

@@ -37,7 +37,7 @@ See [Multi-worker Celery](../operations/multi-worker.md).
 
 ### Tools by feature
 
-PiHerder probes dependencies for **enabled** features only. Backups on checks `rsync`. Docker on, and the host is not HAOS, checks official `docker-ce`, `docker-compose-plugin`, `docker` group membership, and conflicting distro packages. The check itself does not install packages. On the v1.13 train, an operator can run or copy **Bootstrap missing tools** from SSH access or the add-server wizard (`POST /servers/{id}/host-deps/bootstrap`) for Ubuntu, Debian, and Raspbian. That installs `rsync` only when Backups are on, and official Docker CE only when Docker is on. It is not in the 1.12.1 image. See [Add a server](../day-to-day/add-server.md#bootstrap-missing-tools).
+PiHerder probes dependencies for **enabled** features only. Backups on checks `rsync`. Docker on, and the host is not HAOS, checks official `docker-ce`, `docker-compose-plugin`, `docker` group membership, and conflicting distro packages. The check itself does not install packages. On the v1.13 train, an operator can run or copy **Bootstrap missing tools** from SSH access or the add-server wizard (`POST /servers/{id}/host-deps/bootstrap`) for Ubuntu, Debian, and Raspbian. That installs `rsync` only when Backups are on, and official Docker CE only when Docker is on. It ships in **1.13.0**. See [Add a server](../day-to-day/add-server.md#bootstrap-missing-tools).
 
 | Feature enabled | Remote tools expected |
 |-----------------|----------------------|
