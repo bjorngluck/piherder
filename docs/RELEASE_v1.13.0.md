@@ -2,7 +2,7 @@
 
 **Draft on `v1.13.0-dev`.** Not tagged. Not released.
 
-Must and Should code and docs are built. Maintainer walks in [QA_v1.13.0](QA_v1.13.0.md) are signed 2026-10-25. Code freeze is set 2026-10-25. About **View schedule** on Docker prune, and Docker **Cleanup…** with a saved prune schedule, are wired. Host bootstrap is wired. The NIC change and stuck-queue frames wait for a real example. Package version on `main` and on `v1.13.0-dev` stays **1.12.1**. About and the footer stay **1.12.1**.
+Must and Should code and docs are built. Maintainer walks in [QA_v1.13.0](QA_v1.13.0.md) are signed 2026-10-25. Code freeze is set 2026-10-25. About **View schedule** on Docker prune, and Docker **Cleanup…** with a saved prune schedule, are wired. Host bootstrap, the NIC change, and the stuck-queue frames are wired. The NIC and queue frames use example names. Package version on `main` and on `v1.13.0-dev` stays **1.12.1**. About and the footer stay **1.12.1**.
 
 Baseline is [v1.12.1](RELEASE_v1.12.1.md) (2026-10-23) and [v1.12.0](RELEASE_v1.12.0.md) (2026-10-22). This draft is not an upgrade path. The published image stays `bjorngluck/piherder:1.12.1`.
 

@@ -3,7 +3,7 @@
 **Branch:** `v1.13.0-dev`  
 **Code freeze:** set 2026-10-25. No new product work on this branch. Package bump, merge, tag, and Hub stay a separate ask.  
 **Package:** stays **`1.12.1`**. About / footer stay **1.12.1**.  
-**Operator QA:** Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frame wait for a real example.  
+**Operator QA:** Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frames are wired.  
 **Release notes:** draft [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Not tagged.  
 **Screenshots:** reserved in [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).  
 **Pull request:** draft [#60](https://github.com/bjorngluck/piherder/pull/60).
@@ -14,7 +14,7 @@ Plan: [PLAN_v1.13.0.md](PLAN_v1.13.0.md). v1.12 sign-off stays [QA_v1.12.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Putting it in the image is not a backlog row. Do not redeploy the public demo onto this branch.
 
-Must and Should code and documentation are on `v1.13.0-dev`. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frame wait for a real example. Later is not a walk on this train. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
+Must and Should code and documentation are on `v1.13.0-dev`. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frames are wired. Later is not a walk on this train. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
 
 ---
 
@@ -172,11 +172,11 @@ Volume prune on the API, borg, kopia, rclone crypt, fine-grained roles, and putt
 
 ## Screenshots
 
-Two frames wired 2026-10-26. Three uploads are not in the public pack. Names, paths, addresses, and secrets must be masked. Do not photograph the public demo. The file list is [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).
+All five frames are wired. NIC change and the stuck-queue frames use example names. Names, paths, addresses, and secrets must be masked. Do not photograph the public demo. The file list is [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).
 
-- [ ] `discovery-nic-change.png`. No live NIC change to photograph yet
+- [x] `discovery-nic-change.png`
 - [x] `docker-build-cache-prune.png`
-- [ ] `alerts-stuck-queue.png`. No stuck-queue warning to photograph yet
+- [x] `alerts-stuck-queue.png`
 - [x] `about-scheduler-prune.png`
 - [x] `host-bootstrap.png`
 

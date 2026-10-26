@@ -2,7 +2,7 @@
 
 **Title:** `v1.13.0: ownership on restore, and a hint when a MAC changes`
 
-**Base:** `main` · **Head:** `v1.13.0-dev` · [QA_v1.13.0.md](QA_v1.13.0.md): Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frame wait for a real example.
+**Base:** `main` · **Head:** `v1.13.0-dev` · [QA_v1.13.0.md](QA_v1.13.0.md): Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frames are wired.
 
 **State:** open [#60](https://github.com/bjorngluck/piherder/pull/60). Code freeze is set 2026-10-25. Notes are [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Package stays **1.12.1**. Not tagged. Not an upgrade path.
 
@@ -16,7 +16,7 @@ Should work on the same branch: backup minutes spread across the day, Docker bui
 
 Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** and adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stay. Hosted `/mcp` lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Those three are not in the **1.12.1** image.
 
-About Docker prune and Docker cleanup frames are wired. Host bootstrap is wired. NIC change and the stuck-queue frame wait for a real example. Package stays **1.12.1**.
+About Docker prune and Docker cleanup frames are wired. Host bootstrap is wired. NIC change and the stuck-queue frames are wired. Package stays **1.12.1**.
 
 Design: [PLAN_v1.13.0.md](PLAN_v1.13.0.md). Maintainer ticks: [QA_v1.13.0.md](QA_v1.13.0.md). Screenshot list: [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status).
 
@@ -36,7 +36,7 @@ Alembic **051** adds `docker_prune_schedule`. Recreate **web** and **celery-work
 
 ## Test plan
 
-Walk [QA_v1.13.0.md](QA_v1.13.0.md). About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frame wait for a real example. Do not retick the 1.12 boxes.
+Walk [QA_v1.13.0.md](QA_v1.13.0.md). About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frames are wired. Do not retick the 1.12 boxes.
 
 - [x] Restore ownership and the backup stagger ceiling
 - [x] NIC change notice and Replace stale MAC. [#50](https://github.com/bjorngluck/piherder/issues/50) stays open
@@ -45,7 +45,7 @@ Walk [QA_v1.13.0.md](QA_v1.13.0.md). About Docker prune and Docker cleanup frame
 - [x] Host tool bootstrap. Refused in demo. Not on `/api/v1` or hosted `/mcp`
 - [x] Token secret stays off the query string. OAuth names stay distinct
 - [x] `.venv-docs/bin/mkdocs build --strict`
-- [ ] Screenshot files named in the [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status). About, Docker cleanup, and host bootstrap are wired. NIC change and the stuck-queue frame wait for a real example
+- [x] Screenshot files named in the [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status). About, Docker cleanup, host bootstrap, NIC change, and the stuck-queue frames are wired
 
 ## Out of scope
 
@@ -62,7 +62,7 @@ Walk [QA_v1.13.0.md](QA_v1.13.0.md). About Docker prune and Docker cleanup frame
 - [ ] QA boxes signed in [QA_v1.13.0.md](QA_v1.13.0.md)
 - [ ] Run the RELEASE_SYNC.md check against origin/main of all three repos
 - [ ] End-user notes (`RELEASE_v1.13.0.md`) moved from draft to the shipped release
-- [ ] Screenshot files dropped in `wiki/assets/screenshots/`
+- [x] Screenshot files dropped in `wiki/assets/screenshots/`
 - [x] `.venv-docs/bin/mkdocs build --strict`
 - [x] Freeze. Package bump is a separate ask
 - [ ] Merge this PR to main
