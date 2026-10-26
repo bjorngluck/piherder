@@ -829,9 +829,9 @@ function initDockerFilters() {
 function setPruneScheduleStatus(state, message) {
   var line = document.getElementById('cleanup-prune-schedule-status');
   if (!line) return;
-  line.classList.remove('hidden', 'text-danger', 'banner-success');
+  line.classList.remove('hidden', 'text-danger', 'banner-success', 'is-ok');
   if (state === 'error') line.classList.add('text-danger');
-  else if (state === 'ok') line.classList.add('banner-success');
+  else if (state === 'ok') line.classList.add('banner-success', 'is-ok');
   line.textContent = message || '';
   if (line.scrollIntoView) line.scrollIntoView({ block: 'nearest' });
 }
