@@ -1,10 +1,33 @@
 # PiHerder documentation
 
+**Secure fleet management for Raspberry Pi and Linux hosts** — backups, patching, Docker control, and service templates with secrets encrypted at rest.
+
+<div class="ph-home-cta" markdown="1">
+<div class="ph-home-cta__demo" markdown="1">
+
+!!! tip "Public demo site (view-only)"
+    PiHerder has a **live public demo** — explore the UI without installing:
+
+    - **URL:** [https://piherder-demo.hacknow.info](https://piherder-demo.hacknow.info)
+    - **Login:** `demo@hacknow.info` / `PiHerder@123?_` (shared **viewer** account)
+    - **Details:** [Public demo](operations/demo-site.md) — password may rotate; **this wiki always has the latest**.
+    - **Caveat:** some screens use **simulated hosts/data** and may not match a real fleet 100% (see that page).
+
+</div>
+<div class="ph-home-cta__actions" markdown="1">
+
+**On GitHub**
+
+Star the project, or bring a question, an idea, or a setup.
+
+<p class="ph-cta-buttons" markdown="0"><a class="ph-btn ph-btn--star" href="https://github.com/bjorngluck/piherder">Star on GitHub <img alt="GitHub stars" src="https://img.shields.io/github/stars/bjorngluck/piherder?style=flat&amp;label=Stars&amp;labelColor=ffffff&amp;color=e60012"></a> <a class="ph-btn ph-btn--talk" href="https://github.com/bjorngluck/piherder/discussions">Join the discussion</a></p>
+
+</div>
+</div>
+
 <figure class="ph-hero-logo" markdown>
   ![PiHerder logo](assets/piherder-about.png){ width="300" }
 </figure>
-
-**Secure fleet management for Raspberry Pi and Linux hosts** — backups, patching, Docker control, and service templates with secrets encrypted at rest.
 
 ## Release status {#release-status}
 
@@ -21,14 +44,6 @@
 | **License** | [MIT](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (open source) |
 
 If something is unclear or wrong, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues).
-
-!!! tip "Public demo site (view-only)"
-    PiHerder has a **live public demo** — explore the UI without installing:
-
-    - **URL:** [https://piherder-demo.hacknow.info](https://piherder-demo.hacknow.info)  
-    - **Login:** `demo@hacknow.info` / `PiHerder@123?_` (shared **viewer** account)  
-    - **Details:** [Public demo](operations/demo-site.md) — password may rotate; **this wiki always has the latest**.  
-    - **Caveat:** some screens use **simulated hosts/data** and may not match a real fleet 100% (see that page).
 
 ---
 
