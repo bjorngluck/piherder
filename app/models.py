@@ -236,6 +236,10 @@ class Server(SQLModel, table=True):
     container_apply_schedule: Optional[str] = None
     container_apply_only_if_updates: bool = True
 
+    # Saved Docker prune cron. Empty means off. The run is dangling images and
+    # exited containers. Volumes and the build cache stay off this schedule.
+    docker_prune_schedule: Optional[str] = None
+
     # Docker inventory snapshot (DB-backed; refresh in background — not live SSH on every page)
     # Payload: {v, projects, orphan_containers, meta}; status: never|ok|error|refreshing
     docker_inventory_json: Optional[str] = None

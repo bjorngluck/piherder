@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime
 from typing import Any, Optional
 
@@ -38,7 +39,106 @@ HINTS = {
         "for the SSH user PiHerder uses (often root)."
     ),
     "ssh": "Fix SSH key/password under SSH access, then re-check.",
+    "docker_ce": (
+        "Official Docker CE is not installed. SSH access can bootstrap docker-ce "
+        "from download.docker.com after you confirm. This does not use get.docker.com."
+    ),
+    "docker_compose": (
+        "The Compose v2 plugin is missing. Bootstrap installs docker-compose-plugin "
+        "(`docker compose version`)."
+    ),
+    "docker_conflicts": (
+        "Distro Docker packages are installed. Bootstrap removes them with apt-get remove "
+        "(not purge) and leaves /var/lib/docker in place, then installs Docker CE."
+    ),
+    "docker_group": (
+        "The SSH user is not in the docker group. Bootstrap runs usermod -aG docker. "
+        "That group can start containers as root."
+    ),
 }
+
+_OS_IDS = frozenset({"ubuntu", "debian", "raspbian"})
+_ARCHS = frozenset({"amd64", "arm64", "armhf"})
+_TOKEN = re.compile(r"^[a-z0-9-]+$")
+DOCKER_REPO_URLS = {
+    "ubuntu": "https://download.docker.com/linux/ubuntu",
+    "debian": "https://download.docker.com/linux/debian",
+    "raspbian": "https://download.docker.com/linux/raspbian",
+}
+_CONFLICT_PACKAGES = (
+    "docker.io",
+    "docker-compose",
+    "docker-compose-v2",
+    "docker-doc",
+    "podman-docker",
+    "containerd",
+    "runc",
+)
+
+
+def parse_os_release(text: str) -> dict[str, str]:
+    """KEY=value lines from /etc/os-release. Quotes are stripped."""
+    data: dict[str, str] = {}
+    for line in (text or "").splitlines():
+        raw = line.strip()
+        if not raw or raw.startswith("#") or "=" not in raw:
+            continue
+        key, val = raw.split("=", 1)
+        data[key.strip()] = val.strip().strip('"').strip("'")
+    return data
+
+
+def classify_os(release_text: str, arch_text: str) -> dict[str, Any]:
+    """Map a probed OS to an official Docker apt repo, or mark it unsupported."""
+    parsed = parse_os_release(release_text)
+    raw_id = (parsed.get("ID") or "").strip().lower()
+    raw_code = (parsed.get("VERSION_CODENAME") or "").strip().lower()
+    pretty = (parsed.get("PRETTY_NAME") or "").replace("\n", " ").strip()[:160]
+    os_id = raw_id if _TOKEN.fullmatch(raw_id or "") else ""
+    codename = raw_code if _TOKEN.fullmatch(raw_code or "") else ""
+    arch_line = ""
+    if arch_text:
+        arch_line = arch_text.strip().splitlines()[0].strip().lower()
+    arch = arch_line if arch_line in _ARCHS else ""
+    supported = os_id in _OS_IDS and bool(codename)
+    return {
+        "os_id": os_id,
+        "codename": codename,
+        "pretty_name": pretty,
+        "arch": arch,
+        "docker_repo_url": DOCKER_REPO_URLS.get(os_id, "") if supported else "",
+        "supported_os": supported,
+    }
+
+
+def parse_installed_conflicts(text: str) -> list[str]:
+    """Package names whose dpkg status starts with ii."""
+    found: list[str] = []
+    for line in (text or "").splitlines():
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        name = parts[0].strip()
+        status = parts[1].strip()
+        if name and status.startswith("ii"):
+            found.append(name)
+    return found
+
+
+def _empty_os() -> dict[str, Any]:
+    return classify_os("", "")
+
+
+def _empty_bootstrap() -> dict[str, Any]:
+    return {
+        "install_rsync": False,
+        "install_docker_ce": False,
+        "remove_docker_conflicts": False,
+        "conflicting_packages": [],
+        "running_containers": 0,
+        "needs_docker_group": False,
+        "bootstrap_available": False,
+    }
 
 
 def parse_host_deps(server: Server) -> Optional[dict[str, Any]]:
@@ -112,6 +212,10 @@ def run_host_deps_check(server: Server) -> dict[str, Any]:
     is_root = username.lower() == "root"
 
     client = None
+    os_meta = _empty_os()
+    conflicts: list[str] = []
+    running_containers = 0
+    needs_docker_group = False
     try:
         client = get_ssh_client(server)
         ok, out = _cmd_ok(client, "echo piherder_ok && uname -s", timeout=15)
@@ -136,16 +240,16 @@ def run_host_deps_check(server: Server) -> dict[str, Any]:
                     hint=HINTS["ssh"],
                 )
             )
-            return {
-                "checked_at": checked_at,
-                "overall": "fail",
-                "checks": checks,
-                "features": {
-                    "backup": backup_on,
-                    "docker": docker_on,
-                    "os_patch": os_on,
-                },
-            }
+            return _deps_result(
+                checked_at,
+                "fail",
+                checks,
+                backup_on,
+                docker_on,
+                os_on,
+                os_meta,
+                _empty_bootstrap(),
+            )
     except Exception as e:
         checks.append(
             _check(
@@ -157,16 +261,16 @@ def run_host_deps_check(server: Server) -> dict[str, Any]:
                 hint=HINTS["ssh"],
             )
         )
-        return {
-            "checked_at": checked_at,
-            "overall": "fail",
-            "checks": checks,
-            "features": {
-                "backup": backup_on,
-                "docker": docker_on,
-                "os_patch": os_on,
-            },
-        }
+        return _deps_result(
+            checked_at,
+            "fail",
+            checks,
+            backup_on,
+            docker_on,
+            os_on,
+            os_meta,
+            _empty_bootstrap(),
+        )
 
     assert client is not None
     is_haos = "haos" in (getattr(server, "os_type", None) or "").lower()
@@ -181,6 +285,9 @@ def run_host_deps_check(server: Server) -> dict[str, Any]:
             pass
 
     try:
+        rel_ok, rel_out = _cmd_ok(client, "cat /etc/os-release", timeout=10)
+        arch_ok, arch_out = _cmd_ok(client, "dpkg --print-architecture", timeout=8)
+        os_meta = classify_os(rel_out if rel_ok else "", arch_out if arch_ok else "")
         # --- rsync ---
         if backup_on:
             path_probe = (
@@ -380,6 +487,9 @@ def run_host_deps_check(server: Server) -> dict[str, Any]:
                                 hint=HINTS["docker"],
                             )
                         )
+                conflicts, running_containers, needs_docker_group = _probe_docker_bootstrap(
+                    client, checks, is_root=is_root
+                )
         else:
             checks.append(
                 _check(
@@ -473,10 +583,51 @@ def run_host_deps_check(server: Server) -> dict[str, Any]:
             pass
 
     overall = overall_from_checks(checks)
-    # Required warn counts as overall warn (already handled); required fail → fail
-    # For rsync_path warn with required=True, overall_from_checks treats warn as has_warn only
-    # unless status is fail. Good.
+    rsync_missing = any(c.get("id") == "rsync" and c.get("status") == "fail" for c in checks)
+    ce_missing = any(c.get("id") == "docker_ce" and c.get("status") == "fail" for c in checks)
+    compose_missing = any(
+        c.get("id") == "docker_compose" and c.get("status") == "fail" for c in checks
+    )
+    install_rsync = bool(backup_on) and rsync_missing and not is_haos and bool(os_meta.get("supported_os"))
+    install_docker = (
+        bool(docker_on)
+        and not is_haos
+        and bool(os_meta.get("supported_os"))
+        and (ce_missing or compose_missing or needs_docker_group)
+    )
+    bootstrap = {
+        "install_rsync": install_rsync,
+        "install_docker_ce": install_docker,
+        "remove_docker_conflicts": bool(conflicts),
+        "conflicting_packages": conflicts,
+        "running_containers": running_containers,
+        "needs_docker_group": needs_docker_group,
+        "bootstrap_available": bool(os_meta.get("supported_os"))
+        and not is_haos
+        and (install_rsync or install_docker),
+    }
+    return _deps_result(
+        checked_at,
+        overall,
+        checks,
+        backup_on,
+        docker_on,
+        os_on,
+        os_meta,
+        bootstrap,
+    )
 
+
+def _deps_result(
+    checked_at: str,
+    overall: str,
+    checks: list[dict[str, Any]],
+    backup_on: bool,
+    docker_on: bool,
+    os_on: bool,
+    os_meta: dict[str, Any],
+    bootstrap: dict[str, Any],
+) -> dict[str, Any]:
     return {
         "checked_at": checked_at,
         "overall": overall,
@@ -486,7 +637,133 @@ def run_host_deps_check(server: Server) -> dict[str, Any]:
             "docker": docker_on,
             "os_patch": os_on,
         },
+        "os": os_meta,
+        "bootstrap": bootstrap,
     }
+
+
+def _probe_docker_bootstrap(
+    client, checks: list[dict[str, Any]], *, is_root: bool
+) -> tuple[list[str], int, bool]:
+    """Conflicting packages, Docker CE, Compose v2, group, and running containers."""
+    pkg_list = " ".join(_CONFLICT_PACKAGES)
+    _ok, conflict_out = _cmd_ok(
+        client,
+        "dpkg-query -W -f='${Package}\\t${db:Status-Abbrev}\\n' "
+        f"{pkg_list} 2>/dev/null",
+        timeout=15,
+    )
+    conflicts = parse_installed_conflicts(conflict_out)
+    if conflicts:
+        checks.append(
+            _check(
+                "docker_conflicts",
+                "Distro Docker packages",
+                "warn",
+                required=False,
+                message="installed: " + ", ".join(conflicts),
+                hint=HINTS["docker_conflicts"],
+            )
+        )
+    ce_ok, ce_out = _cmd_ok(
+        client,
+        "dpkg-query -W -f='${db:Status-Abbrev}' docker-ce",
+        timeout=12,
+    )
+    if ce_ok and (ce_out or "").strip().startswith("ii"):
+        checks.append(
+            _check(
+                "docker_ce",
+                "Docker CE",
+                "ok",
+                required=True,
+                message="docker-ce installed",
+            )
+        )
+    else:
+        checks.append(
+            _check(
+                "docker_ce",
+                "Docker CE",
+                "fail",
+                required=True,
+                message="docker-ce is not installed",
+                hint=HINTS["docker_ce"],
+            )
+        )
+    compose_ok, compose_out = _cmd_ok(client, "docker compose version", timeout=15)
+    if compose_ok and (compose_out or "").strip():
+        checks.append(
+            _check(
+                "docker_compose",
+                "Docker Compose plugin",
+                "ok",
+                required=True,
+                message=(compose_out or "").strip().splitlines()[0][:120],
+            )
+        )
+    else:
+        checks.append(
+            _check(
+                "docker_compose",
+                "Docker Compose plugin",
+                "fail",
+                required=True,
+                message="docker compose version failed",
+                hint=HINTS["docker_compose"],
+            )
+        )
+    group_ok, group_out = _cmd_ok(client, "id -nG", timeout=8)
+    groups = set((group_out or "").split()) if group_ok else set()
+    needs_group = (not is_root) and ("docker" not in groups)
+    if is_root or not needs_group:
+        checks.append(
+            _check(
+                "docker_group",
+                "docker group",
+                "ok",
+                required=False,
+                message="root" if is_root else "SSH user is in the docker group",
+            )
+        )
+    else:
+        checks.append(
+            _check(
+                "docker_group",
+                "docker group",
+                "warn",
+                required=False,
+                message="SSH user is not in the docker group",
+                hint=HINTS["docker_group"],
+            )
+        )
+    info_ok, _info = _cmd_ok(client, "docker info", timeout=20)
+    if not info_ok:
+        checks.append(
+            _check(
+                "docker_info",
+                "docker info without sudo",
+                "fail",
+                required=True,
+                message="docker info failed without sudo",
+                hint=HINTS["docker_group"],
+            )
+        )
+    else:
+        checks.append(
+            _check(
+                "docker_info",
+                "docker info without sudo",
+                "ok",
+                required=True,
+                message="docker info ok",
+            )
+        )
+    ps_ok, ps_out = _cmd_ok(client, "docker ps -q", timeout=15)
+    running = (
+        len([ln for ln in (ps_out or "").splitlines() if ln.strip()]) if ps_ok else 0
+    )
+    return conflicts, running, needs_group
 
 
 def persist_host_deps(session: Session, server: Server, result: dict[str, Any]) -> Server:

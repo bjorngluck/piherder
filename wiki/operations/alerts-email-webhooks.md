@@ -36,6 +36,8 @@ Settings → Alerts → **Alert policy** is the taxonomy + volume control so map
 | **Templates** | config drift | warning |
 | **Admin** | user created · API token created · force 2FA or template 2FA changed | warning |
 
+v1.12 also opens `backup_destination_auth_failed` (critical, a Drive, OneDrive, or SMB credential was rejected), `backup_stale` (warning), `backup_schedule_missed` (warning), `backup_copy_early` (warning), and `container_updates` (warning). A possible NIC change (`lan_discovery`, info) is on the v1.13 train and is not in the 1.12.1 image.
+
 Per category you can **mute**, override **severity** (`default` keeps the table above), set **debounce** (minutes before a dismissed flap re-opens), and **re-alert** (hours; `0` = no channel nudge while still open).
 
 **Severity `default`** means each type keeps its catalog / emitter hint (so stack-health fail vs warn, and cert verify partial vs fail, stay distinct).
@@ -54,6 +56,7 @@ Herder does **not** ping or SSH-probe hosts for health. Bind an **Uptime Kuma SS
 - **Offline:** nmap last-seen older than the stale window (~14 days). Resolve when the device is seen again.
 - **Mute LAN discovery** in Alert policy before the first large scan if you do not want the inbox filled.
 - Port add/remove is **not** an alert.
+- **Possible NIC change:** a new MAC for a hostname that already has a non-ignored row at that IP, stale for longer than one scan interval, opens one `lan_discovery` row at `info`. **Replace stale MAC** is the Discovery action, not an alert button. This row is on the v1.13 train and is not in the 1.12.1 image.
 
 ### Admin changes
 
@@ -66,6 +69,17 @@ The same alert covers the Users page, the first registration, an SSO account pro
 A host backup or a container image check that does not start within 15 minutes of its slot opens one warning (`backup_schedule_missed` or `container_check_missed`). The clock is the Settings timezone. A slot before the host was added does not count. The next successful run of that same kind resolves the warning. Turning that schedule off resolves it too. Mute **Backups** or **Updates** to stop the matching one. Web Push follows the master switch.
 
 `/metrics` exposes `piherder_schedule_missed` with `kind` and `server_id`. It is 1 while the latest due slot was missed and no success has finished since.
+
+### Stuck queue
+
+One warning (`stuck_queue`) opens when any job stays `pending` for more than 15 minutes and no Celery worker answers. It resolves when that pending queue drains, or when a worker answers again. A worker check that cannot tell leaves an open warning as it is. Mute **PiHerder stack** to stop it. `GET /api/v1/alerts` (`read`) and hosted MCP `list_alerts` return open notifications. `/metrics` exposes `piherder_queue_oldest_pending_seconds` and `piherder_stuck_queue`. This alert is on the v1.13 train and is not in the 1.12.1 image. <figure class="ph-figure" markdown>
+  ![Job queue is stuck](../assets/screenshots/alerts-stuck-queue.png)
+  <figcaption>The stuck-queue warning. No token and no job log.</figcaption>
+</figure>
+
+### Scheduled Docker prune
+
+A saved per-host Docker prune cron that does not start within 15 minutes of its slot opens one warning (`docker_prune_missed`). The run is dangling images and exited containers. Volumes and the build cache stay off that schedule. The next successful prune of that host resolves the warning. Clearing the cron resolves it too. Mute **Updates** to stop it. This warning is on the v1.13 train and is not in the 1.12.1 image.
 
 ### Copy before the backups
 

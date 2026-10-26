@@ -1,6 +1,7 @@
 """Jr-1: exclusive jobs on the default Celery queue. No live SSH."""
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from types import SimpleNamespace
@@ -14,9 +15,10 @@ from app.models import AuditLog, Job, Server
 from app.services import jobs as js
 from app.services.jobs_exclusive import (
     EXCLUSIVE_CELERY_TYPES,
+    _enqueue_celery,
     run_exclusive_job,
 )
-from app.tasks import exclusive_job
+from app.tasks import HOST_BOOTSTRAP_EXPIRES_SEC, exclusive_job, host_bootstrap_job
 
 
 def _engine():
@@ -26,7 +28,7 @@ def _engine():
 
 
 def _bind(monkeypatch, engine):
-    monkeypatch.setattr(js, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
 
     @contextmanager
     def _fresh():
@@ -349,3 +351,223 @@ def test_demo_does_not_probe_ssh(monkeypatch):
         row = session.get(Job, jid)
         assert row.status == "success"
         assert "demo" in (row.details or "").lower() or "Demo" in (row.details or "")
+
+
+def test_host_bootstrap_lock_conflict_fails_without_retry(monkeypatch):
+    engine = _engine()
+    _bind(monkeypatch, engine)
+    srv = _server(engine)
+    with Session(engine) as session:
+        holder = Job(
+            server_id=srv.id,
+            job_type="host_bootstrap",
+            status="running",
+            details="{}",
+        )
+        pending = Job(
+            server_id=srv.id,
+            job_type="host_bootstrap",
+            status="pending",
+            details="{}",
+        )
+        session.add(holder)
+        session.add(pending)
+        session.commit()
+        session.refresh(holder)
+        session.refresh(pending)
+        audit = AuditLog(
+            server_id=srv.id,
+            action="host_bootstrap",
+            status="running",
+            details=f"Job #{pending.id} started",
+        )
+        session.add(audit)
+        session.commit()
+        session.refresh(audit)
+        holder_id, pending_id, aid = holder.id, pending.id, audit.id
+
+    class _NoRetry(_Task):
+        def retry(self, countdown=None):
+            raise AssertionError("host_bootstrap must not retry")
+
+    result = run_exclusive_job(
+        _NoRetry(),
+        pending_id,
+        srv.id,
+        aid,
+        "host_bootstrap",
+        {"sudo_password_encrypted": "ciphertext", "bootstrap_username": "pi"},
+    )
+    assert result["reason"] == "host_busy"
+    with Session(engine) as session:
+        row = session.get(Job, pending_id)
+        kept = session.get(Job, holder_id)
+        audit_row = session.get(AuditLog, aid)
+        assert row.status == "failed"
+        assert js.HOST_BOOTSTRAP_BUSY_REASON in (row.details or "")
+        assert "ciphertext" not in (row.details or "")
+        assert kept.status == "running"
+        assert audit_row.status == "failed"
+        assert js.HOST_BOOTSTRAP_BUSY_REASON in (audit_row.details or "")
+
+
+def test_host_bootstrap_busy_host_is_not_enqueued(monkeypatch):
+    engine = _engine()
+    _bind(monkeypatch, engine)
+    srv = _server(engine)
+    with Session(engine) as session:
+        holder = Job(
+            server_id=srv.id,
+            job_type="host_bootstrap",
+            status="running",
+            details="{}",
+        )
+        session.add(holder)
+        session.commit()
+
+    def apply_async(*args, **kwargs):
+        raise AssertionError("busy host must not enqueue")
+
+    def delay(*args, **kwargs):
+        raise AssertionError("exclusive_job.delay must not send host_bootstrap")
+
+    monkeypatch.setattr(js.host_bootstrap_job_task, "apply_async", apply_async)
+    monkeypatch.setattr(js.exclusive_job_task, "delay", delay)
+    monkeypatch.setattr(
+        "app.services.jobs_exclusive.exclusive_runs_inline", lambda: False
+    )
+
+    class _BG:
+        def add_task(self, *args, **kwargs):
+            raise AssertionError("must not run in the web process")
+
+    with Session(engine) as session:
+        live = session.get(Server, srv.id)
+        job = js.create_job_and_run(
+            _BG(),
+            session,
+            live,
+            "host_bootstrap",
+            user_id=1,
+            bootstrap_options={
+                "bootstrap_username": "pi",
+                "sudo_password": "one-time-secret",
+                "confirm_docker_bootstrap": False,
+            },
+        )
+        session.refresh(job)
+        assert job.status == "failed"
+        blob = job.details or ""
+        assert js.HOST_BOOTSTRAP_BUSY_REASON in blob
+        assert "one-time-secret" not in blob
+        assert "sudo_password" not in blob
+
+
+def test_host_bootstrap_acks_on_receipt_and_does_not_retry():
+    assert host_bootstrap_job.name == "app.tasks.host_bootstrap_job"
+    assert host_bootstrap_job.acks_late is False
+    assert host_bootstrap_job.reject_on_worker_lost is False
+    assert host_bootstrap_job.max_retries == 0
+    assert host_bootstrap_job.autoretry_for == ()
+    assert host_bootstrap_job.ignore_result is True
+    assert HOST_BOOTSTRAP_EXPIRES_SEC == 120
+    assert exclusive_job.acks_late is True
+    assert exclusive_job.max_retries == 3000
+    assert exclusive_job.ignore_result is False
+
+
+def test_host_bootstrap_enqueue_sets_expires(monkeypatch, caplog):
+    engine = _engine()
+    _bind(monkeypatch, engine)
+    srv = _server(engine)
+    seen: dict = {}
+
+    def apply_async(*args, **kwargs):
+        seen["args"] = args
+        seen["kwargs"] = kwargs
+        return SimpleNamespace(id="boot-task-1")
+
+    def delay(*args, **kwargs):
+        raise AssertionError("exclusive_job.delay must not send host_bootstrap")
+
+    monkeypatch.setattr(js.host_bootstrap_job_task, "apply_async", apply_async)
+    monkeypatch.setattr(js.exclusive_job_task, "delay", delay)
+    with Session(engine) as session:
+        job = Job(server_id=srv.id, job_type="host_bootstrap", status="pending", details="{}")
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        jid = job.id
+    secret = "one-time-secret"
+    from app.security.encryption import encrypt_str
+
+    enc = encrypt_str(secret)
+    with caplog.at_level(logging.INFO):
+        _enqueue_celery(
+            jid,
+            srv.id,
+            0,
+            "host_bootstrap",
+            {"sudo_password_encrypted": enc, "bootstrap_username": "pi"},
+        )
+    assert seen["kwargs"]["expires"] == 120
+    assert seen["kwargs"]["args"][0] == jid
+    assert seen["kwargs"]["args"][3]["sudo_password_encrypted"] == enc
+    assert secret not in caplog.text
+    assert enc not in caplog.text
+    with Session(engine) as session:
+        row = session.get(Job, jid)
+        assert row.celery_task_id == "boot-task-1"
+        assert secret not in (row.details or "")
+        assert enc not in (row.details or "")
+
+
+def test_host_bootstrap_failure_redacts_password(monkeypatch, caplog):
+    engine = _engine()
+    _bind(monkeypatch, engine)
+    srv = _server(engine)
+    secret = "one-time-secret"
+    from app.security.encryption import encrypt_str
+
+    enc = encrypt_str(secret)
+    with Session(engine) as session:
+        job = Job(server_id=srv.id, job_type="host_bootstrap", status="pending", details="{}")
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        audit = AuditLog(
+            server_id=srv.id,
+            action="host_bootstrap",
+            status="running",
+            details=f"Job #{job.id} started",
+        )
+        session.add(audit)
+        session.commit()
+        session.refresh(audit)
+        jid, aid = job.id, audit.id
+
+    def boom(*args, **kwargs):
+        raise RuntimeError(f"ssh failed {secret} blob {enc}")
+
+    monkeypatch.setattr("app.services.jobs_exclusive._execute", boom)
+    monkeypatch.setattr("app.services.jobs_exclusive._ssh_ready", lambda *_a, **_k: True)
+    with caplog.at_level(logging.ERROR):
+        result = run_exclusive_job(
+            _Task(),
+            jid,
+            srv.id,
+            aid,
+            "host_bootstrap",
+            {"sudo_password_encrypted": enc},
+        )
+    assert result["status"] == "error"
+    assert secret not in caplog.text
+    assert enc not in caplog.text
+    with Session(engine) as session:
+        row = session.get(Job, jid)
+        audit_row = session.get(AuditLog, aid)
+        blob = (row.details or "") + (audit_row.details or "")
+        assert row.status == "failed"
+        assert secret not in blob
+        assert enc not in blob
+        assert "ssh failed" in blob

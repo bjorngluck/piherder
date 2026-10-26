@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 from sqlmodel import Session, select
 
 from ...config import settings
-from ...database import engine
+from ...database import get_engine
 from ...models import ServiceTemplate
 from .schema import (
     TemplateDefinition,
@@ -129,7 +129,7 @@ def ensure_builtin_templates_in_db(session: Optional[Session] = None) -> int:
     """
     close = False
     if session is None:
-        session = Session(engine)
+        session = Session(get_engine())
         close = True
     n = 0
     try:

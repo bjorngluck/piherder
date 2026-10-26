@@ -651,7 +651,7 @@ def test_jobs_list_public_enqueue_and_execute(monkeypatch):
 
     session, engine = _memory()
     srv = _server(session, os_apply_steps="update,upgrade")
-    monkeypatch.setattr(js, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
 
     @contextmanager
     def _fresh():
@@ -921,7 +921,7 @@ def test_herder_backup_snapshots_and_upserts(tmp_path, monkeypatch):
     user = User(email="op@example.com", hashed_password="x", role="admin", is_active=True)
     session.add(user)
     session.commit()
-    monkeypatch.setattr(hb, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(hb.settings, "DATA_ROOT", str(tmp_path / "data"))
     monkeypatch.setattr(hb.settings, "HERDER_BACKUP_ROOT", str(tmp_path))
     monkeypatch.setattr(hb, "HERDER_BACKUP_DIR", tmp_path)

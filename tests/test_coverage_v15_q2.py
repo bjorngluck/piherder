@@ -384,7 +384,7 @@ def test_lockdown_host_env_file(monkeypatch):
 
 
 def _patch_jobs_engine(monkeypatch, jobs_mod, engine):
-    monkeypatch.setattr(jobs_mod, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(jobs_mod, "_send_summary_webhook", lambda *a, **k: None)
     monkeypatch.setattr(jobs_mod, "_flush_job_progress", lambda *a, **k: None)
 
@@ -1340,7 +1340,7 @@ def test_herder_pg_dump_and_create_backup(tmp_path, monkeypatch):
 
     session, engine = _memory()
     _user(session)
-    monkeypatch.setattr(hb, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     assert isinstance(hb._snapshot_table(User), list)
 
     class FakeSess:

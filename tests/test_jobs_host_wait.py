@@ -25,7 +25,7 @@ def _engine():
 
 
 def _bind(monkeypatch, engine):
-    monkeypatch.setattr(js, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.delenv("PIHERDER_EXCLUSIVE_HOST_WAIT_SEC", raising=False)
 
     @contextmanager

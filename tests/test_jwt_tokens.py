@@ -87,10 +87,9 @@ def test_expired_token_rejected():
 def test_tampered_token_rejected():
     token = create_access_token({"sub": "1"})
     parts = token.split(".")
-    # Flip last char of signature
     sig = parts[2]
-    flipped = ("A" if not sig.endswith("A") else "B") + sig[1:]
-    bad = ".".join([parts[0], parts[1], flipped])
+    last = "A" if sig[-1] != "A" else "B"
+    bad = ".".join([parts[0], parts[1], sig[:-1] + last])
     assert decode_token_payload(bad) is None
 
 

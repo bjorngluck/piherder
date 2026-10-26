@@ -107,10 +107,13 @@ def test_fleet_stagger_is_unique_for_a_large_fleet():
     thousand = [fleet_backup_cron(base, i) for i in range(1, 1001)]
     assert len(set(thousand)) == 1000
     assert fleet_backup_cron(base, 1) != fleet_backup_cron(base, 61)
-    # A host pushed past 23:00 shares a minute. It does not wrap to 00:00.
+    # A 23:00 base still uses the rest of the day before two hosts share a minute.
     late = fleet_backup_cron("0 23 * * *", 60)
-    assert late.split()[1] == "23"
-    assert late in {fleet_backup_cron("0 23 * * *", i) for i in range(60)}
+    assert late == "0 0 * * *"
+    day = [fleet_backup_cron(base, i) for i in range(1440)]
+    assert len(set(day)) == 1440
+    assert fleet_backup_cron(base, 1440) == fleet_backup_cron(base, 0)
+    assert fleet_backup_cron("0 23 * * *", 1440) == fleet_backup_cron("0 23 * * *", 0)
     # A list or a step hour stays as written. Hosts 60 apart share the minute.
     assert fleet_backup_cron("0 2,14 * * *", 61).split()[1] == "2,14"
     assert fleet_backup_cron("0 2,14 * * *", 61) == fleet_backup_cron("0 2,14 * * *", 1)
@@ -409,7 +412,6 @@ def test_base_change_moves_an_inheriting_hosts_job(monkeypatch):
     monkeypatch.setattr("app.main.HAS_SCHEDULER", True)
     engine = _engine()
     monkeypatch.setattr("app.database.engine", engine)
-    monkeypatch.setattr("app.routers.settings.engine", engine)
     with Session(engine) as session:
         host = Server(id=5, name="host-a", hostname="host-a.local", backup_enabled=True)
         session.add(host)

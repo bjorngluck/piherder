@@ -607,9 +607,9 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Auth chrome** | Unauthenticated `/` redirects to login; version string only when signed in |
 | **Roles** | Viewer cannot mutate fleet; Docker **build** stream is operator+ — [wiki roles](../wiki/account-security/roles.md) |
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
-| **Image pin** | Hub **`1.10.0`** / `1.10` / `latest` (`1.9.0` / `1.9` stays the previous image. Pin `1.8.1` / `1.8` stays valid. Pins `1.8.0` and `1.7.0` / `1.7` stay valid) |
+| **Image pin** | Hub **`1.12.1`** / `1.12` / `latest` (Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Pin `1.10.1` / `1.10` stays valid) |
 
-Current release: [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) · [QA_v1.12.0.md](QA_v1.12.0.md) · [PLAN_v1.12.0.md](PLAN_v1.12.0.md). Package **1.12.0**. Image `1.12.0` / `1.12` / `latest`. Pin `1.11.0` / `1.11` stays the previous image. Released 2026-10-22. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is on PyPI. Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** is the current card. Next notes: [PLAN_v1.13.0.md](PLAN_v1.13.0.md). Not a train. Prior: [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) · [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Current release: [RELEASE_v1.12.1.md](RELEASE_v1.12.1.md) · [QA_v1.12.0.md](QA_v1.12.0.md) · [PLAN_v1.12.0.md](PLAN_v1.12.0.md). Package **1.12.1**. Image `1.12.1` / `1.12` / `latest`. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Released 2026-10-23. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** is on PyPI. Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** is the current card. Train: [PLAN_v1.13.0.md](PLAN_v1.13.0.md) on `v1.13.0-dev`. Not an upgrade path. Prior: [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) · [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) · [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 
@@ -674,8 +674,8 @@ Typical pattern: PiHerder → n8n webhook → Signal CLI. In-app notifications a
 
 **Templates** live under top-nav **Catalog** (`/catalog` → Settings-style tabs **Integrations | Certificates | Templates | Network**). They are **your** versioned stack definitions. You **create**, **edit**, and **save** them; deploy is separate.
 
-**Shipped in v0.4.0** (foundation; ops + polish → [PLAN_v0.5.0.md](PLAN_v0.5.0.md)).  
-**Docs:** [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · active [PLAN_v0.5.0.md](PLAN_v0.5.0.md)
+**Shipped in v0.4.0** (foundation; ops + polish → [PLAN_v0.5.0.md](archive/v0/PLAN_v0.5.0.md)).  
+**Docs:** [RELEASE_v0.4.0.md](archive/v0/RELEASE_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [PLAN_v0.4.0.md](archive/v0/PLAN_v0.4.0.md) · active [PLAN_v0.5.0.md](archive/v0/PLAN_v0.5.0.md)
 
 #### Create / edit (operator-owned)
 
@@ -935,9 +935,9 @@ Backups can run **in parallel across different hosts**. The same host never has 
 
 Optional multi-container scale: remove `container_name` from `celery-worker` and run `docker compose up -d --scale celery-worker=N` (same image, volumes, Redis). Status will show **N nodes** and sum of pool slots.
 
-Redis visibility for an unacked task is **3 hours**, above the 2-hour hard limit, so a still-running host backup is not started twice. **Drive copy** acks when received and may run for **7 days**.
+Redis visibility for an unacked task is **3 hours**, above the 2-hour hard limit, so a still-running host backup is not started twice. **Drive copy** acks when received and may run for **7 days**. **`host_bootstrap`** uses `host_bootstrap_job` on this same queue. That task acks on receipt, so the global late ack and the visibility window do not redeliver it. The message expires after 120 seconds if no worker takes it. It is not retried. The result backend does not store its arguments. Celery then discards the message without running it. The pending job is failed (`expired before a worker picked it up, rerun with a fresh password`), which frees that host for another bootstrap. If another `host_bootstrap` already holds that host, the new row fails at once (`another job holds this host, rerun when it finishes`) and the password is not queued. The same sweep runs if the revoke signal is missed: a pending `host_bootstrap` older than 120 seconds plus a short grace is failed for the same reason.
 
-**Celery default queue:** `backup`, `backup_replicate`, `service_migrate`, `service_migrate_undo`, `service_migrate_dest_recover`, stale cleanup, `housekeeping_job` (`retention`, `herder_backup`), and `exclusive_job` (OS/container patch, update checks, stack lifecycle, templates, `host_reboot`, `host_facts`). **nmap queue:** LAN scans and the vuln pack, on `celery-worker-nmap` only. Exclusive DB rules still prevent two concurrent jobs of the same type on one host. `retention` and `herder_backup` do not take that host slot. Raising `CELERY_CONCURRENCY` does not double-run a container patch. Recycling **web** does not fail a Celery job. Recycling **celery-worker** fails one that is **running**. Wiki: [Multi-worker](../wiki/operations/multi-worker.md).
+**Celery default queue:** `backup`, `backup_replicate`, `service_migrate`, `service_migrate_undo`, `service_migrate_dest_recover`, stale cleanup, `housekeeping_job` (`retention`, `herder_backup`), `exclusive_job` (OS/container patch, update checks, stack lifecycle, templates, `host_reboot`, `host_facts`), and `host_bootstrap_job` (`host_bootstrap`, ack on receipt, no retry, expires after 120 seconds). **nmap queue:** LAN scans and the vuln pack, on `celery-worker-nmap` only. Exclusive DB rules still prevent two concurrent jobs of the same type on one host. `retention` and `herder_backup` do not take that host slot. Raising `CELERY_CONCURRENCY` does not double-run a container patch. Recycling **web** does not fail a Celery job. Recycling **celery-worker** fails one that is **running**. Wiki: [Multi-worker](../wiki/operations/multi-worker.md).
 
 Full env list: [`.env.example`](../.env.example).
 
@@ -945,7 +945,7 @@ Full env list: [`.env.example`](../.env.example).
 
 **Where:** Server detail shows a **read-only** snapshot. Re-check under **SSH access → Check dependencies** (also runs after successful **Test connection**, key deploy, and least-priv provision).
 
-Probes tools needed for **enabled** features only (`rsync` / sudo path, `docker`, `apt` on Debian, or **`ha` CLI** on HAOS). Stores a snapshot on the server row. Does not install packages on the remote host — failures include short install/privilege hints.
+Probes tools needed for **enabled** features only (`rsync` / sudo path when Backups are on, `docker` when Docker is on, `apt` on Debian, or **`ha` CLI** on HAOS). Stores a snapshot on the server row. The check does not install packages. On `v1.13.0-dev`, **Bootstrap missing tools** (`POST /servers/{id}/host-deps/bootstrap`, operator, refused in demo) queues exclusive Celery job `host_bootstrap` and can install missing `rsync` or official Docker CE for Ubuntu, Debian, and Raspbian. Optional bootstrap SSH username covers a host already on restricted `piherder`. The one-time sudo password is Fernet-encrypted in the broker only until a worker picks it up, acked on receipt, expires after 120 seconds, is never retried or redelivered, and is never logged. A worker crash marks the job failed and the operator reruns with a fresh password. If no worker takes the message, the pending job fails with `expired before a worker picked it up, rerun with a fresh password`. A second bootstrap while one already holds the host fails at once with `another job holds this host, rerun when it finishes`, and the password is not queued. It is not written to the job row or the audit row. Progress and errors stay in the SSH access window. Audit action `host_bootstrap`. It is not on `/api/v1` or `/mcp`. Package stays **1.12.1**. Wiki: [Add a server](../wiki/day-to-day/add-server.md).
 
 ### Stack Status
 
@@ -1066,4 +1066,4 @@ Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backu
 | Unit tests | `tests/test_rbac.py`, `test_api_tokens.py`, `test_app_settings.py`, `test_cors_policy.py`, `test_herder_backup.py`, … |
 | Herder self-backup | `app/services/herder_backup.py` |
 | Ecosystem roadmap | `docs/ROADMAP_ECOSYSTEM.md` |
-| Host lifecycle plan (H2.75) | `docs/FEATURE_PLAN_HOST_LIFECYCLE.md` — Docker bulk (**0.6**); wizard onboard (**0.7**); LAN Discovery (**0.8** — `docs/RELEASE_v0.8.0.md`); host stats/commands and bootstrap/DNS, web SSH later (`docs/PLAN_v0.9.0.md`) |
+| Host lifecycle plan (H2.75) | `docs/FEATURE_PLAN_HOST_LIFECYCLE.md`. Docker bulk (**0.6**); wizard onboard (**0.7**); LAN Discovery (**0.8**, `docs/archive/v0/RELEASE_v0.8.0.md`); host stats/commands and bootstrap/DNS, web SSH later (`docs/archive/v0/PLAN_v0.9.0.md`) |

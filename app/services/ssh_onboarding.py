@@ -673,6 +673,8 @@ def build_sudoers_content(
         aliases.append(
             "Cmnd_Alias PIHERDER_BACKUP = /usr/bin/rsync, /bin/rsync, "
             "/usr/bin/test, /bin/test, /usr/bin/true, /bin/true, "
+            "/usr/bin/find, /bin/find, "
+            "/usr/bin/chown, /bin/chown, /usr/bin/chmod, /bin/chmod, "
             "/var/lib/piherder/rclone"
         )
         grants.append(f"{user} ALL=(root) NOPASSWD: PIHERDER_BACKUP")
@@ -1161,4 +1163,500 @@ exit $RC
             "os_patch": os_patch,
             "backup": backup,
         },
+    )
+
+
+_BOOTSTRAP_OS = frozenset({"ubuntu", "debian", "raspbian"})
+_DOCKER_FPR = "9DC858229FC7DD38854AE2D88D81803C0EBFCD88"
+_USER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]{0,31}$")
+
+
+def build_feature_bootstrap_script(
+    os_id: str,
+    codename: str,
+    target_user: str,
+    *,
+    install_rsync: bool,
+    install_docker_ce: bool,
+    remove_docker_conflicts: bool = True,
+) -> str:
+    """One-shot root script for rsync and/or official Docker CE.
+
+    Does not call get.docker.com and does not write sudoers.
+    os_id and codename are checked before they are placed in the script.
+    """
+    distro = (os_id or "").strip().lower()
+    suite = (codename or "").strip().lower()
+    user = (target_user or "").strip()
+    if distro not in _BOOTSTRAP_OS:
+        raise ValueError("unsupported OS for bootstrap")
+    if not re.fullmatch(r"^[a-z0-9-]+$", suite or ""):
+        raise ValueError("unsupported codename for bootstrap")
+    if not _USER_RE.fullmatch(user or ""):
+        raise ValueError("SSH username is not safe to place in a bootstrap script")
+    if not install_rsync and not install_docker_ce:
+        raise ValueError("nothing to install")
+
+    lines = [
+        "#!/bin/bash",
+        "set -euo pipefail",
+        f"OS_ID={shlex.quote(distro)}",
+        f"CODENAME={shlex.quote(suite)}",
+        f"TARGET_USER={shlex.quote(user)}",
+        "",
+    ]
+    if install_rsync:
+        lines.append(
+            "DEBIAN_FRONTEND=noninteractive apt-get update && "
+            "DEBIAN_FRONTEND=noninteractive apt-get install -y rsync"
+        )
+        lines.append("")
+    if install_docker_ce:
+        # curl is not guaranteed on a minimal image. Install it before the suite probe.
+        lines.append(
+            "DEBIAN_FRONTEND=noninteractive apt-get update && "
+            "DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg"
+        )
+        lines.extend(
+            [
+                'if ! curl -fsSLI "https://download.docker.com/linux/${OS_ID}/dists/${CODENAME}/Release" >/dev/null; then',
+                '  echo "Docker has not published a suite for ${CODENAME} on download.docker.com" >&2',
+                "  exit 1",
+                "fi",
+            ]
+        )
+        if remove_docker_conflicts:
+            # docker-compose-v2 is Ubuntu-only. apt-get remove of a name that is
+            # not installed exits 100, so only remove packages dpkg already has.
+            lines.extend(
+                [
+                    "_conflict_pkgs=",
+                    "for _pkg in docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc; do",
+                    "  _st=$(dpkg-query -W -f='${db:Status-Abbrev}' \"$_pkg\" 2>/dev/null || true)",
+                    '  case "$_st" in',
+                    '    ii*) _conflict_pkgs="${_conflict_pkgs:+${_conflict_pkgs} }$_pkg" ;;',
+                    "  esac",
+                    "done",
+                    'if [ -n "${_conflict_pkgs:-}" ]; then',
+                    "  DEBIAN_FRONTEND=noninteractive apt-get remove -y $_conflict_pkgs",
+                    "fi",
+                ]
+            )
+        lines.extend(
+            [
+                "install -m 0755 -d /etc/apt/keyrings",
+                'curl -fsSL "https://download.docker.com/linux/${OS_ID}/gpg" -o /etc/apt/keyrings/docker.asc.tmp',
+                "chmod a+r /etc/apt/keyrings/docker.asc.tmp",
+                "GNUPGHOME=$(mktemp -d)",
+                "export GNUPGHOME",
+                "FPR=$(gpg --batch --show-keys --with-colons /etc/apt/keyrings/docker.asc.tmp | awk -F: '$1==\"fpr\" {print $10; exit}') || {",
+                '  rm -rf "$GNUPGHOME"',
+                "  unset GNUPGHOME",
+                '  echo "Docker GPG fingerprint mismatch" >&2',
+                "  rm -f /etc/apt/keyrings/docker.asc.tmp",
+                "  exit 1",
+                "}",
+                'rm -rf "$GNUPGHOME"',
+                "unset GNUPGHOME",
+                f'if [ "$FPR" != "{_DOCKER_FPR}" ]; then',
+                '  rm -rf "${GNUPGHOME:-}"',
+                "  unset GNUPGHOME",
+                '  echo "Docker GPG fingerprint mismatch" >&2',
+                "  rm -f /etc/apt/keyrings/docker.asc.tmp",
+                "  exit 1",
+                "fi",
+                "mv /etc/apt/keyrings/docker.asc.tmp /etc/apt/keyrings/docker.asc",
+                "chmod a+r /etc/apt/keyrings/docker.asc",
+                "cat > /etc/apt/sources.list.d/docker.sources <<EOF",
+                "Types: deb",
+                "URIs: https://download.docker.com/linux/${OS_ID}",
+                "Suites: ${CODENAME}",
+                "Components: stable",
+                "Architectures: $(dpkg --print-architecture)",
+                "Signed-By: /etc/apt/keyrings/docker.asc",
+                "EOF",
+                "DEBIAN_FRONTEND=noninteractive apt-get update && "
+                "DEBIAN_FRONTEND=noninteractive apt-get install -y "
+                "docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
+                'groupadd -f docker && usermod -aG docker "$TARGET_USER"',
+                "systemctl enable --now docker || true",
+                "",
+            ]
+        )
+    lines.append('echo "PiHerder bootstrap finished"')
+    return "\n".join(lines) + "\n"
+
+
+def build_host_bootstrap_script(
+    server,
+    os_id: str,
+    codename: str,
+    target_user: Optional[str] = None,
+    *,
+    deps: Optional[dict] = None,
+) -> str:
+    """Script for one server. Feature flags on the row decide rsync and Docker CE.
+
+    install_rsync is true only when backups are on and the preflight says rsync
+    is missing. install_docker is true only when the Docker feature is on and
+    the preflight says Docker CE is missing. A caller cannot pass those flags.
+    """
+    from . import host_deps as host_deps_svc
+
+    data = deps if deps is not None else (host_deps_svc.parse_host_deps(server) or {})
+    boot = data.get("bootstrap") or {}
+    is_haos = "haos" in (getattr(server, "os_type", None) or "").lower()
+    install_rsync = (
+        bool(getattr(server, "backup_enabled", False))
+        and bool(boot.get("install_rsync"))
+        and not is_haos
+    )
+    install_docker = (
+        bool(getattr(server, "container_patch_enabled", False))
+        and bool(boot.get("install_docker_ce"))
+        and not is_haos
+    )
+    user = target_user if target_user is not None else (getattr(server, "ssh_username", None) or "")
+    return build_feature_bootstrap_script(
+        os_id,
+        codename,
+        user,
+        install_rsync=install_rsync,
+        install_docker_ce=install_docker,
+        remove_docker_conflicts=bool(install_docker),
+    )
+
+
+def preview_feature_bootstrap_script(server: Server) -> str:
+    """Script for the copy box. Empty when this host has nothing to install."""
+    from . import host_deps as host_deps_svc
+
+    data = host_deps_svc.parse_host_deps(server) or {}
+    os_meta = data.get("os") or {}
+    if "haos" in (getattr(server, "os_type", None) or "").lower():
+        return ""
+    if not os_meta.get("supported_os"):
+        return ""
+    try:
+        return build_host_bootstrap_script(
+            server,
+            str(os_meta.get("os_id") or ""),
+            str(os_meta.get("codename") or ""),
+            deps=data,
+        )
+    except ValueError:
+        return ""
+
+
+def _redact_secret(text: str, secret: Optional[str]) -> str:
+    if not secret or not text:
+        return text or ""
+    return text.replace(secret, "")
+
+
+def _exec_elevated(client, script: str, sudo_password: Optional[str], timeout: int = 300):
+    """Run script as root.
+
+    Passwordless sudo is probed first. Writing the SSH password into
+    ``sudo -S`` when sudo does not read stdin would hand that password to
+    ``bash -s`` as the first command.
+    """
+    status, out, _err = ssh_service.run_command(client, "id -u", timeout=15)
+    is_root = status == 0 and (out or "").strip() == "0"
+    secret = (sudo_password or "").strip() or None
+    if is_root:
+        cmd = "bash -s"
+        secret = None
+    else:
+        np_rc, _np_out, _np_err = ssh_service.run_command(
+            client, "sudo -H -n true", timeout=15
+        )
+        if np_rc == 0:
+            cmd = "sudo -H -n bash -s"
+            secret = None
+        elif secret:
+            cmd = "sudo -H -S -p '' bash -s"
+        else:
+            cmd = "sudo -H -n bash -s"
+            secret = None
+    stdin, stdout, stderr = client.exec_command(cmd, timeout=timeout)
+    if secret:
+        stdin.write(secret + "\n")
+    payload = script if script.endswith("\n") else script + "\n"
+    stdin.write(payload)
+    try:
+        stdin.flush()
+    except Exception:
+        pass
+    try:
+        stdin.channel.shutdown_write()
+    except Exception:
+        pass
+    out_s = stdout.read()
+    err_s = stderr.read()
+    if isinstance(out_s, bytes):
+        out_s = out_s.decode(errors="replace")
+    if isinstance(err_s, bytes):
+        err_s = err_s.decode(errors="replace")
+    rc = stdout.channel.recv_exit_status()
+    return rc, _redact_secret(out_s or "", sudo_password), _redact_secret(err_s or "", sudo_password)
+
+
+def _bootstrap_private_key(server: Server, session, ssh_user: str) -> Optional[str]:
+    """Privileged identity key when that username matches, otherwise the fleet key."""
+    ident = None
+    try:
+        from . import ssh_identities
+
+        ident = ssh_identities.get_by_role(session, server.id, "privileged")
+    except Exception:
+        ident = None
+    if (
+        ident is not None
+        and getattr(ident, "enabled", True)
+        and (getattr(ident, "username", "") or "").strip() == ssh_user
+        and getattr(ident, "private_key_encrypted", None)
+    ):
+        try:
+            _pub, priv = _ensure_server_key_material(server, ident)
+            return priv
+        except Exception:
+            pass
+    try:
+        _pub, priv = _ensure_server_key_material(server)
+        return priv
+    except Exception:
+        return None
+
+
+def _connect_bootstrap_client(server: Server, session, ssh_user: str, sudo_password: Optional[str]):
+    """SSH as the bootstrap user. Fleet login stays on the stored key when it works."""
+    fleet = (server.ssh_username or "").strip()
+    password = (sudo_password or "").strip() or None
+    key_hint = (
+        f"Key login as {ssh_user} failed. Enter the SSH and sudo password for {ssh_user} and try again."
+    )
+    if ssh_user == fleet:
+        try:
+            return ssh_service.get_ssh_client(server)
+        except Exception:
+            if not password:
+                raise
+            return connect_with_auth(
+                server,
+                username=ssh_user,
+                password=password,
+                private_key_plain=None,
+            )
+    priv = _bootstrap_private_key(server, session, ssh_user)
+    if priv:
+        try:
+            return connect_with_auth(
+                server,
+                username=ssh_user,
+                private_key_plain=priv,
+                password=None,
+            )
+        except Exception:
+            if not password:
+                raise RuntimeError(key_hint)
+    if password:
+        return connect_with_auth(
+            server,
+            username=ssh_user,
+            password=password,
+            private_key_plain=None,
+        )
+    raise RuntimeError(key_hint)
+
+
+def _verify_docker_fresh(server: Server) -> tuple[bool, str]:
+    """New SSH session so the docker group from usermod is visible."""
+    client = ssh_service.get_ssh_client(server)
+    try:
+        info_rc, _info_out, info_err = ssh_service.run_command(client, "docker info", timeout=20)
+        comp_rc, comp_out, comp_err = ssh_service.run_command(
+            client, "docker compose version", timeout=20
+        )
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+    if info_rc != 0 or comp_rc != 0:
+        return False, (info_err or comp_err or "docker check failed")[:240]
+    return True, (comp_out or "docker compose ok").strip()[:160]
+
+
+def bootstrap_host_tools(
+    server: Server,
+    session,
+    *,
+    confirm_docker_bootstrap: bool = False,
+    sudo_password: Optional[str] = None,
+    bootstrap_username: Optional[str] = None,
+) -> OnboardingResult:
+    """Install missing rsync and/or Docker CE for features already enabled on the server.
+
+    install_rsync and install_docker_ce come from the server flags and the host check.
+    Callers cannot turn Docker on by passing a form field.
+    """
+    from .demo import demo_mode
+    from . import host_deps as host_deps_svc
+
+    if demo_mode():
+        return OnboardingResult(ok=False, message="Bootstrap is disabled in demo mode")
+    ssh_user = (bootstrap_username or "").strip() or (server.ssh_username or "").strip()
+    if not _USER_RE.match(ssh_user or ""):
+        return OnboardingResult(ok=False, message="Bootstrap SSH username is invalid")
+    try:
+        deps = host_deps_svc.check_and_persist(session, server)
+    except Exception as exc:
+        return OnboardingResult(ok=False, message=f"Host check failed: {exc}"[:200])
+
+    os_meta = (deps or {}).get("os") or {}
+    boot = (deps or {}).get("bootstrap") or {}
+    is_haos = "haos" in (getattr(server, "os_type", None) or "").lower()
+    install_rsync = (
+        bool(getattr(server, "backup_enabled", False))
+        and bool(boot.get("install_rsync"))
+        and not is_haos
+    )
+    install_docker = (
+        bool(getattr(server, "container_patch_enabled", False))
+        and bool(boot.get("install_docker_ce"))
+        and not is_haos
+    )
+    os_id = str(os_meta.get("os_id") or "")
+    codename = str(os_meta.get("codename") or "")
+    if not install_rsync and not install_docker:
+        return OnboardingResult(
+            ok=False,
+            message=(
+                "Nothing to bootstrap. Enable Backups or Docker, then re-check. "
+                "Only missing tools for those features are installed."
+            ),
+            details={"os_id": os_id, "codename": codename, "features": []},
+        )
+    if install_docker and not confirm_docker_bootstrap:
+        extra = ""
+        conflicts = list(boot.get("conflicting_packages") or [])
+        running = int(boot.get("running_containers") or 0)
+        if conflicts or running:
+            extra = (
+                " Distro Docker packages will be replaced with official Docker CE. "
+                "apt-get remove is used. /var/lib/docker is left in place."
+            )
+        return OnboardingResult(
+            ok=False,
+            message=(
+                f"Confirm Docker bootstrap before adding {server.ssh_username} to the docker group. "
+                "That group grants root-equivalent container access."
+                + extra
+            ),
+            details={
+                "need_confirm": True,
+                "os_id": os_id,
+                "codename": codename,
+                "features": [],
+            },
+        )
+    if not os_meta.get("supported_os"):
+        return OnboardingResult(
+            ok=False,
+            message="This OS is not supported for bootstrap. Expected Ubuntu, Debian, or Raspbian.",
+            details={"os_id": os_id, "codename": codename, "features": []},
+        )
+    try:
+        script = build_host_bootstrap_script(server, os_id, codename, deps=deps)
+    except ValueError as exc:
+        return OnboardingResult(ok=False, message=str(exc)[:200])
+
+    client = None
+    try:
+        client = _connect_bootstrap_client(server, session, ssh_user, sudo_password)
+        rc, out, err = _exec_elevated(client, script, sudo_password)
+    except Exception as exc:
+        return OnboardingResult(
+            ok=False,
+            message=_redact_secret(f"Bootstrap SSH failed: {exc}", sudo_password)[:200],
+            details={"bootstrap_username": ssh_user},
+        )
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                pass
+    if rc != 0:
+        detail = _redact_secret((err or out or "").strip(), sudo_password)[:240]
+        return OnboardingResult(
+            ok=False,
+            message=f"Bootstrap failed (exit {rc}). {detail}".strip(),
+            details={
+                "os_id": os_id,
+                "codename": codename,
+                "features": [],
+                "bootstrap_username": ssh_user,
+            },
+        )
+
+    features: list[str] = []
+    if install_rsync:
+        features.append("rsync")
+    if install_docker:
+        features.append("docker_ce")
+        verified, verify_msg = _verify_docker_fresh(server)
+    else:
+        verified, verify_msg = True, ""
+    try:
+        host_deps_svc.check_and_persist(session, server)
+    except Exception:
+        pass
+    if install_docker and not verified:
+        return OnboardingResult(
+            ok=False,
+            message=(
+                "Bootstrap ran but a fresh SSH session could not use docker without sudo. "
+                + _redact_secret(verify_msg, sudo_password)
+            )[:300],
+            details={
+                "os_id": os_id,
+                "codename": codename,
+                "features": features,
+                "bootstrap_username": ssh_user,
+            },
+        )
+    return OnboardingResult(
+        ok=True,
+        message="Bootstrap finished",
+        details={
+            "os_id": os_id,
+            "codename": codename,
+            "features": features,
+            "bootstrap_username": ssh_user,
+        },
+    )
+
+
+def run_host_bootstrap(
+    server: Server,
+    session,
+    *,
+    confirm_docker_bootstrap: bool = False,
+    sudo_password: Optional[str] = None,
+    bootstrap_username: Optional[str] = None,
+) -> OnboardingResult:
+    """Install missing tools for features already enabled on this server.
+
+    Same path as bootstrap_host_tools. Docker is not installed when
+    container_patch_enabled is false, and rsync is not installed when
+    backup_enabled is false.
+    """
+    return bootstrap_host_tools(
+        server,
+        session,
+        confirm_docker_bootstrap=confirm_docker_bootstrap,
+        sudo_password=sudo_password,
+        bootstrap_username=bootstrap_username,
     )

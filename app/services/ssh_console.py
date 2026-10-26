@@ -1401,13 +1401,13 @@ def _destroy_held_resources(
     rec = getattr(held, "recorder", None)
     if rec is not None and not getattr(rec, "finalized", True):
         try:
-            from ..database import engine
+            from ..database import get_engine
             from sqlmodel import Session as _Sess
 
             from . import console_audit as ca
             from .audit_write import make_audit_log
 
-            with _Sess(engine) as s:
+            with _Sess(get_engine()) as s:
                 ca.flush_recorder(s, rec, finalize=True)
                 s.add(
                     make_audit_log(

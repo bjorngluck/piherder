@@ -24,7 +24,7 @@ from app.services.server_job_lock import (
     release_server_lock,
     release_dual_server_lock,
 )
-from app.database import engine
+from app.database import get_engine
 from app.models import Server, Job
 from datetime import datetime
 import json
@@ -72,7 +72,7 @@ def nmap_scan(
     from app.services.nmap.runtime import touch_worker_heartbeat
 
     touch_worker_heartbeat(worker_id=str(self.request.hostname or "nmap"))
-    db = Session(engine)
+    db = Session(get_engine())
     try:
         if job_id:
             job = db.get(Job, job_id)
@@ -110,7 +110,7 @@ def stale_data_cleanup(self, job_id: int | None = None, dry_run: bool = False):
     """Purge old Jobs / Audit / nmap runs per Settings (stream R)."""
     from app.services.stale_data_cleanup import run_stale_data_cleanup
 
-    db = Session(engine)
+    db = Session(get_engine())
     try:
         if job_id:
             job = db.get(Job, job_id)
@@ -155,7 +155,7 @@ def nmap_vuln_db_update(
     from app.services.nmap.runtime import touch_worker_heartbeat
 
     touch_worker_heartbeat(worker_id=str(self.request.hostname or "nmap"))
-    db = Session(engine)
+    db = Session(get_engine())
     try:
         if job_id:
             job = db.get(Job, job_id)
@@ -194,7 +194,7 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
     Acquires a per-server backup mutex before rsync so concurrent workers
     never run two backups against the same host at once.
     """
-    db = Session(engine)
+    db = Session(get_engine())
     server = None
     lock_token: str | None = None
     work_started = False
@@ -412,7 +412,7 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
             })
             clear_job_progress_buffer(job_id)
             try:
-                with Session(engine) as s:
+                with Session(get_engine()) as s:
                     job = s.get(Job, job_id)
                     if job and job.status == "failed":
                         try:
@@ -482,7 +482,7 @@ def service_migrate(
         fail_migrate_worker_restart,
     )
 
-    db = Session(engine)
+    db = Session(get_engine())
     lock_tokens: tuple[str, str] | None = None
     try:
         job = db.get(Job, job_id)
@@ -619,7 +619,7 @@ def _migrate_dual_lock_task(
     """Shared Celery body for undo and dest-up recover. Never dest down -v."""
     from celery.exceptions import Retry
 
-    db = Session(engine)
+    db = Session(get_engine())
     lock_tokens: tuple[str, str] | None = None
     try:
         job = db.get(Job, job_id)
@@ -773,6 +773,7 @@ def exclusive_job(
 
     Does not take the backup / Move mutex. Host-down stays pending and
     redelivers. A redelivery that finds the job already running fails it.
+    host_bootstrap is not this task.
     """
     from celery.exceptions import Retry
 
@@ -784,6 +785,36 @@ def exclusive_job(
         )
     except Retry:
         raise
+
+
+# Ack on receipt. The global task_acks_late and the 3h visibility window must
+# not redeliver this message after a worker crash. The broker copy expires if
+# no worker takes it. The result backend does not store the arguments.
+HOST_BOOTSTRAP_EXPIRES_SEC = 120
+
+
+@celery.task(
+    name="app.tasks.host_bootstrap_job",
+    bind=True,
+    acks_late=False,
+    reject_on_worker_lost=False,
+    max_retries=0,
+    autoretry_for=(),
+    ignore_result=True,
+)
+def host_bootstrap_job(
+    self,
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    payload: dict | None = None,
+):
+    """Install missing host tools. One attempt. No result row."""
+    from app.services.jobs_exclusive import run_exclusive_job
+
+    return run_exclusive_job(
+        self, job_id, server_id, audit_id, "host_bootstrap", payload or {}
+    )
 
 
 # Same 2h cap as host jobs, and under the 3h Redis visibility window, so a
@@ -858,6 +889,56 @@ except Exception:
     logger.debug("Housekeeping failure signal not connected", exc_info=True)
 
 
+def _on_host_bootstrap_revoked(
+    sender=None,
+    request=None,
+    expired=False,
+    **_kwargs,
+) -> None:
+    """An expired host_bootstrap message never runs. Fail the pending row."""
+    if not expired:
+        return
+    if getattr(sender, "name", "") != "app.tasks.host_bootstrap_job":
+        return
+    args = getattr(request, "args", None) or ()
+    if not args:
+        return
+    try:
+        job_id = int(args[0])
+    except (TypeError, ValueError):
+        return
+    from app.services.jobs import fail_expired_host_bootstrap_by_id
+
+    fail_expired_host_bootstrap_by_id(job_id)
+
+
+try:
+    from celery.signals import task_revoked
+
+    task_revoked.connect(_on_host_bootstrap_revoked)
+except Exception:
+    logger.debug("host_bootstrap revoke signal not connected", exc_info=True)
+
+
+def _on_worker_ready(**_kwargs):
+    """A worker that just came up fails running jobs left by a dead worker."""
+    from app.services.jobs import reconcile_orphaned_running_jobs
+
+    try:
+        with Session(get_engine()) as session:
+            reconcile_orphaned_running_jobs(session)
+    except Exception:
+        logger.warning("Orphaned running job check skipped", exc_info=True)
+
+
+try:
+    from celery.signals import worker_ready
+
+    worker_ready.connect(_on_worker_ready)
+except Exception:
+    logger.debug("Worker ready signal not connected", exc_info=True)
+
+
 # Host rsync stays on the 2h global limit. A Drive copy can run much longer.
 # Ack on receive so Redis does not start a second rclone while the first is still going.
 # 7 days is the safety stop; the failure signal below records it on the job row.
@@ -872,7 +953,7 @@ def _start_direct_followup(destination_id: int, scope, user_id, folder_job_id: i
     from app.models import BackupDestination
     from app.services.backup_replicate import enqueue_direct_followup
 
-    with Session(engine) as session:
+    with Session(get_engine()) as session:
         job = session.get(Job, folder_job_id)
         if job is not None and job.status == "cancelled":
             return
@@ -895,7 +976,7 @@ def _start_direct_followup(destination_id: int, scope, user_id, folder_job_id: i
 )
 def replicate_backup(self, job_id: int):
     """Copy checked /backups paths, or push a direct host, to one destination."""
-    db = Session(engine)
+    db = Session(get_engine())
     dest = None
     follow_direct = False
     follow_dest_id = None
@@ -1057,7 +1138,7 @@ def _queue_direct_after_folder_failure(session, details: dict) -> None:
 def fail_replicate_job(job_id: int, message: str) -> bool:
     """Mark a copy failed when the worker process dies outside execute()."""
     try:
-        with Session(engine) as s:
+        with Session(get_engine()) as s:
             job = s.get(Job, job_id)
             if not job or job.job_type != "backup_replicate":
                 return False
@@ -1133,7 +1214,7 @@ except Exception:
 def _update_job_status(job_id: int, status: str, extra: dict):
     """Update Job status + merge details JSON (worker feeds DB)."""
     try:
-        with Session(engine) as s:
+        with Session(get_engine()) as s:
             job = s.get(Job, job_id)
             if job:
                 # Do not clobber a user cancel (or other terminal state) from the worker

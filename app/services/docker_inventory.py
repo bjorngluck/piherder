@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional, Set
 
 from sqlmodel import Session
 
-from ..database import engine
+from ..database import get_engine
 from ..models import Server
 
 logger = logging.getLogger(__name__)
@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_STALE_SEC = 120
 # Periodic scheduler cadence (see scheduler registration)
 SCHEDULER_STALE_SEC = 600
+# A refresh still marked refreshing after this long did not finish.
+REFRESH_EXPIRED_SEC = 30 * 60
 
 # Single-flight: server ids currently refreshing in this process
 _refreshing: Set[int] = set()
@@ -58,7 +60,56 @@ def _public_container(c: Dict[str, Any], project: str) -> Dict[str, Any]:
         "service": c.get("compose_service") or "",
         "path": (c.get("compose_workdir") or "").strip(),
         "update": bool(c.get("has_pending_update")),
+        "update_available": bool(c.get("has_pending_update")),
     }
+
+
+def _image_rows(containers: list) -> list[Dict[str, Any]]:
+    """One row per image. update_available is true if any container of that image has one."""
+    seen: Dict[str, bool] = {}
+    order: list[str] = []
+    for container in containers or []:
+        if not isinstance(container, dict) or container.get("placeholder"):
+            continue
+        image = (container.get("image") or "").strip()
+        if not image:
+            continue
+        flagged = bool(container.get("has_pending_update"))
+        if image not in seen:
+            order.append(image)
+            seen[image] = flagged
+        elif flagged:
+            seen[image] = True
+    return [{"image": image, "update_available": seen[image]} for image in order]
+
+
+def snapshot_update_targets(server: Server) -> list[Dict[str, Any]]:
+    """Compose projects and images with update_available. Never SSHs."""
+    inv = parse_inventory(server) or {}
+    out: list[Dict[str, Any]] = []
+    for project in inv.get("projects") or []:
+        if not isinstance(project, dict):
+            continue
+        images = _image_rows(project.get("containers") or [])
+        out.append(
+            {
+                "name": (project.get("name") or "").strip(),
+                "path": (project.get("path") or "").strip(),
+                "update_available": bool(project.get("has_pending_update")),
+                "images": images,
+            }
+        )
+    orphan_images = _image_rows(inv.get("orphan_containers") or [])
+    if orphan_images:
+        out.append(
+            {
+                "name": "",
+                "path": "",
+                "update_available": any(row["update_available"] for row in orphan_images),
+                "images": orphan_images,
+            }
+        )
+    return out
 
 
 def snapshot_containers(server: Server) -> list[Dict[str, Any]]:
@@ -122,7 +173,7 @@ def is_stale(server: Server, max_age_sec: int = DEFAULT_STALE_SEC) -> bool:
     if status == "stale":
         return True  # mutation invalidated; keep last JSON for display
     if status == "refreshing":
-        return False  # already in flight (or stuck — force handles that)
+        return inventory_refresh_expired(server)
     at = getattr(server, "docker_inventory_at", None)
     if not at:
         return True
@@ -131,6 +182,40 @@ def is_stale(server: Server, max_age_sec: int = DEFAULT_STALE_SEC) -> bool:
     except Exception:
         return True
     return age > max_age_sec
+
+
+def inventory_refresh_expired(
+    server: Server, max_refresh_sec: int = REFRESH_EXPIRED_SEC
+) -> bool:
+    """True when a refreshing row is older than 30 minutes.
+
+    The clock is the last snapshot time, the same way a stuck host facts
+    refresh is judged. A row with no timestamp is left for the process lock.
+    """
+    if (getattr(server, "docker_inventory_status", None) or "") != "refreshing":
+        return False
+    at = getattr(server, "docker_inventory_at", None)
+    if not at:
+        return False
+    try:
+        return (datetime.utcnow() - at).total_seconds() > max_refresh_sec
+    except Exception:
+        return False
+
+
+def release_expired_inventory_refresh(session: Session, server: Server) -> bool:
+    """Reset a refresh that has stayed refreshing for 30 minutes."""
+    if not inventory_refresh_expired(server):
+        return False
+    if getattr(server, "docker_inventory_json", None):
+        server.docker_inventory_status = "stale"
+    else:
+        server.docker_inventory_status = "never"
+    session.add(server)
+    session.commit()
+    if getattr(server, "id", None) is not None:
+        end_refresh_slot(int(server.id))
+    return True
 
 
 def is_refresh_stuck(server: Server, max_refresh_sec: int = 180) -> bool:
@@ -335,7 +420,7 @@ def refresh_server_inventory(server_id: int, *, force: bool = False) -> bool:
         _refreshing.add(server_id)
 
     try:
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             server = session.get(Server, server_id)
             if not server:
                 return False

@@ -1,10 +1,33 @@
 # PiHerder documentation
 
+**Secure fleet management for Raspberry Pi and Linux hosts** — backups, patching, Docker control, and service templates with secrets encrypted at rest.
+
+<div class="ph-home-cta" markdown="1">
+<div class="ph-home-cta__demo" markdown="1">
+
+!!! tip "Public demo site (view-only)"
+    PiHerder has a **live public demo** — explore the UI without installing:
+
+    - **URL:** [https://piherder-demo.hacknow.info](https://piherder-demo.hacknow.info)
+    - **Login:** `demo@hacknow.info` / `PiHerder@123?_` (shared **viewer** account)
+    - **Details:** [Public demo](operations/demo-site.md) — password may rotate; **this wiki always has the latest**.
+    - **Caveat:** some screens use **simulated hosts/data** and may not match a real fleet 100% (see that page).
+
+</div>
+<div class="ph-home-cta__actions" markdown="1">
+
+**On GitHub**
+
+Star or fork the project, or bring a question, an idea, or a setup.
+
+<p class="ph-cta-buttons" markdown="0"><a class="ph-btn ph-btn--star" href="https://github.com/bjorngluck/piherder">Star on GitHub <img alt="GitHub stars" src="https://img.shields.io/github/stars/bjorngluck/piherder?style=flat&amp;label=Stars&amp;labelColor=ffffff&amp;color=e60012"></a> <a class="ph-btn ph-btn--fork" href="https://github.com/bjorngluck/piherder/fork">Fork <img alt="GitHub forks" src="https://img.shields.io/github/forks/bjorngluck/piherder?style=flat&amp;label=Forks&amp;labelColor=ffffff&amp;color=e60012"></a> <a class="ph-btn ph-btn--talk" href="https://github.com/bjorngluck/piherder/discussions">Join the discussion</a></p>
+
+</div>
+</div>
+
 <figure class="ph-hero-logo" markdown>
   ![PiHerder logo](assets/piherder-about.png){ width="300" }
 </figure>
-
-**Secure fleet management for Raspberry Pi and Linux hosts** — backups, patching, Docker control, and service templates with secrets encrypted at rest.
 
 ## Release status {#release-status}
 
@@ -14,21 +37,13 @@
 | **Image** | `bjorngluck/piherder:1.12.1` · `1.12` · `latest` (multi-arch amd64 + arm64). Manifest `sha256:4c88b673dfa9d94cf275487c3a6303d9113f7667c9cb43349d04c08c11d14a21`. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Pins `1.10.1` / `1.10`, `1.9.0` / `1.9`, `1.8.1` / `1.8`, and `1.8.0` stay valid. |
 | **Release notes** | [RELEASE_v1.12.1.md](https://github.com/bjorngluck/piherder/blob/v1.12.1/docs/RELEASE_v1.12.1.md) · [v1.12.0](https://github.com/bjorngluck/piherder/blob/v1.12.0/docs/RELEASE_v1.12.0.md) · [v1.11.0](https://github.com/bjorngluck/piherder/blob/v1.11.0/docs/RELEASE_v1.11.0.md) · [v1.10.0](https://github.com/bjorngluck/piherder/blob/v1.10.0/docs/RELEASE_v1.10.0.md) · [v1.9.0](https://github.com/bjorngluck/piherder/blob/v1.9.0/docs/RELEASE_v1.9.0.md) · [v1.8.1](https://github.com/bjorngluck/piherder/blob/v1.8.1/docs/RELEASE_v1.8.1.md) · [v1.8.0](https://github.com/bjorngluck/piherder/blob/v1.8.0/docs/RELEASE_v1.8.0.md) · [v1.7.0](https://github.com/bjorngluck/piherder/blob/v1.7.0/docs/RELEASE_v1.7.0.md) · [v1.6.0](https://github.com/bjorngluck/piherder/blob/v1.6.0/docs/RELEASE_v1.6.0.md) · [v1.5.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.5.0.md) · [v1.4.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.4.0.md) · [v1.3.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.3.0.md) · [v1.2.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) · [v1.1.1](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.1.md) · prior [v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) |
 | **Known issues** | Console mobile Tab residual IME ([KI-console-mobile-soft-tab](day-to-day/web-ssh-console.md#known-issues)). Command audit redaction is heuristic ([web SSH](day-to-day/web-ssh-console.md#command-audit-v13)). Busy-source rsync vanish retries — [troubleshooting](troubleshooting/backups.md#vanished-files-busy-sources). |
-| **Next** | [v1.13 notes](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.13.0.md). Not a train. Not an upgrade path. |
+| **Next** | [v1.13.0 train](https://github.com/bjorngluck/piherder/blob/v1.13.0-dev/docs/PLAN_v1.13.0.md). Must and Should code and docs are built on `v1.13.0-dev`. QA walks are signed 2026-10-25. Code freeze is set 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frames are wired. Pull request [#60](https://github.com/bjorngluck/piherder/pull/60) is open. Not an upgrade path yet. |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **Public demo** | [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) — limited **viewer** sandbox · [credentials](operations/demo-site.md) |
 | **License** | [MIT](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (open source) |
 
 If something is unclear or wrong, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues).
-
-!!! tip "Public demo site (view-only)"
-    PiHerder has a **live public demo** — explore the UI without installing:
-
-    - **URL:** [https://piherder-demo.hacknow.info](https://piherder-demo.hacknow.info)  
-    - **Login:** `demo@hacknow.info` / `PiHerder@123?_` (shared **viewer** account)  
-    - **Details:** [Public demo](operations/demo-site.md) — password may rotate; **this wiki always has the latest**.  
-    - **Caveat:** some screens use **simulated hosts/data** and may not match a real fleet 100% (see that page).
 
 ---
 

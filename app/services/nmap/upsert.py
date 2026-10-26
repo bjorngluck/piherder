@@ -65,6 +65,7 @@ def upsert_hosts_from_parse(
     scripts_written = 0
     new_ids: list[tuple[int, str, str]] = []  # id, label, ip
     revived_ids: list[int] = []
+    nic_ids: list[int] = []
 
     for host in hosts:
         if only_up and (host.status or "").lower() not in ("up", "unknown"):
@@ -149,6 +150,8 @@ def upsert_hosts_from_parse(
                         ip,
                     )
                 )
+                if mac:
+                    nic_ids.append(int(device.id))
         else:
             if existing.state == "ignored":
                 skipped += 1
@@ -223,6 +226,8 @@ def upsert_hosts_from_parse(
         _safe_notify_new_id(session, did, integration_id, label, dip)
     for did in revived_ids:
         _safe_resolve_offline(session, did)
+    for did in nic_ids:
+        _safe_note_nic(session, did, integration_id, now)
     if created:
         _safe_digest(
             session, integration_id, created, [lbl for _i, lbl, _ip in new_ids]
@@ -275,6 +280,17 @@ def _safe_digest_clear(session: Session, integration_id: int) -> None:
         from .. import notifications as notif_svc
 
         notif_svc.resolve_nmap_new_digest_if_clear(session, int(integration_id))
+    except Exception:
+        pass
+
+
+def _safe_note_nic(
+    session: Session, device_id: int, integration_id: int, now: datetime
+) -> None:
+    try:
+        from .nic_change import note_inserted_mac
+
+        note_inserted_mac(session, int(device_id), int(integration_id), now)
     except Exception:
         pass
 

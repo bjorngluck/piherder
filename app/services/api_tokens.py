@@ -798,6 +798,7 @@ def api_meta_dict() -> dict:
             {"method": "GET", "path": "/api/v1/summary", "scope": "read", "summary": "Fleet heartbeat (hosts, updates, jobs)"},
             {"method": "GET", "path": "/api/v1/servers", "scope": "read", "summary": "List servers"},
             {"method": "GET", "path": "/api/v1/servers/{id}", "scope": "read", "summary": "Server detail"},
+            {"method": "GET", "path": "/api/v1/alerts", "scope": "read", "summary": "Open notifications"},
             {"method": "GET", "path": "/api/v1/inventory", "scope": "read", "summary": "Fleet Docker inventory snapshots (no SSH)"},
             {"method": "GET", "path": "/api/v1/servers/{id}/inventory", "scope": "read", "summary": "One host Docker inventory snapshot (no SSH)"},
             {"method": "GET", "path": "/api/v1/services", "scope": "read", "summary": "Fleet service up/down from stored monitor chips"},
@@ -809,6 +810,15 @@ def api_meta_dict() -> dict:
             },
             {"method": "GET", "path": "/api/v1/servers/{id}/jobs", "scope": "read", "summary": "Jobs for server"},
             {"method": "POST", "path": "/api/v1/servers/{id}/jobs", "scope": "jobs", "summary": "Trigger job"},
+            {
+                "method": "POST",
+                "path": "/api/v1/servers/{id}/docker/build-cache",
+                "scope": "edit",
+                "summary": (
+                    "Prune the Docker build cache and the buildx cache. "
+                    "One audit row. Not a docker_prune job and not scheduled."
+                ),
+            },
             {
                 "method": "POST",
                 "path": "/api/v1/servers/{id}/docker/prune",
@@ -865,6 +875,12 @@ def api_meta_dict() -> dict:
                 "path": "/api/v1/discovery/{id}/devices/{device_id}",
                 "scope": "edit",
                 "summary": "Rename a device or set known, new, or ignored",
+            },
+            {
+                "method": "POST",
+                "path": "/api/v1/discovery/{id}/devices/{device_id}/replace-stale-mac",
+                "scope": "edit",
+                "summary": "Ignore a stale MAC row and copy its custom fields onto this device",
             },
             {
                 "method": "POST",
@@ -939,13 +955,13 @@ def api_meta_dict() -> dict:
                 "method": "GET",
                 "path": "/api/v1/admin/audit",
                 "scope": "admin",
-                "summary": "Audit log. Details and output are capped. Does not write api_read.",
+                "summary": "Audit log. Details and output are capped. Writes api_read when read audit is on.",
             },
             {
                 "method": "GET",
                 "path": "/api/v1/admin/audit/{id}",
                 "scope": "admin",
-                "summary": "One audit row. Details and output are capped. Does not write api_read.",
+                "summary": "One audit row. Details and output are capped. Writes api_read when read audit is on.",
             },
             {"method": "GET", "path": "/api/v1/jobs", "scope": "read", "summary": "List jobs"},
             {"method": "GET", "path": "/api/v1/jobs/{id}", "scope": "read", "summary": "Job detail"},

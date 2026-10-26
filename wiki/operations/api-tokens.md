@@ -20,8 +20,9 @@ Authorization: Bearer ph_<secret>
 ```
 
 - Secret shown **once** at create or rotate; only a hash is stored.
+- That one-shot secret is an HttpOnly cookie named `api_token_once` (5 minutes, JWT claim `ats`). The Settings redirect never puts `token_secret` on the query string, so the secret is not in browser history or access logs. A later load does not show it again.
 - Creating a token opens an admin alert. It names the admin and the client IP. It does not include the secret or the token prefix. The Settings form, `POST /api/v1/tokens`, and a browser MCP sign-in all open it. Refreshing an MCP token does not.  
-- **Rotate** issues a new secret immediately.  
+- **Rotate** issues a new secret immediately. The new secret uses the same cookie and stays off the redirect URL.  
 - **Revoke** soft-disables; row kept for audit.
 - Optional **expires** (never / 30d / 90d / custom). Expired tokens fail lookup the same as revoked.
 
@@ -53,7 +54,7 @@ If **no** `feature:*` scopes are set, any job type allowed by `jobs` may run (st
 
 **409 / exclusive jobs:** a second start of the same exclusive type on a host returns **HTTP 409** with the existing `job_id` (same rule as the UI).
 
-A `read` call writes an audit row only when Settings, Security policy, **API and MCP read audit** is on. The row stores the token id and name, and the client IP. It does not store the token. Those rows stay off the default Audit list and keep their own retention (1-90 days, default 7). Turning the flag on or off writes its own audit row. Hosted `/mcp` reads follow the same flag. Writes stay audited either way. `GET /api/v1/admin` does not write that row, even when the flag is on, so listing the log does not append a row. MCP sign-in cannot receive `admin`.
+A `read` call writes an audit row only when Settings, Security policy, **API and MCP read audit** is on. The row stores the token id and name, and the client IP. It does not store the token. Those rows stay off the default Audit list and keep their own retention (1-90 days, default 7). Turning the flag on or off writes its own audit row. Hosted `/mcp` reads follow the same flag. Writes stay audited either way. Admin GETs under `/api/v1/admin` write an `api_read` row when that flag is on, at most one per token and path every 5 minutes, including the audit log. MCP sign-in cannot receive `admin`.
 
 ## IP allowlist
 
@@ -61,7 +62,7 @@ Optional IPs/CIDRs per token. Enforced using Caddy-forwarded client IP — call 
 
 ## CORS
 
-Off by default. Server-side n8n/HA/curl do **not** need CORS. Set `CORS_ORIGINS` only for browser apps on other origins (exact origins; never `*`). A first-class **HACS integration** (HA dashboard of the fleet) is **v1.6 Must** — operator page: [Home Assistant → PiHerder](../integrations/home-assistant.md). Token **`read`**. YAML `rest` remains possible ([API.md](https://github.com/bjorngluck/piherder/blob/v1.6.0-dev/docs/API.md)).
+Off by default. Server-side n8n/HA/curl do **not** need CORS. Set `CORS_ORIGINS` only for browser apps on other origins (exact origins; never `*`). A first-class **HACS integration** (HA dashboard of the fleet) is **v1.6 Must**. Operator page: [Home Assistant, PiHerder](../integrations/home-assistant.md). Token **`read`**. YAML `rest` remains possible ([API.md](https://github.com/bjorngluck/piherder/blob/v1.6.0/docs/API.md)).
 
 ## Examples
 

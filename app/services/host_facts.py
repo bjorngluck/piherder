@@ -14,7 +14,7 @@ from typing import Any, Optional, Set
 
 from sqlmodel import Session
 
-from ..database import engine
+from ..database import get_engine
 from ..models import Server
 
 logger = logging.getLogger(__name__)
@@ -365,7 +365,7 @@ def refresh_server_facts(server_id: int, *, force: bool = True) -> dict[str, Any
             return {"status": "refreshing"}
         _refreshing.add(server_id)
     try:
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             server = session.get(Server, server_id)
             if not server:
                 return {"error": "server not found"}
@@ -379,7 +379,7 @@ def refresh_server_facts(server_id: int, *, force: bool = True) -> dict[str, Any
     except Exception as e:
         logger.warning("host_facts refresh failed for %s: %s", server_id, e)
         try:
-            with Session(engine) as session:
+            with Session(get_engine()) as session:
                 server = session.get(Server, server_id)
                 if server:
                     server.host_facts_status = "error"
@@ -428,7 +428,7 @@ def request_refresh(server_id: int, *, force: bool = False) -> None:
     from . import jobs as js
 
     try:
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             server = session.get(Server, int(server_id))
             if server is None:
                 return

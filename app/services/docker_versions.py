@@ -26,7 +26,7 @@ from datetime import datetime
 from sqlmodel import Session, select
 
 from ..models import Server, DockerVersion
-from ..database import engine
+from ..database import get_engine
 from ..services.ssh import get_ssh_client, run_command
 from .compose_project_files import (
     COMPOSE_BASENAMES,
@@ -300,7 +300,7 @@ def write_project_files(server: Server, project_path: str, files: dict) -> tuple
 def get_versions(server_id: int, project_name: str, limit: int = 10, session: Optional["Session"] = None) -> List[DockerVersion]:
     """Return up to 'limit' recent versions for a project (newest first)."""
     if session is None:
-        with Session(engine) as s:
+        with Session(get_engine()) as s:
             return get_versions(server_id, project_name, limit, s)
     stmt = (
         select(DockerVersion)
@@ -318,7 +318,7 @@ def save_draft_version(server_id: int, project_name: str, files: dict, session: 
     Prunes old history after create.
     """
     if session is None:
-        with Session(engine) as s:
+        with Session(get_engine()) as s:
             dv = save_draft_version(server_id, project_name, files, s, update_existing_draft_id)
             s.commit()
             s.refresh(dv)
@@ -359,7 +359,7 @@ def save_draft_version(server_id: int, project_name: str, files: dict, session: 
 def deploy_version(server_id: int, version_id: int, server: Server, project_path: str, session: Optional["Session"] = None) -> bool:
     """Write the files of this version to the host (fresh SSH), mark deployed, trigger redeploy."""
     if session is None:
-        with Session(engine) as s:
+        with Session(get_engine()) as s:
             return deploy_version(server_id, version_id, server, project_path, s)
 
     dv = session.get(DockerVersion, version_id)

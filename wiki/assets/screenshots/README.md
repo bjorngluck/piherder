@@ -13,8 +13,8 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | Release | Screenshot bar |
 |---------|----------------|
 | **v0.6.0–v0.7.0** | Historical — PNG pack deferred / prose-first |
-| **v0.8.0 RC3** (tagged) | Full pack landed — [RELEASE_v0.8.0.md](../../../docs/RELEASE_v0.8.0.md) |
-| **v0.9.0** (tagged) | Operator recapture pack for 0.9 chrome — [RELEASE_v0.9.0.md](../../../docs/RELEASE_v0.9.0.md) |
+| **v0.8.0 RC3** (tagged) | Full pack landed, [RELEASE_v0.8.0.md](../../../docs/archive/v0/RELEASE_v0.8.0.md) |
+| **v0.9.0** (tagged) | Operator recapture pack for 0.9 chrome, [RELEASE_v0.9.0.md](../../../docs/archive/v0/RELEASE_v0.9.0.md) |
 | **v1.0.0** (tagged) | Full pack in place (operator-confirmed) — [PLAN_v1.0.0.md §8.2](../../../docs/PLAN_v1.0.0.md) · [RELEASE_v1.0.0.md](../../../docs/RELEASE_v1.0.0.md) |
 | **v1.1.0** | Freeze pack landed — [RELEASE_v1.1.0.md](../../../docs/RELEASE_v1.1.0.md) |
 | **v1.2.0** | Prior Hub — screenshot pack **landed** 2026-08-18. [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) |
@@ -28,13 +28,40 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.10.0** | **Captured** 2026-10-05. OneDrive row, self-backup copy checkbox, Reports cards, template fleet, Allow this agent. Package **1.10.0**. [§ v1.10](#v110--pack-status). [QA](../../../docs/QA_v1.10.0.md) |
 | **v1.11.0** | **Captured** 2026-10-18 and wired. Passkey as 2FA, straight-out backups, a finished Backup, and Repository. Names in the frames are masked. Package **1.11.0**. [§ v1.11](#v111--pack-status). [QA](../../../docs/QA_v1.11.0.md) |
 | **v1.12.0** | **Captured** 2026-10-22 and wired. Names, paths, and addresses in the frames are masked. About and the footer still say **1.11.0**. [§ v1.12](#v112--pack-status). [QA](../../../docs/QA_v1.12.0.md) |
+| **v1.13.0** | Pack landed 2026-10-26. About and the footer still say 1.12.1. [§ v1.13](#v113--pack-status). [QA](../../../docs/QA_v1.13.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    **v1.12** frames are in [§ v1.12](#v112--pack-status). Captured 2026-10-22 and wired. About / footer still say **1.11.0**.  
-    Do not photograph the public demo. Mask tokens, the SMB password, the Google client secret, and the Microsoft client secret.  
-    **v1.11 captures** stay. Do not retake them for this release.
+    **v1.13** About Docker prune and Docker cleanup are wired in [§ v1.13](#v113--pack-status). About / footer still say **1.12.1**. Host bootstrap is wired. NIC change and the stuck-queue frames are wired.  
+    Do not photograph the public demo. Mask names, paths, addresses, tokens, the SMB password, the Google client secret, and the Microsoft client secret.  
+    **v1.12 captures** stay. Do not retake them for this release.
+
+---
+
+## v1.13.0 pack status {#v113--pack-status}
+
+**Landed** on `v1.13.0-dev`. About Docker prune, Docker cleanup, host bootstrap, NIC change, and the stuck-queue frames are wired. NIC change and the stuck-queue frames use example names. Code freeze is set 2026-10-25. About and the footer say **1.12.1**. Mask names, paths, addresses, and secrets. Do not photograph the public demo. Maintainer walks are [QA_v1.13.0.md](../../../docs/QA_v1.13.0.md).
+
+| File | Surface | What the frame shows | Where |
+|------|---------|----------------------|--------|
+| `discovery-nic-change.png` | LAN Discovery devices | **Wired.** Possible NIC change on the new row, and Replace stale MAC in the device dialog. Names and addresses are examples | [LAN Discovery](../../integrations/lan-discovery.md) |
+| `docker-build-cache-prune.png` | Host Docker page | **Wired.** Build cache prune, volume confirm unticked, and a saved prune schedule | [Docker](../../docker/overview.md) |
+| `alerts-stuck-queue.png` | Alerts | **Wired.** The stuck-queue warning. No token and no job log | [Alerts](../../operations/alerts-email-webhooks.md) |
+| `about-scheduler-prune.png` | About | **Wired.** View schedule open on Docker prune. The host name is masked | [Status](../../operations/status.md) |
+| `host-bootstrap.png` | SSH access | **Wired.** Bootstrap missing tools. The fleet user is piherder. Password fields are empty | [Add a server](../../day-to-day/add-server.md) |
+
+### Do not shoot for 1.13
+
+| Slice | Why |
+|-------|-----|
+| v1.12 pack | `host-os-unsupported.png`, `docker-prune.png`, `about-scheduler.png`, `restore-from-copy.png`, `npm-proxy-host.png`, `settings-api-admin.png`, and `alerts-backup-credential.png` stay |
+| Restore ownership | Walk only. The sidecar is not a new screen. `restore-from-copy.png` stays |
+| Token cookie | Walk only. The secret must not be photographed. `settings-api-admin.png` stays |
+| Backup stagger | Walk only. No new screen |
+| Orphaned running jobs | Walk only. The Jobs page already has a frame |
+| Read-only alerts API | Walk only. `GET /api/v1/alerts` and `list_alerts` have no new screen |
+| Public demo | Stays the production image |
 
 ---
 
@@ -618,7 +645,7 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 6. **Alerts** — policy card if chrome drifted  
 7. **1.2 pack** — only if a caption/PNG disagree  
 
-Maintainer freeze clicks (not wiki): [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0-dev/docs/QA_v1.3.0.md) (historical). Current train: [QA_v1.7.0.md](../../../docs/QA_v1.7.0.md). Cap (not this pack): ACME · M-live · full NPM CRUD · Bak-alt · AC-fg · Undo-2 · Mux-2.
+Maintainer freeze clicks (not wiki): [QA_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/v1.3.0/docs/QA_v1.3.0.md) (historical). Current train: [QA_v1.7.0.md](../../../docs/QA_v1.7.0.md). Cap (not this pack): ACME · M-live · full NPM CRUD · Bak-alt · AC-fg · Undo-2 · Mux-2.
 
 ---
 
@@ -627,7 +654,7 @@ Maintainer freeze clicks (not wiki): [QA_v1.3.0.md](https://github.com/bjorngluc
 **Best practice: local git → commit → push** (binaries + markdown).
 
 ```bash
-git checkout v1.7.0-dev && git pull
+git checkout v1.7.0 && git pull
 # optional: git checkout -b docs/screenshots-1.7
 
 python3 -m venv .venv-docs && source .venv-docs/bin/activate

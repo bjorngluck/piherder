@@ -20,7 +20,7 @@ All contributions are offered under the **[MIT License](LICENSE)**. By submittin
 ## Getting Started
 
 - Read the [README](README.md) and [SPEC.md](SPEC.md) for project goals and design principles.
-- Current release: **[v1.12.0](docs/RELEASE_v1.12.0.md)**. [PLAN](docs/PLAN_v1.12.0.md) · [QA](docs/QA_v1.12.0.md). Package **1.12.0**. Image `1.12.0` / `1.12` / `latest`. Pin `1.11.0` / `1.11` stays the previous image. Prior notes: **[v1.11.0](docs/RELEASE_v1.11.0.md)**. [PLAN](docs/PLAN_v1.11.0.md) · [QA](docs/QA_v1.11.0.md). **[v1.10.0](docs/RELEASE_v1.10.0.md)**. [PLAN](docs/PLAN_v1.10.0.md) · [QA](docs/QA_v1.10.0.md). Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)**. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)**. Operator wiki [Backups](wiki/day-to-day/backups.md) · [Self-backup](wiki/operations/self-backup.md) · [Agents (MCP)](wiki/operations/mcp.md) · [Home Assistant](wiki/integrations/home-assistant.md). Prior: [v1.9.0](docs/RELEASE_v1.9.0.md) · [v1.8.1](docs/RELEASE_v1.8.1.md) · [v1.8.0](docs/RELEASE_v1.8.0.md) · [v1.7.0](docs/RELEASE_v1.7.0.md) · [v1.6.0](docs/RELEASE_v1.6.0.md) · [v1.5.0](docs/RELEASE_v1.5.0.md) · [v1.4.0](docs/RELEASE_v1.4.0.md) · [v1.3.0](docs/RELEASE_v1.3.0.md) · [v1.2.0](docs/RELEASE_v1.2.0.md) · [v1.1.1](docs/RELEASE_v1.1.1.md) · [v1.0.0](docs/RELEASE_v1.0.0.md).
+- Current release: **[v1.12.1](docs/RELEASE_v1.12.1.md)**. Package **1.12.1**. Next train [PLAN_v1.13.0.md](docs/PLAN_v1.13.0.md) is built on `v1.13.0-dev`. QA walks are signed 2026-10-25. Code freeze is set 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frames are wired. Pull request [#60](https://github.com/bjorngluck/piherder/pull/60) is open. Not an upgrade path. Package stays **1.12.1**. Image `1.12.1` / `1.12` / `latest`. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Prior notes: **[v1.12.0](docs/RELEASE_v1.12.0.md)**. [PLAN](docs/PLAN_v1.12.0.md) · [QA](docs/QA_v1.12.0.md). **[v1.11.0](docs/RELEASE_v1.11.0.md)**. [PLAN](docs/PLAN_v1.11.0.md) · [QA](docs/QA_v1.11.0.md). **[v1.10.0](docs/RELEASE_v1.10.0.md)**. [PLAN](docs/PLAN_v1.10.0.md) · [QA](docs/QA_v1.10.0.md). Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)**. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)**. Operator wiki [Backups](wiki/day-to-day/backups.md) · [Self-backup](wiki/operations/self-backup.md) · [Agents (MCP)](wiki/operations/mcp.md) · [Home Assistant](wiki/integrations/home-assistant.md). Prior: [v1.9.0](docs/RELEASE_v1.9.0.md) · [v1.8.1](docs/RELEASE_v1.8.1.md) · [v1.8.0](docs/RELEASE_v1.8.0.md) · [v1.7.0](docs/RELEASE_v1.7.0.md) · [v1.6.0](docs/RELEASE_v1.6.0.md) · [v1.5.0](docs/RELEASE_v1.5.0.md) · [v1.4.0](docs/RELEASE_v1.4.0.md) · [v1.3.0](docs/RELEASE_v1.3.0.md) · [v1.2.0](docs/RELEASE_v1.2.0.md) · [v1.1.1](docs/RELEASE_v1.1.1.md) · [v1.0.0](docs/RELEASE_v1.0.0.md).
 - Look for issues tagged `good first issue` or `help wanted`.
 
 ## Running tests
@@ -56,17 +56,9 @@ Security issues: see [SECURITY.md](SECURITY.md) — do not open public issues fo
 
 Feature requests are welcome and will be considered against the roadmap.
 
-## Opening a version pull request (maintainer)
+## Opening a version pull request
 
-`gh` on this machine is not logged in. That is not a blocker and it is not the release path. Do not stop to run `gh auth login`.
-
-[v1.5.0 pull request #5](https://github.com/bjorngluck/piherder/pull/5) was opened with the Grok GitHub connector, tool `github__create_pull_request`. The catalog name is `github__create_pull_request`, not `grok_com_github__create_pull_request`.
-
-1. Write `docs/PR_vN.md` (title, base `main`, head `vN-dev`, test plan, ship steps). Push the train branch first.
-2. Discover the tool (`search_tool` query `github__create_pull_request`) and call it. Fields: `owner` `bjorngluck`, `repo` `piherder`, `title`, `head`, `base` `main`, `draft` true until the QA gates in `docs/QA_vN.md` are closed, `body` the text of `docs/PR_vN.md`.
-3. Leave the pull request unmerged. Merge, the `v*` tag, the GitHub Release, and the Hub push are a separate ask. PiHerder does not file a GitHub Issue for a version.
-
-If `search_tool` returns no `github__` tool, the connector is not attached to the session. A fresh `grok -p` session can have the same gap (seen 2026-09-21 while opening v1.6). There is no local GitHub token to fall back on. Do not invent an Issue, and do not claim the pull request exists.
+Version pull requests are maintainer-only. The steps for opening one are in [AGENTS.md](AGENTS.md).
 
 ## Pull Requests
 

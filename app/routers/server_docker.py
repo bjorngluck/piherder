@@ -1385,6 +1385,8 @@ async def prune_unused_route(
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
+    if not server.container_patch_enabled:
+        raise HTTPException(400, "Enable the Docker feature on this server first")
 
     try:
         job = job_svc.create_job_and_run(
@@ -1408,5 +1410,42 @@ async def prune_unused_route(
 
     return RedirectResponse(
         f"/servers/{server_id}/docker?prune=queued&prune_type={prune_type}&job={job.id}",
+        status_code=303,
+    )
+
+
+@router.post("/{server_id}/docker/prune-build-cache")
+async def prune_build_cache_route(
+    server_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Prune builder and buildx caches. One audit row. Not a docker_prune job."""
+    from ..services.server_audit import record_server_audit
+
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    if not server.container_patch_enabled:
+        raise HTTPException(400, "Enable the Docker feature on this server first")
+    try:
+        result = docker_svc.prune_build_cache(server)
+        ok = bool(result.get("success"))
+        output = str(result.get("output") or "")[:1500]
+    except Exception as exc:
+        ok = False
+        output = str(exc)[:500]
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id if user else None,
+        action="docker_build_cache_prune",
+        status="success" if ok else "failed",
+        message=output or ("Build cache pruned" if ok else "Build cache prune failed"),
+    )
+    session.commit()
+    flag = "build_cache" if ok else "build_cache_fail"
+    return RedirectResponse(
+        f"/servers/{server_id}/docker?prune={flag}",
         status_code=303,
     )

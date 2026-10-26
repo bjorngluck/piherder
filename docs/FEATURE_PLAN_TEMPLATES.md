@@ -2,7 +2,7 @@
 
 **Status:** **Shipped in v0.4.0** (foundation). Ops depth + polish + RC → **v0.5.0**. RC2 UX → **v0.6.0** (deploy as Jobs).  
 **Horizon:** H2 / v0.4.0 foundation · v0.5.0 RC · v0.6.0 RC2 polish  
-**Related:** [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) Phase 6
+**Related:** [PLAN_v0.6.0.md](archive/v0/PLAN_v0.6.0.md) · [PLAN_v0.5.0.md](archive/v0/PLAN_v0.5.0.md) · [PLAN_v0.4.0.md](archive/v0/PLAN_v0.4.0.md) · [RELEASE_v0.5.0.md](archive/v0/RELEASE_v0.5.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) Phase 6
 
 ## Goal
 
@@ -146,7 +146,7 @@ Defaults use **named** volumes; deploy can switch to project folder or host path
 
 ## UX feedback (sync ops)
 
-Long template operations historically used **`PiHerderWaitModal`**. **Per-stack** Docker Check updates / Deploy use Jobs + live log (**B07**). **v0.6.0:** template **deploy** / **redeploy** → Jobs (`template_deploy` / `template_redeploy`) + JobHold live log; secrets in job details are Fernet-encrypted and cleared on finish; exclusive with other stack mutations on the host. **v0.7.0:** drift check as Job. **v0.9:** desired-files browser; always-write empty `.env`; **Accept host as desired** (intentional host-only drift); host full editor discovers config sidecars; structure: `host_sync` + `compose_editor` + `compose_project_files`. Preview / from-host / env migrate / adopt may still use wait modal. See [PLAN_v0.6.0.md](PLAN_v0.6.0.md) workstream C · [PLAN_v0.9.0.md](PLAN_v0.9.0.md).
+Long template operations historically used **`PiHerderWaitModal`**. **Per-stack** Docker Check updates / Deploy use Jobs + live log (**B07**). **v0.6.0:** template **deploy** / **redeploy** → Jobs (`template_deploy` / `template_redeploy`) + JobHold live log; secrets in job details are Fernet-encrypted and cleared on finish; exclusive with other stack mutations on the host. **v0.7.0:** drift check as Job. **v0.9:** desired-files browser; always-write empty `.env`; **Accept host as desired** (intentional host-only drift); host full editor discovers config sidecars; structure: `host_sync` + `compose_editor` + `compose_project_files`. Preview / from-host / env migrate / adopt may still use wait modal. See [PLAN_v0.6.0.md](archive/v0/PLAN_v0.6.0.md) workstream C · [PLAN_v0.9.0.md](archive/v0/PLAN_v0.9.0.md).
 
 ## Out of v0.4.0 / follow-ons (→ v0.5.0)
 
@@ -156,7 +156,7 @@ Long template operations historically used **`PiHerderWaitModal`**. **Per-stack*
 | **v0.5.0 nice-to-have** | Git catalog pull · template deploy as Jobs + live log (stack Deploy/Check **B07** done) |
 | **Later** | Advanced secret stores · DNS automation · expanded pack |
 
-See [PLAN_v0.5.0.md](PLAN_v0.5.0.md), [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md), and [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md).
+See [PLAN_v0.5.0.md](archive/v0/PLAN_v0.5.0.md), [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md), and [RELEASE_v0.4.0.md](archive/v0/RELEASE_v0.4.0.md).
 
 ## Follow-ups (2026-07-26 operator triage)
 

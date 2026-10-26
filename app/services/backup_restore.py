@@ -25,6 +25,11 @@ from .ssh import get_private_key_plain, temp_key_file, LEGACY_SSH_OPTS_STR
 logger = logging.getLogger(__name__)
 
 
+def ownership_remote_command(source: str) -> str:
+    """One remote argv. OpenSSH joins extra arguments with spaces."""
+    return "sh -s -- " + shlex.quote(source)
+
+
 def list_restore_candidates(server: Server) -> List[Dict[str, Any]]:
     """List backup destinations that have local data and can be restored.
 
@@ -172,10 +177,14 @@ def restore_backup_source(
 
     with temp_key_file(key_plain) as key_path:
         ssh_cmd = f"ssh -i {shlex.quote(key_path)} -p {port} {LEGACY_SSH_OPTS_STR}"
+        from .backup_ownership import MANIFEST_NAME, load_manifest, render_apply_script
+
         cmd = [
             "rsync",
             "-a",
             "--info=stats2",
+            "--exclude",
+            MANIFEST_NAME,
             "-e",
             ssh_cmd,
             "--rsync-path",
@@ -203,7 +212,7 @@ def restore_backup_source(
             )
             if place:
                 summary = f"{summary} · {place}"
-            return {
+            result = {
                 "rc": proc.returncode,
                 "dry_run": dry_run,
                 "source": source,
@@ -215,6 +224,58 @@ def restore_backup_source(
                 "summary": summary,
                 "destination_id": getattr(pull_from, "id", None) if pull_from is not None else None,
             }
+            if proc.returncode != 0:
+                return result
+            loaded = load_manifest(dest_path)
+            if loaded is None:
+                result["ownership"] = {"skipped": True, "reason": "no manifest"}
+                return result
+            if loaded.get("error"):
+                result["rc"] = 1
+                result["error"] = loaded["error"]
+                result["summary"] = f"Restore failed · {source}"
+                return result
+            if dry_run:
+                result["ownership"] = {
+                    "skipped": True,
+                    "reason": "dry-run",
+                    "entries": len(loaded["entries"]),
+                }
+                return result
+            script = render_apply_script(
+                loaded["entries"],
+                use_sudo=user not in ("root",),
+            )
+            own = subprocess.run(
+                [
+                    "ssh",
+                    "-i",
+                    key_path,
+                    "-p",
+                    str(port),
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "StrictHostKeyChecking=accept-new",
+                    "-o",
+                    "ConnectTimeout=15",
+                    f"{user}@{host}",
+                    ownership_remote_command(source),
+                ],
+                input=script,
+                capture_output=True,
+                text=True,
+                timeout=3600,
+            )
+            own_out = ((own.stdout or "") + (own.stderr or ""))[-2000:]
+            if own.returncode != 0:
+                result["rc"] = own.returncode or 1
+                result["error"] = f"ownership restore failed: {own_out[:300] or 'ssh exit ' + str(own.returncode)}"
+                result["summary"] = f"Restore failed · {source}"
+                result["ownership"] = {"rc": own.returncode, "output": own_out}
+                return result
+            result["ownership"] = {"applied": True, "output": own_out.strip()[:300]}
+            return result
         except subprocess.TimeoutExpired:
             return {
                 "error": "Restore timed out",

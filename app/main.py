@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from sqlmodel import select, Session
 import os
 
-from .database import init_db, engine
+from .database import init_db, get_engine
 from .models import Server, User
 from .routers import auth as auth_router
 from .routers import auth_oidc as auth_oidc_router
@@ -61,7 +61,7 @@ async def lifespan(app: FastAPI):
 
     try:
         from .services.jobs import cleanup_orphan_web_jobs, cleanup_stale_backup_jobs
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             cleanup_orphan_web_jobs(db)
             cleanup_stale_backup_jobs(db)
     except Exception as e:
@@ -83,7 +83,7 @@ async def lifespan(app: FastAPI):
         from .services.demo import demo_mode
         from .services.demo_seed import ensure_demo_seeded
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             if demo_mode():
                 result = ensure_demo_seeded(db)
                 if result:
@@ -146,7 +146,7 @@ async def lifespan(app: FastAPI):
     try:
         from .services.push import ensure_vapid_keys
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             creds = ensure_vapid_keys(db)
             if creds:
                 print(f"Web Push VAPID ready (source={creds.source})")
@@ -160,7 +160,7 @@ async def lifespan(app: FastAPI):
     try:
         from .services.update_check_config import clear_matching_fleet_backup_schedules
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             clear_matching_fleet_backup_schedules(db)
     except Exception as e:
         logger.warning("Fleet backup schedule cleanup skipped: %s", e)
@@ -208,7 +208,7 @@ async def lifespan(app: FastAPI):
     try:
         from .services.service_templates import ensure_builtin_templates_in_db
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             n = ensure_builtin_templates_in_db(db)
             if n:
                 print(f"Service templates: updated {n} builtin catalog row(s)")
@@ -556,7 +556,7 @@ async def root(request: Request, user: User = Depends(get_optional_current_user)
     service_down = 0
     down_services: list = []
     network_pulse: dict = {}
-    db = Session(engine)
+    db = Session(get_engine())
     try:
         rows = list(db.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
         servers = [row.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}) for row in rows]
@@ -630,7 +630,7 @@ async def root(request: Request, user: User = Depends(get_optional_current_user)
         from .services.integrations import registry as integ_reg2
         from .services.integrations import pihole as ph_mod
 
-        with Session(engine) as db2:
+        with Session(get_engine()) as db2:
             ph_rows = integ_reg2.list_integrations(db2, type_filter=integ_reg2.TYPE_PIHOLE)
             for r in ph_rows:
                 st = integ_reg2.parse_last_status(r)

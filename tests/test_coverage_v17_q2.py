@@ -56,7 +56,7 @@ def test_http_route_sweep(tmp_path, monkeypatch):
     engine = _engine(tmp_path / "q2.db")
     client, _uid, sid = _client(engine, monkeypatch)
     for mod in (dbmod, inv, facts, hb, jobs, settings_mod):
-        monkeypatch.setattr(mod, "engine", engine, raising=False)
+        monkeypatch.setattr("app.database.engine", engine, raising=False)
     monkeypatch.setattr(inv, "request_refresh", lambda *a, **k: False)
     monkeypatch.setattr(facts, "request_refresh", lambda *a, **k: None)
     monkeypatch.setattr(

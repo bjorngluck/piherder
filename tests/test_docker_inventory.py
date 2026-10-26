@@ -44,6 +44,27 @@ def test_is_stale_refreshing_skips():
     assert inv.is_stale(_server(docker_inventory_status="refreshing")) is False
 
 
+def test_expired_inventory_refresh_resets_after_30_minutes():
+    old = _server(
+        docker_inventory_status="refreshing",
+        docker_inventory_at=datetime.utcnow() - timedelta(minutes=31),
+        docker_inventory_json="{}",
+    )
+    fresh = _server(
+        docker_inventory_status="refreshing",
+        docker_inventory_at=datetime.utcnow() - timedelta(minutes=5),
+        docker_inventory_json="{}",
+    )
+    assert inv.inventory_refresh_expired(old) is True
+    assert inv.inventory_refresh_expired(fresh) is False
+    assert inv.is_stale(old) is True
+    assert inv.is_stale(fresh) is False
+    session = SimpleNamespace(add=lambda _obj: None, commit=lambda: None)
+    assert inv.release_expired_inventory_refresh(session, old) is True
+    assert old.docker_inventory_status == "stale"
+    assert inv.release_expired_inventory_refresh(session, fresh) is False
+
+
 def test_is_stale_age():
     fresh = _server(
         docker_inventory_status="ok",

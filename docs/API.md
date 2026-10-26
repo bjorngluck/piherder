@@ -26,11 +26,12 @@ Home Assistant can consume these endpoints with a bearer token today. Managing a
 Authorization: Bearer ph_<secret>
 ```
 
-- Secret is shown **once** at **create** or **rotate** (Settings UI has **Copy token** + a one-time **MCP / agent client config** snippet); only a hash is stored.
+- Secret is shown **once** at **create** or **rotate** (Settings UI has **Copy token** + a one-time **MCP / agent client config** snippet); only a hash is stored. The Settings redirect does not put the secret on the query string. The page reads a one-shot HttpOnly cookie `api_token_once` (5 minutes, JWT claim `ats`).
 - Admins can **edit** name, scopes, and IP allowlist without rotating the secret.
 - Optional **`expires_at`** (never / 30d / 90d / custom). Expired tokens fail Bearer lookup like revoked ones.
 - **Rotate** issues a new secret; the previous value stops working immediately. Expiry is preserved.
 - **Revoke** immediately if leaked (Settings or `DELETE /api/v1/tokens/{id}` with admin session).
+- A browser MCP sign-in names the token from the OAuth `client_name` plus a 6 character hex suffix (`secrets.token_hex(3)`). The suffix is not the access token and not the `ph_oa_` prefix. The name is capped at 120 characters. Two agents that send the same client name do not share a token name.
 - **MCP agent** mint preset in Settings suggests a `mcp-…` name and default scope `read` (add `jobs` / `edit` / `files` as needed). Hosted MCP is **`POST /mcp`** on this origin with the same Bearer token (not a query parameter). The one-time snippet is that URL plus `Authorization`. Set `PIHERDER_PUBLIC_URL` or the snippet host is `https://piherder.example.com` and the banner says so. An `http`/`https` `Origin` must match the request `Host` or that public URL; a Bearer token does not bypass it. Clients that omit `Origin` are unchanged. A client pointed at hosted `POST /mcp` can sign in in the browser instead of pasting a bearer. Optional stdio `uvx piherder-mcp` does not. It calls `/api/v1` with `PIHERDER_TOKEN` and does not refresh. See [wiki/operations/mcp.md](../wiki/operations/mcp.md).
 
 ### CORS (optional — browser clients only)
@@ -125,8 +126,8 @@ Base path: **`/api/v1`**
 |--------|------|-------|-------------|
 | `GET` | `/api/v1/servers` | `read` | List servers (`features` object). Optional `q`, `limit` (default **100**, max 100), `offset`. Response includes `total`, `limit`, `offset`. Previously unbounded. |
 | `GET` | `/api/v1/servers/{id}` | `read` | One server |
-| `GET` | `/api/v1/inventory` | `read` | Last Docker inventory for every host (DB snapshot, never SSH). Slim containers: `name`, `running`, `state`, `image`, `status` (uptime text), `project` |
-| `GET` | `/api/v1/servers/{id}/inventory` | `read` | Same snapshot for one host, plus `os_pretty`, `hardware`, `disk_*_bytes` |
+| `GET` | `/api/v1/inventory` | `read` | Last Docker inventory for every host (DB snapshot, never SSH). Slim containers include `name`, `running`, `state`, `image`, `status` (uptime text), `project`, and `update_available`. `projects` lists each compose project and its images with `update_available` |
+| `GET` | `/api/v1/servers/{id}/inventory` | `read` | Same snapshot for one host, plus `os_pretty`, `hardware`, `disk_*_bytes`. `projects` and each image include `update_available` |
 | `GET` | `/api/v1/services` | `read` | Fleet service chips (`state` up/down) from stored monitor rows. Does not poll Kuma or NPM |
 | `PATCH` | `/api/v1/servers/{id}/features` | `edit` | Toggle feature flags |
 | `GET` | `/api/v1/servers/{id}/files?p=` | `files` | List jail-relative directory (fleet) |
@@ -142,7 +143,7 @@ Base path: **`/api/v1`**
 {
   "id": 1,
   "name": "pi-media",
-  "hostname": "pi-media.local",
+  "hostname": "pi-media.example.com",
   "features": {
     "backup": true,
     "os_patch": true,
@@ -187,11 +188,13 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 
 | Method | Path | Scope | Description |
 |--------|------|-------|-------------|
+| `GET` | `/api/v1/alerts` | `read` | Open notifications (`limit`, `offset`). Dismissed and resolved rows are omitted. Each row has `id`, `type`, `severity`, `title`, `body`, `server_id`, `link_url`, `status`, `created_at`, and `updated_at`. Hosted `list_alerts` calls this route. On the v1.13 train, not in the 1.12.1 image |
 | `GET` | `/api/v1/jobs` | `read` | Fleet job list (`server_id`, `status_filter`, `job_type`, `active_only`, `limit`, `offset`) |
 | `GET` | `/api/v1/jobs/{id}` | `read` | Job detail (`?detail=true` for longer log tail) |
 | `GET` | `/api/v1/servers/{id}/jobs` | `read` | Jobs for one server |
 | `POST` | `/api/v1/servers/{id}/jobs` | `jobs` | Trigger job (HTTP **202**) |
-| `POST` | `/api/v1/servers/{id}/docker/prune` | `edit` | Start a `docker_prune` job (HTTP **202**). `prune_type` is `images`, `containers`, `both`, or `networks`. Volume prune stays on the Docker page |
+| `POST` | `/api/v1/servers/{id}/docker/prune` | `edit` | Start a `docker_prune` job (HTTP **202**). `prune_type` is `images`, `containers`, `both`, or `networks`. Volume prune stays on the Docker page. Per-host `docker_prune_schedule` (empty means off, container patch required) starts `both` (dangling images and exited containers). Volumes stay off that schedule. About **View schedule** lists it. A missed slot opens `docker_prune_missed` |
+| `POST` | `/api/v1/servers/{id}/docker/build-cache` | `edit` | Prune the Docker build cache and the buildx cache (`docker builder prune -f`, then `docker buildx prune -f`). Synchronous. One audit row, `docker_build_cache_prune`. Not a `docker_prune` job and not scheduled. Hosted `prune_build_cache` calls this route. On the v1.13 train, not in the 1.12.1 image |
 
 **POST body**
 
@@ -272,6 +275,7 @@ Hosted MCP `trigger_job` uses this same list, including `container_start`, `cont
 | `PATCH` | `/api/v1/discovery/{id}/devices/{device_id}` | `edit` | `display_name` and/or `state` (`known`, `new`, `ignored`) |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/ignore` | `edit` | Hide the device |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/unignore` | `edit` | Mark known. A linked device stays linked |
+| `POST` | `/api/v1/discovery/{id}/devices/{device_id}/replace-stale-mac` | `edit` | Body `stale_device_id`. The path id is the new MAC row. Marks the stale row ignored and copies a non-empty display name, kind override, and notes. On the v1.13 train. Not in the 1.12.1 image |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/link` | `edit` | Body `server_id` |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/unlink` | `edit` | Device becomes known |
 | `DELETE` | `/api/v1/discovery/{id}/devices/{device_id}?confirm=true` | `edit` | Purge one device. `confirm=true` is required. A linked device is **400** |
@@ -282,7 +286,7 @@ Hosted MCP `trigger_job` uses this same list, including `container_start`, `cont
 { "confirm": true, "intensity": "discovery" }
 ```
 
-`confirm` must be `true`. `intensity` is `discovery` (the default), `inventory`, `detailed`, or `deep`. The body cannot set targets or vulnerability scripts. The scan uses the CIDRs saved on that integration. **400** when Discovery is off, when no ranges are saved, or when `confirm` is not true. The response names the ranges. It does not include credentials, script output, or the scan file path. Hosted MCP `read_discovery` and `start_discovery` call the scan routes. Hosted `list_discovery_devices`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices`, and `scan_discovery_device` call the device routes. A rename leaves kind and map role alone. A new or offline device becomes known when it is named. A linked device cannot be marked new and cannot be purged. Purge has no undo. A one-device scan defaults to `deep`, must sit inside the saved ranges, and keeps vulnerability scripts off. The device payload is id, ip, hostname, display name, state, linked server, and last seen. No MAC, notes, or script output. Each write stores this token and the client IP. Adapter **0.4.3** lists the device tools and sends `confirm=true` on purge. Adapter **0.4.2** sends that query and does not list `prune_docker`. Adapter **0.4.1** lists the tools and omits that query. Adapter **0.4.0** lists the scan tools and does not list the device tools. Demo does not start a scan.
+`confirm` must be `true`. `intensity` is `discovery` (the default), `inventory`, `detailed`, or `deep`. The body cannot set targets or vulnerability scripts. The scan uses the CIDRs saved on that integration. **400** when Discovery is off, when no ranges are saved, or when `confirm` is not true. The response names the ranges. It does not include credentials, script output, or the scan file path. Hosted MCP `read_discovery` and `start_discovery` call the scan routes. Hosted `list_discovery_devices`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices`, and `scan_discovery_device` call the device routes. A rename leaves kind and map role alone. A new or offline device becomes known when it is named. A linked device cannot be marked new and cannot be purged. Purge has no undo. A one-device scan defaults to `deep`, must sit inside the saved ranges, and keeps vulnerability scripts off. The device payload is id, ip, hostname, display name, state, linked server, and last seen. No MAC, notes, or script output. Each write stores this token and the client IP. Adapter **0.4.3** lists the device tools and sends `confirm=true` on purge. Adapter **0.4.2** sends that query and does not list `prune_docker`. Adapter **0.4.1** lists the tools and omits that query. Adapter **0.4.0** lists the scan tools and does not list the device tools. Demo does not start a scan. Hosted `replace_stale_mac` calls the replace-stale-mac route. The tool is listed only when the token has `read` and `edit`. That action is on the v1.13 train and is not in the 1.12.1 image. Each device on `GET /api/v1/discovery/{id}/devices` includes `nic_change`. It is true for both rows in the pair: the new MAC, and the older non-ignored row with the same hostname and the same IP that has been stale for longer than one scan interval. The value is only that boolean. The replace path id is the new MAC. `stale_device_id` is the other row. The integrations list does not include that field. A replace body that is not that pair returns **400** with `That row is not a stale MAC for this device`. The audit action is `nmap_replace_stale_mac`.
 
 ### Stale data cleanup
 

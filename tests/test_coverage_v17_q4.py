@@ -195,7 +195,7 @@ def test_ssh_pin_key_and_connect_helpers(tmp_path, monkeypatch):
     from app.services import ssh as ssh_mod
 
     engine = _engine(tmp_path / "ssh.db")
-    monkeypatch.setattr(dbmod, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     key = ssh_mod.paramiko.RSAKey.generate(1024)
     with Session(engine) as s:
         row = Server(name="pi", hostname="pi.local", ssh_username="pi", os_type="debian")
@@ -282,7 +282,7 @@ def test_stack_health_du_fallbacks(tmp_path, monkeypatch):
     assert sh._tree_used_bytes(root)[1] == "timeout"
 
     engine = _engine(tmp_path / "health.db")
-    monkeypatch.setattr(sh, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(sh, "collect_stack_health", lambda **_k: {"overall": "ok"})
     monkeypatch.setattr(sh, "save_report", lambda report: report)
 

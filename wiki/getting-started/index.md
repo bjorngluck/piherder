@@ -26,7 +26,7 @@ You do **not** need Catalog integrations, templates, or Web Push on day one. Tho
 | 5 | [Appearance](appearance.md) | Light/dark, and (on this train) an instance name, one accent, and Catalog in the nav |
 | 6 | [Operator scenarios](operator-scenarios.md) | Map goals → docs for everything after install |
 
-Then: [Add a server](../day-to-day/add-server.md) (guided wizard) → [Dashboard](../day-to-day/dashboard-and-services.md) → [Reports](../day-to-day/reports.md) once Jobs exist.  
+Then: [Add a server](../day-to-day/add-server.md) (guided wizard) → [Dashboard](../day-to-day/dashboard-and-services.md) → [Reports](../day-to-day/reports.md) once Jobs exist. Bootstrap missing tools is on that wizard and on SSH access. It installs `rsync` only when Backups are on, and Docker CE only when Docker is on.  
 HAOS appliance: [HAOS hosts](../day-to-day/haos-hosts.md). Optional [Host Files](../day-to-day/host-files.md) (`PIHERDER_HOST_FILES`). Templates / from-host: [Service templates](../service-templates/overview.md).
 
 ## Supported install path
@@ -66,4 +66,4 @@ Detailed “I want to…” tables and longer journeys: [Operator scenarios](ope
 | [README](https://github.com/bjorngluck/piherder/blob/main/README.md) | Project overview |
 | [`.env.example`](https://github.com/bjorngluck/piherder/blob/main/.env.example) | Full env catalog |
 | [docs/ADMIN.md](https://github.com/bjorngluck/piherder/blob/main/docs/ADMIN.md) | Long-form admin reference (mirrored into this wiki) |
-| [v1.2.0 QA](../operations/qa-v1.2.0.md) | Freeze sign-off checklist (before Hub `1.2.0`) |
+| [v1.2.0 QA](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.2.0.md) | Freeze sign-off checklist (before Hub `1.2.0`) |

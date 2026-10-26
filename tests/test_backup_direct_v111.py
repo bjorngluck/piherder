@@ -170,7 +170,23 @@ def test_remote_command_points_at_the_temp_config():
     assert "sync /home/pi/docker dest:PiHerder/pi.local/docker" in command
     assert "--local-no-check-updated" in command
     assert "--drive-use-trash" in command
+    assert "--exclude .piherder-ownership.json" in command
     assert "secret-value" not in command
+
+
+def test_ownership_upload_uses_copyto():
+    from app.services.backup_direct import ownership_copyto_command
+
+    command = ownership_copyto_command(
+        "/var/lib/piherder/rclone",
+        config_path="/tmp/ph-rclone-abc.conf",
+        local_file="/tmp/ph-own-abc.json",
+        remote_file="PiHerder/host-a/docker/.piherder-ownership.json",
+        use_sudo=True,
+    )
+    assert command.startswith("sudo -n /var/lib/piherder/rclone copyto ")
+    assert "/tmp/ph-own-abc.json" in command
+    assert "dest:PiHerder/host-a/docker/.piherder-ownership.json" in command
 
 
 def test_service_account_path_is_rewritten_for_the_host():
@@ -462,7 +478,7 @@ def test_mixed_copy_keeps_the_folder_row_and_queues_direct_after(tmp_path, monke
 
     monkeypatch.setattr("app.services.backup_direct.partition_checked", partition)
     engine = _sqlite(tmp_path, "mixed-job.db")
-    monkeypatch.setattr("app.tasks.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
 
     def folder_only(destination, scope=None):
         assert scope is None
@@ -514,7 +530,7 @@ def test_mixed_copy_keeps_the_folder_row_and_queues_direct_after(tmp_path, monke
 
 def test_direct_worker_stores_a_scrubbed_error(tmp_path, monkeypatch):
     engine = _sqlite(tmp_path, "direct-err.db")
-    monkeypatch.setattr("app.tasks.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     with Session(engine) as session:
         dest = BackupDestination(
             provider="drive",
@@ -562,7 +578,7 @@ def test_direct_worker_stores_a_scrubbed_error(tmp_path, monkeypatch):
 
 def test_worker_death_line_names_a_direct_copy(tmp_path, monkeypatch):
     engine = _sqlite(tmp_path, "direct-stop.db")
-    monkeypatch.setattr("app.tasks.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     with Session(engine) as session:
         job = Job(
             job_type="backup_replicate",
@@ -589,7 +605,7 @@ def test_worker_death_line_names_a_direct_copy(tmp_path, monkeypatch):
 def test_worker_death_still_queues_the_direct_hop(tmp_path, monkeypatch):
     queued = _delay_recorder(monkeypatch)
     engine = _sqlite(tmp_path, "direct-after-kill.db")
-    monkeypatch.setattr("app.tasks.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     server = _host()
 
     def partition(checked, hosts=None):
@@ -722,7 +738,7 @@ def test_followup_starts_while_the_folder_row_is_still_running(tmp_path, monkeyp
 
     monkeypatch.setattr("app.services.backup_direct.partition_checked", partition)
     engine = _sqlite(tmp_path, "follow-running.db")
-    monkeypatch.setattr("app.tasks.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     with Session(engine) as session:
         dest = BackupDestination(
             provider="drive",

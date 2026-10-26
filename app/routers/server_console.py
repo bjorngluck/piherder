@@ -26,7 +26,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlmodel import Session, select
 
 from .. import templates as templates_mod
-from ..database import get_session, engine
+from ..database import get_session, get_engine
 from ..models import Server, User
 from ..security.auth import (
     get_console_user,
@@ -1050,7 +1050,7 @@ async def console_websocket(websocket: WebSocket, server_id: int):
         return
 
     try:
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             user = _user_from_cookie(websocket, session)
             if not user:
                 await websocket.close(code=4401)
@@ -1270,7 +1270,7 @@ async def console_websocket(websocket: WebSocket, server_id: int):
             if now - last_revalidate < cons.revalidate_sec():
                 return True
             last_revalidate = now
-            with Session(engine) as session:
+            with Session(get_engine()) as session:
                 ok, reason = cons.session_still_valid(
                     session, user_id=int(user_id), expected_sv=expected_sv
                 )
@@ -1299,7 +1299,7 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                         f"\r\n*** Binding failed ({reason}) — shell closed ***\r\n"
                     )
                     return False
-            with Session(engine) as session:
+            with Session(get_engine()) as session:
                 u2 = _user_from_cookie(websocket, session)
                 if not u2 or int(u2.id) != int(user_id):
                     await websocket.send_text(
@@ -1541,7 +1541,7 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                 try:
                     from ..services import console_audit as ca
 
-                    with Session(engine) as s:
+                    with Session(get_engine()) as s:
                         ca.flush_recorder(s, recorder, finalize=False)
                 except Exception:
                     logger.debug("console audit park flush failed", exc_info=True)
@@ -1584,7 +1584,7 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                 cons.release_slot(user_id)
             if user_id is not None and opened is not None and not is_resume:
                 try:
-                    with Session(engine) as session:
+                    with Session(get_engine()) as session:
                         from ..services import console_audit as ca
 
                         if recorder is not None:
@@ -1606,7 +1606,7 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                     logger.exception("console close audit failed")
             elif user_id is not None and intentional_close:
                 try:
-                    with Session(engine) as session:
+                    with Session(get_engine()) as session:
                         from ..services import console_audit as ca
 
                         if recorder is not None:

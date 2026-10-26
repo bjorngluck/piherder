@@ -28,9 +28,40 @@ scrape_configs:
       credentials: "<METRICS_TOKEN>"
 ```
 
-Useful series: `piherder_up`, `piherder_db_up`, `piherder_servers*`, `piherder_jobs*`, `piherder_notifications_open*`, `piherder_servers_backup_stale`, `piherder_schedule_missed`.
+Useful series, and the full set exported by `app/services/metrics.py`:
 
-`piherder_schedule_missed{kind="backup",server_id="1"}` is 1 when that host's latest due backup slot did not start within 15 minutes and has not succeeded since. `kind="container_check"` is the same gauge for a container image check. Schedules that are off are omitted.
+| Series | What it counts |
+|--------|----------------|
+| `piherder_up` | Process is up (always 1) |
+| `piherder_db_up` | Database connectivity (1 = ok). Later series are omitted when this is 0 |
+| `piherder_info` | Build info. Label `version` |
+| `piherder_redis_up` | Redis from the last stack health check (1 = ok). Not a live probe on every scrape |
+| `piherder_celery_up` | Celery from that same check (1 = ok) |
+| `piherder_celery_workers` | Celery worker nodes from that check |
+| `piherder_celery_pool_slots` | Prefork pool slots from that check |
+| `piherder_servers` | Managed servers |
+| `piherder_servers_attention` | Servers with a reboot or pending updates |
+| `piherder_servers_reboot_pending` | Servers with reboot pending |
+| `piherder_os_update_hosts` | Servers with installable OS packages |
+| `piherder_container_update_hosts` | Servers with container project updates |
+| `piherder_os_packages_pending` | Installable OS packages across the fleet |
+| `piherder_container_projects_pending` | Container projects with updates |
+| `piherder_servers_never_checked_os` | OS-patch servers never checked |
+| `piherder_servers_never_checked_containers` | Container-patch servers never checked |
+| `piherder_jobs` | Job rows. Label `status` |
+| `piherder_jobs_active` | Pending plus running jobs |
+| `piherder_jobs_failed_24h` | Jobs that failed in the last 24 hours |
+| `piherder_notifications_open` | Open in-app notifications |
+| `piherder_notifications_open_by_type` | Open notifications. Label `type` |
+| `piherder_servers_backup_enabled` | Servers with backup enabled |
+| `piherder_servers_backup_stale` | Backup-enabled servers with no success inside the stale window |
+| `piherder_schedule_missed` | 1 while a due slot was missed. Labels `kind` (`backup`, `container_check`, `docker_prune`) and `server_id` |
+| `piherder_queue_oldest_pending_seconds` | Age in seconds of the oldest `pending` job, or 0 when none are pending |
+| `piherder_stuck_queue` | 1 when that age is over 15 minutes and no Celery worker answered. An unknown heartbeat leaves this at 0 |
+
+`piherder_schedule_missed{kind="backup",server_id="1"}` is 1 when that host's latest due backup slot did not start within 15 minutes and has not succeeded since. `kind="container_check"` is the same gauge for a container image check. `kind="docker_prune"` is the same gauge for a saved per-host Docker prune. Schedules that are off are omitted. The prune kind is on the v1.13 train and is not in the 1.12.1 image.
+
+`piherder_queue_oldest_pending_seconds` is the age of the oldest `pending` job, or 0 when none are pending. `piherder_stuck_queue` is 1 when that age is over 15 minutes and no Celery worker answered. A failed worker check leaves the gauge at 0. Both are on the v1.13 train and are not in the 1.12.1 image.
 
 If `METRICS_TOKEN` is empty, treat `/metrics` like private-network only.
 

@@ -12,7 +12,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from ..database import get_session
 from ..models import ApiToken, Job, Notification, Server, User
@@ -384,6 +384,7 @@ def _inventory_public(server: Server) -> dict[str, Any]:
         "disk_used_bytes": getattr(server, "disk_used_bytes", None),
         "containers": containers,
         "container_count": len(containers),
+        "projects": inventory_svc.snapshot_update_targets(server),
     }
 
 
@@ -432,6 +433,54 @@ def api_server_inventory(
     if not server:
         raise HTTPException(404, detail="Server not found")
     return _inventory_public(server)
+
+
+def _alert_public(row: Notification) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "type": row.type,
+        "severity": row.severity,
+        "title": row.title,
+        "body": row.body,
+        "server_id": row.server_id,
+        "link_url": row.link_url,
+        "status": row.status,
+        "created_at": _api_utc_iso(row.created_at),
+        "updated_at": _api_utc_iso(row.updated_at),
+    }
+
+
+@router.get(
+    "/alerts",
+    summary="Open alerts",
+    description="Open in-app notifications (scope read). Does not include dismissed or resolved rows.",
+)
+def list_alerts(
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+    limit: int = 100,
+    offset: int = 0,
+):
+    auth.require(tok_svc.SCOPE_READ)
+    from ..services import list_query as lq
+    from ..services.notifications import list_notifications
+
+    lim = lq.clamp_api_limit(limit)
+    off = lq.parse_offset(offset)
+    rows = list_notifications(session, status="open", limit=lim, offset=off)
+    total = session.exec(
+        select(func.count()).select_from(Notification).where(Notification.status == "open")
+    ).one()
+    try:
+        total_n = int(total)
+    except (TypeError, ValueError):
+        total_n = len(rows)
+    return {
+        "alerts": [_alert_public(row) for row in rows],
+        "total": total_n,
+        "limit": lim,
+        "offset": off,
+    }
 
 
 @router.get("/services", summary="Fleet service monitor snapshots")
@@ -1065,6 +1114,53 @@ async def prune_docker(
     )
 
 
+@router.post(
+    "/servers/{server_id}/docker/build-cache",
+    summary="Prune Docker build cache",
+    description=(
+        "Requires scope `edit`. Runs docker builder prune and docker buildx prune "
+        "on the host. One audit row. Not a docker_prune job and not scheduled."
+    ),
+)
+def prune_build_cache(
+    server_id: int,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import docker_management as docker_svc
+    from ..services.server_audit import record_server_audit
+
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404, detail="Server not found")
+    auth.require(tok_svc.SCOPE_EDIT)
+    auth.require_feature("docker")
+    auth.require_server_feature(server, "docker")
+    try:
+        result = docker_svc.prune_build_cache(server)
+    except Exception as exc:
+        result = {"success": False, "output": str(exc)[:500]}
+    ok = bool(result.get("success"))
+    output = str(result.get("output") or "")[:1500]
+    audit = record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=auth.user_id,
+        action="docker_build_cache_prune",
+        status="success" if ok else "failed",
+        message=output or ("Build cache pruned" if ok else "Build cache prune failed"),
+        api_token_id=auth.token_id,
+        api_token_name=auth.token_name,
+        client_ip=auth.client_ip,
+    )
+    session.commit()
+    return {
+        "ok": ok,
+        "audit_id": audit.id,
+        "output": output,
+    }
+
+
 class MoveCreateBody(BaseModel):
     """Stop-first Move. Leftover on the source is always stopped. No undo."""
 
@@ -1327,6 +1423,14 @@ class DiscoveryDevicePatch(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class ReplaceStaleMacBody(BaseModel):
+    """Ignore one stale MAC row and copy its custom fields onto this device."""
+
+    stale_device_id: int
+
+    model_config = {"extra": "forbid"}
+
+
 class DiscoveryLinkBody(BaseModel):
     """Link a discovery device to a fleet server."""
 
@@ -1358,6 +1462,7 @@ def _device_error(exc: ValueError) -> HTTPException:
         "disabled": (400, "LAN Discovery is off"),
         "no_ranges": (400, "No scan ranges are saved"),
         "outside_ranges": (400, "This device is outside the saved ranges"),
+        "not_a_nic_change": (400, "That row is not a stale MAC for this device"),
     }
     if code == "bad_intensity":
         from ..services.nmap.argv import INTENSITIES
@@ -1447,6 +1552,38 @@ def patch_discovery_device(
     except ValueError as exc:
         raise _device_error(exc) from exc
     return payload
+
+
+@router.post(
+    "/discovery/{integration_id}/devices/{device_id}/replace-stale-mac",
+    summary="Replace a stale MAC with this device",
+    description=(
+        "Scope edit. Marks the stale row ignored and copies its display name, "
+        "kind override, and notes onto this MAC. One audit row. "
+        "Does not merge the rows by itself."
+    ),
+)
+def replace_discovery_stale_mac(
+    integration_id: int,
+    device_id: int,
+    body: ReplaceStaleMacBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services.nmap.public_api import replace_stale_mac_action
+
+    auth.require(tok_svc.SCOPE_EDIT)
+    row = _discovery_or_404(session, integration_id)
+    try:
+        return replace_stale_mac_action(
+            session,
+            row,
+            device_id,
+            int(body.stale_device_id),
+            **_device_caller(auth),
+        )
+    except ValueError as exc:
+        raise _device_error(exc) from exc
 
 
 @router.post(

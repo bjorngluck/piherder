@@ -147,6 +147,45 @@ def test_restore_apply_pulls_then_rsyncs(tmp_path):
     assert res["rc"] == 0
     assert "Google Drive" in res["summary"]
     assert res["destination_id"] == 4
+    assert res["ownership"]["skipped"] is True
+    assert res["ownership"]["reason"] == "no manifest"
+
+
+def test_restore_applies_ownership_and_keeps_old_archives_working(tmp_path):
+    from app.services.backup_ownership import write_manifest
+
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    write_manifest(
+        dest_dir,
+        [{"path": "data/app.db", "uid": 1000, "gid": 1000, "mode": "4755"}],
+    )
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+    calls = []
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        calls.append((cmd, input))
+        return SimpleNamespace(returncode=0, stdout="applied 1\n", stderr="")
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=False)
+    assert res["rc"] == 0
+    assert res["ownership"]["applied"] is True
+    assert calls[0][0][0] == "rsync"
+    assert ".piherder-ownership.json" in calls[0][0]
+    assert calls[1][0][0] == "ssh"
+    assert calls[1][0][-1] == "sh -s -- /data/app"
+    assert "0755" in calls[1][1]
+    assert "4755" not in calls[1][1]
+    assert "sudo -n /usr/bin/chown" in calls[1][1]
+    assert "sudo -n /usr/bin/test -e" in calls[1][1]
 
 
 def test_restore_missing_local_dest():

@@ -21,7 +21,8 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 | 3 | Optional [HTTPS](https-tls.md) | Trust for browsers and later push |
 | 4 | [Add a server](../day-to-day/add-server.md) | **Wizard** — Identity → Trust → Connect (**install key → test → clear password**) |
 | 5 | Wizard **Features** (or Edit → Features) | Enable only backups / OS updates (or HA updates) / Docker you need |
-| 6 | Open [Dashboard](../day-to-day/dashboard-and-services.md) | Confirm the host appears; no mystery tiles yet |
+| 6 | Optional **Bootstrap missing tools** on SSH access | Ubuntu, Debian, or Raspbian only. Installs `rsync` when Backups are on, or official Docker CE when Docker is on. Confirm before the docker group. [Add a server](../day-to-day/add-server.md#bootstrap-missing-tools) |
+| 7 | Open [Dashboard](../day-to-day/dashboard-and-services.md) | Confirm the host appears; no mystery tiles yet |
 
 **Done when:** Server detail shows green-enough SSH/deps for enabled features; no password left stored if key auth works.
 
@@ -199,7 +200,7 @@ Full page: [Move a service](../docker/service-migration.md). Do **not** pick **R
 | 4 | If you enable it: **Settings → Console** for idle / max / slots; Security for 2FA grant | [Web SSH console](../day-to-day/web-ssh-console.md) · [Settings](../operations/settings.md#console) |
 | 5 | Then: operator + 2FA → Console → **+ Shell** | Same wiki |
 | 6 | **Test connection** pins the host key; reset only after a rebuild | TOFU — mismatch is refused |
-| 7 | Smoke the [v1.2 QA](../operations/qa-v1.2.0.md) identity + console rows if you turn these on | Optional surfaces — they stay off until you enable them |
+| 7 | Smoke the [v1.2 QA](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.2.0.md) identity + console rows if you turn these on | Optional surfaces. They stay off until you enable them |
 
 ---
 
@@ -235,6 +236,7 @@ Full page: [Move a service](../docker/service-migration.md). Do **not** pick **R
 | Light / dark, instance name, one accent, Catalog in the nav | [Appearance](appearance.md) |
 | About PiHerder / GitHub / new version notice | Avatar menu → **About** (`/about`) |
 | Add a Pi, deploy SSH key, features (wizard) | [Add a server](../day-to-day/add-server.md) · Journey A |
+| Missing `rsync` or Docker CE on Ubuntu, Debian, or Raspbian | [Bootstrap missing tools](../day-to-day/add-server.md#bootstrap-missing-tools) |
 | HAOS appliance (SSH + HA updates) | [HAOS hosts](../day-to-day/haos-hosts.md) · Journey C2 |
 | Dashboard tiles & fleet services | [Dashboard & Services](../day-to-day/dashboard-and-services.md) |
 | Backup / patch / LAN / Docker / console history (not Grafana) | [Reports](../day-to-day/reports.md) |
@@ -320,7 +322,7 @@ Full page: [Move a service](../docker/service-migration.md). Do **not** pick **R
 | Stack Status healthy? | [Status](../operations/status.md) |
 | Herder self-backup / restore (**admin only**) | [Self-backup](../operations/self-backup.md) · [Roles](../account-security/roles.md) |
 | Upgrade compose / image | [Upgrades](../operations/upgrades.md) |
-| **v1.2 freeze QA / sign-off** | [QA checklist](../operations/qa-v1.2.0.md) (historical Hub 1.2) |
+| **v1.2 freeze QA / sign-off** | [QA checklist](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.2.0.md) (historical Hub 1.2) |
 | More backup parallelism | [Multi-worker](../operations/multi-worker.md) |
 | Prometheus / env webhook fallback | [Metrics](../operations/metrics-webhooks.md) |
 | Webhook + SMTP alerts / forgot password | [Alerts](../operations/alerts-email-webhooks.md) |

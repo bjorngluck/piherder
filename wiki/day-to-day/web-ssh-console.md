@@ -305,7 +305,7 @@ PIHERDER_SSH_CONSOLE=true
 docker compose up -d web
 ```
 
-Full catalog: [Environment reference](../operations/env-reference.md) · sample: [console-and-backup.env.example](https://github.com/bjorngluck/piherder/blob/v1.2.0-dev/docs/console-and-backup.env.example).
+Full catalog: [Environment reference](../operations/env-reference.md) · sample: [console-and-backup.env.example](https://github.com/bjorngluck/piherder/blob/v1.2.0/docs/console-and-backup.env.example).
 
 ---
 

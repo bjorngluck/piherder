@@ -31,6 +31,7 @@ _ACTION_LABELS = {
     "server_ssh_identity_rotated": "SSH identity rotated",
     "server_ssh_identity_tested": "SSH identity tested",
     "server_host_deps": "Host dependency check",
+    "host_bootstrap": "Host tool bootstrap",
     "server_backup_config": "Backup config",
     "server_backup_source_add": "Backup source added",
     "server_backup_source_remove": "Backup source removed",
@@ -47,6 +48,8 @@ _ACTION_LABELS = {
     "os_update_check": "OS update check",
     "container_update_check": "Container update check",
     "docker_prune": "Docker prune",
+    "docker_build_cache_prune": "Docker build cache prune",
+    "server_docker_prune_schedule": "Docker prune schedule",
     "docker_stack_check": "Stack update check",
     "docker_stack_deploy": "Stack deploy",
     "docker_check-updates": "Stack update check",
@@ -106,6 +109,7 @@ _ACTION_LABELS = {
     "template.drift_check": "Template drift check",
     "template.env_migrate": "Import host .env",
     "template.apply_config": "Apply last known config",
+    "nmap_replace_stale_mac": "Replaced stale MAC",
 }
 
 

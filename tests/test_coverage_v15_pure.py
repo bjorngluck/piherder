@@ -572,7 +572,7 @@ def test_job_runners_os_container_backup(monkeypatch):
 
     session, engine = _memory()
     srv = _server(session)
-    monkeypatch.setattr(jobs_mod, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(jobs_mod, "run_in_threadpool", _immediate)
     monkeypatch.setattr(asyncio, "create_task", _drop_task)
     monkeypatch.setattr(jobs_mod, "_send_summary_webhook", lambda *a, **k: None)
@@ -719,7 +719,7 @@ def test_job_execute_checks_and_template(monkeypatch):
 
     session, engine = _memory()
     srv = _server(session)
-    monkeypatch.setattr(jobs_mod, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(jobs_mod, "_send_summary_webhook", lambda *a, **k: None)
 
     jo, ao = _job_audit(session, srv, "os_update_check")
@@ -799,7 +799,7 @@ def test_execute_os_container_patch_sync(monkeypatch):
 
     session, engine = _memory()
     srv = _server(session)
-    monkeypatch.setattr(jobs_mod, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(jobs_mod, "_send_summary_webhook", lambda *a, **k: None)
     monkeypatch.setattr("app.services.os_patching.init_os_patch_progress", lambda *a, **k: None)
     monkeypatch.setattr("app.services.os_patching.mark_os_patch_done", lambda *a, **k: None)
@@ -943,7 +943,7 @@ def test_herder_restore_json_and_list(tmp_path, monkeypatch):
     from app.services import herder_backup as hb
 
     session, engine = _memory()
-    monkeypatch.setattr(hb, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(hb, "HERDER_BACKUP_DIR", tmp_path)
     monkeypatch.setattr(hb, "_ensure_dir", lambda: None)
     monkeypatch.setattr(hb, "_fix_postgres_sequences", lambda: None)
@@ -1387,7 +1387,7 @@ def test_main_lifespan_and_root_helpers(monkeypatch):
     session, engine = _memory()
     _user(session)
     _server(session)
-    monkeypatch.setattr(main_mod, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(main_mod, "HAS_SCHEDULER", False)
     monkeypatch.setattr(main_mod, "scheduler", None)
     monkeypatch.setattr("app.db_migrate.run_alembic_upgrade", lambda: None)

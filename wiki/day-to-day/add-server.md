@@ -99,13 +99,25 @@ Optional **Web SSH console** (browser terminal; flag off by default): [Web SSH c
 |--------|----------------|-----|
 | **Test connection** | Verifies key (or password) login, then refreshes **host dependency** probes when login succeeds. First success **pins** the SSH host key | Proves the path before you queue jobs |
 | **Reset host-key pin** | Clears the stored fingerprint after a **rebuild** (or a replaced machine at the same address) | Mismatch is **refused** until you reset; do not reset on a surprise change |
-| **Check dependencies** | Probes `rsync` / docker / apt for **enabled** features only | Failures become hints, not silent job fails later |
+| **Check dependencies** | Probes `rsync` / docker / apt for **enabled** features only. Also reads `/etc/os-release` and the CPU architecture | Failures become hints, not silent job fails later |
+| **Bootstrap missing tools** | Operator action on SSH access and the add-server wizard. Queues a `host_bootstrap` job. Installs `rsync` when Backups are on, and official Docker CE when Docker is on. Asks before adding the fleet SSH user to the `docker` group. An optional bootstrap username logs in as an admin when the fleet user is already `piherder`. The one-time sudo password is Fernet-encrypted in the broker only until a worker picks it up, acked on receipt, expires after 120 seconds, is never retried or redelivered, and is never logged. A worker crash marks the job failed and the operator reruns with a fresh password. If no worker takes the message, the pending job fails with `expired before a worker picked it up, rerun with a fresh password`. A second bootstrap while one already holds the host fails at once with `another job holds this host, rerun when it finishes`, and the password is not queued. Progress and errors stay in the SSH access window | Avoids `get.docker.com` and does not widen the standing sudoers file |
 | **Deploy key** | Installs public key into `authorized_keys`; verifies key-only login | Stops depending on passwords |
 | **Rotate key** | New keypair, deploy, swap only after verify succeeds | Safe rotation if a key may have leaked |
 | **Least-priv user** | Optional `piherder` user + limited sudoers (Pi OS / Ubuntu) | Limits blast radius of the **fleet** account |
 | **Privileged identity** | Optional second key/user (e.g. `piherder-admin`). Generate or paste a key, download the setup script, run it on the host, then **Test privileged** | Break-glass **Connect as…** only. Not “Run on host”. HAOS: skip |
 
 SSH access shows **two labeled public keys** when privileged exists: **Fleet public key** (jobs + default console) and **Privileged public key**. They are different keypairs. Copy the one that matches the user you are installing.
+
+### Bootstrap missing tools {#bootstrap-missing-tools}
+
+After SSH works, **Bootstrap missing tools** uses the last host check. Backups on, and `rsync` missing, can install `rsync`. Docker on, and Docker CE, the Compose plugin, or docker group membership missing, can install official Docker CE from `download.docker.com` for Ubuntu, Debian, and Raspbian. The script installs `ca-certificates`, `curl`, and `gnupg` first, checks that Docker has published that distro codename, then removes only conflicting distro packages that are already installed (`apt-get remove`, not purge). It checks the Docker GPG fingerprint in a temporary `GNUPGHOME` and installs `docker-ce` and `docker-compose-plugin`. It does not call `get.docker.com` and it does not add `apt-get` to `/etc/sudoers.d/piherder`.
+
+Tick the confirm box before Docker bootstrap. Adding the fleet SSH user to the `docker` group lets that user start containers as root. If distro Docker packages or running containers were seen, the same box covers replacing those packages. `/var/lib/docker` is left in place. When the fleet user is already the restricted `piherder` account, enter an admin SSH username (such as `pi` or `ubuntu`) and that user's password. Leave the username blank to use the fleet user. The optional password is used once for SSH and, only when sudo still asks, for `sudo -S`. The one-time sudo password is Fernet-encrypted in the broker only until a worker picks it up, acked on receipt, expires after 120 seconds, is never retried or redelivered, and is never logged. A worker crash marks the job failed and the operator reruns with a fresh password. If no worker takes the message, the pending job fails with `expired before a worker picked it up, rerun with a fresh password`. A second bootstrap while one already holds the host fails at once with `another job holds this host, rerun when it finishes`, and the password is not queued. It is not written to the job row or the audit row. The button queues job type `host_bootstrap`. The SSH access window stays open and shows the log. Job history lists the same row. The audit action is `host_bootstrap`. The button posts to `POST /servers/{id}/host-deps/bootstrap` in the browser. There is no token API and no hosted MCP tool for this install. A Pi with only Backups on is checked and installed for `rsync` only, even if a form field asks for Docker CE. This is on the v1.13 train and is not in the 1.12.1 image.
+
+<figure class="ph-figure" markdown>
+  ![Bootstrap missing tools](../assets/screenshots/host-bootstrap.png)
+  <figcaption>SSH access, Bootstrap missing tools. The fleet user is piherder. The password fields are empty.</figcaption>
+</figure>
 
 !!! tip "Clear stored passwords"
     After key auth works, clear any stored SSH password (wizard Connect or server edit) so secrets stay keys-only.
@@ -116,7 +128,7 @@ SSH access shows **two labeled public keys** when privileged exists: **Fleet pub
 
 - Creates e.g. `piherder` with key-only login  
 - Optional `docker` group  
-- Sudoers for rsync/test, `/var/lib/piherder/rclone` for a host that sends files straight out, and optional apt/reboot (`visudo -cf` before install). A host set up before that rclone path existed needs the script copied again from **SSH access** and applied again  
+- Sudoers for rsync/test, `/var/lib/piherder/rclone` for a host that sends files straight out, and optional apt/reboot (`visudo -cf` before install). A host set up before that rclone path existed needs the script copied again from **SSH access** and applied again. Sudo resets the environment, so a `DEBIAN_FRONTEND` prefix is often gone when apt runs. The OS patch job keeps debconf, apt, and sudo error lines. A freshly generated script also allows `find`, `chown`, and `chmod` so a restore can put numeric ownership back. Apply that script again on a host created before it. That ownership step is on the v1.13 train and is not in the 1.12.1 image  
 - **Run on host** re-points `ssh_username` after verify  
 - **HAOS / specialised:** instructions only — not automated  
 

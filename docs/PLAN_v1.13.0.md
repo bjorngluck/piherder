@@ -1,27 +1,98 @@
-# PiHerder v1.13.0: notes
+# PiHerder v1.13.0: ownership on restore, and a hint when a MAC changes
 
-**Status:** **Notes only.** Not a train. No branch. Nothing here is built.  
-**Date noted:** 2026-10-19  
-**Opens after:** [v1.12.0](PLAN_v1.12.0.md) ships. Do not cut `v1.13.0-dev` until then.  
-**Package:** stays on the version v1.12 freezes. This note does not bump it.
+**Status:** **Built** on `v1.13.0-dev` 2026-10-23. Must and Should code and documentation are on the branch. Operator QA walks and screenshot reservations are ready in [QA_v1.13.0.md](QA_v1.13.0.md) and [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status). Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frames are wired. Code freeze is set 2026-10-25. No tag.  
+**Date opened:** 2026-10-23  
+**Git branch:** `v1.13.0-dev`  
+**Package / image version:** package stays **`1.12.1`**. About / footer stay **1.12.1**. This train does not bump the package.  
+**Theme:** ownership on restore, and a hint when a MAC changes  
+**Baseline:** `v1.12.1` (tagged 2026-10-23)  
+**Mode:** **Must → Should.** Tiers were voted 2026-10-23. Nothing was voted Discover, Later, or Out.  
+**QA:** [QA_v1.13.0.md](QA_v1.13.0.md) (operator walks and screenshot reservations. **Not** the operator wiki. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frames are wired.)  
+**Related:** [PLAN_v1.12.0.md](PLAN_v1.12.0.md) · [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) (draft) · [RELEASE_v1.12.1.md](RELEASE_v1.12.1.md) · [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) · wiki [Backups](../wiki/day-to-day/backups.md) · wiki [LAN Discovery](../wiki/integrations/lan-discovery.md) · wiki [Add a server](../wiki/day-to-day/add-server.md) · wiki [Docker](../wiki/docker/overview.md)
 
-> Two items, not voted. v1.12 Docker prune does not clear builder cache. v1.12 restore does not put volume ownership back.
+> Opened 2026-10-23 from `main` after **v1.12.1** shipped. Package stays `1.12.1`. The public demo is not pointed at this branch. Plugin **0.5.3** is the card. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter. Hosted `/mcp` on this branch lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Open issues were reviewed the same day. PiHerder has one open issue, [#50](https://github.com/bjorngluck/piherder/issues/50). piherder-ha and piherder-mcp have none. Pull request [#60](https://github.com/bjorngluck/piherder/pull/60) is open. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frames are wired.
 
 ---
 
-## 1. Notes
+## 0. Intent
 
-### Docker
+v1.12.1 is a certifi patch on v1.12.0. v1.12.0 shipped remote restore and Docker prune. This train puts the Unix owner back on a restore, names a possible NIC change, and can replace the stale MAC in one audited step. Feature-gated host tool bootstrap installs missing `rsync` and official `docker-ce` from `POST /servers/{id}/host-deps/bootstrap`. A new token secret stays off the redirect query string. The same vote adds Docker prune follow-ups, a stuck queue, a read-only alerts read, and a docs sweep. The areas below are the vote. Must blocks the tag. Should is built on this train, and the tag can ship if that walk slips.
 
-| Tier | Note |
-|------|------|
-| Untiered | **Build cache.** The host Docker page, the token API, and hosted MCP can prune the Docker build cache and the buildx cache. Same shape as the v1.12 prune job: `edit` scope on the API and MCP, one audit row per run. It is not part of `docker_prune`. `both` on that job stays dangling images and exited containers. No schedule on this note |
+---
+
+## 1. Decision lock
 
 ### Backups
 
-| Tier | Note |
+| Tier | Lock |
 |------|------|
-| Untiered | **Restore ownership.** Record the Unix owner, group, and mode when a tree is backed up, and put them back on the host during restore. Drive, OneDrive, and a LAN share do not keep a Unix owner. The pull lands as the account that runs rclone, and the reverse rsync writes that owner onto the host. A named volume that must belong to the app user inside the container can come back as the wrong account. The container may then fail to start or refuse to write. v1.12 restore does not repair this |
+| Must | **Restore ownership.** Record numeric `uid`, `gid`, and octal `mode` in `.piherder-ownership.json` when a tree is backed up. After the pull, restore that numeric owner, group, and mode on the host. Strip `setuid` and `setgid` (`mode & 0o1777`). An archive with no sidecar still restores. Drive, OneDrive, and a LAN share do not keep a Unix owner. The pull lands as the account that runs rclone until this step runs |
+| Should | **Backup stagger ceiling.** Spread host backup minutes across all 1,440 minutes in a day before two hosts share a minute slot |
+
+### Discovery
+
+| Tier | Lock |
+|------|------|
+| Must | **NIC change.** Issue [#50](https://github.com/bjorngluck/piherder/issues/50). When a scan inserts a MAC identity, and another non-ignored row has the same hostname and the same IP and has been stale for longer than one scan interval, show a "possible NIC change" notice. The notice is a Discovery badge and a `lan_discovery` notification at `info`. `GET /api/v1/discovery/{id}/devices` sets `nic_change`. Device identity stays the MAC. Rows are not merged and are not auto-ignored. **Replace stale MAC** is the page button, `POST /api/v1/discovery/{id}/devices/{device_id}/replace-stale-mac` (`edit`, body `stale_device_id`), and hosted `replace_stale_mac`. It marks that stale row `ignored`, copies a non-empty display name, kind override, and notes, and writes audit action `nmap_replace_stale_mac`. The issue stays open until the release |
+
+### Docker
+
+| Tier | Lock |
+|------|------|
+| Should | **Build cache.** The host Docker page (`POST /servers/{id}/docker/prune-build-cache`), `POST /api/v1/servers/{id}/docker/build-cache` (`edit`), and hosted `prune_build_cache` (`edit`) run `docker builder prune -f` then `docker buildx prune -f`. One audit row, action `docker_build_cache_prune`. It is not part of `docker_prune`. No schedule on this action. The published adapter stays **0.4.3** |
+| Should | **Prune on a schedule.** Per-host `docker_prune_schedule` (empty means off, and the host needs container patch) starts `docker_prune` with `both` (dangling images and exited containers). Volumes stay off. Build cache stays its own action. Scheduler id `docker_prune_{id}`. About **View schedule** lists it. A missed slot opens `docker_prune_missed` |
+| Should | **Prune after an update.** At the end of a successful `container_patch` or redeploy, run `docker image prune -f` inline. Dangling images only. Not volumes, not exited containers, and not the build cache. A prune failure does not fail the job |
+| Should | **Expire stuck inventory refresh.** If `docker_inventory_status` stays `refreshing` for 30 minutes from `docker_inventory_at`, reset it to stale when a snapshot exists and to never when it does not. A missing timestamp is not expired |
+| Should | **Per-project `update_available` in the inventory API.** `GET /api/v1/inventory` and `GET /api/v1/servers/{id}/inventory` set `update_available` on each container, image, and compose project. Callers do not scrape `container_update_check` job logs for that |
+
+### Alerts
+
+| Tier | Lock |
+|------|------|
+| Should | **Stuck queue.** One `stuck_queue` warning when any job stays `pending` past 15 minutes and no worker answers. Resolve when that age drops to 15 minutes or less, or when a worker answers again. An unknown heartbeat leaves an open warning. `/metrics` exposes `piherder_queue_oldest_pending_seconds` and `piherder_stuck_queue` (1 only when the condition is proven) |
+| Should | **Read-only alerts.** `GET /api/v1/alerts` (`read`, `limit`, `offset`) and hosted `list_alerts` return open notifications. Dismissed and resolved rows are omitted |
+
+### MCP
+
+| Tier | Lock |
+|------|------|
+| Should | **OAuth token names.** `mcp_oauth.py` `_token_name` appends `secrets.token_hex(3)` (6 hex characters) to the slugged `client_name`. The suffix is not the access token and not the `ph_oa_` prefix. The name is capped at 120 characters. This does not need an adapter tag |
+
+### Security
+
+| Tier | Lock |
+|------|------|
+| Must | **One-time token banner off the query string.** After create or rotate, the redirect URL does not carry `token_secret`. The secret is a one-shot HttpOnly cookie `api_token_once` (5 minutes, JWT claim `ats`) |
+
+### Hosts
+
+| Tier | Lock |
+|------|------|
+| Must | **Host tool bootstrap and feature preflight.** `run_host_deps_check` reads `/etc/os-release` and `dpkg --print-architecture` and maps `ubuntu`, `debian`, and `raspbian` to the official Docker apt repository. rsync is probed only when backups are on. Docker CE, Compose, the docker group, conflicting distro packages, and running containers are probed only when the Docker feature is on and the host is not HAOS. `POST /servers/{id}/host-deps/bootstrap` (operator, refused in demo) installs only those missing tools. The script installs `ca-certificates`, `curl`, and `gnupg`, then checks `dists/<codename>/Release` before it removes packages. It runs `apt-get remove` (not purge) only for conflicting packages that `dpkg-query` reports as installed. It verifies Docker GPG fingerprint `9DC858229FC7DD38854AE2D88D81803C0EBFCD88` with `gpg --batch --show-keys` in an ephemeral `GNUPGHOME`. sudo uses `-H`. It does not use `get.docker.com` or widen sudoers. Docker bootstrap needs `confirm_docker_bootstrap`. The one-time sudo password is Fernet-encrypted in the broker only until a worker picks it up, acked on receipt, expires after 120 seconds, is never retried or redelivered, and is never logged. A worker crash marks the job failed and the operator reruns with a fresh password. If no worker takes the message, the pending job fails with `expired before a worker picked it up, rerun with a fresh password`. A second bootstrap while one already holds the host fails at once with `another job holds this host, rerun when it finishes`, and the password is not queued. It is not stored on the job row or the audit row. After `usermod -aG docker`, a fresh SSH session checks `docker info` and `docker compose version`. `host_bootstrap` is an exclusive Celery job (`Job` row, Job history). An optional `bootstrap_username` logs in as an admin when the fleet user is already the restricted `piherder` account. The SSH access window stays open and polls the job. Not on `/api/v1` or `/mcp` |
+
+### Internals
+
+| Tier | Lock |
+|------|------|
+| Must | **Docs and release-sync sweep.** Fix `v1.12.1` version drift in `SECURITY.md`, `CONTRIBUTING.md`, `SPEC.md`, `docs/ADMIN.md`, `docs/ROADMAP_ECOSYSTEM.md`, `docs/API.md`, and `wiki/`. Fix broken relative links to `docs/archive/v0/`. Add public-repo hygiene rules in `AGENTS.md`. Extend `scripts/check_release_sync.py` so those version pins stay checked |
+| Should | **Reconcile orphaned running jobs.** On worker startup or the host-facts fleet tick, fail a `running` job whose Celery worker is gone. The message is `Interrupted. The Celery worker is no longer alive.` Workers that answer with a missing task id wait 60 seconds. A failed inspect leaves jobs alone. No worker fails the job immediately. Web startup does not run this check |
+| Should | **`get_engine()`.** One accessor for every session in `app/`. Callers stop importing the module-level engine. A test fails if anything outside `app/database.py` imports that engine. No operator-visible change |
+
+| Topic | Lock |
+|-------|------|
+| Version bump | Package stays **1.12.1** until freeze. About stays **1.12.1** |
+| Demo | The public demo is not pointed at this branch |
+| Plugin | The Home Assistant card stays the separate HACS repo. Putting it in this image is not a backlog row |
+| Adapter | Published adapter stays **0.4.3**. Hosted `/mcp` adds `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. Build-cache prune is an action, not a new job type |
+| Issues | [#50](https://github.com/bjorngluck/piherder/issues/50) stays open until the release |
+
+Not on this train: the push-denylist secret (the workflow is in), volume prune on the API, borg, kopia, rclone crypt, fine-grained roles, and putting the Home Assistant plugin in the image. Pushed to v1.14.0+: a pre-restore host rollback snapshot, backup manifest file-count and byte verification, a dry-run restore preview API, and a compose git checkout drift badge.
+
+### Open question
+
+**Coverage floor.** CI `--cov-fail-under` stays **80** on `app`. This train does not raise it. A compose run before the headroom packs was **80.08%** line (46,299 / 57,813), about 48 lines above a strict 80%. `tests/test_coverage_v113_headroom.py` brought a later run to **80.49%** (46,534 / 57,813), about 283 lines above a strict 80%. `tests/test_coverage_v113_more.py` brought the same tree to **80.91%** (46,774 / 57,813), about 523 lines above a strict 80%. That pack covers Move dest-up recovery, a sudo rsync retry, a straight-out pull, and diagnostics. Whether a later train raises the fail-under is not voted. Not a v1.13 tag blocker.
+
+Nothing was voted **Out**.
 
 ---
 
@@ -31,7 +102,40 @@
 |------|----------------|
 | 2026-10-19 | **Build cache.** Noted from the v1.12 prune work. The page, the token API, and hosted MCP should clear the Docker build cache and the buildx cache. Not on the v1.12 train. Not built. |
 | 2026-10-19 | **Restore ownership.** Noted from the v1.12 remote restore. Record the Unix owner, group, and mode at backup time and put them back on restore, especially for named volumes. A wrong owner can stop the container from starting. Not on the v1.12 train. Not built. |
+| 2026-10-23 | **Train opened** from `main` after **v1.12.1** shipped. Tiers voted. Must: restore ownership, NIC change ([#50](https://github.com/bjorngluck/piherder/issues/50)). Should: backup stagger ceiling, build cache, prune on a schedule, prune dangling images after a successful update, stuck queue, OAuth token name suffix, `get_engine()`. Nothing was voted Discover, Later, or Out. Open issues reviewed: [#50](https://github.com/bjorngluck/piherder/issues/50) is the only open issue. piherder-ha and piherder-mcp have none. No open pull request. Package stays `1.12.1`. Nothing is built. |
+| 2026-10-23 | **Team review.** Lock tightened the same day. Restore ownership records numeric `uid`, `gid`, and octal `mode` in a sidecar and strips `setuid` and `setgid`. NIC change adds a Discovery badge, a `lan_discovery` `info` notification, and one-click **Replace stale MAC** (ignore the stale row, copy display name, kind override, and notes, one audit row). Backup stagger uses all 1,440 minutes. Docker adds build-cache prune (published adapter stays **0.4.3**; hosted `/mcp` lists `prune_build_cache` ahead of that adapter), prune on a schedule in About and the missed-run watch, `docker image prune -f` after a successful update, a 30-minute reset for a stuck inventory refresh, and per-project `update_available` on the inventory API. Alerts add the stuck-queue gauges and read-only `GET /api/v1/alerts` plus MCP `list_alerts`. Must also covers the docs and release-sync sweep, and keeping `token_secret` off the redirect query string. Should also covers orphaned `running` jobs and a `get_engine()` guard. Pushed to v1.14.0+: pre-restore host rollback snapshot, backup manifest file-count and byte verification, dry-run restore preview API, compose git checkout drift badge. Not built. |
+| 2026-10-23 | **Should built** on `v1.13.0-dev`. `get_engine()`, OAuth token suffix, backup minutes across all 1,440 slots, orphaned running jobs, a 30 minute inventory refresh reset, the stuck-queue alert and gauges, `GET /api/v1/alerts` and hosted `list_alerts`, inventory `update_available`, `docker image prune -f` after a successful container update or redeploy, a per-host `docker_prune` schedule (volumes off) in About and the missed-run watch, and build-cache prune on the Docker page, `POST /api/v1/servers/{id}/docker/build-cache`, and hosted `prune_build_cache`. Package stays `1.12.1`. Published adapter stays **0.4.3** so release sync matches `origin/main`. Hosted MCP adds `list_alerts` and `prune_build_cache` ahead of that adapter. |
+| 2026-10-23 | **Docs.** Operator walks are written in [QA_v1.13.0.md](QA_v1.13.0.md) and are not signed. Screenshot names are reserved in the [v1.13 pack](../wiki/assets/screenshots/README.md#v113--pack-status). Wiki and [API.md](API.md) name `.piherder-ownership.json`, cookie `api_token_once`, `nic_change`, `POST /api/v1/discovery/{id}/devices/{device_id}/replace-stale-mac`, `docker_prune_schedule`, `POST /api/v1/servers/{id}/docker/build-cache`, inventory `update_available`, hosted `list_alerts`, `prune_build_cache`, and `replace_stale_mac`, `POST /servers/{id}/host-deps/bootstrap`, audit action `host_bootstrap`, the OAuth `client_name` suffix, and the Prometheus gauges including `piherder_queue_oldest_pending_seconds` and `piherder_stuck_queue`. Package stays `1.12.1`. Published adapter stays **0.4.3**. |
+| 2026-10-23 | **Host tool bootstrap.** Must. Feature-gated preflight for Ubuntu, Debian, and Raspbian. UI route `POST /servers/{id}/host-deps/bootstrap` only. `build_host_bootstrap_script` and `bootstrap_host_tools` in `app/services/ssh_onboarding.py` take rsync and Docker from the server feature flags. The route queues exclusive job `host_bootstrap` (Celery `exclusive_job`, Job history). Optional `bootstrap_username` is the SSH login when the fleet user is already restricted `piherder`. The one-time sudo password is Fernet-encrypted in the broker only until a worker picks it up, acked on receipt, expires after 120 seconds, is never retried or redelivered, and is never logged. A worker crash marks the job failed and the operator reruns with a fresh password. Passwordless sudo is probed with `sudo -H -n true` before `sudo -S`, so a NOPASSWD admin password is not written into `bash -s`. The SSH access window stays open and shows the job log. Audit action `host_bootstrap`. Package stays `1.12.1`. |
+| 2026-10-23 | **Draft notes.** [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) is a draft on `v1.13.0-dev`. Walks are written and not signed. Screenshots are reserved. Package stays `1.12.1`. Not tagged. |
+| 2026-10-23 | **Draft pull request.** [#60](https://github.com/bjorngluck/piherder/pull/60). Walks stay unsigned. Screenshots stay reserved. Package stays `1.12.1`. |
+| 2026-10-24 | **Coverage headroom.** Packs `tests/test_coverage_v113_headroom.py` and `tests/test_coverage_v113_more.py`. Compose run **80.91%** line (46,774 / 57,813). CI fail-under stays **80**. Open question: raise that floor on a later train, or leave it. Not a v1.13 tag blocker. |
+| 2026-10-25 | **QA.** Host tools (Must) and Internals (Must and Should) signed in [QA_v1.13.0.md](QA_v1.13.0.md). The other walks are not signed. Screenshots stay reserved. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) stays a draft. |
+| 2026-10-25 | **QA.** Docker (Should), Alerts (Should), MCP (Should), and Security (Must) signed in [QA_v1.13.0.md](QA_v1.13.0.md). Backups, Discovery, the 1.12 regression walk, and screenshots are not signed. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) stays a draft. |
+| 2026-10-25 | **QA.** Discovery (Must) signed in [QA_v1.13.0.md](QA_v1.13.0.md). Backup testing is in progress and those boxes stay open. The 1.12 regression walk and screenshots are not signed. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) stays a draft. |
+| 2026-10-25 | **QA.** Backups (Must and Should) signed in [QA_v1.13.0.md](QA_v1.13.0.md). The 1.12 regression walk and screenshots are not signed. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) stays a draft. |
+| 2026-10-25 | **QA.** The 1.12 regression walk is signed in [QA_v1.13.0.md](QA_v1.13.0.md). Screenshots are not signed. Draft pull request [#60](https://github.com/bjorngluck/piherder/pull/60) stays a draft. |
+| 2026-10-25 | **Host bootstrap broker lifetime.** `host_bootstrap_job` acks on receipt, does not retry, and the message expires after 120 seconds. The one-time sudo password is Fernet-encrypted in the broker only until a worker picks it up and is never logged. A worker crash marks the job failed and the operator reruns with a fresh password. An expired message fails the pending job with `expired before a worker picked it up, rerun with a fresh password` and frees the host. Other exclusive tasks stay on `exclusive_job`. Package stays `1.12.1`. |
+| 2026-10-25 | **Host bootstrap when the host is busy.** A second `host_bootstrap` fails at once with `another job holds this host, rerun when it finishes` and does not queue the sudo password. Wiki [Add a server](../wiki/day-to-day/add-server.md), [Jobs and audit](../wiki/day-to-day/jobs-audit-notifications.md), and [Multi-worker](../wiki/operations/multi-worker.md) name that failure and the expired-message failure. [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) stays a draft. Walks are signed. Screenshots are not captured. Package stays `1.12.1`. |
+| 2026-10-25 | **Code freeze.** No new product work on `v1.13.0-dev`. Walks are signed. Screenshots are not captured. Package stays `1.12.1`. Pull request [#60](https://github.com/bjorngluck/piherder/pull/60) stays open. Not tagged. |
+| 2026-10-26 | **Screenshots.** About Docker prune and Docker cleanup are wired. Host bootstrap, NIC change, and the stuck-queue uploads are not in the pack. [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) stays a draft and names Alembic **051**. Package stays `1.12.1`. Not tagged. |
+| 2026-10-26 | **Screenshot hold.** NIC change and the stuck-queue frame wait for a real example. Host bootstrap stays out until the fleet user in the frame is `piherder`. Package stays `1.12.1`. |
+| 2026-10-26 | **Host bootstrap frame.** `host-bootstrap.png` is wired. Password fields are masked. NIC change and the stuck-queue frame still wait for a real example. Package stays `1.12.1`. |
+| 2026-10-26 | **Example frames.** `discovery-nic-change.png` and `alerts-stuck-queue.png` are wired from the product screens with example names. The v1.13 pack is complete. Package stays `1.12.1`. |
 
 ---
 
-*Noted 2026-10-19. Not opened.*
+## 3. Next
+
+| # | Step | Status |
+|---|------|--------|
+| 1 | Open **`v1.13.0-dev`** | **Done** 2026-10-23 |
+| 2 | Must, by area | **Done** on `v1.13.0-dev`, including documentation. Restore ownership, the possible NIC change notice and Replace stale MAC, the docs and release-sync sweep, the one-time token secret off the query string, and host tool bootstrap |
+| 3 | Should, if it fits | **Done** on `v1.13.0-dev`, including documentation. Stagger ceiling, Docker prune follow-ups, stuck queue and read-only alerts, OAuth token suffix, orphaned running jobs, `get_engine()` |
+| 4 | Freeze | **Set** 2026-10-25. No new product work on this branch. Package stays **1.12.1** |
+| 5 | Operator QA | Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools signed 2026-10-25 in [QA_v1.13.0.md](QA_v1.13.0.md). The 1.12 regression walk is signed 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frames are wired. Pull request [#60](https://github.com/bjorngluck/piherder/pull/60) is open. |
+| 6 | Tag and Hub | Not cut |
+
+---
+
+*Opened 2026-10-23. Must and Should code and documentation are on `v1.13.0-dev`. Backups, Discovery, Docker, Alerts, MCP, Security, Internals, and Host tools are signed 2026-10-25. The 1.12 regression walk is signed 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frames are wired. Code freeze is set 2026-10-25. Package stays 1.12.1. Not tagged.*

@@ -52,4 +52,4 @@ Override with `PIHERDER_E2E_EMAIL` / `PIHERDER_E2E_PASSWORD`.
 - Synthetic master key / secret — not for production
 - Unit tests stay under `tests/` and do not import Playwright
 
-Ship bar: [docs/PLAN_v0.7.0.md](../docs/PLAN_v0.7.0.md) stream E.
+Ship bar: [docs/PLAN_v0.7.0.md](../docs/archive/v0/PLAN_v0.7.0.md) stream E.

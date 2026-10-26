@@ -81,6 +81,7 @@ _QUERY_SECRET_KEYS = frozenset(
 )
 _SERVER_INSTRUCTIONS = (
     "Call summary before changing anything. "
+    "list_alerts returns open notifications. "
     "trigger_job starts backup, retention, os_patch, container_patch, "
     "os_update_check, container_update_check, container_start, container_stop, "
     "container_restart, container_redeploy, host_reboot, "
@@ -96,6 +97,7 @@ _SERVER_INSTRUCTIONS = (
     "list_discovery_devices pages devices. state filters new, known, linked, ignored, or stale. "
     "rename_discovery_device sets the operator name. "
     "set_discovery_device_state sets known, new, or ignored. "
+    "replace_stale_mac ignores a quiet row with the same hostname and IP and copies its custom fields. "
     "link_discovery_device and unlink_discovery_device tie a device to a fleet server. "
     "purge_discovery_device and purge_stale_discovery_devices need confirm true. "
     "A linked device cannot be purged. There is no undo. "
@@ -107,6 +109,8 @@ _SERVER_INSTRUCTIONS = (
     "prune_type is images, containers, both, or networks. "
     "both is dangling images and exited containers. "
     "Volume prune stays on the Docker page. "
+    "prune_build_cache clears the Docker build cache and the buildx cache. "
+    "It needs the edit scope. It is not a docker_prune job and it has no schedule. "
     "Do not invent SSH, undo, a console, token admin, "
     "docker_stack_down, docker_stack_remove, or stale-data cleanup. "
     "Tools appear only for scopes on this token. A token without read has no tools."
@@ -270,6 +274,19 @@ def tool_catalog() -> list[dict[str, Any]]:
             "annotations": _READ_ANN,
         },
         {
+            "name": "list_alerts",
+            "description": "Open notifications. Does not include dismissed or resolved rows.",
+            "scope": tok_svc.SCOPE_READ,
+            "inputSchema": _obj_schema(
+                {
+                    "limit": _int_prop("Page size (default 100, max 100)"),
+                    "offset": _int_prop("Page offset"),
+                },
+                [],
+            ),
+            "annotations": _READ_ANN,
+        },
+        {
             "name": "set_features",
             "description": "Toggle backup, os_patch, or docker. Omit a field to leave it unchanged.",
             "scope": tok_svc.SCOPE_EDIT,
@@ -306,6 +323,16 @@ def tool_catalog() -> list[dict[str, Any]]:
                 },
                 ["server_id"],
             ),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "prune_build_cache",
+            "description": (
+                "Prune the Docker build cache and the buildx cache on one host. "
+                "Needs the edit scope. One audit row. Not a docker_prune job and not scheduled."
+            ),
+            "scope": tok_svc.SCOPE_EDIT,
+            "inputSchema": _obj_schema({"server_id": sid}, ["server_id"]),
             "annotations": _WRITE_ANN,
         },
         {
@@ -449,6 +476,24 @@ def tool_catalog() -> list[dict[str, Any]]:
                     "state": _str_prop("known, new, or ignored"),
                 },
                 ["integration_id", "device_id", "state"],
+            ),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "replace_stale_mac",
+            "description": (
+                "Ignore a stale LAN Discovery row that shares this device's hostname and IP. "
+                "Copies display name, kind override, and notes onto this MAC. "
+                "One audit row. Identity stays the MAC."
+            ),
+            "scope": tok_svc.SCOPE_EDIT,
+            "inputSchema": _obj_schema(
+                {
+                    "integration_id": _int_prop("LAN Discovery integration id"),
+                    "device_id": _int_prop("New MAC device id"),
+                    "stale_device_id": _int_prop("Stale row to ignore"),
+                },
+                ["integration_id", "device_id", "stale_device_id"],
             ),
             "annotations": _WRITE_ANN,
         },
@@ -977,6 +1022,13 @@ async def call_tool(
                 session=session,
                 auth=auth,
             )
+        elif name == "list_alerts":
+            payload = api_v1.list_alerts(
+                session,
+                auth,
+                limit=_opt_int(args, "limit") if args.get("limit") is not None else 100,
+                offset=_opt_int(args, "offset") or 0,
+            )
         elif name == "set_features":
             fields = {
                 key: _opt_bool_or_none(args, key)
@@ -1016,6 +1068,12 @@ async def call_tool(
                 if status_code == 409:
                     payload["already_active"] = True
             await _drain_background(background)
+        elif name == "prune_build_cache":
+            payload = api_v1.prune_build_cache(
+                _require_int(args, "server_id"),
+                session,
+                auth,
+            )
         elif name == "trigger_job":
             job_type = _opt_str(args, "job_type").strip().lower()
             if job_type not in MCP_JOB_TYPES:
@@ -1140,6 +1198,16 @@ async def call_tool(
                 _require_int(args, "integration_id"),
                 _require_int(args, "device_id"),
                 api_v1.DiscoveryDevicePatch(display_name=_opt_str(args, "display_name")),
+                session,
+                auth,
+            )
+        elif name == "replace_stale_mac":
+            payload = api_v1.replace_discovery_stale_mac(
+                _require_int(args, "integration_id"),
+                _require_int(args, "device_id"),
+                api_v1.ReplaceStaleMacBody(
+                    stale_device_id=_require_int(args, "stale_device_id")
+                ),
                 session,
                 auth,
             )

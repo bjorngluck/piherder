@@ -105,6 +105,8 @@
       <button type="button" data-ph-toggle="ssh-provision-panel" class="btn btn-secondary min-h-11 text-sm">Least-priv user</button>
     </div>
 
+    {% include "partials/host_bootstrap_card.html" %}
+
     {% if not is_haos and not demo_console %}
     <div class="border border-border rounded p-3 mb-3 space-y-2" data-testid="ssh-mux-leftovers">
       <div class="text-sm font-medium">Leftover console sessions</div>

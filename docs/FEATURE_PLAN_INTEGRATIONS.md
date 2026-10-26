@@ -4,7 +4,7 @@
 **Status:** **Shipped (H1 Kuma + Grafana)** — tagged **v0.3.0** 2026-07-11  
 **Owner:** Bjorn  
 **Horizon:** H1 / v0.3  
-**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 1 · [SPEC.md](../SPEC.md) Phase 5 · [ADMIN.md](ADMIN.md) § Uptime Kuma / Grafana · [RELEASE_v0.3.0.md](RELEASE_v0.3.0.md)
+**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 1 · [SPEC.md](../SPEC.md) Phase 5 · [ADMIN.md](ADMIN.md) § Uptime Kuma / Grafana · [RELEASE_v0.3.0.md](archive/v0/RELEASE_v0.3.0.md)
 
 ---
 

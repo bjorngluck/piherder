@@ -8,7 +8,7 @@
 **Theme:** **First production release** — security hardening · authz · validation · credential recovery · known-issue burn-down · operator docs
 
 **Plans:** [PLAN_v1.0.0.md](PLAN_v1.0.0.md)  
-**Prior:** [RELEASE_v0.9.0.md](RELEASE_v0.9.0.md)  
+**Prior:** [RELEASE_v0.9.0.md](archive/v0/RELEASE_v0.9.0.md)  
 **Roadmap:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md)  
 **Docs:** https://piherder-docs.hacknow.info/
 

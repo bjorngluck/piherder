@@ -109,6 +109,162 @@
   justify-content: center;
 }
 
+/* Header: GitHub icon plus Discussions, including narrow screens */
+.md-header .md-header__source {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 0.45rem;
+  width: auto;
+  max-width: none;
+}
+
+@media screen and (min-width: 60em) {
+  .md-header .md-header__source {
+    display: flex;
+    width: auto;
+    max-width: none;
+  }
+}
+
+.ph-discuss {
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 0.25rem;
+}
+
+.ph-discuss:hover,
+.ph-discuss:focus {
+  color: #fff;
+  border-color: #fff;
+}
+
+.md-header .md-source,
+.md-header .md-source__repository {
+  width: auto;
+  max-width: none;
+}
+
+.md-header .md-source__repository {
+  overflow: visible;
+}
+
+@media screen and (max-width: 76.25em) {
+  .md-header .md-source__repository {
+    display: none;
+  }
+}
+
+/* Home: demo box beside the GitHub call to action */
+.ph-home-cta {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(13.5rem, 0.85fr);
+  gap: 1rem;
+  align-items: start;
+  margin: 0.25rem 0 1.25rem;
+}
+
+.ph-home-cta__demo,
+.ph-home-cta__actions {
+  min-width: 0;
+}
+
+.ph-home-cta__demo a {
+  overflow-wrap: anywhere;
+}
+
+.ph-home-cta__demo .admonition {
+  margin-top: 0;
+  height: 100%;
+}
+
+.ph-home-cta__actions {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 4px solid var(--ph-red);
+  border-radius: 0.35rem;
+  padding: 0.85rem 1rem 1rem;
+  background: var(--md-code-bg-color);
+}
+
+.ph-cta-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0.75rem 0 0;
+}
+
+.md-typeset a.ph-btn,
+.md-typeset a.ph-btn:hover,
+.md-typeset a.ph-btn:focus,
+.md-typeset a.ph-btn:active,
+.md-typeset a.ph-btn:visited,
+[data-md-color-scheme="slate"] .md-typeset a.ph-btn,
+[data-md-color-scheme="slate"] .md-typeset a.ph-btn:hover,
+[data-md-color-scheme="slate"] .md-typeset a.ph-btn:focus,
+[data-md-color-scheme="slate"] .md-typeset a.ph-btn:active,
+[data-md-color-scheme="slate"] .md-typeset a.ph-btn:visited {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+  color: #ffffff;
+}
+
+.md-typeset a.ph-btn svg,
+[data-md-color-scheme="slate"] .md-typeset a.ph-btn svg {
+  fill: #ffffff;
+  color: #ffffff;
+}
+
+.ph-btn--star,
+.ph-btn--fork {
+  background: #111827;
+}
+
+.ph-btn--talk {
+  background: var(--ph-red);
+}
+
+.ph-btn img {
+  height: 1.25rem;
+  width: auto;
+  display: block;
+}
+
+.ph-footer-cta {
+  margin-top: 0.35rem;
+}
+
+@media screen and (max-width: 50em) {
+  .ph-hero-logo img {
+    width: min(180px, 52vw);
+    max-height: 160px;
+  }
+
+  .ph-home-cta {
+    grid-template-columns: 1fr;
+  }
+
+  .ph-home-cta__actions {
+    order: -1;
+  }
+
+  .ph-cta-buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 /* Wireframe placeholder badge */
 .ph-wireframe-badge {
   display: inline-block;

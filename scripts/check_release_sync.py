@@ -25,6 +25,30 @@ DYNAMIC_BADGE = (
     "img.shields.io/github/v/release/",
 )
 FORBIDDEN = ("still serves", "until tag", "until the tag")
+PIN_FILES = (
+    "SECURITY.md",
+    "CONTRIBUTING.md",
+    "docs/ADMIN.md",
+    "docs/README.md",
+    "wiki/index.md",
+)
+
+
+def pin_problems(version: str, files: dict[str, str]) -> list[str]:
+    """Return pin files whose text does not contain the herder version."""
+    problems = []
+    for name in PIN_FILES:
+        text = files.get(name)
+        if not text or version not in text:
+            problems.append(f"{name} does not pin {version}")
+    return problems
+
+
+def load_pin_files(root: Path) -> dict[str, str]:
+    loaded: dict[str, str] = {}
+    for name in PIN_FILES:
+        loaded[name] = (root / name).read_text(encoding="utf-8")
+    return loaded
 
 
 def git_show(repo: Path, spec: str) -> str:
@@ -103,6 +127,10 @@ def main() -> int:
     herder = version_of("herder", files["herder_version"])
     mcp = version_of("mcp", files["mcp_version"])
     ha = version_of("ha", files["ha_manifest"])
+    try:
+        problems.extend(pin_problems(herder, load_pin_files(REPOS["herder"])))
+    except OSError as exc:
+        problems.append(f"version pin files unreadable: {exc}")
 
     expect = {
         "herder": (

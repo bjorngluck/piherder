@@ -29,7 +29,7 @@ def test_settings_hub_post_writes(tmp_path, monkeypatch):
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
-    monkeypatch.setattr(js, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
 
     def _session():
         with Session(engine) as session:

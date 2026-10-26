@@ -187,7 +187,7 @@ def test_jobs_stack_check_deploy_lifecycle_remove(monkeypatch):
 
     session, engine = _memory()
     srv = _server(session)
-    monkeypatch.setattr(jobs_mod, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(jobs_mod, "_update_check_pool", _Pool())
     monkeypatch.setattr(jobs_mod, "_patch_apply_pool", _Pool())
 
@@ -323,7 +323,7 @@ def test_jobs_update_checks_cancel_orphan_demo(monkeypatch):
 
     session, engine = _memory()
     srv = _server(session)
-    monkeypatch.setattr(jobs_mod, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(jobs_mod, "_update_check_pool", _Pool())
     monkeypatch.setattr(
         jobs_mod.os_patching,
@@ -451,7 +451,7 @@ def test_docker_versions_sftp_and_drafts(monkeypatch):
 
     session, engine = _memory()
     srv = _server(session)
-    monkeypatch.setattr(dv, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
 
     sftp = MemSFTP(
         {

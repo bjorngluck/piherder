@@ -42,7 +42,7 @@ def test_account_and_dns_stack_http(tmp_path, monkeypatch):
     SQLModel.metadata.create_all(engine)
     import app.services.app_settings as app_cfg
 
-    monkeypatch.setattr(app_cfg, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(app_cfg, "_cache", None)
 
     def _session():

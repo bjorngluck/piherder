@@ -141,7 +141,7 @@ def test_jobs_template_redeploy_drift_and_create(monkeypatch):
     session.add(dep)
     session.commit()
     session.refresh(dep)
-    monkeypatch.setattr(js, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
 
     @contextmanager
     def _fresh():
@@ -231,8 +231,8 @@ def test_herder_restore_on_sqlite_only(tmp_path, monkeypatch):
     from app.services import app_settings as aset
 
     session, engine = _memory()
-    monkeypatch.setattr(hb, "engine", engine)
-    monkeypatch.setattr(aset, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(aset, "save_settings", lambda partial: {**(partial or {}), "keep": 3})
     monkeypatch.setattr(aset, "replace_settings", lambda full: full or {})
     monkeypatch.setattr(hb.settings, "DATA_ROOT", str(tmp_path / "data"))

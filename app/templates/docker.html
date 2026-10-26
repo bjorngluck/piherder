@@ -309,6 +309,26 @@
     <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
       A prune is already running for this host.
     </div>
+  {% elif _prune == 'schedule' %}
+    <div class="mb-3 p-2 text-xs rounded banner-success border border-border">
+      Prune schedule saved. On About, open View schedule and choose Docker prune.
+    </div>
+  {% elif _prune == 'schedule_off' %}
+    <div class="mb-3 p-2 text-xs rounded border border-border">
+      Prune schedule is off. About will not list Docker prune for this host.
+    </div>
+  {% elif _prune == 'schedule_miss' %}
+    <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
+      The cron is stored, but the scheduler did not register it. About will not list Docker prune for this host.
+    </div>
+  {% elif _prune == 'build_cache' %}
+    <div class="mb-3 p-2 text-xs rounded banner-success border border-border">
+      Build cache prune finished. One audit row records it.
+    </div>
+  {% elif _prune == 'build_cache_fail' %}
+    <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
+      Build cache prune did not finish. The audit row has the output.
+    </div>
   {% elif _prune %}
     <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
       Prune {{ request.query_params.get('prune_type', 'unused') }} did not start.
@@ -814,10 +834,80 @@ function initDockerFilters() {
   });
   applyDockerFilters();
 }
+function setPruneScheduleStatus(state, message) {
+  var line = document.getElementById('cleanup-prune-schedule-status');
+  if (!line) return;
+  line.classList.remove('hidden', 'text-danger', 'banner-success', 'is-ok');
+  if (state === 'error') line.classList.add('text-danger');
+  else if (state === 'ok') line.classList.add('banner-success', 'is-ok');
+  line.textContent = message || '';
+  if (line.scrollIntoView) line.scrollIntoView({ block: 'nearest' });
+}
+
+function bindCleanupPruneSchedule() {
+  var form = document.querySelector('form[data-testid="cleanup-prune-schedule-form"]');
+  if (!form || form.dataset.bound === '1') return;
+  form.dataset.bound = '1';
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    var button = form.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
+    setPruneScheduleStatus('busy', 'Saving prune schedule…');
+    var field = form.querySelector('input[name="docker_prune_schedule"]');
+    var body = new URLSearchParams();
+    body.set('docker_prune_schedule', field ? field.value : '');
+    fetch(form.action, {
+      method: 'POST',
+      body: body,
+      headers: {
+        'X-PiHerder-Async': '1',
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      credentials: 'same-origin'
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        return { ok: res.ok, status: res.status, data: data || {} };
+      }, function () {
+        return { ok: false, status: res.status, data: {} };
+      });
+    }).then(function (pack) {
+      if (pack.ok && pack.data.ok) {
+        if (field && Object.prototype.hasOwnProperty.call(pack.data, 'docker_prune_schedule')) {
+          field.value = pack.data.docker_prune_schedule || '';
+        }
+        setPruneScheduleStatus('ok', pack.data.message || 'Prune schedule saved.');
+        return;
+      }
+      var detail = pack.data.detail || pack.data.message || 'Could not save the prune schedule';
+      if (Array.isArray(detail)) {
+        detail = detail.map(function (row) { return row.msg || String(row); }).join(' ');
+      } else if (detail && typeof detail === 'object') {
+        detail = detail.msg || 'Could not save the prune schedule';
+      }
+      setPruneScheduleStatus('error', String(detail));
+    }).catch(function () {
+      setPruneScheduleStatus('error', 'Could not save the prune schedule');
+    }).finally(function () {
+      if (button) button.disabled = false;
+    });
+  });
+}
+
+function openCleanupAfterScheduleSave() {
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('prune') !== 'schedule') return;
+  showCleanupModal();
+}
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initDockerFilters);
+  document.addEventListener('DOMContentLoaded', bindCleanupPruneSchedule);
+  document.addEventListener('DOMContentLoaded', openCleanupAfterScheduleSave);
 } else {
   initDockerFilters();
+  bindCleanupPruneSchedule();
+  openCleanupAfterScheduleSave();
 }
 // Re-apply filters after HTMX refreshes #docker-stack (innerHTML)
 function highlightDockerProjectFromUrl() {

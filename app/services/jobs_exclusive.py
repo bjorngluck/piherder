@@ -46,6 +46,7 @@ EXCLUSIVE_CELERY_TYPES = frozenset(
         "template_drift_check",
         "host_facts",
         "docker_prune",
+        "host_bootstrap",
     }
 )
 
@@ -231,18 +232,34 @@ def _enqueue_celery(
     payload: dict,
 ) -> None:
     js = _jobs()
-    exclusive_job = getattr(js, "exclusive_job_task", None)
-    if not getattr(js, "HAS_CELERY", False) or exclusive_job is None:
-        msg = "Celery worker required — start the celery-worker container"
+    if job_type == "host_bootstrap":
+        from ..tasks import HOST_BOOTSTRAP_EXPIRES_SEC
+
+        task = getattr(js, "host_bootstrap_job_task", None)
+
+        def publish():
+            return task.apply_async(
+                args=(job_id, server_id, audit_id, payload),
+                expires=HOST_BOOTSTRAP_EXPIRES_SEC,
+            )
+    else:
+        task = getattr(js, "exclusive_job_task", None)
+
+        def publish():
+            return task.delay(job_id, server_id, audit_id, job_type, payload)
+    if not getattr(js, "HAS_CELERY", False) or task is None:
+        msg = "Celery worker required. Start the celery-worker container"
         _fail_enqueue(job_id, msg)
         raise RuntimeError(msg)
     try:
-        async_result = exclusive_job.delay(
-            job_id, server_id, audit_id, job_type, payload
-        )
+        async_result = publish()
     except Exception as exc:
         msg = f"Failed to enqueue {job_type} to Celery: {exc}"
-        logger.exception("[Jobs] %s", msg)
+        if job_type == "host_bootstrap":
+            msg = _redact_bootstrap_text(msg, payload)
+            logger.error("[Jobs] %s", msg)
+        else:
+            logger.exception("[Jobs] %s", msg)
         _fail_enqueue(job_id, msg)
         raise RuntimeError(msg) from exc
     with js._get_fresh_session() as session:
@@ -321,7 +338,21 @@ def run_exclusive_job(task, job_id: int, server_id: int, audit_id: int, job_type
                     js._finish_demo_job(session, job)
             return {"status": "demo", "job_id": job_id}
 
-        if not _ssh_ready(server_id):
+        # Bootstrap may log in as another user, or with a password, before fleet
+        # SSH works. A bad password must fail now, not sit in the host wait.
+        # A busy exclusive slot fails at once. Retrying would publish the
+        # sudo password again.
+        if jt == "host_bootstrap":
+            with js._get_fresh_session() as session:
+                holder = js._other_active_job(
+                    session, server_id, "host_bootstrap", job_id
+                )
+            if holder is not None:
+                _fail_message(
+                    job_id, audit_id, jt, js.HOST_BOOTSTRAP_BUSY_REASON
+                )
+                return {"status": "failed", "job_id": job_id, "reason": "host_busy"}
+        elif not _ssh_ready(server_id):
             return _wait_for_host(task, job_id, audit_id, jt)
 
         _execute(jt, job_id, server_id, audit_id, body)
@@ -332,8 +363,13 @@ def run_exclusive_job(task, job_id: int, server_id: int, audit_id: int, job_type
         _fail_wait_exceeded(job_id, audit_id, job_type)
         return {"status": "failed", "job_id": job_id, "reason": "host_wait"}
     except Exception as exc:
-        logger.exception("exclusive_job failed job=%s type=%s", job_id, job_type)
-        _fail_unexpected(job_id, audit_id, job_type, str(exc)[:800])
+        message = str(exc)[:800]
+        if (job_type or "") == "host_bootstrap":
+            message = _redact_bootstrap_text(message, body)
+            logger.error("host_bootstrap failed job=%s: %s", job_id, message)
+        else:
+            logger.exception("exclusive_job failed job=%s type=%s", job_id, job_type)
+        _fail_unexpected(job_id, audit_id, job_type, message)
         return {"status": "error", "job_id": job_id}
 
 
@@ -433,6 +469,26 @@ def _fail_wait_exceeded(job_id: int, audit_id: int, job_type: str) -> None:
     )
 
 
+def _redact_bootstrap_text(text: str, payload: dict | None) -> str:
+    """Strip the one-time sudo password and its Fernet form before any log or row."""
+    from .ssh_onboarding import _redact_secret
+
+    body = dict(payload or {})
+    enc = str(body.get("sudo_password_encrypted") or "")
+    plain = ""
+    if enc:
+        try:
+            from ..security import encryption as encmod
+
+            plain = encmod.decrypt_str(enc) or ""
+        except Exception:
+            plain = ""
+    cleaned = _redact_secret(text or "", plain or None)
+    if enc and cleaned:
+        cleaned = cleaned.replace(enc, "")
+    return cleaned
+
+
 def _fail_unexpected(job_id: int, audit_id: int, job_type: str, message: str) -> None:
     js = _jobs()
     with js._get_fresh_session() as session:
@@ -515,6 +571,8 @@ def _execute(job_type: str, job_id: int, server_id: int, audit_id: int, payload:
         js._execute_docker_prune(
             job_id, server_id, audit_id, payload.get("prune_type") or ""
         )
+    elif job_type == "host_bootstrap":
+        js._execute_host_bootstrap(job_id, server_id, audit_id, payload)
     elif job_type in (
         "container_start",
         "container_stop",

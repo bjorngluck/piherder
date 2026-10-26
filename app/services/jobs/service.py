@@ -16,7 +16,7 @@ _create_queued_job_with_audit, _finish, job_public_dict.
 from fastapi import BackgroundTasks
 from sqlalchemy import and_, not_
 from sqlmodel import Session, select
-from ...database import engine
+from ...database import get_engine
 from ...models import Job, AuditLog, Server
 from datetime import datetime, timedelta, timezone
 import json
@@ -82,6 +82,7 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "service_migrate_dest_recover",
         "host_facts",
         "docker_prune",
+        "host_bootstrap",
     }
 )
 
@@ -138,6 +139,7 @@ def container_service_target(source_filter: str | None, service: str | None) -> 
 try:
     from ...tasks import backup_server
     from ...tasks import exclusive_job as exclusive_job_task
+    from ...tasks import host_bootstrap_job as host_bootstrap_job_task
     from ...tasks import service_migrate as service_migrate_task
     from ...tasks import service_migrate_undo as service_migrate_undo_task
     from ...tasks import service_migrate_dest_recover as service_migrate_dest_recover_task
@@ -147,6 +149,7 @@ except Exception as e:
     HAS_CELERY = False
     backup_server = None
     exclusive_job_task = None
+    host_bootstrap_job_task = None
     service_migrate_task = None
     service_migrate_undo_task = None
     service_migrate_dest_recover_task = None
@@ -157,7 +160,7 @@ from ..jobs_exclusive import EXCLUSIVE_CELERY_TYPES, handoff_exclusive
 
 
 def _get_fresh_session() -> Session:
-    return Session(engine)
+    return Session(get_engine())
 
 
 def _load_server_for_job(server_id: int) -> tuple[Server | None, str]:
@@ -167,7 +170,7 @@ def _load_server_for_job(server_id: int) -> tuple[Server | None, str]:
     DetachedInstanceError (expire_on_commit) — which was leaving OS patch
     jobs stuck at "running" with no live log progress.
     """
-    with Session(engine, expire_on_commit=False) as s:
+    with Session(get_engine(), expire_on_commit=False) as s:
         server = s.get(Server, server_id)
         if not server:
             return None, str(server_id)
@@ -341,6 +344,7 @@ JOB_TYPE_LABELS = {
     "service_migrate_undo": "Undo move",
     "service_migrate_dest_recover": "Stop dest, start source",
     "host_facts": "Host facts",
+    "host_bootstrap": "Host tool bootstrap",
 }
 
 
@@ -873,6 +877,133 @@ def cleanup_orphan_web_jobs(
     return n
 
 
+_ORPHAN_GRACE = timedelta(seconds=60)
+_ORPHAN_REASON = "Interrupted. The Celery worker is no longer alive."
+# Broker expiry is 120s. Wait a little longer so the message is already gone.
+_HOST_BOOTSTRAP_EXPIRE_GRACE_SEC = 30
+HOST_BOOTSTRAP_EXPIRED_REASON = (
+    "expired before a worker picked it up, rerun with a fresh password"
+)
+HOST_BOOTSTRAP_BUSY_REASON = "another job holds this host, rerun when it finishes"
+
+
+def celery_worker_activity() -> tuple[bool, set[str]] | None:
+    """Whether a Celery worker answered, and the active task ids.
+
+    None means the check could not tell, so callers leave running jobs alone.
+    ``(False, set())`` means no worker answered.
+    """
+    try:
+        from ...celery_app import celery
+
+        inspector = celery.control.inspect(timeout=1.0)
+        if inspector is None:
+            return False, set()
+        ping = inspector.ping() or {}
+        if not ping:
+            return False, set()
+        active = inspector.active() or {}
+        ids: set[str] = set()
+        for tasks in active.values():
+            if not isinstance(tasks, list):
+                continue
+            for task in tasks:
+                if isinstance(task, dict) and task.get("id"):
+                    ids.add(str(task["id"]))
+        return True, ids
+    except Exception:
+        logger.warning("[Jobs] Celery worker check failed", exc_info=True)
+        return None
+
+
+def fail_expired_host_bootstrap(session: Session, job: Job) -> bool:
+    """Fail a pending host bootstrap. That drops the exclusive lane for the host."""
+    if job is None or (job.job_type or "") != "host_bootstrap" or job.status != "pending":
+        return False
+    _mark_job_failed(
+        job, HOST_BOOTSTRAP_EXPIRED_REASON, session, record_audit=False
+    )
+    _finish_running_audit_for_job(
+        session, job, status="failed", message=HOST_BOOTSTRAP_EXPIRED_REASON
+    )
+    return True
+
+
+def fail_expired_host_bootstrap_by_id(job_id: int) -> None:
+    """Celery discarded the message. The row must not stay pending."""
+    with _get_fresh_session() as session:
+        job = session.get(Job, int(job_id))
+        if not fail_expired_host_bootstrap(session, job):
+            return
+        session.commit()
+        logger.info("[Jobs] host_bootstrap job #%s expired before a worker took it", job_id)
+
+
+def _fail_expired_pending_host_bootstrap(session: Session, now: datetime) -> int:
+    try:
+        from ...tasks import HOST_BOOTSTRAP_EXPIRES_SEC
+
+        limit = int(HOST_BOOTSTRAP_EXPIRES_SEC)
+    except Exception:
+        limit = 120
+    cutoff = now - timedelta(seconds=limit + _HOST_BOOTSTRAP_EXPIRE_GRACE_SEC)
+    rows = session.exec(
+        select(Job).where(
+            Job.job_type == "host_bootstrap",
+            Job.status == "pending",
+        )
+    ).all()
+    n = 0
+    for job in rows:
+        created = job.created_at or now
+        if created > cutoff:
+            continue
+        if fail_expired_host_bootstrap(session, job):
+            n += 1
+    return n
+
+
+def reconcile_orphaned_running_jobs(session: Session) -> int:
+    """Fail a running job whose Celery worker is no longer alive.
+
+    When workers still answer, a task that is not active is interrupted only
+    after a short grace so a row that just became running is not failed.
+    A pending host_bootstrap older than the broker expiry, plus a short grace,
+    is failed too. Celery drops that message without running it.
+    """
+    now = datetime.utcnow()
+    n = _fail_expired_pending_host_bootstrap(session, now)
+    state = celery_worker_activity()
+    if state is None:
+        if n:
+            session.commit()
+            logger.info("[Jobs] Failed %s expired host_bootstrap job(s)", n)
+        return n
+    alive, active = state
+    rows = session.exec(select(Job).where(Job.status == "running")).all()
+    for job in rows:
+        if not _is_celery_owned_job(job):
+            continue
+        task_id = (job.celery_task_id or "").strip()
+        if alive and task_id and task_id in active:
+            continue
+        if alive:
+            started = job.started_at or job.created_at or now
+            if now - started < _ORPHAN_GRACE:
+                continue
+        _mark_job_failed(job, _ORPHAN_REASON, session, record_audit=False)
+        _finish_running_audit_for_job(
+            session, job, status="failed", message=_ORPHAN_REASON
+        )
+        if (job.job_type or "") == "host_facts":
+            _release_host_facts_refresh(session, job.server_id)
+        n += 1
+    if n:
+        session.commit()
+        logger.info("[Jobs] Interrupted %s running or expired job(s)", n)
+    return n
+
+
 def _send_summary_webhook(server_hostname: str, job_type: str, status: str, summary: str):
     try:
         from ..alert_channels import send_webhook
@@ -904,6 +1035,7 @@ def create_job_and_run(
     service: str | None = None,
     api_token_id: int | None = None,
     api_token_name: str | None = None,
+    bootstrap_options: dict | None = None,
 ):
     server_id = server.id if server is not None else None
     actor_extra: dict = {}
@@ -913,6 +1045,10 @@ def create_job_and_run(
         actor_extra["api_token_id"] = api_token_id
     if api_token_name:
         actor_extra["api_token_name"] = str(api_token_name)[:120]
+    boot_opts = bootstrap_options or {}
+    boot_user = str(boot_opts.get("bootstrap_username") or "").strip()[:32]
+    boot_confirm = bool(boot_opts.get("confirm_docker_bootstrap"))
+    boot_password = str(boot_opts.get("sudo_password") or "")
     if server_id and job_type in ("host_reboot", "os_patch", "container_patch", "backup"):
         blocker = _reboot_lane_blocker(session, server_id, job_type)
         if blocker:
@@ -952,7 +1088,11 @@ def create_job_and_run(
             raise ValueError(
                 "prune_type must be images, containers, both, networks, or volumes"
             )
-    if job_type in _EXCLUSIVE_JOB_TYPES and server_id is not None:
+    if (
+        job_type in _EXCLUSIVE_JOB_TYPES
+        and job_type != "host_bootstrap"
+        and server_id is not None
+    ):
         active = _active_job_of_type(session, server_id, job_type)
         if active:
             logger.info(
@@ -990,8 +1130,12 @@ def create_job_and_run(
             "container_restart": f"Restart {(service or '').strip() or 'container'} queued…",
             "container_redeploy": f"Update {(service or '').strip() or 'container'} queued…",
             "docker_prune": f"Docker prune ({prune_kind or 'both'}) queued…",
+            "host_bootstrap": "Host tool bootstrap queued…",
         }
         detail_extra = dict(actor_extra)
+        if job_type == "host_bootstrap":
+            detail_extra["bootstrap_username"] = boot_user
+            detail_extra["confirm_docker_bootstrap"] = boot_confirm
         if prune_kind:
             detail_extra["prune_type"] = prune_kind
         if job_type in _CONTAINER_SERVICE_JOB_TYPES:
@@ -1072,6 +1216,9 @@ def create_job_and_run(
             start_details = f"Job #{job.id} started · {','.join(os_steps)}"
         elif job_type == "docker_prune" and prune_kind:
             start_details = f"Job #{job.id} started · {prune_kind}"
+        elif job_type == "host_bootstrap":
+            who = boot_user or (getattr(server, "ssh_username", None) or "")
+            start_details = f"Job #{job.id} started · {who}"[:500]
         audit = make_audit_log(
             user_id=user_id,
             server_id=server_id,
@@ -1267,6 +1414,44 @@ def create_job_and_run(
             background_tasks=background_tasks,
             bg_fn=_run_retention_job,
             bg_args=(job.id, server.id, audit.id),
+        )
+    elif job_type == "host_bootstrap":
+        holder = _other_active_job(session, server.id, "host_bootstrap", job.id)
+        if holder is not None:
+            # Do not enqueue. A retry would put the sudo password on the broker again.
+            _mark_job_failed(
+                job, HOST_BOOTSTRAP_BUSY_REASON, session, record_audit=False
+            )
+            _finish_running_audit_for_job(
+                session,
+                job,
+                status="failed",
+                message=HOST_BOOTSTRAP_BUSY_REASON,
+            )
+            session.commit()
+            return job
+        enc_pw = ""
+        if boot_password:
+            from ...security import encryption as encmod
+
+            enc_pw = encmod.encrypt_str(boot_password)
+        boot_payload = {
+            "confirm_docker_bootstrap": boot_confirm,
+            "bootstrap_username": boot_user,
+            "sudo_password_encrypted": enc_pw,
+        }
+        handoff_exclusive(
+            job_id=job.id,
+            server_id=server.id,
+            audit_id=audit.id,
+            job_type=job_type,
+            payload=boot_payload,
+            background_tasks=background_tasks,
+            bg_fn=_run_host_bootstrap_job,
+            bg_args=(job.id, server.id, audit.id, boot_payload),
+            pool=_patch_apply_pool,
+            sync_fn=_execute_host_bootstrap,
+            sync_args=(job.id, server.id, audit.id, boot_payload),
         )
     elif job_type == "herder_backup":
         handoff_housekeeping(
@@ -1697,6 +1882,22 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
         return (snippet or status)[:200]
     if job_type == "retention":
         return (snippet or "Retention complete")[:200]
+    if job_type == "host_bootstrap":
+        if isinstance(data, dict):
+            msg = str(data.get("message") or status)
+            feats = data.get("features") or []
+            if isinstance(feats, list) and feats:
+                msg = f"{msg} ({', '.join(str(item) for item in feats)})"
+            os_id = str(data.get("os_id") or "")
+            codename = str(data.get("codename") or "")
+            who = str(data.get("bootstrap_username") or "")
+            bits = [msg]
+            if os_id or codename:
+                bits.append(" ".join(part for part in (os_id, codename) if part))
+            if who:
+                bits.append(who)
+            return " · ".join(bits)[:200]
+        return (snippet or status)[:200]
     return (snippet or status)[:200]
 
 
@@ -1845,6 +2046,18 @@ def _flush_container_progress_to_job(job_id: int, current: str, log_line: str) -
     _flush_job_progress(job_id, current, log_line, default_current="patching")
 
 
+def _prune_dangling_images_after_update(server, job_id: int) -> None:
+    """After a successful update, drop dangling images. A prune error stays a log line."""
+    from ..docker_management import prune_dangling_images
+
+    try:
+        res = prune_dangling_images(server)
+        line = "Dangling image prune: " + str(res.get("output") or "done")[:240]
+        _flush_job_progress(job_id, "pruning", line, default_current="patching")
+    except Exception as exc:
+        logger.warning("dangling image prune after update failed: %s", exc)
+
+
 async def _run_container_job(job_id: int, server_id: int, audit_id: int):
     server, hostname = _load_server_for_job(server_id)
     with _get_fresh_session() as s:
@@ -1907,6 +2120,8 @@ async def _run_container_job(job_id: int, server_id: int, audit_id: int):
             container_patching.append_container_log(hostname, f"[containers] all done — {status}")
         except Exception:
             pass
+        if status == "success":
+            _prune_dangling_images_after_update(server, job_id)
         if isinstance(res, dict) and not res.get("summary"):
             res["summary"] = container_patching.summarize_container_patch(res)
         snippet = json.dumps(res) if isinstance(res, dict) else str(res)
@@ -2521,6 +2736,19 @@ def _active_job_of_type(session: Session, server_id: int, job_type: str) -> Job 
     ).first()
 
 
+def _other_active_job(
+    session: Session, server_id: int, job_type: str, job_id: int
+) -> Job | None:
+    """Another pending or running row of this exclusive type on the host."""
+    return session.exec(
+        select(Job)
+        .where(Job.server_id == server_id)
+        .where(Job.job_type == job_type)
+        .where(Job.id != int(job_id))
+        .where(Job.status.in_(["pending", "running"]))
+    ).first()
+
+
 def _reboot_lane_blocker(session: Session, server_id: int, job_type: str) -> Job | None:
     """Cross-type hold for host reboot.
 
@@ -2748,6 +2976,7 @@ def _execute_container_patch_sync(job_id: int, server_id: int, audit_id: int) ->
                     _apply_container_check_result(s, server_id, check)
             except Exception as e:
                 logger.debug(f"post-container-patch recheck: {e}")
+            _prune_dangling_images_after_update(server, job_id)
         try:
             container_patching.mark_container_patch_done(hostname, finished_ok=(status == "success"))
             container_patching.append_container_log(hostname, f"[containers] all done — {status}")
@@ -2999,6 +3228,128 @@ async def _run_docker_prune_job(
 ):
     await run_in_threadpool(
         _execute_docker_prune, job_id, server_id, audit_id, prune_type
+    )
+
+
+def _execute_host_bootstrap(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    payload: dict | None = None,
+) -> None:
+    """Install missing host tools. Decrypt the sudo password here and do not log it."""
+    from ...security import encryption as encmod
+    from .. import ssh_onboarding
+
+    body = dict(payload or {})
+    confirm = bool(body.get("confirm_docker_bootstrap"))
+    boot_user = str(body.get("bootstrap_username") or "").strip()
+    enc_pw = str(body.get("sudo_password_encrypted") or "")
+    password = ""
+    if enc_pw:
+        try:
+            password = encmod.decrypt_str(enc_pw) or ""
+        except Exception:
+            password = ""
+    server, hostname = _load_server_for_job(server_id)
+    fleet = (getattr(server, "ssh_username", None) or "") if server else ""
+    ssh_user = boot_user or fleet
+    host_name = (getattr(server, "name", None) or hostname or "host") if server else "host"
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="bootstrapping",
+                bootstrap_username=ssh_user,
+                confirm_docker_bootstrap=confirm,
+                log_line=(
+                    f"Bootstrapping missing host tools on {host_name} "
+                    f"(SSH user: {ssh_user}, fleet user: {fleet})…"
+                ),
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "host_bootstrap")
+        return
+
+    def _safe(text: str) -> str:
+        cleaned = ssh_onboarding._redact_secret(text or "", password)
+        if enc_pw:
+            cleaned = cleaned.replace(enc_pw, "")
+        return cleaned
+
+    with _get_fresh_session() as session:
+        live = session.get(Server, server_id)
+        if not live:
+            _finish(audit_id, job_id, "failed", "Server not found", hostname, "host_bootstrap")
+            return
+        try:
+            result = ssh_onboarding.run_host_bootstrap(
+                live,
+                session,
+                confirm_docker_bootstrap=confirm,
+                sudo_password=password or None,
+                bootstrap_username=boot_user or None,
+            )
+        except Exception as exc:
+            _finish(
+                audit_id,
+                job_id,
+                "failed",
+                _safe(str(exc))[:800],
+                hostname,
+                "host_bootstrap",
+            )
+            return
+        raw = dict(result.details or {})
+        for secret_key in ("sudo_password", "sudo_password_encrypted"):
+            raw.pop(secret_key, None)
+        summary = {
+            "ok": bool(result.ok),
+            "message": _safe(result.message or "")[:500],
+            "os_id": raw.get("os_id") or "",
+            "codename": raw.get("codename") or "",
+            "features": list(raw.get("features") or []),
+            "bootstrap_username": raw.get("bootstrap_username") or ssh_user,
+        }
+    feats = ", ".join(str(item) for item in summary["features"]) or "none"
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job and job.status in ("pending", "running"):
+            _merge_job_details(
+                job,
+                log_line=(
+                    f"OS {summary['os_id']} {summary['codename']}. "
+                    f"Features: {feats}. SSH user: {summary['bootstrap_username']}. "
+                    f"{summary['message']}"
+                )[:400],
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+    _finish(
+        audit_id,
+        job_id,
+        "success" if result.ok else "failed",
+        json.dumps(summary),
+        hostname,
+        "host_bootstrap",
+    )
+
+
+async def _run_host_bootstrap_job(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    payload: dict | None = None,
+):
+    await run_in_threadpool(
+        _execute_host_bootstrap, job_id, server_id, audit_id, payload
     )
 
 
@@ -3810,6 +4161,8 @@ def _execute_container_service(
                         inventory_svc.invalidate_after_mutation(s, srv, None)
             except Exception as inv_e:
                 logger.debug("inventory invalidate after container %s: %s", act, inv_e)
+            if act == "redeploy":
+                _prune_dangling_images_after_update(server, job_id)
         payload = {
             "service": svc,
             "project_path": path,

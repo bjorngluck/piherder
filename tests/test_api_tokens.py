@@ -548,6 +548,8 @@ def test_admin_session_create_token_with_expiry_and_mcp_snippet(tmp_path, monkey
 
 def test_settings_form_create_token_with_expiry(tmp_path, monkeypatch):
     """Settings POST /herder-backups/api-tokens wires expires_preset into create."""
+    import re
+
     from fastapi.testclient import TestClient
     from sqlalchemy.pool import StaticPool
     from sqlmodel import Session, SQLModel, create_engine, select
@@ -559,6 +561,7 @@ def test_settings_form_create_token_with_expiry(tmp_path, monkeypatch):
 
     monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
     monkeypatch.setattr("app.services.demo.reject_if_demo", lambda *_a, **_k: False)
+    monkeypatch.setattr("app.security.auth.cookie_secure", lambda: False)
     engine = create_engine(
         f"sqlite:///{tmp_path / 'tok-form-exp.db'}",
         connect_args={"check_same_thread": False},
@@ -587,6 +590,13 @@ def test_settings_form_create_token_with_expiry(tmp_path, monkeypatch):
             s.refresh(user)
             client.cookies.set("access_token", create_user_access_token(user))
 
+        poison = client.get(
+            "/herder-backups?tab=api&token_created=1&token_secret=ph_from_query"
+        )
+        assert poison.status_code == 200
+        assert "ph_from_query" not in poison.text
+        assert 'id="api-token-secret-value"' not in poison.text
+
         r = client.post(
             "/herder-backups/api-tokens",
             data={
@@ -599,7 +609,11 @@ def test_settings_form_create_token_with_expiry(tmp_path, monkeypatch):
         assert r.status_code == 303, r.text
         loc = r.headers.get("location") or ""
         assert "token_created=1" in loc
-        assert "token_secret=" in loc
+        assert "token_secret=" not in loc
+        assert "ph_" not in loc
+        set_cookie = r.headers.get("set-cookie") or ""
+        assert "api_token_once=" in set_cookie
+        assert "HttpOnly" in set_cookie
         page = client.get(loc)
         assert page.status_code == 200
         html = page.text
@@ -615,10 +629,45 @@ def test_settings_form_create_token_with_expiry(tmp_path, monkeypatch):
         local_at = html.index('data-testid="api-token-mcp-local"')
         assert hosted_at < local_at
         assert "roaming laptop" in html
+        shown = re.search(r'id="api-token-secret-value" value="(ph_[^"]+)"', html)
+        assert shown, "one-time banner did not render the new secret"
+        secret = shown.group(1)
+        assert secret not in loc
+        cleared = page.headers.get("set-cookie") or ""
+        assert "api_token_once=" in cleared
+        again = client.get(loc)
+        assert again.status_code == 200
+        assert secret not in again.text
+        assert 'id="api-token-secret-value"' not in again.text
         with Session(engine) as s:
             row = s.exec(select(ApiToken).where(ApiToken.name == "mcp-laptop")).first()
             assert row is not None
             assert row.expires_at is not None
             assert "read" in (row.scopes or "")
+            token_id = int(row.id)
+
+        rot = client.post(
+            f"/herder-backups/api-tokens/{token_id}/rotate",
+            follow_redirects=False,
+        )
+        assert rot.status_code == 303, rot.text
+        rloc = rot.headers.get("location") or ""
+        assert "token_rotated=1" in rloc
+        assert "token_secret=" not in rloc
+        assert "ph_" not in rloc
+        rset = rot.headers.get("set-cookie") or ""
+        assert "api_token_once=" in rset
+        assert "HttpOnly" in rset
+        rpage = client.get(rloc)
+        assert rpage.status_code == 200
+        rotated = re.search(
+            r'id="api-token-secret-value" value="(ph_[^"]+)"', rpage.text
+        )
+        assert rotated, "rotate banner did not render the new secret"
+        rotated_secret = rotated.group(1)
+        assert rotated_secret != secret
+        assert rotated_secret not in rloc
+        rpage2 = client.get(rloc)
+        assert rotated_secret not in rpage2.text
     finally:
         app.dependency_overrides.clear()

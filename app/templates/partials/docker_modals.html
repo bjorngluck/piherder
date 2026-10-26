@@ -10,34 +10,34 @@
     </div>
 
     <div class="cleanup-modal-body">
-      <div id="cleanup-status" class="cleanup-status is-busy" role="status" aria-live="polite">
+      <div id="cleanup-status" class="cleanup-status is-busy shrink-0" role="status" aria-live="polite">
         <span class="cleanup-status-spin" aria-hidden="true"></span>
         <span id="cleanup-status-text">Listing unused resources via SSH…</span>
       </div>
 
       <div id="unused-list" class="cleanup-list" aria-label="Unused resources"></div>
 
-      <div class="flex flex-wrap items-center gap-2 mb-3">
+      <div class="flex flex-wrap items-center gap-2 mb-3 shrink-0">
         <button type="button" id="cleanup-refresh-btn" data-ph-click="loadUnused" class="btn btn-secondary text-xs min-h-9">↻ Refresh list</button>
       </div>
 
-      <p class="text-xs text-muted mb-2">Destructive actions (confirm after reviewing the list):</p>
+      <p class="text-xs text-muted mb-2 shrink-0">Destructive actions (confirm after reviewing the list):</p>
       <div class="cleanup-actions">
         <form method="post" action="/servers/{{ server.id }}/docker/prune-unused" class="cleanup-prune-form" data-prune-label="dangling images">
           <input type="hidden" name="prune_type" value="images">
-          <button type="submit" class="btn btn-secondary text-sm min-h-11 w-full text-danger border-danger/30">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9 w-full text-danger border-danger/30">
             Prune dangling images
           </button>
         </form>
         <form method="post" action="/servers/{{ server.id }}/docker/prune-unused" class="cleanup-prune-form" data-prune-label="exited containers">
           <input type="hidden" name="prune_type" value="containers">
-          <button type="submit" class="btn btn-secondary text-sm min-h-11 w-full text-danger border-danger/30">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9 w-full text-danger border-danger/30">
             Prune exited containers
           </button>
         </form>
         <form method="post" action="/servers/{{ server.id }}/docker/prune-unused" class="cleanup-prune-form" data-prune-label="unused networks">
           <input type="hidden" name="prune_type" value="networks">
-          <button type="submit" class="btn btn-secondary text-sm min-h-11 w-full text-danger border-danger/30">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9 w-full text-danger border-danger/30">
             Prune unused networks
           </button>
         </form>
@@ -47,12 +47,34 @@
             <input type="checkbox" name="confirm" value="true" class="mt-0.5" data-volume-confirm>
             <span>Unused volumes only. Volumes still in use stay. This cannot be undone.</span>
           </label>
-          <button type="submit" class="btn btn-secondary text-sm min-h-11 w-full text-danger border-danger/30" disabled>
+          <button type="submit" class="btn btn-secondary text-xs min-h-9 w-full text-danger border-danger/30" disabled>
             Prune unused volumes
           </button>
         </form>
+        <form method="post" action="/servers/{{ server.id }}/docker/prune-build-cache" class="cleanup-prune-form" data-prune-label="build cache">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9 w-full text-danger border-danger/30">
+            Prune build cache
+          </button>
+          <p class="text-[10px] text-muted mt-1 mb-0">Builder cache and buildx cache. Not part of a prune job. No schedule.</p>
+        </form>
       </div>
     </div>
+    <form method="post" action="/servers/{{ server.id }}/schedule/docker-prune" class="cleanup-schedule space-y-2 border-t border-border pt-3 mt-3" data-testid="cleanup-prune-schedule-form">
+      {% if request.query_params.get('prune') == 'schedule' %}
+      <div class="p-2 text-xs rounded banner-success border border-border" data-testid="cleanup-prune-schedule-banner">
+        Prune schedule saved. On About, open View schedule and choose Docker prune.
+      </div>
+      {% endif %}
+      <label class="text-xs text-muted block" for="cleanup-prune-schedule">Prune schedule</label>
+      <div class="flex gap-2 items-center">
+        <input id="cleanup-prune-schedule" type="text" name="docker_prune_schedule" value="{{ server.docker_prune_schedule or '' }}"
+               placeholder="Type a cron" class="block w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11"
+               autocomplete="off">
+        <button type="submit" class="btn btn-secondary min-h-11 text-xs shrink-0">Save</button>
+      </div>
+      <p id="cleanup-prune-schedule-status" class="cleanup-schedule-status hidden text-xs m-0" role="status" data-testid="cleanup-prune-schedule-status"></p>
+      <p class="text-[10px] text-muted m-0">Example: 0 3 * * 0. Leave the field blank to turn it off. Volumes and build cache stay off.</p>
+    </form>
   </div>
 </div>
 

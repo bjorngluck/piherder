@@ -28,7 +28,7 @@ def _engine():
 
 
 def _bind(monkeypatch, engine):
-    monkeypatch.setattr(_js, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
 
     @contextmanager
     def _fresh():

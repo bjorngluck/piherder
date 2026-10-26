@@ -393,16 +393,21 @@
 /* Cleanup modal polish */
 .cleanup-modal-panel {
   width: 100%;
-  max-width: 28rem;
-  max-height: min(88vh, 36rem);
+  max-width: 36rem;
+  max-height: min(92vh, 48rem);
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 .cleanup-modal-body {
-  overflow: auto;
+  overflow: hidden;
   min-height: 0;
   flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+.cleanup-schedule {
+  flex: 0 0 auto;
 }
 .cleanup-status {
   display: flex;
@@ -444,18 +449,30 @@
   border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 0.65rem 0.75rem;
-  max-height: 14rem;
   overflow: auto;
   min-height: 4.5rem;
-  margin-bottom: 0.85rem;
+  flex: 1 1 auto;
+  margin-bottom: 0.75rem;
 }
 .cleanup-actions {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.45rem;
+  flex: 0 0 auto;
+}
+.cleanup-actions form[data-prune-label="unused networks"],
+.cleanup-actions form[data-volume-prune],
+.cleanup-actions form[data-prune-label="build cache"] {
+  grid-column: 1 / -1;
 }
 .cleanup-actions .btn {
   justify-content: center;
+  min-height: 2.25rem;
+}
+.cleanup-schedule-status.is-ok {
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--banner-success-border, var(--color-border));
 }
 
 /* ── Host / backup / docker subpage heroes ─────────────────────────── */

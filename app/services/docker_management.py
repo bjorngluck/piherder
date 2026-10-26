@@ -30,7 +30,6 @@ import paramiko
 import time
 from datetime import datetime
 from sqlmodel import Session, select
-from ..database import engine  # for direct if needed, but prefer passed session
 
 # Docker versioning extracted to docker_versions.py.
 # Re-export for backward compatibility (routers use `from ..services import docker_management as docker_svc`).
@@ -2027,6 +2026,44 @@ def prune_unused(server: Server, prune_type: str = 'both') -> dict:
         try:
             client.close()
         except:
+            pass
+
+
+def prune_dangling_images(server: Server) -> dict:
+    """Dangling images only. This is ``docker image prune -f``."""
+    client = get_ssh_client(server)
+    try:
+        status, out, err = run_command(client, "docker image prune -f", timeout=60)
+        text = f"{out or ''}{err or ''}".strip()
+        return {"success": status == 0, "output": text or "Nothing to prune."}
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+def prune_build_cache(server: Server) -> dict:
+    """Docker builder cache and buildx cache. Not part of ``docker_prune``."""
+    steps = (
+        ("builder", "docker builder prune -f"),
+        ("buildx", "docker buildx prune -f"),
+    )
+    client = get_ssh_client(server)
+    try:
+        outs = []
+        success = True
+        for label, cmd in steps:
+            status, out, err = run_command(client, cmd, timeout=120)
+            text = f"{out or ''}{err or ''}".strip() or "Nothing to prune."
+            outs.append(f"{label}: {text}")
+            if status != 0:
+                success = False
+        return {"success": success, "output": "\n".join(outs)}
+    finally:
+        try:
+            client.close()
+        except Exception:
             pass
 
 

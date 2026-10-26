@@ -6,7 +6,7 @@
 
 Use this list as a **real operator pass**, not a unit-test dump. Tick **Pass / Fail / N/A**. Anything **Must** that fails is a ship blocker unless you explicitly accept it.
 
-Operator-facing copy (same checklists): [wiki/operations/qa-v1.2.0.md](../wiki/operations/qa-v1.2.0.md).
+This file is the operator checklist. The wiki copy of it was removed.
 
 ---
 

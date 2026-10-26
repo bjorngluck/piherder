@@ -143,7 +143,7 @@ def test_reboot_blocked_by_patch_and_backup(monkeypatch):
 def test_patch_and_backup_blocked_by_reboot(monkeypatch):
     monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
     session, engine = _memory()
-    monkeypatch.setattr(jobs_mod, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     srv = _server(session)
     _job(session, srv, "host_reboot", status="pending")
     with pytest.raises(jobs_mod.JobAlreadyActive):
@@ -180,7 +180,7 @@ def test_demo_host_reboot_does_not_ssh(monkeypatch):
 
 def test_execute_host_reboot_uses_deferred_commands(monkeypatch):
     session, engine = _memory()
-    monkeypatch.setattr(jobs_mod, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(jobs_mod, "_send_summary_webhook", lambda *_a, **_k: None)
     srv = _server(session, reboot_pending=True)
     job = Job(server_id=srv.id, job_type="host_reboot", status="pending", details="{}")

@@ -5,7 +5,7 @@ from sqlalchemy import func
 import json
 from typing import Optional, List
 from starlette.concurrency import run_in_threadpool
-from ..database import get_session, engine
+from ..database import get_session, get_engine
 from ..models import Server, AuditLog, Job, UserFavourite
 from datetime import datetime
 from ..security import encryption
@@ -1066,6 +1066,7 @@ async def server_detail(
             "docker_base_expanded": ssh_service.docker_base_expanded(server),
             "haos_guidance": ssh_onboarding.HAOS_GUIDANCE,
             "host_deps": host_deps_svc.parse_host_deps(server),
+            "bootstrap_script": ssh_onboarding.preview_feature_bootstrap_script(server),
             "kuma_ssh": _kuma_ssh_for_server(session, server.id),
             "kuma_host_services": _kuma_host_services_for_server(session, server.id),
             "kuma_docker_service_count": _kuma_docker_service_count(session, server.id),
@@ -1299,6 +1300,8 @@ async def update_server(
         changed.append("ip_address")
     if new_os_type is not None and (server.os_type or "").lower() != new_os_type:
         changed.append("os_type")
+    prev_backup = bool(server.backup_enabled)
+    prev_docker = bool(server.container_patch_enabled)
     if server.backup_enabled != backup_enabled:
         changed.append("backup_enabled")
     if server.container_patch_enabled != container_patch_enabled:
@@ -1371,6 +1374,16 @@ async def update_server(
             sync_server_schedules(server)
         except Exception:
             logger.warning("Could not sync backup schedule for server %s", server.id)
+    if (server.backup_enabled and not prev_backup) or (
+        server.container_patch_enabled and not prev_docker
+    ):
+        try:
+            await run_in_threadpool(host_deps_svc.check_and_persist, session, server)
+        except Exception:
+            logger.warning(
+                "Host dependency check failed after feature save for server %s",
+                server.id,
+            )
 
     # Host DNS only when General form explicitly includes the DNS section
     if touch_dns:

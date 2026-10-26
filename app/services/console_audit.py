@@ -660,12 +660,12 @@ def unlink_server(session: Session, server_id: int) -> int:
 def purge_expired_now(session: Optional[Session] = None) -> int:
     """Retention pass using the Settings/env knob."""
     from . import ssh_console as cons
-    from ..database import engine
+    from ..database import get_engine
 
     days = cons.audit_retention_days()
     own = session is None
     if own:
-        session = Session(engine)
+        session = Session(get_engine())
     try:
         return purge_transcript_bodies(session, older_than_days=days)
     finally:

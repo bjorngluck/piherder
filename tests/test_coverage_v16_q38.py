@@ -32,8 +32,8 @@ def test_undo_enqueue_and_host_facts(tmp_path, monkeypatch):
     from app.services.service_migrate import undo as undo_mod
 
     engine = _engine(tmp_path / "q38.db")
-    monkeypatch.setattr(jobs, "engine", engine)
-    monkeypatch.setattr(facts, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(
         "app.services.service_migrate.host_lock.migrate_surface_allowed",
         lambda: True,

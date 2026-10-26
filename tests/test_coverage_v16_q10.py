@@ -56,7 +56,7 @@ def test_jobs_enqueue_background_tasks_branches(monkeypatch):
     session.add(dep)
     session.commit()
     session.refresh(dep)
-    monkeypatch.setattr(js, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
 
     @contextmanager
     def _fresh():

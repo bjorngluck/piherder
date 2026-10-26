@@ -72,7 +72,7 @@ def test_execute_docker_stack_lifecycle_and_remove(monkeypatch):
 
     session, engine = _memory()
     srv = _server(session)
-    monkeypatch.setattr(js, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
 
     @contextmanager
     def _fresh():
@@ -368,7 +368,7 @@ def test_create_herder_backup_config_only(tmp_path, monkeypatch):
 
     session, engine = _memory()
     _server(session)
-    monkeypatch.setattr(hb, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(hb, "HERDER_BACKUP_DIR", tmp_path)
     monkeypatch.setattr(hb, "_ensure_dir", lambda: None)
     monkeypatch.setattr(hb, "prune_old_backups", lambda *a, **k: None)

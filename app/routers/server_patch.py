@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Stre
 from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
 
-from ..database import get_session, engine
+from ..database import get_session, get_engine
 from ..models import Server, AuditLog, Job, User
 from ..security.auth import get_current_user, get_operator_user
 from ..services import jobs as job_service
@@ -307,6 +307,21 @@ def sync_server_schedules(server: Server):
         logger.warning(f"Could not sync schedules for server {server.id}: {e}")
 
 
+def docker_prune_job_registered(server_id: int) -> bool:
+    """True when this process's scheduler has the host's prune job."""
+    try:
+        from ..main import HAS_SCHEDULER, scheduler
+    except Exception:
+        return False
+    if not HAS_SCHEDULER or scheduler is None or not server_id:
+        return False
+    try:
+        return scheduler.get_job(f"docker_prune_{int(server_id)}") is not None
+    except Exception:
+        logger.warning("Could not read the docker prune scheduler job", exc_info=True)
+        return False
+
+
 @router.post("/{server_id}/check/os-updates")
 async def check_os_updates_now(
     request: Request,
@@ -485,6 +500,77 @@ async def save_container_apply_schedule(
     session.commit()
     sync_server_schedules(server)
     return RedirectResponse(server_redirect(server_id), status_code=303)
+
+
+@router.post("/{server_id}/schedule/docker-prune")
+async def save_docker_prune_schedule(
+    request: Request,
+    server_id: int,
+    docker_prune_schedule: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Save a prune cron. Blank turns it off. Volumes and build cache stay off."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    if not server.container_patch_enabled:
+        raise HTTPException(400, "Enable the Docker feature on this server first")
+    cron = validate_cron(docker_prune_schedule)
+    server.docker_prune_schedule = cron
+    session.add(server)
+    session.commit()
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_docker_prune_schedule",
+        details={"cron": cron or ""},
+    )
+    session.commit()
+    sync_server_schedules(server)
+    registered = docker_prune_job_registered(server.id) if cron else False
+    if cron and not registered:
+        message = (
+            "The cron is stored, but the scheduler did not register it. "
+            "About will not list Docker prune for this host."
+        )
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "docker_prune_schedule": cron,
+                    "detail": message,
+                },
+                status_code=409,
+            )
+        return RedirectResponse(
+            f"/servers/{server_id}/docker?prune=schedule_miss",
+            status_code=303,
+        )
+    if cron:
+        message = (
+            "Prune schedule saved. On About, open View schedule and choose Docker prune."
+        )
+        flag = "schedule"
+    else:
+        message = (
+            "Prune schedule is off. About will not list Docker prune for this host."
+        )
+        flag = "schedule_off"
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse(
+            {
+                "ok": True,
+                "docker_prune_schedule": cron or "",
+                "registered": registered,
+                "message": message,
+            }
+        )
+    return RedirectResponse(
+        f"/servers/{server_id}/docker?prune={flag}",
+        status_code=303,
+    )
 
 
 # Docker routes extracted to server_docker.py (sub-router included at top of file)

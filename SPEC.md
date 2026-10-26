@@ -3,7 +3,7 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** Historical phase checklist (v1.0 era). **Current package:** [v1.12.0](docs/RELEASE_v1.12.0.md) · [PLAN](docs/PLAN_v1.12.0.md). Package **1.12.0**. Image `1.12.0` / `1.12` / `latest`. Pin `1.11.0` / `1.11` stays the previous image. Released 2026-10-22. Prior: [v1.11.0](docs/RELEASE_v1.11.0.md) · [v1.10.0](docs/RELEASE_v1.10.0.md) · [v1.9.0](docs/RELEASE_v1.9.0.md) · [v1.8.1](docs/RELEASE_v1.8.1.md) · [v1.7.0](docs/RELEASE_v1.7.0.md).  
+> **Status:** Historical phase checklist (v1.0 era). **Current package:** [v1.12.1](docs/RELEASE_v1.12.1.md) · [PLAN](docs/PLAN_v1.12.0.md). Package **1.12.1**. Image `1.12.1` / `1.12` / `latest`. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Released 2026-10-23. Prior: [v1.12.0](docs/RELEASE_v1.12.0.md) · [v1.11.0](docs/RELEASE_v1.11.0.md) · [v1.10.0](docs/RELEASE_v1.10.0.md) · [v1.9.0](docs/RELEASE_v1.9.0.md) · [v1.8.1](docs/RELEASE_v1.8.1.md) · [v1.7.0](docs/RELEASE_v1.7.0.md).  
 > **Last updated:** 2026-10-02 — do not treat this file as the operator guide (use the wiki + RELEASE).
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
@@ -46,10 +46,10 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 - **Bindings:** SSH per server; **host services** (no Docker); **Docker project/container**; TLS days from metrics.
 - **UI:** server Services page, fleet `/services` icon grid, dashboard Services tile, logos (favicon + upload); server detail dest cards for Grafana + Kuma SSH next to Backups/Docker/Services/Host status.
 - **Grafana (v0.3.0+):** service account token; `/api/health` + dashboard inventory; bindings with kinds **metrics / containers / logs**; query templates (`var-` + `{hostname_short}`, `{container}`, …); **preferred name** per dashboard UID on Inventory tab (`config_json.display_names`; current + future binds; survives poll); binding rows **Clone** / **Remove**; Docker **Grafana** chip + ⋯ menu + expanded-row links (touch-friendly).
-- **Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · **Release:** [docs/RELEASE_v0.3.0.md](docs/RELEASE_v0.3.0.md).
+- **Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · **Release:** [docs/RELEASE_v0.3.0.md](docs/archive/v0/RELEASE_v0.3.0.md).
 
 ### Platform reliability & deployment (2026-07-10)
-- **Remote host dependency check** (done): after SSH / least-priv onboard (and **Test connection**), probe tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`); read-only chips on server detail; re-check under SSH access; no auto-install on the remote host.
+- **Remote host dependency check** (done): after SSH / least-priv onboard (and **Test connection**), probe tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`); read-only chips on server detail; re-check under SSH access. The check does not install packages. On `v1.13.0-dev`, operators can run **Bootstrap missing tools** separately (`POST /servers/{id}/host-deps/bootstrap`, exclusive Celery job `host_bootstrap`, optional admin `bootstrap_username`, progress stays in the SSH access window).
 - **Settings → Status tab** (done): scheduled health (web, PostgreSQL, Redis, Celery nodes/pool slots, scheduler, **mount free**); backup tree breakdown **on demand**; alert on state change only.
 - **Multi-worker** (done): `CELERY_CONCURRENCY` (default 2 pool slots in one node) + Redis **per-server backup mutex**; parallel across hosts; prefer concurrency over multi-node unless HA; cancel + stale recovery still correct. **v1.5:** `service_migrate` on the same worker; dual-host backup mutex (lower id first); web recycle does not fail a running Move.
 - **Deployment:** **Docker Compose is the supported architecture**. Kubernetes and local/bare install are **under consideration only** — no committed Helm charts or dual-path installers in H0–H2.
@@ -184,8 +184,8 @@ Carried refinements + ship blockers for a clean install story. Detail: [docs/ROA
 - [x] **Token REST API** — admin-managed API tokens; `/api/v1` fleet read + job triggers
 - [x] **Compose volume defaults** — `./backups`, `./piherder_backups`, `./piherder_data`, `./certs`
 - [x] **Production ADMIN section** — TLS, upgrades, metrics, webhooks, API tokens
-- [x] **Git tag `v0.2.0`** + release notes — [docs/RELEASE_v0.2.0.md](docs/RELEASE_v0.2.0.md)
-- [x] **Git tag `v0.3.0`** + release notes — [docs/RELEASE_v0.3.0.md](docs/RELEASE_v0.3.0.md)
+- [x] **Git tag `v0.2.0`** + release notes, [docs/RELEASE_v0.2.0.md](docs/archive/v0/RELEASE_v0.2.0.md)
+- [x] **Git tag `v0.3.0`** + release notes, [docs/RELEASE_v0.3.0.md](docs/archive/v0/RELEASE_v0.3.0.md)
 - [x] Pre-built multi-arch image on Docker Hub + README/compose pull path (`bjorngluck/piherder:latest`; process: [docs/PUBLISH_IMAGE.md](docs/PUBLISH_IMAGE.md))
 
 ---
@@ -194,7 +194,7 @@ Carried refinements + ship blockers for a clean install story. Detail: [docs/ROA
 
 Implement **in order** after or alongside H0 image work. Not required to tag `v0.2.0`. Full notes: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) § Horizon 0.5.
 
-- [x] **Remote host dependency check** — probe `rsync` / sudo-or-plain rsync / `docker` / `apt` by enabled features; server detail + post-onboard/test; snapshot + chips; install hints only (no auto-install)
+- [x] **Remote host dependency check**: probe `rsync` / sudo-or-plain rsync / `docker` / `apt` by enabled features; server detail + post-onboard/test; snapshot + chips; install hints only. The check does not install packages. Host tool bootstrap is a separate operator action on `v1.13.0-dev`.
 - [x] **Settings → Status tab** — web, PostgreSQL, Redis, Celery (nodes + pool slots), APScheduler, mount free (fast); lazy backup-tree `du` + host folders; scheduled poll; notify on unhealthy; metrics from last check
 - [x] **Multi-worker** — Redis per-server backup mutex; `CELERY_CONCURRENCY` (default 2 pool slots); parallel across hosts; cancel via `celery_task_id` + lock TTL on worker death
 
@@ -206,7 +206,7 @@ Implement **in order** after or alongside H0 image work. Not required to tag `v0
 
 Read-mostly integrations: registry, status, deep links, **server / Docker / host-service bindings**. No full remote control of external products (create-monitor = H2).
 
-**Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · **Ops:** [docs/ADMIN.md](docs/ADMIN.md) § Uptime Kuma / Grafana · **Release:** [docs/RELEASE_v0.3.0.md](docs/RELEASE_v0.3.0.md)
+**Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · **Ops:** [docs/ADMIN.md](docs/ADMIN.md) § Uptime Kuma / Grafana · **Release:** [docs/RELEASE_v0.3.0.md](docs/archive/v0/RELEASE_v0.3.0.md)
 
 ### Shipped — Uptime Kuma (H1 slice)
 
@@ -240,8 +240,8 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 
 ## Phase 6 — Service templates (v0.4 foundation → v0.5.0 RC / Horizon 2)
 
-**Shipped foundation:** [docs/PLAN_v0.4.0.md](docs/PLAN_v0.4.0.md) · [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md)  
-**Active plan:** [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md)  
+**Shipped foundation:** [docs/PLAN_v0.4.0.md](docs/archive/v0/PLAN_v0.4.0.md) · [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · [docs/RELEASE_v0.4.0.md](docs/archive/v0/RELEASE_v0.4.0.md)  
+**Active plan:** [docs/PLAN_v0.5.0.md](docs/archive/v0/PLAN_v0.5.0.md)  
 **Decision:** All post-`v0.3.0` work for the foundation shipped in **`v0.4.0`** (bug IDs B01… in PLAN §2).  
 **Production path:** ~~v0.4.0~~ **done** → ~~**v0.5.0**~~ **tagged** (ops + polish + first RC; former v0.4.x folded in).
 
@@ -272,7 +272,7 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 
 ### Phase 6 → v0.5.0 (ops + polish + first RC)
 
-Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
+Living detail: [docs/PLAN_v0.5.0.md](docs/archive/v0/PLAN_v0.5.0.md).
 
 **Primary**
 
@@ -323,7 +323,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 
 ## Phase 6.5 — Host lifecycle & operator console (Horizon 2.75 · v0.6.0+)
 
-**v0.8.0 release:** [docs/RELEASE_v0.8.0.md](docs/RELEASE_v0.8.0.md) · [docs/PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md) · **v0.9.0:** [docs/PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md) · Design: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md) · [docs/FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md) · Prior: [PLAN_v0.7.0.md](docs/PLAN_v0.7.0.md) · [ROADMAP H2.75](docs/ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc).
+**v0.8.0 release:** [docs/RELEASE_v0.8.0.md](docs/archive/v0/RELEASE_v0.8.0.md) · [docs/PLAN_v0.8.0.md](docs/archive/v0/PLAN_v0.8.0.md) · **v0.9.0:** [docs/PLAN_v0.9.0.md](docs/archive/v0/PLAN_v0.9.0.md) · Design: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md) · [docs/FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md) · Prior: [PLAN_v0.7.0.md](docs/archive/v0/PLAN_v0.7.0.md) · [ROADMAP H2.75](docs/ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc).
 
 **Shipped on 0.6 track:** Kuma coverage (H3); runtime topology (H2); Docker bulk (P1); template deploy Jobs; cert first-setup + presets + self-managed edge map + stage_sudo.  
 **v0.7.0 tagged:** add-host wizard (P2); **Playwright E2E** Phase A + Phase B wizard; topology annotations + compose sets; drift-check Job.  
@@ -343,7 +343,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [x] **Cert RC2 UX** (v0.6 track) — first-cert setup; map presets; stage_sudo; self-managed Caddy edge mapping + renew re-apply; Grafana UID 472 cookbook
 - [x] **Topology annotations** (0.7) — fixed category/tags vocab, visual service stacks within compose project, exact project match, map columns from category vocab ([FEATURE_PLAN_RUNTIME_TOPOLOGY.md](docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md) § 12c)
 - [ ] Per-project column profiles / explicit link-to-column layout (topology residual)
-- [x] **LAN discovery (nmap-class)** — opt-in LAN CIDR scan, network view, Hosts overlay, map identity + wiki screenshots — **v0.8.0 tagged** ([RELEASE_v0.8.0.md](docs/RELEASE_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md)); operator chrome polish continues in [PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md)
+- [x] **LAN discovery (nmap-class)**, opt-in LAN CIDR scan, network view, Hosts overlay, map identity + wiki screenshots, **v0.8.0 tagged** ([RELEASE_v0.8.0.md](docs/archive/v0/RELEASE_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md)); operator chrome polish continues in [PLAN_v0.9.0.md](docs/archive/v0/PLAN_v0.9.0.md)
 - [ ] Cloudflare DNS automation from template hints / fabric
 - [ ] Pi-hole / NPM write paths beyond local DNS (full proxy host CRUD, lists, etc.) — **v1.4 M-npm** is backend retarget only
 - [x] Service migrate host→host; destructive service remove — **v1.4.0 tagged**; **v1.5.0** Move on Celery (web recycle safe) ([RELEASE_v1.5.0.md](docs/RELEASE_v1.5.0.md) · wiki [Move a service](wiki/docker/service-migration.md))
@@ -440,6 +440,7 @@ flowchart TB
 | `PIHERDER_MASTER_KEY` | Host `.env` only — never committed |
 | SSH private keys | Fernet-encrypted in DB; decrypted in-memory per job |
 | SSH passwords (optional) | Fernet-encrypted; discouraged; clear after key deploy |
+| One-time sudo password (`host_bootstrap`) | Fernet-encrypted in the broker only until a worker picks it up, acked on receipt, expires after 120 seconds, never retried or redelivered, and never logged. A worker crash marks the job failed and the operator reruns with a fresh password. If no worker takes the message, the pending job fails with `expired before a worker picked it up, rerun with a fresh password`. A second bootstrap while one already holds the host fails at once with `another job holds this host, rerun when it finishes`, and the password is not queued. Not stored on the job row or the audit row |
 | User passwords | bcrypt; policy min 10 + upper/lower/digit; soft max ~72 characters; admin-created users forced reset on first login |
 | 2FA | TOTP secret Fernet-encrypted; hashed backup codes; optional trusted device cookie; optional global force-2FA |
 | Sessions | JWT (HS256) cookie via PyJWT + cryptography |
@@ -471,6 +472,16 @@ Configurable per-server fields that map 1:1: `backup_paths`, `docker_base_dir`, 
 4. **Create issues** from unchecked Phase 2–4 items above (copy title + acceptance criteria).
 5. **Add issues to the project board** and group by Phase column or Milestone.
 6. Pin `SPEC.md` in the repo README (already linked) for contributors.
+
+---
+
+## Current train (`v1.13.0-dev`)
+
+Package stays **1.12.1**. About and the footer stay **1.12.1**. Image tags stay `1.12.1` / `1.12` / `latest`. This file's status line above is that package. The train is not tagged.
+
+Must and Should are on `v1.13.0-dev`: restore ownership (`.piherder-ownership.json`, numeric `uid`, `gid`, and octal `mode`, `setuid` and `setgid` stripped), a possible NIC change with **Replace stale MAC** ([#50](https://github.com/bjorngluck/piherder/issues/50)), the one-shot token cookie `api_token_once`, host tool bootstrap and feature preflight (`POST /servers/{id}/host-deps/bootstrap`, exclusive Celery job `host_bootstrap`, optional `bootstrap_username` when the fleet user is already restricted `piherder`, feature-gated `rsync` and official `docker-ce` for `ubuntu`, `debian`, and `raspbian`, `confirm_docker_bootstrap`, a fresh SSH check after `usermod`, audit action `host_bootstrap`, progress and errors inside the SSH access window), backup minutes across all 1,440 slots, Docker build-cache prune, per-host `docker_prune_schedule`, dangling image prune after a successful update, a 30 minute inventory refresh reset, inventory `update_available`, the stuck-queue alert and gauges, `GET /api/v1/alerts` and hosted `list_alerts`, an OAuth `client_name` suffix, orphaned running jobs, and `get_engine()`. Published adapter stays **0.4.3**. Hosted `/mcp` lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Host bootstrap is not on `/api/v1` or `/mcp`.
+
+QA walks are signed 2026-10-25. Code freeze is set 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frames are wired. Pull request [#60](https://github.com/bjorngluck/piherder/pull/60) is open. Plan: [docs/PLAN_v1.13.0.md](docs/PLAN_v1.13.0.md). Walks: [docs/QA_v1.13.0.md](docs/QA_v1.13.0.md).
 
 ---
 

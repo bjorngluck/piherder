@@ -31,8 +31,8 @@ def test_stack_health_celery_scheduler_tree(tmp_path, monkeypatch):
     assert sh.check_web()["status"] == "ok"
     _session, engine = _memory()
     # save_report writes through app_settings, which opens its own engine.
-    monkeypatch.setattr(sh, "engine", engine)
-    monkeypatch.setattr(app_cfg, "engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
+    monkeypatch.setattr("app.database.engine", engine)
     monkeypatch.setattr(app_cfg, "_cache", None)
     db = sh.check_db()
     assert db["status"] in ("ok", "fail")

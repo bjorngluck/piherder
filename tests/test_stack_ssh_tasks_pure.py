@@ -23,7 +23,7 @@ def test_stack_health_component_and_fmt():
     assert sh.check_web()["status"] == "ok"
 
     # DB check with mocked session
-    with patch.object(sh, "Session") as Sess, patch.object(sh, "engine", MagicMock()):
+    with patch.object(sh, "Session") as Sess:
         sess = MagicMock()
         Sess.return_value.__enter__.return_value = sess
         assert sh.check_db()["status"] == "ok"
@@ -161,7 +161,7 @@ def test_tasks_update_job_status_branches():
         s.refresh(job)
         jid = job.id
 
-    with patch.object(tasks_mod, "engine", engine):
+    with patch("app.database.engine", engine):
         tasks_mod._update_job_status(jid, "pending", {"phase": "wait", "log_lines": ["b"]})
         tasks_mod._update_job_status(jid, "running", {"current": "go"})
         tasks_mod._update_job_status(jid, "success", {"summary": "done"})
@@ -179,7 +179,7 @@ def test_tasks_update_job_status_branches():
         j.status = "cancelled"
         s.add(j)
         s.commit()
-    with patch.object(tasks_mod, "engine", engine):
+    with patch("app.database.engine", engine):
         tasks_mod._update_job_status(jid, "running", {"x": 1})
     with Session(engine) as s:
         assert s.get(Job, jid).status == "cancelled"
@@ -205,7 +205,7 @@ def test_nmap_tasks_dispatch_mocked(monkeypatch):
             pass
 
     monkeypatch.setattr(tasks_mod, "Session", lambda *a, **k: FakeSession())
-    monkeypatch.setattr(tasks_mod, "engine", MagicMock())
+    monkeypatch.setattr("app.database.engine", MagicMock())
 
     with patch("app.services.nmap.scan.run_nmap_scan") as run:
         run.return_value = {"status": "success"}

@@ -141,7 +141,7 @@ def test_herder_backup_request_stays_in_the_test_database(monkeypatch):
     assert _TEST_DATABASE_URL.endswith("test.db")
     assert "test" in str(engine.url)
     assert str(celery.conf.broker_url) == _TEST_BROKER_URL
-    assert js.engine is engine
+    assert js.get_engine() is engine
 
     broker_calls: list[str] = []
 

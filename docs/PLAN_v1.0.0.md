@@ -6,7 +6,7 @@
 **Package / image version:** `1.0.0`  
 **Theme:** Production hardening · security · known-issue burn-down · polish for go-live  
 **Baseline:** `v0.9.0` (tagged 2026-07-26 — last pre-production)  
-**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [RELEASE_v0.9.0.md](RELEASE_v0.9.0.md) · [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [ADMIN.md](ADMIN.md) · [API.md](API.md) · [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md) · [SECURITY.md](../SECURITY.md)
+**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [RELEASE_v0.9.0.md](archive/v0/RELEASE_v0.9.0.md) · [PLAN_v0.9.0.md](archive/v0/PLAN_v0.9.0.md) · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [ADMIN.md](ADMIN.md) · [API.md](API.md) · [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md) · [SECURITY.md](../SECURITY.md)
 
 > **First production release.** Freeze product surface for self-hosted home/lab operators: secure defaults, clear auth, documented REST, stable templates schema, residual UX bugs closed. Deeper features (SSO, insights, full cert wizard, email) stay **post-1.0** unless explicitly pulled in.
 

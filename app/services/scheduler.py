@@ -73,11 +73,11 @@ def container_apply_skip_reason(server) -> str | None:
 def schedule_backup_job(server_id: int):
     """Called by APScheduler — enqueue Celery only, never rsync on web."""
     try:
-        from ..database import engine
+        from ..database import get_engine
         from .jobs import enqueue_backup_for_server
         from ..models import Server
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             server = db.get(Server, server_id)
             if server and server.backup_enabled:
                 enqueue_backup_for_server(db, server, scheduled=True)
@@ -88,11 +88,11 @@ def schedule_backup_job(server_id: int):
 def schedule_os_check_job(server_id: int):
     """Enqueue check-only OS update scan (queued worker pool, non-blocking)."""
     try:
-        from ..database import engine
+        from ..database import get_engine
         from .jobs import enqueue_os_update_check
         from ..models import Server
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             server = db.get(Server, server_id)
             if not server or not server.os_check_enabled:
                 return
@@ -152,11 +152,11 @@ def _restore_container_check_flag(server) -> None:
 def schedule_container_check_job(server_id: int):
     """Enqueue check-only container image scan (queued worker pool, non-blocking)."""
     try:
-        from ..database import engine
+        from ..database import get_engine
         from .jobs import enqueue_container_update_check
         from ..models import Server
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             server = db.get(Server, server_id)
             if not container_check_should_run(server):
                 return
@@ -171,11 +171,11 @@ def schedule_container_check_job(server_id: int):
 def schedule_os_apply_job(server_id: int):
     """Enqueue OS patch apply if still enabled and (optionally) updates pending."""
     try:
-        from ..database import engine
+        from ..database import get_engine
         from .jobs import enqueue_os_patch_apply
         from ..models import Server
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             server = db.get(Server, server_id)
             if not server:
                 return
@@ -202,11 +202,11 @@ def schedule_os_apply_job(server_id: int):
 def schedule_container_apply_job(server_id: int):
     """Enqueue container patch apply if still enabled and (optionally) updates pending."""
     try:
-        from ..database import engine
+        from ..database import get_engine
         from .jobs import enqueue_container_patch_apply
         from ..models import Server
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             server = db.get(Server, server_id)
             if not server:
                 return
@@ -252,6 +252,7 @@ def server_cron_job_ids(server_id: int) -> list[str]:
         f"container_check_{sid}",
         f"os_apply_{sid}",
         f"container_apply_{sid}",
+        f"docker_prune_{sid}",
     ]
 
 
@@ -405,15 +406,75 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
         except Exception as e:
             logger.warning(f"[SCHEDULER] Container apply schedule failed for {sid}: {e}")
 
+    # Docker prune. Volumes stay off. Build cache is a separate action.
+    prid = f"docker_prune_{sid}"
+    _remove_job(scheduler, prid)
+    prune_cron = (getattr(server, "docker_prune_schedule", None) or "").strip()
+    if server.container_patch_enabled and prune_cron:
+        try:
+            trigger = _cron_trigger(prune_cron, timezone=tz)
+            scheduler.add_job(
+                func=schedule_docker_prune_job,
+                trigger=trigger,
+                args=[sid],
+                id=prid,
+                replace_existing=True,
+                name=f"Docker prune {server.name}",
+            )
+            logger.info(
+                f"[SCHEDULER] Docker prune scheduled for server {sid}: {prune_cron} ({tz})"
+            )
+        except Exception as e:
+            logger.warning(f"[SCHEDULER] Docker prune schedule failed for {sid}: {e}")
+
+
+def schedule_docker_prune_job(server_id: int):
+    """Enqueue the same prune the API starts by hand. Volumes stay off."""
+    try:
+        from ..database import get_engine
+        from ..models import Server
+        from .jobs import JobAlreadyActive, create_job_and_run
+
+        with Session(get_engine()) as db:
+            server = db.get(Server, server_id)
+            cron = (getattr(server, "docker_prune_schedule", None) or "").strip()
+            if (
+                not server
+                or not getattr(server, "container_patch_enabled", False)
+                or not cron
+            ):
+                return
+            try:
+                job = create_job_and_run(
+                    None,
+                    db,
+                    server,
+                    "docker_prune",
+                    source_filter="both",
+                )
+            except JobAlreadyActive:
+                logger.info(
+                    "[SCHEDULER] Docker prune already active for server %s", server_id
+                )
+                return
+            if job:
+                logger.info(
+                    "[SCHEDULER] Queued docker prune job #%s for server %s",
+                    job.id,
+                    server_id,
+                )
+    except Exception as e:
+        logger.warning("[SCHEDULER] Docker prune enqueue failed for %s: %s", server_id, e)
+
 
 def sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER):
     if not HAS_SCHEDULER or not scheduler:
         return
     try:
-        from ..database import engine
+        from ..database import get_engine
         from ..models import Server
         from sqlmodel import select
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             for server in db.exec(select(Server)).all():
                 sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server)
         sync_backup_copy_schedule(scheduler, HAS_SCHEDULER)
@@ -429,11 +490,11 @@ DOCKER_INVENTORY_INTERVAL_MIN = 10
 def schedule_backup_copy_job(destination_id: int):
     """APScheduler entry: enqueue a Drive or SMB copy. The worker runs rclone."""
     try:
-        from ..database import engine
+        from ..database import get_engine
         from ..models import BackupDestination
         from .backup_replicate import credentials_saved, enqueue
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             dest = db.get(BackupDestination, destination_id)
             if (
                 dest
@@ -458,7 +519,7 @@ def sync_backup_copy_schedule(scheduler, HAS_SCHEDULER):
         logger.warning("[SCHEDULER] Could not clear Drive copy crons: %s", e)
         return
     try:
-        from ..database import engine
+        from ..database import get_engine
         from ..models import BackupDestination
         from sqlmodel import select
 
@@ -470,7 +531,7 @@ def sync_backup_copy_schedule(scheduler, HAS_SCHEDULER):
         except Exception:
             tz = None
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             rows = db.exec(select(BackupDestination)).all()
             for dest in rows:
                 cron = (dest.schedule or "").strip()
@@ -502,18 +563,26 @@ def sync_backup_copy_schedule(scheduler, HAS_SCHEDULER):
 def schedule_docker_inventory_fleet():
     """Periodic refresh of DB docker inventory for hosts with container feature on."""
     try:
-        from ..database import engine
+        from ..database import get_engine
         from ..models import Server
         from sqlmodel import select
         from . import docker_inventory as inventory_svc
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             servers = db.exec(
                 select(Server).where(Server.container_patch_enabled == True)  # noqa: E712
             ).all()
             for server in servers:
                 if not server.id:
                     continue
+                try:
+                    inventory_svc.release_expired_inventory_refresh(db, server)
+                except Exception as e:
+                    logger.warning(
+                        "[SCHEDULER] docker inventory refresh reset failed for %s: %s",
+                        server.id,
+                        e,
+                    )
                 if inventory_svc.is_stale(server, max_age_sec=inventory_svc.SCHEDULER_STALE_SEC):
                     try:
                         inventory_svc.refresh_server_inventory(server.id, force=False)
@@ -554,16 +623,17 @@ HOST_FACTS_INTERVAL_MIN = 15
 def schedule_host_facts_fleet():
     """Periodic OS/hardware snapshot for every fleet host."""
     try:
-        from ..database import engine
+        from ..database import get_engine
         from ..models import Server
         from sqlmodel import select
         from . import host_facts as facts_svc
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             try:
                 from . import jobs as jobs_svc
 
                 jobs_svc.cleanup_stale_backup_jobs(db)
+                jobs_svc.reconcile_orphaned_running_jobs(db)
             except Exception as e:
                 logger.warning("[SCHEDULER] stale job sweep failed: %s", e)
             for server in db.exec(select(Server)).all():
@@ -622,10 +692,10 @@ def schedule_stack_health_job():
             has_scheduler=bool(_hs),
             notify=True,
         )
-        from ..database import engine
+        from ..database import get_engine
         from .insights import sync_stale_backup_alerts
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             sync_stale_backup_alerts(db)
     except Exception as e:
         logger.warning(f"[SCHEDULER] stack health job failed: {e}")
@@ -708,11 +778,11 @@ CERT_RENEW_INTERVAL_HOURS = 6
 def schedule_cert_renew_job():
     """Check managed certs nearing expiry; renew via NPM and redistribute."""
     try:
-        from ..database import engine
+        from ..database import get_engine
         from . import certificates as cert_svc
         from sqlmodel import Session
 
-        with Session(engine) as db:
+        with Session(get_engine()) as db:
             results = cert_svc.check_expiring_and_renew(db)
             if results:
                 logger.info("[SCHEDULER] cert renew check: %s result(s)", len(results))
@@ -727,10 +797,10 @@ TEMPLATE_DRIFT_INTERVAL_HOURS = 6
 def run_template_drift_checks():
     """Scheduled: compare host compose/.env to StackDeployment desired state."""
     try:
-        from ..database import engine
+        from ..database import get_engine
         from .service_templates.deploy import check_all_deployments_drift
 
-        with Session(engine) as s:
+        with Session(get_engine()) as s:
             res = check_all_deployments_drift(s)
             logger.info("[SCHEDULER] template drift check: %s", res)
     except Exception as e:
@@ -871,11 +941,11 @@ def sync_stale_data_cleanup_schedule(scheduler, HAS_SCHEDULER):
 def schedule_stale_data_cleanup_job():
     """APScheduler → enqueue fleet Job on default Celery queue."""
     logger.info("[SCHEDULER] Enqueueing scheduled stale data cleanup")
-    from ..database import engine
+    from ..database import get_engine
     from .stale_data_cleanup import enqueue_stale_data_cleanup
 
     try:
-        with Session(engine) as s:
+        with Session(get_engine()) as s:
             job = enqueue_stale_data_cleanup(s, user_id=None, dry_run=False)
             logger.info("[SCHEDULER] Stale data cleanup job #%s queued", job.id)
     except Exception as e:
@@ -884,11 +954,11 @@ def schedule_stale_data_cleanup_job():
 
 def watch_pending_herder_backups():
     """Fail a self-backup that is still pending after 30 minutes and alert."""
-    from ..database import engine
+    from ..database import get_engine
     from . import jobs as js
 
     try:
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             timed_out = js.expire_stale_pending_herder_backups(session)
         if timed_out:
             logger.warning(
@@ -901,11 +971,11 @@ def watch_pending_herder_backups():
 
 def watch_missed_schedules():
     """Open a warning when a host backup or container check missed its slot."""
-    from ..database import engine
+    from ..database import get_engine
     from .schedule_watch import sync_missed_schedule_alerts
 
     try:
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             opened = sync_missed_schedule_alerts(session)
             try:
                 from .copy_schedule_order import sync_copy_order_alerts
@@ -913,6 +983,12 @@ def watch_missed_schedules():
                 sync_copy_order_alerts(session)
             except Exception:
                 logger.exception("[SCHEDULER] Copy order check failed")
+            try:
+                from .queue_watch import sync_stuck_queue_alert
+
+                sync_stuck_queue_alert(session)
+            except Exception:
+                logger.exception("[SCHEDULER] Stuck queue check failed")
         if opened:
             logger.warning("[SCHEDULER] Missed schedule warnings open: %s", opened)
     except Exception:
@@ -978,7 +1054,7 @@ def schedule_herder_backup_job():
     logger.info("[SCHEDULER] Enqueueing scheduled PiHerder self-backup")
     from fastapi import BackgroundTasks
 
-    from ..database import engine
+    from ..database import get_engine
     from .jobs_exclusive import exclusive_runs_inline
 
     try:
@@ -990,7 +1066,7 @@ def schedule_herder_backup_job():
         include_audit = mode == "full"
         config_only = mode != "full"
         bg = BackgroundTasks() if exclusive_runs_inline() else None
-        with Session(engine) as s:
+        with Session(get_engine()) as s:
             job = js.enqueue_herder_backup_job(
                 s,
                 user_id=None,

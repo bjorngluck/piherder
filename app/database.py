@@ -48,8 +48,13 @@ def _create_app_engine(url: str):
 engine = _create_app_engine(settings.DATABASE_URL)
 
 
+def get_engine():
+    """The process SQLAlchemy engine. Call this instead of importing ``engine``."""
+    return engine
+
+
 def get_session():
-    with Session(engine) as session:
+    with Session(get_engine()) as session:
         yield session
 
 
