@@ -9,7 +9,7 @@
 Maintainer walks in [QA_v1.13.0](QA_v1.13.0.md) are signed 2026-10-25. About **View schedule** on Docker prune, and Docker **Cleanup…** with a saved prune schedule, are wired. Host bootstrap, the NIC change, and the stuck-queue frames are wired. The NIC and queue frames use example names. About and the footer say **1.13.0**.
 
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) multi-arch `linux/amd64` + `linux/arm64`
-**Tags:** `1.13.0`, `1.13`, and `latest`. The manifest digest is added after the Hub push. Pin `1.12.1` stays that patch. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image.
+**Tags:** `1.13.0`, `1.13`, and `latest`. Manifest `sha256:bb38e2c547b0599e860d60305934ff45251f5818da71fe6db040450e63fdc045` (`linux/amd64` and `linux/arm64`). Pin `1.12.1` stays that patch. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image.
 
 Home Assistant plugin is **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** (Home Assistant **2024.7** or newer). Published PyPI adapter is **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)**. Hosted `/mcp` on this branch adds `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. This release does not cut a new adapter tag.
 
