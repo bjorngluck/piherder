@@ -6,7 +6,7 @@ Maintainer plans and release notes. Operator wiki is `wiki/` (MkDocs).
 
 | Kind | Where |
 |------|--------|
-| Current release | [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Tag **v1.13.0**. Package **1.13.0**. Image `1.13.0` / `1.13` / `latest`. Pin `1.12.1` stays that patch. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)**. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)**. Released 2026-10-26 |
+| Current release | [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Tag **v1.13.0**. Package **1.13.0**. Image `1.13.0` / `1.13` / `latest`. Pin `1.12.1` stays that patch. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Published adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)**. Adapter **0.4.4** is ready on [piherder-mcp#9](https://github.com/bjorngluck/piherder-mcp/pull/9) and is not tagged. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)**. Released 2026-10-26 |
 | Prior release | [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) · [PLAN_v1.12.0.md](PLAN_v1.12.0.md) · [QA_v1.12.0.md](QA_v1.12.0.md). Tag **v1.12.0**. Pin `1.12.0` |
 | Prior release | [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) · [PLAN_v1.11.0.md](PLAN_v1.11.0.md) · [QA_v1.11.0.md](QA_v1.11.0.md). Tag **v1.11.0**. Pin `1.11.0` / `1.11` |
 | Prior release | [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md) · [QA_v1.10.0.md](QA_v1.10.0.md). Tag **v1.10.0**. Pin `1.10.0` / `1.10` |
