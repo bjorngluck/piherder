@@ -52,7 +52,7 @@ Build order for Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [
 
 | Tier | Lock |
 |------|------|
-| Should | **Pre-restore host rollback snapshot.** Before a real restore, take a host snapshot that can undo that restore. Dry-run does not take it |
+| Should | **Pre-restore host rollback snapshot.** In the tree. Before a real restore, copy the current host folder aside, with owners, so Undo last restore can put it back. A failed snapshot does not start the restore. Dry-run does not take it |
 | Should | **Manifest verification.** A restore is not called good until the file count and the byte count match the manifest |
 | Should | **Dry-run restore preview API.** A read that shows what a restore would change. It does not write |
 
@@ -121,6 +121,7 @@ Nothing else was voted **Out**.
 | 2026-10-27 | **Mobile console.** Three symptoms are written down: the suggestion bar blocks typing, the word appears on Enter, and Tab completion is wrong. A live preview and two later input changes were tried and reverted the same day. They made phone typing worse. Shell input is the committed console again. The phone sheet no longer hides on an outside tap. The same phone then compared keyboards. Samsung Keyboard reproduced the three failures. Gboard did not. Written up as **KI-console-samsung-keyboard**. |
 | 2026-10-27 | **Mute rules.** [#64](https://github.com/bjorngluck/piherder/issues/64) is in the tree. One host or one alert type, optional window, delivery only. Alembic `053_alert_mute` is not applied to a live database. The issue stays open. |
 | 2026-10-27 | **HACS install wording.** Install is HACS, Integrations, PiHerder. The plugin README and the herder wiki no longer say to add a custom repository. Plugin version stays **0.5.4**. No new plugin tag. |
+| 2026-10-27 | **Pre-restore snapshot.** A real restore copies the current host folder aside first. Undo writes that copy back. Dry-run does not take the snapshot. |
 
 ---
 
@@ -130,7 +131,7 @@ Nothing else was voted **Out**.
 |---|------|--------|
 | 1 | Open **`v1.14.0-dev`** on shipped `main` | **Done** 2026-10-27 |
 | 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | **Done** 2026-10-27. Plugin **v0.5.4** is tagged. Adapter **v0.4.4** is tagged. Volume prune is not on that tag. Samsung Keyboard is KI-console-samsung-keyboard |
-| 3 | Should, if it fits | Mute rules ([#64](https://github.com/bjorngluck/piherder/issues/64)) are in the tree. HACS install wording is in the tree. Plugin version stays **0.5.4**. The other Should items are not started |
+| 3 | Should, if it fits | Mute rules ([#64](https://github.com/bjorngluck/piherder/issues/64)) are in the tree. HACS install wording is in the tree. Plugin version stays **0.5.4**. A pre-restore snapshot is in the tree. The other Should items are not started |
 | 4 | Freeze | Not set. Package stays **1.13.0** |
 | 5 | Operator QA | Not opened |
 | 6 | Tag and Hub | Not cut |

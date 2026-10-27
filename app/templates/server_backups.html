@@ -252,6 +252,7 @@
     <p class="text-xs text-muted mb-3">
       Local backup destination → remote source. Uncheck dry-run and check confirm to write for real. Path policy still applies.
       A copy destination pulls that folder onto this PiHerder first. Dry-run does not write the pull. Confirm writes it here, then onto the host.
+      A real restore first copies the current host folder aside so it can be undone. Dry-run does not take that copy.
       Drive, OneDrive, and a LAN share do not keep a Unix owner. A named volume can come back as the wrong account, and the container may then fail to start. This release does not repair that.
     </p>
 
@@ -262,6 +263,11 @@
         {{ restore_result.summary or restore_result.error or ('rc=' ~ restore_result.rc) }}
       </div>
       <div class="text-xs text-muted font-mono break-all">{{ restore_result.source }} ← {{ restore_result.destination }}</div>
+      {% if restore_result.rollback and restore_result.rollback.saved %}
+      <p class="text-xs text-muted mt-1 mb-0">A rollback snapshot was saved before this write.</p>
+      {% elif restore_result.rollback and restore_result.rollback.restored %}
+      <p class="text-xs text-muted mt-1 mb-0">The pre-restore snapshot was written back.</p>
+      {% endif %}
       {% if restore_result.output %}
       <pre class="log-output mt-2 p-2 text-[10px] max-h-40 overflow-auto border border-border rounded">{{ restore_result.output[:3000] }}</pre>
       {% endif %}
@@ -302,6 +308,16 @@
           </label>
           <button type="submit" class="btn btn-secondary min-h-11 text-xs">Run restore</button>
         </form>
+        {% if c.rollback %}
+        <form method="post" action="/servers/{{ server.id }}/backup/restore/undo" class="mt-2 flex flex-wrap items-center gap-3 text-sm">
+          <input type="hidden" name="source" value="{{ c.source }}">
+          <label class="flex items-center gap-2 min-h-11 text-warning">
+            <input type="checkbox" name="confirm" value="1">
+            Confirm undo
+          </label>
+          <button type="submit" class="btn btn-secondary min-h-11 text-xs">Undo last restore</button>
+        </form>
+        {% endif %}
         {% if not c.exists %}
         <p class="text-xs text-muted mt-2 mb-0">No local copy yet. Pick a destination to read that folder.</p>
         {% endif %}
