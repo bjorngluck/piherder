@@ -10,7 +10,7 @@
 **QA:** not opened.  
 **Related:** [PLAN_v1.13.0.md](PLAN_v1.13.0.md) · [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md)
 
-> Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Package stays `1.13.0`. The public demo is not pointed at this branch. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the card. Adapter **0.4.4** is ready on [piherder-mcp#9](https://github.com/bjorngluck/piherder-mcp/pull/9). Published adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays until that pull request is merged and tag **v0.4.4** is cut. Open issues were checked the same day. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), and [#63](https://github.com/bjorngluck/piherder/issues/63) are in the herder tree. [#64](https://github.com/bjorngluck/piherder/issues/64) is on this train and not started. piherder-mcp has no open issues. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is merged and tagged **v0.5.4**. The four root copies are removed. `brand/` stays.
+> Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Package stays `1.13.0`. The public demo is not pointed at this branch. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is tagged. **0.4.3** stays the previous package. Open issues were checked the same day. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), and [#63](https://github.com/bjorngluck/piherder/issues/63) are in the herder tree. [#64](https://github.com/bjorngluck/piherder/issues/64) is on this train and not started. piherder-mcp has no open issues. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is merged and tagged **v0.5.4**. The four root copies are removed. `brand/` stays.
 
 ---
 
@@ -73,14 +73,14 @@ Build order for Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [
 
 | Tier | Lock |
 |------|------|
-| Must | **Drop root brand copies.** [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6). Merged. `icon.png`, `icon@2x.png`, `logo.png`, and `logo@2x.png` are removed from the integration root. `brand/` stays. Tagged **[v0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)**. Not herder code. The herder tag still waits on the adapter cut |
+| Must | **Drop root brand copies.** [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6). Merged. `icon.png`, `icon@2x.png`, `logo.png`, and `logo@2x.png` are removed from the integration root. `brand/` stays. Tagged **[v0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)**. Not herder code. The herder package tag still waits |
 | Should | **Official HACS install.** [hacs/default#11444](https://github.com/hacs/default/pull/11444) is merged. The plugin README, the HACS badge, and the herder wiki stop saying to add a custom repository. Install is HACS, Integrations, PiHerder |
 
 ### Release hygiene
 
 | Tier | Lock |
 |------|------|
-| Must | **Adapter cut.** Hosted `/mcp` on v1.13.0 already has `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. `fleet_summary` is in this herder tree. [piherder-mcp#9](https://github.com/bjorngluck/piherder-mcp/pull/9) is **0.4.4**: version, hand-typed badges, and [docs/RELEASE_v0.4.4.md](https://github.com/bjorngluck/piherder-mcp/blob/feat/adapter-0.4.4/docs/RELEASE_v0.4.4.md). It adds those four tools. Volume prune is not in this package. Published adapter stays **0.4.3**. The `v*` tag waits until that pull request is merged. piherder-mcp has no open issues |
+| Must | **Adapter cut.** Done. Tag **[v0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is on merge `30bfa2f` (pull request 9). It adds `fleet_summary`, `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. Volume prune is not in this package. **0.4.3** stays the previous tag. piherder-mcp has no open issues |
 | Must | **Coverage 85.** CI `--cov-fail-under` is **85** on `app`. Compose report **85%** (49078/57940, 84.70% before rounding). The gate uses the rounded figure |
 | Should | **Push-denylist secret.** The workflow is in. This is an operator step: set the GitHub Actions secret. The denylist stays off git. An empty secret must not pretend it checked |
 
@@ -89,7 +89,7 @@ Build order for Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [
 | Version bump | Package stays **1.13.0** until freeze. About stays **1.13.0** |
 | Demo | The public demo is not pointed at this branch |
 | Plugin | The card stays the separate HACS repo. Plugin **0.5.4** is tagged. **0.5.3** stays the previous tag |
-| Adapter | **0.4.4** is ready to approve. Published adapter stays **0.4.3** until tag **v0.4.4** |
+| Adapter | Tag **v0.4.4** is cut. **0.4.3** stays the previous tag |
 | Issues | [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#61](https://github.com/bjorngluck/piherder/issues/61) are Must. [#64](https://github.com/bjorngluck/piherder/issues/64) is Should. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is Must. They stay open until the release. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0 (`nic_change`, Replace stale MAC). It is not rebuilt. Closing it is separate |
 | Frozen release | Do not add this scope to the `v1.13.0` tag |
 
@@ -117,6 +117,7 @@ Nothing else was voted **Out**.
 | 2026-10-27 | **Plugin brand.** Pull request 8 is merged. The four integration-root copies are removed. `brand/` stays. Tagged **v0.5.4**. **0.5.3** was not moved. |
 | 2026-10-27 | **Adapter bump.** `feat/adapter-0.4.4` adds `list_alerts`, `prune_build_cache`, `replace_stale_mac`, and `fleet_summary`. Version on that branch is **0.4.4**. Published adapter stays **0.4.3**. The `v*` tag is not cut. Volume prune is not on this bump. |
 | 2026-10-27 | **Adapter docs.** Version **0.4.4**, the hand-typed badges, and the release notes are on [piherder-mcp#9](https://github.com/bjorngluck/piherder-mcp/pull/9). Herder notes name the four tools. The herder MCP badge stays **v0.4.3** until tag **v0.4.4** exists. Volume prune stays off this tag. |
+| 2026-10-27 | **Adapter tag.** Pull request 9 is merged as `30bfa2f`. Annotated tag **v0.4.4** points at that merge. Volume prune stays off this tag. |
 | 2026-10-27 | **Mobile console.** Three symptoms are written down: the suggestion bar blocks typing, the word appears on Enter, and Tab completion is wrong. A live preview and two later input changes were tried and reverted the same day. They made phone typing worse. Shell input is the committed console again. The phone sheet no longer hides on an outside tap. The same phone then compared keyboards. Samsung Keyboard reproduced the three failures. Gboard did not. Written up as **KI-console-samsung-keyboard**. |
 
 ---
@@ -126,7 +127,7 @@ Nothing else was voted **Out**.
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.14.0-dev`** on shipped `main` | **Done** 2026-10-27 |
-| 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | In progress. Coverage 85 is pushed. #62, #63, and #61 are in the herder tree. Mobile console input changes were reverted. Samsung Keyboard reproduces the three phone failures. Gboard did not. That is written up as KI-console-samsung-keyboard. The phone sheet stays up when tapped. Plugin **v0.5.4** is tagged. Adapter **0.4.4** is ready on [piherder-mcp#9](https://github.com/bjorngluck/piherder-mcp/pull/9). The adapter tag is not cut |
+| 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | In progress. Coverage 85 is pushed. #62, #63, and #61 are in the herder tree. Mobile console input changes were reverted. Samsung Keyboard reproduces the three phone failures. Gboard did not. That is written up as KI-console-samsung-keyboard. The phone sheet stays up when tapped. Plugin **v0.5.4** is tagged. Adapter **v0.4.4** is tagged. Volume prune is not on that tag |
 | 3 | Should, if it fits | Not started |
 | 4 | Freeze | Not set. Package stays **1.13.0** |
 | 5 | Operator QA | Not opened |
