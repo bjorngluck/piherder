@@ -10,7 +10,7 @@
 **QA:** not opened.  
 **Related:** [PLAN_v1.13.0.md](PLAN_v1.13.0.md) · [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md)
 
-> Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Package stays `1.13.0`. The public demo is not pointed at this branch. Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** stays the card until the brand cleanup cuts a plugin release. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter until the Must adapter cut. Open issues were checked the same day. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), and [#63](https://github.com/bjorngluck/piherder/issues/63) are in the herder tree. [#64](https://github.com/bjorngluck/piherder/issues/64) is on this train and not started. piherder-mcp has no open issues. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is on `fix/drop-root-brand` (pull request open). The four root copies are removed. `brand/` stays. Plugin stays **0.5.3**. Not tagged.
+> Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Package stays `1.13.0`. The public demo is not pointed at this branch. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the card. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter until the Must adapter cut. Open issues were checked the same day. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), and [#63](https://github.com/bjorngluck/piherder/issues/63) are in the herder tree. [#64](https://github.com/bjorngluck/piherder/issues/64) is on this train and not started. piherder-mcp has no open issues. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is merged and tagged **v0.5.4**. The four root copies are removed. `brand/` stays.
 
 ---
 
@@ -73,7 +73,7 @@ Build order for Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [
 
 | Tier | Lock |
 |------|------|
-| Must | **Drop root brand copies.** [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6). On `fix/drop-root-brand`. `icon.png`, `icon@2x.png`, `logo.png`, and `logo@2x.png` are removed from the integration root. `brand/` stays. Version stays **0.5.3**. Branch is pushed. Pull request is open. Not tagged. Not herder code. The herder tag waits on this landing in piherder-ha |
+| Must | **Drop root brand copies.** [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6). Merged. `icon.png`, `icon@2x.png`, `logo.png`, and `logo@2x.png` are removed from the integration root. `brand/` stays. Tagged **[v0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)**. Not herder code. The herder tag still waits on the adapter cut |
 | Should | **Official HACS install.** [hacs/default#11444](https://github.com/hacs/default/pull/11444) is merged. The plugin README, the HACS badge, and the herder wiki stop saying to add a custom repository. Install is HACS, Integrations, PiHerder |
 
 ### Release hygiene
@@ -88,7 +88,7 @@ Build order for Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [
 |-------|------|
 | Version bump | Package stays **1.13.0** until freeze. About stays **1.13.0** |
 | Demo | The public demo is not pointed at this branch |
-| Plugin | The card stays the separate HACS repo. Plugin stays **0.5.3** until that repo cuts the brand cleanup |
+| Plugin | The card stays the separate HACS repo. Plugin **0.5.4** is tagged. **0.5.3** stays the previous tag |
 | Adapter | Published adapter stays **0.4.3** until the Must cut |
 | Issues | [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#61](https://github.com/bjorngluck/piherder/issues/61) are Must. [#64](https://github.com/bjorngluck/piherder/issues/64) is Should. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is Must. They stay open until the release. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0 (`nic_change`, Replace stale MAC). It is not rebuilt. Closing it is separate |
 | Frozen release | Do not add this scope to the `v1.13.0` tag |
@@ -114,7 +114,7 @@ Nothing else was voted **Out**.
 | 2026-10-27 | **Vote.** Restarted from shipped `v1.13.0`. Package stays `1.13.0`. Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), [#61](https://github.com/bjorngluck/piherder/issues/61), [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6), one adapter tag, coverage fail-under **85**, and the mobile console. Should: [#64](https://github.com/bjorngluck/piherder/issues/64), HACS install docs, a pre-restore rollback snapshot, manifest file-count and byte verification, a dry-run restore preview API, a compose git drift badge, the push-denylist secret, and volume prune on the API and hosted `/mcp`. Later: fine-grained roles, command-audit redaction, Prometheus sensor ignore, scrape status. A removed set stays off future ballots. Nothing is built. |
 | 2026-10-27 | **Coverage gate.** Packs `tests/test_coverage_v114_*.py`. Compose report **85%** (49078/57940). CI `--cov-fail-under` raised **80** to **85**. Two older failures stay: the git inspect test needs `git` on PATH, and the herder self-backup scheduler test. |
 | 2026-10-27 | **Open issues checked.** [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0 (`app/services/nmap/nic_change.py`, Replace stale MAC). It stays open on GitHub and is not on this train. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) have no code yet and are on this train. piherder-mcp has no open issues. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) still has the four root brand files. It is Must. |
-| 2026-10-27 | **Mobile console deferred.** The new phone bug is not written down. The console is unchanged. **Plugin brand.** On `fix/drop-root-brand`, the four integration-root copies are removed. `brand/` stays. Plugin stays **0.5.3**. |
+| 2026-10-27 | **Plugin brand.** Pull request 8 is merged. The four integration-root copies are removed. `brand/` stays. Tagged **v0.5.4**. **0.5.3** was not moved. |
 | 2026-10-27 | **Adapter bump.** `feat/adapter-0.4.4` adds `list_alerts`, `prune_build_cache`, `replace_stale_mac`, and `fleet_summary`. Version on that branch is **0.4.4**. Published adapter stays **0.4.3**. The `v*` tag is not cut. Volume prune is not on this bump. |
 | 2026-10-27 | **Mobile console.** Three symptoms are written down: the suggestion bar blocks typing, the word appears on Enter, and Tab completion is wrong. A live preview and two later input changes were tried and reverted the same day. They made phone typing worse. Shell input is the committed console again. The phone sheet no longer hides on an outside tap. The same phone then compared keyboards. Samsung Keyboard reproduced the three failures. Gboard did not. Written up as **KI-console-samsung-keyboard**. |
 
@@ -125,7 +125,7 @@ Nothing else was voted **Out**.
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.14.0-dev`** on shipped `main` | **Done** 2026-10-27 |
-| 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | In progress. Coverage 85 is pushed. #62, #63, and #61 are in the herder tree. Mobile console input changes were reverted. Samsung Keyboard reproduces the three phone failures. Gboard did not. That is written up as KI-console-samsung-keyboard. The phone sheet stays up when tapped. Plugin brand is pushed on `fix/drop-root-brand` (pull request open, not tagged). Adapter bump is on `feat/adapter-0.4.4`. The adapter tag is not cut |
+| 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | In progress. Coverage 85 is pushed. #62, #63, and #61 are in the herder tree. Mobile console input changes were reverted. Samsung Keyboard reproduces the three phone failures. Gboard did not. That is written up as KI-console-samsung-keyboard. The phone sheet stays up when tapped. Plugin **v0.5.4** is tagged. Adapter bump is on `feat/adapter-0.4.4`. The adapter tag is not cut |
 | 3 | Should, if it fits | Not started |
 | 4 | Freeze | Not set. Package stays **1.13.0** |
 | 5 | Operator QA | Not opened |
