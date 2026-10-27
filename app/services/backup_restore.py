@@ -28,6 +28,45 @@ from .ssh import get_private_key_plain, temp_key_file, LEGACY_SSH_OPTS_STR
 logger = logging.getLogger(__name__)
 
 
+_CHANGE_LIMIT = 200
+
+
+def parse_rsync_changes(text: str, *, limit: int = _CHANGE_LIMIT) -> dict[str, Any]:
+    """Itemized rsync lines only. Unchanged files are omitted."""
+    changes: list[dict[str, str]] = []
+    total = 0
+    for raw in (text or "").splitlines():
+        line = raw.rstrip()
+        action = ""
+        path = ""
+        if line.startswith("*deleting"):
+            parts = line.split(None, 1)
+            path = parts[1].strip() if len(parts) > 1 else ""
+            action = "delete"
+        elif len(line) > 12 and line[11] == " ":
+            flags = line[:11]
+            path = line[12:].strip()
+            if not flags or flags[0] not in "<>ch" or flags[0] == ".":
+                continue
+            action = "create" if "+" in flags else "update"
+        else:
+            continue
+        if not path or path in (".", "./") or "\n" in path or "\x00" in path:
+            continue
+        if path.endswith("/"):
+            path = path.rstrip("/")
+        if not path:
+            continue
+        total += 1
+        if len(changes) < limit:
+            changes.append({"path": path, "action": action})
+    return {
+        "changes": changes,
+        "change_count": total,
+        "truncated": total > limit,
+    }
+
+
 def ownership_remote_command(source: str) -> str:
     """One remote argv. OpenSSH joins extra arguments with spaces."""
     return "sh -s -- " + shlex.quote(source)
@@ -300,12 +339,16 @@ def restore_backup_source(
     *,
     dry_run: bool = True,
     pull_from=None,
+    itemize: bool = False,
 ) -> Dict[str, Any]:
     """
     Reverse rsync: local destination → remote source path.
 
     Returns dict with rc, dry_run, source, destination, output, error.
     """
+    # A preview is a read. Itemize never turns into a host write.
+    if itemize:
+        dry_run = True
     source = (source or "").strip()
     if not source:
         return {"error": "source path required", "rc": 1, "dry_run": dry_run}
@@ -351,7 +394,7 @@ def restore_backup_source(
             }
         if dry_run and not dest_path.is_dir():
             place = pulled.get("place") or "the copy"
-            return {
+            early: Dict[str, Any] = {
                 "rc": 0,
                 "dry_run": True,
                 "source": source,
@@ -360,6 +403,13 @@ def restore_backup_source(
                 "error": None,
                 "summary": f"Dry-run pull ok · {source} · {place}",
             }
+            if itemize:
+                early.update(parse_rsync_changes(""))
+                early["wrote"] = False
+                early["note"] = (
+                    "No local copy to compare. The remote folder was checked and not written here."
+                )
+            return early
 
     if not dest_path.is_dir():
         return {
@@ -438,6 +488,8 @@ def restore_backup_source(
             "--rsync-path",
             rsync_path,
         ]
+        if itemize:
+            cmd.append("--itemize-changes")
         if dry_run:
             cmd.append("--dry-run")
         cmd.extend([local, remote])
@@ -473,7 +525,11 @@ def restore_backup_source(
                 "destination_id": getattr(pull_from, "id", None) if pull_from is not None else None,
                 "rollback": rollback,
             }
-            if proc.returncode != 0:
+            if itemize:
+                result.update(parse_rsync_changes(out))
+                result["wrote"] = False
+                result["ok"] = proc.returncode == 0
+            if proc.returncode != 0 or itemize:
                 return result
             loaded = load_manifest(dest_path)
             if loaded is None:
@@ -560,6 +616,28 @@ def restore_backup_source(
                 "source": source,
                 "destination": str(dest_path),
             }
+
+
+def preview_restore(server: Server, source: str, *, pull_from=None) -> Dict[str, Any]:
+    """Dry-run itemized restore. Does not pull files here and does not write to the host."""
+    result = restore_backup_source(
+        server,
+        source,
+        dry_run=True,
+        pull_from=pull_from,
+        itemize=True,
+    )
+    result["wrote"] = False
+    result["dry_run"] = True
+    result.pop("remote", None)
+    result.pop("output", None)
+    result.setdefault("changes", [])
+    result.setdefault("change_count", len(result["changes"]))
+    result.setdefault("truncated", False)
+    error = result.get("error") or ""
+    if error.lower().startswith("no local backup"):
+        result["error"] = "No local backup for this source"
+    return result
 
 
 def undo_host_restore(server: Server, source: str) -> Dict[str, Any]:

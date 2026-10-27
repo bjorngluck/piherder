@@ -130,6 +130,7 @@ Base path: **`/api/v1`**
 | `GET` | `/api/v1/inventory` | `read` | Last Docker inventory for every host (DB snapshot, never SSH). Slim containers include `name`, `running`, `state`, `image`, `status` (uptime text), `project`, and `update_available`. `projects` lists each compose project and its images with `update_available` |
 | `GET` | `/api/v1/servers/{id}/inventory` | `read` | Same snapshot for one host, plus `os_pretty`, `hardware`, `disk_*_bytes`. `projects` and each image include `update_available` |
 | `GET` | `/api/v1/services` | `read` | Fleet service chips (`state` up/down) from stored monitor rows. Does not poll Kuma or NPM |
+| `GET` | `/api/v1/servers/{id}/backup/restore-preview` | `read` | Dry-run of one backup source (`source`, optional `destination_id`). `changes` lists relative paths a restore would send (`create` or `update`). `wrote` is false. It does not pull a copy onto this PiHerder, does not write to the host, and does not take a rollback snapshot. Backups must be on for that host. A feature-restricted token also needs `feature:backup`. A bad source, a blocked path, a missing local tree, or an unavailable copy is HTTP 400. Not a hosted MCP tool |
 | `PATCH` | `/api/v1/servers/{id}/features` | `edit` | Toggle feature flags |
 | `GET` | `/api/v1/servers/{id}/files?p=` | `files` | List jail-relative directory (fleet) |
 | `GET` | `/api/v1/servers/{id}/files/download?p=` | `files` | Download one file |

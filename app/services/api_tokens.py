@@ -801,6 +801,15 @@ def api_meta_dict() -> dict:
             {"method": "GET", "path": "/api/v1/alerts", "scope": "read", "summary": "Open notifications"},
             {"method": "GET", "path": "/api/v1/inventory", "scope": "read", "summary": "Fleet Docker inventory snapshots (no SSH)"},
             {"method": "GET", "path": "/api/v1/servers/{id}/inventory", "scope": "read", "summary": "One host Docker inventory snapshot (no SSH)"},
+            {
+                "method": "GET",
+                "path": "/api/v1/servers/{id}/backup/restore-preview",
+                "scope": "read",
+                "summary": (
+                    "Dry-run restore preview. Lists files a restore would send. "
+                    "Does not write. Not a hosted MCP tool."
+                ),
+            },
             {"method": "GET", "path": "/api/v1/services", "scope": "read", "summary": "Fleet service up/down from stored monitor chips"},
             {
                 "method": "PATCH",

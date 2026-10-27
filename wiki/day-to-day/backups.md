@@ -219,7 +219,7 @@ From the **Servers** list you can multi-select hosts and run **Backup** in bulk 
 
 1. Backups page → restore for a source.
 2. Leave **From** on **This PiHerder**, or pick Drive, OneDrive, or a LAN share. A direct host only lists destinations it sends to. The folder must be selected on that copy.
-3. **Dry-run** previews the host write. A destination dry-run checks the remote folder and does not write it here.
+3. **Dry-run** previews the host write. A destination dry-run checks the remote folder and does not write it here. A token with `read` can ask for the same preview at `GET /api/v1/servers/{id}/backup/restore-preview`. The reply lists the files a restore would send. It does not write, and it is not a hosted MCP tool.
 4. Confirm to apply. That pulls the folder here, then reverse-rsyncs it onto the host. Before that host write, PiHerder copies the current host folder aside, with owners, so **Undo last restore** can put it back. Dry-run does not take that copy. A failed snapshot does not start the restore. The next real restore replaces the snapshot. When the sidecar records a file count and a byte count, the restore is good only if the host matches both. Those counts are regular files. Dry-run does not check. An older sidecar without those counts still restores.
 5. Path policy enforced; audit action `backup_restore`. Undo is `backup_restore_undo`. The row names the destination. It does not include the sign-in.
 

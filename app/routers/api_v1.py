@@ -445,6 +445,77 @@ def api_inventory(
     }
 
 
+def _restore_preview_public(server_id: int, result: dict[str, Any]) -> dict[str, Any]:
+    changes = result.get("changes") or []
+    return {
+        "ok": result.get("rc") == 0 and not result.get("error"),
+        "dry_run": True,
+        "wrote": False,
+        "server_id": server_id,
+        "source": result.get("source") or "",
+        "place": result.get("place"),
+        "changes": changes,
+        "change_count": result.get("change_count", len(changes)),
+        "truncated": bool(result.get("truncated")),
+        "summary": result.get("summary") or "",
+        "error": result.get("error"),
+        "note": result.get("note"),
+    }
+
+
+@router.get(
+    "/servers/{server_id}/backup/restore-preview",
+    summary="Dry-run restore preview",
+    description=(
+        "Lists the files a restore would send. Scope read, and feature:backup "
+        "when the token is feature-restricted. Does not write. Not a hosted MCP tool."
+    ),
+)
+def api_restore_preview(
+    server_id: int,
+    source: str = "",
+    destination_id: Optional[int] = None,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    auth.require(tok_svc.SCOPE_READ)
+    auth.require_feature("backup")
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Server not found")
+    auth.require_server_feature(server, "backup")
+    if not (source or "").strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="source path required")
+    pull_from = None
+    if destination_id is not None:
+        from ..models import BackupDestination
+        from ..services import backup_restore as restore_svc
+
+        allowed = {int(row["id"]) for row in restore_svc.restore_places(session, server)}
+        pull_from = session.get(BackupDestination, destination_id) if destination_id in allowed else None
+        if pull_from is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="That copy is not available for this host",
+            )
+    from ..services.backup_restore import preview_restore
+
+    result = preview_restore(server, source.strip(), pull_from=pull_from)
+    error = result.get("error") or ""
+    if error and result.get("rc") != 0 and not result.get("changes"):
+        lowered = error.lower()
+        if (
+            "policy" in lowered
+            or "source path" in lowered
+            or "no local backup" in lowered
+            or "ssh key" in lowered
+            or "private key" in lowered
+            or "not available" in lowered
+        ):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=error[:300])
+    return _restore_preview_public(server_id, result)
+
+
 @router.get("/servers/{server_id}/inventory", summary="Host Docker inventory snapshot")
 def api_server_inventory(
     server_id: int,
