@@ -18,9 +18,10 @@
 
 **On GitHub**
 
-Star or fork the project, or bring a question, an idea, or a setup.
+Star the project, or bring a question, an idea, or a setup.
 
-<p class="ph-cta-buttons" markdown="0"><a class="ph-btn ph-btn--star" href="https://github.com/bjorngluck/piherder">Star on GitHub <img alt="GitHub stars" src="https://img.shields.io/github/stars/bjorngluck/piherder?style=flat&amp;label=Stars&amp;labelColor=ffffff&amp;color=e60012"></a> <a class="ph-btn ph-btn--fork" href="https://github.com/bjorngluck/piherder/fork">Fork <img alt="GitHub forks" src="https://img.shields.io/github/forks/bjorngluck/piherder?style=flat&amp;label=Forks&amp;labelColor=ffffff&amp;color=e60012"></a> <a class="ph-btn ph-btn--talk" href="https://github.com/bjorngluck/piherder/discussions">Join the discussion</a></p>
+<!-- Fork button returns once the repo has forks. -->
+<p class="ph-cta-buttons" markdown="0"><a class="ph-btn ph-btn--star" href="https://github.com/bjorngluck/piherder">Star on GitHub <img alt="GitHub stars" src="https://img.shields.io/github/stars/bjorngluck/piherder?style=flat&amp;label=Stars&amp;labelColor=ffffff&amp;color=e60012"></a> <a class="ph-btn ph-btn--talk" href="https://github.com/bjorngluck/piherder/discussions">Join the discussion</a></p>
 
 </div>
 </div>
