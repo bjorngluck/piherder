@@ -10,7 +10,7 @@
 **QA:** not opened.  
 **Related:** [PLAN_v1.13.0.md](PLAN_v1.13.0.md) · [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md)
 
-> Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Package stays `1.13.0`. The public demo is not pointed at this branch. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is tagged. **0.4.3** stays the previous package. Open issues were checked the same day. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), and [#63](https://github.com/bjorngluck/piherder/issues/63) are in the herder tree. [#64](https://github.com/bjorngluck/piherder/issues/64) is on this train and not started. piherder-mcp has no open issues. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is merged and tagged **v0.5.4**. The four root copies are removed. `brand/` stays.
+> Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Package stays `1.13.0`. No tag. The public demo is not pointed at this branch. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is tagged. **0.4.3** stays the previous package. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) are in the herder tree and stay open until the release. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is merged and tagged **v0.5.4**. The four root copies are removed. `brand/` stays. Restore safety in the tree: a pre-restore snapshot, manifest file and byte checks, and `GET /api/v1/servers/{id}/backup/restore-preview`. Still not started: the compose drift badge, volume prune on the API, and the push-denylist secret.
 
 ---
 
@@ -124,6 +124,7 @@ Nothing else was voted **Out**.
 | 2026-10-27 | **Pre-restore snapshot.** A real restore copies the current host folder aside first. Undo writes that copy back. Dry-run does not take the snapshot. |
 | 2026-10-27 | **Manifest verification.** A new sidecar records the regular-file count and the byte count. A real restore is good only when the host matches both. An older sidecar without those counts still restores. Dry-run does not check. |
 | 2026-10-27 | **Dry-run restore preview.** `GET /api/v1/servers/{id}/backup/restore-preview` lists the files a restore would send. It does not write. It is not a hosted MCP tool. |
+| 2026-10-27 | **Docs.** Wiki, [API.md](API.md), [SPEC.md](../SPEC.md), and the roadmap name the open train. Package stays **1.13.0**. Not tagged. The restore notes say a 1.13 sidecar puts the owner back, and this train also checks file count and byte count. |
 
 ---
 
@@ -140,4 +141,4 @@ Nothing else was voted **Out**.
 
 ---
 
-*Voted 2026-10-27 on tagged v1.13.0. Plan only. Package stays 1.13.0. Not tagged.*
+*Voted 2026-10-27 on tagged v1.13.0. In progress on `v1.14.0-dev`. Package stays 1.13.0. Not tagged.*

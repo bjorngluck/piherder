@@ -14,7 +14,7 @@ Anything committed here is public. Use generic names in code, tests, docs, and c
 
 ## Current train
 
-`v1.14.0-dev` is the open train. Package stays `1.13.0`. Nothing is built. `v1.13.0` is the current release. Host tool bootstrap is `POST /servers/{id}/host-deps/bootstrap` and is not on `/api/v1` or `/mcp`.
+`v1.14.0-dev` is the open train. Package stays `1.13.0`. Must is in the tree. Should in the tree: mute rules, HACS install wording, a pre-restore snapshot, manifest file and byte checks, and the dry-run restore preview. Compose drift, volume prune, and the push-denylist secret are not started. `v1.13.0` is the current release. No tag. Host tool bootstrap is `POST /servers/{id}/host-deps/bootstrap` and is not on `/api/v1` or `/mcp`.
 
 ## Opening a version train
 

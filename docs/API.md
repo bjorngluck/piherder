@@ -184,6 +184,25 @@ Base path: **`/api/v1`**
 
 Server-side feature flags still gate jobs: you cannot run a backup job if `features.backup` is false on the server (enable it first with `edit`, or in the UI).
 
+`GET /api/v1/servers/{id}/backup/restore-preview?source=/data/app` is a dry-run. Optional `destination_id` names a saved copy. The body has `ok`, `dry_run` (true), `wrote` (false), `server_id`, `source`, `place`, `changes` (`path` and `action` of `create` or `update`), `change_count`, `truncated`, `summary`, `error`, and `note`. It does not include the host address or the local backup path. A real restore and Undo stay on the Backups page. They are not this route.
+
+```json
+{
+  "ok": true,
+  "dry_run": true,
+  "wrote": false,
+  "server_id": 1,
+  "source": "/data/app",
+  "place": null,
+  "changes": [{"path": "app.db", "action": "update"}],
+  "change_count": 1,
+  "truncated": false,
+  "summary": "Dry-run restore ok · /data/app",
+  "error": null,
+  "note": null
+}
+```
+
 `backup_schedule` is the saved cron, or null. `effective_backup_schedule` is the cron that will run. `backup_schedule_source` is `host`, `fleet`, or null when backups are off. `next_backup_run` is the live job's next run. `backup_scheduled` is true when that job is registered, false only when backups are on, the scheduler is running, and no job is registered, and null when this process cannot see the scheduler. A saved schedule wins. Apply does not write `backup_schedule`. Hosted `list_servers` and `get_server` return these keys, and the tool text names `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`. The adapter returns the same JSON. The package that names those fields in its tool text ships with the herder.
 
 ### Jobs

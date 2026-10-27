@@ -254,7 +254,7 @@
       A copy destination pulls that folder onto this PiHerder first. Dry-run does not write the pull. Confirm writes it here, then onto the host.
       A real restore first copies the current host folder aside so it can be undone. Dry-run does not take that copy.
       A sidecar that records a file count and a byte count is a good restore only when the host matches both. Dry-run does not check. An older sidecar without those counts still restores.
-      Drive, OneDrive, and a LAN share do not keep a Unix owner. A named volume can come back as the wrong account, and the container may then fail to start. This release does not repair that.
+      Drive, OneDrive, and a LAN share do not keep a Unix owner. A sidecar from 1.13.0 puts the numeric owner, group, and mode back. An archive with no sidecar leaves those files as the account that ran the pull. A named volume can then fail to start.
     </p>
 
     {% if restore_result %}

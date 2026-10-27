@@ -483,6 +483,12 @@ Must and Should are on `v1.13.0-dev`: restore ownership (`.piherder-ownership.js
 
 QA walks are signed 2026-10-25. Code freeze is set 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frames are wired. Pull request [#60](https://github.com/bjorngluck/piherder/pull/60) is open. Plan: [docs/PLAN_v1.13.0.md](docs/PLAN_v1.13.0.md). Walks: [docs/QA_v1.13.0.md](docs/QA_v1.13.0.md).
 
+## Open train (`v1.14.0-dev`)
+
+Package stays **1.13.0**. About stays **1.13.0**. No tag. The image on Hub stays **1.13.0**.
+
+In the tree: missed-slot catch-up, Drive OAuth health, fleet summary, the mobile console sheet and Samsung Keyboard note, mute rules, HACS install wording, a pre-restore host snapshot with Undo, manifest file-count and byte checks, and `GET /api/v1/servers/{id}/backup/restore-preview`. That preview lists files a restore would send and does not write. It is not a hosted MCP tool. Plugin **0.5.4** and adapter **0.4.4** are already tagged. Compose git drift, volume prune on the API, and the push-denylist secret are not started. Plan: [docs/PLAN_v1.14.0.md](docs/PLAN_v1.14.0.md).
+
 ---
 
 ## License
