@@ -114,6 +114,12 @@ def _ssh_argv(key_path: str, port: int, user: str, host: str, remote_cmd: str) -
     ]
 
 
+def _count_phrase(files: int, total: int) -> str:
+    file_word = "file" if files == 1 else "files"
+    byte_word = "byte" if total == 1 else "bytes"
+    return f"{files} {file_word}, {total} {byte_word}"
+
+
 def _capture_owners(key_path: str, port: int, user: str, host: str, source: str) -> list[dict[str, Any]]:
     from .backup_ownership import parse_find_output
 
@@ -140,6 +146,66 @@ def _capture_owners(key_path: str, port: int, user: str, host: str, source: str)
         errors.append(err.decode("utf-8", "replace")[:200])
     detail = "; ".join(piece for piece in errors if piece) or "find failed"
     raise RuntimeError(detail[:300])
+
+
+def _tally_host(key_path: str, port: int, user: str, host: str, source: str) -> tuple[int, int]:
+    """Regular-file count and byte count on the host after a restore."""
+    from .backup_ownership import parse_size_output, remote_content_command
+
+    finder = remote_content_command(source)
+    errors: list[str] = []
+    for cmd in (f"sudo -n {finder}", finder):
+        proc = subprocess.run(
+            _ssh_argv(key_path, port, user, host, cmd),
+            capture_output=True,
+            timeout=600,
+        )
+        raw = proc.stdout or b""
+        if isinstance(raw, str):
+            raw = raw.encode("utf-8", "surrogateescape")
+        if proc.returncode == 0:
+            return parse_size_output(raw)
+        err = proc.stderr or b""
+        if isinstance(err, str):
+            err = err.encode("utf-8", "surrogateescape")
+        errors.append(err.decode("utf-8", "replace")[:200])
+    detail = "; ".join(piece for piece in errors if piece) or "find failed"
+    raise RuntimeError(detail[:300])
+
+
+def _verify_manifest_counts(
+    loaded: dict[str, Any],
+    *,
+    key_path: str,
+    port: int,
+    user: str,
+    host: str,
+    source: str,
+) -> dict[str, Any]:
+    """Compare the host to the sidecar. No counts means an older archive."""
+    if "file_count" not in loaded or "byte_count" not in loaded:
+        return {"skipped": True, "reason": "no counts"}
+    expected_files = int(loaded["file_count"])
+    expected_bytes = int(loaded["byte_count"])
+    try:
+        got_files, got_bytes = _tally_host(key_path, port, user, host, source)
+    except (RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
+        return {"ok": False, "error": f"Manifest check failed: {exc}"[:300]}
+    if got_files != expected_files or got_bytes != expected_bytes:
+        return {
+            "ok": False,
+            "error": (
+                "host has "
+                + _count_phrase(got_files, got_bytes)
+                + "; manifest has "
+                + _count_phrase(expected_files, expected_bytes)
+            ),
+            "file_count": got_files,
+            "byte_count": got_bytes,
+            "expected_file_count": expected_files,
+            "expected_byte_count": expected_bytes,
+        }
+    return {"ok": True, "file_count": got_files, "byte_count": got_bytes}
 
 
 def _rsync_tree(
@@ -424,6 +490,8 @@ def restore_backup_source(
                     "reason": "dry-run",
                     "entries": len(loaded["entries"]),
                 }
+                if "file_count" in loaded and "byte_count" in loaded:
+                    result["manifest"] = {"skipped": True, "reason": "dry-run"}
                 return result
             script = render_apply_script(
                 loaded["entries"],
@@ -458,6 +526,23 @@ def restore_backup_source(
                 result["ownership"] = {"rc": own.returncode, "output": own_out}
                 return result
             result["ownership"] = {"applied": True, "output": own_out.strip()[:300]}
+            checked = _verify_manifest_counts(
+                loaded,
+                key_path=key_path,
+                port=port,
+                user=user,
+                host=host,
+                source=source,
+            )
+            if checked.get("error"):
+                result["rc"] = 1
+                result["error"] = checked["error"]
+                result["summary"] = f"Restore failed · {source} · {checked['error']}"
+                if place:
+                    result["summary"] = f"{result['summary']} · {place}"
+                result["manifest"] = {key: value for key, value in checked.items() if key != "error"}
+                return result
+            result["manifest"] = checked
             return result
         except subprocess.TimeoutExpired:
             return {

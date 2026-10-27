@@ -3,6 +3,9 @@
 Cloud copies and a restore pull land files as the account that runs rclone.
 The manifest records numeric ids from the source. Restore applies them on the
 host and strips setuid and setgid. A tree with no manifest is left unchanged.
+
+A new sidecar also records how many regular files the tree has and how many
+bytes those files hold. Directories and symlinks are not part of that count.
 """
 from __future__ import annotations
 
@@ -49,14 +52,80 @@ def safe_rel(raw: Any) -> Optional[str]:
     return "/".join(parts)
 
 
+def _classify(st: os.stat_result) -> tuple[str, Optional[int]]:
+    """Regular files carry their size. A symlink size is the target name, so it is omitted."""
+    mode = st.st_mode
+    if stat.S_ISLNK(mode):
+        return "link", None
+    if stat.S_ISREG(mode):
+        return "file", int(st.st_size)
+    if stat.S_ISDIR(mode):
+        return "dir", None
+    return "other", None
+
+
 def _entry(path: Path, rel: str) -> dict[str, Any]:
     st = path.lstat()
-    return {
+    kind, size = _classify(st)
+    row: dict[str, Any] = {
         "path": rel,
         "uid": int(st.st_uid),
         "gid": int(st.st_gid),
         "mode": format(stat.S_IMODE(st.st_mode), "04o"),
+        "kind": kind,
     }
+    if size is not None:
+        row["bytes"] = size
+    return row
+
+
+def _nonneg_int(value: Any) -> Optional[int]:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
+
+
+def content_counts(entries: list[dict[str, Any]]) -> Optional[dict[str, int]]:
+    """Regular files only. None when the listing has no kind, or a file size is unusable."""
+    saw_kind = False
+    files = 0
+    total = 0
+    for raw in entries:
+        if not isinstance(raw, dict) or "kind" not in raw:
+            continue
+        saw_kind = True
+        if raw.get("kind") != "file":
+            continue
+        size = _nonneg_int(raw.get("bytes"))
+        if size is None:
+            return None
+        files += 1
+        total += size
+    if not saw_kind:
+        return None
+    return {"file_count": files, "byte_count": total}
+
+
+def manifest_document(
+    entries: list[dict[str, Any]],
+    *,
+    file_count: Optional[int] = None,
+    byte_count: Optional[int] = None,
+) -> dict[str, Any]:
+    """Sidecar body. Counts are stored only when this listing can prove them."""
+    payload: dict[str, Any] = {"schema": SCHEMA, "entries": entries}
+    if file_count is None and byte_count is None:
+        counts = content_counts(entries)
+        if counts is not None:
+            payload.update(counts)
+        return payload
+    files = _nonneg_int(file_count)
+    total = _nonneg_int(byte_count)
+    if files is None or total is None:
+        raise ValueError("file_count and byte_count must both be zero or more")
+    payload["file_count"] = files
+    payload["byte_count"] = total
+    return payload
 
 
 def collect_local_tree(root: Path | str) -> list[dict[str, Any]]:
@@ -137,10 +206,53 @@ def _exec_bytes(client: Any, cmd: str, *, timeout: int) -> tuple[int, bytes, byt
     return int(stdout.channel.recv_exit_status()), out, err
 
 
-def write_manifest(dest: Path | str, entries: list[dict[str, Any]]) -> Path:
+def remote_content_command(source: str) -> str:
+    """GNU find sizes of regular files. Symlinks and directories are omitted."""
+    quoted = shlex.quote(source)
+    return f"find {quoted} -type f -printf '%s\\0'"
+
+
+def parse_size_output(raw: bytes) -> tuple[int, int]:
+    """One decimal size per regular file, NUL separated. An empty listing is zero."""
+    parts = raw.split(b"\0")
+    if parts and parts[-1] == b"":
+        parts.pop()
+    total = 0
+    count = 0
+    for part in parts:
+        if not part:
+            raise ValueError("truncated size listing")
+        text = part.decode("ascii", "strict")
+        if not text.isdigit():
+            raise ValueError("truncated size listing")
+        total += int(text)
+        count += 1
+    return count, total
+
+
+def collect_remote_counts(client: Any, source: str, *, timeout: int = 600) -> tuple[int, int]:
+    """File count and byte count on the host. sudo find is preferred."""
+    finder = remote_content_command(source)
+    errors: list[str] = []
+    for cmd in (f"sudo -n {finder}", finder):
+        status, out, err = _exec_bytes(client, cmd, timeout=timeout)
+        if status == 0:
+            return parse_size_output(out)
+        errors.append((err or out or b"").decode("utf-8", "replace")[:200])
+    detail = "; ".join(piece for piece in errors if piece) or "find failed"
+    raise RuntimeError(detail[:300])
+
+
+def write_manifest(
+    dest: Path | str,
+    entries: list[dict[str, Any]],
+    *,
+    file_count: Optional[int] = None,
+    byte_count: Optional[int] = None,
+) -> Path:
     path = manifest_path(Path(dest))
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"schema": SCHEMA, "entries": entries}
+    payload = manifest_document(entries, file_count=file_count, byte_count=byte_count)
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
     os.chmod(tmp, 0o600)
@@ -162,7 +274,15 @@ def load_manifest(dest: Path | str) -> Optional[dict[str, Any]]:
     entries = data.get("entries")
     if not isinstance(entries, list):
         return {"error": "ownership manifest has no entries"}
-    return {"entries": entries}
+    loaded: dict[str, Any] = {"entries": entries}
+    if "file_count" in data or "byte_count" in data:
+        files = _nonneg_int(data.get("file_count"))
+        total = _nonneg_int(data.get("byte_count"))
+        if files is None or total is None:
+            return {"error": "ownership manifest counts are not usable"}
+        loaded["file_count"] = files
+        loaded["byte_count"] = total
+    return loaded
 
 
 def _within_target(root: Path, rel: str) -> Optional[Path]:

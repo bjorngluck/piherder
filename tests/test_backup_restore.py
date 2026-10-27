@@ -291,6 +291,132 @@ def test_undo_writes_the_snapshot_back(tmp_path):
     assert calls[1][0][-1] == "sh -s -- /data/app"
 
 
+def _manifest_with_counts(dest):
+    from app.services.backup_ownership import write_manifest
+
+    write_manifest(
+        dest,
+        [
+            {"path": "", "uid": 1000, "gid": 1000, "mode": "0755", "kind": "dir"},
+            {"path": "app.db", "uid": 1000, "gid": 1000, "mode": "0640", "kind": "file", "bytes": 4},
+        ],
+    )
+
+
+def test_restore_is_good_when_the_host_matches_the_manifest(tmp_path):
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    _manifest_with_counts(dest_dir)
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+    calls = []
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        calls.append(cmd)
+        if cmd and cmd[0] == "ssh" and "%s" in str(cmd[-1]):
+            return SimpleNamespace(returncode=0, stdout=b"4\x00", stderr=b"")
+        return _snapshot_proc(cmd, input=input)
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=False)
+    assert res["rc"] == 0
+    assert res["error"] is None
+    assert res["manifest"]["ok"] is True
+    assert res["manifest"]["file_count"] == 1
+    assert res["manifest"]["byte_count"] == 4
+    assert "Restore ok" in res["summary"]
+    size_calls = [cmd for cmd in calls if cmd and cmd[0] == "ssh" and "%s" in str(cmd[-1])]
+    assert len(size_calls) == 1
+    assert "sudo -n find " in size_calls[0][-1]
+
+
+def test_restore_is_not_good_when_the_host_counts_differ(tmp_path):
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    _manifest_with_counts(dest_dir)
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        if cmd and cmd[0] == "ssh" and "%s" in str(cmd[-1]):
+            return SimpleNamespace(returncode=0, stdout=b"4\x004\x00", stderr=b"")
+        return _snapshot_proc(cmd, input=input)
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=False)
+    assert res["rc"] == 1
+    assert res["manifest"]["ok"] is False
+    assert "2 files, 8 bytes" in res["error"]
+    assert "1 file, 4 bytes" in res["error"]
+    assert res["summary"].startswith("Restore failed")
+    assert "Restore ok" not in res["summary"]
+    assert res["rollback"]["saved"] is True
+
+
+def test_restore_is_not_good_when_the_host_count_cannot_be_read(tmp_path):
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    _manifest_with_counts(dest_dir)
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        if cmd and cmd[0] == "ssh" and "%s" in str(cmd[-1]):
+            return SimpleNamespace(returncode=1, stdout=b"", stderr=b"denied")
+        return _snapshot_proc(cmd, input=input)
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=False)
+    assert res["rc"] == 1
+    assert "Manifest check failed" in res["error"]
+    assert res["summary"].startswith("Restore failed")
+
+
+def test_dry_run_does_not_tally_the_host(tmp_path):
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    _manifest_with_counts(dest_dir)
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+    calls = []
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        calls.append(cmd)
+        return SimpleNamespace(returncode=0, stdout="preview", stderr="")
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=True)
+    assert res["rc"] == 0
+    assert res["manifest"]["reason"] == "dry-run"
+    assert len(calls) == 1
+    assert calls[0][0] == "rsync"
+    assert "--dry-run" in calls[0]
+
+
 def test_restore_missing_local_dest():
     server = _server()
     with patch(
