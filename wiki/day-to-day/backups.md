@@ -207,7 +207,7 @@ A host with backups on and no saved schedule runs on the fleet time. The fleet c
 
 The fleet-default choice on Configure saves the source list and the destination root, and the audit row records the old and new values. It does not set a schedule on other hosts. A weekday range or a day-of-month list stays as typed.
 
-`list_servers` and `get_server` return the same three fields: `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`. The tool text names them. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** carries that text. A cached **0.4.2** returns the fields and does not name them.
+`list_servers` and `get_server` return the same three fields: `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`. The tool text names them. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** carries that text. A cached **0.4.2** returns the fields and does not name them.
 
 **Why a mutex:** overlapping rsync to the same destination corrupts snapshots and confuses retention.
 
