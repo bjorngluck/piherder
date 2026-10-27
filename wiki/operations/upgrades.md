@@ -165,7 +165,7 @@ No new Alembic revision. Recreate **web** and **celery-worker**. About should sa
 
 **v1.13.0** is the current release. Notes: [RELEASE_v1.13.0.md](https://github.com/bjorngluck/piherder/blob/v1.13.0/docs/RELEASE_v1.13.0.md). Image `1.13.0` / `1.13` / `latest`. Pin `1.12.1` stays that patch.
 
-Alembic **051** adds `docker_prune_schedule`. Recreate **web** and **celery-worker**. About should say **1.13.0**. Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** and adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stay. Hosted `/mcp` lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. The public demo is updated only when asked.
+Alembic **051** adds `docker_prune_schedule`. Recreate **web** and **celery-worker**. About should say **1.13.0**. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the current card. **0.5.3** was the card when v1.13.0 shipped. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays. Hosted `/mcp` lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. The public demo is updated only when asked.
 
 ## Breaking notes
 
