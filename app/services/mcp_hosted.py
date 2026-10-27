@@ -198,6 +198,20 @@ def tool_catalog() -> list[dict[str, Any]]:
             "annotations": _READ_ANN,
         },
         {
+            "name": "fleet_summary",
+            "description": (
+                "Counts and states for hosts, alerts, failed jobs, backups, "
+                "Drive replication, and pending updates. since is optional ISO-8601. "
+                "Does not replace summary. Does not SSH."
+            ),
+            "scope": tok_svc.SCOPE_READ,
+            "inputSchema": _obj_schema(
+                {"since": _str_prop("Optional ISO-8601 timestamp")},
+                [],
+            ),
+            "annotations": _READ_ANN,
+        },
+        {
             "name": "list_servers",
             "description": (
                 "List servers. limit default 100, max 100. Each server includes "
@@ -986,6 +1000,12 @@ async def call_tool(
             payload = api_v1.api_health(auth)
         elif name == "summary":
             payload = api_v1.api_summary(session, auth)
+        elif name == "fleet_summary":
+            payload = api_v1.api_fleet_summary(
+                session,
+                auth,
+                since=_opt_str(args, "since") or "",
+            )
         elif name == "list_servers":
             payload = api_v1.list_servers(
                 session,

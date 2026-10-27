@@ -342,6 +342,8 @@ async def update_backup_config(
     backup_paths: str = Form(""),
     retention_days: int = Form(None),
     backup_schedule: str = Form(None),
+    backup_catchup_set: str = Form(""),
+    backup_catchup: str = Form(""),
     dest_root: str = Form(""),
     folder_name: str = Form(""),
     scope: str = Form("this_host"),
@@ -461,6 +463,12 @@ async def update_backup_config(
         server.backup_schedule = backup_schedule
         if backup_schedule:
             server.backup_enabled = True
+        session.add(server)
+        session.commit()
+
+    # Other forms post the cron without this flag. Only the schedule card sets it.
+    if backup_catchup_set == "1":
+        server.backup_catchup_enabled = backup_catchup in ("1", "on", "true")
         session.add(server)
         session.commit()
 

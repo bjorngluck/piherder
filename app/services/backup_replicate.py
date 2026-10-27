@@ -563,6 +563,7 @@ def store_oauth_client(
     schedule: str | None,
     after_host_backup: bool,
     copy_herder_backup: bool = False,
+    google_app_testing: bool | None = None,
 ) -> None:
     try:
         cfg = json.loads(destination.config_json or "{}")
@@ -577,6 +578,8 @@ def store_oauth_client(
     cfg["shared_with_me"] = False
     cfg["copy_herder_backup"] = bool(copy_herder_backup)
     cfg["oauth_client_id"] = client_id
+    if google_app_testing is not None and (destination.provider or "drive") == "drive":
+        cfg["google_app_testing"] = bool(google_app_testing)
     secret = (client_secret or "").strip()
     if secret:
         cfg["oauth_client_secret_encrypted"] = encrypt_str(secret)
@@ -1318,6 +1321,115 @@ def public_auth_failure(provider: str, message: str) -> tuple[str, str]:
     return title, body
 
 
+TOKEN_SAVED_KEY = "oauth_token_saved_at"
+TESTING_KEY = "google_app_testing"
+TOKEN_AGING_DAYS = 5
+
+
+def mark_drive_token_saved(destination: BackupDestination, when: datetime | None = None) -> None:
+    """Record when the refresh token was saved. The value is a clock, not the token."""
+    cfg = _load_cfg(destination)
+    moment = when or datetime.utcnow()
+    cfg[TOKEN_SAVED_KEY] = moment.strftime("%Y-%m-%dT%H:%M:%SZ")
+    destination.config_json = json.dumps(cfg)
+
+
+def drive_token_saved_at(destination: BackupDestination) -> datetime | None:
+    raw = str(_load_cfg(destination).get(TOKEN_SAVED_KEY) or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw, "%Y-%m-%dT%H:%M:%SZ")
+    except Exception:
+        return None
+
+
+def google_app_testing(destination: BackupDestination) -> bool:
+    return bool(_load_cfg(destination).get(TESTING_KEY))
+
+
+def drive_token_age_days(destination: BackupDestination, now: datetime | None = None) -> int | None:
+    saved = drive_token_saved_at(destination)
+    if saved is None:
+        return None
+    moment = now or datetime.utcnow()
+    return max(0, (moment - saved).days)
+
+
+def _drive_oauth_body(*, failed: bool, age: int | None) -> str:
+    """Presence and age only. Never the token."""
+    if age is None:
+        age_text = "Age is not recorded."
+    else:
+        age_text = f"Age {int(age)} days."
+    if failed:
+        return f"Google Drive rejected the refresh. A token is saved. {age_text}"
+    return f"Google Drive testing token is older than {TOKEN_AGING_DAYS} days. A token is saved. {age_text}"
+
+
+def note_drive_refresh_failed(session: Session, destination: BackupDestination) -> None:
+    if destination is None or (destination.provider or "") != "drive" or not getattr(destination, "id", None):
+        return
+    from .notifications import upsert_notification
+
+    age = drive_token_age_days(destination)
+    upsert_notification(
+        session,
+        fingerprint=f"drive_oauth_refresh_failed:{int(destination.id)}",
+        type="drive_oauth_refresh_failed",
+        title="Google Drive refresh failed",
+        body=_drive_oauth_body(failed=True, age=age),
+        link_url="/herder-backups?tab=backup",
+        severity="critical",
+        payload={"destination_id": int(destination.id), "token_saved": age is not None, "age_days": age},
+    )
+
+
+def resolve_drive_refresh_failed(session: Session, destination_id: int | None) -> None:
+    if not destination_id:
+        return
+    from .notifications import resolve_by_fingerprint
+
+    resolve_by_fingerprint(session, f"drive_oauth_refresh_failed:{int(destination_id)}")
+
+
+def resolve_drive_token_aging(session: Session, destination_id: int | None) -> None:
+    if not destination_id:
+        return
+    from .notifications import resolve_by_fingerprint
+
+    resolve_by_fingerprint(session, f"drive_oauth_token_aging:{int(destination_id)}")
+
+
+def sync_drive_token_aging(session: Session, now: datetime | None = None) -> int:
+    """Warn when a testing-mode Drive token is older than 5 days. Missing time stays quiet."""
+    from .notifications import upsert_notification
+
+    moment = now or datetime.utcnow()
+    opened = 0
+    rows = list(session.exec(select(BackupDestination).where(BackupDestination.provider == "drive")).all())
+    for destination in rows:
+        if not getattr(destination, "id", None):
+            continue
+        dest_id = int(destination.id)
+        age = drive_token_age_days(destination, moment)
+        if not google_app_testing(destination) or age is None or age < TOKEN_AGING_DAYS:
+            resolve_drive_token_aging(session, dest_id)
+            continue
+        upsert_notification(
+            session,
+            fingerprint=f"drive_oauth_token_aging:{dest_id}",
+            type="drive_oauth_token_aging",
+            title="Google Drive testing token is aging",
+            body=_drive_oauth_body(failed=False, age=age),
+            link_url="/herder-backups?tab=backup",
+            severity="warning",
+            payload={"destination_id": dest_id, "token_saved": True, "age_days": age},
+        )
+        opened += 1
+    return opened
+
+
 def note_copy_auth_failure(session: Session, destination: BackupDestination, message: str) -> None:
     """One open alert per destination when the account rejected the sign-in."""
     if destination is None or not getattr(destination, "id", None):
@@ -1337,6 +1449,8 @@ def note_copy_auth_failure(session: Session, destination: BackupDestination, mes
         severity="critical",
         payload={"destination_id": int(destination.id), "provider": destination.provider},
     )
+    if (destination.provider or "") == "drive":
+        note_drive_refresh_failed(session, destination)
 
 
 def resolve_copy_auth_failure(session: Session, destination_id: int | None) -> None:
@@ -1347,6 +1461,7 @@ def resolve_copy_auth_failure(session: Session, destination_id: int | None) -> N
     resolve_by_fingerprint(
         session, f"backup_destination_auth_failed:{int(destination_id)}"
     )
+    resolve_drive_refresh_failed(session, destination_id)
 
 
 def _finish_copy(copied: list[str], errors: list[str]) -> dict[str, Any]:

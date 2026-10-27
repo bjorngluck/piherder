@@ -194,6 +194,8 @@ class Server(SQLModel, table=True):
     excluded_projects: str = '["my-xmrig"]'
     retention_days: int = 7
     backup_schedule: Optional[str] = None  # e.g. cron "0 2 * * *" for daily at 2am
+    # Opt-in. One backup if the latest due slot did not start. Default off.
+    backup_catchup_enabled: bool = False
 
     # Configurable backup destination (per-host overrides)
     backup_dest_root: Optional[str] = None  # e.g. custom root instead of global BACKUP_ROOT
@@ -220,6 +222,8 @@ class Server(SQLModel, table=True):
     # Container update check (check-only; pull+compare, no up -d)
     container_check_enabled: bool = False
     container_check_schedule: Optional[str] = None
+    # Opt-in. One image check if the latest due slot did not start. Default off.
+    container_check_catchup_enabled: bool = False
     last_container_check_at: Optional[datetime] = None
     container_updates_count: Optional[int] = None
     container_updates_summary: Optional[str] = None

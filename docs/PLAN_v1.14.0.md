@@ -10,7 +10,7 @@
 **QA:** not opened.  
 **Related:** [PLAN_v1.13.0.md](PLAN_v1.13.0.md) · [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md)
 
-> Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Package stays `1.13.0`. The public demo is not pointed at this branch. Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** stays the card until the brand cleanup cuts a plugin release. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter until the Must adapter cut. Open issues were checked the same day. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) are not in the code and are on this train. piherder-mcp has no open issues. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is not done. The root icon and logo copies are still beside `brand/`.
+> Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Package stays `1.13.0`. The public demo is not pointed at this branch. Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** stays the card until the brand cleanup cuts a plugin release. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays the published adapter until the Must adapter cut. Open issues were checked the same day. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) are not in the code and are on this train. piherder-mcp has no open issues. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is in the plugin tree on `fix/drop-root-brand`. The four root copies are removed. `brand/` stays. Plugin stays **0.5.3**. Not pushed.
 
 ---
 
@@ -28,25 +28,25 @@ Build order for Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [
 
 | Tier | Lock |
 |------|------|
-| Must | **Missed slot catch-up and why it was missed.** Issue [#62](https://github.com/bjorngluck/piherder/issues/62). Not in the code. Opt-in per schedule, off by default. Allowed kinds are backups (`backup`, alert `backup_schedule_missed`) and image checks (`container_update_check`, alert `container_check_missed`). OS update checks, OS patch, redeploy, and `docker_prune` are rejected even if a caller opts in. One catch-up per missed slot, idempotent, no overlap with a run that is already active, and skip the slot when a newer run of that schedule has already finished. The catch-up uses the normal exclusive job so it appears in Job history. Each catch-up is audited. The job records why the slot was missed: `scheduler_down`, `overlap`, `clock`, `error`, or `unknown`. A successful catch-up auto-resolves the matching `*_missed` alert. Prometheus counter `piherder_schedule_catchup_total{kind,result}` with `kind` of `backup` or `container_check` and `result` of `ran`, `skipped`, or `failed` |
+| Must | **Missed slot catch-up and why it was missed.** Issue [#62](https://github.com/bjorngluck/piherder/issues/62). In the code. Opt-in per schedule, off by default. Allowed kinds are backups (`backup`, alert `backup_schedule_missed`) and image checks (`container_update_check`, alert `container_check_missed`). OS update checks, OS patch, redeploy, and `docker_prune` are rejected even if a caller opts in. One catch-up per missed slot, idempotent, no overlap with a run that is already active, and skip the slot when a newer run of that schedule has already finished. The catch-up uses the normal exclusive job so it appears in Job history. Each catch-up is audited. The job records why the slot was missed: `scheduler_down`, `overlap`, `clock`, `error`, or `unknown`. A successful catch-up auto-resolves the matching `*_missed` alert. Prometheus counter `piherder_schedule_catchup_total{kind,result}` with `kind` of `backup` or `container_check` and `result` of `ran`, `skipped`, or `failed` |
 
 ### Drive
 
 | Tier | Lock |
 |------|------|
-| Must | **Google Drive OAuth health.** Issue [#63](https://github.com/bjorngluck/piherder/issues/63). Not in the code. No new credential store. Record the time the refresh token was saved. That timestamp is not the token. `drive_oauth_refresh_failed` (critical) on refresh failure. A destination checkbox, **Google app is in Testing**, defaults off. When it is on and the saved token is older than 5 days, `drive_oauth_token_aging` (warning). A missing save time does not fire the ageing warning. The alert carries presence and age only. Never log, display, or include the token. These two types cannot be muted. Either resolves on a successful refresh or a new token |
+| Must | **Google Drive OAuth health.** Issue [#63](https://github.com/bjorngluck/piherder/issues/63). In the code. No new credential store. Record the time the refresh token was saved. That timestamp is not the token. `drive_oauth_refresh_failed` (critical) on refresh failure. A destination checkbox, **Google app is in Testing**, defaults off. When it is on and the saved token is older than 5 days, `drive_oauth_token_aging` (warning). A missing save time does not fire the ageing warning. The alert carries presence and age only. Never log, display, or include the token. These two types cannot be muted. Either resolves on a successful refresh or a new token |
 
 ### Fleet read
 
 | Tier | Lock |
 |------|------|
-| Must | **Fleet summary.** Issue [#61](https://github.com/bjorngluck/piherder/issues/61). Not in the code. Read-only `GET /api/v1/fleet/summary?since=` and hosted MCP tool `fleet_summary`. This does not replace `GET /api/v1/summary` or hosted `summary`. `since=` is an ISO-8601 timestamp. Omitted means the current snapshot. Set, it returns only areas that changed after that time. An unusable `since` is HTTP 400. Counts and states for hosts, open alerts, failed jobs, backups, Drive replication, and pending updates. Host ids are allowed. No addresses, tokens, webhook URLs, or filesystem paths. Token scope `read`. Audited with `api_read` when read audit is on. No new data store |
+| Must | **Fleet summary.** Issue [#61](https://github.com/bjorngluck/piherder/issues/61). In the code. Read-only `GET /api/v1/fleet/summary?since=` and hosted MCP tool `fleet_summary`. This does not replace `GET /api/v1/summary` or hosted `summary`. `since=` is an ISO-8601 timestamp. Omitted means the current snapshot. Set, it returns only areas that changed after that time. An unusable `since` is HTTP 400. Counts and states for hosts, open alerts, failed jobs, backups, Drive replication, and pending updates. Host ids are allowed. No addresses, tokens, webhook URLs, or filesystem paths. Token scope `read`. Audited with `api_read` when read audit is on. No new data store |
 
 ### Console
 
 | Tier | Lock |
 |------|------|
-| Must | **Mobile console.** Wiki residual [KI-console-mobile-soft-tab](../wiki/day-to-day/web-ssh-console.md#known-issues): soft Tab on a phone can still flash the IME token. The operator also reports a new bug and a bad experience. Capture that bug before changing the console. Do not invent the symptom |
+| Must | **Mobile console.** Deferred this pass. The new bug is not written down, so the console is unchanged. Wiki residual [KI-console-mobile-soft-tab](../wiki/day-to-day/web-ssh-console.md#known-issues): soft Tab on a phone can still flash the IME token. The operator also reports a new bug and a bad experience. Capture that bug before changing the console. Do not invent the symptom |
 
 ### Backups
 
@@ -73,14 +73,14 @@ Build order for Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [
 
 | Tier | Lock |
 |------|------|
-| Must | **Drop root brand copies.** [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6). Not done. `icon.png`, `icon@2x.png`, `logo.png`, and `logo@2x.png` are still in the integration root, beside `brand/`. Remove those four. `brand/` stays. Not herder code. The herder tag waits on this landing in piherder-ha |
+| Must | **Drop root brand copies.** [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6). In the plugin tree on `fix/drop-root-brand`. `icon.png`, `icon@2x.png`, `logo.png`, and `logo@2x.png` are removed from the integration root. `brand/` stays. Version stays **0.5.3**. Not tagged and not pushed. Not herder code. The herder tag waits on this landing in piherder-ha |
 | Should | **Official HACS install.** [hacs/default#11444](https://github.com/hacs/default/pull/11444) is merged. The plugin README, the HACS badge, and the herder wiki stop saying to add a custom repository. Install is HACS, Integrations, PiHerder |
 
 ### Release hygiene
 
 | Tier | Lock |
 |------|------|
-| Must | **Adapter cut.** Hosted `/mcp` on v1.13.0 already has `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. Published adapter **0.4.3** does not. One adapter tag ships with this herder and adds those three plus `fleet_summary`. Do not cut it before `fleet_summary` exists. piherder-mcp has no open issues |
+| Must | **Adapter cut.** Hosted `/mcp` on v1.13.0 already has `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. `fleet_summary` is in this herder tree. The bump is on `feat/adapter-0.4.4` in piherder-mcp and adds those four tools. Package version on that branch is **0.4.4**. Published adapter stays **0.4.3**. The `v*` tag is not cut. piherder-mcp has no open issues |
 | Must | **Coverage 85.** CI `--cov-fail-under` is **85** on `app`. Compose report **85%** (49078/57940, 84.70% before rounding). The gate uses the rounded figure |
 | Should | **Push-denylist secret.** The workflow is in. This is an operator step: set the GitHub Actions secret. The denylist stays off git. An empty secret must not pretend it checked |
 
@@ -114,6 +114,8 @@ Nothing else was voted **Out**.
 | 2026-10-27 | **Vote.** Restarted from shipped `v1.13.0`. Package stays `1.13.0`. Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), [#61](https://github.com/bjorngluck/piherder/issues/61), [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6), one adapter tag, coverage fail-under **85**, and the mobile console. Should: [#64](https://github.com/bjorngluck/piherder/issues/64), HACS install docs, a pre-restore rollback snapshot, manifest file-count and byte verification, a dry-run restore preview API, a compose git drift badge, the push-denylist secret, and volume prune on the API and hosted `/mcp`. Later: fine-grained roles, command-audit redaction, Prometheus sensor ignore, scrape status. A removed set stays off future ballots. Nothing is built. |
 | 2026-10-27 | **Coverage gate.** Packs `tests/test_coverage_v114_*.py`. Compose report **85%** (49078/57940). CI `--cov-fail-under` raised **80** to **85**. Two older failures stay: the git inspect test needs `git` on PATH, and the herder self-backup scheduler test. |
 | 2026-10-27 | **Open issues checked.** [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0 (`app/services/nmap/nic_change.py`, Replace stale MAC). It stays open on GitHub and is not on this train. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) have no code yet and are on this train. piherder-mcp has no open issues. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) still has the four root brand files. It is Must. |
+| 2026-10-27 | **Mobile console deferred.** The new phone bug is not written down. The console is unchanged. **Plugin brand.** On `fix/drop-root-brand`, the four integration-root copies are removed. `brand/` stays. Plugin stays **0.5.3**. |
+| 2026-10-27 | **Adapter bump.** `feat/adapter-0.4.4` adds `list_alerts`, `prune_build_cache`, `replace_stale_mac`, and `fleet_summary`. Version on that branch is **0.4.4**. Published adapter stays **0.4.3**. The `v*` tag is not cut. Volume prune is not on this bump. |
 
 ---
 
@@ -122,7 +124,7 @@ Nothing else was voted **Out**.
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.14.0-dev`** on shipped `main` | **Done** 2026-10-27 |
-| 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | Not started |
+| 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | In progress. Coverage 85 is pushed. #62, #63, and #61 are in the herder tree. Mobile console waits. Plugin brand is on `fix/drop-root-brand`. Adapter bump is on `feat/adapter-0.4.4`. The adapter tag is not cut |
 | 3 | Should, if it fits | Not started |
 | 4 | Freeze | Not set. Package stays **1.13.0** |
 | 5 | Operator QA | Not opened |

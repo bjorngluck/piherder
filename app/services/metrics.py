@@ -335,4 +335,17 @@ def render_prometheus(samples: Iterable[tuple[str, str, list[str]]]) -> str:
 
 
 def metrics_body(session: Session) -> str:
-    return render_prometheus(collect_samples(session))
+    body = render_prometheus(collect_samples(session))
+    try:
+        from .schedule_catchup import catchup_counter_lines
+
+        lines = catchup_counter_lines()
+    except Exception:
+        lines = []
+    extra = [
+        "# HELP piherder_schedule_catchup_total Catch-up attempts for a missed backup or image check",
+        "# TYPE piherder_schedule_catchup_total counter",
+        *lines,
+        "",
+    ]
+    return body + "\n".join(extra)

@@ -329,6 +329,30 @@ def api_summary(
     return out
 
 
+@router.get(
+    "/fleet/summary",
+    summary="Fleet summary",
+    description=(
+        "Counts and states for hosts, open alerts, failed jobs, backups, "
+        "Drive replication, and pending updates. since is ISO-8601. "
+        "Omitted means the current snapshot. Scope read. Does not SSH."
+    ),
+)
+def api_fleet_summary(
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+    since: str = "",
+):
+    auth.require(tok_svc.SCOPE_READ)
+    from ..services.fleet_summary import build_fleet_summary, parse_since
+
+    try:
+        moment = parse_since(since)
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="since must be an ISO-8601 timestamp")
+    return build_fleet_summary(session, since=moment)
+
+
 # ---------- Fleet read ----------
 
 

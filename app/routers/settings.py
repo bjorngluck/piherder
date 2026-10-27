@@ -631,6 +631,7 @@ async def settings_page(
     od_herder = False
     od_redirect_uri = ""
     drive_herder = False
+    drive_testing = False
     smb_herder = False
     herder_copy_ready = False
     smb_guest = False
@@ -668,6 +669,7 @@ async def settings_page(
                 drive_schedule = drive_row.schedule or ""
                 drive_after = bool(drive_row.after_host_backup)
                 drive_herder = copies.copies_herder_backup(drive_row)
+                drive_testing = copies.google_app_testing(drive_row)
             if smb_row is not None:
                 smb_view = copies.smb_public(smb_row)
                 copy_smb_host = smb_view["host"]
@@ -821,6 +823,7 @@ async def settings_page(
             od_herder = False
             od_redirect_uri = ""
             drive_herder = False
+            drive_testing = False
             smb_herder = False
             herder_copy_ready = False
             smb_guest = False
@@ -850,6 +853,7 @@ async def settings_page(
             "drive_schedule": drive_schedule,
             "drive_after": drive_after,
             "drive_herder": drive_herder,
+            "drive_testing": drive_testing,
             "smb_herder": smb_herder,
             "herder_copy_ready": herder_copy_ready,
             "herder_copy": qp.get("herder_copy"),

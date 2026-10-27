@@ -386,6 +386,11 @@
             {% else %}
             <p class="text-[10px] text-muted mt-1">Pick a preset or enter 5-field cron (app timezone: {{ get_app_timezone() }}).</p>
             {% endif %}
+            <input type="hidden" name="backup_catchup_set" value="1">
+            <label class="flex items-center gap-2 text-xs min-h-11 mt-2">
+              <input type="checkbox" name="backup_catchup" value="1" {% if server.backup_catchup_enabled %}checked{% endif %}>
+              Catch up one missed backup. Off unless you turn this on.
+            </label>
           </div>
         </div>
       </div>
