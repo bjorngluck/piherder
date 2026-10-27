@@ -22,11 +22,11 @@ YAML `rest` sensors against an API token already work. Path 2 is that, first-cla
 Home Assistant **2024.7** or newer. **0.5.1** still runs on Home Assistant **2024.1** or newer. **0.5.2**, **0.5.3**, and **0.5.4** do not.
 
 1. In PiHerder: Settings → **API management** → create a token with **`read`**. Add **`jobs`** and **`edit`** if you want the confirm buttons and feature toggles. Set the **IP allowlist** to the HA host (HAOS ≈ appliance LAN IP; a container HA may egress as a Docker/bridge IP).  
-2. HACS → custom repository → **Integration** → `https://github.com/bjorngluck/piherder-ha`.  
+2. HACS → **Integrations** → **PiHerder**.
 3. Add **PiHerder**: base URL (your herder origin, including scheme), token `ph_…`, TLS verify, poll interval. A bad URL or token keeps the fields filled (plugin ≥ 0.1.3).  
 4. Confirm fleet **Plugin** is **0.5.4** after you redownload this build. The fleet **Version** sensor is the PiHerder app (**1.13.0** on the v1.13.0 image). Device page **Visit** is still the host. Add the **PiHerder** card below. Memory, disk, and CPU load sensors sit on that same host device, plus one sensor per container and monitored service. The sensors stay status. Start, stop, restart, update, and stop project are on the card’s Host tab, under **Containers**, and only when the token has `jobs` and Docker is on. Move uses that same gate plus the herder Move flag. Files needs the `files` scope. Job buttons show only if the token has `jobs`.
 
-HACS does **not** auto-refresh custom repos. New GitHub Release: HACS → PiHerder → **⋮ → Redownload** (pick the tag) → **restart Home Assistant**. Reload of the config entry is not enough for new files.
+After a new GitHub Release: HACS → **Integrations** → PiHerder → **⋮ → Redownload** (pick the tag) → **restart Home Assistant**. Reload of the config entry is not enough for new files.
 
 Token without `read`, a bad secret, or a mismatched allowlist **fails closed**.
 

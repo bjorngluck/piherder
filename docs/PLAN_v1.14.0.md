@@ -74,7 +74,7 @@ Build order for Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [
 | Tier | Lock |
 |------|------|
 | Must | **Drop root brand copies.** [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6). Merged. `icon.png`, `icon@2x.png`, `logo.png`, and `logo@2x.png` are removed from the integration root. `brand/` stays. Tagged **[v0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)**. Not herder code. The herder package tag still waits |
-| Should | **Official HACS install.** [hacs/default#11444](https://github.com/hacs/default/pull/11444) is merged. The plugin README, the HACS badge, and the herder wiki stop saying to add a custom repository. Install is HACS, Integrations, PiHerder |
+| Should | **Official HACS install.** [hacs/default#11444](https://github.com/hacs/default/pull/11444) is merged. The plugin README, the HACS badge, and the herder wiki say HACS, Integrations, PiHerder. They no longer say to add a custom repository. Plugin version stays **0.5.4**. No new plugin tag |
 
 ### Release hygiene
 
@@ -120,6 +120,7 @@ Nothing else was voted **Out**.
 | 2026-10-27 | **Adapter tag.** Pull request 9 is merged as `30bfa2f`. Annotated tag **v0.4.4** points at that merge. Volume prune stays off this tag. |
 | 2026-10-27 | **Mobile console.** Three symptoms are written down: the suggestion bar blocks typing, the word appears on Enter, and Tab completion is wrong. A live preview and two later input changes were tried and reverted the same day. They made phone typing worse. Shell input is the committed console again. The phone sheet no longer hides on an outside tap. The same phone then compared keyboards. Samsung Keyboard reproduced the three failures. Gboard did not. Written up as **KI-console-samsung-keyboard**. |
 | 2026-10-27 | **Mute rules.** [#64](https://github.com/bjorngluck/piherder/issues/64) is in the tree. One host or one alert type, optional window, delivery only. Alembic `053_alert_mute` is not applied to a live database. The issue stays open. |
+| 2026-10-27 | **HACS install wording.** Install is HACS, Integrations, PiHerder. The plugin README and the herder wiki no longer say to add a custom repository. Plugin version stays **0.5.4**. No new plugin tag. |
 
 ---
 
@@ -129,7 +130,7 @@ Nothing else was voted **Out**.
 |---|------|--------|
 | 1 | Open **`v1.14.0-dev`** on shipped `main` | **Done** 2026-10-27 |
 | 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | **Done** 2026-10-27. Plugin **v0.5.4** is tagged. Adapter **v0.4.4** is tagged. Volume prune is not on that tag. Samsung Keyboard is KI-console-samsung-keyboard |
-| 3 | Should, if it fits | Mute rules ([#64](https://github.com/bjorngluck/piherder/issues/64)) are in the tree. The other Should items are not started |
+| 3 | Should, if it fits | Mute rules ([#64](https://github.com/bjorngluck/piherder/issues/64)) are in the tree. HACS install wording is in the tree. Plugin version stays **0.5.4**. The other Should items are not started |
 | 4 | Freeze | Not set. Package stays **1.13.0** |
 | 5 | Operator QA | Not opened |
 | 6 | Tag and Hub | Not cut |
