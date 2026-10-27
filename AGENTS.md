@@ -14,7 +14,11 @@ Anything committed here is public. Use generic names in code, tests, docs, and c
 
 ## Current train
 
-`v1.13.0` is the current release. Package is `1.13.0`. Host tool bootstrap is `POST /servers/{id}/host-deps/bootstrap` and is not on `/api/v1` or `/mcp`.
+`v1.14.0-dev` is the open train. Package stays `1.13.0`. Nothing is built. `v1.13.0` is the current release. Host tool bootstrap is `POST /servers/{id}/host-deps/bootstrap` and is not on `/api/v1` or `/mcp`.
+
+## Opening a version train
+
+Before locking `docs/PLAN_vN.md`, list every living backlog item and wait for a vote: Must, Should, Discover, Later, or Out. Do not assign tiers first. Open issues that the current release already implements stay off the new train. The rest of the open issues go on the ballot. Items removed on 2026-10-27 stay off future ballots. That list is in [docs/PLAN_v1.14.0.md](docs/PLAN_v1.14.0.md). A pull request, release notes, tag, and Hub publish wait until asked.
 
 ## Opening a version pull request (maintainer)
 
