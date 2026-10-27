@@ -459,7 +459,15 @@ def api_server_inventory(
     return _inventory_public(server)
 
 
-def _alert_public(row: Notification) -> dict[str, Any]:
+def _alert_public(row: Notification, session: Session) -> dict[str, Any]:
+    try:
+        from ..services import alert_mute as mute_svc
+
+        muted = mute_svc.is_muted(
+            session, alert_type=row.type, server_id=row.server_id
+        )
+    except Exception:
+        muted = False
     return {
         "id": row.id,
         "type": row.type,
@@ -469,6 +477,7 @@ def _alert_public(row: Notification) -> dict[str, Any]:
         "server_id": row.server_id,
         "link_url": row.link_url,
         "status": row.status,
+        "muted": muted,
         "created_at": _api_utc_iso(row.created_at),
         "updated_at": _api_utc_iso(row.updated_at),
     }
@@ -500,11 +509,190 @@ def list_alerts(
     except (TypeError, ValueError):
         total_n = len(rows)
     return {
-        "alerts": [_alert_public(row) for row in rows],
+        "alerts": [_alert_public(row, session) for row in rows],
         "total": total_n,
         "limit": lim,
         "offset": off,
     }
+
+
+class AlertMuteBody(BaseModel):
+    kind: str
+    server_id: Optional[int] = None
+    alert_type: Optional[str] = None
+    starts_at: Optional[str] = None
+    ends_at: Optional[str] = None
+
+
+class AlertMuteWindowBody(BaseModel):
+    starts_at: Optional[str] = None
+    ends_at: Optional[str] = None
+
+
+def _mute_public(row) -> dict[str, Any]:
+    from ..services import alert_mute as mute_svc
+
+    return {
+        "id": row.id,
+        "kind": row.kind,
+        "server_id": row.server_id,
+        "alert_type": row.alert_type,
+        "starts_at": _api_utc_iso(row.starts_at),
+        "ends_at": _api_utc_iso(row.ends_at),
+        "active": mute_svc.is_active(row),
+    }
+
+
+def _mute_instants(starts_at: Optional[str], ends_at: Optional[str]):
+    from ..services import alert_mute as mute_svc
+
+    try:
+        return mute_svc.parse_instant(starts_at), mute_svc.parse_instant(ends_at)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Enter a valid time") from exc
+
+
+def _mute_rejected(exc: Exception) -> HTTPException:
+    from ..services.alert_mute import MuteRejected
+
+    if isinstance(exc, MuteRejected) and str(exc) == "Rule not found":
+        return HTTPException(status_code=404, detail="Rule not found")
+    return HTTPException(status_code=400, detail=str(exc)[:200])
+
+
+def _audit_mute(session: Session, auth: ApiAuth, action: str, row) -> None:
+    from ..services import alert_mute as mute_svc
+    from ..services.audit_write import make_audit_log
+
+    session.add(
+        make_audit_log(
+            action=action,
+            status="success",
+            user_id=auth.user_id,
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
+            client_ip=auth.client_ip,
+            details=mute_svc.audit_details(row),
+            finished_at=datetime.utcnow(),
+        )
+    )
+    session.commit()
+
+
+@router.get(
+    "/alert-mutes",
+    summary="Alert mute rules",
+    description=(
+        "Scope read. One rule is one host or one alert type. "
+        "active is true when the window is in force, or the rule has no window."
+    ),
+)
+def list_alert_mutes(
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import alert_mute as mute_svc
+
+    auth.require(tok_svc.SCOPE_READ)
+    rows = mute_svc.list_rules(session)
+    return {"rules": [_mute_public(row) for row in rows]}
+
+
+@router.post(
+    "/alert-mutes",
+    status_code=201,
+    summary="Create an alert mute rule",
+    description=(
+        "Scope edit. kind is host or type. A window with a start must have an end. "
+        "Auth failures, OAuth problems, and backup failures cannot be muted."
+    ),
+)
+def create_alert_mute(
+    body: AlertMuteBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import alert_mute as mute_svc
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
+    auth.require(tok_svc.SCOPE_EDIT)
+    starts_at, ends_at = _mute_instants(body.starts_at, body.ends_at)
+    try:
+        row = mute_svc.create_rule(
+            session,
+            kind=(body.kind or "").strip(),
+            server_id=body.server_id,
+            alert_type=body.alert_type,
+            starts_at=starts_at,
+            ends_at=ends_at,
+        )
+    except mute_svc.MuteRejected as exc:
+        raise _mute_rejected(exc) from exc
+    _audit_mute(session, auth, "alert_mute_created", row)
+    return _mute_public(row)
+
+
+@router.patch(
+    "/alert-mutes/{rule_id}",
+    summary="Change a mute rule window",
+    description="Scope edit. Kind and target stay as they were created. Omit a field to leave it.",
+)
+def update_alert_mute(
+    rule_id: int,
+    body: AlertMuteWindowBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import alert_mute as mute_svc
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
+    auth.require(tok_svc.SCOPE_EDIT)
+    starts_set = "starts_at" in body.model_fields_set
+    ends_set = "ends_at" in body.model_fields_set
+    starts_at = ends_at = None
+    if starts_set or ends_set:
+        starts_at, ends_at = _mute_instants(
+            body.starts_at if starts_set else None,
+            body.ends_at if ends_set else None,
+        )
+    try:
+        row = mute_svc.update_window(
+            session,
+            rule_id,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            starts_set=starts_set,
+            ends_set=ends_set,
+        )
+    except mute_svc.MuteRejected as exc:
+        raise _mute_rejected(exc) from exc
+    _audit_mute(session, auth, "alert_mute_updated", row)
+    return _mute_public(row)
+
+
+@router.delete(
+    "/alert-mutes/{rule_id}",
+    summary="Delete an alert mute rule",
+    description="Scope edit. The inbox row is left as it is.",
+)
+def delete_alert_mute(
+    rule_id: int,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import alert_mute as mute_svc
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
+    auth.require(tok_svc.SCOPE_EDIT)
+    try:
+        row = mute_svc.delete_rule(session, rule_id)
+    except mute_svc.MuteRejected as exc:
+        raise _mute_rejected(exc) from exc
+    _audit_mute(session, auth, "alert_mute_deleted", row)
+    return {"ok": True, "id": rule_id}
 
 
 @router.get("/services", summary="Fleet service monitor snapshots")

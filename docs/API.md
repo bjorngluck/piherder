@@ -189,7 +189,11 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 
 | Method | Path | Scope | Description |
 |--------|------|-------|-------------|
-| `GET` | `/api/v1/alerts` | `read` | Open notifications (`limit`, `offset`). Dismissed and resolved rows are omitted. Each row has `id`, `type`, `severity`, `title`, `body`, `server_id`, `link_url`, `status`, `created_at`, and `updated_at`. Hosted `list_alerts` calls this route. Ships in **1.13.0** |
+| `GET` | `/api/v1/alerts` | `read` | Open notifications (`limit`, `offset`). Dismissed and resolved rows are omitted. Each row has `id`, `type`, `severity`, `title`, `body`, `server_id`, `link_url`, `status`, `muted`, `created_at`, and `updated_at`. `muted` is true when a mute rule is active for that host or type. Hosted `list_alerts` calls this route. The route ships in **1.13.0**. `muted` is on the 1.14 train |
+| `GET` | `/api/v1/alert-mutes` | `read` | Mute rules. Each row has `id`, `kind` (`host` or `type`), `server_id`, `alert_type`, `starts_at`, `ends_at`, and `active`. One rule is one host or one alert type |
+| `POST` | `/api/v1/alert-mutes` | `edit` | Create a rule (HTTP **201**). Body: `kind`, `server_id` or `alert_type`, optional `starts_at` and `ends_at` (ISO, UTC). A start without an end is rejected. Auth failures, OAuth problems, and backup failures cannot be muted. Audited as `alert_mute_created` |
+| `PATCH` | `/api/v1/alert-mutes/{id}` | `edit` | Change the window only. Omit a field to leave it. `null` clears it. Audited as `alert_mute_updated` |
+| `DELETE` | `/api/v1/alert-mutes/{id}` | `edit` | Delete the rule. The inbox row stays. Audited as `alert_mute_deleted` |
 | `GET` | `/api/v1/jobs` | `read` | Fleet job list (`server_id`, `status_filter`, `job_type`, `active_only`, `limit`, `offset`) |
 | `GET` | `/api/v1/jobs/{id}` | `read` | Job detail (`?detail=true` for longer log tail) |
 | `GET` | `/api/v1/servers/{id}/jobs` | `read` | Jobs for one server |

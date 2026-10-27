@@ -429,6 +429,19 @@ class DockerVersion(SQLModel, table=True):
     server: Server = Relationship(back_populates="docker_versions")
 
 
+class AlertMuteRule(SQLModel, table=True):
+    """One host or one alert type. Delivery only. Schedules still run."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    kind: str = Field(index=True)  # host | type
+    server_id: Optional[int] = Field(default=None, foreign_key="server.id", index=True)
+    alert_type: Optional[str] = Field(default=None, index=True)
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Notification(SQLModel, table=True):
     """Actionable user-facing alerts (separate from immutable AuditLog)."""
     id: Optional[int] = Field(default=None, primary_key=True)

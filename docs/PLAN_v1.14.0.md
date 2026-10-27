@@ -67,7 +67,7 @@ Build order for Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [
 
 | Tier | Lock |
 |------|------|
-| Should | **Mute rules.** Issue [#64](https://github.com/bjorngluck/piherder/issues/64). Not in the code. One rule is one host or one alert type. An optional time window must have an end. A window without an end is rejected. Mute delivery only. Schedules still run. Auth failures, OAuth problems (including `drive_oauth_refresh_failed` and `drive_oauth_token_aging`), and backup failures cannot be muted. Creating, editing, and deleting a rule is audited and needs scope `edit`. `read` cannot change a rule. Sensor-level ignores stay in Prometheus. `GET /api/v1/alerts` items gain `muted`. Gauge `piherder_alerts_muted` is the number of active mute rules |
+| Should | **Mute rules.** Issue [#64](https://github.com/bjorngluck/piherder/issues/64). In the tree (Alembic `053_alert_mute` is not applied to a live database). One rule is one host or one alert type. An optional time window must have an end. A window without an end is rejected. Mute delivery only. Schedules still run. Auth failures, OAuth problems (including `drive_oauth_refresh_failed` and `drive_oauth_token_aging`), and backup failures cannot be muted. Creating, editing, and deleting a rule is audited and needs scope `edit`. `read` cannot change a rule. Sensor-level ignores stay in Prometheus. `GET /api/v1/alerts` items gain `muted`. Gauge `piherder_alerts_muted` is the number of active mute rules |
 
 ### Plugin
 
@@ -119,6 +119,7 @@ Nothing else was voted **Out**.
 | 2026-10-27 | **Adapter docs.** Version **0.4.4**, the hand-typed badges, and the release notes are on [piherder-mcp#9](https://github.com/bjorngluck/piherder-mcp/pull/9). Herder notes name the four tools. The herder MCP badge stays **v0.4.3** until tag **v0.4.4** exists. Volume prune stays off this tag. |
 | 2026-10-27 | **Adapter tag.** Pull request 9 is merged as `30bfa2f`. Annotated tag **v0.4.4** points at that merge. Volume prune stays off this tag. |
 | 2026-10-27 | **Mobile console.** Three symptoms are written down: the suggestion bar blocks typing, the word appears on Enter, and Tab completion is wrong. A live preview and two later input changes were tried and reverted the same day. They made phone typing worse. Shell input is the committed console again. The phone sheet no longer hides on an outside tap. The same phone then compared keyboards. Samsung Keyboard reproduced the three failures. Gboard did not. Written up as **KI-console-samsung-keyboard**. |
+| 2026-10-27 | **Mute rules.** [#64](https://github.com/bjorngluck/piherder/issues/64) is in the tree. One host or one alert type, optional window, delivery only. Alembic `053_alert_mute` is not applied to a live database. The issue stays open. |
 
 ---
 
@@ -127,8 +128,8 @@ Nothing else was voted **Out**.
 | # | Step | Status |
 |---|------|--------|
 | 1 | Open **`v1.14.0-dev`** on shipped `main` | **Done** 2026-10-27 |
-| 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | In progress. Coverage 85 is pushed. #62, #63, and #61 are in the herder tree. Mobile console input changes were reverted. Samsung Keyboard reproduces the three phone failures. Gboard did not. That is written up as KI-console-samsung-keyboard. The phone sheet stays up when tapped. Plugin **v0.5.4** is tagged. Adapter **v0.4.4** is tagged. Volume prune is not on that tag |
-| 3 | Should, if it fits | Not started |
+| 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | **Done** 2026-10-27. Plugin **v0.5.4** is tagged. Adapter **v0.4.4** is tagged. Volume prune is not on that tag. Samsung Keyboard is KI-console-samsung-keyboard |
+| 3 | Should, if it fits | Mute rules ([#64](https://github.com/bjorngluck/piherder/issues/64)) are in the tree. The other Should items are not started |
 | 4 | Freeze | Not set. Package stays **1.13.0** |
 | 5 | Operator QA | Not opened |
 | 6 | Tag and Hub | Not cut |

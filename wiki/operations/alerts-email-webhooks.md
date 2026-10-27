@@ -44,6 +44,22 @@ Per category you can **mute**, override **severity** (`default` keeps the table 
 
 Policy is stored in App Settings (herder backup). Demo cannot save it. Changes are audited (`alert_policy_changed`).
 
+### Mute rules
+
+Settings → Alerts → **Mute rules**, or `GET` / `POST` / `PATCH` / `DELETE` `/api/v1/alert-mutes`. This is a separate switch from category mute above. Sensor-level ignores stay in Prometheus.
+
+One rule is one host or one alert type. A second rule for the same host or the same type is rejected. Edit the window on the existing rule. Kind and target stay fixed after create.
+
+A window is optional. No window means the rule stays active until you delete it. An end with no start is active until that time. A start with no end is rejected. An end that is not after the start is rejected. Times on the API are UTC. The settings form uses the app timezone.
+
+Mute skips webhook, email, and push. The inbox row is still written. Schedules still run. Job completion webhooks are not mute rules. While the rule is active, a still-open row is not nudged again. After the window ends, the row stays visible and is not sent again unless re-alert is set.
+
+These types cannot be muted, including by a host rule: `backup_failed`, `herder_backup_failed`, `backup_destination_auth_failed`, `drive_oauth_refresh_failed`, `drive_oauth_token_aging`.
+
+Creating, editing, and deleting a rule is audited (`alert_mute_created`, `alert_mute_updated`, `alert_mute_deleted`) and needs scope `edit`. `read` can list rules and cannot change one. Demo cannot save one.
+
+`GET /api/v1/alerts` items include `muted`. It is computed from the rules that are active now. `/metrics` gauge `piherder_alerts_muted` is the number of those rules. An expired rule stays in the table and does not count.
+
 The Network map checkbox **Alert when a Kuma-bound container is stopped** writes the same **Inventory** enabled flag (do not fork a second switch).
 
 ### Host-down

@@ -257,6 +257,19 @@ def collect_samples(session: Session) -> list[tuple[str, str, list[str]]]:
             [_line("piherder_notifications_open", open_total)],
         )
     )
+    try:
+        from . import alert_mute as mute_svc
+
+        muted_rules = mute_svc.active_count(session)
+    except Exception:
+        muted_rules = 0
+    samples.append(
+        (
+            "piherder_alerts_muted",
+            "Active mute rules (window in force, or no window)",
+            [_line("piherder_alerts_muted", muted_rules)],
+        )
+    )
     notif_lines = [
         _line("piherder_notifications_open_by_type", n, {"type": t})
         for t, n in sorted(notif_by_type.items())
