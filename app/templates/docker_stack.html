@@ -99,6 +99,9 @@
             {% if proj.has_pending_update %}
             <span class="status-pill status-failed" title="{% if proj.update_container_count %}{{ proj.update_container_count }} service(s){% else %}Stack{% endif %} with image updates">Update available</span>
             {% endif %}
+            {% if proj.git_drift %}
+            <span class="status-pill status-failed" title="This checkout differs from {% if proj.git_branch %}origin/{{ proj.git_branch | e }}{% else %}the last fetched origin{% endif %}. {{ proj.git_behind|default(0) }} commits behind, {{ proj.git_ahead|default(0) }} ahead, {{ proj.git_dirty|default(0) }} tracked edits. Open Repository to update. This does not fetch and does not deploy.">Git drift</span>
+            {% endif %}
             {% set hl = proj.host_lock or {} %}
             {% if hl.locked %}
             <span class="status-pill feature-off" title="{{ hl.reason_label or 'Locked' }}{% if hl.note %} — {{ hl.note }}{% endif %}">Locked{% if hl.reason_label %} · {{ hl.reason_label }}{% endif %}</span>

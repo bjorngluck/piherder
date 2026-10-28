@@ -10,7 +10,7 @@
 **QA:** not opened.  
 **Related:** [PLAN_v1.13.0.md](PLAN_v1.13.0.md) · [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md)
 
-> Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Package stays `1.13.0`. No tag. The public demo is not pointed at this branch. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is tagged. **0.4.3** stays the previous package. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) are in the herder tree and stay open until the release. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is merged and tagged **v0.5.4**. The four root copies are removed. `brand/` stays. Restore safety in the tree: a pre-restore snapshot, manifest file and byte checks, and `GET /api/v1/servers/{id}/backup/restore-preview`. Still not started: the compose drift badge, volume prune on the API, and the push-denylist secret.
+> Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Package stays `1.13.0`. No tag. The public demo is not pointed at this branch. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is tagged. **0.4.3** stays the previous package. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) are in the herder tree and stay open until the release. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is merged and tagged **v0.5.4**. The four root copies are removed. `brand/` stays. Restore safety in the tree: a pre-restore snapshot, manifest file and byte checks, and `GET /api/v1/servers/{id}/backup/restore-preview`. Compose git drift is in the tree. The stack list compares a checkout with the last fetched origin and does not deploy. Still not started: volume prune on the API, and the push-denylist secret.
 
 ---
 
@@ -60,7 +60,7 @@ Build order for Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [
 
 | Tier | Lock |
 |------|------|
-| Should | **Compose git checkout drift badge.** Show when a tracked checkout differs from the remote. No deploy |
+| Should | **Compose git checkout drift badge.** In the tree. Show when a tracked checkout differs from the last fetched origin. The inventory probe does not fetch and does not deploy |
 | Should | **Volume prune on the API and hosted `/mcp`.** Scope `edit`, an explicit confirm, and one audit row. The Docker page confirm stays. It is not part of scheduled `docker_prune`. Not on adapter **0.4.4**. A later adapter tag carries it if it lands |
 
 ### Alerts
@@ -125,6 +125,7 @@ Nothing else was voted **Out**.
 | 2026-10-27 | **Manifest verification.** A new sidecar records the regular-file count and the byte count. A real restore is good only when the host matches both. An older sidecar without those counts still restores. Dry-run does not check. |
 | 2026-10-27 | **Dry-run restore preview.** `GET /api/v1/servers/{id}/backup/restore-preview` lists the files a restore would send. It does not write. It is not a hosted MCP tool. |
 | 2026-10-27 | **Docs.** Wiki, [API.md](API.md), [SPEC.md](../SPEC.md), and the roadmap name the open train. Package stays **1.13.0**. Not tagged. The restore notes say a 1.13 sidecar puts the owner back, and this train also checks file count and byte count. |
+| 2026-10-28 | **Compose git drift.** The Docker stack list shows **Git drift** when a checkout is behind the last fetched origin branch, ahead of it, or has tracked edits. The inventory probe does not fetch and does not deploy. |
 
 ---
 
@@ -134,7 +135,7 @@ Nothing else was voted **Out**.
 |---|------|--------|
 | 1 | Open **`v1.14.0-dev`** on shipped `main` | **Done** 2026-10-27 |
 | 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | **Done** 2026-10-27. Plugin **v0.5.4** is tagged. Adapter **v0.4.4** is tagged. Volume prune is not on that tag. Samsung Keyboard is KI-console-samsung-keyboard |
-| 3 | Should, if it fits | Mute rules ([#64](https://github.com/bjorngluck/piherder/issues/64)) are in the tree. HACS install wording is in the tree. Plugin version stays **0.5.4**. A pre-restore snapshot is in the tree. Manifest file-count and byte verification is in the tree. The dry-run restore preview API is in the tree. The other Should items are not started |
+| 3 | Should, if it fits | Mute rules ([#64](https://github.com/bjorngluck/piherder/issues/64)) are in the tree. HACS install wording is in the tree. Plugin version stays **0.5.4**. A pre-restore snapshot is in the tree. Manifest file-count and byte verification is in the tree. The dry-run restore preview API is in the tree. The compose git drift badge is in the tree. Volume prune and the push-denylist secret are not started |
 | 4 | Freeze | Not set. Package stays **1.13.0** |
 | 5 | Operator QA | Not opened |
 | 6 | Tag and Hub | Not cut |

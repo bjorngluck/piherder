@@ -487,7 +487,7 @@ QA walks are signed 2026-10-25. Code freeze is set 2026-10-25. About Docker prun
 
 Package stays **1.13.0**. About stays **1.13.0**. No tag. The image on Hub stays **1.13.0**.
 
-In the tree: missed-slot catch-up, Drive OAuth health, fleet summary, the mobile console sheet and Samsung Keyboard note, mute rules, HACS install wording, a pre-restore host snapshot with Undo, manifest file-count and byte checks, and `GET /api/v1/servers/{id}/backup/restore-preview`. That preview lists files a restore would send and does not write. It is not a hosted MCP tool. Plugin **0.5.4** and adapter **0.4.4** are already tagged. Compose git drift, volume prune on the API, and the push-denylist secret are not started. Plan: [docs/PLAN_v1.14.0.md](docs/PLAN_v1.14.0.md).
+In the tree: missed-slot catch-up, Drive OAuth health, fleet summary, the mobile console sheet and Samsung Keyboard note, mute rules, HACS install wording, a pre-restore host snapshot with Undo, manifest file-count and byte checks, `GET /api/v1/servers/{id}/backup/restore-preview`, and a compose git drift badge. That preview lists files a restore would send and does not write. It is not a hosted MCP tool. The badge compares a checkout with the last fetched origin and does not fetch or deploy. Plugin **0.5.4** and adapter **0.4.4** are already tagged. Volume prune on the API and the push-denylist secret are not started. Plan: [docs/PLAN_v1.14.0.md](docs/PLAN_v1.14.0.md).
 
 ---
 

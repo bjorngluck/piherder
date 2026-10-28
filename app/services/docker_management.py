@@ -1946,6 +1946,16 @@ def _list_compose_uncached(
             }
             if compose_graph:
                 row["compose_graph"] = compose_graph
+            try:
+                from .git_project import drift_from_report, drift_script, parse_git_report
+
+                git_status, git_out, _git_err = run_command(
+                    client, drift_script(proj_dir), timeout=12
+                )
+                if git_status == 0 and git_out:
+                    row.update(drift_from_report(parse_git_report(git_out)))
+            except Exception:
+                pass
             projects.append(row)
         return projects
     finally:
