@@ -218,7 +218,8 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 | `GET` | `/api/v1/jobs/{id}` | `read` | Job detail (`?detail=true` for longer log tail) |
 | `GET` | `/api/v1/servers/{id}/jobs` | `read` | Jobs for one server |
 | `POST` | `/api/v1/servers/{id}/jobs` | `jobs` | Trigger job (HTTP **202**) |
-| `POST` | `/api/v1/servers/{id}/docker/prune` | `edit` | Start a `docker_prune` job (HTTP **202**). `prune_type` is `images`, `containers`, `both`, or `networks`. Volume prune stays on the Docker page. Per-host `docker_prune_schedule` (empty means off, container patch required) starts `both` (dangling images and exited containers). Volumes stay off that schedule. About **View schedule** lists it. A missed slot opens `docker_prune_missed` |
+| `POST` | `/api/v1/servers/{id}/docker/prune` | `edit` | Start a `docker_prune` job (HTTP **202**). `prune_type` is `images`, `containers`, `both`, or `networks`. Unused volumes are not this job. Per-host `docker_prune_schedule` (empty means off, container patch required) starts `both` (dangling images and exited containers). Volumes stay off that schedule. About **View schedule** lists it. A missed slot opens `docker_prune_missed` |
+| `POST` | `/api/v1/servers/{id}/docker/volumes` | `edit` | Prune unused Docker volumes (`docker volume prune -f`). Body `confirm` must be true. Synchronous. One audit row, `docker_volume_prune`. Not a `docker_prune` job and not scheduled. The Docker page confirm stays a separate job. Hosted `prune_volumes` calls this route. Adapter **0.4.4** does not list that tool |
 | `POST` | `/api/v1/servers/{id}/docker/build-cache` | `edit` | Prune the Docker build cache and the buildx cache (`docker builder prune -f`, then `docker buildx prune -f`). Synchronous. One audit row, `docker_build_cache_prune`. Not a `docker_prune` job and not scheduled. Hosted `prune_build_cache` calls this route. Ships in **1.13.0** |
 
 **POST body**

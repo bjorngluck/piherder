@@ -834,7 +834,16 @@ def api_meta_dict() -> dict:
                 "scope": "edit",
                 "summary": (
                     "Start a Docker prune job. images, containers, both, or networks. "
-                    "Volume prune stays on the Docker page."
+                    "Unused volumes are POST /docker/volumes with confirm true."
+                ),
+            },
+            {
+                "method": "POST",
+                "path": "/api/v1/servers/{id}/docker/volumes",
+                "scope": "edit",
+                "summary": (
+                    "Prune unused Docker volumes. confirm must be true. "
+                    "One audit row. Not a docker_prune job and not scheduled."
                 ),
             },
             {

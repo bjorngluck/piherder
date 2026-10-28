@@ -108,7 +108,8 @@ _SERVER_INSTRUCTIONS = (
     "prune_docker starts a Docker prune job. It needs the edit scope. "
     "prune_type is images, containers, both, or networks. "
     "both is dangling images and exited containers. "
-    "Volume prune stays on the Docker page. "
+    "prune_volumes deletes unused Docker volumes. confirm must be true. "
+    "It needs the edit scope. It is not a docker_prune job and it has no schedule. "
     "prune_build_cache clears the Docker build cache and the buildx cache. "
     "It needs the edit scope. It is not a docker_prune job and it has no schedule. "
     "Do not invent SSH, undo, a console, token admin, "
@@ -321,7 +322,7 @@ def tool_catalog() -> list[dict[str, Any]]:
                 "Start a Docker prune job. Needs the edit scope. "
                 "prune_type is images, containers, both, or networks. "
                 "both is dangling images and exited containers. "
-                "Volume prune stays on the Docker page. "
+                "Unused volumes are prune_volumes with confirm true. "
                 "HTTP 202 means accepted. HTTP 409 means a prune is already active: "
                 "poll get_job and do not start another."
             ),
@@ -347,6 +348,25 @@ def tool_catalog() -> list[dict[str, Any]]:
             ),
             "scope": tok_svc.SCOPE_EDIT,
             "inputSchema": _obj_schema({"server_id": sid}, ["server_id"]),
+            "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "prune_volumes",
+            "description": (
+                "Prune unused Docker volumes on one host. confirm must be true. "
+                "Needs the edit scope. One audit row. Not a docker_prune job and not scheduled."
+            ),
+            "scope": tok_svc.SCOPE_EDIT,
+            "inputSchema": _obj_schema(
+                {
+                    "server_id": sid,
+                    "confirm": {
+                        "type": "boolean",
+                        "description": "Must be true. Unused volumes are deleted.",
+                    },
+                },
+                ["server_id", "confirm"],
+            ),
             "annotations": _WRITE_ANN,
         },
         {
@@ -1068,11 +1088,6 @@ async def call_tool(
             )
         elif name == "prune_docker":
             kind = _opt_str(args, "prune_type").strip().lower() or "both"
-            if kind == "volumes":
-                return tool_text_result(
-                    {"ok": False, "detail": "Volume prune stays on the Docker page"},
-                    is_error=True,
-                )
             background = BackgroundTasks()
             raw = await api_v1.prune_docker(
                 _require_int(args, "server_id"),
@@ -1091,6 +1106,18 @@ async def call_tool(
         elif name == "prune_build_cache":
             payload = api_v1.prune_build_cache(
                 _require_int(args, "server_id"),
+                session,
+                auth,
+            )
+        elif name == "prune_volumes":
+            if _opt_bool(args, "confirm") is not True:
+                return tool_text_result(
+                    {"ok": False, "detail": "confirm must be true"},
+                    is_error=True,
+                )
+            payload = api_v1.prune_volumes(
+                _require_int(args, "server_id"),
+                api_v1.VolumePruneBody(confirm=True),
                 session,
                 auth,
             )

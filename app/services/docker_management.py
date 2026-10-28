@@ -1996,8 +1996,9 @@ def list_unused_images_and_containers(server: Server) -> dict:
 def prune_unused(server: Server, prune_type: str = 'both') -> dict:
     """Prune one category. ``both`` is dangling images and exited containers.
 
-    ``networks`` is unused networks. ``volumes`` is unused volumes. The page
-    is the only caller that passes ``volumes``, and only after confirm.
+    ``networks`` is unused networks. ``volumes`` is unused volumes. The Docker
+    page job passes ``volumes`` only after confirm. The volume prune API does
+    the same, and it is not the scheduled prune.
     """
     commands = {
         "images": 'docker image prune -f --filter "dangling=true"',

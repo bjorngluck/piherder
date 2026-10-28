@@ -1332,8 +1332,8 @@ class DockerPruneBody(BaseModel):
     summary="Start a Docker prune job",
     description=(
         "Requires scope `edit`. prune_type is images, containers, both, or networks. "
-        "both is dangling images and exited containers. Volume prune stays on the "
-        "Docker page and needs a confirm there."
+        "both is dangling images and exited containers. Unused volumes are "
+        "POST /docker/volumes with confirm true, not this job."
     ),
 )
 async def prune_docker(
@@ -1355,7 +1355,10 @@ async def prune_docker(
     if kind == "volumes":
         raise HTTPException(
             status_code=400,
-            detail="Volume prune stays on the Docker page",
+            detail=(
+                "Volume prune is POST /api/v1/servers/{id}/docker/volumes "
+                "with confirm true"
+            ),
         )
     try:
         kind = allowlist(kind, PRUNE_API_TYPES, field="prune_type")
@@ -1432,6 +1435,64 @@ def prune_build_cache(
         action="docker_build_cache_prune",
         status="success" if ok else "failed",
         message=output or ("Build cache pruned" if ok else "Build cache prune failed"),
+        api_token_id=auth.token_id,
+        api_token_name=auth.token_name,
+        client_ip=auth.client_ip,
+    )
+    session.commit()
+    return {
+        "ok": ok,
+        "audit_id": audit.id,
+        "output": output,
+    }
+
+
+class VolumePruneBody(BaseModel):
+    """Unused Docker volumes. Not a docker_prune job and not scheduled."""
+
+    confirm: bool = False
+
+
+@router.post(
+    "/servers/{server_id}/docker/volumes",
+    summary="Prune unused Docker volumes",
+    description=(
+        "Requires scope `edit` and confirm true. Runs docker volume prune -f. "
+        "One audit row. Not a docker_prune job and not scheduled. "
+        "The Docker page confirm stays a separate job. Hosted prune_volumes "
+        "calls this route. Adapter 0.4.4 does not list that tool."
+    ),
+)
+def prune_volumes(
+    server_id: int,
+    body: VolumePruneBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import docker_management as docker_svc
+    from ..services.server_audit import record_server_audit
+
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404, detail="Server not found")
+    auth.require(tok_svc.SCOPE_EDIT)
+    auth.require_feature("docker")
+    auth.require_server_feature(server, "docker")
+    if body.confirm is not True:
+        raise HTTPException(status_code=400, detail="confirm must be true")
+    try:
+        result = docker_svc.prune_unused(server, prune_type="volumes")
+    except Exception as exc:
+        result = {"success": False, "output": str(exc)[:500]}
+    ok = bool(result.get("success"))
+    output = str(result.get("output") or "")[:1500]
+    audit = record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=auth.user_id,
+        action="docker_volume_prune",
+        status="success" if ok else "failed",
+        message=output or ("Unused volumes pruned" if ok else "Volume prune failed"),
         api_token_id=auth.token_id,
         api_token_name=auth.token_name,
         client_ip=auth.client_ip,
