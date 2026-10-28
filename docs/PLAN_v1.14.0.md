@@ -10,7 +10,7 @@
 **QA:** not opened.  
 **Related:** [PLAN_v1.13.0.md](PLAN_v1.13.0.md) · [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md)
 
-> Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Package stays `1.13.0`. No tag. The public demo is not pointed at this branch. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is tagged. **0.4.3** stays the previous package. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) are in the herder tree and stay open until the release. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is merged and tagged **v0.5.4**. The four root copies are removed. `brand/` stays. Restore safety in the tree: a pre-restore snapshot, manifest file and byte checks, and `GET /api/v1/servers/{id}/backup/restore-preview`. Compose git drift is in the tree. The stack list compares a checkout with the last fetched origin and does not deploy. Volume prune is in the tree: `POST /api/v1/servers/{id}/docker/volumes` and hosted `prune_volumes` need `confirm` true and write one audit row. They are not the scheduled prune. Adapter **0.4.4** does not list that tool. Still not started: the push-denylist secret.
+> Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Package stays `1.13.0`. No tag. The public demo is not pointed at this branch. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is tagged. **0.4.3** stays the previous package. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) are in the herder tree and stay open until the release. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is merged and tagged **v0.5.4**. The four root copies are removed. `brand/` stays. Restore safety in the tree: a pre-restore snapshot, manifest file and byte checks, and `GET /api/v1/servers/{id}/backup/restore-preview`. Compose git drift is in the tree. The stack list compares a checkout with the last fetched origin and does not deploy. Volume prune is in the tree: `POST /api/v1/servers/{id}/docker/volumes` and hosted `prune_volumes` need `confirm` true and write one audit row. They are not the scheduled prune. Adapter **0.4.4** does not list that tool. The push-denylist workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is not set. Until it has at least one pattern, the workflow prints that the manual grep remains and exits 0. It does not report a clean scan. Patterns stay off git.
 
 ---
 
@@ -82,7 +82,7 @@ Build order for Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [
 |------|------|
 | Must | **Adapter cut.** Done. Tag **[v0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is on merge `30bfa2f` (pull request 9). It adds `fleet_summary`, `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. Volume prune is not in this package. **0.4.3** stays the previous tag. piherder-mcp has no open issues |
 | Must | **Coverage 85.** CI `--cov-fail-under` is **85** on `app`. Compose report **85%** (49078/57940, 84.70% before rounding). The gate uses the rounded figure |
-| Should | **Push-denylist secret.** The workflow is in. This is an operator step: set the GitHub Actions secret. The denylist stays off git. An empty secret must not pretend it checked |
+| Should | **Push-denylist secret.** Workflow is in (`.github/workflows/push-denylist.yml`). Secret `PIHERDER_PUSH_DENYLIST` is not set. One literal per line, at least 4 characters. Comments and blank lines are ignored. An empty secret prints that the manual grep remains and exits 0. It does not report a clean scan. Patterns stay off git |
 
 | Topic | Lock |
 |-------|------|
@@ -127,6 +127,7 @@ Nothing else was voted **Out**.
 | 2026-10-27 | **Docs.** Wiki, [API.md](API.md), [SPEC.md](../SPEC.md), and the roadmap name the open train. Package stays **1.13.0**. Not tagged. The restore notes say a 1.13 sidecar puts the owner back, and this train also checks file count and byte count. |
 | 2026-10-28 | **Compose git drift.** The Docker stack list shows **Git drift** when a checkout is behind the last fetched origin branch, ahead of it, or has tracked edits. The inventory probe does not fetch and does not deploy. |
 | 2026-10-28 | **Volume prune.** `POST /api/v1/servers/{id}/docker/volumes` and hosted `prune_volumes` prune unused volumes when `confirm` is true. One audit row, `docker_volume_prune`. Not a `docker_prune` job and not scheduled. The Docker page confirm stays. Adapter **0.4.4** does not list the tool. |
+| 2026-10-28 | **Push denylist.** The workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is not set. An empty secret does not report a clean scan. Patterns stay off git. |
 
 ---
 
@@ -136,7 +137,7 @@ Nothing else was voted **Out**.
 |---|------|--------|
 | 1 | Open **`v1.14.0-dev`** on shipped `main` | **Done** 2026-10-27 |
 | 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | **Done** 2026-10-27. Plugin **v0.5.4** is tagged. Adapter **v0.4.4** is tagged. Volume prune is not on that tag. Samsung Keyboard is KI-console-samsung-keyboard |
-| 3 | Should, if it fits | Mute rules ([#64](https://github.com/bjorngluck/piherder/issues/64)) are in the tree. HACS install wording is in the tree. Plugin version stays **0.5.4**. A pre-restore snapshot is in the tree. Manifest file-count and byte verification is in the tree. The dry-run restore preview API is in the tree. The compose git drift badge is in the tree. Volume prune is in the tree. Adapter **0.4.4** does not list it. The push-denylist secret is not started |
+| 3 | Should, if it fits | Mute rules ([#64](https://github.com/bjorngluck/piherder/issues/64)) are in the tree. HACS install wording is in the tree. Plugin version stays **0.5.4**. A pre-restore snapshot is in the tree. Manifest file-count and byte verification is in the tree. The dry-run restore preview API is in the tree. The compose git drift badge is in the tree. Volume prune is in the tree. Adapter **0.4.4** does not list it. The push-denylist workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is not set |
 | 4 | Freeze | Not set. Package stays **1.13.0** |
 | 5 | Operator QA | Not opened |
 | 6 | Tag and Hub | Not cut |

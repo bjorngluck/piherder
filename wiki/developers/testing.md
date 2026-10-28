@@ -84,6 +84,7 @@ CI covers unit + Playwright on fixtures. Live fleet validation (real SSH, HAOS, 
 | Unit | push/PR (app, tests, migrations, locks) | [`.github/workflows/test.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/test.yml) — hashed lock + `pytest -q` |
 | **E2E** | push/PR (app, e2e, compose, Dockerfile, …) | [`.github/workflows/e2e.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/e2e.yml) — e2e compose set + Playwright Chromium |
 | Docs | wiki / mkdocs changes | [`.github/workflows/docs.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/docs.yml) |
+| Push denylist | every push and pull request | [`.github/workflows/push-denylist.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/push-denylist.yml). Patterns stay in the GitHub secret `PIHERDER_PUSH_DENYLIST`, one literal per line, at least 4 characters. Comments and blank lines are ignored. The secret is not set. Until it has a pattern, the job prints that the manual grep remains and exits 0. It does not report a clean scan, and it does not print a pattern or the matched line |
 
 ## Before a release
 
