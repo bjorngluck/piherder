@@ -4,7 +4,7 @@
 
 **Base:** `main` · **Head:** `v1.14.0-dev` · [QA_v1.14.0.md](QA_v1.14.0.md): walks are written and are not signed. Screenshots are reserved and not captured.
 
-**State:** draft. Code freeze is not set. Notes are [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Package stays **1.13.0**. Not tagged. Not an upgrade path.
+**State:** draft [#70](https://github.com/bjorngluck/piherder/pull/70). Code freeze is not set. Notes are [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Package stays **1.13.0**. Not tagged. Not an upgrade path.
 
 ---
 
