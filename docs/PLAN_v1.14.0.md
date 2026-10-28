@@ -7,7 +7,7 @@
 **Theme:** catch up a missed slot, warn on Drive OAuth, summarise the fleet, and fix the mobile console  
 **Baseline:** tagged **`v1.13.0`** (2026-10-26). Production image is **1.13.0**.  
 **Mode:** **Must → Should.** Tiers were voted 2026-10-27. Nothing was voted Discover.  
-**QA:** not opened.  
+**QA:** [QA_v1.14.0.md](QA_v1.14.0.md). Walks are written and are not signed. Screenshot names are reserved in the [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status). Not captured.
 **Related:** [PLAN_v1.13.0.md](PLAN_v1.13.0.md) · [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md)
 
 > Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Package stays `1.13.0`. No tag. The public demo is not pointed at this branch. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is tagged. **0.4.3** stays the previous package. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) are in the herder tree and stay open until the release. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is merged and tagged **v0.5.4**. The four root copies are removed. `brand/` stays. Restore safety in the tree: a pre-restore snapshot, manifest file and byte checks, and `GET /api/v1/servers/{id}/backup/restore-preview`. Compose git drift is in the tree. The stack list compares a checkout with the last fetched origin and does not deploy. Volume prune is in the tree: `POST /api/v1/servers/{id}/docker/volumes` and hosted `prune_volumes` need `confirm` true and write one audit row. They are not the scheduled prune. Adapter **0.4.4** does not list that tool. The push-denylist workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is not set. Until it has at least one pattern, the workflow prints that the manual grep remains and exits 0. It does not report a clean scan. Patterns stay off git.
@@ -128,6 +128,7 @@ Nothing else was voted **Out**.
 | 2026-10-28 | **Compose git drift.** The Docker stack list shows **Git drift** when a checkout is behind the last fetched origin branch, ahead of it, or has tracked edits. The inventory probe does not fetch and does not deploy. |
 | 2026-10-28 | **Volume prune.** `POST /api/v1/servers/{id}/docker/volumes` and hosted `prune_volumes` prune unused volumes when `confirm` is true. One audit row, `docker_volume_prune`. Not a `docker_prune` job and not scheduled. The Docker page confirm stays. Adapter **0.4.4** does not list the tool. |
 | 2026-10-28 | **Push denylist.** The workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is not set. An empty secret does not report a clean scan. Patterns stay off git. |
+| 2026-10-28 | **QA.** Operator walks are written in [QA_v1.14.0.md](QA_v1.14.0.md) and are not signed. Screenshot names are reserved in the [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status). Not captured. About and the footer stay **1.13.0**. |
 
 ---
 
@@ -139,7 +140,7 @@ Nothing else was voted **Out**.
 | 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | **Done** 2026-10-27. Plugin **v0.5.4** is tagged. Adapter **v0.4.4** is tagged. Volume prune is not on that tag. Samsung Keyboard is KI-console-samsung-keyboard |
 | 3 | Should, if it fits | Mute rules ([#64](https://github.com/bjorngluck/piherder/issues/64)) are in the tree. HACS install wording is in the tree. Plugin version stays **0.5.4**. A pre-restore snapshot is in the tree. Manifest file-count and byte verification is in the tree. The dry-run restore preview API is in the tree. The compose git drift badge is in the tree. Volume prune is in the tree. Adapter **0.4.4** does not list it. The push-denylist workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is not set |
 | 4 | Freeze | Not set. Package stays **1.13.0** |
-| 5 | Operator QA | Not opened |
+| 5 | Operator QA | Walks written in [QA_v1.14.0.md](QA_v1.14.0.md). Not signed. Screenshots reserved, not captured |
 | 6 | Tag and Hub | Not cut |
 
 ---
