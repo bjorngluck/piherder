@@ -144,18 +144,26 @@ def test_copy_auth_failure_opens_one_alert(monkeypatch):
         from app.models import Notification
 
         rows = list(session.exec(select(Notification)).all())
-        assert len(rows) == 1
-        assert rows[0].type == "backup_destination_auth_failed"
-        assert rows[0].severity == "critical"
-        assert rows[0].title == "Reconnect Google Drive"
-        assert rows[0].body == (
+        auth = [row for row in rows if row.type == "backup_destination_auth_failed"]
+        oauth = [row for row in rows if row.type == "drive_oauth_refresh_failed"]
+        assert len(rows) == 2
+        assert len(auth) == 1
+        assert len(oauth) == 1
+        assert auth[0].severity == "critical"
+        assert auth[0].title == "Reconnect Google Drive"
+        assert auth[0].body == (
             "Reconnect Google Drive. The saved sign-in was rejected. (invalid_grant)"
         )
-        assert "ya29" not in (rows[0].body or "")
-        assert "pass = " not in (rows[0].body or "")
+        assert "ya29" not in (auth[0].body or "")
+        assert "pass = " not in (auth[0].body or "")
+        assert oauth[0].severity == "critical"
+        assert oauth[0].title == "Google Drive refresh failed"
+        assert "ya29" not in (oauth[0].body or "")
         copies.resolve_copy_auth_failure(session, dest.id)
-        session.refresh(rows[0])
-        assert rows[0].status == "resolved"
+        session.refresh(auth[0])
+        session.refresh(oauth[0])
+        assert auth[0].status == "resolved"
+        assert oauth[0].status == "resolved"
         assert copies.copy_auth_failure("disk full") is False
 
         smb = BackupDestination(provider="smb", name="Share", enabled=True)
