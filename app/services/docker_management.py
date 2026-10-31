@@ -2103,6 +2103,16 @@ def parse_deleted_volumes(output: str) -> list[str]:
     return names
 
 
+def volume_prune_audit_details(source: str, output: str) -> dict:
+    """Audit payload for one unused-volume prune. ``source`` is ui, rest, or mcp."""
+    kind = source if source in ("ui", "rest", "mcp") else "rest"
+    return {
+        "source": kind,
+        "volumes": parse_deleted_volumes(output),
+        "bytes_reclaimed": parse_reclaimed_bytes(output),
+    }
+
+
 def parse_reclaimed_bytes(output: str) -> int | None:
     """Integer bytes from ``Total reclaimed space:``. None when the line is absent."""
     for raw in (output or "").splitlines():

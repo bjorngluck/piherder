@@ -1513,8 +1513,9 @@ class VolumePruneBody(BaseModel):
         "Requires scope `edit`. dry_run true lists unused volumes and sizes and "
         "deletes nothing. confirm is not required for a dry run. "
         "dry_run false still requires confirm true and runs docker volume prune -f. "
-        "That path writes one audit row. Not a docker_prune job and not scheduled. "
-        "The Docker page confirm stays a separate job. Hosted prune_volumes "
+        "That path writes one audit row with source, deleted names, and bytes reclaimed. "
+        "Not a docker_prune job and not scheduled. "
+        "The host page queues a separate docker_prune job. Hosted prune_volumes "
         "calls this route. Adapter 0.4.4 does not list that tool. "
         "Agents should dry-run first and get a human's OK before confirm true."
     ),
@@ -1556,11 +1557,10 @@ def prune_volumes(
         result = {"success": False, "output": str(exc)[:500]}
     ok = bool(result.get("success"))
     output = str(result.get("output") or "")[:1500]
-    names = docker_svc.parse_deleted_volumes(output)
-    reclaimed = docker_svc.parse_reclaimed_bytes(output)
     source = volume_prune_source.get()
-    if source not in ("ui", "rest", "mcp"):
-        source = "rest"
+    details = docker_svc.volume_prune_audit_details(source, output)
+    names = details["volumes"]
+    reclaimed = details["bytes_reclaimed"]
     audit = record_server_audit(
         session,
         server_id=server.id,
@@ -1568,11 +1568,7 @@ def prune_volumes(
         action="docker_volume_prune",
         status="success" if ok else "failed",
         message=output or ("Unused volumes pruned" if ok else "Volume prune failed"),
-        details={
-            "source": source,
-            "volumes": names,
-            "bytes_reclaimed": reclaimed,
-        },
+        details=details,
         api_token_id=auth.token_id,
         api_token_name=auth.token_name,
         client_ip=auth.client_ip,

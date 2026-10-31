@@ -3188,6 +3188,20 @@ async def _run_host_reboot_job(job_id: int, server_id: int, audit_id: int):
     await run_in_threadpool(_execute_host_reboot, job_id, server_id, audit_id)
 
 
+def _stamp_volume_prune_audit(audit_id: int, output: str) -> None:
+    """Page job: the docker_prune audit row stores the same volume fields as the API."""
+    from ..docker_management import volume_prune_audit_details
+
+    payload = volume_prune_audit_details("ui", output)
+    with _get_fresh_session() as session:
+        audit = session.get(AuditLog, audit_id)
+        if audit is None:
+            return
+        audit.details = json.dumps(payload)
+        session.add(audit)
+        session.commit()
+
+
 def _execute_docker_prune(
     job_id: int, server_id: int, audit_id: int, prune_type: str = ""
 ) -> None:
@@ -3229,6 +3243,8 @@ def _execute_docker_prune(
         message = f"{kind}: {output}"
         status = "success" if res.get("success") else "failed"
         _finish(audit_id, job_id, status, message, hostname, "docker_prune")
+        if kind == "volumes":
+            _stamp_volume_prune_audit(audit_id, output)
 
 
 async def _run_docker_prune_job(

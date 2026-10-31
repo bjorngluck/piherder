@@ -204,3 +204,89 @@ def test_dry_run_lists_volumes_and_does_not_audit(monkeypatch):
     assert details["source"] == "rest"
     assert details["volumes"] == ["data-a"]
     assert details["bytes_reclaimed"] == 1500
+
+
+def test_mcp_and_ui_prune_audits_name_the_source(monkeypatch):
+    import json
+    from contextlib import contextmanager
+
+    from fastapi import HTTPException
+
+    from app.routers.api_v1 import prune_build_cache, volume_prune_source
+    from app.services.audit_write import make_audit_log
+    from app.services import jobs as job_service
+
+    output = "Deleted Volumes:\ndata-a\ndata-b\n\nTotal reclaimed space: 2MB\n"
+
+    def _real(_server, prune_type="both"):
+        assert prune_type == "volumes"
+        return {"success": True, "output": output}
+
+    monkeypatch.setattr("app.services.docker_management.prune_unused", _real)
+    engine = _engine()
+    auth = _auth()
+    token = volume_prune_source.set("mcp")
+    try:
+        with Session(engine) as session:
+            server = Server(name="host-a", hostname="host-a.example.com", ssh_username="pi")
+            session.add(server)
+            session.commit()
+            session.refresh(server)
+            done = prune_volumes(server.id, VolumePruneBody(confirm=True), session, auth)
+            details = json.loads(session.get(AuditLog, done["audit_id"]).details)
+    finally:
+        volume_prune_source.reset(token)
+    assert details["source"] == "mcp"
+    assert details["volumes"] == ["data-a", "data-b"]
+    assert details["bytes_reclaimed"] == 2_000_000
+
+    @contextmanager
+    def _fresh():
+        with Session(engine) as session:
+            yield session
+
+    monkeypatch.setattr(job_service, "_get_fresh_session", _fresh)
+    monkeypatch.setattr(job_service, "_send_summary_webhook", lambda *_a, **_k: None)
+    with Session(engine) as session:
+        server = session.exec(select(Server)).first()
+        job = Job(server_id=server.id, job_type="docker_prune", status="pending", details="{}")
+        audit = make_audit_log(
+            server_id=server.id,
+            action="docker_prune",
+            status="running",
+            details="Job started",
+        )
+        session.add(job)
+        session.add(audit)
+        session.commit()
+        session.refresh(job)
+        session.refresh(audit)
+        job_id, audit_id, server_id = job.id, audit.id, server.id
+    job_service._execute_docker_prune(job_id, server_id, audit_id, "volumes")
+    with Session(engine) as session:
+        stored = json.loads(session.get(AuditLog, audit_id).details)
+    assert stored["source"] == "ui"
+    assert stored["volumes"] == ["data-a", "data-b"]
+    assert stored["bytes_reclaimed"] == 2_000_000
+
+    monkeypatch.setattr("app.services.demo.demo_mode", lambda: True)
+
+    def _ssh(*_args, **_kwargs):
+        raise AssertionError("host was contacted")
+
+    monkeypatch.setattr("app.services.docker_management.prune_unused", _ssh)
+    monkeypatch.setattr("app.services.docker_management.prune_build_cache", _ssh)
+    with Session(engine) as session:
+        server = session.exec(select(Server)).first()
+        for call in (
+            lambda: prune_volumes(server.id, VolumePruneBody(confirm=True), session, auth),
+            lambda: prune_build_cache(server.id, session, auth),
+        ):
+            try:
+                call()
+            except HTTPException as exc:
+                assert exc.status_code == 403
+                assert "demo" in str(exc.detail).lower()
+                assert "Docker" in str(exc.detail)
+            else:
+                raise AssertionError("demo allowed a docker write")

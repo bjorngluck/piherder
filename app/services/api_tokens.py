@@ -845,7 +845,8 @@ def api_meta_dict() -> dict:
                 "scope": "edit",
                 "summary": (
                     "Prune unused Docker volumes. dry_run true lists them and deletes nothing. "
-                    "confirm true deletes them and writes one audit row. "
+                    "confirm true deletes them and writes one audit row "
+                    "with source, deleted names, and bytes reclaimed. "
                     "Not a docker_prune job and not scheduled. "
                     "Dry-run first and get a human's OK."
                 ),
