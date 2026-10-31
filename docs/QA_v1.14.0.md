@@ -39,7 +39,7 @@ Not signed.
 - [ ] A slot is skipped when a newer run of that schedule has already finished
 - [ ] The job records why the slot was missed: `scheduler_down`, `overlap`, `clock`, `error`, or `unknown`
 - [ ] A successful catch-up resolves the matching `backup_schedule_missed` or `container_check_missed` alert
-- [ ] `/metrics` exposes `piherder_schedule_catchup_total` with `kind` of `backup` or `container_check` and `result` of `ran`, `skipped`, or `failed`
+- [ ] `/metrics` exposes `piherder_schedule_catchup_total` with `kind` of `backup` or `container_check` and `result` of `queued`, `skipped`, or `failed`. The counter is per process and resets on restart
 
 ## Drive (Must)
 
@@ -95,7 +95,7 @@ Not signed.
 - [ ] A real restore is good only when the host matches both counts
 - [ ] An older sidecar without those counts still restores
 - [ ] Dry-run does not check the counts
-- [ ] `GET /api/v1/servers/{id}/backup/restore-preview` (`read`) lists the files a restore would send and does not write
+- [ ] `GET /api/v1/servers/{id}/backup/restore-preview` (`read`) is an SSH rsync dry-run with a 120 second timeout. A second preview while the host backup lock is held returns 409. It does not write
 - [ ] That preview is not a hosted MCP tool
 - [ ] The v1.13 ownership step still applies numeric `uid`, `gid`, and mode with `setuid` and `setgid` cleared
 
@@ -109,7 +109,7 @@ Not signed.
 - [ ] Untracked files do not show the pill
 - [ ] The inventory probe does not fetch and does not deploy. The pill appears after the next inventory refresh
 - [ ] The Docker page still prunes unused volumes only after the operator ticks the confirm. `docker-prune.png` and `docker-build-cache-prune.png` stay
-- [ ] `POST /api/v1/servers/{id}/docker/volumes` (`edit`) with `confirm` true prunes unused volumes in the request. It is not a `docker_prune` job and not scheduled
+- [ ] `POST /api/v1/servers/{id}/docker/volumes` (`edit`) with `dry_run` true lists unused volumes and deletes nothing. `confirm` true prunes them in the request and writes `source`, names, and bytes reclaimed. It is not a `docker_prune` job and not scheduled
 - [ ] A body without `confirm` true does not prune
 - [ ] A `read` token cannot call that route
 - [ ] Hosted `prune_volumes` (`edit`) does the same prune when `confirm` is true. A missing confirm returns an error and does not call the API
@@ -131,7 +131,7 @@ Not signed.
 - [ ] Create, edit, and delete write `alert_mute_created`, `alert_mute_updated`, and `alert_mute_deleted`. Scope `edit` is required. A `read` token can list rules and cannot change one
 - [ ] Demo cannot save a rule
 - [ ] `GET /api/v1/alerts` items include `muted` from the rules that are active now
-- [ ] `/metrics` gauge `piherder_alerts_muted` is the number of active rules. An expired rule stays in the table and does not count
+- [ ] `/metrics` gauge `piherder_alerts_muted` is the number of active rules. Help text says number of active mute rules. An expired rule stays in the table and does not count
 - [ ] Sensor-level ignores stay in Prometheus
 
 ## Plugin and adapter (Must & Should)

@@ -7,6 +7,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from ..models import BackupDestination, Job, Notification, Server
@@ -29,11 +30,11 @@ def parse_since(raw: str | None) -> Optional[datetime]:
         text = text[:-1] + "+00:00"
     try:
         moment = datetime.fromisoformat(text)
-    except Exception as exc:
+        if moment.tzinfo is None:
+            moment = moment.replace(tzinfo=timezone.utc)
+        return moment.astimezone(timezone.utc)
+    except (ValueError, OverflowError) as exc:
         raise ValueError("since") from exc
-    if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=timezone.utc)
-    return moment.astimezone(timezone.utc)
 
 
 def _utc(value: Optional[datetime]) -> Optional[datetime]:
@@ -63,12 +64,33 @@ def _host_state(server: Server, now: datetime) -> str:
     return "quiet"
 
 
+def _jobs(
+    session: Session,
+    *,
+    job_type: str | None = None,
+    status: str | None = None,
+    since: Optional[datetime] = None,
+) -> list[Job]:
+    """Jobs filtered in SQL. ``since`` omitted keeps the full status or type set."""
+    stmt = select(Job)
+    if job_type:
+        stmt = stmt.where(Job.job_type == job_type)
+    if status:
+        stmt = stmt.where(Job.status == status)
+    if since is not None:
+        naive = since.astimezone(timezone.utc).replace(tzinfo=None)
+        stmt = stmt.where(or_(Job.finished_at >= naive, Job.created_at >= naive))
+    return list(session.exec(stmt).all())
+
+
 def build_fleet_summary(session: Session, *, since: Optional[datetime], now: Optional[datetime] = None) -> dict[str, Any]:
     """Current snapshot, or only the areas that changed after ``since``."""
     moment = _utc(since)
     clock = _utc(now) or datetime.now(timezone.utc)
     servers = list(session.exec(select(Server)).all())
-    jobs = list(session.exec(select(Job)).all())
+    failed_jobs_all = _jobs(session, status=_FAILED, since=moment)
+    backup_jobs = _jobs(session, job_type="backup", since=moment)
+    drive_job_rows = _jobs(session, job_type="backup_replicate", since=moment)
     alerts = list(
         session.exec(select(Notification).where(Notification.status == "open")).all()
     )
@@ -103,9 +125,8 @@ def build_fleet_summary(session: Session, *, since: Optional[datetime], now: Opt
         areas["alerts"] = {"open": len(alert_rows), "states": by_severity}
 
     failed = [
-        job for job in jobs
-        if (job.status or "") == _FAILED
-        and _changed(moment, job.finished_at, job.created_at)
+        job for job in failed_jobs_all
+        if _changed(moment, job.finished_at, job.created_at)
     ]
     if moment is None or failed:
         areas["failed_jobs"] = {
@@ -114,7 +135,6 @@ def build_fleet_summary(session: Session, *, since: Optional[datetime], now: Opt
             "ids": [int(job.id) for job in failed if job.id is not None],
         }
 
-    backup_jobs = [job for job in jobs if (job.job_type or "") == "backup"]
     backup_hosts = [
         server for server in servers
         if _changed(moment, getattr(server, "last_backup_at", None))
@@ -137,7 +157,7 @@ def build_fleet_summary(session: Session, *, since: Optional[datetime], now: Opt
             "failed": failed_n,
         }
 
-    drive_jobs = [job for job in jobs if (job.job_type or "") == "backup_replicate"]
+    drive_jobs = drive_job_rows
     drive_alerts = [row for row in alerts if (row.type or "") in _DRIVE_ALERTS]
     drive_changed = moment is None or any(
         _changed(moment, getattr(row, "updated_at", None)) for row in drives

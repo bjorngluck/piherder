@@ -51,9 +51,9 @@ def parse_instant(raw: object) -> Optional[datetime]:
         text = text[:-1] + "+00:00"
     try:
         moment = datetime.fromisoformat(text)
-    except Exception as exc:
+        return _naive_utc(moment)
+    except (ValueError, OverflowError) as exc:
         raise ValueError("time") from exc
-    return _naive_utc(moment)
 
 
 def parse_local_instant(raw: object) -> Optional[datetime]:
@@ -65,16 +65,22 @@ def parse_local_instant(raw: object) -> Optional[datetime]:
         return None
     try:
         moment = datetime.fromisoformat(text)
-    except Exception as exc:
+    except (ValueError, OverflowError) as exc:
         raise ValueError("time") from exc
     if moment.tzinfo is not None:
-        return _naive_utc(moment)
+        try:
+            return _naive_utc(moment)
+        except OverflowError as exc:
+            raise ValueError("time") from exc
     name = (get_app_timezone() or "UTC").strip() or "UTC"
     try:
         zone = ZoneInfo(name)
     except Exception:
         zone = ZoneInfo("UTC")
-    return moment.replace(tzinfo=zone).astimezone(timezone.utc).replace(tzinfo=None)
+    try:
+        return moment.replace(tzinfo=zone).astimezone(timezone.utc).replace(tzinfo=None)
+    except OverflowError as exc:
+        raise ValueError("time") from exc
 
 
 def local_input_value(moment: Optional[datetime]) -> str:
@@ -120,6 +126,35 @@ def active_rules(session: Session, now: Optional[datetime] = None) -> list[Alert
 
 def active_count(session: Session, now: Optional[datetime] = None) -> int:
     return len(active_rules(session, now))
+
+
+def active_index(session: Session, now: Optional[datetime] = None) -> tuple[set[int], set[str]]:
+    """Host ids and alert types muted right now. One read of the rule table."""
+    hosts: set[int] = set()
+    types: set[str] = set()
+    moment = now or datetime.utcnow()
+    for rule in _rules(session):
+        if not is_active(rule, moment):
+            continue
+        if rule.kind == "host" and rule.server_id is not None:
+            hosts.add(int(rule.server_id))
+        elif rule.kind == "type" and (rule.alert_type or "").strip():
+            types.add((rule.alert_type or "").strip())
+    return hosts, types
+
+
+def is_muted_index(
+    index: tuple[set[int], set[str]],
+    *,
+    alert_type: str,
+    server_id: Optional[int],
+) -> bool:
+    if unmutable(alert_type):
+        return False
+    hosts, types = index
+    if server_id is not None and int(server_id) in hosts:
+        return True
+    return (alert_type or "").strip() in types
 
 
 def is_muted(

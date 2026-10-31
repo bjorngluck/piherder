@@ -806,8 +806,10 @@ def api_meta_dict() -> dict:
                 "path": "/api/v1/servers/{id}/backup/restore-preview",
                 "scope": "read",
                 "summary": (
-                    "Dry-run restore preview. Lists files a restore would send. "
-                    "Does not write. Not a hosted MCP tool."
+                    "SSH rsync dry-run of the local backup against the host. "
+                    "120 second timeout. One preview at a time per host. "
+                    "A busy host returns 409. Scope read. Does not write. "
+                    "Not a hosted MCP tool."
                 ),
             },
             {"method": "GET", "path": "/api/v1/services", "scope": "read", "summary": "Fleet service up/down from stored monitor chips"},
@@ -842,8 +844,10 @@ def api_meta_dict() -> dict:
                 "path": "/api/v1/servers/{id}/docker/volumes",
                 "scope": "edit",
                 "summary": (
-                    "Prune unused Docker volumes. confirm must be true. "
-                    "One audit row. Not a docker_prune job and not scheduled."
+                    "Prune unused Docker volumes. dry_run true lists them and deletes nothing. "
+                    "confirm true deletes them and writes one audit row. "
+                    "Not a docker_prune job and not scheduled. "
+                    "Dry-run first and get a human's OK."
                 ),
             },
             {

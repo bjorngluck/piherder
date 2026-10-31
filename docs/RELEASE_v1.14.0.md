@@ -26,7 +26,7 @@ Operator how-to stays on the wiki: [Backups](https://piherder-docs.hacknow.info/
 
 Issue [#62](https://github.com/bjorngluck/piherder/issues/62). A host can opt in, off by default, to catch up one missed backup or one missed image check. The labels are **Catch up one missed backup** and **Catch up one missed image check**. OS update checks, OS patch, redeploy, and `docker_prune` are not eligible.
 
-One catch-up per missed slot. It does not overlap a run that is already active, and it skips the slot when a newer run of that schedule has already finished. The catch-up is the normal exclusive job, so it appears in Job history. The job records why the slot was missed: `scheduler_down`, `overlap`, `clock`, `error`, or `unknown`. A successful catch-up resolves the matching `backup_schedule_missed` or `container_check_missed` alert. `/metrics` exposes `piherder_schedule_catchup_total` with `kind` of `backup` or `container_check` and `result` of `ran`, `skipped`, or `failed`. The issue stays open until the release.
+One catch-up per missed slot. It does not overlap a run that is already active, and it skips the slot when a newer run of that schedule has already finished. The catch-up is the normal exclusive job, so it appears in Job history. The job records why the slot was missed: `scheduler_down`, `overlap`, `clock`, `error`, or `unknown`. The matching `backup_schedule_missed` or `container_check_missed` alert resolves when that catch-up job succeeds, which is after it is queued. A catch-up already pending, running, or failed for the slot is skipped with no new metric and no new audit row. `/metrics` exposes `piherder_schedule_catchup_total` with `kind` of `backup` or `container_check` and `result` of `queued`, `skipped`, or `failed`. The counter is per process and resets when the process restarts. `clock` is not used only because a weekly or monthly slot is more than 26 hours old. The issue stays open until the release.
 
 ### Google Drive OAuth health
 
@@ -48,7 +48,7 @@ The short phone sheet no longer hides when the dimmed area is tapped, and it mov
 
 Issue [#64](https://github.com/bjorngluck/piherder/issues/64). Settings → Alerts → **Mute rules** is separate from category mute. One rule is one host or one alert type. A second rule for the same host or the same type is rejected. A window is optional. A start with no end is rejected. An end that is not after the start is rejected.
 
-Mute skips webhook, email, and push. The inbox row is still written. Schedules still run. These types cannot be muted, including by a host rule: `backup_failed`, `herder_backup_failed`, `backup_destination_auth_failed`, `drive_oauth_refresh_failed`, and `drive_oauth_token_aging`. Create, edit, and delete need scope `edit` and write `alert_mute_created`, `alert_mute_updated`, and `alert_mute_deleted`. A `read` token can list rules and cannot change one. Demo cannot save one. `GET /api/v1/alerts` items include `muted`. Gauge `piherder_alerts_muted` is the number of active rules. Sensor-level ignores stay in Prometheus. The issue stays open until the release.
+Mute skips webhook, email, and push. The inbox row is still written. Schedules still run. These types cannot be muted, including by a host rule: `backup_failed`, `herder_backup_failed`, `backup_destination_auth_failed`, `drive_oauth_refresh_failed`, and `drive_oauth_token_aging`. Create, edit, and delete need scope `edit` and write `alert_mute_created`, `alert_mute_updated`, and `alert_mute_deleted`. A `read` token can list rules and cannot change one. Demo cannot save one. `GET /api/v1/alerts` items include `muted`. Gauge `piherder_alerts_muted` is the number of active rules. Its help text says number of active mute rules. Sensor-level ignores stay in Prometheus. The issue stays open until the release.
 
 ### Restore safety
 
@@ -64,7 +64,7 @@ The Docker stack list shows **Git drift** when a tracked checkout is behind the 
 
 ### Volume prune on the API
 
-`POST /api/v1/servers/{id}/docker/volumes` (`edit`) and hosted `prune_volumes` prune unused volumes when `confirm` is true. One audit row, `docker_volume_prune`. The call is not a `docker_prune` job and it is not scheduled. A missing confirm does not prune. A `read` token cannot call the route. The Docker page confirm stays. A saved `docker_prune_schedule` still starts dangling images and exited containers only. Adapter **0.4.4** does not list `prune_volumes`.
+`POST /api/v1/servers/{id}/docker/volumes` (`edit`) and hosted `prune_volumes` prune unused volumes when `confirm` is true. `dry_run` true lists the unused volumes and sizes and deletes nothing. confirm is not required on that path, and it writes no audit row. Agents should dry-run first and get a human's OK. A real prune writes one audit row, `docker_volume_prune`, with `source` (`rest` or `mcp`), the deleted names, and `bytes_reclaimed`. The call is not a `docker_prune` job and it is not scheduled. A missing confirm does not prune. A `read` token cannot call the route. Demo mode returns 403. The Docker page confirm stays. A saved `docker_prune_schedule` still starts dangling images and exited containers only. Adapter **0.4.4** does not list `prune_volumes`.
 
 ### Companions and the coverage gate
 

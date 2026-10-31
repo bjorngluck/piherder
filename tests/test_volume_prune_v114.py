@@ -83,7 +83,12 @@ def test_volume_prune_needs_confirm_and_writes_one_audit(monkeypatch):
 def test_hosted_prune_volumes_requires_confirm(monkeypatch):
     tool = [row for row in tool_catalog() if row["name"] == "prune_volumes"][0]
     assert tool["scope"] == "edit"
-    assert "confirm" in tool["inputSchema"]["required"]
+    assert tool["inputSchema"]["required"] == ["server_id"]
+    assert "dry_run" in tool["inputSchema"]["properties"]
+    notes = tool["annotations"]
+    assert notes["destructiveHint"] is True
+    assert notes["readOnlyHint"] is False
+    assert notes["idempotentHint"] is False
     called = []
 
     def _boom(*_args, **_kwargs):
@@ -98,3 +103,75 @@ def test_hosted_prune_volumes_requires_confirm(monkeypatch):
     assert result["isError"] is True
     assert "confirm" in result["content"][0]["text"]
     assert called == []
+
+
+def test_volume_size_and_reclaim_parsers():
+    from app.services.docker_management import (
+        parse_deleted_volumes,
+        parse_reclaimed_bytes,
+        parse_volume_df,
+    )
+
+    text = """
+Local Volumes space usage:
+
+VOLUME NAME   LINKS   SIZE
+data-a        0       1.5kB
+data-b        1       2MB
+
+Build cache usage:
+"""
+    assert parse_volume_df(text)["data-a"] == 1500
+    assert parse_volume_df(text)["data-b"] == 2_000_000
+    output = "Deleted Volumes:\ndata-a\n\nTotal reclaimed space: 1.5kB\n"
+    assert parse_deleted_volumes(output) == ["data-a"]
+    assert parse_reclaimed_bytes(output) == 1500
+
+
+def test_dry_run_lists_volumes_and_does_not_audit(monkeypatch):
+    import json
+
+    def _list(_server):
+        return {
+            "success": True,
+            "volumes": [{"name": "data-a", "size_bytes": 1500}],
+            "output": "",
+        }
+
+    def _prune(*_args, **_kwargs):
+        raise AssertionError("prune ran")
+
+    monkeypatch.setattr("app.services.docker_management.list_dangling_volumes", _list)
+    monkeypatch.setattr("app.services.docker_management.prune_unused", _prune)
+    engine = _engine()
+    auth = _auth()
+    with Session(engine) as session:
+        server = Server(name="host-a", hostname="host-a.example.com", ssh_username="pi")
+        session.add(server)
+        session.commit()
+        session.refresh(server)
+        listed = prune_volumes(server.id, VolumePruneBody(dry_run=True), session, auth)
+        rows = list(session.exec(select(AuditLog)).all())
+    assert listed["ok"] is True
+    assert listed["dry_run"] is True
+    assert listed["volumes"] == [{"name": "data-a", "size_bytes": 1500}]
+    assert rows == []
+
+    def _real(_server, prune_type="both"):
+        assert prune_type == "volumes"
+        return {
+            "success": True,
+            "output": "Deleted Volumes:\ndata-a\n\nTotal reclaimed space: 1.5kB\n",
+        }
+
+    monkeypatch.setattr("app.services.docker_management.prune_unused", _real)
+    with Session(engine) as session:
+        server = session.exec(select(Server)).first()
+        done = prune_volumes(server.id, VolumePruneBody(confirm=True), session, auth)
+        row = session.get(AuditLog, done["audit_id"])
+        details = json.loads(row.details)
+    assert done["volumes"] == ["data-a"]
+    assert done["bytes_reclaimed"] == 1500
+    assert details["source"] == "rest"
+    assert details["volumes"] == ["data-a"]
+    assert details["bytes_reclaimed"] == 1500

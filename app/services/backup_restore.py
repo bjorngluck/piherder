@@ -230,15 +230,25 @@ def _verify_manifest_counts(
         got_files, got_bytes = _tally_host(key_path, port, user, host, source)
     except (RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
         return {"ok": False, "error": f"Manifest check failed: {exc}"[:300]}
+    mismatch = (
+        "host has "
+        + _count_phrase(got_files, got_bytes)
+        + "; manifest has "
+        + _count_phrase(expected_files, expected_bytes)
+    )
+    if got_files > expected_files and got_bytes >= expected_bytes:
+        return {
+            "ok": True,
+            "warning": mismatch,
+            "file_count": got_files,
+            "byte_count": got_bytes,
+            "expected_file_count": expected_files,
+            "expected_byte_count": expected_bytes,
+        }
     if got_files != expected_files or got_bytes != expected_bytes:
         return {
             "ok": False,
-            "error": (
-                "host has "
-                + _count_phrase(got_files, got_bytes)
-                + "; manifest has "
-                + _count_phrase(expected_files, expected_bytes)
-            ),
+            "error": mismatch,
             "file_count": got_files,
             "byte_count": got_bytes,
             "expected_file_count": expected_files,
@@ -275,6 +285,37 @@ def _rsync_tree(
     return subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
 
 
+def _tree_bytes(path: Path) -> int:
+    total = 0
+    if not path.is_dir():
+        return 0
+    for item in path.rglob("*"):
+        if not item.is_file():
+            continue
+        try:
+            total += item.stat().st_size
+        except OSError:
+            continue
+    return total
+
+
+def _snapshot_space_error(dest_path: Path) -> str | None:
+    """None when this machine can hold another copy of the local tree."""
+    try:
+        anchor = dest_path if dest_path.exists() else dest_path.parent
+        free = shutil.disk_usage(anchor).free
+        need = _tree_bytes(dest_path)
+    except OSError as exc:
+        return f"Free space check failed: {exc}"[:300]
+    margin = max(1024 * 1024, need // 10)
+    if free < need + margin:
+        return (
+            "Not enough free space for the pre-restore snapshot "
+            f"({free} bytes free, about {need} bytes needed)"
+        )
+    return None
+
+
 def _take_rollback_snapshot(
     dest_path: Path,
     *,
@@ -290,6 +331,8 @@ def _take_rollback_snapshot(
     """Copy the live host folder aside. The previous snapshot stays if this fails."""
     from .backup_ownership import write_manifest
 
+    if snapshot_matches(dest_path, source):
+        return {"saved": True, "kept": True}
     root, tree, staging, meta_path = _snapshot_paths(dest_path)
     if staging.exists():
         shutil.rmtree(staging)
@@ -453,7 +496,19 @@ def restore_backup_source(
         from .backup_ownership import MANIFEST_NAME, load_manifest, render_apply_script
 
         rollback = {"skipped": True, "reason": "dry-run"} if dry_run else None
-        if not dry_run:
+        if not dry_run and snapshot_matches(dest_path, source):
+            rollback = {"saved": True, "kept": True}
+        elif not dry_run:
+            space = _snapshot_space_error(dest_path)
+            if space:
+                return {
+                    "error": space,
+                    "rc": 1,
+                    "dry_run": False,
+                    "source": source,
+                    "destination": str(dest_path),
+                    "rollback": {"saved": False},
+                }
             snap = _take_rollback_snapshot(
                 dest_path,
                 source=source,
@@ -502,7 +557,7 @@ def restore_backup_source(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=3600,
+                timeout=120 if dry_run else 3600,
             )
             out = (proc.stdout or "") + (proc.stderr or "")
             place = (pulled or {}).get("place")

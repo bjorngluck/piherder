@@ -31,7 +31,8 @@ _JOB_TYPE = {
     "container_check": "container_update_check",
 }
 _REASONS = ("scheduler_down", "overlap", "clock", "error", "unknown")
-_RESULTS = ("ran", "skipped", "failed")
+_RESULTS = ("queued", "skipped", "failed")
+_SILENT = frozenset({"pending", "running", "failed"})
 _COUNTS = {
     kind: {result: 0 for result in _RESULTS}
     for kind in CATCHUP_KINDS
@@ -85,13 +86,31 @@ def _details(job) -> dict:
     return raw if isinstance(raw, dict) else {}
 
 
-def miss_reason(slot: datetime, jobs, *, worker_up: Optional[bool], now: datetime) -> str:
+def _short_cadence(cron: Optional[str]) -> bool:
+    """Daily and finer crons. A weekly or monthly slot is older than 26h on purpose."""
+    parts = (cron or "").split()
+    if len(parts) < 5:
+        return True
+    dom, dow = parts[2], parts[4]
+    if dom not in ("*", "?") or dow not in ("*", "?"):
+        return False
+    return True
+
+
+def miss_reason(
+    slot: datetime,
+    jobs,
+    *,
+    worker_up: Optional[bool],
+    now: datetime,
+    cron: Optional[str] = None,
+) -> str:
     """Why the slot was missed. One of the five recorded reasons."""
     slot_utc = _as_utc(slot)
     now_utc = _as_utc(now) or datetime.now(timezone.utc)
     if slot_utc is None:
         return "unknown"
-    if now_utc - slot_utc > timedelta(hours=26):
+    if _short_cadence(cron) and now_utc - slot_utc > timedelta(hours=26):
         return "clock"
     saw_failed = False
     for job in jobs:
@@ -114,17 +133,31 @@ def miss_reason(slot: datetime, jobs, *, worker_up: Optional[bool], now: datetim
     return "unknown"
 
 
-def _already_caught(session: Session, server_id: int, kind: str, key: str) -> bool:
+def _slot_catchups(session: Session, server_id: int, kind: str, key: str, slot: datetime) -> list:
+    """Catch-up rows for this slot, limited to jobs created around the slot."""
     job_type = _JOB_TYPE[kind]
+    moment = _as_utc(slot) or datetime.now(timezone.utc)
+    cutoff = (moment - timedelta(hours=2)).astimezone(timezone.utc).replace(tzinfo=None)
     rows = list(
         session.exec(
-            select(Job).where(Job.server_id == int(server_id), Job.job_type == job_type)
+            select(Job).where(
+                Job.server_id == int(server_id),
+                Job.job_type == job_type,
+                Job.created_at >= cutoff,
+            )
         ).all()
     )
-    for row in rows:
-        if _details(row).get("catchup_slot") == key:
-            return True
-    return False
+    return [row for row in rows if _details(row).get("catchup_slot") == key]
+
+
+def _silent_prior(rows: list) -> bool:
+    """A catch-up already pending, running, or failed for this slot. Do not record it again."""
+    if not rows:
+        return False
+    statuses = {(getattr(row, "status", "") or "").strip() for row in rows}
+    if "success" in statuses:
+        return False
+    return bool(statuses & _SILENT)
 
 
 def _stamp(session: Session, job: Job, *, kind: str, key: str, reason: str) -> None:
@@ -139,7 +172,7 @@ def _stamp(session: Session, job: Job, *, kind: str, key: str, reason: str) -> N
 
 
 def _audit(session: Session, server_id: int, kind: str, result: str, reason: str, key: str) -> None:
-    status = "success" if result == "ran" else ("failed" if result == "failed" else "skipped")
+    status = "success" if result == "queued" else ("failed" if result == "failed" else "skipped")
     session.add(
         make_audit_log(
             action="schedule_catchup",
@@ -177,18 +210,22 @@ def catch_up_one(
     *,
     worker_up: Optional[bool],
     now: datetime,
+    cron: Optional[str] = None,
 ) -> str:
-    """Enqueue at most one catch-up. Returns ran, skipped, or failed."""
+    """Enqueue at most one catch-up. Returns queued, skipped, or failed."""
     if kind not in CATCHUP_KINDS or not catchup_enabled(server, kind):
         return "skipped"
     key = slot_key(slot)
-    reason = miss_reason(slot, jobs, worker_up=worker_up, now=now)
+    reason = miss_reason(slot, jobs, worker_up=worker_up, now=now, cron=cron)
     server_id = int(server.id)
     if classify_slot(slot, jobs) == "succeeded":
         note_catchup(kind, "skipped")
         _audit(session, server_id, kind, "skipped", reason, key)
         return "skipped"
-    if _already_caught(session, server_id, kind, key):
+    prior = _slot_catchups(session, server_id, kind, key, slot)
+    if _silent_prior(prior):
+        return "skipped"
+    if prior:
         note_catchup(kind, "skipped")
         _audit(session, server_id, kind, "skipped", reason, key)
         return "skipped"
@@ -201,6 +238,9 @@ def catch_up_one(
         return "skipped"
     try:
         job = _enqueue(session, server, kind)
+    except jobs_mod.JobAlreadyActive:
+        logger.info("[SCHEDULE] Catch-up skipped, job already active kind=%s server=%s", kind, server_id)
+        return "skipped"
     except Exception:
         logger.exception("[SCHEDULE] Catch-up enqueue failed kind=%s server=%s", kind, server_id)
         note_catchup(kind, "failed")
@@ -216,13 +256,13 @@ def catch_up_one(
         _audit(session, server_id, kind, "skipped", reason, key)
         return "skipped"
     _stamp(session, bound, kind=kind, key=key, reason=reason)
-    note_catchup(kind, "ran")
-    _audit(session, server_id, kind, "ran", reason, key)
-    return "ran"
+    note_catchup(kind, "queued")
+    _audit(session, server_id, kind, "queued", reason, key)
+    return "queued"
 
 
 def run_due_catchups(session: Session, now: Optional[datetime] = None) -> int:
-    """Catch up opted-in hosts whose latest due slot was missed. Returns how many ran."""
+    """Catch up opted-in hosts whose latest due slot was missed. Returns how many queued."""
     from . import jobs as jobs_mod
     from .app_settings import get_app_timezone
 
@@ -262,7 +302,8 @@ def run_due_catchups(session: Session, now: Optional[datetime] = None) -> int:
                 jobs,
                 worker_up=worker_up,
                 now=moment,
+                cron=cron,
             )
-            if result == "ran":
+            if result == "queued":
                 ran += 1
     return ran

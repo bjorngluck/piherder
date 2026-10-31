@@ -344,7 +344,7 @@ def test_restore_is_not_good_when_the_host_counts_differ(tmp_path):
 
     def _run(cmd, input=None, **kwargs):  # noqa: A002
         if cmd and cmd[0] == "ssh" and "%s" in str(cmd[-1]):
-            return SimpleNamespace(returncode=0, stdout=b"4\x004\x00", stderr=b"")
+            return SimpleNamespace(returncode=0, stdout=b"1\x00", stderr=b"")
         return _snapshot_proc(cmd, input=input)
 
     with patch(
@@ -358,7 +358,7 @@ def test_restore_is_not_good_when_the_host_counts_differ(tmp_path):
                     res = restore_backup_source(server, "/data/app", dry_run=False)
     assert res["rc"] == 1
     assert res["manifest"]["ok"] is False
-    assert "2 files, 8 bytes" in res["error"]
+    assert "1 file, 1 byte" in res["error"]
     assert "1 file, 4 bytes" in res["error"]
     assert res["summary"].startswith("Restore failed")
     assert "Restore ok" not in res["summary"]
@@ -443,6 +443,88 @@ def test_parse_rsync_changes_keeps_creates_and_updates():
     assert capped["truncated"] is True
 
 
+def test_extra_host_files_warn_and_do_not_fail_the_restore(tmp_path):
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    _manifest_with_counts(dest_dir)
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        if cmd and cmd[0] == "ssh" and "%s" in str(cmd[-1]):
+            return SimpleNamespace(returncode=0, stdout=b"4\x004\x00", stderr=b"")
+        return _snapshot_proc(cmd, input=input)
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=False)
+    assert res["rc"] == 0
+    assert res["error"] is None
+    assert res["manifest"]["ok"] is True
+    assert "2 files, 8 bytes" in res["manifest"]["warning"]
+    assert res["summary"].startswith("Restore ok")
+
+
+def test_restore_stops_before_ssh_when_disk_is_short(tmp_path, monkeypatch):
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    (dest_dir / "app.db").write_bytes(b"hello")
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+    monkeypatch.setattr(
+        "app.services.backup_restore.shutil.disk_usage",
+        lambda _path: SimpleNamespace(total=100, used=90, free=10),
+    )
+
+    def _run(*_args, **_kwargs):
+        raise AssertionError("host was touched")
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=False)
+    assert res["rc"] == 1
+    assert "free space" in res["error"]
+    assert res["rollback"]["saved"] is False
+
+
+def test_a_matching_snapshot_is_kept(tmp_path):
+    from app.services.backup_restore import _take_rollback_snapshot
+
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    root = dest_dir.parent / "_rollback" / "tree"
+    tree = root / "tree"
+    tree.mkdir(parents=True)
+    (root / "meta.json").write_text('{"source":"/data/app"}', encoding="utf-8")
+
+    def _run(*_args, **_kwargs):
+        raise AssertionError("host was touched")
+
+    with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+        saved = _take_rollback_snapshot(
+            dest_dir,
+            source="/data/app",
+            remote="pi@host-a.example.com:/data/app/",
+            ssh_cmd="ssh",
+            rsync_path="rsync",
+            key_path=str(tmp_path / "k"),
+            port=22,
+            user="pi",
+            host="host-a.example.com",
+        )
+    assert saved == {"saved": True, "kept": True}
+
+
 def test_preview_lists_changes_and_does_not_write(tmp_path):
     import json
 
@@ -455,7 +537,7 @@ def test_preview_lists_changes_and_does_not_write(tmp_path):
     calls = []
 
     def _run(cmd, input=None, **kwargs):  # noqa: A002
-        calls.append(cmd)
+        calls.append((cmd, kwargs.get("timeout")))
         return SimpleNamespace(
             returncode=0,
             stdout="<f+++++++++ new.db\n<f.st...... app.db\n.d..t...... data\n",
@@ -481,10 +563,11 @@ def test_preview_lists_changes_and_does_not_write(tmp_path):
         {"path": "app.db", "action": "update"},
     ]
     assert len(calls) == 1
-    assert calls[0][0] == "rsync"
-    assert "--dry-run" in calls[0]
-    assert "--itemize-changes" in calls[0]
-    assert "--delete" not in calls[0]
+    assert calls[0][0][0] == "rsync"
+    assert calls[0][1] == 120
+    assert "--dry-run" in calls[0][0]
+    assert "--itemize-changes" in calls[0][0]
+    assert "--delete" not in calls[0][0]
     assert not (dest_dir.parent / "_rollback").exists()
     assert "host-a.example.com" not in json.dumps(res)
 

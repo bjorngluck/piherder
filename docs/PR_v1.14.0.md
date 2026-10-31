@@ -24,7 +24,7 @@ Design: [PLAN_v1.14.0.md](PLAN_v1.14.0.md). Maintainer ticks: [QA_v1.14.0.md](QA
 | **Console** | Phone sheet stays above the keyboard. [KI-console-samsung-keyboard](../wiki/day-to-day/web-ssh-console.md#ki-console-samsung-keyboard) |
 | **Alerts** | Mute rules for [#64](https://github.com/bjorngluck/piherder/issues/64). Delivery only |
 | **Backups** | Pre-restore snapshot, file and byte counts, `restore-preview` |
-| **Docker** | **Git drift** on the stack list. `POST /api/v1/servers/{id}/docker/volumes` with `confirm` true |
+| **Docker** | **Git drift** on the stack list. `POST /api/v1/servers/{id}/docker/volumes` with `dry_run` or `confirm` true |
 | **Companions** | Plugin **0.5.4**. Adapter **0.4.4**. No new companion tag on this pull request |
 
 ## Migrations

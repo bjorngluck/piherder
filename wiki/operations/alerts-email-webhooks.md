@@ -58,7 +58,7 @@ These types cannot be muted, including by a host rule: `backup_failed`, `herder_
 
 Creating, editing, and deleting a rule is audited (`alert_mute_created`, `alert_mute_updated`, `alert_mute_deleted`) and needs scope `edit`. `read` can list rules and cannot change one. Demo cannot save one.
 
-`GET /api/v1/alerts` items include `muted`. It is computed from the rules that are active now. `/metrics` gauge `piherder_alerts_muted` is the number of those rules. An expired rule stays in the table and does not count.
+`GET /api/v1/alerts` items include `muted`. It is computed from the rules that are active now. `/metrics` gauge `piherder_alerts_muted` is the number of those rules. Its help text says number of active mute rules. An expired rule stays in the table and does not count.
 
 The Network map checkbox **Alert when a Kuma-bound container is stopped** writes the same **Inventory** enabled flag (do not fork a second switch).
 

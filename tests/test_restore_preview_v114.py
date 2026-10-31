@@ -34,6 +34,14 @@ def _session(engine):
 
 def test_restore_preview_is_a_read_and_does_not_write(tmp_path, monkeypatch):
     monkeypatch.setattr("app.services.demo.demo_mode", lambda: False)
+    monkeypatch.setattr(
+        "app.services.server_job_lock.try_acquire_server_lock",
+        lambda *_args, **_kwargs: "preview-tok",
+    )
+    monkeypatch.setattr(
+        "app.services.server_job_lock.release_server_lock",
+        lambda *_args, **_kwargs: True,
+    )
     engine = _engine(tmp_path)
     app.dependency_overrides[get_session] = _session(engine)
     client = TestClient(app, raise_server_exceptions=False)
@@ -146,6 +154,23 @@ def test_restore_preview_is_a_read_and_does_not_write(tmp_path, monkeypatch):
         assert "destination" not in body
         assert "output" not in body
         paths = [row["path"] for row in tok_svc.api_meta_dict()["endpoints"]]
+        preview_row = [
+            row for row in tok_svc.api_meta_dict()["endpoints"]
+            if row["path"] == "/api/v1/servers/{id}/backup/restore-preview"
+        ][0]
         assert "/api/v1/servers/{id}/backup/restore-preview" in paths
+        assert "120 second" in preview_row["summary"]
+        assert "409" in preview_row["summary"]
+        monkeypatch.setattr(
+            "app.services.server_job_lock.try_acquire_server_lock",
+            lambda *_args, **_kwargs: None,
+        )
+        busy = client.get(
+            f"/api/v1/servers/{host_id}/backup/restore-preview",
+            headers=read,
+            params={"source": "/data/app"},
+        )
+        assert busy.status_code == 409
+        assert busy.json()["detail"] == "This host is busy"
     finally:
         app.dependency_overrides.pop(get_session, None)

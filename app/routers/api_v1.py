@@ -6,6 +6,7 @@ Admin-managed instance tokens. See docs/API.md and GET /api/v1.
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar
 from datetime import datetime
 from typing import Any, Optional
 
@@ -25,6 +26,7 @@ from ..services.server_audit import record_server_audit
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+volume_prune_source: ContextVar[str] = ContextVar("volume_prune_source", default="rest")
 
 ALLOWED_JOB_TYPES = frozenset(tok_svc.JOB_FEATURE_KEY.keys())
 
@@ -348,7 +350,7 @@ def api_fleet_summary(
 
     try:
         moment = parse_since(since)
-    except ValueError:
+    except (ValueError, OverflowError):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="since must be an ISO-8601 timestamp")
     return build_fleet_summary(session, since=moment)
 
@@ -467,7 +469,9 @@ def _restore_preview_public(server_id: int, result: dict[str, Any]) -> dict[str,
     "/servers/{server_id}/backup/restore-preview",
     summary="Dry-run restore preview",
     description=(
-        "Lists the files a restore would send. Scope read, and feature:backup "
+        "SSH rsync dry-run of the local backup against the host. "
+        "Times out after 120 seconds. One preview at a time per host. "
+        "A busy host returns 409. Scope read, and feature:backup "
         "when the token is feature-restricted. Does not write. Not a hosted MCP tool."
     ),
 )
@@ -499,8 +503,17 @@ def api_restore_preview(
                 detail="That copy is not available for this host",
             )
     from ..services.backup_restore import preview_restore
+    from ..services.server_job_lock import release_server_lock, try_acquire_server_lock
 
-    result = preview_restore(server, source.strip(), pull_from=pull_from)
+    lock = try_acquire_server_lock(
+        "backup", int(server.id), holder="restore-preview", ttl_sec=180
+    )
+    if not lock:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="This host is busy")
+    try:
+        result = preview_restore(server, source.strip(), pull_from=pull_from)
+    finally:
+        release_server_lock("backup", int(server.id), lock)
     error = result.get("error") or ""
     if error and result.get("rc") != 0 and not result.get("changes"):
         lowered = error.lower()
@@ -530,13 +543,22 @@ def api_server_inventory(
     return _inventory_public(server)
 
 
-def _alert_public(row: Notification, session: Session) -> dict[str, Any]:
+def _alert_public(
+    row: Notification,
+    session: Session,
+    mute_index: tuple | None = None,
+) -> dict[str, Any]:
     try:
         from ..services import alert_mute as mute_svc
 
-        muted = mute_svc.is_muted(
-            session, alert_type=row.type, server_id=row.server_id
-        )
+        if mute_index is None:
+            muted = mute_svc.is_muted(
+                session, alert_type=row.type, server_id=row.server_id
+            )
+        else:
+            muted = mute_svc.is_muted_index(
+                mute_index, alert_type=row.type, server_id=row.server_id
+            )
     except Exception:
         muted = False
     return {
@@ -571,7 +593,13 @@ def list_alerts(
 
     lim = lq.clamp_api_limit(limit)
     off = lq.parse_offset(offset)
+    from ..services import alert_mute as mute_svc
+
     rows = list_notifications(session, status="open", limit=lim, offset=off)
+    try:
+        mute_index = mute_svc.active_index(session)
+    except Exception:
+        mute_index = None
     total = session.exec(
         select(func.count()).select_from(Notification).where(Notification.status == "open")
     ).one()
@@ -580,7 +608,7 @@ def list_alerts(
     except (TypeError, ValueError):
         total_n = len(rows)
     return {
-        "alerts": [_alert_public(row, session) for row in rows],
+        "alerts": [_alert_public(row, session, mute_index) for row in rows],
         "total": total_n,
         "limit": lim,
         "offset": off,
@@ -619,7 +647,7 @@ def _mute_instants(starts_at: Optional[str], ends_at: Optional[str]):
 
     try:
         return mute_svc.parse_instant(starts_at), mute_svc.parse_instant(ends_at)
-    except ValueError as exc:
+    except (ValueError, OverflowError) as exc:
         raise HTTPException(status_code=400, detail="Enter a valid time") from exc
 
 
@@ -1451,16 +1479,20 @@ class VolumePruneBody(BaseModel):
     """Unused Docker volumes. Not a docker_prune job and not scheduled."""
 
     confirm: bool = False
+    dry_run: bool = False
 
 
 @router.post(
     "/servers/{server_id}/docker/volumes",
     summary="Prune unused Docker volumes",
     description=(
-        "Requires scope `edit` and confirm true. Runs docker volume prune -f. "
-        "One audit row. Not a docker_prune job and not scheduled. "
+        "Requires scope `edit`. dry_run true lists unused volumes and sizes and "
+        "deletes nothing. confirm is not required for a dry run. "
+        "dry_run false still requires confirm true and runs docker volume prune -f. "
+        "That path writes one audit row. Not a docker_prune job and not scheduled. "
         "The Docker page confirm stays a separate job. Hosted prune_volumes "
-        "calls this route. Adapter 0.4.4 does not list that tool."
+        "calls this route. Adapter 0.4.4 does not list that tool. "
+        "Agents should dry-run first and get a human's OK before confirm true."
     ),
 )
 def prune_volumes(
@@ -1470,6 +1502,7 @@ def prune_volumes(
     auth: ApiAuth = Depends(get_api_auth),
 ):
     from ..services import docker_management as docker_svc
+    from ..services.demo import http_403_if_demo
     from ..services.server_audit import record_server_audit
 
     server = session.get(Server, server_id)
@@ -1478,6 +1511,18 @@ def prune_volumes(
     auth.require(tok_svc.SCOPE_EDIT)
     auth.require_feature("docker")
     auth.require_server_feature(server, "docker")
+    http_403_if_demo("docker_write")
+    if body.dry_run:
+        try:
+            listed = docker_svc.list_dangling_volumes(server)
+        except Exception as exc:
+            listed = {"success": False, "output": str(exc)[:500], "volumes": []}
+        return {
+            "ok": bool(listed.get("success")),
+            "dry_run": True,
+            "volumes": listed.get("volumes") or [],
+            "output": str(listed.get("output") or "")[:1500],
+        }
     if body.confirm is not True:
         raise HTTPException(status_code=400, detail="confirm must be true")
     try:
@@ -1486,6 +1531,11 @@ def prune_volumes(
         result = {"success": False, "output": str(exc)[:500]}
     ok = bool(result.get("success"))
     output = str(result.get("output") or "")[:1500]
+    names = docker_svc.parse_deleted_volumes(output)
+    reclaimed = docker_svc.parse_reclaimed_bytes(output)
+    source = volume_prune_source.get()
+    if source not in ("ui", "rest", "mcp"):
+        source = "rest"
     audit = record_server_audit(
         session,
         server_id=server.id,
@@ -1493,6 +1543,11 @@ def prune_volumes(
         action="docker_volume_prune",
         status="success" if ok else "failed",
         message=output or ("Unused volumes pruned" if ok else "Volume prune failed"),
+        details={
+            "source": source,
+            "volumes": names,
+            "bytes_reclaimed": reclaimed,
+        },
         api_token_id=auth.token_id,
         api_token_name=auth.token_name,
         client_ip=auth.client_ip,
@@ -1500,8 +1555,11 @@ def prune_volumes(
     session.commit()
     return {
         "ok": ok,
+        "dry_run": False,
         "audit_id": audit.id,
         "output": output,
+        "volumes": names,
+        "bytes_reclaimed": reclaimed,
     }
 
 

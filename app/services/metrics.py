@@ -266,7 +266,7 @@ def collect_samples(session: Session) -> list[tuple[str, str, list[str]]]:
     samples.append(
         (
             "piherder_alerts_muted",
-            "Active mute rules (window in force, or no window)",
+            "number of active mute rules",
             [_line("piherder_alerts_muted", muted_rules)],
         )
     )
@@ -356,7 +356,7 @@ def metrics_body(session: Session) -> str:
     except Exception:
         lines = []
     extra = [
-        "# HELP piherder_schedule_catchup_total Catch-up attempts for a missed backup or image check",
+        "# HELP piherder_schedule_catchup_total Catch-up attempts for a missed backup or image check. Per process. Resets when the process restarts",
         "# TYPE piherder_schedule_catchup_total counter",
         *lines,
         "",

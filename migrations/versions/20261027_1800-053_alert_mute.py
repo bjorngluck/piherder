@@ -18,6 +18,9 @@ depends_on: Union[str, None] = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    if sa.inspect(bind).has_table("alertmuterule"):
+        return
     op.create_table(
         "alertmuterule",
         sa.Column("id", sa.Integer(), primary_key=True),
@@ -35,6 +38,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    bind = op.get_bind()
+    if not sa.inspect(bind).has_table("alertmuterule"):
+        return
     op.drop_index("ix_alertmuterule_alert_type", table_name="alertmuterule")
     op.drop_index("ix_alertmuterule_server_id", table_name="alertmuterule")
     op.drop_index("ix_alertmuterule_kind", table_name="alertmuterule")

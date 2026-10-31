@@ -37,6 +37,10 @@ def test_reason_and_disallowed_kinds():
     assert catch.miss_reason(slot, [], worker_up=True, now=_now()) == "unknown"
     late = _now() - timedelta(hours=30)
     assert catch.miss_reason(late, [], worker_up=True, now=_now()) == "clock"
+    assert catch.miss_reason(late, [], worker_up=True, now=_now(), cron="0 3 * * 0") == "unknown"
+    assert catch.miss_reason(late, [], worker_up=False, now=_now(), cron="0 3 1 * *") == "scheduler_down"
+    future = Job(job_type="backup", status="success", created_at=_now() + timedelta(hours=2))
+    assert catch.miss_reason(late, [future], worker_up=True, now=_now(), cron="0 3 * * 0") == "clock"
     running = Job(
         job_type="backup",
         status="running",
@@ -74,7 +78,7 @@ def test_opt_in_enqueues_once_and_skips_the_same_slot(monkeypatch):
         first = catch.catch_up_one(
             session, server, "backup", slot, [], worker_up=False, now=_now()
         )
-        assert first == "ran"
+        assert first == "queued"
         assert seen["scheduled"] is True
         job = session.exec(
             __import__("sqlmodel").select(Job).where(Job.server_id == server.id)
@@ -94,10 +98,10 @@ def test_opt_in_enqueues_once_and_skips_the_same_slot(monkeypatch):
             session, server, "docker_prune", slot, [], worker_up=False, now=_now()
         )
         assert prune == "skipped"
-    assert catch._COUNTS["backup"]["ran"] == 1
-    assert catch._COUNTS["backup"]["skipped"] >= 1
+    assert catch._COUNTS["backup"]["queued"] == 1
+    assert catch._COUNTS["backup"]["skipped"] == 0
     text = "\n".join(catch.catchup_counter_lines())
-    assert 'kind="backup",result="ran"' in text
+    assert 'kind="backup",result="queued"' in text
     assert "docker_prune" not in text
 
 
@@ -132,6 +136,51 @@ def test_active_run_and_enqueue_failure(monkeypatch):
             session, other, "backup", slot, [], worker_up=True, now=_now()
         ) == "failed"
     assert catch._COUNTS["backup"]["failed"] == 1
+
+
+def test_pending_or_active_catchup_is_silent(monkeypatch):
+    from app.models import AuditLog
+
+    catch.reset_catchup_counters()
+    slot = _now() - timedelta(hours=2)
+    key = catch.slot_key(slot)
+
+    def _busy(*_a, **_k):
+        from app.services.jobs import JobAlreadyActive
+
+        raise JobAlreadyActive(None)
+
+    monkeypatch.setattr("app.services.jobs.enqueue_backup_for_server", _busy)
+    with Session(get_engine()) as session:
+        server = _server(
+            session,
+            hostname="host-f.example.com",
+            name="Host F",
+            backup_catchup_enabled=True,
+        )
+        pending = Job(
+            server_id=server.id,
+            job_type="backup",
+            status="pending",
+            created_at=_now(),
+            details='{"catchup_slot":"%s"}' % key,
+        )
+        session.add(pending)
+        session.commit()
+        before = len(list(session.exec(select(AuditLog)).all()))
+        assert catch.catch_up_one(
+            session, server, "backup", slot, [], worker_up=True, now=_now()
+        ) == "skipped"
+        assert len(list(session.exec(select(AuditLog)).all())) == before
+        session.delete(pending)
+        session.commit()
+        assert catch.catch_up_one(
+            session, server, "backup", slot, [], worker_up=True, now=_now()
+        ) == "skipped"
+        assert len(list(session.exec(select(AuditLog)).all())) == before
+    assert catch._COUNTS["backup"]["queued"] == 0
+    assert catch._COUNTS["backup"]["failed"] == 0
+    assert catch._COUNTS["backup"]["skipped"] == 0
 
 
 def test_due_catchup_ignores_a_host_that_is_off(monkeypatch):

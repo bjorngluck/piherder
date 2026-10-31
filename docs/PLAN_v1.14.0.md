@@ -28,7 +28,7 @@ Build order for Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [
 
 | Tier | Lock |
 |------|------|
-| Must | **Missed slot catch-up and why it was missed.** Issue [#62](https://github.com/bjorngluck/piherder/issues/62). In the code. Opt-in per schedule, off by default. Allowed kinds are backups (`backup`, alert `backup_schedule_missed`) and image checks (`container_update_check`, alert `container_check_missed`). OS update checks, OS patch, redeploy, and `docker_prune` are rejected even if a caller opts in. One catch-up per missed slot, idempotent, no overlap with a run that is already active, and skip the slot when a newer run of that schedule has already finished. The catch-up uses the normal exclusive job so it appears in Job history. Each catch-up is audited. The job records why the slot was missed: `scheduler_down`, `overlap`, `clock`, `error`, or `unknown`. A successful catch-up auto-resolves the matching `*_missed` alert. Prometheus counter `piherder_schedule_catchup_total{kind,result}` with `kind` of `backup` or `container_check` and `result` of `ran`, `skipped`, or `failed` |
+| Must | **Missed slot catch-up and why it was missed.** Issue [#62](https://github.com/bjorngluck/piherder/issues/62). In the code. Opt-in per schedule, off by default. Allowed kinds are backups (`backup`, alert `backup_schedule_missed`) and image checks (`container_update_check`, alert `container_check_missed`). OS update checks, OS patch, redeploy, and `docker_prune` are rejected even if a caller opts in. One catch-up per missed slot, idempotent, no overlap with a run that is already active, and skip the slot when a newer run of that schedule has already finished. The catch-up uses the normal exclusive job so it appears in Job history. Each catch-up is audited. The job records why the slot was missed: `scheduler_down`, `overlap`, `clock`, `error`, or `unknown`. The matching `*_missed` alert resolves when that catch-up job succeeds, which is after it is queued. A catch-up already pending, running, or failed for the slot is skipped with no new metric and no new audit row. `JobAlreadyActive` is the same skip. A real enqueue failure still counts as `failed` and is audited. `clock` is not used only because a weekly or monthly slot is more than 26 hours old. Prometheus counter `piherder_schedule_catchup_total{kind,result}` with `kind` of `backup` or `container_check` and `result` of `queued`, `skipped`, or `failed`. The counter is per process and resets when the process restarts |
 
 ### Drive
 
@@ -52,22 +52,22 @@ Build order for Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [
 
 | Tier | Lock |
 |------|------|
-| Should | **Pre-restore host rollback snapshot.** In the tree. Before a real restore, copy the current host folder aside, with owners, so Undo last restore can put it back. A failed snapshot does not start the restore. Dry-run does not take it |
-| Should | **Manifest verification.** In the tree. A restore is not called good until the host file count and the byte count match the sidecar. Counts are regular files only. An older sidecar without those counts still restores. Dry-run does not check |
-| Should | **Dry-run restore preview API.** In the tree. `GET /api/v1/servers/{id}/backup/restore-preview` lists the files a restore would send. Scope `read`. It does not write, and it is not a hosted MCP tool |
+| Should | **Pre-restore host rollback snapshot.** In the tree. Before a real restore, copy the current host folder aside, with owners, so Undo last restore can put it back. A failed snapshot does not start the restore. A snapshot that already matches the source is kept. The restore stops before any host copy when this machine does not have free space for another copy of the local tree. Dry-run does not take it |
+| Should | **Manifest verification.** In the tree. A restore is not called good until the host file count and the byte count match the sidecar. Extra files on the host are a warning, not a failed restore. Counts are regular files only. An older sidecar without those counts still restores. Dry-run does not check |
+| Should | **Dry-run restore preview API.** In the tree. `GET /api/v1/servers/{id}/backup/restore-preview` is an SSH rsync dry-run of the local backup, with a 120 second timeout. One preview at a time per host, and a busy host returns 409. Scope `read`. It does not write, and it is not a hosted MCP tool |
 
 ### Docker
 
 | Tier | Lock |
 |------|------|
 | Should | **Compose git checkout drift badge.** In the tree. Show when a tracked checkout differs from the last fetched origin. The inventory probe does not fetch and does not deploy |
-| Should | **Volume prune on the API and hosted `/mcp`.** In the tree. Scope `edit`, an explicit confirm, and one audit row (`docker_volume_prune`). The Docker page confirm stays. It is not part of scheduled `docker_prune`. Not on adapter **0.4.4**. A later adapter tag carries it if it lands |
+| Should | **Volume prune on the API and hosted `/mcp`.** In the tree. Scope `edit`. `dry_run` true lists unused volumes and sizes and deletes nothing. confirm is not required, and that call writes no audit row. `dry_run` false still needs confirm true and one audit row (`docker_volume_prune`) with `source` of `rest` or `mcp`, the deleted names, and `bytes_reclaimed`. Agents should dry-run first and get a human's OK. Demo mode returns 403. The Docker page confirm stays. It is not part of scheduled `docker_prune`. Not on adapter **0.4.4**. A later adapter tag carries it if it lands |
 
 ### Alerts
 
 | Tier | Lock |
 |------|------|
-| Should | **Mute rules.** Issue [#64](https://github.com/bjorngluck/piherder/issues/64). In the tree (Alembic `053_alert_mute` is not applied to a live database). One rule is one host or one alert type. An optional time window must have an end. A window without an end is rejected. Mute delivery only. Schedules still run. Auth failures, OAuth problems (including `drive_oauth_refresh_failed` and `drive_oauth_token_aging`), and backup failures cannot be muted. Creating, editing, and deleting a rule is audited and needs scope `edit`. `read` cannot change a rule. Sensor-level ignores stay in Prometheus. `GET /api/v1/alerts` items gain `muted`. Gauge `piherder_alerts_muted` is the number of active mute rules |
+| Should | **Mute rules.** Issue [#64](https://github.com/bjorngluck/piherder/issues/64). In the tree (Alembic `053_alert_mute` is not applied to a live database). One rule is one host or one alert type. An optional time window must have an end. A window without an end is rejected. Mute delivery only. Schedules still run. Auth failures, OAuth problems (including `drive_oauth_refresh_failed` and `drive_oauth_token_aging`), and backup failures cannot be muted. Creating, editing, and deleting a rule is audited and needs scope `edit`. `read` cannot change a rule. Sensor-level ignores stay in Prometheus. `GET /api/v1/alerts` items gain `muted`. Gauge `piherder_alerts_muted` is the number of active mute rules. Its help text says number of active mute rules. Upgrade and downgrade of Alembic `053` no-op when the table is already present or already gone |
 
 ### Plugin
 
@@ -130,6 +130,7 @@ Nothing else was voted **Out**.
 | 2026-10-28 | **Push denylist.** The workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is not set. An empty secret does not report a clean scan. Patterns stay off git. |
 | 2026-10-28 | **QA.** Operator walks are written in [QA_v1.14.0.md](QA_v1.14.0.md) and are not signed. Screenshot names are reserved in the [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status). Not captured. About and the footer stay **1.13.0**. |
 | 2026-10-28 | **Draft notes.** [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md) is a draft. Package stays **1.13.0**. Not tagged. Not an upgrade path. Draft pull request [#70](https://github.com/bjorngluck/piherder/pull/70). |
+| 2026-10-31 | **Review follow-ups.** Catch-up `result` is `queued`. A slot already pending, running, or failed is a silent skip. Weekly and monthly slots are not `clock` only because the gap is over 26 hours. The catch-up counter is per process. Volume prune accepts `dry_run` and does not delete on that path. A real prune records `source`, deleted names, and bytes reclaimed. Demo mode blocks the call. A pre-restore snapshot is kept when it already matches, and a short disk stops the restore before the host is copied. Extra host files warn. Restore preview times out at 120 seconds and returns 409 when the host backup lock is held. |
 
 ---
 
