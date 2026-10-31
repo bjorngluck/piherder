@@ -1473,6 +1473,7 @@ def enqueue_backup_for_server(
     user_id: int | None = None,
     source_filter: str | None = None,
     scheduled: bool = False,
+    details_extra: dict | None = None,
 ) -> Job:
     """Create Job + AuditLog in DB and hand off to Celery — web never runs rsync.
 
@@ -1499,6 +1500,7 @@ def enqueue_backup_for_server(
         user_id=user_id,
         queued_at=datetime.utcnow().isoformat(),
         scheduled=bool(scheduled),
+        **(details_extra or {}),
     )
     session.add(job)
     session.commit()
@@ -3039,7 +3041,12 @@ def enqueue_os_update_check(server_id: int, user_id: int | None = None) -> Job |
     return job
 
 
-def enqueue_container_update_check(server_id: int, user_id: int | None = None) -> Job | None:
+def enqueue_container_update_check(
+    server_id: int,
+    user_id: int | None = None,
+    *,
+    details_extra: dict | None = None,
+) -> Job | None:
     """Create pending Job + AuditLog, run fleet image check on a worker thread (queued).
 
     Returns the existing active job if a container check is already pending/running
@@ -3063,6 +3070,7 @@ def enqueue_container_update_check(server_id: int, user_id: int | None = None) -
             queue_message="Container update check queued…",
             user_id=user_id,
             audit_details="Job #{job_id} queued",
+            **(details_extra or {}),
         )
         jid, aid, sid = job.id, audit.id, server.id
     handoff_exclusive(

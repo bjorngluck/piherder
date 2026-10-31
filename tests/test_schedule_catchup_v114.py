@@ -39,6 +39,10 @@ def test_reason_and_disallowed_kinds():
     assert catch.miss_reason(late, [], worker_up=True, now=_now()) == "clock"
     assert catch.miss_reason(late, [], worker_up=True, now=_now(), cron="0 3 * * 0") == "unknown"
     assert catch.miss_reason(late, [], worker_up=False, now=_now(), cron="0 3 1 * *") == "scheduler_down"
+    week_gone = _now() - timedelta(days=9)
+    assert catch.miss_reason(week_gone, [], worker_up=True, now=_now(), cron="0 3 * * 0") == "clock"
+    month_gap = _now() - timedelta(days=9)
+    assert catch.miss_reason(month_gap, [], worker_up=True, now=_now(), cron="0 3 1 * *") == "unknown"
     future = Job(job_type="backup", status="success", created_at=_now() + timedelta(hours=2))
     assert catch.miss_reason(late, [future], worker_up=True, now=_now(), cron="0 3 * * 0") == "clock"
     running = Job(
@@ -63,12 +67,22 @@ def test_opt_in_enqueues_once_and_skips_the_same_slot(monkeypatch):
     catch.reset_catchup_counters()
     seen = {}
 
-    def _enqueue(session, server, scheduled=False):
-        job = Job(server_id=server.id, job_type="backup", status="pending", details="{}")
+    def _enqueue(session, server, scheduled=False, details_extra=None):
+        import json
+
+        payload = {"catchup": True}
+        payload.update(details_extra or {})
+        job = Job(
+            server_id=server.id,
+            job_type="backup",
+            status="pending",
+            details=json.dumps(payload),
+        )
         session.add(job)
         session.commit()
         session.refresh(job)
         seen["scheduled"] = scheduled
+        seen["details"] = payload
         return job
 
     monkeypatch.setattr("app.services.jobs.enqueue_backup_for_server", _enqueue)
@@ -85,7 +99,7 @@ def test_opt_in_enqueues_once_and_skips_the_same_slot(monkeypatch):
         ).first()
         details = __import__("json").loads(job.details)
         assert details["catchup_reason"] == "scheduler_down"
-        assert details["catchup_slot"]
+        assert details["catchup_slot"] == seen["details"]["catchup_slot"]
         second = catch.catch_up_one(
             session, server, "backup", slot, [job], worker_up=False, now=_now()
         )
@@ -177,10 +191,79 @@ def test_pending_or_active_catchup_is_silent(monkeypatch):
         assert catch.catch_up_one(
             session, server, "backup", slot, [], worker_up=True, now=_now()
         ) == "skipped"
-        assert len(list(session.exec(select(AuditLog)).all())) == before
+        after = len(list(session.exec(select(AuditLog)).all()))
+        assert after == before + 1
+        again = catch.catch_up_one(
+            session, server, "backup", slot, [], worker_up=True, now=_now()
+        )
+        assert again == "skipped"
+        assert len(list(session.exec(select(AuditLog)).all())) == after
     assert catch._COUNTS["backup"]["queued"] == 0
     assert catch._COUNTS["backup"]["failed"] == 0
-    assert catch._COUNTS["backup"]["skipped"] == 0
+    assert catch._COUNTS["backup"]["skipped"] == 1
+
+
+def test_a_failed_catchup_is_not_retried_and_old_rows_age_out(monkeypatch):
+    from app.models import AuditLog
+
+    catch.reset_catchup_counters()
+    slot = _now() - timedelta(hours=2)
+    key = catch.slot_key(slot)
+    called = {"n": 0}
+
+    def _enqueue(session, server, scheduled=False, details_extra=None):
+        import json
+
+        called["n"] += 1
+        job = Job(
+            server_id=server.id,
+            job_type="backup",
+            status="pending",
+            details=json.dumps(details_extra or {}),
+        )
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        return job
+
+    monkeypatch.setattr("app.services.jobs.enqueue_backup_for_server", _enqueue)
+    with Session(get_engine()) as session:
+        server = _server(
+            session,
+            hostname="host-g.example.com",
+            name="Host G",
+            backup_catchup_enabled=True,
+        )
+        failed = Job(
+            server_id=server.id,
+            job_type="backup",
+            status="failed",
+            created_at=(_now() - timedelta(days=2)).replace(tzinfo=None),
+            details='{"catchup_slot":"%s"}' % key,
+        )
+        stale = Job(
+            server_id=server.id,
+            job_type="backup",
+            status="failed",
+            created_at=(_now() - timedelta(days=40)).replace(tzinfo=None),
+            details='{"catchup_slot":"2000-01-01T00:00:00Z"}',
+        )
+        session.add(failed)
+        session.add(stale)
+        session.commit()
+        before = len(list(session.exec(select(AuditLog).where(AuditLog.server_id == server.id)).all()))
+        assert catch.catch_up_one(
+            session, server, "backup", slot, [], worker_up=True, now=_now()
+        ) == "skipped"
+        assert called["n"] == 0
+        assert len(list(session.exec(select(AuditLog).where(AuditLog.server_id == server.id)).all())) == before
+        old_slot = datetime(2000, 1, 1, tzinfo=timezone.utc)
+        assert catch.catch_up_one(
+            session, server, "backup", old_slot, [], worker_up=False, now=_now()
+        ) == "queued"
+        assert called["n"] == 1
+    assert catch._COUNTS["backup"]["failed"] == 0
+    assert catch._COUNTS["backup"]["queued"] == 1
 
 
 def test_due_catchup_ignores_a_host_that_is_off(monkeypatch):

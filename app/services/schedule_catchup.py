@@ -86,15 +86,22 @@ def _details(job) -> dict:
     return raw if isinstance(raw, dict) else {}
 
 
-def _short_cadence(cron: Optional[str]) -> bool:
-    """Daily and finer crons. A weekly or monthly slot is older than 26h on purpose."""
+def _clock_limit(cron: Optional[str]) -> timedelta:
+    """How late a slot must be before the gap itself counts as clock skew.
+
+    Daily stays at 26 hours. Weekly and monthly scale with that interval.
+    """
     parts = (cron or "").split()
     if len(parts) < 5:
-        return True
+        return timedelta(hours=26)
     dom, dow = parts[2], parts[4]
-    if dom not in ("*", "?") or dow not in ("*", "?"):
-        return False
-    return True
+    if dom not in ("*", "?"):
+        return timedelta(days=32)
+    if dow not in ("*", "?"):
+        return timedelta(days=8)
+    if parts[1] == "*":
+        return timedelta(hours=3)
+    return timedelta(hours=26)
 
 
 def miss_reason(
@@ -110,7 +117,7 @@ def miss_reason(
     now_utc = _as_utc(now) or datetime.now(timezone.utc)
     if slot_utc is None:
         return "unknown"
-    if _short_cadence(cron) and now_utc - slot_utc > timedelta(hours=26):
+    if now_utc - slot_utc > _clock_limit(cron):
         return "clock"
     saw_failed = False
     for job in jobs:
@@ -133,11 +140,14 @@ def miss_reason(
     return "unknown"
 
 
+_LOOKBACK = timedelta(days=35)
+
+
 def _slot_catchups(session: Session, server_id: int, kind: str, key: str, slot: datetime) -> list:
-    """Catch-up rows for this slot, limited to jobs created around the slot."""
+    """Catch-up rows for this slot, limited to jobs created in the last 35 days."""
+    del slot
     job_type = _JOB_TYPE[kind]
-    moment = _as_utc(slot) or datetime.now(timezone.utc)
-    cutoff = (moment - timedelta(hours=2)).astimezone(timezone.utc).replace(tzinfo=None)
+    cutoff = datetime.utcnow() - _LOOKBACK
     rows = list(
         session.exec(
             select(Job).where(
@@ -160,15 +170,13 @@ def _silent_prior(rows: list) -> bool:
     return bool(statuses & _SILENT)
 
 
-def _stamp(session: Session, job: Job, *, kind: str, key: str, reason: str) -> None:
-    raw = _details(job)
-    raw["catchup"] = True
-    raw["catchup_slot"] = key
-    raw["catchup_reason"] = reason if reason in _REASONS else "unknown"
-    raw["catchup_kind"] = kind
-    job.details = json.dumps(raw)
-    session.add(job)
-    session.commit()
+def _catchup_fields(kind: str, key: str, reason: str) -> dict:
+    return {
+        "catchup": True,
+        "catchup_slot": key,
+        "catchup_reason": reason if reason in _REASONS else "unknown",
+        "catchup_kind": kind,
+    }
 
 
 def _audit(session: Session, server_id: int, kind: str, result: str, reason: str, key: str) -> None:
@@ -191,14 +199,44 @@ def _audit(session: Session, server_id: int, kind: str, result: str, reason: str
     session.commit()
 
 
-def _enqueue(session: Session, server: Server, kind: str):
+def _enqueue(session: Session, server: Server, kind: str, extra: dict):
     from . import jobs as jobs_mod
 
     if kind == "backup":
-        return jobs_mod.enqueue_backup_for_server(session, server, scheduled=True)
+        return jobs_mod.enqueue_backup_for_server(
+            session, server, scheduled=True, details_extra=extra
+        )
     if kind == "container_check":
-        return jobs_mod.enqueue_container_update_check(int(server.id))
+        return jobs_mod.enqueue_container_update_check(int(server.id), details_extra=extra)
     raise ValueError(kind)
+
+
+def _audited_slot(session: Session, server_id: int, key: str) -> bool:
+    """True when this slot already has a catch-up audit row inside the lookback."""
+    from ..models import AuditLog
+
+    cutoff = datetime.utcnow() - _LOOKBACK
+    rows = list(
+        session.exec(
+            select(AuditLog).where(
+                AuditLog.server_id == int(server_id),
+                AuditLog.action == "schedule_catchup",
+                AuditLog.started_at >= cutoff,
+            )
+        ).all()
+    )
+    for row in rows:
+        if key in (row.details or ""):
+            return True
+    return False
+
+
+def _note_busy_once(session: Session, server_id: int, kind: str, key: str) -> None:
+    """One skipped audit row per slot when the host already has an exclusive job."""
+    if _audited_slot(session, server_id, key):
+        return
+    note_catchup(kind, "skipped")
+    _audit(session, server_id, kind, "skipped", "overlap", key)
 
 
 def catch_up_one(
@@ -233,13 +271,13 @@ def catch_up_one(
 
     active = jobs_mod._active_job_of_type(session, server_id, _JOB_TYPE[kind])
     if active is not None:
-        note_catchup(kind, "skipped")
-        _audit(session, server_id, kind, "skipped", "overlap", key)
+        _note_busy_once(session, server_id, kind, key)
         return "skipped"
     try:
-        job = _enqueue(session, server, kind)
+        job = _enqueue(session, server, kind, _catchup_fields(kind, key, reason))
     except jobs_mod.JobAlreadyActive:
         logger.info("[SCHEDULE] Catch-up skipped, job already active kind=%s server=%s", kind, server_id)
+        _note_busy_once(session, server_id, kind, key)
         return "skipped"
     except Exception:
         logger.exception("[SCHEDULE] Catch-up enqueue failed kind=%s server=%s", kind, server_id)
@@ -251,11 +289,9 @@ def catch_up_one(
         _audit(session, server_id, kind, "failed", reason, key)
         return "failed"
     bound = session.get(Job, job.id) or job
-    if _details(bound).get("catchup_slot") == key:
-        note_catchup(kind, "skipped")
-        _audit(session, server_id, kind, "skipped", reason, key)
+    if _details(bound).get("catchup_slot") != key:
+        _note_busy_once(session, server_id, kind, key)
         return "skipped"
-    _stamp(session, bound, kind=kind, key=key, reason=reason)
     note_catchup(kind, "queued")
     _audit(session, server_id, kind, "queued", reason, key)
     return "queued"
