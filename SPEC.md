@@ -445,6 +445,7 @@ flowchart TB
 | 2FA | TOTP secret Fernet-encrypted; hashed backup codes; optional trusted device cookie; optional global force-2FA |
 | Sessions | JWT (HS256) cookie via PyJWT + cryptography |
 | Transport | HTTPS via Caddy + volume-mounted PEMs (or `Caddyfile.dev` self-signed for local) |
+| Hosted MCP volume prune | Hosted MCP prune_volumes lets an edit token permanently delete unused Docker volumes. This is accepted for disk housekeeping. Agents should dry_run first and get a human OK. Use a token without edit or without the docker feature if you don't want that. |
 
 **SSH onboarding helpers:** `app/services/ssh_onboarding.py` (deploy / rotate / least-priv). Least-priv automation targets **Debian / Pi OS / Ubuntu** only; HAOS gets copy-paste guidance.
 

@@ -128,6 +128,8 @@ Timezone, security policy, **console limits**, fleet defaults, PiHerder self-bac
 
 **Where:** **Settings** (`/herder-backups?tab=general`) → **Security policy**. **Available from v1.3.**
 
+Hosted MCP `prune_volumes` lets an edit token permanently delete unused Docker volumes. This is accepted for disk housekeeping. Agents should dry_run first and get a human OK. Use a token without edit or without the docker feature if you don't want that.
+
 | Setting | Effect |
 |---------|--------|
 | **Password rules** | Min/max length (floor 8, ceiling 72), required character classes. Live text on register / account / admin / recover-admin. Audited. |
@@ -547,7 +549,7 @@ scrape_configs:
       credentials_file: /etc/prometheus/piherder_token  # or credentials: "..."
 ```
 
-Useful series: `piherder_up`, `piherder_db_up`, `piherder_servers*`, `piherder_jobs*`, `piherder_notifications_open*`, `piherder_servers_backup_stale`.
+Useful series: `piherder_up`, `piherder_db_up`, `piherder_servers*`, `piherder_jobs*`, `piherder_notifications_open*`, `piherder_servers_backup_stale`. `piherder_schedule_catchup_total` is per process and resets on restart, so sum it across workers and use increase() or rate().
 
 If `METRICS_TOKEN` is empty, treat `/metrics` like `/health` — private network only.
 

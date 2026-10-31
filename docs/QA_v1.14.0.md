@@ -39,7 +39,7 @@ Not signed.
 - [ ] A slot is skipped when a newer run of that schedule has already finished
 - [ ] The job records why the slot was missed: `scheduler_down`, `overlap`, `clock`, `error`, or `unknown`
 - [ ] A successful catch-up resolves the matching `backup_schedule_missed` or `container_check_missed` alert
-- [ ] `/metrics` exposes `piherder_schedule_catchup_total` with `kind` of `backup` or `container_check` and `result` of `queued`, `skipped`, or `failed`. The counter is per process and resets on restart
+- [ ] `/metrics` exposes `piherder_schedule_catchup_total` with `kind` of `backup` or `container_check` and `result` of `queued`, `skipped`, or `failed`. The counter is per process and resets on restart. Sum it across workers and use increase() or rate()
 
 ## Drive (Must)
 
@@ -102,14 +102,14 @@ Not signed.
 
 ## Docker (Should)
 
-**Git drift** is a pill on the stack list. Volume prune on the API is a separate call from the Docker page confirm and from scheduled `docker_prune`.
+**Git drift** is a pill on the stack list. Volume prune on the API is a separate call from the host page job and from scheduled `docker_prune`.
 
 Not signed.
 
 - [ ] The stack list shows **Git drift** when a tracked checkout is behind the last fetched origin branch, ahead of it, or has tracked edits
 - [ ] Untracked files do not show the pill
 - [ ] The inventory probe does not fetch and does not deploy. The pill appears after the next inventory refresh
-- [ ] The Docker page still prunes unused volumes only after the operator ticks the confirm. `docker-prune.png` and `docker-build-cache-prune.png` stay
+- [ ] The host page confirm queues a `docker_prune` job for unused volumes. `docker-prune.png` and `docker-build-cache-prune.png` stay
 - [ ] `POST /api/v1/servers/{id}/docker/volumes` (`edit`) with `dry_run` true lists unused volumes and deletes nothing. `confirm` true prunes them in the request and writes `source`, names, and bytes reclaimed. It is not a `docker_prune` job and not scheduled
 - [ ] A body without `confirm` true does not prune
 - [ ] A `read` token cannot call that route

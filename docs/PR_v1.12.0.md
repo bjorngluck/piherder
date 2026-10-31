@@ -21,7 +21,7 @@ Design: [PLAN_v1.12.0.md](PLAN_v1.12.0.md). Maintainer ticks: [QA_v1.12.0.md](QA
 | **Lists** | Optional API and MCP read audit. Successful `host_facts` stays off the default Jobs and Audit lists |
 | **Signals** | Critical backup-credential alert, self-backup last success, admin alert, image update flag ([#47](https://github.com/bjorngluck/piherder/issues/47)), OS end of life ([#49](https://github.com/bjorngluck/piherder/issues/49)), update-check gap, checkout ownership |
 | **Backup** | rclone for amd64 and arm64, missed schedule, copy before the backups, backup time on `list_servers` and `get_server`, remote restore, direct hop no longer waits on a stuck folder row |
-| **Docker** | `docker_prune` from the page, the token API, and hosted MCP ([#48](https://github.com/bjorngluck/piherder/issues/48)). Volume prune stays on the page |
+| **Docker** | `docker_prune` from the page, the token API, and hosted MCP ([#48](https://github.com/bjorngluck/piherder/issues/48)). In this release, unused volumes needed a confirm on the host page |
 | **NPM and admin API** | Admin create, edit, and delete of a proxy host. GET `/api/v1/admin` with scope `admin` |
 | **Demo** | Updated separately |
 
