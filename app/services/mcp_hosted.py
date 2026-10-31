@@ -109,7 +109,9 @@ _SERVER_INSTRUCTIONS = (
     "prune_type is images, containers, both, or networks. "
     "both is dangling images and exited containers. "
     "prune_volumes deletes unused Docker volumes. confirm must be true unless dry_run is true. "
-    "dry_run lists the unused volumes and their sizes and deletes nothing. "
+    "dry_run is a best-effort preview of dangling volumes and their sizes. It deletes nothing. "
+    "That set can differ slightly from what docker volume prune -f removes on newer Docker versions, "
+    "and there is a small time gap between the dry run and the delete. It is not an exact match. "
     "Dry-run first and get a human's OK before confirm true. "
     "It needs the edit scope. It is not a docker_prune job and it has no schedule. "
     "prune_build_cache clears the Docker build cache and the buildx cache. "
@@ -324,7 +326,7 @@ def tool_catalog() -> list[dict[str, Any]]:
                 "Start a Docker prune job. Needs the edit scope. "
                 "prune_type is images, containers, both, or networks. "
                 "both is dangling images and exited containers. "
-                "Unused volumes are prune_volumes. dry_run lists them. confirm true deletes them. "
+                "Unused volumes are prune_volumes. dry_run is a best-effort preview of dangling volumes, not an exact match. confirm true deletes them. "
                 "HTTP 202 means accepted. HTTP 409 means a prune is already active: "
                 "poll get_job and do not start another."
             ),
@@ -356,7 +358,9 @@ def tool_catalog() -> list[dict[str, Any]]:
             "name": "prune_volumes",
             "description": (
                 "Prune unused Docker volumes on one host. "
-                "dry_run true lists unused volumes and sizes and deletes nothing. "
+                "dry_run true is a best-effort preview of dangling volumes and sizes. It deletes nothing. "
+                "That set can differ slightly from what docker volume prune -f removes on newer Docker versions, "
+                "and there is a small time gap between the dry run and the delete. It is not an exact match. "
                 "confirm is not required for a dry run. "
                 "confirm true deletes them and writes one audit row. "
                 "Needs the edit scope. Not a docker_prune job and not scheduled. "
@@ -372,7 +376,7 @@ def tool_catalog() -> list[dict[str, Any]]:
                     },
                     "dry_run": {
                         "type": "boolean",
-                        "description": "When true, list unused volumes and sizes. Deletes nothing.",
+                        "description": "Best-effort preview of dangling volumes and sizes. Not an exact match for docker volume prune -f. Deletes nothing.",
                     },
                 },
                 ["server_id"],
