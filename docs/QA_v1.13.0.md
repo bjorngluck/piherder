@@ -185,7 +185,7 @@ All five frames are wired. NIC change and the stuck-queue frames use example nam
 Signed 2026-10-25.
 
 - [x] Restore from Google Drive, OneDrive, or a LAN share still pulls the selected folder onto this PiHerder, then onto the host. Dry-run still does not write the pull
-- [x] Docker prune still leaves volumes alone until the operator confirms that part on the Docker page. The token API and hosted `/mcp` still cannot prune volumes
+- [x] In this release, unused volumes needed a confirm on the host page. The token API and hosted `/mcp` did not prune volumes
 - [x] About **View schedule** still groups scheduled jobs by type and shows each host's status, last run, and next fire
 - [x] A token with `admin` can still GET users, tokens, and the audit log. A `read` token cannot. Responses still omit the password hash, the TOTP secret, and the token prefix
 - [x] With **API and MCP read audit** off, a `read` call still writes no audit row. With it on, that call writes one `api_read` row and the row has no token value

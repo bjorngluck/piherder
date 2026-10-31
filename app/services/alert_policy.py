@@ -104,6 +104,24 @@ CATALOG: tuple[TypeSpec, ...] = (
         0,
     ),
     TypeSpec(
+        "drive_oauth_refresh_failed",
+        "backup",
+        "Google Drive refresh failed",
+        "critical",
+        True,
+        0,
+        0,
+    ),
+    TypeSpec(
+        "drive_oauth_token_aging",
+        "backup",
+        "Google Drive testing token is aging",
+        "warning",
+        True,
+        0,
+        0,
+    ),
+    TypeSpec(
         "backup_stale",
         "backup",
         "Host backup is stale",
@@ -166,7 +184,9 @@ CATALOG: tuple[TypeSpec, ...] = (
 CATALOG_BY_ID: dict[str, TypeSpec] = {t.id: t for t in CATALOG}
 
 # A lower Backups category must not quiet an expired or rejected destination sign-in.
-PINNED_CRITICAL = frozenset({"backup_destination_auth_failed"})
+PINNED_CRITICAL = frozenset({"backup_destination_auth_failed", "drive_oauth_refresh_failed"})
+# These stay on even when the Backups category is muted.
+NEVER_MUTE = frozenset({"drive_oauth_refresh_failed", "drive_oauth_token_aging"})
 
 
 def _clamp_int(raw: Any, *, lo: int, hi: int, default: int) -> int:
@@ -292,6 +312,16 @@ def effective(type_id: str) -> EffectivePolicy:
     type_ov = types.get(tid) if isinstance(types.get(tid), dict) else None
     out = _overlay(base, cat_ov)
     out = _overlay(out, type_ov)
+    if out.type_id in NEVER_MUTE:
+        out = EffectivePolicy(
+            type_id=out.type_id,
+            category=out.category,
+            label=out.label,
+            enabled=True,
+            severity=out.severity,
+            debounce_minutes=out.debounce_minutes,
+            realert_hours=out.realert_hours,
+        )
     if out.type_id in PINNED_CRITICAL:
         out = EffectivePolicy(
             type_id=out.type_id,

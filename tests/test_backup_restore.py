@@ -137,7 +137,7 @@ def test_restore_apply_pulls_then_rsyncs(tmp_path):
                     key.return_value.__enter__.return_value = str(tmp_path / "k")
                     with patch(
                         "app.services.backup_restore.subprocess.run",
-                        return_value=SimpleNamespace(returncode=0, stdout="ok", stderr=""),
+                        side_effect=_snapshot_proc,
                     ):
                         res = restore_backup_source(
                             server, "/data", dry_run=False, pull_from=pull_from
@@ -165,7 +165,7 @@ def test_restore_applies_ownership_and_keeps_old_archives_working(tmp_path):
 
     def _run(cmd, input=None, **kwargs):  # noqa: A002
         calls.append((cmd, input))
-        return SimpleNamespace(returncode=0, stdout="applied 1\n", stderr="")
+        return _snapshot_proc(cmd, input=input)
 
     with patch(
         "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
@@ -178,14 +178,459 @@ def test_restore_applies_ownership_and_keeps_old_archives_working(tmp_path):
                     res = restore_backup_source(server, "/data/app", dry_run=False)
     assert res["rc"] == 0
     assert res["ownership"]["applied"] is True
+    assert res["rollback"]["saved"] is True
     assert calls[0][0][0] == "rsync"
-    assert ".piherder-ownership.json" in calls[0][0]
+    assert "--delete" in calls[0][0]
+    assert calls[0][0][-2].endswith(":/data/app/")
     assert calls[1][0][0] == "ssh"
+    assert "find " in calls[1][0][-1]
+    restore = next(call for call in calls if call[0][0] == "rsync" and "--delete" not in call[0])
+    assert ".piherder-ownership.json" in restore[0]
+    own = next(call for call in calls if call[0][0] == "ssh" and str(call[0][-1]).startswith("sh -s"))
+    assert own[0][-1] == "sh -s -- /data/app"
+    assert "0755" in own[1]
+    assert "4755" not in own[1]
+    assert "sudo -n /usr/bin/chown" in own[1]
+    assert "sudo -n /usr/bin/test -e" in own[1]
+
+
+def _snapshot_proc(cmd, input=None, **kwargs):  # noqa: A002
+    if cmd and cmd[0] == "ssh" and "find " in str(cmd[-1]):
+        return SimpleNamespace(returncode=0, stdout=b"\x001000\x001000\x00755\x00", stderr=b"")
+    if cmd and cmd[0] == "ssh":
+        return SimpleNamespace(returncode=0, stdout="applied 1\n", stderr="")
+    return SimpleNamespace(returncode=0, stdout="ok", stderr="")
+
+
+def test_dry_run_does_not_take_a_rollback_snapshot(tmp_path):
+    dest_dir = tmp_path / "docker"
+    dest_dir.mkdir()
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+    calls = []
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        calls.append(cmd)
+        return SimpleNamespace(returncode=0, stdout="preview", stderr="")
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=True)
+    assert res["rc"] == 0
+    assert res["rollback"]["reason"] == "dry-run"
+    assert len(calls) == 1
+    assert "--dry-run" in calls[0]
+    assert not (dest_dir.parent / "_rollback").exists()
+
+
+def test_snapshot_failure_does_not_start_the_restore(tmp_path):
+    dest_dir = tmp_path / "docker"
+    dest_dir.mkdir()
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+    calls = []
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        calls.append(cmd)
+        return SimpleNamespace(returncode=1, stdout="", stderr="denied")
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=False)
+    assert res["rc"] == 1
+    assert res["error"] == "Rollback snapshot failed"
+    assert len(calls) == 1
+    assert calls[0][0] == "rsync"
+    assert not (dest_dir.parent / "_rollback" / "docker" / "meta.json").exists()
+
+
+def test_undo_writes_the_snapshot_back(tmp_path):
+    from app.services.backup_ownership import write_manifest
+    from app.services.backup_restore import snapshot_root_for, undo_host_restore
+
+    dest_dir = tmp_path / "docker"
+    dest_dir.mkdir()
+    root = snapshot_root_for(dest_dir)
+    tree = root / "tree"
+    tree.mkdir(parents=True)
+    write_manifest(tree, [{"path": "", "uid": 1000, "gid": 1000, "mode": "0755"}])
+    (root / "meta.json").write_text('{"source":"/data/app"}', encoding="utf-8")
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+    calls = []
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        calls.append((cmd, input))
+        return SimpleNamespace(returncode=0, stdout="ok", stderr="")
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = undo_host_restore(server, "/data/app")
+    assert res["rc"] == 0
+    assert res["summary"].startswith("Undo ok")
+    assert not root.exists()
+    assert len(calls) == 2
+    assert calls[0][0][0] == "rsync"
+    assert calls[0][0][-2].rstrip("/").endswith("/tree")
+    assert calls[0][0][-1].endswith(":/data/app/")
+    assert "find " not in str(calls[1][0][-1])
     assert calls[1][0][-1] == "sh -s -- /data/app"
-    assert "0755" in calls[1][1]
-    assert "4755" not in calls[1][1]
-    assert "sudo -n /usr/bin/chown" in calls[1][1]
-    assert "sudo -n /usr/bin/test -e" in calls[1][1]
+
+
+def _manifest_with_counts(dest):
+    from app.services.backup_ownership import write_manifest
+
+    write_manifest(
+        dest,
+        [
+            {"path": "", "uid": 1000, "gid": 1000, "mode": "0755", "kind": "dir"},
+            {"path": "app.db", "uid": 1000, "gid": 1000, "mode": "0640", "kind": "file", "bytes": 4},
+        ],
+    )
+
+
+def test_restore_is_good_when_the_host_matches_the_manifest(tmp_path):
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    _manifest_with_counts(dest_dir)
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+    calls = []
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        calls.append(cmd)
+        if cmd and cmd[0] == "ssh" and "%s" in str(cmd[-1]):
+            return SimpleNamespace(returncode=0, stdout=b"4\x00", stderr=b"")
+        return _snapshot_proc(cmd, input=input)
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=False)
+    assert res["rc"] == 0
+    assert res["error"] is None
+    assert res["manifest"]["ok"] is True
+    assert res["manifest"]["file_count"] == 1
+    assert res["manifest"]["byte_count"] == 4
+    assert "Restore ok" in res["summary"]
+    size_calls = [cmd for cmd in calls if cmd and cmd[0] == "ssh" and "%s" in str(cmd[-1])]
+    assert len(size_calls) == 1
+    assert "sudo -n find " in size_calls[0][-1]
+
+
+def test_restore_is_not_good_when_the_host_counts_differ(tmp_path):
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    _manifest_with_counts(dest_dir)
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        if cmd and cmd[0] == "ssh" and "%s" in str(cmd[-1]):
+            return SimpleNamespace(returncode=0, stdout=b"1\x00", stderr=b"")
+        return _snapshot_proc(cmd, input=input)
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=False)
+    assert res["rc"] == 1
+    assert res["manifest"]["ok"] is False
+    assert "1 file, 1 byte" in res["error"]
+    assert "1 file, 4 bytes" in res["error"]
+    assert res["summary"].startswith("Restore failed")
+    assert "Restore ok" not in res["summary"]
+    assert res["rollback"]["saved"] is True
+
+
+def test_restore_is_not_good_when_the_host_count_cannot_be_read(tmp_path):
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    _manifest_with_counts(dest_dir)
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        if cmd and cmd[0] == "ssh" and "%s" in str(cmd[-1]):
+            return SimpleNamespace(returncode=1, stdout=b"", stderr=b"denied")
+        return _snapshot_proc(cmd, input=input)
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=False)
+    assert res["rc"] == 1
+    assert "Manifest check failed" in res["error"]
+    assert res["summary"].startswith("Restore failed")
+
+
+def test_dry_run_does_not_tally_the_host(tmp_path):
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    _manifest_with_counts(dest_dir)
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+    calls = []
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        calls.append(cmd)
+        return SimpleNamespace(returncode=0, stdout="preview", stderr="")
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=True)
+    assert res["rc"] == 0
+    assert res["manifest"]["reason"] == "dry-run"
+    assert len(calls) == 1
+    assert calls[0][0] == "rsync"
+    assert "--dry-run" in calls[0]
+
+
+def test_parse_rsync_changes_keeps_creates_and_updates():
+    from app.services.backup_restore import parse_rsync_changes
+
+    text = "\n".join(
+        [
+            "<f+++++++++ new.db",
+            "<f.st...... app.db",
+            ".d..t...... data",
+            "*deleting   gone",
+            "Number of files: 4",
+        ]
+    )
+    parsed = parse_rsync_changes(text)
+    assert parsed["changes"] == [
+        {"path": "new.db", "action": "create"},
+        {"path": "app.db", "action": "update"},
+        {"path": "gone", "action": "delete"},
+    ]
+    assert parsed["truncated"] is False
+    many = "\n".join(f"<f+++++++++ f{i}" for i in range(201))
+    capped = parse_rsync_changes(many)
+    assert capped["change_count"] == 201
+    assert len(capped["changes"]) == 200
+    assert capped["truncated"] is True
+
+
+def test_extra_host_files_warn_and_do_not_fail_the_restore(tmp_path):
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    _manifest_with_counts(dest_dir)
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        if cmd and cmd[0] == "ssh" and "%s" in str(cmd[-1]):
+            return SimpleNamespace(returncode=0, stdout=b"4\x004\x00", stderr=b"")
+        return _snapshot_proc(cmd, input=input)
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=False)
+    assert res["rc"] == 0
+    assert res["error"] is None
+    assert res["manifest"]["ok"] is True
+    assert "2 files, 8 bytes" in res["manifest"]["warning"]
+    assert res["summary"].startswith("Restore ok")
+
+
+def test_restore_stops_before_ssh_when_disk_is_short(tmp_path, monkeypatch):
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    (dest_dir / "app.db").write_bytes(b"hello")
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+    monkeypatch.setattr(
+        "app.services.backup_restore.os.statvfs",
+        lambda _path: SimpleNamespace(f_bavail=1, f_frsize=10),
+    )
+
+    def _run(*_args, **_kwargs):
+        raise AssertionError("host was touched")
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=False)
+    assert res["rc"] == 1
+    assert "free space" in res["error"]
+    assert res["rollback"]["saved"] is False
+
+
+def test_a_matching_snapshot_is_kept(tmp_path):
+    from app.services.backup_restore import _take_rollback_snapshot
+
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    root = dest_dir.parent / "_rollback" / "tree"
+    tree = root / "tree"
+    tree.mkdir(parents=True)
+    (root / "meta.json").write_text('{"source":"/data/app"}', encoding="utf-8")
+
+    def _run(*_args, **_kwargs):
+        raise AssertionError("host was touched")
+
+    with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+        saved = _take_rollback_snapshot(
+            dest_dir,
+            source="/data/app",
+            remote="pi@host-a.example.com:/data/app/",
+            ssh_cmd="ssh",
+            rsync_path="rsync",
+            key_path=str(tmp_path / "k"),
+            port=22,
+            user="pi",
+            host="host-a.example.com",
+        )
+    assert saved == {"saved": True, "kept": True}
+    (root / "meta.json").write_text('{"source":"/data/app","open":false}', encoding="utf-8")
+
+    def _again(*_args, **_kwargs):
+        raise AssertionError("host copy started")
+
+    with patch("app.services.backup_restore.subprocess.run", side_effect=_again):
+        again = _take_rollback_snapshot(
+            dest_dir,
+            source="/data/app",
+            remote="pi@host-a.example.com:/data/app/",
+            ssh_cmd="ssh",
+            rsync_path="rsync",
+            key_path=str(tmp_path / "k"),
+            port=22,
+            user="pi",
+            host="host-a.example.com",
+        )
+    assert again.get("kept") is not True
+    assert "host copy started" in (again.get("error") or "")
+
+
+def test_preview_lists_changes_and_does_not_write(tmp_path):
+    import json
+
+    from app.services.backup_restore import preview_restore
+
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    _manifest_with_counts(dest_dir)
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+    calls = []
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        calls.append((cmd, kwargs.get("timeout")))
+        return SimpleNamespace(
+            returncode=0,
+            stdout="<f+++++++++ new.db\n<f.st...... app.db\n.d..t...... data\n",
+            stderr="",
+        )
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = preview_restore(server, "/data/app")
+    assert res["wrote"] is False
+    assert res["dry_run"] is True
+    assert res["ok"] is True
+    assert "remote" not in res
+    assert "output" not in res
+    assert res["changes"] == [
+        {"path": "new.db", "action": "create"},
+        {"path": "app.db", "action": "update"},
+    ]
+    assert len(calls) == 1
+    assert calls[0][0][0] == "rsync"
+    assert calls[0][1] == 120
+    assert "--dry-run" in calls[0][0]
+    assert "--itemize-changes" in calls[0][0]
+    assert "--delete" not in calls[0][0]
+    assert not (dest_dir.parent / "_rollback").exists()
+    assert "host-a.example.com" not in json.dumps(res)
+
+
+def test_itemize_cannot_turn_into_a_real_restore(tmp_path):
+    from app.services.backup_restore import restore_backup_source
+
+    dest_dir = tmp_path / "tree"
+    dest_dir.mkdir()
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+    calls = []
+
+    def _run(cmd, input=None, **kwargs):  # noqa: A002
+        calls.append(cmd)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(dest_dir)}],
+    ):
+        with patch("app.services.backup_restore.get_private_key_plain", return_value="KEY"):
+            with patch("app.services.backup_restore.temp_key_file") as key:
+                key.return_value.__enter__.return_value = str(tmp_path / "k")
+                with patch("app.services.backup_restore.subprocess.run", side_effect=_run):
+                    res = restore_backup_source(server, "/data/app", dry_run=False, itemize=True)
+    assert res["dry_run"] is True
+    assert res["wrote"] is False
+    assert "--dry-run" in calls[0]
+    assert not (dest_dir.parent / "_rollback").exists()
+
+
+def test_preview_hides_the_local_backup_path(tmp_path):
+    from app.services.backup_restore import preview_restore
+
+    server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
+    secret = tmp_path / "secret-tree"
+    with patch(
+        "app.services.backup_restore.backup_profiles.get_backup_profiles_db",
+        return_value=[{"source": "/data/app", "destination": str(secret)}],
+    ):
+        res = preview_restore(server, "/data/app")
+    assert res["error"] == "No local backup for this source"
+    assert str(secret) not in res["error"]
 
 
 def test_restore_missing_local_dest():

@@ -355,6 +355,7 @@ async def settings_page(
         or qp.get("smtp_saved")
         or qp.get("smtp_test")
         or qp.get("alerts_error")
+        or qp.get("mute_saved")
     ):
         tab = "alerts" if is_admin else tab
 
@@ -580,6 +581,45 @@ async def settings_page(
         apol.parse_allowlist(smtp_cfg.get("notify_categories"))
     )
     alert_policy_ui = apol.ui_state()
+    mute_rules: list = []
+    mute_hosts: list = []
+    mute_types: list = []
+    if is_admin:
+        from ..models import Server
+        from ..services import alert_mute as mute_svc
+        from sqlmodel import select as sql_select
+
+        try:
+            hosts = list(
+                session.exec(sql_select(Server).order_by(Server.name, Server.id)).all()
+            )
+        except Exception:
+            hosts = []
+        mute_hosts = [{"id": h.id, "hostname": h.hostname} for h in hosts]
+        mute_types = [
+            {"id": type_id, "label": label} for type_id, label in mute_svc.mutable_types()
+        ]
+        names = {h.id: h.hostname for h in hosts}
+        labels = {type_id: label for type_id, label in mute_svc.mutable_types()}
+        try:
+            stored = mute_svc.list_rules(session)
+        except Exception:
+            stored = []
+        for rule in stored:
+            mute_rules.append(
+                {
+                    "id": rule.id,
+                    "kind": rule.kind,
+                    "server_id": rule.server_id,
+                    "hostname": names.get(rule.server_id) or "",
+                    "alert_type": rule.alert_type or "",
+                    "type_label": labels.get(rule.alert_type or "") or (rule.alert_type or ""),
+                    "starts_local": mute_svc.local_input_value(rule.starts_at),
+                    "ends_local": mute_svc.local_input_value(rule.ends_at),
+                    "window_label": _mute_window_label(rule),
+                    "state": _mute_state(rule),
+                }
+            )
     console_pol = cons.effective_console_policy()
     files_max_bytes = hf.max_upload_bytes()
     files_max_locked = hf.files_max_env_locked()
@@ -631,6 +671,7 @@ async def settings_page(
     od_herder = False
     od_redirect_uri = ""
     drive_herder = False
+    drive_testing = False
     smb_herder = False
     herder_copy_ready = False
     smb_guest = False
@@ -668,6 +709,7 @@ async def settings_page(
                 drive_schedule = drive_row.schedule or ""
                 drive_after = bool(drive_row.after_host_backup)
                 drive_herder = copies.copies_herder_backup(drive_row)
+                drive_testing = copies.google_app_testing(drive_row)
             if smb_row is not None:
                 smb_view = copies.smb_public(smb_row)
                 copy_smb_host = smb_view["host"]
@@ -821,6 +863,7 @@ async def settings_page(
             od_herder = False
             od_redirect_uri = ""
             drive_herder = False
+            drive_testing = False
             smb_herder = False
             herder_copy_ready = False
             smb_guest = False
@@ -850,6 +893,7 @@ async def settings_page(
             "drive_schedule": drive_schedule,
             "drive_after": drive_after,
             "drive_herder": drive_herder,
+            "drive_testing": drive_testing,
             "smb_herder": smb_herder,
             "herder_copy_ready": herder_copy_ready,
             "herder_copy": qp.get("herder_copy"),
@@ -902,6 +946,9 @@ async def settings_page(
             "webhook_cfg": webhook_cfg,
             "smtp_cfg": smtp_cfg,
             "alert_policy_ui": alert_policy_ui,
+            "mute_rules": mute_rules,
+            "mute_hosts": mute_hosts,
+            "mute_types": mute_types,
             "alert_categories": apol.CATEGORIES,
             "api_docs_html": api_docs_html,
             "api_meta": api_meta,
@@ -2103,6 +2150,165 @@ async def save_alerts_policy(
     session.commit()
     return RedirectResponse(
         _settings_url("alerts", policy_saved="1") + "#alerts-policy", status_code=303
+    )
+
+
+def _mute_window_label(rule) -> str:
+    from ..services import alert_mute as mute_svc
+
+    start = mute_svc.local_input_value(rule.starts_at).replace("T", " ")
+    end = mute_svc.local_input_value(rule.ends_at).replace("T", " ")
+    if rule.starts_at is None and rule.ends_at is None:
+        return "Always"
+    if rule.starts_at is None:
+        return f"Until {end}"
+    return f"{start} to {end}"
+
+
+def _mute_state(rule) -> str:
+    from ..services import alert_mute as mute_svc
+
+    if mute_svc.is_active(rule):
+        return "Active"
+    if rule.starts_at is not None and datetime.utcnow() < rule.starts_at:
+        return "Not started"
+    return "Ended"
+
+
+def _mute_form_int(raw) -> Optional[int]:
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+
+@router.post("/herder-backups/alerts/mute")
+async def create_alert_mute_rule(
+    request: Request,
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    from ..services import alert_mute as mute_svc
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
+    form = await request.form()
+    try:
+        starts_at = mute_svc.parse_local_instant(form.get("starts_at"))
+        ends_at = mute_svc.parse_local_instant(form.get("ends_at"))
+        row = mute_svc.create_rule(
+            session,
+            kind=str(form.get("kind") or "").strip(),
+            server_id=_mute_form_int(form.get("server_id")),
+            alert_type=str(form.get("alert_type") or "").strip() or None,
+            starts_at=starts_at,
+            ends_at=ends_at,
+        )
+    except mute_svc.MuteRejected as e:
+        return RedirectResponse(
+            _settings_url("alerts", alerts_error=str(e)[:120]) + "#alerts-mute",
+            status_code=303,
+        )
+    except ValueError:
+        return RedirectResponse(
+            _settings_url("alerts", alerts_error="Enter a valid time") + "#alerts-mute",
+            status_code=303,
+        )
+    session.add(
+        make_audit_log(
+            user_id=user.id,
+            action="alert_mute_created",
+            status="success",
+            details=mute_svc.audit_details(row),
+            finished_at=datetime.utcnow(),
+        )
+    )
+    session.commit()
+    return RedirectResponse(
+        _settings_url("alerts", mute_saved="1") + "#alerts-mute", status_code=303
+    )
+
+
+@router.post("/herder-backups/alerts/mute/{rule_id}")
+async def update_alert_mute_rule(
+    rule_id: int,
+    request: Request,
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    from ..services import alert_mute as mute_svc
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
+    form = await request.form()
+    try:
+        starts_at = mute_svc.parse_local_instant(form.get("starts_at"))
+        ends_at = mute_svc.parse_local_instant(form.get("ends_at"))
+        row = mute_svc.update_window(
+            session,
+            rule_id,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            starts_set=True,
+            ends_set=True,
+        )
+    except mute_svc.MuteRejected as e:
+        return RedirectResponse(
+            _settings_url("alerts", alerts_error=str(e)[:120]) + "#alerts-mute",
+            status_code=303,
+        )
+    except ValueError:
+        return RedirectResponse(
+            _settings_url("alerts", alerts_error="Enter a valid time") + "#alerts-mute",
+            status_code=303,
+        )
+    session.add(
+        make_audit_log(
+            user_id=user.id,
+            action="alert_mute_updated",
+            status="success",
+            details=mute_svc.audit_details(row),
+            finished_at=datetime.utcnow(),
+        )
+    )
+    session.commit()
+    return RedirectResponse(
+        _settings_url("alerts", mute_saved="1") + "#alerts-mute", status_code=303
+    )
+
+
+@router.post("/herder-backups/alerts/mute/{rule_id}/delete")
+async def delete_alert_mute_rule(
+    rule_id: int,
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    from ..services import alert_mute as mute_svc
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
+    try:
+        row = mute_svc.delete_rule(session, rule_id)
+    except mute_svc.MuteRejected as e:
+        return RedirectResponse(
+            _settings_url("alerts", alerts_error=str(e)[:120]) + "#alerts-mute",
+            status_code=303,
+        )
+    session.add(
+        make_audit_log(
+            user_id=user.id,
+            action="alert_mute_deleted",
+            status="success",
+            details=mute_svc.audit_details(row),
+            finished_at=datetime.utcnow(),
+        )
+    )
+    session.commit()
+    return RedirectResponse(
+        _settings_url("alerts", mute_saved="1") + "#alerts-mute", status_code=303
     )
 
 

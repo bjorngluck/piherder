@@ -118,7 +118,8 @@ Base path: **`/api/v1`**
 |--------|------|-------|-------------|
 | `GET` | `/api/v1` | `read` | Machine-readable scope/endpoint catalog + **this token’s** scopes |
 | `GET` | `/api/v1/health` | `read` | `{ ok, scopes, allowed_features, client_ip, service_migrate }` |
-| `GET` | `/api/v1/summary` | `read` | Fleet heartbeat: hosts, updates, jobs, alerts, plus resource **sums** `cpu_cores`, `memory_*_bytes`, `disk_*_bytes`, `containers`. DB snapshots only. |
+| `GET` | `/api/v1/summary` | `read` | Fleet heartbeat: hosts, updates, jobs, alerts, plus resource **sums** `cpu_cores`, `memory_*_bytes`, `disk_*_bytes`, `containers`. DB snapshots only. Hosted `summary` calls this route. |
+| `GET` | `/api/v1/fleet/summary` | `read` | Counts and states for hosts, open alerts, failed jobs, backups, Drive replication, and pending updates. Optional `since` is ISO-8601. Omitted means the current snapshot. Set, only areas that changed after that time are returned. A bad `since` is HTTP 400. Host ids are allowed. No addresses, tokens, webhook URLs, or filesystem paths. Does not replace `/api/v1/summary`. Does not SSH. Hosted `fleet_summary` calls this route. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** lists that tool. Adapter **0.4.3** does not. A herder without this route returns 404. |
 
 ### Servers
 
@@ -129,6 +130,7 @@ Base path: **`/api/v1`**
 | `GET` | `/api/v1/inventory` | `read` | Last Docker inventory for every host (DB snapshot, never SSH). Slim containers include `name`, `running`, `state`, `image`, `status` (uptime text), `project`, and `update_available`. `projects` lists each compose project and its images with `update_available` |
 | `GET` | `/api/v1/servers/{id}/inventory` | `read` | Same snapshot for one host, plus `os_pretty`, `hardware`, `disk_*_bytes`. `projects` and each image include `update_available` |
 | `GET` | `/api/v1/services` | `read` | Fleet service chips (`state` up/down) from stored monitor rows. Does not poll Kuma or NPM |
+| `GET` | `/api/v1/servers/{id}/backup/restore-preview` | `read` | SSH rsync dry-run of the local backup (`source`, optional `destination_id`). It diffs that local backup and does not show permission or owner-only changes. `changes` lists relative paths a restore would send (`create` or `update`). `wrote` is false. It times out after 120 seconds. One preview at a time per host. A busy host returns 409. It does not pull a copy onto this PiHerder, does not write to the host, and does not take a rollback snapshot. Backups must be on for that host. A feature-restricted token also needs `feature:backup`. A bad source, a blocked path, a missing local tree, or an unavailable copy is HTTP 400. Not a hosted MCP tool |
 | `PATCH` | `/api/v1/servers/{id}/features` | `edit` | Toggle feature flags |
 | `GET` | `/api/v1/servers/{id}/files?p=` | `files` | List jail-relative directory (fleet) |
 | `GET` | `/api/v1/servers/{id}/files/download?p=` | `files` | Download one file |
@@ -182,18 +184,42 @@ Base path: **`/api/v1`**
 
 Server-side feature flags still gate jobs: you cannot run a backup job if `features.backup` is false on the server (enable it first with `edit`, or in the UI).
 
+`GET /api/v1/servers/{id}/backup/restore-preview?source=/data/app` is a dry-run of the local backup. Optional `destination_id` names a saved copy, and the diff is still the local tree. Permission or owner-only changes are not listed. The body has `ok`, `dry_run` (true), `wrote` (false), `server_id`, `source`, `place`, `changes` (`path` and `action` of `create` or `update`), `change_count`, `truncated`, `summary`, `error`, and `note`. It times out after 120 seconds. One preview at a time per host returns 409 when that host is busy. It does not include the host address or the local backup path. A real restore and Undo stay on the Backups page. They are not this route.
+
+```json
+{
+  "ok": true,
+  "dry_run": true,
+  "wrote": false,
+  "server_id": 1,
+  "source": "/data/app",
+  "place": null,
+  "changes": [{"path": "app.db", "action": "update"}],
+  "change_count": 1,
+  "truncated": false,
+  "summary": "Dry-run restore ok · /data/app",
+  "error": null,
+  "note": null
+}
+```
+
 `backup_schedule` is the saved cron, or null. `effective_backup_schedule` is the cron that will run. `backup_schedule_source` is `host`, `fleet`, or null when backups are off. `next_backup_run` is the live job's next run. `backup_scheduled` is true when that job is registered, false only when backups are on, the scheduler is running, and no job is registered, and null when this process cannot see the scheduler. A saved schedule wins. Apply does not write `backup_schedule`. Hosted `list_servers` and `get_server` return these keys, and the tool text names `effective_backup_schedule`, `next_backup_run`, and `backup_scheduled`. The adapter returns the same JSON. The package that names those fields in its tool text ships with the herder.
 
 ### Jobs
 
 | Method | Path | Scope | Description |
 |--------|------|-------|-------------|
-| `GET` | `/api/v1/alerts` | `read` | Open notifications (`limit`, `offset`). Dismissed and resolved rows are omitted. Each row has `id`, `type`, `severity`, `title`, `body`, `server_id`, `link_url`, `status`, `created_at`, and `updated_at`. Hosted `list_alerts` calls this route. Ships in **1.13.0** |
+| `GET` | `/api/v1/alerts` | `read` | Open notifications (`limit`, `offset`). Dismissed and resolved rows are omitted. Each row has `id`, `type`, `severity`, `title`, `body`, `server_id`, `link_url`, `status`, `muted`, `created_at`, and `updated_at`. `muted` is true when a mute rule is active for that host or type. Hosted `list_alerts` calls this route. The route ships in **1.13.0**. `muted` is on the 1.14 train |
+| `GET` | `/api/v1/alert-mutes` | `read` | Mute rules. Each row has `id`, `kind` (`host` or `type`), `server_id`, `alert_type`, `starts_at`, `ends_at`, and `active`. One rule is one host or one alert type |
+| `POST` | `/api/v1/alert-mutes` | `edit` | Create a rule (HTTP **201**). Body: `kind`, `server_id` or `alert_type`, optional `starts_at` and `ends_at` (ISO, UTC). A start without an end is rejected. Auth failures, OAuth problems, and backup failures cannot be muted. Audited as `alert_mute_created` |
+| `PATCH` | `/api/v1/alert-mutes/{id}` | `edit` | Change the window only. Omit a field to leave it. `null` clears it. Audited as `alert_mute_updated` |
+| `DELETE` | `/api/v1/alert-mutes/{id}` | `edit` | Delete the rule. The inbox row stays. Audited as `alert_mute_deleted` |
 | `GET` | `/api/v1/jobs` | `read` | Fleet job list (`server_id`, `status_filter`, `job_type`, `active_only`, `limit`, `offset`) |
 | `GET` | `/api/v1/jobs/{id}` | `read` | Job detail (`?detail=true` for longer log tail) |
 | `GET` | `/api/v1/servers/{id}/jobs` | `read` | Jobs for one server |
 | `POST` | `/api/v1/servers/{id}/jobs` | `jobs` | Trigger job (HTTP **202**) |
-| `POST` | `/api/v1/servers/{id}/docker/prune` | `edit` | Start a `docker_prune` job (HTTP **202**). `prune_type` is `images`, `containers`, `both`, or `networks`. Volume prune stays on the Docker page. Per-host `docker_prune_schedule` (empty means off, container patch required) starts `both` (dangling images and exited containers). Volumes stay off that schedule. About **View schedule** lists it. A missed slot opens `docker_prune_missed` |
+| `POST` | `/api/v1/servers/{id}/docker/prune` | `edit` | Start a `docker_prune` job (HTTP **202**). `prune_type` is `images`, `containers`, `both`, or `networks`. Unused volumes are not this job. Per-host `docker_prune_schedule` (empty means off, container patch required) starts `both` (dangling images and exited containers). Volumes stay off that schedule. About **View schedule** lists it. A missed slot opens `docker_prune_missed` |
+| `POST` | `/api/v1/servers/{id}/docker/volumes` | `edit` | Prune unused Docker volumes (`docker volume prune -f`). Body `dry_run` true is a best-effort preview. It lists dangling volumes and sizes and deletes nothing. That set can differ slightly from what `docker volume prune -f` removes on newer Docker versions, and there is a small time gap between the dry run and the delete. It is not an exact match. confirm is not required then, and there is no audit row. `confirm` true deletes them. Synchronous. One audit row, `docker_volume_prune`, with `source` (`ui`, `rest`, or `mcp`), deleted names, and `bytes_reclaimed`. Not a `docker_prune` job and not scheduled. Dry-run first and get a human's OK. The host page queues a separate `docker_prune` job. Hosted `prune_volumes` calls this route. Adapter **0.4.4** does not list that tool |
 | `POST` | `/api/v1/servers/{id}/docker/build-cache` | `edit` | Prune the Docker build cache and the buildx cache (`docker builder prune -f`, then `docker buildx prune -f`). Synchronous. One audit row, `docker_build_cache_prune`. Not a `docker_prune` job and not scheduled. Hosted `prune_build_cache` calls this route. Ships in **1.13.0** |
 
 **POST body**
@@ -261,7 +287,7 @@ Gates: `jobs`, `feature:docker` when the token is feature-restricted, the docker
 
 `POST /api/v1/servers/{id}/jobs` with `service_migrate` stays **400**. Hosted MCP `trigger_job` does not start a Move. Hosted `start_move` calls this route. There is no undo tool. Adapter **0.4.3** lists `start_move`. Adapter **0.3.1** does not.
 
-Hosted MCP `trigger_job` uses this same list, including `container_start`, `container_stop`, `container_restart`, and `container_redeploy` (**v1.9** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md)). Those four require `service` and `source_filter`, the same body as this POST. It does not add `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move, undo, nmap, the console, token admin, or stale-data cleanup. Move is `start_move`. A LAN Discovery scan is `read_discovery` and `start_discovery`. For a `docker_stack_*` job, `source_filter` is the compose project path. Feature flags and `feature:*` scopes still apply. Token gates stay `jobs`, `feature:docker` when the token is feature-restricted, and the server docker flag. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** lists the four one-service types plus `list_alerts`, `prune_build_cache`, `replace_stale_mac`, `fleet_summary`, `prune_docker`, `start_move`, `read_discovery`, `start_discovery`, and the device tools. `fleet_summary` returns 404 on the **1.13.0** image. Adapter **0.4.3** does not list those four. Adapter **0.4.2** lists those tools and does not list `prune_docker`. Adapter **0.4.0** lists the four plus those three scan and Move tools and does not list the device tools. Adapter **0.3.1** lists the four and does not list those three. `uvx` at **0.2.0** does not list the four one-service types.
+Hosted MCP `trigger_job` uses this same list, including `container_start`, `container_stop`, `container_restart`, and `container_redeploy` (**v1.9** [DECISION_MCP_SVC.md](DECISION_MCP_SVC.md)). Those four require `service` and `source_filter`, the same body as this POST. It does not add `docker_stack_down`, `docker_stack_remove`, `template_drift_check`, Move, undo, nmap, the console, token admin, or stale-data cleanup. Move is `start_move`. A LAN Discovery scan is `read_discovery` and `start_discovery`. For a `docker_stack_*` job, `source_filter` is the compose project path. Feature flags and `feature:*` scopes still apply. Token gates stay `jobs`, `feature:docker` when the token is feature-restricted, and the server docker flag. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** lists the four one-service types plus `fleet_summary`, `list_alerts`, `prune_build_cache`, `replace_stale_mac`, `prune_docker`, `start_move`, `read_discovery`, `start_discovery`, and the device tools. Adapter **0.4.3** lists the older set and does not list those four. Adapter **0.4.2** lists those tools and does not list `prune_docker`. Adapter **0.4.0** lists the four plus those three scan and Move tools and does not list the device tools. Adapter **0.3.1** lists the four and does not list those three. `uvx` at **0.2.0** does not list the four one-service types.
 
 ### LAN Discovery
 
@@ -275,7 +301,7 @@ Hosted MCP `trigger_job` uses this same list, including `container_start`, `cont
 | `PATCH` | `/api/v1/discovery/{id}/devices/{device_id}` | `edit` | `display_name` and/or `state` (`known`, `new`, `ignored`) |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/ignore` | `edit` | Hide the device |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/unignore` | `edit` | Mark known. A linked device stays linked |
-| `POST` | `/api/v1/discovery/{id}/devices/{device_id}/replace-stale-mac` | `edit` | Body `stale_device_id`. The path id is the new MAC row. Marks the stale row ignored and copies a non-empty display name, kind override, and notes. On the v1.13 train. Not in the 1.12.1 image |
+| `POST` | `/api/v1/discovery/{id}/devices/{device_id}/replace-stale-mac` | `edit` | Body `stale_device_id`. The path id is the new MAC row. Marks the stale row ignored and copies a non-empty display name, kind override, and notes. Ships in **1.13.0**. Hosted `replace_stale_mac` calls this route. Adapter **0.4.4** lists it. Adapter **0.4.3** does not |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/link` | `edit` | Body `server_id` |
 | `POST` | `/api/v1/discovery/{id}/devices/{device_id}/unlink` | `edit` | Device becomes known |
 | `DELETE` | `/api/v1/discovery/{id}/devices/{device_id}?confirm=true` | `edit` | Purge one device. `confirm=true` is required. A linked device is **400** |

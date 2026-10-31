@@ -978,6 +978,18 @@ def watch_missed_schedules():
         with Session(get_engine()) as session:
             opened = sync_missed_schedule_alerts(session)
             try:
+                from .schedule_catchup import run_due_catchups
+
+                run_due_catchups(session)
+            except Exception:
+                logger.exception("[SCHEDULER] Missed-slot catch-up failed")
+            try:
+                from .backup_replicate import sync_drive_token_aging
+
+                sync_drive_token_aging(session)
+            except Exception:
+                logger.exception("[SCHEDULER] Drive token age check failed")
+            try:
                 from .copy_schedule_order import sync_copy_order_alerts
 
                 sync_copy_order_alerts(session)

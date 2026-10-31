@@ -10,6 +10,7 @@ from sqlmodel import Session, select
 
 from ..models import Notification, User
 from ..config import settings
+from . import alert_mute
 from . import alert_policy as apol
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,18 @@ def _parse_iso(raw: Any) -> Optional[datetime]:
         return dt
     except Exception:
         return None
+
+
+def _delivery_muted(session: Session, alert_type: str, server_id: Optional[int]) -> bool:
+    """True when a mute rule should skip webhook, email, and push.
+
+    A missing table or a lookup error does not drop the inbox row or the send.
+    """
+    try:
+        return alert_mute.is_muted(session, alert_type=alert_type, server_id=server_id)
+    except Exception as e:
+        logger.debug("mute lookup failed: %s", e)
+        return False
 
 
 def upsert_notification(
@@ -104,7 +117,8 @@ def upsert_notification(
         existing.user_id = user_id if user_id is not None else existing.user_id
         existing.updated_at = now
         did_notify = False
-        if notify_channels and policy.realert_hours > 0:
+        muted = _delivery_muted(session, type, existing.server_id)
+        if notify_channels and not muted and policy.realert_hours > 0:
             stamp = _parse_iso(merged.get(_LAST_NOTIFIED_KEY)) or existing.created_at
             if stamp is None or (now - stamp) >= timedelta(hours=policy.realert_hours):
                 _fire_channels(
@@ -140,7 +154,8 @@ def upsert_notification(
                 return None
 
     merged = dict(payload) if payload else {}
-    if notify_channels:
+    muted = _delivery_muted(session, type, server_id)
+    if notify_channels and not muted:
         merged[_LAST_NOTIFIED_KEY] = now.isoformat() + "Z"
     payload_s = json.dumps(merged) if merged else None
 
@@ -162,7 +177,7 @@ def upsert_notification(
     session.commit()
     session.refresh(n)
 
-    if notify_channels:
+    if notify_channels and not muted:
         _fire_channels(
             session,
             n,
@@ -230,6 +245,8 @@ def resolve_by_fingerprint(session: Session, fingerprint: str) -> int:
     if rows:
         session.commit()
         for n in rows:
+            if _delivery_muted(session, n.type, n.server_id):
+                continue
             _maybe_push_resolved(session, n)
     return len(rows)
 

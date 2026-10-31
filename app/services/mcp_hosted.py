@@ -108,7 +108,12 @@ _SERVER_INSTRUCTIONS = (
     "prune_docker starts a Docker prune job. It needs the edit scope. "
     "prune_type is images, containers, both, or networks. "
     "both is dangling images and exited containers. "
-    "Volume prune stays on the Docker page. "
+    "prune_volumes deletes unused Docker volumes. confirm must be true unless dry_run is true. "
+    "dry_run is a best-effort preview of dangling volumes and their sizes. It deletes nothing. "
+    "That set can differ slightly from what docker volume prune -f removes on newer Docker versions, "
+    "and there is a small time gap between the dry run and the delete. It is not an exact match. "
+    "Dry-run first and get a human's OK before confirm true. "
+    "It needs the edit scope. It is not a docker_prune job and it has no schedule. "
     "prune_build_cache clears the Docker build cache and the buildx cache. "
     "It needs the edit scope. It is not a docker_prune job and it has no schedule. "
     "Do not invent SSH, undo, a console, token admin, "
@@ -195,6 +200,20 @@ def tool_catalog() -> list[dict[str, Any]]:
             "description": "Fleet heartbeat from the database. Does not SSH.",
             "scope": tok_svc.SCOPE_READ,
             "inputSchema": _EMPTY_SCHEMA,
+            "annotations": _READ_ANN,
+        },
+        {
+            "name": "fleet_summary",
+            "description": (
+                "Counts and states for hosts, alerts, failed jobs, backups, "
+                "Drive replication, and pending updates. since is optional ISO-8601. "
+                "Does not replace summary. Does not SSH."
+            ),
+            "scope": tok_svc.SCOPE_READ,
+            "inputSchema": _obj_schema(
+                {"since": _str_prop("Optional ISO-8601 timestamp")},
+                [],
+            ),
             "annotations": _READ_ANN,
         },
         {
@@ -307,7 +326,7 @@ def tool_catalog() -> list[dict[str, Any]]:
                 "Start a Docker prune job. Needs the edit scope. "
                 "prune_type is images, containers, both, or networks. "
                 "both is dangling images and exited containers. "
-                "Volume prune stays on the Docker page. "
+                "Unused volumes are prune_volumes. dry_run is a best-effort preview of dangling volumes, not an exact match. confirm true deletes them. "
                 "HTTP 202 means accepted. HTTP 409 means a prune is already active: "
                 "poll get_job and do not start another."
             ),
@@ -334,6 +353,40 @@ def tool_catalog() -> list[dict[str, Any]]:
             "scope": tok_svc.SCOPE_EDIT,
             "inputSchema": _obj_schema({"server_id": sid}, ["server_id"]),
             "annotations": _WRITE_ANN,
+        },
+        {
+            "name": "prune_volumes",
+            "description": (
+                "Prune unused Docker volumes on one host. "
+                "dry_run true is a best-effort preview of dangling volumes and sizes. It deletes nothing. "
+                "That set can differ slightly from what docker volume prune -f removes on newer Docker versions, "
+                "and there is a small time gap between the dry run and the delete. It is not an exact match. "
+                "confirm is not required for a dry run. "
+                "confirm true deletes them and writes one audit row. "
+                "Needs the edit scope. Not a docker_prune job and not scheduled. "
+                "Dry-run first and get a human's OK."
+            ),
+            "scope": tok_svc.SCOPE_EDIT,
+            "inputSchema": _obj_schema(
+                {
+                    "server_id": sid,
+                    "confirm": {
+                        "type": "boolean",
+                        "description": "Must be true to delete. Not required when dry_run is true.",
+                    },
+                    "dry_run": {
+                        "type": "boolean",
+                        "description": "Best-effort preview of dangling volumes and sizes. Not an exact match for docker volume prune -f. Deletes nothing.",
+                    },
+                },
+                ["server_id"],
+            ),
+            "annotations": {
+                "readOnlyHint": False,
+                "destructiveHint": True,
+                "idempotentHint": False,
+                "openWorldHint": True,
+            },
         },
         {
             "name": "trigger_job",
@@ -986,6 +1039,12 @@ async def call_tool(
             payload = api_v1.api_health(auth)
         elif name == "summary":
             payload = api_v1.api_summary(session, auth)
+        elif name == "fleet_summary":
+            payload = api_v1.api_fleet_summary(
+                session,
+                auth,
+                since=_opt_str(args, "since") or "",
+            )
         elif name == "list_servers":
             payload = api_v1.list_servers(
                 session,
@@ -1048,11 +1107,6 @@ async def call_tool(
             )
         elif name == "prune_docker":
             kind = _opt_str(args, "prune_type").strip().lower() or "both"
-            if kind == "volumes":
-                return tool_text_result(
-                    {"ok": False, "detail": "Volume prune stays on the Docker page"},
-                    is_error=True,
-                )
             background = BackgroundTasks()
             raw = await api_v1.prune_docker(
                 _require_int(args, "server_id"),
@@ -1069,11 +1123,37 @@ async def call_tool(
                     payload["already_active"] = True
             await _drain_background(background)
         elif name == "prune_build_cache":
-            payload = api_v1.prune_build_cache(
+            from starlette.concurrency import run_in_threadpool
+
+            payload = await run_in_threadpool(
+                api_v1.prune_build_cache,
                 _require_int(args, "server_id"),
                 session,
                 auth,
             )
+        elif name == "prune_volumes":
+            from starlette.concurrency import run_in_threadpool
+
+            dry_run = _opt_bool(args, "dry_run")
+            if not dry_run and _opt_bool(args, "confirm") is not True:
+                return tool_text_result(
+                    {"ok": False, "detail": "confirm must be true"},
+                    is_error=True,
+                )
+            source = api_v1.volume_prune_source.set("mcp")
+            try:
+                payload = await run_in_threadpool(
+                    api_v1.prune_volumes,
+                    _require_int(args, "server_id"),
+                    api_v1.VolumePruneBody(
+                        confirm=_opt_bool(args, "confirm"),
+                        dry_run=dry_run,
+                    ),
+                    session,
+                    auth,
+                )
+            finally:
+                api_v1.volume_prune_source.reset(source)
         elif name == "trigger_job":
             job_type = _opt_str(args, "job_type").strip().lower()
             if job_type not in MCP_JOB_TYPES:

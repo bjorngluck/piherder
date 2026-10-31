@@ -29,13 +29,42 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.11.0** | **Captured** 2026-10-18 and wired. Passkey as 2FA, straight-out backups, a finished Backup, and Repository. Names in the frames are masked. Package **1.11.0**. [§ v1.11](#v111--pack-status). [QA](../../../docs/QA_v1.11.0.md) |
 | **v1.12.0** | **Captured** 2026-10-22 and wired. Names, paths, and addresses in the frames are masked. About and the footer still say **1.11.0**. [§ v1.12](#v112--pack-status). [QA](../../../docs/QA_v1.12.0.md) |
 | **v1.13.0** | Pack landed 2026-10-26. About and the footer say **1.13.0**. [§ v1.13](#v113--pack-status). [QA](../../../docs/QA_v1.13.0.md) |
+| **v1.14.0** | **Reserved** 2026-10-28 on `v1.14.0-dev`. Not captured. About / footer still **1.13.0**. [§ v1.14](#v114--pack-status). [QA](../../../docs/QA_v1.14.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    **v1.13** About Docker prune and Docker cleanup are wired in [§ v1.13](#v113--pack-status). About / footer still say **1.12.1**. Host bootstrap is wired. NIC change and the stuck-queue frames are wired.  
-    Do not photograph the public demo. Mask names, paths, addresses, tokens, the SMB password, the Google client secret, and the Microsoft client secret.  
-    **v1.12 captures** stay. Do not retake them for this release.
+    **v1.14** frames are reserved and not captured. About and the footer still say **1.13.0**. Shoot Git drift on the stack list, Mute rules, and the Drive OAuth alert. Names are in [§ v1.14](#v114--pack-status).
+
+    Do not photograph the public demo. Mask names, paths, addresses, tokens, the SMB password, the Google client secret, and the Microsoft client secret.
+
+    **v1.13 captures** stay. Do not retake them for this release.
+
+---
+
+## v1.14.0 pack status {#v114--pack-status}
+
+**Reserved** 2026-10-28. Not captured. About and the footer still say **1.13.0**. Package stays **1.13.0**. Mask names, paths, addresses, and secrets. Do not photograph the public demo. Maintainer walks are [QA_v1.14.0.md](../../../docs/QA_v1.14.0.md). They are not signed.
+
+| File | Surface | What the frame shows | Where |
+|------|---------|----------------------|--------|
+| `docker-git-drift.png` | Host Docker stack list | **Reserved.** The **Git drift** pill beside **Update available**. The checkout is behind, ahead, or has tracked edits. Host, project, and remote are examples. Untracked files are not the reason for the pill | [Docker](../../docker/overview.md) |
+| `settings-mute-rules.png` | Settings → Alerts | **Reserved.** **Mute rules**, one host or one alert type, with an optional end. No webhook URL and no token. `settings-alerts.png` stays for category policy | [Alerts](../../operations/alerts-email-webhooks.md) |
+| `alerts-drive-oauth.png` | Alerts | **Reserved.** `drive_oauth_token_aging` or `drive_oauth_refresh_failed`. Presence and age only. No token, no client secret, and no rclone config | [Alerts](../../operations/alerts-email-webhooks.md) |
+
+### Do not shoot for 1.14
+
+| Slice | Why |
+|-------|-----|
+| v1.13 pack | `discovery-nic-change.png`, `docker-build-cache-prune.png`, `alerts-stuck-queue.png`, `about-scheduler-prune.png`, and `host-bootstrap.png` stay |
+| Volume prune | The page confirm is already in `docker-prune.png` and `docker-build-cache-prune.png`. The API walk has no new screen |
+| Restore snapshot, manifest, preview | Walk only. `restore-from-copy.png` stays |
+| Fleet summary API | Walk only. `dashboard.png` stays. It is not `GET /api/v1/fleet/summary` |
+| Missed-slot catch-up | Walk only. The Jobs page already has a frame |
+| Mobile console | Known issue in prose. Do not photograph a phone session |
+| Push denylist | No screen. Patterns stay off git |
+| HACS wording | Existing `ha-*.png` frames stay |
+| Public demo | Stays the production image |
 
 ---
 

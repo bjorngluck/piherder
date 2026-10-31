@@ -863,6 +863,11 @@ function computeUsableSummary(drives) {
           </div>
 
           <input type="text" name="backup_schedule" id="cron-input" value="{{ server.backup_schedule or '' }}" placeholder="0 2 * * *" class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs">
+          <input type="hidden" name="backup_catchup_set" value="1">
+          <label class="flex items-center gap-2 text-xs min-h-9 mt-1">
+            <input type="checkbox" name="backup_catchup" value="1" {% if server.backup_catchup_enabled %}checked{% endif %}>
+            Catch up one missed backup
+          </label>
           {% if server.backup_schedule %}
           <p class="text-[9px] text-muted mt-0.5">{{ server.backup_schedule | cron_human(get_app_timezone()) }} · <code class="font-mono">{{ server.backup_schedule }}</code></p>
           {% elif server.backup_schedule_source == 'fleet' and server.effective_backup_schedule %}

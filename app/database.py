@@ -10,6 +10,7 @@ from .models import (  # ensure registered for create_all / alembic
     ServiceTemplate,
     StackDeployment,
     ComposeProjectMeta,
+    AlertMuteRule,
 )
 
 

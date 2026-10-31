@@ -6,6 +6,7 @@ Admin-managed instance tokens. See docs/API.md and GET /api/v1.
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar
 from datetime import datetime
 from typing import Any, Optional
 
@@ -25,6 +26,7 @@ from ..services.server_audit import record_server_audit
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+volume_prune_source: ContextVar[str] = ContextVar("volume_prune_source", default="rest")
 
 ALLOWED_JOB_TYPES = frozenset(tok_svc.JOB_FEATURE_KEY.keys())
 
@@ -329,6 +331,30 @@ def api_summary(
     return out
 
 
+@router.get(
+    "/fleet/summary",
+    summary="Fleet summary",
+    description=(
+        "Counts and states for hosts, open alerts, failed jobs, backups, "
+        "Drive replication, and pending updates. since is ISO-8601. "
+        "Omitted means the current snapshot. Scope read. Does not SSH."
+    ),
+)
+def api_fleet_summary(
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+    since: str = "",
+):
+    auth.require(tok_svc.SCOPE_READ)
+    from ..services.fleet_summary import build_fleet_summary, parse_since
+
+    try:
+        moment = parse_since(since)
+    except (ValueError, OverflowError):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="since must be an ISO-8601 timestamp")
+    return build_fleet_summary(session, since=moment)
+
+
 # ---------- Fleet read ----------
 
 
@@ -421,6 +447,89 @@ def api_inventory(
     }
 
 
+def _restore_preview_public(server_id: int, result: dict[str, Any]) -> dict[str, Any]:
+    changes = result.get("changes") or []
+    return {
+        "ok": result.get("rc") == 0 and not result.get("error"),
+        "dry_run": True,
+        "wrote": False,
+        "server_id": server_id,
+        "source": result.get("source") or "",
+        "place": result.get("place"),
+        "changes": changes,
+        "change_count": result.get("change_count", len(changes)),
+        "truncated": bool(result.get("truncated")),
+        "summary": result.get("summary") or "",
+        "error": result.get("error"),
+        "note": result.get("note"),
+    }
+
+
+@router.get(
+    "/servers/{server_id}/backup/restore-preview",
+    summary="Dry-run restore preview",
+    description=(
+        "Scope read. SSH rsync dry-run of the local backup against the host. "
+        "It diffs that local backup and does not show permission or owner-only changes. "
+        "Times out after 120 seconds. One preview at a time per host. "
+        "A busy host returns 409. feature:backup applies when the token is feature-restricted. "
+        "Does not write. Not a hosted MCP tool."
+    ),
+)
+def api_restore_preview(
+    server_id: int,
+    source: str = "",
+    destination_id: Optional[int] = None,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    auth.require(tok_svc.SCOPE_READ)
+    auth.require_feature("backup")
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Server not found")
+    auth.require_server_feature(server, "backup")
+    if not (source or "").strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="source path required")
+    pull_from = None
+    if destination_id is not None:
+        from ..models import BackupDestination
+        from ..services import backup_restore as restore_svc
+
+        allowed = {int(row["id"]) for row in restore_svc.restore_places(session, server)}
+        pull_from = session.get(BackupDestination, destination_id) if destination_id in allowed else None
+        if pull_from is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="That copy is not available for this host",
+            )
+    from ..services.backup_restore import preview_restore
+    from ..services.server_job_lock import release_server_lock, try_acquire_server_lock
+
+    lock = try_acquire_server_lock(
+        "backup", int(server.id), holder="restore-preview", ttl_sec=180
+    )
+    if not lock:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="This host is busy")
+    try:
+        result = preview_restore(server, source.strip(), pull_from=pull_from)
+    finally:
+        release_server_lock("backup", int(server.id), lock)
+    error = result.get("error") or ""
+    if error and result.get("rc") != 0 and not result.get("changes"):
+        lowered = error.lower()
+        if (
+            "policy" in lowered
+            or "source path" in lowered
+            or "no local backup" in lowered
+            or "ssh key" in lowered
+            or "private key" in lowered
+            or "not available" in lowered
+        ):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=error[:300])
+    return _restore_preview_public(server_id, result)
+
+
 @router.get("/servers/{server_id}/inventory", summary="Host Docker inventory snapshot")
 def api_server_inventory(
     server_id: int,
@@ -435,7 +544,24 @@ def api_server_inventory(
     return _inventory_public(server)
 
 
-def _alert_public(row: Notification) -> dict[str, Any]:
+def _alert_public(
+    row: Notification,
+    session: Session,
+    mute_index: tuple | None = None,
+) -> dict[str, Any]:
+    try:
+        from ..services import alert_mute as mute_svc
+
+        if mute_index is None:
+            muted = mute_svc.is_muted(
+                session, alert_type=row.type, server_id=row.server_id
+            )
+        else:
+            muted = mute_svc.is_muted_index(
+                mute_index, alert_type=row.type, server_id=row.server_id
+            )
+    except Exception:
+        muted = False
     return {
         "id": row.id,
         "type": row.type,
@@ -445,6 +571,7 @@ def _alert_public(row: Notification) -> dict[str, Any]:
         "server_id": row.server_id,
         "link_url": row.link_url,
         "status": row.status,
+        "muted": muted,
         "created_at": _api_utc_iso(row.created_at),
         "updated_at": _api_utc_iso(row.updated_at),
     }
@@ -467,7 +594,13 @@ def list_alerts(
 
     lim = lq.clamp_api_limit(limit)
     off = lq.parse_offset(offset)
+    from ..services import alert_mute as mute_svc
+
     rows = list_notifications(session, status="open", limit=lim, offset=off)
+    try:
+        mute_index = mute_svc.active_index(session)
+    except Exception:
+        mute_index = None
     total = session.exec(
         select(func.count()).select_from(Notification).where(Notification.status == "open")
     ).one()
@@ -476,11 +609,190 @@ def list_alerts(
     except (TypeError, ValueError):
         total_n = len(rows)
     return {
-        "alerts": [_alert_public(row) for row in rows],
+        "alerts": [_alert_public(row, session, mute_index) for row in rows],
         "total": total_n,
         "limit": lim,
         "offset": off,
     }
+
+
+class AlertMuteBody(BaseModel):
+    kind: str
+    server_id: Optional[int] = None
+    alert_type: Optional[str] = None
+    starts_at: Optional[str] = None
+    ends_at: Optional[str] = None
+
+
+class AlertMuteWindowBody(BaseModel):
+    starts_at: Optional[str] = None
+    ends_at: Optional[str] = None
+
+
+def _mute_public(row) -> dict[str, Any]:
+    from ..services import alert_mute as mute_svc
+
+    return {
+        "id": row.id,
+        "kind": row.kind,
+        "server_id": row.server_id,
+        "alert_type": row.alert_type,
+        "starts_at": _api_utc_iso(row.starts_at),
+        "ends_at": _api_utc_iso(row.ends_at),
+        "active": mute_svc.is_active(row),
+    }
+
+
+def _mute_instants(starts_at: Optional[str], ends_at: Optional[str]):
+    from ..services import alert_mute as mute_svc
+
+    try:
+        return mute_svc.parse_instant(starts_at), mute_svc.parse_instant(ends_at)
+    except (ValueError, OverflowError) as exc:
+        raise HTTPException(status_code=400, detail="Enter a valid time") from exc
+
+
+def _mute_rejected(exc: Exception) -> HTTPException:
+    from ..services.alert_mute import MuteRejected
+
+    if isinstance(exc, MuteRejected) and str(exc) == "Rule not found":
+        return HTTPException(status_code=404, detail="Rule not found")
+    return HTTPException(status_code=400, detail=str(exc)[:200])
+
+
+def _audit_mute(session: Session, auth: ApiAuth, action: str, row) -> None:
+    from ..services import alert_mute as mute_svc
+    from ..services.audit_write import make_audit_log
+
+    session.add(
+        make_audit_log(
+            action=action,
+            status="success",
+            user_id=auth.user_id,
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
+            client_ip=auth.client_ip,
+            details=mute_svc.audit_details(row),
+            finished_at=datetime.utcnow(),
+        )
+    )
+    session.commit()
+
+
+@router.get(
+    "/alert-mutes",
+    summary="Alert mute rules",
+    description=(
+        "Scope read. One rule is one host or one alert type. "
+        "active is true when the window is in force, or the rule has no window."
+    ),
+)
+def list_alert_mutes(
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import alert_mute as mute_svc
+
+    auth.require(tok_svc.SCOPE_READ)
+    rows = mute_svc.list_rules(session)
+    return {"rules": [_mute_public(row) for row in rows]}
+
+
+@router.post(
+    "/alert-mutes",
+    status_code=201,
+    summary="Create an alert mute rule",
+    description=(
+        "Scope edit. kind is host or type. A window with a start must have an end. "
+        "Auth failures, OAuth problems, and backup failures cannot be muted."
+    ),
+)
+def create_alert_mute(
+    body: AlertMuteBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import alert_mute as mute_svc
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
+    auth.require(tok_svc.SCOPE_EDIT)
+    starts_at, ends_at = _mute_instants(body.starts_at, body.ends_at)
+    try:
+        row = mute_svc.create_rule(
+            session,
+            kind=(body.kind or "").strip(),
+            server_id=body.server_id,
+            alert_type=body.alert_type,
+            starts_at=starts_at,
+            ends_at=ends_at,
+        )
+    except mute_svc.MuteRejected as exc:
+        raise _mute_rejected(exc) from exc
+    _audit_mute(session, auth, "alert_mute_created", row)
+    return _mute_public(row)
+
+
+@router.patch(
+    "/alert-mutes/{rule_id}",
+    summary="Change a mute rule window",
+    description="Scope edit. Kind and target stay as they were created. Omit a field to leave it.",
+)
+def update_alert_mute(
+    rule_id: int,
+    body: AlertMuteWindowBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import alert_mute as mute_svc
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
+    auth.require(tok_svc.SCOPE_EDIT)
+    starts_set = "starts_at" in body.model_fields_set
+    ends_set = "ends_at" in body.model_fields_set
+    starts_at = ends_at = None
+    if starts_set or ends_set:
+        starts_at, ends_at = _mute_instants(
+            body.starts_at if starts_set else None,
+            body.ends_at if ends_set else None,
+        )
+    try:
+        row = mute_svc.update_window(
+            session,
+            rule_id,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            starts_set=starts_set,
+            ends_set=ends_set,
+        )
+    except mute_svc.MuteRejected as exc:
+        raise _mute_rejected(exc) from exc
+    _audit_mute(session, auth, "alert_mute_updated", row)
+    return _mute_public(row)
+
+
+@router.delete(
+    "/alert-mutes/{rule_id}",
+    summary="Delete an alert mute rule",
+    description="Scope edit. The inbox row is left as it is.",
+)
+def delete_alert_mute(
+    rule_id: int,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import alert_mute as mute_svc
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
+    auth.require(tok_svc.SCOPE_EDIT)
+    try:
+        row = mute_svc.delete_rule(session, rule_id)
+    except mute_svc.MuteRejected as exc:
+        raise _mute_rejected(exc) from exc
+    _audit_mute(session, auth, "alert_mute_deleted", row)
+    return {"ok": True, "id": rule_id}
 
 
 @router.get("/services", summary="Fleet service monitor snapshots")
@@ -1049,8 +1361,8 @@ class DockerPruneBody(BaseModel):
     summary="Start a Docker prune job",
     description=(
         "Requires scope `edit`. prune_type is images, containers, both, or networks. "
-        "both is dangling images and exited containers. Volume prune stays on the "
-        "Docker page and needs a confirm there."
+        "both is dangling images and exited containers. Unused volumes are "
+        "POST /docker/volumes with confirm true, not this job."
     ),
 )
 async def prune_docker(
@@ -1072,7 +1384,10 @@ async def prune_docker(
     if kind == "volumes":
         raise HTTPException(
             status_code=400,
-            detail="Volume prune stays on the Docker page",
+            detail=(
+                "Volume prune is POST /api/v1/servers/{id}/docker/volumes "
+                "with confirm true"
+            ),
         )
     try:
         kind = allowlist(kind, PRUNE_API_TYPES, field="prune_type")
@@ -1114,6 +1429,26 @@ async def prune_docker(
     )
 
 
+def _exclusive_job(session: Session, server_id: int):
+    from ..services.jobs_exclusive import EXCLUSIVE_CELERY_TYPES
+
+    kinds = tuple(sorted(set(EXCLUSIVE_CELERY_TYPES) | {"backup"}))
+    return session.exec(
+        select(Job)
+        .where(Job.server_id == int(server_id))
+        .where(Job.status.in_(("pending", "running")))
+        .where(Job.job_type.in_(kinds))
+    ).first()
+
+
+def _refuse_if_host_busy(session: Session, server_id: int) -> None:
+    if _exclusive_job(session, server_id) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="An exclusive job is already active on this host",
+        )
+
+
 @router.post(
     "/servers/{server_id}/docker/build-cache",
     summary="Prune Docker build cache",
@@ -1128,6 +1463,7 @@ def prune_build_cache(
     auth: ApiAuth = Depends(get_api_auth),
 ):
     from ..services import docker_management as docker_svc
+    from ..services.demo import http_403_if_demo
     from ..services.server_audit import record_server_audit
 
     server = session.get(Server, server_id)
@@ -1136,6 +1472,8 @@ def prune_build_cache(
     auth.require(tok_svc.SCOPE_EDIT)
     auth.require_feature("docker")
     auth.require_server_feature(server, "docker")
+    http_403_if_demo("docker_write")
+    _refuse_if_host_busy(session, server.id)
     try:
         result = docker_svc.prune_build_cache(server)
     except Exception as exc:
@@ -1158,6 +1496,94 @@ def prune_build_cache(
         "ok": ok,
         "audit_id": audit.id,
         "output": output,
+    }
+
+
+class VolumePruneBody(BaseModel):
+    """Unused Docker volumes. Not a docker_prune job and not scheduled."""
+
+    confirm: bool = False
+    dry_run: bool = False
+
+
+@router.post(
+    "/servers/{server_id}/docker/volumes",
+    summary="Prune unused Docker volumes",
+    description=(
+        "Requires scope `edit`. dry_run true is a best-effort preview. "
+        "It lists dangling volumes and sizes and deletes nothing. "
+        "That set can differ slightly from what docker volume prune -f removes "
+        "on newer Docker versions, and there is a small time gap between the dry run and the delete. "
+        "It is not an exact match. confirm is not required for a dry run. "
+        "dry_run false still requires confirm true and runs docker volume prune -f. "
+        "That path writes one audit row with source, deleted names, and bytes reclaimed. "
+        "Not a docker_prune job and not scheduled. "
+        "The host page queues a separate docker_prune job. Hosted prune_volumes "
+        "calls this route. Adapter 0.4.4 does not list that tool. "
+        "Agents should dry-run first and get a human's OK before confirm true."
+    ),
+)
+def prune_volumes(
+    server_id: int,
+    body: VolumePruneBody,
+    session: Session = Depends(get_session),
+    auth: ApiAuth = Depends(get_api_auth),
+):
+    from ..services import docker_management as docker_svc
+    from ..services.demo import http_403_if_demo
+    from ..services.server_audit import record_server_audit
+
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404, detail="Server not found")
+    auth.require(tok_svc.SCOPE_EDIT)
+    auth.require_feature("docker")
+    auth.require_server_feature(server, "docker")
+    http_403_if_demo("docker_write")
+    _refuse_if_host_busy(session, server.id)
+    if body.dry_run:
+        try:
+            listed = docker_svc.list_dangling_volumes(server)
+        except Exception as exc:
+            listed = {"success": False, "output": str(exc)[:500], "volumes": []}
+        return {
+            "ok": bool(listed.get("success")),
+            "dry_run": True,
+            "volumes": listed.get("volumes") or [],
+            "output": str(listed.get("output") or "")[:1500],
+        }
+    if body.confirm is not True:
+        raise HTTPException(status_code=400, detail="confirm must be true")
+    try:
+        result = docker_svc.prune_unused(server, prune_type="volumes")
+    except Exception as exc:
+        result = {"success": False, "output": str(exc)[:500]}
+    ok = bool(result.get("success"))
+    output = str(result.get("output") or "")[:1500]
+    source = volume_prune_source.get()
+    details = docker_svc.volume_prune_audit_details(source, output)
+    names = details["volumes"]
+    reclaimed = details["bytes_reclaimed"]
+    audit = record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=auth.user_id,
+        action="docker_volume_prune",
+        status="success" if ok else "failed",
+        message=output or ("Unused volumes pruned" if ok else "Volume prune failed"),
+        details=details,
+        api_token_id=auth.token_id,
+        api_token_name=auth.token_name,
+        client_ip=auth.client_ip,
+    )
+    session.commit()
+    return {
+        "ok": ok,
+        "dry_run": False,
+        "audit_id": audit.id,
+        "output": output,
+        "volumes": names,
+        "bytes_reclaimed": reclaimed,
     }
 
 

@@ -171,7 +171,7 @@ def test_api_and_hosted_mcp_require_edit_and_refuse_volumes(monkeypatch):
             json={"prune_type": "volumes"},
         )
         assert volumes.status_code == 400
-        assert "Docker page" in volumes.json()["detail"]
+        assert "docker/volumes" in volumes.json()["detail"]
 
         accepted = client.post(
             f"/api/v1/servers/{sid}/docker/prune",
@@ -241,6 +241,6 @@ def test_api_and_hosted_mcp_require_edit_and_refuse_volumes(monkeypatch):
             },
         )
         assert called.json()["result"]["isError"] is True
-        assert "Docker page" in called.json()["result"]["content"][0]["text"]
+        assert "docker/volumes" in called.json()["result"]["content"][0]["text"]
     finally:
         app.dependency_overrides.clear()

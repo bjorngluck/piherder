@@ -128,6 +128,8 @@ Timezone, security policy, **console limits**, fleet defaults, PiHerder self-bac
 
 **Where:** **Settings** (`/herder-backups?tab=general`) → **Security policy**. **Available from v1.3.**
 
+Hosted MCP `prune_volumes` lets an edit token permanently delete unused Docker volumes. This is accepted for disk housekeeping. Agents should dry_run first and get a human OK. Use a token without edit or without the docker feature if you don't want that.
+
 | Setting | Effect |
 |---------|--------|
 | **Password rules** | Min/max length (floor 8, ceiling 72), required character classes. Live text on register / account / admin / recover-admin. Audited. |
@@ -344,7 +346,7 @@ Opt-in Catalog integration — see user wiki [LAN Discovery](../wiki/integration
 | Soft embed | Linked device → server list LAN chip + server detail card |
 | Discovery ≠ Server | Link / promote / dismiss are operator-driven |
 | Worker fence | Compose hard-codes `PIHERDER_NMAP_WORKER=0` (web/main celery) and `=1` (`celery-worker-nmap` + `Dockerfile.nmap`); tasks refuse without nmap binary or when marker is 0 (`worker_guard`). Documented in [`.env.example`](../.env.example) (usually **not** set in `.env` — compose owns it). |
-| Agents | Hosted `/mcp` `read_discovery` (scope `read`) and `start_discovery` (scope `jobs`, `confirm` true). The scan uses the saved CIDRs. The agent does not choose ranges. Vulnerability scripts stay off. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** also lists rename, mark, link, purge, `replace_stale_mac`, `list_alerts`, `prune_build_cache`, `fleet_summary`, and `prune_docker`, and sends `confirm=true` on purge. `fleet_summary` returns 404 on the **1.13.0** image. **0.4.3** lists the device tools and `prune_docker` and does not list those four. **0.4.2** does not list `prune_docker`. **0.4.1** omits that query. A linked device cannot be purged. Adapter **0.4.0** lists the scan tools and does not list the device tools |
+| Agents | Hosted `/mcp` `read_discovery` (scope `read`) and `start_discovery` (scope `jobs`, `confirm` true). The scan uses the saved CIDRs. The agent does not choose ranges. Vulnerability scripts stay off. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** also lists rename, mark, link, purge, `replace_stale_mac`, `fleet_summary`, `list_alerts`, `prune_build_cache`, and `prune_docker`, and sends `confirm=true` on purge. **0.4.3** lists the device tools and `prune_docker` and does not list those four. **0.4.2** does not list `prune_docker`. **0.4.1** omits that query. A linked device cannot be purged. Adapter **0.4.0** lists the scan tools and does not list the device tools |
 | Migration | `030_nmap_kind_map_role` — `kind_override`, `map_role` |
 
 ### Optional host cleanup (piherder user)
@@ -547,7 +549,7 @@ scrape_configs:
       credentials_file: /etc/prometheus/piherder_token  # or credentials: "..."
 ```
 
-Useful series: `piherder_up`, `piherder_db_up`, `piherder_servers*`, `piherder_jobs*`, `piherder_notifications_open*`, `piherder_servers_backup_stale`.
+Useful series: `piherder_up`, `piherder_db_up`, `piherder_servers*`, `piherder_jobs*`, `piherder_notifications_open*`, `piherder_servers_backup_stale`. `piherder_schedule_catchup_total` is per process and resets on restart, so sum it across workers and use increase() or rate().
 
 If `METRICS_TOKEN` is empty, treat `/metrics` like `/health` — private network only.
 

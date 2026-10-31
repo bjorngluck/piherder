@@ -194,6 +194,8 @@ class Server(SQLModel, table=True):
     excluded_projects: str = '["my-xmrig"]'
     retention_days: int = 7
     backup_schedule: Optional[str] = None  # e.g. cron "0 2 * * *" for daily at 2am
+    # Opt-in. One backup if the latest due slot did not start. Default off.
+    backup_catchup_enabled: bool = False
 
     # Configurable backup destination (per-host overrides)
     backup_dest_root: Optional[str] = None  # e.g. custom root instead of global BACKUP_ROOT
@@ -220,6 +222,8 @@ class Server(SQLModel, table=True):
     # Container update check (check-only; pull+compare, no up -d)
     container_check_enabled: bool = False
     container_check_schedule: Optional[str] = None
+    # Opt-in. One image check if the latest due slot did not start. Default off.
+    container_check_catchup_enabled: bool = False
     last_container_check_at: Optional[datetime] = None
     container_updates_count: Optional[int] = None
     container_updates_summary: Optional[str] = None
@@ -423,6 +427,19 @@ class DockerVersion(SQLModel, table=True):
     deployed_at: Optional[datetime] = None
 
     server: Server = Relationship(back_populates="docker_versions")
+
+
+class AlertMuteRule(SQLModel, table=True):
+    """One host or one alert type. Delivery only. Schedules still run."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    kind: str = Field(index=True)  # host | type
+    server_id: Optional[int] = Field(default=None, foreign_key="server.id", index=True)
+    alert_type: Optional[str] = Field(default=None, index=True)
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class Notification(SQLModel, table=True):

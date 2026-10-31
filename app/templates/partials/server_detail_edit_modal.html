@@ -308,6 +308,10 @@
             <input type="text" name="container_check_schedule" value="{{ server.container_check_schedule or '0 0 * * *' }}" placeholder="0 0 * * *"
                    class="w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
             <p class="text-[10px] text-muted m-0">{{ (server.container_check_schedule or '0 0 * * *') | cron_human(get_app_timezone()) }}</p>
+            <label class="flex items-center gap-2 text-xs min-h-11">
+              <input type="checkbox" name="container_check_catchup" value="1" {% if server.container_check_catchup_enabled %}checked{% endif %}>
+              Catch up one missed image check. Off unless you turn this on.
+            </label>
             <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save container check</button>
           </form>
         </div>

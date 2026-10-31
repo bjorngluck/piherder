@@ -54,7 +54,7 @@ A folder row left running does not hold that tick's direct hop. The direct hop s
 
 ### Docker prune and the schedule list
 
-The host Docker page, `POST /api/v1/servers/{id}/docker/prune`, and hosted `prune_docker` start a `docker_prune` job. The API and MCP need the `edit` scope. `both` is dangling images, then exited containers. Networks are their own type. Volume prune stays on the Docker page until the operator confirms it. Every run writes an audit row. This is issue [#48](https://github.com/bjorngluck/piherder/issues/48), closed with this release. Build cache and buildx cache are not in this prune.
+The host Docker page, `POST /api/v1/servers/{id}/docker/prune`, and hosted `prune_docker` start a `docker_prune` job. The API and MCP need the `edit` scope. `both` is dangling images, then exited containers. Networks are their own type. In this release, unused volumes needed a confirm on the host page. Every run writes an audit row. This is issue [#48](https://github.com/bjorngluck/piherder/issues/48), closed with this release. Build cache and buildx cache are not in this prune.
 
 About keeps a short count of scheduled jobs. View schedule opens them grouped by type, with each host's status, last run, and next fire. Last run is the latest matching job. A restart does not clear it. A missed slot is not a run.
 

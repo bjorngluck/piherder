@@ -252,7 +252,9 @@
     <p class="text-xs text-muted mb-3">
       Local backup destination → remote source. Uncheck dry-run and check confirm to write for real. Path policy still applies.
       A copy destination pulls that folder onto this PiHerder first. Dry-run does not write the pull. Confirm writes it here, then onto the host.
-      Drive, OneDrive, and a LAN share do not keep a Unix owner. A named volume can come back as the wrong account, and the container may then fail to start. This release does not repair that.
+      A real restore first copies the current host folder aside so it can be undone. A retry keeps that first copy until the restore succeeds. Dry-run does not take that copy. Undo uses rsync --delete and removes files created on the host after the restore. The restore stops before that copy when this machine does not have free space for it.
+      A sidecar that records a file count and a byte count is a good restore only when the host matches both. Dry-run does not check. An older sidecar without those counts still restores.
+      Drive, OneDrive, and a LAN share do not keep a Unix owner. A sidecar from 1.13.0 puts the numeric owner, group, and mode back. An archive with no sidecar leaves those files as the account that ran the pull. A named volume can then fail to start.
     </p>
 
     {% if restore_result %}
@@ -262,6 +264,14 @@
         {{ restore_result.summary or restore_result.error or ('rc=' ~ restore_result.rc) }}
       </div>
       <div class="text-xs text-muted font-mono break-all">{{ restore_result.source }} ← {{ restore_result.destination }}</div>
+      {% if restore_result.rollback and restore_result.rollback.saved %}
+      <p class="text-xs text-muted mt-1 mb-0">A rollback snapshot was saved before this write.</p>
+      {% elif restore_result.rollback and restore_result.rollback.restored %}
+      <p class="text-xs text-muted mt-1 mb-0">The pre-restore snapshot was written back.</p>
+      {% endif %}
+      {% if restore_result.manifest and restore_result.manifest.ok %}
+      <p class="text-xs text-muted mt-1 mb-0">File count and byte count match the manifest.</p>
+      {% endif %}
       {% if restore_result.output %}
       <pre class="log-output mt-2 p-2 text-[10px] max-h-40 overflow-auto border border-border rounded">{{ restore_result.output[:3000] }}</pre>
       {% endif %}
@@ -302,6 +312,17 @@
           </label>
           <button type="submit" class="btn btn-secondary min-h-11 text-xs">Run restore</button>
         </form>
+        {% if c.rollback %}
+        <form method="post" action="/servers/{{ server.id }}/backup/restore/undo" class="mt-2 flex flex-wrap items-center gap-3 text-sm">
+          <input type="hidden" name="source" value="{{ c.source }}">
+          <label class="flex items-center gap-2 min-h-11 text-warning">
+            <input type="checkbox" name="confirm" value="1">
+            Confirm undo
+          </label>
+          <button type="submit" class="btn btn-secondary min-h-11 text-xs">Undo last restore</button>
+          <span class="text-xs text-muted">Uses rsync --delete. Files created after the restore are removed.</span>
+        </form>
+        {% endif %}
         {% if not c.exists %}
         <p class="text-xs text-muted mt-2 mb-0">No local copy yet. Pick a destination to read that folder.</p>
         {% endif %}
@@ -386,6 +407,11 @@
             {% else %}
             <p class="text-[10px] text-muted mt-1">Pick a preset or enter 5-field cron (app timezone: {{ get_app_timezone() }}).</p>
             {% endif %}
+            <input type="hidden" name="backup_catchup_set" value="1">
+            <label class="flex items-center gap-2 text-xs min-h-11 mt-2">
+              <input type="checkbox" name="backup_catchup" value="1" {% if server.backup_catchup_enabled %}checked{% endif %}>
+              Catch up one missed backup. Off unless you turn this on.
+            </label>
           </div>
         </div>
       </div>

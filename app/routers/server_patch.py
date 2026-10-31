@@ -394,6 +394,7 @@ async def save_container_check_schedule(
     server_id: int,
     container_check_enabled: Optional[str] = Form(None),
     container_check_schedule: str = Form(""),
+    container_check_catchup: Optional[str] = Form(None),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
@@ -406,6 +407,7 @@ async def save_container_check_schedule(
     # while the fleet container check is on.
     server.container_check_enabled = enabled
     server.container_check_schedule = cron if enabled else None
+    server.container_check_catchup_enabled = container_check_catchup in ("1", "on", "true")
     session.add(server)
     session.commit()
     record_server_audit(

@@ -342,6 +342,8 @@ async def update_backup_config(
     backup_paths: str = Form(""),
     retention_days: int = Form(None),
     backup_schedule: str = Form(None),
+    backup_catchup_set: str = Form(""),
+    backup_catchup: str = Form(""),
     dest_root: str = Form(""),
     folder_name: str = Form(""),
     scope: str = Form("this_host"),
@@ -461,6 +463,12 @@ async def update_backup_config(
         server.backup_schedule = backup_schedule
         if backup_schedule:
             server.backup_enabled = True
+        session.add(server)
+        session.commit()
+
+    # Other forms post the cron without this flag. Only the schedule card sets it.
+    if backup_catchup_set == "1":
+        server.backup_catchup_enabled = backup_catchup in ("1", "on", "true")
         session.add(server)
         session.commit()
 
@@ -670,14 +678,13 @@ async def restore_backup_source(
         )
         if result.get("auth_failed") and pull_from is not None:
             note_copy_auth_failure(session, pull_from, result.get("error") or "")
-    st = "success" if int(result.get("rc") or 1) == 0 and not result.get("error") else "failed"
-    al = record_server_audit(
+    return _finish_backup_restore(
+        request,
         session,
-        server_id=server.id,
-        user_id=user.id,
+        server,
+        user,
+        result,
         action="backup_restore",
-        status=st,
-        message=result.get("summary") or result.get("error") or "restore",
         details={
             "source": source.strip(),
             "dry_run": is_dry,
@@ -685,7 +692,68 @@ async def restore_backup_source(
             "summary": result.get("summary") or result.get("error"),
             "destination_id": result.get("destination_id"),
             "place": result.get("place"),
+            "rollback_saved": (result.get("rollback") or {}).get("saved") is True,
         },
+    )
+
+
+@router.post("/{server_id}/backup/restore/undo", response_class=HTMLResponse)
+async def undo_backup_restore(
+    request: Request,
+    server_id: int,
+    source: str = Form(...),
+    confirm: Optional[str] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Write the pre-restore snapshot back. Confirm is required. No new snapshot."""
+    from ..services import backup_restore as restore_svc
+
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    if confirm not in ("1", "on", "true"):
+        result = {
+            "error": "Confirm undo to write the snapshot back",
+            "rc": 1,
+            "dry_run": False,
+            "source": source.strip(),
+        }
+    else:
+        result = await run_in_threadpool(
+            restore_svc.undo_host_restore,
+            server,
+            source.strip(),
+        )
+    return _finish_backup_restore(
+        request,
+        session,
+        server,
+        user,
+        result,
+        action="backup_restore_undo",
+        details={
+            "source": source.strip(),
+            "dry_run": False,
+            "rc": result.get("rc"),
+            "summary": result.get("summary") or result.get("error"),
+        },
+    )
+
+
+def _finish_backup_restore(request, session, server, user, result, *, action: str, details: dict):
+    from ..services import backup_restore as restore_svc
+    from ..services.backup_path_policy import parse_rules, DEFAULT_DENY_PREFIXES
+
+    st = "success" if int(result.get("rc") or 1) == 0 and not result.get("error") else "failed"
+    al = record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action=action,
+        status=st,
+        message=result.get("summary") or result.get("error") or action,
+        details=details,
     )
     al.output_snippet = json.dumps(result)[:8000]
     session.add(al)

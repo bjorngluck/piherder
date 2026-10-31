@@ -178,7 +178,10 @@ class _Client:
     def exec_command(self, cmd, timeout=None):
         self.commands.append(cmd)
         if "find " in cmd:
-            payload = b"app.db\x001000\x001000\x00644\x00" if self.find_rc == 0 else b""
+            if "%s\\0" in cmd:
+                payload = b"3\x00" if self.find_rc == 0 else b""
+            else:
+                payload = b"app.db\x001000\x001000\x00644\x00" if self.find_rc == 0 else b""
             err = b"" if self.find_rc == 0 else b"find denied"
             return None, _Read(payload, self.find_rc), _Read(err, self.find_rc)
         channel = _Channel(b"sekret ya29.abcdefghij\n", self.sync_rc, fail=self.fail_channel)
@@ -304,6 +307,14 @@ def test_direct_push_as_root_uploads_the_sidecar(tmp_path, monkeypatch):
     assert rows[0]["rc"] == 0
     assert rows[0]["ownership_entries"] == 1
     assert rows[0]["direct"] is True
+    uploaded = next(
+        raw
+        for raw in client.sftp.files.values()
+        if b'"schema"' in (raw if isinstance(raw, bytes) else str(raw).encode())
+    )
+    body = json.loads(uploaded)
+    assert body["file_count"] == 1
+    assert body["byte_count"] == 3
     assert any("copyto" in cmd for cmd in seen["calls"])
     assert any("--drive-use-trash" in cmd for cmd in client.commands)
     assert client.sftp.puts
