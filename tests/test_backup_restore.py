@@ -283,6 +283,7 @@ def test_undo_writes_the_snapshot_back(tmp_path):
                     res = undo_host_restore(server, "/data/app")
     assert res["rc"] == 0
     assert res["summary"].startswith("Undo ok")
+    assert not root.exists()
     assert len(calls) == 2
     assert calls[0][0][0] == "rsync"
     assert calls[0][0][-2].rstrip("/").endswith("/tree")
@@ -476,8 +477,8 @@ def test_restore_stops_before_ssh_when_disk_is_short(tmp_path, monkeypatch):
     (dest_dir / "app.db").write_bytes(b"hello")
     server = _server(hostname="host-a.example.com", backup_folder_name="host-a")
     monkeypatch.setattr(
-        "app.services.backup_restore.shutil.disk_usage",
-        lambda _path: SimpleNamespace(total=100, used=90, free=10),
+        "app.services.backup_restore.os.statvfs",
+        lambda _path: SimpleNamespace(f_bavail=1, f_frsize=10),
     )
 
     def _run(*_args, **_kwargs):
@@ -523,6 +524,25 @@ def test_a_matching_snapshot_is_kept(tmp_path):
             host="host-a.example.com",
         )
     assert saved == {"saved": True, "kept": True}
+    (root / "meta.json").write_text('{"source":"/data/app","open":false}', encoding="utf-8")
+
+    def _again(*_args, **_kwargs):
+        raise AssertionError("host copy started")
+
+    with patch("app.services.backup_restore.subprocess.run", side_effect=_again):
+        again = _take_rollback_snapshot(
+            dest_dir,
+            source="/data/app",
+            remote="pi@host-a.example.com:/data/app/",
+            ssh_cmd="ssh",
+            rsync_path="rsync",
+            key_path=str(tmp_path / "k"),
+            port=22,
+            user="pi",
+            host="host-a.example.com",
+        )
+    assert again.get("kept") is not True
+    assert "host copy started" in (again.get("error") or "")
 
 
 def test_preview_lists_changes_and_does_not_write(tmp_path):

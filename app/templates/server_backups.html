@@ -252,7 +252,7 @@
     <p class="text-xs text-muted mb-3">
       Local backup destination → remote source. Uncheck dry-run and check confirm to write for real. Path policy still applies.
       A copy destination pulls that folder onto this PiHerder first. Dry-run does not write the pull. Confirm writes it here, then onto the host.
-      A real restore first copies the current host folder aside so it can be undone. Dry-run does not take that copy.
+      A real restore first copies the current host folder aside so it can be undone. A retry keeps that first copy until the restore succeeds. Dry-run does not take that copy. Undo uses rsync --delete and removes files created on the host after the restore. The restore stops before that copy when this machine does not have free space for it.
       A sidecar that records a file count and a byte count is a good restore only when the host matches both. Dry-run does not check. An older sidecar without those counts still restores.
       Drive, OneDrive, and a LAN share do not keep a Unix owner. A sidecar from 1.13.0 puts the numeric owner, group, and mode back. An archive with no sidecar leaves those files as the account that ran the pull. A named volume can then fail to start.
     </p>
@@ -320,6 +320,7 @@
             Confirm undo
           </label>
           <button type="submit" class="btn btn-secondary min-h-11 text-xs">Undo last restore</button>
+          <span class="text-xs text-muted">Uses rsync --delete. Files created after the restore are removed.</span>
         </form>
         {% endif %}
         {% if not c.exists %}

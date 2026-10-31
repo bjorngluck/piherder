@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shlex
 import shutil
 import subprocess
@@ -116,14 +117,50 @@ def _snapshot_paths(dest: Path) -> tuple[Path, Path, Path, Path]:
 
 
 def snapshot_matches(dest: Path, source: str) -> bool:
-    _root, tree, _staging, meta = _snapshot_paths(dest)
-    if not tree.is_dir() or not meta.is_file():
+    data = _snapshot_meta(dest)
+    if data is None:
         return False
+    _root, tree, _staging, _meta = _snapshot_paths(dest)
+    if not tree.is_dir():
+        return False
+    return (data.get("source") or "") == (source or "").strip()
+
+
+def _snapshot_meta(dest: Path) -> dict | None:
+    _root, _tree, _staging, meta = _snapshot_paths(dest)
+    if not meta.is_file():
+        return None
     try:
         data = json.loads(meta.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _snapshot_held(dest: Path, source: str) -> bool:
+    """An undo copy is kept until the restore succeeds or Undo runs."""
+    if not snapshot_matches(dest, source):
         return False
-    return isinstance(data, dict) and (data.get("source") or "") == (source or "").strip()
+    data = _snapshot_meta(dest) or {}
+    return data.get("open", True) is not False
+
+
+def _close_snapshot(dest: Path) -> None:
+    _root, _tree, _staging, meta = _snapshot_paths(dest)
+    data = _snapshot_meta(dest)
+    if data is None:
+        return
+    data["open"] = False
+    try:
+        meta.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
+    except OSError:
+        return
+
+
+def _drop_snapshot(dest: Path) -> None:
+    root = snapshot_root_for(dest)
+    if root.exists():
+        shutil.rmtree(root, ignore_errors=True)
 
 
 def source_copy_rel(server: Server, source: str) -> str:
@@ -299,11 +336,16 @@ def _tree_bytes(path: Path) -> int:
     return total
 
 
+def _free_bytes(path: Path) -> int:
+    anchor = path if path.exists() else path.parent
+    stats = os.statvfs(anchor)
+    return int(stats.f_bavail) * int(stats.f_frsize)
+
+
 def _snapshot_space_error(dest_path: Path) -> str | None:
-    """None when this machine can hold another copy of the local tree."""
+    """None when the snapshot disk can hold another copy of the local source."""
     try:
-        anchor = dest_path if dest_path.exists() else dest_path.parent
-        free = shutil.disk_usage(anchor).free
+        free = _free_bytes(dest_path)
         need = _tree_bytes(dest_path)
     except OSError as exc:
         return f"Free space check failed: {exc}"[:300]
@@ -331,7 +373,7 @@ def _take_rollback_snapshot(
     """Copy the live host folder aside. The previous snapshot stays if this fails."""
     from .backup_ownership import write_manifest
 
-    if snapshot_matches(dest_path, source):
+    if _snapshot_held(dest_path, source):
         return {"saved": True, "kept": True}
     root, tree, staging, meta_path = _snapshot_paths(dest_path)
     if staging.exists():
@@ -361,7 +403,11 @@ def _take_rollback_snapshot(
         staging.rename(tree)
         meta_path.write_text(
             json.dumps(
-                {"source": source, "taken_at": datetime.utcnow().isoformat() + "Z"},
+                {
+                    "source": source,
+                    "taken_at": datetime.utcnow().isoformat() + "Z",
+                    "open": True,
+                },
                 separators=(",", ":"),
             ),
             encoding="utf-8",
@@ -496,7 +542,7 @@ def restore_backup_source(
         from .backup_ownership import MANIFEST_NAME, load_manifest, render_apply_script
 
         rollback = {"skipped": True, "reason": "dry-run"} if dry_run else None
-        if not dry_run and snapshot_matches(dest_path, source):
+        if not dry_run and _snapshot_held(dest_path, source):
             rollback = {"saved": True, "kept": True}
         elif not dry_run:
             space = _snapshot_space_error(dest_path)
@@ -589,6 +635,8 @@ def restore_backup_source(
             loaded = load_manifest(dest_path)
             if loaded is None:
                 result["ownership"] = {"skipped": True, "reason": "no manifest"}
+                if not dry_run and result.get("rc") == 0:
+                    _close_snapshot(dest_path)
                 return result
             if loaded.get("error"):
                 result["rc"] = 1
@@ -654,6 +702,7 @@ def restore_backup_source(
                 result["manifest"] = {key: value for key, value in checked.items() if key != "error"}
                 return result
             result["manifest"] = checked
+            _close_snapshot(dest_path)
             return result
         except subprocess.TimeoutExpired:
             return {
@@ -808,6 +857,7 @@ def undo_host_restore(server: Server, source: str) -> Dict[str, Any]:
                 "output": out,
                 "summary": f"Undo failed · {source}",
             }
+        _drop_snapshot(dest_path)
         return {
             "rc": 0,
             "dry_run": False,
