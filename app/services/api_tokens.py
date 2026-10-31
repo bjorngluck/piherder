@@ -806,10 +806,10 @@ def api_meta_dict() -> dict:
                 "path": "/api/v1/servers/{id}/backup/restore-preview",
                 "scope": "read",
                 "summary": (
-                    "SSH rsync dry-run of the local backup against the host. "
+                    "Scope read. SSH rsync dry-run of the local backup against the host. "
+                    "It diffs that local backup and does not show permission or owner-only changes. "
                     "120 second timeout. One preview at a time per host. "
-                    "A busy host returns 409. Scope read. Does not write. "
-                    "Not a hosted MCP tool."
+                    "A busy host returns 409. Does not write. Not a hosted MCP tool."
                 ),
             },
             {"method": "GET", "path": "/api/v1/services", "scope": "read", "summary": "Fleet service up/down from stored monitor chips"},

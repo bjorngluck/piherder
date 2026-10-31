@@ -1119,7 +1119,10 @@ async def call_tool(
                     payload["already_active"] = True
             await _drain_background(background)
         elif name == "prune_build_cache":
-            payload = api_v1.prune_build_cache(
+            from starlette.concurrency import run_in_threadpool
+
+            payload = await run_in_threadpool(
+                api_v1.prune_build_cache,
                 _require_int(args, "server_id"),
                 session,
                 auth,

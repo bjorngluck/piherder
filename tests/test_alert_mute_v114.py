@@ -144,6 +144,7 @@ def test_unmutable_types_are_rejected_and_a_stale_backup_warning_is_allowed(tmp_
             "backup_destination_auth_failed",
             "drive_oauth_refresh_failed",
             "drive_oauth_token_aging",
+            "admin_change",
         ):
             try:
                 mute.create_rule(

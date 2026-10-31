@@ -87,15 +87,16 @@ A real restore copies the current host folder aside first. Undo writes that copy
 
 Not signed.
 
-- [ ] A real restore copies the current host folder aside before it writes. The copy keeps owners
+- [ ] A real restore copies the current host folder aside before it writes. The copy keeps owners. A retry keeps that first copy until the restore succeeds or Undo runs
+- [ ] Free space is checked with statvfs against the local source size. A short disk fails before the host is copied
 - [ ] A snapshot that fails does not start the restore
 - [ ] Dry-run does not take the snapshot
-- [ ] **Undo last restore** writes that copy back
+- [ ] **Undo last restore** writes that copy back with rsync `--delete`, which removes files created after the restore
 - [ ] A sidecar from this train stores `file_count` and `byte_count` for regular files only
-- [ ] A real restore is good only when the host matches both counts
+- [ ] A real restore is good only when the host matches both counts. Extra files already on the host are a warning and the restore still succeeds
 - [ ] An older sidecar without those counts still restores
 - [ ] Dry-run does not check the counts
-- [ ] `GET /api/v1/servers/{id}/backup/restore-preview` (`read`) is an SSH rsync dry-run with a 120 second timeout. A second preview while the host backup lock is held returns 409. It does not write
+- [ ] `GET /api/v1/servers/{id}/backup/restore-preview` (`read`) is an SSH rsync dry-run of the local backup with a 120 second timeout. It does not show permission or owner-only changes. A second preview while the host backup lock is held returns 409. It does not write
 - [ ] That preview is not a hosted MCP tool
 - [ ] The v1.13 ownership step still applies numeric `uid`, `gid`, and mode with `setuid` and `setgid` cleared
 
@@ -127,7 +128,7 @@ Not signed.
 - [ ] A second rule for the same host or the same type is rejected. Kind and target stay fixed after create
 - [ ] A window is optional. A start with no end is rejected. An end that is not after the start is rejected
 - [ ] An active rule skips webhook, email, and push. The inbox row is still written. The schedule still runs
-- [ ] These types cannot be muted, including by a host rule: `backup_failed`, `herder_backup_failed`, `backup_destination_auth_failed`, `drive_oauth_refresh_failed`, `drive_oauth_token_aging`
+- [ ] These types cannot be muted, including by a host rule: `backup_failed`, `herder_backup_failed`, `backup_destination_auth_failed`, `drive_oauth_refresh_failed`, `drive_oauth_token_aging`, and `admin_change`
 - [ ] Create, edit, and delete write `alert_mute_created`, `alert_mute_updated`, and `alert_mute_deleted`. Scope `edit` is required. A `read` token can list rules and cannot change one
 - [ ] Demo cannot save a rule
 - [ ] `GET /api/v1/alerts` items include `muted` from the rules that are active now

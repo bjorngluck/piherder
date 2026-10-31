@@ -469,10 +469,11 @@ def _restore_preview_public(server_id: int, result: dict[str, Any]) -> dict[str,
     "/servers/{server_id}/backup/restore-preview",
     summary="Dry-run restore preview",
     description=(
-        "SSH rsync dry-run of the local backup against the host. "
+        "Scope read. SSH rsync dry-run of the local backup against the host. "
+        "It diffs that local backup and does not show permission or owner-only changes. "
         "Times out after 120 seconds. One preview at a time per host. "
-        "A busy host returns 409. Scope read, and feature:backup "
-        "when the token is feature-restricted. Does not write. Not a hosted MCP tool."
+        "A busy host returns 409. feature:backup applies when the token is feature-restricted. "
+        "Does not write. Not a hosted MCP tool."
     ),
 )
 def api_restore_preview(
@@ -1428,6 +1429,26 @@ async def prune_docker(
     )
 
 
+def _exclusive_job(session: Session, server_id: int):
+    from ..services.jobs_exclusive import EXCLUSIVE_CELERY_TYPES
+
+    kinds = tuple(sorted(set(EXCLUSIVE_CELERY_TYPES) | {"backup"}))
+    return session.exec(
+        select(Job)
+        .where(Job.server_id == int(server_id))
+        .where(Job.status.in_(("pending", "running")))
+        .where(Job.job_type.in_(kinds))
+    ).first()
+
+
+def _refuse_if_host_busy(session: Session, server_id: int) -> None:
+    if _exclusive_job(session, server_id) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="An exclusive job is already active on this host",
+        )
+
+
 @router.post(
     "/servers/{server_id}/docker/build-cache",
     summary="Prune Docker build cache",
@@ -1442,6 +1463,7 @@ def prune_build_cache(
     auth: ApiAuth = Depends(get_api_auth),
 ):
     from ..services import docker_management as docker_svc
+    from ..services.demo import http_403_if_demo
     from ..services.server_audit import record_server_audit
 
     server = session.get(Server, server_id)
@@ -1450,6 +1472,8 @@ def prune_build_cache(
     auth.require(tok_svc.SCOPE_EDIT)
     auth.require_feature("docker")
     auth.require_server_feature(server, "docker")
+    http_403_if_demo("docker_write")
+    _refuse_if_host_busy(session, server.id)
     try:
         result = docker_svc.prune_build_cache(server)
     except Exception as exc:
@@ -1512,6 +1536,7 @@ def prune_volumes(
     auth.require_feature("docker")
     auth.require_server_feature(server, "docker")
     http_403_if_demo("docker_write")
+    _refuse_if_host_busy(session, server.id)
     if body.dry_run:
         try:
             listed = docker_svc.list_dangling_volumes(server)

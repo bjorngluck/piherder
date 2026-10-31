@@ -105,6 +105,35 @@ def test_hosted_prune_volumes_requires_confirm(monkeypatch):
     assert called == []
 
 
+def test_volume_prune_refuses_when_an_exclusive_job_is_active():
+    from fastapi import HTTPException
+
+    engine = _engine()
+    auth = _auth()
+    with Session(engine) as session:
+        server = Server(name="host-a", hostname="host-a.example.com", ssh_username="pi")
+        session.add(server)
+        session.commit()
+        session.refresh(server)
+        session.add(Job(server_id=server.id, job_type="backup", status="running", details="{}"))
+        session.commit()
+        try:
+            prune_volumes(server.id, VolumePruneBody(dry_run=True), session, auth)
+        except HTTPException as exc:
+            assert exc.status_code == 409
+            assert "exclusive" in str(exc.detail)
+        else:
+            raise AssertionError("prune ran while a backup was active")
+
+
+def test_docker_write_demo_hint():
+    from app.services.demo import demo_message
+
+    text = demo_message("docker_write")
+    assert "demo" in text.lower()
+    assert text != "This action is disabled in the demo."
+
+
 def test_volume_size_and_reclaim_parsers():
     from app.services.docker_management import (
         parse_deleted_volumes,

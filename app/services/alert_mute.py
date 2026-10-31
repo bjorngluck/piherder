@@ -23,6 +23,7 @@ UNMUTABLE_TYPES = frozenset({
     "backup_destination_auth_failed",
     "drive_oauth_refresh_failed",
     "drive_oauth_token_aging",
+    "admin_change",
 })
 
 

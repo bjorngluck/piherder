@@ -5,6 +5,7 @@ This is not the cheap heartbeat at GET /api/v1/summary.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from typing import Any, Optional
 
 from sqlalchemy import or_
@@ -70,9 +71,9 @@ def _jobs(
     job_type: str | None = None,
     status: str | None = None,
     since: Optional[datetime] = None,
-) -> list[Job]:
-    """Jobs filtered in SQL. ``since`` omitted keeps the full status or type set."""
-    stmt = select(Job)
+) -> list[SimpleNamespace]:
+    """Job columns filtered in SQL. ``since`` omitted keeps the full status or type set."""
+    stmt = select(Job.id, Job.status, Job.job_type, Job.finished_at, Job.created_at)
     if job_type:
         stmt = stmt.where(Job.job_type == job_type)
     if status:
@@ -80,7 +81,18 @@ def _jobs(
     if since is not None:
         naive = since.astimezone(timezone.utc).replace(tzinfo=None)
         stmt = stmt.where(or_(Job.finished_at >= naive, Job.created_at >= naive))
-    return list(session.exec(stmt).all())
+    rows = []
+    for row in session.exec(stmt).all():
+        rows.append(
+            SimpleNamespace(
+                id=row[0],
+                status=row[1],
+                job_type=row[2],
+                finished_at=row[3],
+                created_at=row[4],
+            )
+        )
+    return rows
 
 
 def build_fleet_summary(session: Session, *, since: Optional[datetime], now: Optional[datetime] = None) -> dict[str, Any]:

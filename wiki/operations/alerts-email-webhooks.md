@@ -54,7 +54,7 @@ A window is optional. No window means the rule stays active until you delete it.
 
 Mute skips webhook, email, and push. The inbox row is still written. Schedules still run. Job completion webhooks are not mute rules. While the rule is active, a still-open row is not nudged again. After the window ends, the row stays visible and is not sent again unless re-alert is set.
 
-These types cannot be muted, including by a host rule: `backup_failed`, `herder_backup_failed`, `backup_destination_auth_failed`, `drive_oauth_refresh_failed`, `drive_oauth_token_aging`.
+These types cannot be muted, including by a host rule: `backup_failed`, `herder_backup_failed`, `backup_destination_auth_failed`, `drive_oauth_refresh_failed`, `drive_oauth_token_aging`, and `admin_change`.
 
 Creating, editing, and deleting a rule is audited (`alert_mute_created`, `alert_mute_updated`, `alert_mute_deleted`) and needs scope `edit`. `read` can list rules and cannot change one. Demo cannot save one.
 
