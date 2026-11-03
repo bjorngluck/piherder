@@ -4,8 +4,9 @@ Forwarded headers (CF-Connecting-IP / X-Forwarded-For / X-Real-IP) are used
 **only** when the TCP peer sits in ``PIHERDER_TRUSTED_PROXY_CIDRS``. Empty
 CIDRs (app default) = never trust client-supplied headers — use the peer.
 
-Bundled Compose sets RFC1918 + loopback so Caddy on the Docker network is
-trusted. Direct hits on the app port from an untrusted peer cannot spoof
+Bundled Compose trusts loopback only. Set the proxy subnet explicitly.
+A peer on a private range is not trusted until that subnet is listed.
+Direct hits on the app port from an untrusted peer cannot spoof
 allowlists, rate limits, or console IP binding.
 
 A ContextVar carries the resolved IP for the duration of a request so every
@@ -21,10 +22,8 @@ _request_client_ip: ContextVar[Optional[str]] = ContextVar(
     "piherder_request_client_ip", default=None
 )
 
-# Compose default — Caddy on the Docker bridge. Not applied unless env/compose sets it.
-DEFAULT_COMPOSE_TRUSTED_PROXY_CIDRS = (
-    "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32,::1/128"
-)
+# Compose default. Loopback only. Not applied unless env or compose sets it.
+DEFAULT_COMPOSE_TRUSTED_PROXY_CIDRS = "127.0.0.1/32,::1/128"
 
 
 def _normalize_ip_candidate(raw: str | None) -> str:

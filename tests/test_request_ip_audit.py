@@ -79,6 +79,27 @@ def test_extract_client_ip_ignores_spoofed_headers_from_untrusted_peer():
     )
 
 
+def test_default_proxy_cidrs_ignore_a_private_peer():
+    nets = rip.DEFAULT_COMPOSE_TRUSTED_PROXY_CIDRS.split(",")
+    assert "10.0.0.0/8" not in nets
+    assert (
+        rip.extract_client_ip(
+            {"X-Forwarded-For": "203.0.113.9"},
+            "10.1.2.3",
+            trusted_cidrs=nets,
+        )
+        == "10.1.2.3"
+    )
+    assert (
+        rip.extract_client_ip(
+            {"X-Forwarded-For": "203.0.113.9"},
+            "127.0.0.1",
+            trusted_cidrs=nets,
+        )
+        == "203.0.113.9"
+    )
+
+
 def test_extract_client_ip_empty_cidrs_never_trusts_forwarded():
     assert (
         rip.extract_client_ip(

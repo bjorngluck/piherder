@@ -78,7 +78,8 @@ class Settings(BaseSettings):
 
     # Trust CF-Connecting-IP / X-Forwarded-For / X-Real-IP only when the TCP peer
     # is in this list (comma-separated CIDRs). Empty = never trust forwarded headers
-    # (use the TCP peer). Bundled Compose sets RFC1918 + loopback so Caddy is trusted.
+    # (use the TCP peer). Bundled Compose defaults to loopback only. Set the
+    # proxy subnet. Do not trust 10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16.
     PIHERDER_TRUSTED_PROXY_CIDRS: Optional[str] = None
 
     # GitHub release check for “new version available” banner / About page

@@ -253,6 +253,7 @@ def test_list_filter_severity_category_and_bulk_dismiss(monkeypatch):
 
 
 def test_webhook_category_allowlist(monkeypatch):
+    monkeypatch.setattr(ch, "_resolve_webhook_host", lambda host: ["203.0.113.10"])
     monkeypatch.setattr(
         ch,
         "webhook_config",

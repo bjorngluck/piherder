@@ -27,6 +27,7 @@ docker compose up -d
 ## Checklist
 
 - [ ] Set `REDIS_PASSWORD` and put it in `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, and `REDIS_URL` before upgrading. The web process and the worker ping Redis with that password at boot. If Redis rejects the password, the stack does not start. The log line has no URL and no password.
+- [ ] Set `PIHERDER_TRUSTED_PROXY_CIDRS` to the proxy subnet before upgrading. The compose default is loopback only (`127.0.0.1/32`, `::1/128`). Forwarded headers from a peer on `10.0.0.0/8`, `172.16.0.0/12`, or `192.168.0.0/16` are ignored until that subnet is listed.
 - [ ] Self-backup successful (**admin** — Settings → PiHerder backup)  
 - [ ] `PIHERDER_MASTER_KEY` unchanged and backed up offline  
 - [ ] Read [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.6.0.md) for the version you jump to  

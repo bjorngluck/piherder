@@ -1721,6 +1721,7 @@ def test_settings_page_and_admin_routes(tmp_path, monkeypatch):
             return {"ok": True}
 
         monkeypatch.setattr(alert_ch, "send_webhook", send_webhook)
+        monkeypatch.setattr(alert_ch, "_resolve_webhook_host", lambda host: ["203.0.113.10"])
         bad_url = client.post(
             "/herder-backups/alerts/webhook/test",
             data={"webhook_url": "not-a-url"},

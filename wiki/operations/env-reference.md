@@ -154,7 +154,8 @@ The herder has **no MCP env var and no MCP port**. `PIHERDER_URL` and `PIHERDER_
 | `METRICS_TOKEN` | Bearer for `GET /metrics` — **set in production** (empty = open scrape on app port) |
 | `METRICS_BACKUP_STALE_HOURS` | Stale backup gauge (default 36) |
 | `CORS_ORIGINS` | Exact browser origins for `/api/v1` (empty = off) |
-| `PIHERDER_TRUSTED_PROXY_CIDRS` | CIDRs whose TCP peer may supply `CF-Connecting-IP` / `X-Forwarded-For` / `X-Real-IP`. Empty = **never** trust those headers (peer only). Compose default: RFC1918 + loopback so bundled Caddy is trusted |
+| `PIHERDER_TRUSTED_PROXY_CIDRS` | CIDRs whose TCP peer may supply `CF-Connecting-IP` / `X-Forwarded-For` / `X-Real-IP`. Empty = **never** trust those headers (peer only). Compose default is loopback only (`127.0.0.1/32`, `::1/128`). Set the proxy subnet. A peer on `10.0.0.0/8`, `172.16.0.0/12`, or `192.168.0.0/16` is not trusted until that subnet is listed |
+| `PIHERDER_WEBHOOK_ALLOW_CIDRS` | Optional. Webhook URLs that resolve to a private, loopback, or link-local address are refused unless the address is in this list |
 | `WEBHOOK_URL` / `WEBHOOK_NUMBER` | Fallback outbound webhook (e.g. Signal via n8n) when Settings → Alerts has no URL — [Alerts](alerts-email-webhooks.md) |
 | `WEBHOOK_RECIPIENTS` | Optional JSON list of recipients for some webhook paths |
 | `VAPID_*` | Optional pin; auto-gen is default |
