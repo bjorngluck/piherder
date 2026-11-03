@@ -29,7 +29,7 @@ from ..services.app_settings import format_datetime_in_app_tz
 from ..services.server_audit import record_server_audit
 from .. import templates as templates_mod
 from ..security.auth import get_current_user
-from ..models import User
+from ..models import AuditLog, User
 from ..config import settings
 
 try:
@@ -115,8 +115,8 @@ async def server_backups(
             if last_backup_log
             else None
         )
-    except Exception as e:
-        logger.debug("last_backup_status: %s", e)
+    except Exception:
+        logger.exception("Unable to load last backup status for server %s", server.id)
 
     from ..services.backup_path_policy import parse_rules, DEFAULT_DENY_PREFIXES
     from ..services import backup_restore as restore_svc
