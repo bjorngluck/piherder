@@ -54,7 +54,7 @@ Suggested build order: boot and logging, the NameErrors, locks, CI with migratio
 |------|------|
 | Must | **CI on dev branches, a Postgres migration job, lint, coverage.** Issue [#80](https://github.com/bjorngluck/piherder/issues/80). In the tree. Test CI runs on pushes to `v*-dev`, not only `main` and pull requests. A Postgres job upgrades to head and downgrades to base, and a downgrade error fails that job. The shared test engine runs Alembic on Postgres. SQLite still uses `create_all` because the migration SQL is Postgres. A ruff lint gate is added. Coverage is back over 85% |
 | Must | **Explicit 051 and 052 downgrades.** Issue [#74](https://github.com/bjorngluck/piherder/issues/74). In the tree. Alembic `051` drops `docker_prune_schedule` only when that column exists. Alembic `052` drops `backup_catchup_enabled` and `container_check_catchup_enabled` the same way. A real drop error is not swallowed. Upgrade behavior stays as it is. Revision `040` already drops its table only when the table exists. This plan does not apply either migration to a live database |
-| Must | **Indexes on job and audit log filters.** Issue [#81](https://github.com/bjorngluck/piherder/issues/81). Not built. A reversible migration adds `job (server_id, status, created_at)` and `auditlog (server_id, action, started_at)`. Upgrade and downgrade both pass in the CI migration job |
+| Must | **Indexes on job and audit log filters.** Issue [#81](https://github.com/bjorngluck/piherder/issues/81). In the tree. A reversible migration adds `job (server_id, status, created_at)` and `auditlog (server_id, action, started_at)`. Upgrade and downgrade both pass in the CI migration job |
 
 ### Other correctness
 
@@ -147,7 +147,7 @@ The ops track stays beside this order. It does not land as commits.
 | 2 | Boot and logging ([#75](https://github.com/bjorngluck/piherder/issues/75)) | In the tree |
 | 3 | NameErrors ([#76](https://github.com/bjorngluck/piherder/issues/76), [#77](https://github.com/bjorngluck/piherder/issues/77)) | In the tree |
 | 4 | Locks ([#78](https://github.com/bjorngluck/piherder/issues/78), [#79](https://github.com/bjorngluck/piherder/issues/79)) | In the tree |
-| 5 | CI with migrations ([#80](https://github.com/bjorngluck/piherder/issues/80), [#74](https://github.com/bjorngluck/piherder/issues/74), [#81](https://github.com/bjorngluck/piherder/issues/81)) | Not built |
+| 5 | CI with migrations ([#80](https://github.com/bjorngluck/piherder/issues/80), [#74](https://github.com/bjorngluck/piherder/issues/74), [#81](https://github.com/bjorngluck/piherder/issues/81)) | In the tree |
 | 6 | Rest of Must correctness, then security, then Shoulds | Not built |
 
 ---
