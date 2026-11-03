@@ -88,15 +88,16 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 
 | Variable | Default idea |
 |----------|--------------|
-| `DATABASE_URL` | `postgresql://piherder:piherder@db:5432/piherder` |
-| `CELERY_BROKER_URL` | `redis://redis:6379/0` |
-| `CELERY_RESULT_BACKEND` | same Redis |
+| `DATABASE_URL` | `postgresql://piherder:piherder@db:5432/piherder`. Outside demo mode, boot refuses that default password |
+| `CELERY_BROKER_URL` | `redis://:password@redis:6379/0`. Boot refuses a Redis URL with no password |
+| `CELERY_RESULT_BACKEND` | same Redis, also with a password |
+| `REDIS_PASSWORD` | Required by the compose Redis service (`requirepass`). No default |
 | `CELERY_CONCURRENCY` | `2` pool slots (compose → celery-worker) |
 | `PIHERDER_SERVER_LOCK_TTL` | `7200` backup mutex TTL |
 | `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` | Unset — **Settings → General → Jobs** (default 30 minutes). When this env var is set it **locks** that field. Probe every 30s. Floor 30, ceiling 86400 |
 | `PIHERDER_INSTANCE_NAME` | Unset — **Settings → General → Instance**. When set, locks the header wordmark. Empty Settings name keeps Pi / Herder. The mark image stays |
 | `PIHERDER_ACCENT` | Unset — same card. `#RRGGBB` locks the accent (`--color-accent` and the subtle accent background). Primary red `#e60012` stays. Demo ignores name, accent, and the Catalog checkbox. Hiding Catalog has no env var |
-| `REDIS_URL` | Optional alias used in some deploy notes — broker/result URLs are authoritative |
+| `REDIS_URL` | Optional alias used in some deploy notes. Broker and result URLs are authoritative. When set, boot still requires a password in this URL |
 
 ## LAN Discovery (nmap) — opt-in {#lan-discovery-nmap--opt-in}
 
@@ -122,7 +123,7 @@ Task code also refuses when the **`nmap` binary is missing** (main image has no 
 | `PIHERDER_NMAP_VULN_ROOT` | `/var/lib/piherder/nmap-vuln` | In-container path (web **:ro**, nmap worker **rw**) |
 | `PIHERDER_NMAP_IMAGE` | `piherder:nmap-local` | Image tag for profile `nmap` |
 | `PIHERDER_NMAP_DATABASE_URL` | loopback Postgres | Host-network worker → `127.0.0.1:5432` |
-| `PIHERDER_NMAP_REDIS_URL` | loopback Redis | Host-network worker → `127.0.0.1:6379` |
+| `PIHERDER_NMAP_REDIS_URL` | loopback Redis with a password | Host-network worker uses `127.0.0.1:6379`. Boot refuses this URL when it has no password |
 
 ```bash
 docker build -f Dockerfile.nmap -t piherder:nmap-local .

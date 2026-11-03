@@ -6,9 +6,9 @@ x-piherder-app-env: &piherder-app-env
   SECRET_KEY: ${SECRET_KEY:?set a long random SECRET_KEY in .env}
   PIHERDER_ALLOW_INSECURE: ${PIHERDER_ALLOW_INSECURE:-false}
   DATABASE_URL: ${DATABASE_URL:-postgresql://piherder:piherder@db:5432/piherder}
-  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
-  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
-  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD}@redis:6379/0}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD}@redis:6379/0}
+  REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD}@redis:6379/0}
   DATA_ROOT: ${DATA_ROOT:-/data}
   BACKUP_ROOT: ${BACKUP_ROOT:-/backups}
   HERDER_BACKUP_ROOT: ${HERDER_BACKUP_ROOT:-/herder_backups}
@@ -132,6 +132,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: piherder-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-}
     restart: unless-stopped
     volumes:
       - redis_data:/data
@@ -205,9 +206,9 @@ services:
       PIHERDER_NMAP_WORKER: "1"
       PIHERDER_NMAP_VULN_ROOT: /var/lib/piherder/nmap-vuln
       # Host network: compose service DNS (redis/db) is unavailable — use loopback ports.
-      CELERY_BROKER_URL: ${PIHERDER_NMAP_REDIS_URL:-redis://127.0.0.1:6379/0}
-      CELERY_RESULT_BACKEND: ${PIHERDER_NMAP_REDIS_URL:-redis://127.0.0.1:6379/0}
-      REDIS_URL: ${PIHERDER_NMAP_REDIS_URL:-redis://127.0.0.1:6379/0}
+      CELERY_BROKER_URL: ${PIHERDER_NMAP_REDIS_URL:-redis://:${REDIS_PASSWORD}@127.0.0.1:6379/0}
+      CELERY_RESULT_BACKEND: ${PIHERDER_NMAP_REDIS_URL:-redis://:${REDIS_PASSWORD}@127.0.0.1:6379/0}
+      REDIS_URL: ${PIHERDER_NMAP_REDIS_URL:-redis://:${REDIS_PASSWORD}@127.0.0.1:6379/0}
       DATABASE_URL: ${PIHERDER_NMAP_DATABASE_URL:-postgresql://piherder:piherder@127.0.0.1:5432/piherder}
     volumes:
       - ./piherder_data:/data

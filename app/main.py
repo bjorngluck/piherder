@@ -40,6 +40,9 @@ except ImportError:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from .security.boot_secrets import enforce_boot_secrets
+
+    enforce_boot_secrets()
     # Schema: Alembic is the source of truth. A failed upgrade aborts boot.
     from .db_migrate import run_alembic_upgrade
 

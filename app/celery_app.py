@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.signals import worker_init
 import os
 
 celery = Celery(
@@ -31,3 +32,10 @@ celery.conf.update(
     # Avoid stealing tasks that another worker is about to run after lock wait
     worker_disable_rate_limits=True,
 )
+
+
+@worker_init.connect
+def _enforce_boot_secrets_on_worker(**_kwargs):
+    from .security.boot_secrets import enforce_boot_secrets
+
+    enforce_boot_secrets()
