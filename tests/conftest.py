@@ -354,11 +354,11 @@ def _isolate_suite_from_live_services():
     _apply_runtime_isolation()
     assert_runtime_targets()
     import app.models  # noqa: F401  # register tables
-    from sqlmodel import SQLModel
 
     import app.database as database
+    from tests.schema_setup import apply_test_schema
 
-    SQLModel.metadata.create_all(database.engine)
+    apply_test_schema(database.engine)
     yield
 
 

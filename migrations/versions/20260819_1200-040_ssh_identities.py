@@ -85,11 +85,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    try:
-        op.drop_index("uq_serversshidentity_server_role", table_name="serversshidentity")
-    except Exception:
-        pass
-    try:
-        op.drop_table("serversshidentity")
-    except Exception:
-        pass
+    conn = op.get_bind()
+    insp = inspect(conn)
+    if "serversshidentity" not in set(insp.get_table_names()):
+        return
+    op.drop_table("serversshidentity")

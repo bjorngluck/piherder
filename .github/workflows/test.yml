@@ -2,7 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - "v*-dev"
     paths:
       - "app/**"
       - "tests/**"
@@ -78,3 +80,66 @@ jobs:
           name: coverage-xml
           path: coverage.xml
           if-no-files-found: ignore
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Ruff
+        run: |
+          python -m pip install "ruff==0.15.21"
+          ruff check app tests migrations
+
+  migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: piherder
+          POSTGRES_PASSWORD: piherder
+          POSTGRES_DB: piherder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U piherder"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.lock.txt
+            pyproject.toml
+
+      - name: Install locked deps + package
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install --require-hashes -r requirements.lock.txt
+          pip install --no-deps -e .
+
+      - name: Upgrade to head, then downgrade to base
+        env:
+          PIHERDER_MASTER_KEY: "vf4uXbk1CDlP49homyiHbTOaGu1Z6yXgsLe0NlE8L6Y="
+          DATABASE_URL: "postgresql://piherder:piherder@localhost:5432/piherder"
+          SECRET_KEY: "ci-unit-test-secret-key-not-for-production-use"
+          DATA_ROOT: "/tmp/piherder-ci-data"
+          BACKUP_ROOT: "/tmp/piherder-ci-backups"
+          HERDER_BACKUP_ROOT: "/tmp/piherder-ci-herder"
+        run: |
+          set -euo pipefail
+          mkdir -p "$DATA_ROOT" "$BACKUP_ROOT" "$HERDER_BACKUP_ROOT"
+          alembic upgrade head
+          alembic downgrade base

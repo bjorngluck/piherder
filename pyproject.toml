@@ -53,6 +53,20 @@ e2e = [
     "playwright>=1.40",
 ]
 
+[tool.ruff]
+line-length = 100
+src = ["app", "tests", "migrations"]
+
+[tool.ruff.lint]
+# Real undefined names and syntax problems. Style noise stays out of the gate.
+# Two routers still have undefined names. Those files are ignored here until
+# those call sites are fixed. New undefined names elsewhere still fail.
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.ruff.lint.per-file-ignores]
+"app/routers/integrations_npm.py" = ["F821"]
+"app/routers/server_backups.py" = ["F821"]
+
 [tool.pytest.ini_options]
 # Default unit suite only — run E2E explicitly: pytest e2e -q
 testpaths = ["tests"]
