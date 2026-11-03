@@ -60,6 +60,10 @@ Useful series, and the full set exported by `app/services/metrics.py`:
 | `piherder_stuck_queue` | 1 when that age is over 15 minutes and no Celery worker answered. An unknown heartbeat leaves this at 0 |
 | `piherder_schedule_catchup_total` | Catch-up attempts. Labels `kind` (`backup`, `container_check`) and `result` (`queued`, `skipped`, `failed`). Per process. Resets on restart. Sum it across workers and use increase() or rate() |
 | `piherder_lock_acquire_failures_total` | Host lock acquires that did not take the lock. Label `reason` is `redis_error` or `busy`. A Redis error also logs a warning. Per process. Resets on restart. Sum it across workers and use increase() or rate() |
+| `piherder_stack_check_age_seconds` | Seconds since the last stack health check. Omitted until a check has a timestamp |
+| `piherder_alert_delivery_failures_total` | Alert deliveries that did not succeed. Label `channel` is `webhook`, `email`, or `push`. Per process. Resets on restart. Sum it across workers and use increase() or rate() |
+
+A starter Grafana dashboard is `contrib/grafana/piherder-starter.json`. Starter Prometheus rules are `contrib/prometheus/piherder.rules.yml`. `scripts/check_prom_rules.py` runs `promtool check rules` on that file.
 
 `piherder_schedule_missed{kind="backup",server_id="1"}` is 1 when that host's latest due backup slot did not start within 15 minutes and has not succeeded since. `kind="container_check"` is the same gauge for a container image check. `kind="docker_prune"` is the same gauge for a saved per-host Docker prune. Schedules that are off are omitted. The prune kind ships in **1.13.0**.
 

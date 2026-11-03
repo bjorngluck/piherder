@@ -1,0 +1,27 @@
+groups:
+  - name: piherder
+    rules:
+      - alert: PiherderStackCheckStale
+        expr: piherder_stack_check_age_seconds > 900
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Stack health check is stale
+          description: The last stack health check is older than 15 minutes.
+      - alert: PiherderStackCheckMissing
+        expr: absent(piherder_stack_check_age_seconds)
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Stack health check age is missing
+          description: Prometheus has no sample for the last stack health check.
+      - alert: PiherderAlertDeliveryFailures
+        expr: sum(increase(piherder_alert_delivery_failures_total[15m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Alert delivery is failing
+          description: One or more alert deliveries failed during the last 15 minutes.

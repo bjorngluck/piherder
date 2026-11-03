@@ -19,6 +19,8 @@ on:
       - "docker-compose.yml"
       - "docker-compose.e2e.yml"
       - "scripts/check_supply_pins.py"
+      - "scripts/check_prom_rules.py"
+      - "contrib/**"
   pull_request:
     paths:
       - "app/**"
@@ -34,6 +36,8 @@ on:
       - "docker-compose.yml"
       - "docker-compose.e2e.yml"
       - "scripts/check_supply_pins.py"
+      - "scripts/check_prom_rules.py"
+      - "contrib/**"
   workflow_dispatch:
 
 permissions:
@@ -67,6 +71,15 @@ jobs:
           pip install --no-deps -e .
           # Coverage reporter (not hashed in lock; CI fail-under 85)
           pip install "pytest-cov>=5.0"
+
+      - name: Install promtool
+        run: |
+          curl -fsSL -o /tmp/prometheus.tgz \
+            "https://github.com/prometheus/prometheus/releases/download/v2.55.1/prometheus-2.55.1.linux-amd64.tar.gz"
+          mkdir -p /tmp/promtool-v2.55.1
+          tar -C /tmp/promtool-v2.55.1 --strip-components=1 -xzf /tmp/prometheus.tgz \
+            prometheus-2.55.1.linux-amd64/promtool
+          echo "PROMTOOL=/tmp/promtool-v2.55.1/promtool" >> "$GITHUB_ENV"
 
       - name: Run unit tests
         env:
@@ -108,6 +121,15 @@ jobs:
 
       - name: Pinned actions and base images
         run: python3 scripts/check_supply_pins.py
+
+      - name: Prometheus rules
+        run: |
+          curl -fsSL -o /tmp/prometheus.tgz \
+            "https://github.com/prometheus/prometheus/releases/download/v2.55.1/prometheus-2.55.1.linux-amd64.tar.gz"
+          mkdir -p /tmp/promtool-v2.55.1
+          tar -C /tmp/promtool-v2.55.1 --strip-components=1 -xzf /tmp/prometheus.tgz \
+            prometheus-2.55.1.linux-amd64/promtool
+          PROMTOOL=/tmp/promtool-v2.55.1/promtool python3 scripts/check_prom_rules.py
 
   migrations:
     runs-on: ubuntu-latest

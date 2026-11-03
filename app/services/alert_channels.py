@@ -50,6 +50,12 @@ def _rank(sev: str) -> int:
     return _SEV_RANK.get((sev or "warning").lower(), 1)
 
 
+def _note_delivery_failure(channel: str) -> None:
+    from .delivery_metrics import note_alert_delivery_failure
+
+    note_alert_delivery_failure(channel)
+
+
 # ── Webhook (Wh-lite) ────────────────────────────────────────────────────────
 
 
@@ -157,6 +163,7 @@ def send_webhook(
     try:
         validate_webhook_url(wc["url"])
     except ValueError:
+        _note_delivery_failure("webhook")
         return {"ok": False, "error": "webhook target is not allowed"}
     try:
         r = httpx.post(
@@ -167,10 +174,12 @@ def send_webhook(
             follow_redirects=False,
         )
         if r.status_code >= 400:
+            _note_delivery_failure("webhook")
             return {"ok": False, "error": f"HTTP {r.status_code}", "status_code": r.status_code}
         return {"ok": True, "status_code": r.status_code}
     except Exception as e:
         logger.debug("webhook failed: %s", e)
+        _note_delivery_failure("webhook")
         return {"ok": False, "error": str(e)[:200]}
 
 
@@ -324,11 +333,14 @@ def maybe_email_notification(
         lines.append(body)
     if link_url:
         lines.append(f"\nOpen: {link_url}")
-    send_email(
+    result = send_email(
         to=[x.strip() for x in to.split(",") if x.strip()],
         subject=f"PiHerder: {title}"[:200],
         body_text="\n".join(lines),
     )
+    if not result.get("ok"):
+        _note_delivery_failure("email")
+    return result
 
 
 def _parse_webhook_ip(raw: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address:

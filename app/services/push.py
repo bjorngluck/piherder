@@ -424,6 +424,12 @@ def build_push_payload(
     }
 
 
+def _note_push_delivery_failure() -> None:
+    from .delivery_metrics import note_alert_delivery_failure
+
+    note_alert_delivery_failure("push")
+
+
 def _deliver_payload(
     session: Session,
     *,
@@ -477,8 +483,10 @@ def _deliver_payload(
                 _delete_subscription_id(session, sub.id)  # type: ignore[arg-type]
             else:
                 logger.warning("Web push failed for sub %s: %s", sub.id, e)
+            _note_push_delivery_failure()
         except Exception as e:
             logger.warning("Web push error for sub %s: %s", sub.id, e)
+            _note_push_delivery_failure()
 
     if sent:
         try:
