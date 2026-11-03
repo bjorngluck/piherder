@@ -1,6 +1,6 @@
-# PiHerder - python:3.12-slim-bookworm per spec
+# PiHerder - python:3.12-slim-bookworm per spec. The FROM line is pinned by digest.
 # Dependencies are installed from the committed lockfile (reproducible RC/prod builds).
-FROM python:3.12-slim-bookworm
+FROM python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

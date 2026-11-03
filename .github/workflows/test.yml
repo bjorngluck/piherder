@@ -13,7 +13,12 @@ on:
       - "uv.lock"
       - "requirements.lock.txt"
       - "requirements.runtime.lock.txt"
-      - ".github/workflows/test.yml"
+      - ".github/workflows/**"
+      - "Dockerfile"
+      - "Dockerfile.nmap"
+      - "docker-compose.yml"
+      - "docker-compose.e2e.yml"
+      - "scripts/check_supply_pins.py"
   pull_request:
     paths:
       - "app/**"
@@ -23,7 +28,12 @@ on:
       - "uv.lock"
       - "requirements.lock.txt"
       - "requirements.runtime.lock.txt"
-      - ".github/workflows/test.yml"
+      - ".github/workflows/**"
+      - "Dockerfile"
+      - "Dockerfile.nmap"
+      - "docker-compose.yml"
+      - "docker-compose.e2e.yml"
+      - "scripts/check_supply_pins.py"
   workflow_dispatch:
 
 permissions:
@@ -38,9 +48,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
           cache: pip
@@ -75,7 +85,7 @@ jobs:
 
       - name: Upload coverage XML
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-xml
           path: coverage.xml
@@ -85,9 +95,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
 
@@ -96,12 +106,15 @@ jobs:
           python -m pip install "ruff==0.15.21"
           ruff check app tests migrations
 
+      - name: Pinned actions and base images
+        run: python3 scripts/check_supply_pins.py
+
   migrations:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
         env:
           POSTGRES_USER: piherder
           POSTGRES_PASSWORD: piherder
@@ -114,9 +127,9 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
           cache: pip
