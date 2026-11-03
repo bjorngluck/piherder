@@ -39,7 +39,7 @@ Suggested build order: boot and logging, the NameErrors, locks, CI with migratio
 | Tier | Lock |
 |------|------|
 | Must | **NPM integration create.** Issue [#76](https://github.com/bjorngluck/piherder/issues/76). In the tree. Create calls an undefined `poll_svc` after the row commits, so the UI says save failed for a save that worked. Use the real poll service. The create path returns success |
-| Must | **Backups page last backup.** Issue [#77](https://github.com/bjorngluck/piherder/issues/77). Not built. The backups page uses `AuditLog` without importing it and swallows the error, so last backup status is always empty. Import `AuditLog` and do not hide that exception. The page shows the last backup |
+| Must | **Backups page last backup.** Issue [#77](https://github.com/bjorngluck/piherder/issues/77). In the tree. The backups page uses `AuditLog` without importing it and swallows the error, so last backup status is always empty. Import `AuditLog` and do not hide that exception. The page shows the last backup |
 
 ### Locks
 
