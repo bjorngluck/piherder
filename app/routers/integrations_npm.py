@@ -14,6 +14,7 @@ from ..database import get_session
 from ..models import Integration, Server, User
 from ..security.auth import ROLE_ADMIN, get_admin_user, get_operator_user, user_role
 from ..services.integrations import npm as npm_mod
+from ..services.integrations import poll as poll_svc
 from ..services.integrations import registry as reg
 from .integrations_common import router, _audit, _redirect, _can_mutate, _pin_context_for_integration
 
