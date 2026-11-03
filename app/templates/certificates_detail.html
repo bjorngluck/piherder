@@ -556,7 +556,7 @@
         <select id="cert-map-preset" class="input w-full text-sm">
           <option value="">Choose a starting point…</option>
           {% for p in map_presets or [] %}
-          <option value="{{ p.id }}">{% if p.group %}{{ p.group }} · {% endif %}{{ p.title }}</option>
+          <option value="{{ p.id }}">{% if p.category %}{{ p.category }} · {% endif %}{{ p.title }}</option>
           {% endfor %}
         </select>
         <p class="text-[11px] text-muted mt-1" id="cert-map-preset-help">

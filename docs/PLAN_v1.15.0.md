@@ -60,7 +60,7 @@ Suggested build order: boot and logging, the NameErrors, locks, CI with migratio
 
 | Tier | Lock |
 |------|------|
-| Must | **Certificate presets keep category and group.** Issue [#82](https://github.com/bjorngluck/piherder/issues/82). Not built. Two assignments both set `group`, so the wizard category is overwritten by the unix group. One key is renamed (for example `category`). A preset keeps both |
+| Must | **Certificate presets keep category and group.** Issue [#82](https://github.com/bjorngluck/piherder/issues/82). In the tree. The wizard category is `category`. `group` stays the unix group. A preset keeps both |
 | Must | **Production lockfile in the image.** Issue [#83](https://github.com/bjorngluck/piherder/issues/83). Not built. The image installs the production lockfile only. Dev packages are not in the image. Record the image size before and after |
 | Must | **host_facts on a down host, and job state.** Issue [#87](https://github.com/bjorngluck/piherder/issues/87). Not built. `host_facts` on an unreachable host is not re-queued in a loop, and the failure is attributed to the host. The probe window matches the task time limit. A failed job never carries a success summary. Pending jobs are not counted as running |
 
