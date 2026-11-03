@@ -32,8 +32,6 @@ SSH_OPTS = {
     "auth_timeout": 15,
 }
 
-LEGACY_SSH_OPTS_STR = "-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"
-
 
 class HostKeyMismatch(RuntimeError):
     """Remote host key does not match the pin stored on the Server row."""
