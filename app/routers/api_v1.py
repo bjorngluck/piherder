@@ -1510,8 +1510,11 @@ class VolumePruneBody(BaseModel):
     "/servers/{server_id}/docker/volumes",
     summary="Prune unused Docker volumes",
     description=(
-        "Requires scope `edit`. dry_run true lists unused volumes and sizes and "
-        "deletes nothing. confirm is not required for a dry run. "
+        "Requires scope `edit`. dry_run true is a best-effort preview. "
+        "It lists dangling volumes and sizes and deletes nothing. "
+        "That set can differ slightly from what docker volume prune -f removes "
+        "on newer Docker versions, and there is a small time gap between the dry run and the delete. "
+        "It is not an exact match. confirm is not required for a dry run. "
         "dry_run false still requires confirm true and runs docker volume prune -f. "
         "That path writes one audit row with source, deleted names, and bytes reclaimed. "
         "Not a docker_prune job and not scheduled. "
