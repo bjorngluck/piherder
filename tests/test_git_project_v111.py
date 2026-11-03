@@ -12,7 +12,9 @@ from app.services.git_project import (
     _update_script,
     drift_from_report,
     drift_script,
+    drift_script_many,
     parse_git_report,
+    split_drift_output,
     redact_git_url,
     update_project,
     validate_ref,
@@ -274,7 +276,11 @@ def test_compose_list_stores_git_drift_and_survives_a_probe_error(monkeypatch):
         if "core.hooksPath" in cmd:
             if commands.count(cmd) > 1 or getattr(run, "fail", False):
                 raise TimeoutError("probe failed")
-            return 0, "repo=1\nbranch=main\nbehind=2\ndirty=compose.yaml\n", ""
+            return (
+                0,
+                "PIHERDER_DRIFT_PATH=/srv/app\nrepo=1\nbranch=main\nbehind=2\ndirty=compose.yaml\n",
+                "",
+            )
         if "find " in cmd:
             return 0, "/srv/app/docker-compose.yml\n", ""
         if "docker compose ps" in cmd:
@@ -307,6 +313,61 @@ def test_compose_list_stores_git_drift_and_survives_a_probe_error(monkeypatch):
     rows = dm._list_compose_uncached(server, "/srv", light=False)
     assert rows[0]["name"] == "app"
     assert "git_drift" not in rows[0]
+
+
+def test_drift_checks_share_one_command(monkeypatch):
+    from app.services import docker_management as dm
+
+    commands = []
+
+    def run(_client, cmd, timeout=15):
+        commands.append(cmd)
+        if "PIHERDER_DRIFT_PATH=" in cmd:
+            return (
+                0,
+                "\n".join(
+                    [
+                        "PIHERDER_DRIFT_PATH=/srv/app",
+                        "repo=1",
+                        "branch=main",
+                        "behind=1",
+                        "PIHERDER_DRIFT_PATH=/srv/web",
+                        "repo=1",
+                        "branch=main",
+                        "ahead=2",
+                    ]
+                ),
+                "",
+            )
+        if "find " in cmd:
+            return 0, "/srv/app/docker-compose.yml\n/srv/web/compose.yaml\n", ""
+        if "ls -1" in cmd:
+            return 0, "docker-compose.yml\n", ""
+        if cmd.startswith("cat ") or "cat " in cmd:
+            return 0, "services:\n  web:\n    image: nginx:1\n", ""
+        return 0, "", ""
+
+    class Client:
+        def close(self):
+            return None
+
+    monkeypatch.setattr(dm, "get_ssh_client", lambda *a, **k: Client())
+    monkeypatch.setattr(dm, "run_command", run)
+    rows = dm._list_compose_uncached(SimpleNamespace(id=1), "/srv", light=True)
+    git_cmds = [cmd for cmd in commands if "PIHERDER_DRIFT_PATH=" in cmd]
+    assert len(git_cmds) == 1
+    assert "git fetch" not in git_cmds[0]
+    assert "compose up" not in git_cmds[0]
+    by_name = {row["name"]: row for row in rows}
+    assert by_name["app"]["git_behind"] == 1
+    assert by_name["web"]["git_ahead"] == 2
+    script = drift_script_many(["/srv/app", "/srv/web"])
+    assert script.count("git fetch") == 0
+    parsed = split_drift_output(
+        "PIHERDER_DRIFT_PATH=/srv/app\nrepo=1\nPIHERDER_DRIFT_PATH=/srv/web\nrepo=0\n"
+    )
+    assert parsed["/srv/app"].strip() == "repo=1"
+    assert parsed["/srv/web"].strip() == "repo=0"
 
 
 def test_update_requires_a_branch_or_tag():
