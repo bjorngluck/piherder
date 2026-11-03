@@ -13,6 +13,8 @@ Thanks for your interest in PiHerder! The project is maintained by **Bjorn Gluck
 
 **Only the maintainer merges to `main`** and cuts releases. Opening a PR is a proposal.
 
+Work that is not a pull request goes on the current `v*-dev` branch, never on `main`. Each train's scope is a plan file: [docs/PLAN_v1.15.0.md](docs/PLAN_v1.15.0.md) is the open train, and [docs/PLAN_v2.0.0.md](docs/PLAN_v2.0.0.md) holds features, themes, and breaking changes. Older trains are `docs/PLAN_v*.md`.
+
 ## License
 
 All contributions are offered under the **[MIT License](LICENSE)**. By submitting a PR you confirm you have the right to contribute the code and agree it may be distributed under the MIT license.
@@ -62,7 +64,7 @@ Version pull requests are maintainer-only. The steps for opening one are in [AGE
 
 ## Pull Requests
 
-1. Fork the repo and create a branch.
+1. Fork the repo and create a branch from the current `v*-dev` branch. Do not open that work against `main`. The plan files under `docs/PLAN_*.md` say what the train includes.
 2. Prefer small, focused PRs.
 3. Include a clear description of what and why; link related issues.
 4. Update tests and **documentation** where relevant (wiki + RELEASE notes for user-visible change).
