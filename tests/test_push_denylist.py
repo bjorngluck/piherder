@@ -67,6 +67,15 @@ def test_empty_secret_fails_closed(monkeypatch, capsys):
     assert deny.main() == 1
 
 
+def test_workflow_reads_the_repo_secret_and_does_not_echo_it():
+    text = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "push-denylist.yml"
+    ).read_text(encoding="utf-8")
+    assert "secrets.PIHERDER_PUSH_DENYLIST" in text
+    assert "vars.PIHERDER_PUSH_DENYLIST" not in text
+    assert "echo" not in text.lower()
+
+
 def test_match_report_omits_the_pattern_and_the_line(monkeypatch, capsys):
     monkeypatch.setenv("PIHERDER_PUSH_DENYLIST", "FLEETWORD")
     monkeypatch.setenv("GITHUB_EVENT_NAME", "push")

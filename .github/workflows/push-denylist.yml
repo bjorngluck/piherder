@@ -18,6 +18,7 @@ jobs:
 
       - name: Check added lines
         env:
+          # Repository secret, not a variable. The check script must not print this value.
           PIHERDER_PUSH_DENYLIST: ${{ secrets.PIHERDER_PUSH_DENYLIST }}
           PIHERDER_DENYLIST_BASE: ${{ github.event.pull_request.base.sha }}
           PIHERDER_DENYLIST_BEFORE: ${{ github.event.before }}
