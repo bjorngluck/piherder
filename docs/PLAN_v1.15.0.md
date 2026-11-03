@@ -62,7 +62,7 @@ Suggested build order: boot and logging, the NameErrors, locks, CI with migratio
 |------|------|
 | Must | **Certificate presets keep category and group.** Issue [#82](https://github.com/bjorngluck/piherder/issues/82). In the tree. The wizard category is `category`. `group` stays the unix group. A preset keeps both |
 | Must | **Production lockfile in the image.** Issue [#83](https://github.com/bjorngluck/piherder/issues/83). Not built. The image installs the production lockfile only. Dev packages are not in the image. Record the image size before and after |
-| Must | **host_facts on a down host, and job state.** Issue [#87](https://github.com/bjorngluck/piherder/issues/87). Not built. `host_facts` on an unreachable host is not re-queued in a loop, and the failure is attributed to the host. The probe window matches the task time limit. A failed job never carries a success summary. Pending jobs are not counted as running |
+| Must | **host_facts on a down host, and job state.** Issue [#87](https://github.com/bjorngluck/piherder/issues/87). In the tree. `host_facts` on an unreachable host waits out the probe window before another queue. The probe window matches the Celery task time limit. A failed facts job names the host. A failed job does not keep a success summary. Pending jobs are not counted as running |
 
 ### Security
 

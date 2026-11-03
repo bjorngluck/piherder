@@ -639,6 +639,8 @@ def schedule_host_facts_fleet():
             for server in db.exec(select(Server)).all():
                 if not server.id:
                     continue
+                if facts_svc.down_host_backoff(db, server):
+                    continue
                 if facts_svc.is_stale(server, max_age_sec=facts_svc.SCHEDULER_STALE_SEC):
                     try:
                         facts_svc.request_refresh(server.id, force=False)

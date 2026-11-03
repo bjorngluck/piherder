@@ -9,7 +9,7 @@ from typing import Any, Iterable, Optional
 
 from ..version_info import APP_VERSION
 
-ACTIVE_JOB = frozenset({"pending", "running"})
+ACTIVE_JOB = frozenset({"running"})
 MOVE_JOB = "service_migrate"
 
 

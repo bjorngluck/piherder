@@ -70,6 +70,13 @@ def test_stale_host_facts_job_clears_refreshing():
             job_type="host_facts",
             status="running",
             details="{}",
+            created_at=datetime.utcnow() - timedelta(seconds=facts.HOST_FACTS_PROBE_SEC + 60),
+        )
+        still_probing = Job(
+            server_id=server.id,
+            job_type="host_facts",
+            status="running",
+            details="{}",
             created_at=datetime.utcnow() - timedelta(minutes=45),
         )
         fresh = Job(
@@ -80,14 +87,19 @@ def test_stale_host_facts_job_clears_refreshing():
             created_at=datetime.utcnow() - timedelta(minutes=5),
         )
         session.add(job)
+        session.add(still_probing)
         session.add(fresh)
         session.commit()
         n = jobs.cleanup_stale_backup_jobs(session, max_age_minutes=120)
         session.refresh(job)
+        session.refresh(still_probing)
         session.refresh(fresh)
         session.refresh(server)
         assert n == 1
         assert job.status == "failed"
+        assert "worker" not in (job.details or "").lower()
+        assert "Host did not respond" in (job.details or "")
+        assert still_probing.status == "running"
         assert fresh.status == "pending"
         assert server.host_facts_status == "stale"
 

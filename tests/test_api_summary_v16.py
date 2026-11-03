@@ -48,6 +48,7 @@ def test_fleet_summary_counts_hosts_not_packages():
     jobs = [
         SimpleNamespace(status="running", job_type="backup"),
         SimpleNamespace(status="pending", job_type="service_migrate"),
+        SimpleNamespace(status="running", job_type="service_migrate"),
         SimpleNamespace(status="success", job_type="service_migrate"),
     ]
     out = fleet_summary(servers, jobs, version="1.5.0")

@@ -742,9 +742,8 @@ def supersede_running_backups(session: Session, server_id: int) -> int:
     return len(stuck)
 
 
-# host_facts normally finishes in a minute. A row still pending or running
-# after this is a task Redis no longer has.
-HOST_FACTS_STALE_MINUTES = 30
+# host_facts normally finishes in a minute. The stale cutoff is the Celery
+# task time limit, so a live probe is not failed early.
 
 
 def _release_host_facts_refresh(session: Session, server_id: int | None) -> None:
@@ -766,8 +765,10 @@ def cleanup_stale_backup_jobs(session: Session, max_age_minutes: int = 120) -> i
     Covers backup, Move, and exclusive Celery types. host_facts uses a shorter
     cutoff so a lost task does not block the next fleet refresh for two hours.
     """
+    from ..host_facts import HOST_FACTS_PROBE_SEC
+
     cutoff = datetime.utcnow() - timedelta(minutes=max_age_minutes)
-    facts_cutoff = datetime.utcnow() - timedelta(minutes=HOST_FACTS_STALE_MINUTES)
+    facts_cutoff = datetime.utcnow() - timedelta(seconds=HOST_FACTS_PROBE_SEC)
     job_types = [
         "backup",
         "service_migrate",
@@ -788,9 +789,15 @@ def cleanup_stale_backup_jobs(session: Session, max_age_minutes: int = 120) -> i
         if created < limit:
             stale.append(job)
     for job in stale:
-        _mark_job_failed(job, "Stale job — worker timeout or restart", session)
         if (job.job_type or "") == "host_facts":
+            _mark_job_failed(
+                job,
+                "Host did not respond before the facts probe finished",
+                session,
+            )
             _release_host_facts_refresh(session, job.server_id)
+        else:
+            _mark_job_failed(job, "Stale job — worker timeout or restart", session)
     if stale:
         session.commit()
         logger.info(f"[Jobs] Cleaned up {len(stale)} stale Celery job(s)")
@@ -1800,6 +1807,8 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
     except Exception:
         data = None
     if job_type == "os_update_check" and isinstance(data, dict):
+        if status == "failed":
+            return ("failed: " + str(data.get("error") or "check failed"))[:200]
         ready = data.get("actionable_count", data.get("updates_count"))
         phased = data.get("phased_count") or 0
         total = data.get("total_upgradable")
@@ -1820,40 +1829,42 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
             parts.append(f"note: {str(data['error'])[:80]}")
         return " · ".join(parts)
     if job_type == "container_update_check" and isinstance(data, dict):
+        if status == "failed":
+            return "image check failed"
         n = len(data.get("projects_with_updates") or [])
         checked = len(data.get("projects_checked") or data.get("checked") or [])
         return f"{n} project(s) with image updates" + (f" ({checked} checked)" if checked else "")
     if job_type == "docker_stack_check" and isinstance(data, dict):
         proj = data.get("project") or data.get("project_path") or "stack"
-        if data.get("has_updates"):
+        if status != "failed" and data.get("has_updates"):
             imgs = data.get("updated_images") or []
             return f"{proj}: updates available ({len(imgs)} image(s))"
-        if data.get("success"):
+        if status == "success" and data.get("success"):
             return f"{proj}: images up to date"
         return f"{proj}: check failed"
     if job_type == "docker_stack_deploy" and isinstance(data, dict):
         proj = data.get("project") or data.get("project_path") or "stack"
-        if data.get("success"):
+        if status == "success" and data.get("success"):
             return f"{proj}: deploy ok"
         err = data.get("error") or status
         return f"{proj}: deploy failed — {err}"[:200]
     if job_type in _CONTAINER_SERVICE_JOB_TYPES and isinstance(data, dict):
         svc = data.get("service") or "service"
         act = _CONTAINER_SERVICE_ACTIONS.get(job_type, "stop")
-        if data.get("success") or status == "success":
+        if status == "success":
             return f"{svc}: {act} ok"
         err = data.get("error") or status
         return f"{svc}: {act} failed — {err}"[:200]
     if job_type in _STACK_LIFECYCLE_JOB_TYPES and isinstance(data, dict):
         proj = data.get("project") or data.get("project_path") or "stack"
         act = data.get("action") or job_type.replace("docker_stack_", "", 1)
-        if data.get("success") or status == "success":
+        if status == "success":
             return f"{proj}: {act} ok"
         err = data.get("error") or status
         return f"{proj}: {act} failed — {err}"[:200]
     if job_type == "docker_stack_remove" and isinstance(data, dict):
         proj = data.get("project") or data.get("project_path") or "stack"
-        if data.get("success") or status == "success":
+        if status == "success":
             return f"{proj}: project deleted"
         err = data.get("error") or status
         return f"{proj}: delete failed — {err}"[:200]
@@ -1861,7 +1872,7 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
         proj = data.get("project_name") or data.get("project") or "template"
         slug = data.get("template_slug") or ""
         label = f"{slug}/{proj}" if slug else proj
-        if data.get("success") or status == "success":
+        if status == "success":
             ver = data.get("config_version")
             return f"{label}: ok" + (f" (V{ver})" if ver is not None else "")
         err = data.get("error") or status
@@ -1870,19 +1881,27 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
         proj = data.get("project_name") or data.get("project") or "template"
         st = data.get("drift_status") or data.get("status") or status
         n = data.get("diff_count")
-        if st == "in_sync" or (data.get("success") and st != "drifted"):
+        if status == "success" and (st == "in_sync" or (data.get("success") and st != "drifted")):
             return f"{proj}: in sync"
         if st == "drifted":
             return f"{proj}: drifted" + (f" ({n} file(s))" if n is not None else "")
         err = data.get("error") or data.get("reason") or st
         return f"{proj}: drift unknown — {err}"[:200]
     if job_type == "os_patch" and isinstance(data, dict):
+        if status == "failed":
+            return str(data.get("error") or "failed")[:200]
         return (data.get("summary") or snippet or status)[:200]
     if job_type == "container_patch":
+        if status == "failed":
+            if isinstance(data, dict) and data.get("error"):
+                return str(data.get("error"))[:200]
+            return "failed"
         if isinstance(data, dict):
             return (data.get("summary") or container_patching.summarize_container_patch(data) or status)[:200]
         return (snippet or status)[:200]
     if job_type == "retention":
+        if status == "failed":
+            return (snippet or "failed")[:200]
         return (snippet or "Retention complete")[:200]
     if job_type == "host_bootstrap":
         if isinstance(data, dict):
