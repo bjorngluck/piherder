@@ -24,7 +24,7 @@ from ..config import settings
 from ..models import Server
 from . import backup_profiles
 from .backup_path_policy import validate_backup_path, parse_rules
-from .ssh import get_private_key_plain, temp_key_file, LEGACY_SSH_OPTS_STR
+from .ssh import get_private_key_plain, rsync_e_command, temp_key_file
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +173,7 @@ def source_copy_rel(server: Server, source: str) -> str:
 
 
 def _ssh_argv(key_path: str, port: int, user: str, host: str, remote_cmd: str) -> list[str]:
+    known = f"{key_path}.known"
     return [
         "ssh",
         "-i",
@@ -182,7 +183,11 @@ def _ssh_argv(key_path: str, port: int, user: str, host: str, remote_cmd: str) -
         "-o",
         "BatchMode=yes",
         "-o",
-        "StrictHostKeyChecking=accept-new",
+        "StrictHostKeyChecking=yes",
+        "-o",
+        f"UserKnownHostsFile={known}",
+        "-o",
+        "GlobalKnownHostsFile=/dev/null",
         "-o",
         "ConnectTimeout=15",
         f"{user}@{host}",
@@ -538,7 +543,7 @@ def restore_backup_source(
         rsync_path = "sudo -n rsync"
 
     with temp_key_file(key_plain) as key_path:
-        ssh_cmd = f"ssh -i {shlex.quote(key_path)} -p {port} {LEGACY_SSH_OPTS_STR}"
+        ssh_cmd = rsync_e_command(server, key_path)
         from .backup_ownership import MANIFEST_NAME, load_manifest, render_apply_script
 
         rollback = {"skipped": True, "reason": "dry-run"} if dry_run else None
@@ -657,21 +662,7 @@ def restore_backup_source(
                 use_sudo=user not in ("root",),
             )
             own = subprocess.run(
-                [
-                    "ssh",
-                    "-i",
-                    key_path,
-                    "-p",
-                    str(port),
-                    "-o",
-                    "BatchMode=yes",
-                    "-o",
-                    "StrictHostKeyChecking=accept-new",
-                    "-o",
-                    "ConnectTimeout=15",
-                    f"{user}@{host}",
-                    ownership_remote_command(source),
-                ],
+                _ssh_argv(key_path, port, user, host, ownership_remote_command(source)),
                 input=script,
                 capture_output=True,
                 text=True,
@@ -803,7 +794,7 @@ def undo_host_restore(server: Server, source: str) -> Dict[str, Any]:
     from .backup_ownership import load_manifest, render_apply_script
 
     with temp_key_file(key_plain) as key_path:
-        ssh_cmd = f"ssh -i {shlex.quote(key_path)} -p {port} {LEGACY_SSH_OPTS_STR}"
+        ssh_cmd = rsync_e_command(server, key_path)
         try:
             proc = _rsync_tree(
                 ssh_cmd=ssh_cmd,

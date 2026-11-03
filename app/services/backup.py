@@ -1,5 +1,11 @@
 from ..models import Server
-from ..services.ssh import get_private_key_plain, temp_key_file, LEGACY_SSH_OPTS_STR, get_ssh_client, run_command
+from ..services.ssh import (
+    get_private_key_plain,
+    temp_key_file,
+    get_ssh_client,
+    run_command,
+    rsync_e_command,
+)
 import subprocess
 import os
 import json
@@ -109,8 +115,14 @@ def stop_backup(hostname: str):
 
 # (progress functions moved to backup_progress.py; re-exported at top of this file)
 
-def _build_rsync_ssh_cmd(key_path: str) -> str:
-    return f'ssh -i {key_path} {LEGACY_SSH_OPTS_STR}'
+def _build_rsync_ssh_cmd(key_path: str, server=None) -> str:
+    if server is None:
+        return (
+            f"ssh -i {shlex.quote(key_path)} -o BatchMode=yes "
+            "-o StrictHostKeyChecking=yes -o UserKnownHostsFile=/dev/null "
+            "-o ConnectTimeout=15"
+        )
+    return rsync_e_command(server, key_path)
 
 def _send_webhook(message: str):
     """Send notification using same shape as the original backup scripts."""
@@ -562,7 +574,7 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
                         if sudo_path not in rsync_paths_to_try:
                             rsync_paths_to_try.append(sudo_path)
                     with temp_key_file(priv) as key_path:
-                        ssh_cmd = _build_rsync_ssh_cmd(key_path)
+                        ssh_cmd = _build_rsync_ssh_cmd(key_path, server)
                         for attempt_path in rsync_paths_to_try:
                             cmd = rsync_base + ["-e", ssh_cmd, "--rsync-path", attempt_path]
                             cmd += [
@@ -638,7 +650,7 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
                         _active_backup_procs.pop(hostname, None)
                     else:
                         with temp_key_file(priv) as key_path:
-                            ssh_cmd = _build_rsync_ssh_cmd(key_path)
+                            ssh_cmd = _build_rsync_ssh_cmd(key_path, server)
                             attempt_path = remote_rsync_path
                             cmd = rsync_base + ["-e", ssh_cmd, "--rsync-path", attempt_path]
                             cmd += [
