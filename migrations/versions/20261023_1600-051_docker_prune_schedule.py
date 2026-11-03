@@ -32,7 +32,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    try:
-        op.drop_column("server", "docker_prune_schedule")
-    except Exception:
-        pass
+    conn = op.get_bind()
+    insp = inspect(conn)
+    if "server" not in set(insp.get_table_names()):
+        return
+    cols = {c["name"] for c in insp.get_columns("server")}
+    if "docker_prune_schedule" not in cols:
+        return
+    op.drop_column("server", "docker_prune_schedule")
