@@ -264,7 +264,8 @@ def test_scope_filter_jobs_and_sse_and_noread(tmp_path, monkeypatch):
         assert "set_features" in by_name
         assert "delete_file" in by_name
         assert by_name["trigger_job"]["annotations"]["destructiveHint"] is True
-        assert by_name["read_file"]["annotations"]["readOnlyHint"] is True
+        assert by_name["read_file"]["annotations"]["readOnlyHint"] is False
+        assert "sensitive" in by_name["read_file"]["description"].lower()
         assert by_name["write_file"]["annotations"]["destructiveHint"] is True
         assert "p" in by_name["write_file"]["inputSchema"]["required"]
         assert "p" in by_name["mkdir"]["inputSchema"]["required"]

@@ -133,7 +133,7 @@ Base path: **`/api/v1`**
 | `GET` | `/api/v1/servers/{id}/backup/restore-preview` | `read` | SSH rsync dry-run of the local backup (`source`, optional `destination_id`). It diffs that local backup and does not show permission or owner-only changes. `changes` lists relative paths a restore would send (`create` or `update`). `wrote` is false. It times out after 120 seconds. One preview at a time per host. A busy host returns 409. It does not pull a copy onto this PiHerder, does not write to the host, and does not take a rollback snapshot. Backups must be on for that host. A feature-restricted token also needs `feature:backup`. A bad source, a blocked path, a missing local tree, or an unavailable copy is HTTP 400. Not a hosted MCP tool |
 | `PATCH` | `/api/v1/servers/{id}/features` | `edit` | Toggle feature flags |
 | `GET` | `/api/v1/servers/{id}/files?p=` | `files` | List jail-relative directory (fleet) |
-| `GET` | `/api/v1/servers/{id}/files/download?p=` | `files` | Download one file |
+| `GET` | `/api/v1/servers/{id}/files/download?p=` | `files` | Download one file. Secret-looking names (`.env`, `*.key`, `id_*`, `*.pem`, `secrets`, and similar) are refused with 403 |
 | `POST` | `/api/v1/servers/{id}/files` | `files` | Multipart upload (`file`, `p`) |
 | `POST` | `/api/v1/servers/{id}/files/mkdir` | `files` | JSON `{p, name}` |
 | `POST` | `/api/v1/servers/{id}/files/rename` | `files` | JSON `{p, src, dest}` |

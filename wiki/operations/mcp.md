@@ -139,7 +139,7 @@ Published tool names match adapter **[0.4.4](https://github.com/bjorngluck/piher
 | `prune_build_cache` | `edit` | Prune the Docker build cache and the buildx cache (`docker builder prune -f`, then `docker buildx prune -f`). One audit row, `docker_build_cache_prune`. Not a `docker_prune` job and not scheduled. Adapter **0.4.4** lists this tool. Adapter **0.4.3** does not. It ships in **1.13.0**. |
 | `replace_stale_mac` | `edit` | Ignore a stale Discovery row that shares this device's hostname and IP, and copy a non-empty display name, kind override, and notes onto this MAC. One audit row, `nmap_replace_stale_mac`. Adapter **0.4.4** lists this tool. Adapter **0.4.3** does not. It ships in **1.13.0**. |
 | `list_files` | `files` | List a fleet-jail directory. `p` is jail-relative. `""` is the jail root. |
-| `read_file` | `files` | Download one fleet-jail file. Capped around 256 KiB. The result says when it was cut. |
+| `read_file` | `files` | Download one fleet-jail file. Sensitive. Secret-looking names are refused. Capped around 256 KiB. The result says when it was cut. `readOnlyHint` is false. |
 | `write_file` | `files` | Upload text. `p` is the directory, `name` is the basename. Cap 256 KiB. |
 | `mkdir` | `files` | Create a directory. `p` is the parent, `name` is the new directory. |
 | `rename_file` | `files` | Rename inside the current directory. `p`, `src`, `dest`. |
@@ -190,7 +190,7 @@ Not accepted on `trigger_job`: `docker_stack_down`, `docker_stack_remove`, `temp
 
 Adapter **0.4.4** lists these device tools, sends `confirm=true` on the two purge calls, and adds `replace_stale_mac`. It also lists `prune_docker`, `fleet_summary`, `list_alerts`, and `prune_build_cache`, and names the backup schedule fields. Adapter **0.4.3** lists the device tools, `prune_docker`, and the backup schedule fields, and does not list those four. Adapter **0.4.2** sends `confirm=true` and does not list `prune_docker`. Adapter **0.4.1** lists the device tools and omits that query, so purge returns 400 on 1.11.0. Adapter **0.4.0** lists `read_discovery` and `start_discovery` and does not list the device tools. Adapter **0.3.1** does not list the scan tools either. `uvx piherder-mcp` installs **0.4.4**. A cached **0.4.3** needs `uvx --refresh piherder-mcp`, then a restart of the MCP client.
 
-Read tools set `readOnlyHint`. `set_features`, `prune_docker`, `prune_volumes`, `prune_build_cache`, `replace_stale_mac`, `trigger_job`, `start_move`, `start_discovery`, `scan_discovery_device`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices`, `write_file`, `mkdir`, `rename_file`, and `delete_file` set `destructiveHint`.
+Read tools other than `read_file` set `readOnlyHint`. `read_file` is marked sensitive and `readOnlyHint` is false. `set_features`, `prune_docker`, `prune_volumes`, `prune_build_cache`, `replace_stale_mac`, `trigger_job`, `start_move`, `start_discovery`, `scan_discovery_device`, `rename_discovery_device`, `set_discovery_device_state`, `link_discovery_device`, `unlink_discovery_device`, `purge_discovery_device`, `purge_stale_discovery_devices`, `write_file`, `mkdir`, `rename_file`, and `delete_file` set `destructiveHint`.
 
 ## What stays out
 

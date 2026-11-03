@@ -654,15 +654,19 @@ def tool_catalog() -> list[dict[str, Any]]:
         {
             "name": "read_file",
             "description": (
-                "Download one fleet-jail file. Result is capped around 256 KiB "
-                "and says when it was cut."
+                "Download one fleet-jail file. Sensitive. Secret-looking names "
+                "are refused. Result is capped around 256 KiB and says when it was cut."
             ),
             "scope": tok_svc.SCOPE_FILES,
             "inputSchema": _obj_schema(
                 {"server_id": sid, "p": _str_prop("Jail-relative file path")},
                 ["server_id", "p"],
             ),
-            "annotations": _READ_ANN,
+            "annotations": {
+                "readOnlyHint": False,
+                "destructiveHint": False,
+                "openWorldHint": True,
+            },
         },
         {
             "name": "write_file",

@@ -983,6 +983,8 @@ def api_files_download(
 
     auth.require(tok_svc.SCOPE_FILES)
     server = _api_files_server(session, server_id)
+    if hf.is_secretish(p):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="secret_file")
     try:
         info = hf.stat_file(server, p, role=hf.ROLE_FLEET)
     except hf.FilesError as e:
