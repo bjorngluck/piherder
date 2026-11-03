@@ -351,14 +351,19 @@ def run_exclusive_job(task, job_id: int, server_id: int, audit_id: int, job_type
             return {"status": "failed", "job_id": job_id, "reason": "worker_restart"}
 
         if jt in HOST_BACKUP_LOCK_TYPES:
-            from .server_job_lock import try_acquire_server_lock
+            from .server_job_lock import LockUnavailable, try_acquire_server_lock
 
             lock_server = int(server_id)
-            lock_token = try_acquire_server_lock(
-                "backup", lock_server, holder=f"{jt}:{job_id}"
-            )
+            unavailable = False
+            try:
+                lock_token = try_acquire_server_lock(
+                    "backup", lock_server, holder=f"{jt}:{job_id}"
+                )
+            except LockUnavailable:
+                lock_token = None
+                unavailable = True
             if not lock_token:
-                return _defer_for_backup_lock(task, job_id, jt)
+                return _defer_for_backup_lock(task, job_id, jt, unavailable=unavailable)
 
         from .demo import demo_mode
 
@@ -412,32 +417,42 @@ def run_exclusive_job(task, job_id: int, server_id: int, audit_id: int, job_type
             release_server_lock("backup", lock_server, lock_token)
 
 
-def _defer_for_backup_lock(task, job_id: int, job_type: str):
-    """Backup holds this host. Stay pending and retry.
-
-    Returns a skip result when the job is no longer active. Otherwise raises
-    the Celery retry.
-    """
+def _defer_for_backup_lock(task, job_id: int, job_type: str, unavailable: bool = False):
+    """Stay pending and retry. Redis errors report lock_unavailable, not a busy host."""
     js = _jobs()
+    if unavailable:
+        current = "lock_unavailable"
+        log_line = "lock_unavailable"
+    else:
+        current = "waiting_for_server"
+        log_line = "Waiting for the backup on this server to finish"
     with js._get_fresh_session() as session:
         job = session.get(js.Job, job_id)
         if not job or job.status not in ("pending", "running"):
             return {"status": "skipped", "job_id": job_id}
         js._merge_job_details(
             job,
-            current="waiting_for_server",
-            log_line="Waiting for the backup on this server to finish",
+            current=current,
+            log_line=log_line,
             done=False,
         )
         job.status = "pending"
         session.add(job)
         session.commit()
-    logger.info(
-        "[Jobs] %s job #%s waiting for the backup lock, retry in %ss",
-        job_type,
-        job_id,
-        HOST_WAIT_COUNTDOWN_SEC,
-    )
+    if unavailable:
+        logger.info(
+            "[Jobs] %s job #%s lock_unavailable, retry in %ss",
+            job_type,
+            job_id,
+            HOST_WAIT_COUNTDOWN_SEC,
+        )
+    else:
+        logger.info(
+            "[Jobs] %s job #%s waiting for the backup lock, retry in %ss",
+            job_type,
+            job_id,
+            HOST_WAIT_COUNTDOWN_SEC,
+        )
     raise task.retry(countdown=HOST_WAIT_COUNTDOWN_SEC)
 
 

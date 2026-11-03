@@ -128,7 +128,8 @@ def test_redis_acquire_error_does_not_grant_and_reschedules(monkeypatch, caplog)
 
     monkeypatch.setattr(lock, "_get_redis", lambda: _RedisDown())
     with caplog.at_level(logging.WARNING, logger="app.services.server_job_lock"):
-        assert lock.try_acquire_server_lock("backup", 3, holder="job-7") is None
+        with pytest.raises(lock.LockUnavailable):
+            lock.try_acquire_server_lock("backup", 3, holder="job-7")
     assert not lock.is_server_locked("backup", 3)
     assert lock.lock_acquire_failure_counts() == {"redis_error": 1, "busy": 0}
     assert any(
@@ -162,7 +163,12 @@ def test_redis_acquire_error_does_not_grant_and_reschedules(monkeypatch, caplog)
     run_backup.assert_not_called()
     upd.assert_called()
     status = upd.call_args.args[1] if upd.call_args.args else upd.call_args.kwargs.get("status")
+    extra = upd.call_args.args[2] if len(upd.call_args.args) > 2 else {}
     # Deferred: still pending, retried, and not recorded as success or failure.
     assert status == "pending"
     assert status not in ("success", "failed")
+    assert extra.get("current") == "lock_unavailable"
+    assert extra.get("log_lines") == ["lock_unavailable"]
+    assert "redis down" not in str(extra)
+    assert "Waiting for another backup" not in str(extra)
     assert lock.lock_acquire_failure_counts()["redis_error"] == 2

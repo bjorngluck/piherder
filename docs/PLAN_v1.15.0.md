@@ -45,7 +45,7 @@ Suggested build order: boot and logging, the NameErrors, locks, CI with migratio
 
 | Tier | Lock |
 |------|------|
-| Must | **Host lock fails closed.** Issue [#78](https://github.com/bjorngluck/piherder/issues/78). In the tree. A Redis error on acquire must not fall back to a process-local lock. Two workers must not run `rsync --delete` on one host. The acquire fails and the job retries later. That error logs a warning and increments `piherder_lock_acquire_failures_total` with `reason` `redis_error`. A held lock increments the same counter with `reason` `busy` |
+| Must | **Host lock fails closed.** Issue [#78](https://github.com/bjorngluck/piherder/issues/78). In the tree. A Redis error on acquire must not fall back to a process-local lock. Two workers must not run `rsync --delete` on one host. The acquire fails and the job retries later. A Redis error reports `lock_unavailable` instead of a busy host. That error logs a warning and increments `piherder_lock_acquire_failures_total` with `reason` `redis_error`. A held lock increments the same counter with `reason` `busy` |
 | Must | **Patch, stack, reboot, and prune take the per-host lock.** Issue [#79](https://github.com/bjorngluck/piherder/issues/79). In the tree. Those jobs acquire the same per-host lock as a backup. Each defers while a backup holds the lock |
 
 ### CI and migrations

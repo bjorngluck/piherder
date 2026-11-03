@@ -19,6 +19,7 @@ from app.services.backup import (
 )
 from app.services.backup_audit import compact_backup_snippet, record_backup_audit_from_job
 from app.services.server_job_lock import (
+    LockUnavailable,
     try_acquire_server_lock,
     try_acquire_dual_server_lock,
     release_server_lock,
@@ -217,9 +218,14 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
                 db.commit()
 
         holder = str(job_id or self.request.id or f"task-{server_id}")
-        lock_token = try_acquire_server_lock("backup", server_id, holder=holder)
+        unavailable = False
+        try:
+            lock_token = try_acquire_server_lock("backup", server_id, holder=holder)
+        except LockUnavailable:
+            lock_token = None
+            unavailable = True
         if not lock_token:
-            # Another worker holds this host — wait and retry (same celery task id for cancel)
+            # Another worker holds this host, or Redis did not answer. Wait and retry.
             if job_id:
                 job = db.get(Job, job_id)
                 if not job or job.status not in ("pending", "running"):
@@ -237,20 +243,39 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
                     )
                 return {"status": "failed", "job_id": job_id, "server_id": server_id, "error": msg}
             if job_id:
-                _update_job_status(
-                    job_id,
-                    "pending",
-                    {
-                        "current": "waiting_for_server",
-                        "log_lines": [
-                            "Waiting for another backup on this server to finish…",
-                        ],
-                    },
+                if unavailable:
+                    _update_job_status(
+                        job_id,
+                        "pending",
+                        {"current": "lock_unavailable", "log_lines": ["lock_unavailable"]},
+                    )
+                else:
+                    _update_job_status(
+                        job_id,
+                        "pending",
+                        {
+                            "current": "waiting_for_server",
+                            "log_lines": [
+                                "Waiting for another backup on this server to finish…",
+                            ],
+                        },
+                    )
+            if unavailable:
+                logger.info(
+                    "[Celery] Server %s lock_unavailable, retry in %ss (attempt %s/%s)",
+                    server_id,
+                    _LOCK_WAIT_COUNTDOWN_SEC,
+                    self.request.retries + 1,
+                    _LOCK_MAX_RETRIES,
                 )
-            logger.info(
-                f"[Celery] Server {server_id} backup lock busy — retry in {_LOCK_WAIT_COUNTDOWN_SEC}s "
-                f"(attempt {self.request.retries + 1}/{_LOCK_MAX_RETRIES})"
-            )
+            else:
+                logger.info(
+                    "[Celery] Server %s backup lock busy, retry in %ss (attempt %s/%s)",
+                    server_id,
+                    _LOCK_WAIT_COUNTDOWN_SEC,
+                    self.request.retries + 1,
+                    _LOCK_MAX_RETRIES,
+                )
             raise self.retry(countdown=_LOCK_WAIT_COUNTDOWN_SEC)
 
         if job_id:
@@ -510,9 +535,14 @@ def service_migrate(
         db.commit()
 
         holder = str(job_id or self.request.id or f"migrate-{source_id}-{dest_id}")
-        lock_tokens = try_acquire_dual_server_lock(
-            "backup", source_id, dest_id, holder=holder
-        )
+        unavailable = False
+        try:
+            lock_tokens = try_acquire_dual_server_lock(
+                "backup", source_id, dest_id, holder=holder
+            )
+        except LockUnavailable:
+            lock_tokens = None
+            unavailable = True
         if not lock_tokens:
             if self.request.retries >= _LOCK_MAX_RETRIES:
                 msg = "Timed out waiting for a backup or Move on the source or destination host"
@@ -531,9 +561,11 @@ def service_migrate(
                 job_id,
                 "pending",
                 {
-                    "current": "waiting_for_server",
+                    "current": "lock_unavailable" if unavailable else "waiting_for_server",
                     "log_lines": [
-                        "Waiting for a backup or Move on the source or destination host…",
+                        "lock_unavailable"
+                        if unavailable
+                        else "Waiting for a backup or Move on the source or destination host…"
                     ],
                 },
             )
@@ -643,9 +675,14 @@ def _migrate_dual_lock_task(
         db.add(job)
         db.commit()
         holder = str(job_id or self.request.id or f"{job_type}-{source_id}-{dest_id}")
-        lock_tokens = try_acquire_dual_server_lock(
-            "backup", source_id, dest_id, holder=holder
-        )
+        unavailable = False
+        try:
+            lock_tokens = try_acquire_dual_server_lock(
+                "backup", source_id, dest_id, holder=holder
+            )
+        except LockUnavailable:
+            lock_tokens = None
+            unavailable = True
         if not lock_tokens:
             if self.request.retries >= _LOCK_MAX_RETRIES:
                 msg = "Timed out waiting for a backup or Move on the source or destination host"
@@ -659,8 +696,12 @@ def _migrate_dual_lock_task(
                 job_id,
                 "pending",
                 {
-                    "current": "waiting_for_server",
-                    "log_lines": ["Waiting for a backup or Move on the source or destination host…"],
+                    "current": "lock_unavailable" if unavailable else "waiting_for_server",
+                    "log_lines": [
+                        "lock_unavailable"
+                        if unavailable
+                        else "Waiting for a backup or Move on the source or destination host…"
+                    ],
                 },
             )
             raise self.retry(countdown=_LOCK_WAIT_COUNTDOWN_SEC)

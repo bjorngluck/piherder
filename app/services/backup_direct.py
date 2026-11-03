@@ -706,7 +706,11 @@ def push_server(
     own_lock: bool = True,
 ) -> list[dict]:
     from .demo import demo_mode
-    from .server_job_lock import release_server_lock, try_acquire_server_lock
+    from .server_job_lock import (
+        LockUnavailable,
+        release_server_lock,
+        try_acquire_server_lock,
+    )
 
     folder = host_folder_name(server) or server.hostname
     if demo_mode():
@@ -719,11 +723,17 @@ def push_server(
             return _stamp_rows(
                 destination, [{"source": folder, "rel": folder, "error": "Host is missing an id"}]
             )
-        token = try_acquire_server_lock(
-            "backup",
-            int(server.id),
-            holder=f"direct-{getattr(destination, 'id', None) or 'copy'}",
-        )
+        try:
+            token = try_acquire_server_lock(
+                "backup",
+                int(server.id),
+                holder=f"direct-{getattr(destination, 'id', None) or 'copy'}",
+            )
+        except LockUnavailable:
+            return _stamp_rows(
+                destination,
+                [{"source": folder, "rel": folder, "error": "lock_unavailable"}],
+            )
         if not token:
             return _stamp_rows(
                 destination,

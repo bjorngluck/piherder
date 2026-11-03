@@ -20,6 +20,19 @@ logger = logging.getLogger(__name__)
 
 LockKind = Literal["backup", "patch"]
 
+LOCK_UNAVAILABLE_CODE = "lock_unavailable"
+LOCK_UNAVAILABLE_MESSAGE = "The host lock is unavailable"
+
+
+class LockUnavailable(Exception):
+    """Redis did not answer the lock. The text is fixed and has no broker detail."""
+
+    code = LOCK_UNAVAILABLE_CODE
+    message = LOCK_UNAVAILABLE_MESSAGE
+
+    def __init__(self) -> None:
+        super().__init__(self.message)
+
 # Must cover longest rsync; Celery task_time_limit is 7200s
 DEFAULT_TTL_SEC = int(os.getenv("PIHERDER_SERVER_LOCK_TTL", "7200"))
 KEY_PREFIX = "piherder:server_lock"
@@ -170,8 +183,9 @@ def try_acquire_server_lock(
 ) -> str | None:
     """Try to acquire the per-server mutex.
 
-    Returns a lock token on success (pass to release/refresh), or None if busy.
-    ``holder`` is stored as a hint (job id / task id); the returned token is unique.
+    Returns a lock token on success (pass to release/refresh), or None if the
+    lock is held. A Redis error raises LockUnavailable and does not take the
+    process-local lock.
     """
     if server_id is None:
         return None
@@ -194,7 +208,7 @@ def try_acquire_server_lock(
         except Exception as e:
             logger.warning("[server_lock] Redis acquire failed: %s", e)
             note_lock_acquire_failure("redis_error")
-            return None
+            raise LockUnavailable() from None
 
     if _local_acquire(key, token, ttl):
         logger.debug(f"[server_lock] local acquired {kind} server={server_id}")
@@ -226,7 +240,11 @@ def try_acquire_dual_server_lock(
     t_first = try_acquire_server_lock(kind, first, holder=holder, ttl_sec=ttl_sec)
     if not t_first:
         return None
-    t_second = try_acquire_server_lock(kind, second, holder=holder, ttl_sec=ttl_sec)
+    try:
+        t_second = try_acquire_server_lock(kind, second, holder=holder, ttl_sec=ttl_sec)
+    except LockUnavailable:
+        release_server_lock(kind, first, t_first)
+        raise
     if not t_second:
         release_server_lock(kind, first, t_first)
         return None

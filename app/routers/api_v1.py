@@ -504,11 +504,21 @@ def api_restore_preview(
                 detail="That copy is not available for this host",
             )
     from ..services.backup_restore import preview_restore
-    from ..services.server_job_lock import release_server_lock, try_acquire_server_lock
-
-    lock = try_acquire_server_lock(
-        "backup", int(server.id), holder="restore-preview", ttl_sec=180
+    from ..services.server_job_lock import (
+        LockUnavailable,
+        release_server_lock,
+        try_acquire_server_lock,
     )
+
+    try:
+        lock = try_acquire_server_lock(
+            "backup", int(server.id), holder="restore-preview", ttl_sec=180
+        )
+    except LockUnavailable as locked:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={"code": locked.code, "message": locked.message},
+        ) from None
     if not lock:
         raise HTTPException(status.HTTP_409_CONFLICT, detail="This host is busy")
     try:
