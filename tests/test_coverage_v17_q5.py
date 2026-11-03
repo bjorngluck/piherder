@@ -21,6 +21,19 @@ from app.services import jobs_exclusive as ex
 _js = sys.modules["app.services.jobs"]
 
 
+@pytest.fixture(autouse=True)
+def _coverage_exclusive_tests_use_local_locks():
+    """Do not take a Redis host lock from this file."""
+    from app.services import server_job_lock as lock
+
+    previous = lock._redis_failed
+    lock._redis_failed = True
+    lock.clear_local_locks_for_tests()
+    yield
+    lock.clear_local_locks_for_tests()
+    lock._redis_failed = previous
+
+
 def _engine():
     engine = create_engine("sqlite://")
     SQLModel.metadata.create_all(engine)

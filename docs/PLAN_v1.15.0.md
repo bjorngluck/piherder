@@ -46,7 +46,7 @@ Suggested build order: boot and logging, the NameErrors, locks, CI with migratio
 | Tier | Lock |
 |------|------|
 | Must | **Host lock fails closed.** Issue [#78](https://github.com/bjorngluck/piherder/issues/78). In the tree. A Redis error on acquire must not fall back to a process-local lock. Two workers must not run `rsync --delete` on one host. The acquire fails and the job retries later |
-| Must | **Patch, stack, reboot, and prune take the per-host lock.** Issue [#79](https://github.com/bjorngluck/piherder/issues/79). Not built. Those jobs acquire the same per-host lock as a backup. Each refuses or defers while a backup holds the lock |
+| Must | **Patch, stack, reboot, and prune take the per-host lock.** Issue [#79](https://github.com/bjorngluck/piherder/issues/79). In the tree. Those jobs acquire the same per-host lock as a backup. Each defers while a backup holds the lock |
 
 ### CI and migrations
 
@@ -145,8 +145,8 @@ The ops track stays beside this order. It does not land as commits.
 |---|------|--------|
 | 1 | Maintainer creates milestone **v1.15.0** | Not created |
 | 2 | Boot and logging ([#75](https://github.com/bjorngluck/piherder/issues/75)) | In the tree |
-| 3 | NameErrors ([#76](https://github.com/bjorngluck/piherder/issues/76), [#77](https://github.com/bjorngluck/piherder/issues/77)) | Not built |
-| 4 | Locks ([#78](https://github.com/bjorngluck/piherder/issues/78), [#79](https://github.com/bjorngluck/piherder/issues/79)) | Not built |
+| 3 | NameErrors ([#76](https://github.com/bjorngluck/piherder/issues/76), [#77](https://github.com/bjorngluck/piherder/issues/77)) | In the tree |
+| 4 | Locks ([#78](https://github.com/bjorngluck/piherder/issues/78), [#79](https://github.com/bjorngluck/piherder/issues/79)) | In the tree |
 | 5 | CI with migrations ([#80](https://github.com/bjorngluck/piherder/issues/80), [#74](https://github.com/bjorngluck/piherder/issues/74), [#81](https://github.com/bjorngluck/piherder/issues/81)) | Not built |
 | 6 | Rest of Must correctness, then security, then Shoulds | Not built |
 

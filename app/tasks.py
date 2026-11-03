@@ -771,9 +771,9 @@ def exclusive_job(
 ):
     """Patch, checks, stack, template, and host-facts jobs on the default queue.
 
-    Does not take the backup / Move mutex. Host-down stays pending and
-    redelivers. A redelivery that finds the job already running fails it.
-    host_bootstrap is not this task.
+    Patch, stack, reboot, and prune take the backup host lock and defer
+    while it is held. Host-down stays pending and redelivers. A redelivery
+    that finds the job already running fails it. host_bootstrap is not this task.
     """
     from celery.exceptions import Retry
 
