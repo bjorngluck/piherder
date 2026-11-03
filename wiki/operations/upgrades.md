@@ -26,6 +26,7 @@ docker compose up -d
 
 ## Checklist
 
+- [ ] Set `REDIS_PASSWORD` and put it in `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, and `REDIS_URL` before upgrading. The web process and the worker ping Redis with that password at boot. If Redis rejects the password, the stack does not start. The log line has no URL and no password.
 - [ ] Self-backup successful (**admin** — Settings → PiHerder backup)  
 - [ ] `PIHERDER_MASTER_KEY` unchanged and backed up offline  
 - [ ] Read [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.6.0.md) for the version you jump to  

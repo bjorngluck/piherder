@@ -172,3 +172,86 @@ def test_redis_acquire_error_does_not_grant_and_reschedules(monkeypatch, caplog)
     assert "redis down" not in str(extra)
     assert "Waiting for another backup" not in str(extra)
     assert lock.lock_acquire_failure_counts()["redis_error"] == 2
+
+
+def test_redis_auth_error_fails_the_job_and_does_not_defer(monkeypatch, caplog):
+    """A rejected password fails the job. It is not deferred like a connection error."""
+    import logging
+
+    import redis
+
+    from app.tasks import backup_server
+
+    marker = "marker-secret redis://192.0.2.40:6379/0"
+
+    class _Rejected:
+        def set(self, *args, **kwargs):
+            raise redis.exceptions.AuthenticationError(f"WRONGPASS {marker}")
+
+    monkeypatch.setattr(lock, "_get_redis", lambda: _Rejected())
+    with caplog.at_level(logging.ERROR, logger="app.services.server_job_lock"):
+        with pytest.raises(lock.RedisAuthFailed) as caught:
+            lock.try_acquire_server_lock("backup", 3, holder="job-7")
+    assert str(caught.value) == "Redis authentication failed."
+    assert marker not in " ".join(rec.getMessage() for rec in caplog.records)
+    assert "WRONGPASS" not in " ".join(rec.getMessage() for rec in caplog.records)
+    assert lock.lock_acquire_failure_counts()["redis_error"] == 1
+
+    server = SimpleNamespace(id=3, name="host-a", hostname="host-a.example.com")
+    job = SimpleNamespace(
+        id=7,
+        status="pending",
+        server_id=3,
+        details="{}",
+        started_at=None,
+        finished_at=None,
+    )
+    mock_db = MagicMock()
+    mock_db.exec.return_value.first.return_value = server
+    mock_db.get.return_value = job
+
+    with (
+        caplog.at_level(logging.ERROR, logger="app.tasks"),
+        patch("app.tasks.Session", return_value=mock_db),
+        patch("app.tasks._update_job_status") as upd,
+        patch("app.tasks.run_backup") as run_backup,
+        patch("app.tasks._flush_job_progress_db"),
+        patch("app.tasks.clear_job_progress_buffer"),
+        patch.object(backup_server, "retry", side_effect=Retry(message="wait")) as retry,
+    ):
+        backup_server.run(3, job_id=7)
+
+    retry.assert_not_called()
+    run_backup.assert_not_called()
+    upd.assert_called()
+    status = upd.call_args.args[1]
+    extra = upd.call_args.args[2]
+    assert status == "failed"
+    assert extra.get("error") == "Redis authentication failed."
+    assert marker not in str(extra)
+    assert "WRONGPASS" not in str(extra)
+    assert "redis://" not in str(extra)
+    task_log = " ".join(rec.getMessage() for rec in caplog.records)
+    assert marker not in task_log
+    assert "WRONGPASS" not in task_log
+
+
+def test_dual_lock_releases_the_first_host_when_auth_fails(monkeypatch):
+    import redis
+
+    calls = {"n": 0}
+
+    class _SecondRejects:
+        def set(self, *args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return True
+            raise redis.exceptions.AuthenticationError("WRONGPASS")
+
+        def eval(self, *args, **kwargs):
+            return 1
+
+    monkeypatch.setattr(lock, "_get_redis", lambda: _SecondRejects())
+    with pytest.raises(lock.RedisAuthFailed):
+        lock.try_acquire_dual_server_lock("backup", 2, 9, holder="job-1")
+    assert calls["n"] == 2

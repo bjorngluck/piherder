@@ -1,12 +1,17 @@
 """Boot checks for the database password and Redis URLs."""
 from __future__ import annotations
 
+import logging
 import os
 from urllib.parse import unquote, urlsplit
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_DB_PASSWORD = "piherder"
 _REDIS_SCHEMES = {"redis", "rediss"}
 _DEFAULT_REDIS_URL = "redis://localhost:6379/0"
+_AUTH_MARKERS = ("wrongpass", "noauth", "invalid password", "authentication required")
+REDIS_AUTH_FAILURE = "Redis authentication failed. Refusing to start."
 
 
 def _password(url: str) -> str | None:
@@ -45,6 +50,54 @@ def redis_urls_from_env(env: dict[str, str] | None = None) -> list[str]:
     return urls
 
 
+def redis_auth_error(exc: BaseException) -> bool:
+    """True for a rejected password. The check does not log the exception."""
+    try:
+        import redis
+
+        if isinstance(exc, redis.exceptions.AuthenticationError):
+            return True
+    except Exception:
+        pass
+    text = str(exc).lower()
+    return any(marker in text for marker in _AUTH_MARKERS)
+
+
+def _refuse_redis_auth() -> None:
+    logger.error(REDIS_AUTH_FAILURE)
+    raise SystemExit(REDIS_AUTH_FAILURE)
+
+
+def ping_redis_auth(urls: list[str]) -> None:
+    """Ping each Redis URL with the password in the URL.
+
+    An authentication failure refuses boot. A connection error is logged
+    without the URL or the password and does not refuse boot.
+    """
+    import redis
+
+    for url in urls:
+        parts = urlsplit((url or "").strip())
+        if parts.scheme not in _REDIS_SCHEMES:
+            continue
+        client = redis.from_url(url, socket_connect_timeout=2, socket_timeout=2)
+        try:
+            client.ping()
+        except redis.exceptions.AuthenticationError:
+            _refuse_redis_auth()
+        except redis.exceptions.ResponseError as exc:
+            if redis_auth_error(exc):
+                _refuse_redis_auth()
+            logger.warning("Redis authenticated ping failed.")
+        except Exception:
+            logger.warning("Redis authenticated ping did not connect.")
+        finally:
+            try:
+                client.close()
+            except Exception:
+                pass
+
+
 def require_boot_secrets(*, database_url: str, redis_urls: list[str], demo: bool) -> None:
     if not demo and database_uses_default_password(database_url):
         raise SystemExit(
@@ -69,3 +122,4 @@ def enforce_boot_secrets() -> None:
         redis_urls=redis_urls_from_env(),
         demo=bool(demo_mode()),
     )
+    ping_redis_auth(redis_urls_from_env())

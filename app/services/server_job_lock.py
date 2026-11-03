@@ -33,6 +33,13 @@ class LockUnavailable(Exception):
     def __init__(self) -> None:
         super().__init__(self.message)
 
+
+class RedisAuthFailed(Exception):
+    """The password was rejected. This is not a transient lock miss."""
+
+    def __init__(self) -> None:
+        super().__init__("Redis authentication failed.")
+
 # Must cover longest rsync; Celery task_time_limit is 7200s
 DEFAULT_TTL_SEC = int(os.getenv("PIHERDER_SERVER_LOCK_TTL", "7200"))
 KEY_PREFIX = "piherder:server_lock"
@@ -205,8 +212,14 @@ def try_acquire_server_lock(
                 return token
             note_lock_acquire_failure("busy")
             return None
-        except Exception as e:
-            logger.warning("[server_lock] Redis acquire failed: %s", e)
+        except Exception as exc:
+            from ..security.boot_secrets import redis_auth_error
+
+            if redis_auth_error(exc):
+                logger.error("Redis authentication failed.")
+                note_lock_acquire_failure("redis_error")
+                raise RedisAuthFailed() from None
+            logger.warning("[server_lock] Redis acquire failed")
             note_lock_acquire_failure("redis_error")
             raise LockUnavailable() from None
 
@@ -242,7 +255,7 @@ def try_acquire_dual_server_lock(
         return None
     try:
         t_second = try_acquire_server_lock(kind, second, holder=holder, ttl_sec=ttl_sec)
-    except LockUnavailable:
+    except (LockUnavailable, RedisAuthFailed):
         release_server_lock(kind, first, t_first)
         raise
     if not t_second:
