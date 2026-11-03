@@ -238,7 +238,7 @@
 <p class="mt-4 text-xs text-muted">Click an event for full details</p>
 
 <script>
-const AUDIT_LOGS = {{ logs | tojson | safe }};
+const AUDIT_LOGS = {{ logs | tojson }};
 </script>
 
 <div id="audit-details-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3"

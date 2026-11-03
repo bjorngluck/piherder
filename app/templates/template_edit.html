@@ -296,11 +296,11 @@
 
 <script>
 function templateEditor() {
-  const initialVars = {{ form.variables_json | safe }};
-  const initialChecks = {{ form.checklist_json | safe }};
+  const initialVars = {{ form.variables_json | htmlsafe_json }};
+  const initialChecks = {{ form.checklist_json | htmlsafe_json }};
   let initialExtra = [];
   try {
-    initialExtra = {{ (form.extra_files_json or '[]') | safe }};
+    initialExtra = {{ (form.extra_files_json or '[]') | htmlsafe_json }};
   } catch (e) {
     initialExtra = [];
   }

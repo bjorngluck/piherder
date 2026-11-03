@@ -303,7 +303,7 @@
     </div>
     <button type="submit" class="btn btn-primary text-xs min-h-9">Add</button>
   </form>
-  <script type="application/json" id="svc-docker-options">{{ docker_options_json | safe }}</script>
+  <script type="application/json" id="svc-docker-options">{{ docker_options_json | htmlsafe_json }}</script>
   <script>
   (function () {
     var raw = document.getElementById('svc-docker-options');

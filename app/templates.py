@@ -137,11 +137,38 @@ def _fromjson_filter(value):
 templates.env.filters["fromjson"] = _fromjson_filter
 
 
+_JSON_HTML_ESCAPES = (
+    ("<", "\\u003c"),
+    (">", "\\u003e"),
+    ("&", "\\u0026"),
+    ("'", "\\u0027"),
+)
+
+
+def _escape_json_text(text: str) -> str:
+    for src, dst in _JSON_HTML_ESCAPES:
+        text = text.replace(src, dst)
+    return text
+
+
+def htmlsafe_json_dumps(value) -> str:
+    """JSON text safe to embed in HTML, matching Jinja's built-in tojson."""
+    return _escape_json_text(json.dumps(value))
+
+
 def _tojson_filter(value):
-    return Markup(json.dumps(value))
+    return Markup(htmlsafe_json_dumps(value))
+
+
+def _htmlsafe_json_filter(value):
+    """Escape JSON that was already serialised (json.dumps in a view)."""
+    if value is None:
+        return Markup("")
+    return Markup(_escape_json_text(str(value)))
 
 
 templates.env.filters["tojson"] = _tojson_filter
+templates.env.filters["htmlsafe_json"] = _htmlsafe_json_filter
 
 # About / update banner (soft-fail; cached GitHub check)
 from . import version_info as _vi

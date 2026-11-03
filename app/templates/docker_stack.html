@@ -271,7 +271,7 @@
           <button type="button"
                   data-sec-btn="build"
                   data-proj-name="{{ proj.name | e }}"
-                  data-build-services='{{ proj.build_services | tojson | safe }}'
+                  data-build-services='{{ proj.build_services | tojson }}'
                   data-server-id="{{ server.id }}">Build…</button>
           {% endif %}
           {% set proj_map = (fabric_by_project or {}).get((proj.name or '')|lower) %}

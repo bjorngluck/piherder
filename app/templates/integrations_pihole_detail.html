@@ -427,7 +427,7 @@
   {% endif %}
   <script>
   (function () {
-    var dockerOpts = {{ docker_options_json|safe }};
+    var dockerOpts = {{ docker_options_json|htmlsafe_json }};
     var form = document.querySelector('form.pihole-host-bind-form');
     if (!form) return;
     var serverEl = form.querySelector('.ph-bind-server');
