@@ -500,6 +500,49 @@ def notify_os_updates(
         resolve_by_fingerprint(session, fp_reboot)
 
 
+def unhealthy_container_names(containers: list[dict]) -> list[str]:
+    """Names whose status or state says unhealthy."""
+    found: list[str] = []
+    for row in containers or []:
+        status = str(row.get("status") or "")
+        state = str(row.get("state") or "")
+        if "unhealthy" not in status.lower() and state.lower() != "unhealthy":
+            continue
+        name = str(row.get("name") or "").strip()
+        if name and name not in found:
+            found.append(name)
+    return found
+
+
+def notify_unhealthy_containers(
+    session: Session,
+    server_id: int,
+    server_name: str,
+    names: list[str],
+) -> None:
+    """One open alert while any container stays unhealthy. A clear list resolves it."""
+    fingerprint = f"container_unhealthy:server:{int(server_id)}"
+    cleaned = unhealthy_container_names(
+        [{"name": name, "status": "unhealthy"} for name in names]
+    )
+    if not cleaned:
+        resolve_by_fingerprint(session, fingerprint)
+        return
+    shown = ", ".join(cleaned[:8])
+    extra = f" (+{len(cleaned) - 8} more)" if len(cleaned) > 8 else ""
+    upsert_notification(
+        session,
+        fingerprint=fingerprint,
+        type="container_unhealthy",
+        title=f"Unhealthy containers on {server_name}",
+        body=f"{shown}{extra}",
+        link_url=f"/servers/{int(server_id)}/docker",
+        severity="warning",
+        server_id=int(server_id),
+        payload={"containers": cleaned[:20]},
+    )
+
+
 def notify_container_updates(
     session: Session,
     server_id: int,

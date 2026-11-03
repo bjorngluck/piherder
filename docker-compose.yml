@@ -166,7 +166,7 @@ services:
       - db
       - redis
     healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      test: ["CMD", "python", "-c", "from app.services.readiness import worker_responds; raise SystemExit(0 if worker_responds() else 1)"]
       interval: 45s
       timeout: 15s
       retries: 5

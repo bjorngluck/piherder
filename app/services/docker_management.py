@@ -1316,7 +1316,32 @@ def _list_containers_uncached(server: Server, enrich_mounts: bool = True) -> Lis
             _enrich_container_mounts(server, containers)
         except Exception:
             pass
+    _note_unhealthy_containers(server, containers)
     return containers
+
+
+def _note_unhealthy_containers(server: Server, containers: list[dict]) -> None:
+    """Record one alert when a listed container stays unhealthy."""
+    try:
+        server_id = getattr(server, "id", None)
+        if server_id is None:
+            return
+        from sqlmodel import Session
+
+        from ..database import get_engine
+        from .notifications import notify_unhealthy_containers, unhealthy_container_names
+
+        names = unhealthy_container_names(containers)
+        with Session(get_engine()) as session:
+            notify_unhealthy_containers(
+                session,
+                int(server_id),
+                getattr(server, "name", None) or str(server_id),
+                names,
+            )
+            session.commit()
+    except Exception:
+        return
 
 
 def _human_bytes(n: int) -> str:

@@ -316,6 +316,7 @@ _FORCE_PASSWORD_ALLOW = (
     "/sw.js",
     "/manifest.webmanifest",
     "/health",
+    "/ready",
 )
 # Paths allowed while force_2fa policy and user has no 2FA yet
 _FORCE_2FA_ALLOW = (
@@ -327,6 +328,7 @@ _FORCE_2FA_ALLOW = (
     "/static",
     "/favicon.ico",
     "/health",
+    "/ready",
 )
 # Note: /auth/account/* (incl. webauthn register) is covered by "/auth/account" prefix match
 
