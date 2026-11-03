@@ -95,6 +95,7 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 | `CELERY_CONCURRENCY` | `2` pool slots (compose → celery-worker) |
 | `PIHERDER_WORKER_METRICS` | `1` on the compose celery-worker. Unset leaves the worker metrics port closed |
 | `PIHERDER_WORKER_METRICS_PORT` | `9809`. Compose does not publish this port |
+| `PIHERDER_WORKER_METRICS_URL` | `http://celery-worker:9809/metrics`. `GET /metrics/worker` fetches this URL. A request parameter cannot change it |
 | `PROMETHEUS_MULTIPROC_DIR` | `/tmp/piherder-metrics` on the celery-worker so prefork children add their counts |
 | `PIHERDER_SERVER_LOCK_TTL` | `7200` backup mutex TTL |
 | `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` | Unset — **Settings → General → Jobs** (default 30 minutes). When this env var is set it **locks** that field. Probe every 30s. Floor 30, ceiling 86400 |

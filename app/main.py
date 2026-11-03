@@ -315,7 +315,7 @@ class SameOriginPostMiddleware(BaseHTTPMiddleware):
             # Automation tokens and public health/metrics are not cookie CSRF targets
             if auth.startswith("bearer ") or path.startswith("/api/v1"):
                 return await call_next(request)
-            if path in ("/health", "/ready", "/metrics") or path.startswith("/static"):
+            if path in ("/health", "/ready", "/metrics", "/metrics/worker") or path.startswith("/static"):
                 return await call_next(request)
             from .security.auth import same_origin_request
 

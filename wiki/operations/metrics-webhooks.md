@@ -27,12 +27,15 @@ scrape_configs:
       type: Bearer
       credentials: "<METRICS_TOKEN>"
   - job_name: piherder-worker
-    metrics_path: /metrics
+    metrics_path: /metrics/worker
     static_configs:
-      - targets: ["celery-worker:9809"]
+      - targets: ["host-a.example.com:8000"]
+    authorization:
+      type: Bearer
+      credentials: "<METRICS_TOKEN>"
 ```
 
-The worker target has no token. Compose does not publish port 9809, so scrape it from the compose network. `piherder_lock_acquire_failures_total` and `piherder_schedule_catchup_total` are per process. The web target shows the web process. The worker target adds the prefork children. Sum the series across both jobs.
+`GET /metrics/worker` uses the same token as `GET /metrics`. The web process fetches `PIHERDER_WORKER_METRICS_URL` (default `http://celery-worker:9809/metrics`) with a 2 second timeout and returns that body unchanged. A query parameter cannot change the target. Compose does not publish port 9809. If the worker cannot be reached, the route returns 503 and the body is `Worker metrics are unavailable.` `piherder_lock_acquire_failures_total` and `piherder_schedule_catchup_total` are per process. The web target shows the web process. The worker target adds the prefork children. Sum the series across both jobs. The worker clears `PROMETHEUS_MULTIPROC_DIR` when it starts, so files from dead children do not carry into the next start.
 
 Useful series, and the full set exported by `app/services/metrics.py`:
 

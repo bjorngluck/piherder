@@ -37,13 +37,12 @@ celery.conf.update(
 )
 
 
-def _prepare_worker_metrics_dir() -> None:
+@worker_init.connect
+def _clear_worker_metrics_dir(**_kwargs):
+    """Drop multiprocess files from children that died before this start."""
     from .services.worker_metrics import prepare_multiproc_dir
 
     prepare_multiproc_dir()
-
-
-_prepare_worker_metrics_dir()
 
 
 @worker_init.connect

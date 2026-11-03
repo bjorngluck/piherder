@@ -15,6 +15,8 @@ from prometheus_client import Counter
 logger = logging.getLogger(__name__)
 
 DEFAULT_WORKER_METRICS_PORT = 9809
+DEFAULT_WORKER_METRICS_URL = "http://celery-worker:9809/metrics"
+WORKER_METRICS_UNAVAILABLE = "Worker metrics are unavailable."
 _LOCK_REASONS = ("redis_error", "busy")
 _CATCHUP_KINDS = ("backup", "container_check")
 _CATCHUP_RESULTS = ("queued", "skipped", "failed")
@@ -59,6 +61,30 @@ def worker_metrics_port() -> int:
     if port < 1 or port > 65535:
         return DEFAULT_WORKER_METRICS_PORT
     return port
+
+
+def configured_worker_metrics_url() -> str:
+    """Internal worker scrape URL. Callers cannot pass a request target."""
+    raw = (os.getenv("PIHERDER_WORKER_METRICS_URL") or "").strip()
+    return raw or DEFAULT_WORKER_METRICS_URL
+
+
+def fetch_worker_metrics() -> tuple[int, bytes, str]:
+    """GET the configured worker URL. A transport failure is a fixed 503."""
+    url = configured_worker_metrics_url()
+    try:
+        import httpx
+
+        response = httpx.get(url, timeout=2.0, follow_redirects=False)
+    except Exception as exc:
+        logger.warning("Worker metrics fetch failed: %s", type(exc).__name__)
+        return (
+            503,
+            WORKER_METRICS_UNAVAILABLE.encode("utf-8"),
+            "text/plain; charset=utf-8",
+        )
+    media = response.headers.get("content-type") or "text/plain; version=0.0.4; charset=utf-8"
+    return response.status_code, response.content, media
 
 
 def prepare_multiproc_dir() -> None:
