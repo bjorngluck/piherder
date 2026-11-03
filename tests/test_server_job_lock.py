@@ -14,11 +14,13 @@ from app.services import server_job_lock as lock
 def _clean_local_locks():
     lock.clear_local_locks_for_tests()
     lock.reset_redis_client_for_tests()
+    lock.reset_lock_acquire_failures_for_tests()
     # Force local path (no Redis) unless a test patches _get_redis
     lock._redis_failed = True
     yield
     lock.clear_local_locks_for_tests()
     lock.reset_redis_client_for_tests()
+    lock.reset_lock_acquire_failures_for_tests()
 
 
 def test_acquire_release_local():
@@ -111,10 +113,13 @@ def test_redis_busy_returns_none(monkeypatch):
     fake.set.return_value = None  # NX not set
     monkeypatch.setattr(lock, "_get_redis", lambda: fake)
     assert lock.try_acquire_server_lock("backup", 1, holder="a") is None
+    assert lock.lock_acquire_failure_counts() == {"redis_error": 0, "busy": 1}
 
 
-def test_redis_acquire_error_does_not_grant_and_reschedules(monkeypatch):
-    """A Redis error on acquire grants nothing, and the backup task retries."""
+def test_redis_acquire_error_does_not_grant_and_reschedules(monkeypatch, caplog):
+    """A Redis error defers the backup. The job body does not run and it does not succeed."""
+    import logging
+
     from app.tasks import backup_server
 
     class _RedisDown:
@@ -122,8 +127,14 @@ def test_redis_acquire_error_does_not_grant_and_reschedules(monkeypatch):
             raise ConnectionError("redis down")
 
     monkeypatch.setattr(lock, "_get_redis", lambda: _RedisDown())
-    assert lock.try_acquire_server_lock("backup", 3, holder="job-7") is None
+    with caplog.at_level(logging.WARNING, logger="app.services.server_job_lock"):
+        assert lock.try_acquire_server_lock("backup", 3, holder="job-7") is None
     assert not lock.is_server_locked("backup", 3)
+    assert lock.lock_acquire_failure_counts() == {"redis_error": 1, "busy": 0}
+    assert any(
+        rec.levelname == "WARNING" and "Redis acquire failed" in rec.message
+        for rec in caplog.records
+    )
 
     server = SimpleNamespace(id=3, name="host-a", hostname="host-a.example.com")
     job = SimpleNamespace(
@@ -151,4 +162,7 @@ def test_redis_acquire_error_does_not_grant_and_reschedules(monkeypatch):
     run_backup.assert_not_called()
     upd.assert_called()
     status = upd.call_args.args[1] if upd.call_args.args else upd.call_args.kwargs.get("status")
+    # Deferred: still pending, retried, and not recorded as success or failure.
     assert status == "pending"
+    assert status not in ("success", "failed")
+    assert lock.lock_acquire_failure_counts()["redis_error"] == 2

@@ -355,10 +355,19 @@ def metrics_body(session: Session) -> str:
         lines = catchup_counter_lines()
     except Exception:
         lines = []
+    try:
+        from .server_job_lock import lock_acquire_failure_lines
+
+        lock_lines = lock_acquire_failure_lines()
+    except Exception:
+        lock_lines = []
     extra = [
         "# HELP piherder_schedule_catchup_total Catch-up attempts for a missed backup or image check. Per process. Resets when the process restarts",
         "# TYPE piherder_schedule_catchup_total counter",
         *lines,
+        "# HELP piherder_lock_acquire_failures_total Host lock acquires that did not take the lock. Label reason is redis_error or busy. Per process. Resets when the process restarts",
+        "# TYPE piherder_lock_acquire_failures_total counter",
+        *lock_lines,
         "",
     ]
     return body + "\n".join(extra)

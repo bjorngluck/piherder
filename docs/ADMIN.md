@@ -549,7 +549,7 @@ scrape_configs:
       credentials_file: /etc/prometheus/piherder_token  # or credentials: "..."
 ```
 
-Useful series: `piherder_up`, `piherder_db_up`, `piherder_servers*`, `piherder_jobs*`, `piherder_notifications_open*`, `piherder_servers_backup_stale`. `piherder_schedule_catchup_total` is per process and resets on restart, so sum it across workers and use increase() or rate().
+Useful series: `piherder_up`, `piherder_db_up`, `piherder_servers*`, `piherder_jobs*`, `piherder_notifications_open*`, `piherder_servers_backup_stale`. `piherder_schedule_catchup_total` and `piherder_lock_acquire_failures_total` (`reason` `redis_error` or `busy`) are per process and reset on restart, so sum them across workers and use increase() or rate().
 
 If `METRICS_TOKEN` is empty, treat `/metrics` like `/health` — private network only.
 

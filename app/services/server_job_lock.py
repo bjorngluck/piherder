@@ -41,6 +41,9 @@ return 0
 _redis_client = None
 _redis_failed = False
 
+_FAILURE_REASONS = ("redis_error", "busy")
+_FAILURE_COUNTS = {reason: 0 for reason in _FAILURE_REASONS}
+
 # Process-local fallback: key -> (token, expires_at)
 _local: dict[str, tuple[str, float]] = {}
 _local_guard = threading.Lock()
@@ -87,6 +90,27 @@ def clear_local_locks_for_tests() -> None:
     """Drop process-local lock map (tests only)."""
     with _local_guard:
         _local.clear()
+
+
+def note_lock_acquire_failure(reason: str) -> None:
+    if reason in _FAILURE_COUNTS:
+        _FAILURE_COUNTS[reason] += 1
+
+
+def lock_acquire_failure_counts() -> dict[str, int]:
+    return {reason: int(_FAILURE_COUNTS[reason]) for reason in _FAILURE_REASONS}
+
+
+def lock_acquire_failure_lines() -> list[str]:
+    return [
+        f'piherder_lock_acquire_failures_total{{reason="{reason}"}} {int(_FAILURE_COUNTS[reason])}'
+        for reason in _FAILURE_REASONS
+    ]
+
+
+def reset_lock_acquire_failures_for_tests() -> None:
+    for reason in _FAILURE_REASONS:
+        _FAILURE_COUNTS[reason] = 0
 
 
 def _local_acquire(key: str, token: str, ttl_sec: int) -> bool:
@@ -165,14 +189,17 @@ def try_acquire_server_lock(
                     f"[server_lock] acquired {kind} server={server_id} holder={holder}"
                 )
                 return token
+            note_lock_acquire_failure("busy")
             return None
         except Exception as e:
             logger.warning("[server_lock] Redis acquire failed: %s", e)
+            note_lock_acquire_failure("redis_error")
             return None
 
     if _local_acquire(key, token, ttl):
         logger.debug(f"[server_lock] local acquired {kind} server={server_id}")
         return token
+    note_lock_acquire_failure("busy")
     return None
 
 
