@@ -29,6 +29,9 @@ celery.conf.update(
     broker_transport_options={"visibility_timeout": 10800},
     worker_prefetch_multiplier=1,
     task_acks_late=True,
+    # A redirected stderr writes one log record per traceback line.
+    # Leave tracebacks on the task logger as one record with exc_info.
+    worker_redirect_stdouts=False,
     # Avoid stealing tasks that another worker is about to run after lock wait
     worker_disable_rate_limits=True,
 )
