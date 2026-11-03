@@ -218,6 +218,19 @@ def _backup_schedule_fields(server) -> dict[str, Any]:
     return resolve_backup_schedule(server)
 
 
+def _host_posture_fields(server, alerts: list[dict[str, Any]]) -> dict[str, Any]:
+    from datetime import datetime, timezone
+
+    from ..services.host_posture import apply_open_alerts, host_posture
+
+    moment = datetime.now(timezone.utc)
+    posture = apply_open_alerts(host_posture(server, moment), alerts, moment)
+    return {
+        "host_status": posture["status"],
+        "host_status_seconds": posture["duration_seconds"],
+    }
+
+
 def _server_public(
     s: Server, *, alerts: list[dict[str, Any]] | None = None
 ) -> dict[str, Any]:
@@ -253,6 +266,7 @@ def _server_public(
         "disk_used_bytes": getattr(s, "disk_used_bytes", None),
         "container_count": _container_count(s),
         "last_seen": last_seen,
+        **_host_posture_fields(s, alert_rows),
         "features": {
             "backup": bool(s.backup_enabled),
             "os_patch": bool(s.os_patch_enabled),

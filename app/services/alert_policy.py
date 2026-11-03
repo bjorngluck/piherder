@@ -62,6 +62,16 @@ class EffectivePolicy:
 
 CATALOG: tuple[TypeSpec, ...] = (
     TypeSpec("host_down", "host", "Host down (Kuma SSH)", "critical", True, 15, 24),
+    TypeSpec("host_unreachable", "host", "Host unreachable", "critical", True, 0, 0),
+    TypeSpec(
+        "backup_missed_repeat",
+        "backup",
+        "Two backup slots missed",
+        "critical",
+        True,
+        0,
+        0,
+    ),
     TypeSpec(
         "stack_container_down",
         "inventory",

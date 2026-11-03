@@ -37,6 +37,8 @@ TYPE_PREF_FIELDS = {
     "herder_backup_failed": "herder_backup_failed",
     "integration_monitor_down": "integration_down",
     "host_down": "integration_down",
+    "host_unreachable": "integration_down",
+    "backup_missed_repeat": "backup_failed",
     "map_infra_down": "integration_down",
     "nmap_new_device": "integration_down",
     "nmap_device_offline": "integration_down",

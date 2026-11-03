@@ -983,6 +983,12 @@ def watch_missed_schedules():
         with Session(get_engine()) as session:
             opened = sync_missed_schedule_alerts(session)
             try:
+                from .host_posture import sync_host_posture_alerts
+
+                sync_host_posture_alerts(session)
+            except Exception:
+                logger.exception("[SCHEDULER] Host posture check failed")
+            try:
                 from .schedule_catchup import run_due_catchups
 
                 run_due_catchups(session)
