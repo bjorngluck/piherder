@@ -272,12 +272,8 @@ def _enqueue_celery(
     try:
         async_result = publish()
     except Exception as exc:
-        msg = f"Failed to enqueue {job_type} to Celery: {exc}"
-        if job_type == "host_bootstrap":
-            msg = _redact_bootstrap_text(msg, payload)
-            logger.error("[Jobs] %s", msg)
-        else:
-            logger.exception("[Jobs] %s", msg)
+        msg = f"Failed to enqueue {job_type} to Celery"
+        logger.error("[Jobs] %s: %s", msg, type(exc).__name__)
         _fail_enqueue(job_id, msg)
         raise RuntimeError(msg) from exc
     with js._get_fresh_session() as session:

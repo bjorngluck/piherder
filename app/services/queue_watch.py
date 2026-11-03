@@ -44,8 +44,11 @@ def workers_alive() -> Optional[bool]:
         from .jobs import celery_worker_activity
 
         state = celery_worker_activity()
-    except Exception:
-        logger.warning("[Queue] Worker heartbeat check failed", exc_info=True)
+    except Exception as exc:
+        logger.warning(
+            "[Queue] Worker heartbeat check failed: %s",
+            type(exc).__name__,
+        )
         return None
     if state is None:
         return None

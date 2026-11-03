@@ -91,8 +91,11 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 | `DATABASE_URL` | `postgresql://piherder:piherder@db:5432/piherder`. Outside demo mode, boot refuses that default password |
 | `CELERY_BROKER_URL` | `redis://:password@redis:6379/0`. Boot refuses a Redis URL with no password |
 | `CELERY_RESULT_BACKEND` | same Redis, also with a password |
-| `REDIS_PASSWORD` | Required by the compose Redis service (`requirepass`). No default |
+| `REDIS_PASSWORD` | Required by the compose Redis service (`requirepass`). No default. Compose refuses to start when it is unset |
 | `CELERY_CONCURRENCY` | `2` pool slots (compose → celery-worker) |
+| `PIHERDER_WORKER_METRICS` | `1` on the compose celery-worker. Unset leaves the worker metrics port closed |
+| `PIHERDER_WORKER_METRICS_PORT` | `9809`. Compose does not publish this port |
+| `PROMETHEUS_MULTIPROC_DIR` | `/tmp/piherder-metrics` on the celery-worker so prefork children add their counts |
 | `PIHERDER_SERVER_LOCK_TTL` | `7200` backup mutex TTL |
 | `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` | Unset — **Settings → General → Jobs** (default 30 minutes). When this env var is set it **locks** that field. Probe every 30s. Floor 30, ceiling 86400 |
 | `PIHERDER_INSTANCE_NAME` | Unset — **Settings → General → Instance**. When set, locks the header wordmark. Empty Settings name keeps Pi / Herder. The mark image stays |

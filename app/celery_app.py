@@ -1,5 +1,5 @@
 from celery import Celery
-from celery.signals import worker_init
+from celery.signals import worker_init, worker_ready
 import os
 
 celery = Celery(
@@ -37,8 +37,24 @@ celery.conf.update(
 )
 
 
+def _prepare_worker_metrics_dir() -> None:
+    from .services.worker_metrics import prepare_multiproc_dir
+
+    prepare_multiproc_dir()
+
+
+_prepare_worker_metrics_dir()
+
+
 @worker_init.connect
 def _enforce_boot_secrets_on_worker(**_kwargs):
     from .security.boot_secrets import enforce_boot_secrets
 
     enforce_boot_secrets()
+
+
+@worker_ready.connect
+def _serve_worker_metrics(**_kwargs):
+    from .services.worker_metrics import serve_worker_metrics
+
+    serve_worker_metrics()

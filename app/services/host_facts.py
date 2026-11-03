@@ -474,5 +474,9 @@ def request_refresh(server_id: int, *, force: bool = False) -> None:
             )
     except js.JobAlreadyActive:
         return
-    except Exception:
-        logger.warning("host facts enqueue failed for %s", server_id, exc_info=True)
+    except Exception as exc:
+        logger.warning(
+            "host facts enqueue failed for %s: %s",
+            server_id,
+            type(exc).__name__,
+        )

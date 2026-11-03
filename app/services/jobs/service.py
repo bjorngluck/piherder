@@ -154,7 +154,10 @@ except Exception as e:
     service_migrate_undo_task = None
     service_migrate_dest_recover_task = None
     housekeeping_job_task = None
-    logger.warning("Celery backup task unavailable (backups will not enqueue): %s", e)
+    logger.warning(
+        "Celery backup task unavailable (backups will not enqueue): %s",
+        type(e).__name__,
+    )
 
 from ..jobs_exclusive import EXCLUSIVE_CELERY_TYPES, handoff_exclusive
 
@@ -211,7 +214,11 @@ def _revoke_celery_task(task_id: str | None) -> None:
         celery.control.revoke(task_id, terminate=True, signal="SIGTERM")
         logger.info(f"[Jobs] Revoked celery task {task_id}")
     except Exception as e:
-        logger.warning(f"[Jobs] Failed to revoke celery task {task_id}: {e}")
+        logger.warning(
+            "[Jobs] Failed to revoke celery task %s: %s",
+            task_id,
+            type(e).__name__,
+        )
 
 
 def _mark_job_terminal(
@@ -918,8 +925,8 @@ def celery_worker_activity() -> tuple[bool, set[str]] | None:
                 if isinstance(task, dict) and task.get("id"):
                     ids.add(str(task["id"]))
         return True, ids
-    except Exception:
-        logger.warning("[Jobs] Celery worker check failed", exc_info=True)
+    except Exception as exc:
+        logger.warning("[Jobs] Celery worker check failed: %s", type(exc).__name__)
         return None
 
 
@@ -1212,8 +1219,8 @@ def create_job_and_run(
             session.add(job)
             session.commit()
         except Exception as e:
-            msg = f"Failed to enqueue backup to Celery: {e}"
-            logger.exception("[Jobs] %s", msg)
+            msg = "Failed to enqueue backup to Celery"
+            logger.error("[Jobs] %s: %s", msg, type(e).__name__)
             _mark_job_terminal(job, msg, session, status="failed", record_audit=True)
             session.commit()
             raise RuntimeError(msg) from e
@@ -1567,8 +1574,8 @@ def enqueue_backup_for_server(
         session.commit()
         session.refresh(job)
     except Exception as e:
-        msg = f"Failed to enqueue backup to Celery: {e}"
-        logger.exception("[Jobs] %s", msg)
+        msg = "Failed to enqueue backup to Celery"
+        logger.error("[Jobs] %s: %s", msg, type(e).__name__)
         _mark_job_terminal(job, msg, session, status="failed", record_audit=True)
         session.commit()
         raise RuntimeError(msg) from e
@@ -2553,8 +2560,8 @@ def handoff_housekeeping(
             job_id, int(server_id or 0), audit_id, job_type
         )
     except Exception as exc:
-        msg = f"Failed to enqueue {job_type} to Celery: {exc}"
-        logger.exception("[Jobs] %s", msg)
+        msg = f"Failed to enqueue {job_type} to Celery"
+        logger.error("[Jobs] %s: %s", msg, type(exc).__name__)
         _fail_housekeeping_open(job_id, audit_id, job_type, msg)
         raise RuntimeError(msg) from exc
     with _get_fresh_session() as session:

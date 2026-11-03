@@ -141,8 +141,8 @@ def enqueue_service_migrate(
                     session.add(job)
                     session.commit()
         except Exception as e:
-            msg = f"Failed to enqueue Move to Celery: {e}"
-            logger.exception("[Jobs] %s", msg)
+            msg = "Failed to enqueue Move to Celery"
+            logger.error("[Jobs] %s: %s", msg, type(e).__name__)
             with js._get_fresh_session() as session:
                 job = session.get(Job, jid)
                 if job:
@@ -590,8 +590,8 @@ def enqueue_service_migrate_undo(
                     session.add(job)
                     session.commit()
         except Exception as e:
-            msg = f"Failed to enqueue Undo to Celery: {e}"
-            logger.exception("[Jobs] %s", msg)
+            msg = "Failed to enqueue Undo to Celery"
+            logger.error("[Jobs] %s: %s", msg, type(e).__name__)
             with js._get_fresh_session() as session:
                 job = session.get(Job, jid)
                 if job:
@@ -801,8 +801,8 @@ def enqueue_service_migrate_dest_recover(
                     session.add(job)
                     session.commit()
         except Exception as e:
-            msg = f"Failed to enqueue dest-up recover to Celery: {e}"
-            logger.exception("[Jobs] %s", msg)
+            msg = "Failed to enqueue dest-up recover to Celery"
+            logger.error("[Jobs] %s: %s", msg, type(e).__name__)
             with js._get_fresh_session() as session:
                 job = session.get(Job, jid)
                 if job:

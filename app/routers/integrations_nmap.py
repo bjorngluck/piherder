@@ -542,7 +542,7 @@ async def nmap_scan_now(
         # Jobs page shows live log_tail (same pattern as OS updates)
         return _redirect("/jobs", job_type=job.job_type, active_only="1")
     except Exception as e:
-        logger.exception("nmap scan enqueue failed")
+        logger.error("nmap scan enqueue failed: %s", type(e).__name__)
         return _redirect(
             f"/integrations/{integration_id}",
             tab="overview",
@@ -576,7 +576,7 @@ async def nmap_vuln_db_update(
         )
         return _redirect("/jobs", job_type="nmap_vuln_db_update", active_only="1")
     except Exception as e:
-        logger.exception("vuln db update enqueue failed")
+        logger.error("vuln db update enqueue failed: %s", type(e).__name__)
         return _redirect(
             f"/integrations/{integration_id}",
             tab="overview",

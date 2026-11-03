@@ -132,10 +132,14 @@ def test_redis_acquire_error_does_not_grant_and_reschedules(monkeypatch, caplog)
             lock.try_acquire_server_lock("backup", 3, holder="job-7")
     assert not lock.is_server_locked("backup", 3)
     assert lock.lock_acquire_failure_counts() == {"redis_error": 1, "busy": 0}
+    warnings = [
+        rec.message for rec in caplog.records if rec.levelname == "WARNING"
+    ]
     assert any(
-        rec.levelname == "WARNING" and "Redis acquire failed" in rec.message
-        for rec in caplog.records
+        "Redis acquire failed" in message and "ConnectionError" in message
+        for message in warnings
     )
+    assert all("redis down" not in message for message in warnings)
 
     server = SimpleNamespace(id=3, name="host-a", hostname="host-a.example.com")
     job = SimpleNamespace(

@@ -51,6 +51,12 @@ def note_catchup(kind: str, result: str) -> None:
     if kind not in _COUNTS or result not in _RESULTS:
         return
     _COUNTS[kind][result] += 1
+    try:
+        from .worker_metrics import CATCHUP
+
+        CATCHUP.labels(kind=kind, result=result).inc()
+    except Exception:
+        pass
 
 
 def catchup_counter_lines() -> list[str]:
@@ -279,8 +285,13 @@ def catch_up_one(
         logger.info("[SCHEDULE] Catch-up skipped, job already active kind=%s server=%s", kind, server_id)
         _note_busy_once(session, server_id, kind, key)
         return "skipped"
-    except Exception:
-        logger.exception("[SCHEDULE] Catch-up enqueue failed kind=%s server=%s", kind, server_id)
+    except Exception as exc:
+        logger.error(
+            "[SCHEDULE] Catch-up enqueue failed kind=%s server=%s: %s",
+            kind,
+            server_id,
+            type(exc).__name__,
+        )
         note_catchup(kind, "failed")
         _audit(session, server_id, kind, "failed", reason, key)
         return "failed"

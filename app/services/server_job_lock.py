@@ -93,8 +93,11 @@ def _get_redis():
         _redis_client = client
         logger.debug("[server_lock] Redis available for cross-worker mutex")
         return _redis_client
-    except Exception as e:
-        logger.debug(f"[server_lock] Redis unavailable, using in-process locks: {e}")
+    except Exception as exc:
+        logger.debug(
+            "[server_lock] Redis unavailable, using in-process locks: %s",
+            type(exc).__name__,
+        )
         _redis_failed = True
         return None
 
@@ -113,8 +116,15 @@ def clear_local_locks_for_tests() -> None:
 
 
 def note_lock_acquire_failure(reason: str) -> None:
-    if reason in _FAILURE_COUNTS:
-        _FAILURE_COUNTS[reason] += 1
+    if reason not in _FAILURE_COUNTS:
+        return
+    _FAILURE_COUNTS[reason] += 1
+    try:
+        from .worker_metrics import LOCK_FAILURES
+
+        LOCK_FAILURES.labels(reason=reason).inc()
+    except Exception:
+        pass
 
 
 def lock_acquire_failure_counts() -> dict[str, int]:
@@ -219,7 +229,10 @@ def try_acquire_server_lock(
                 logger.error("Redis authentication failed.")
                 note_lock_acquire_failure("redis_error")
                 raise RedisAuthFailed() from None
-            logger.warning("[server_lock] Redis acquire failed")
+            logger.warning(
+                "[server_lock] Redis acquire failed: %s",
+                type(exc).__name__,
+            )
             note_lock_acquire_failure("redis_error")
             raise LockUnavailable() from None
 
@@ -300,8 +313,11 @@ def release_server_lock(
             if n:
                 logger.info(f"[server_lock] released {kind} server={server_id}")
             return bool(n)
-        except Exception as e:
-            logger.warning(f"[server_lock] Redis release failed: {e}")
+        except Exception as exc:
+            logger.warning(
+                "[server_lock] Redis release failed: %s",
+                type(exc).__name__,
+            )
 
     ok = _local_release(key, token)
     if ok:
@@ -327,8 +343,11 @@ def refresh_server_lock(
         try:
             n = r.eval(_REFRESH_LUA, 1, key, token, str(ttl))
             return bool(n)
-        except Exception as e:
-            logger.warning(f"[server_lock] Redis refresh failed: {e}")
+        except Exception as exc:
+            logger.warning(
+                "[server_lock] Redis refresh failed: %s",
+                type(exc).__name__,
+            )
 
     return _local_refresh(key, token, ttl)
 

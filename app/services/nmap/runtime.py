@@ -35,8 +35,8 @@ def touch_worker_heartbeat(*, worker_id: str = "nmap") -> None:
             separators=(",", ":"),
         )
         r.setex(HEARTBEAT_KEY, HEARTBEAT_TTL_SEC, payload)
-    except Exception as e:
-        logger.debug("nmap heartbeat failed: %s", e)
+    except Exception as exc:
+        logger.debug("nmap heartbeat failed: %s", type(exc).__name__)
 
 
 def worker_online() -> dict[str, Any]:
@@ -47,8 +47,8 @@ def worker_online() -> dict[str, Any]:
             return {"online": False}
         data = json.loads(raw)
         return {"online": True, **data}
-    except Exception as e:
-        return {"online": False, "error": str(e)[:200]}
+    except Exception as exc:
+        return {"online": False, "error": type(exc).__name__}
 
 
 def try_acquire_lock(kind: str, key: str, *, holder: str, ttl: int = LOCK_TTL_SEC) -> bool:
@@ -57,8 +57,8 @@ def try_acquire_lock(kind: str, key: str, *, holder: str, ttl: int = LOCK_TTL_SE
         r = _redis()
         lock_key = f"{_PREFIX}lock:{kind}:{key}"
         return bool(r.set(lock_key, holder, nx=True, ex=ttl))
-    except Exception as e:
-        logger.warning("nmap lock acquire failed: %s", e)
+    except Exception as exc:
+        logger.warning("nmap lock acquire failed: %s", type(exc).__name__)
         return False
 
 
@@ -69,8 +69,8 @@ def release_lock(kind: str, key: str, *, holder: str) -> None:
         val = r.get(lock_key)
         if val is not None and val.decode() == holder:
             r.delete(lock_key)
-    except Exception as e:
-        logger.debug("nmap lock release failed: %s", e)
+    except Exception as exc:
+        logger.debug("nmap lock release failed: %s", type(exc).__name__)
 
 
 def set_progress(job_id: int, payload: dict[str, Any]) -> None:
@@ -81,8 +81,8 @@ def set_progress(job_id: int, payload: dict[str, Any]) -> None:
             PROGRESS_TTL_SEC,
             json.dumps(payload, separators=(",", ":")),
         )
-    except Exception as e:
-        logger.debug("nmap progress write failed: %s", e)
+    except Exception as exc:
+        logger.debug("nmap progress write failed: %s", type(exc).__name__)
 
 
 def get_progress(job_id: int) -> Optional[dict[str, Any]]:

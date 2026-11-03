@@ -132,7 +132,7 @@ services:
   redis:
     image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
     container_name: piherder-redis
-    command: redis-server --requirepass ${REDIS_PASSWORD:-}
+    command: redis-server --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD}
     restart: unless-stopped
     volumes:
       - redis_data:/data
@@ -157,6 +157,10 @@ services:
     environment:
       <<: *piherder-app-env
       CELERY_CONCURRENCY: ${CELERY_CONCURRENCY:-2}
+      # Prefork children add lock and catch-up counts. The port stays on this network.
+      PIHERDER_WORKER_METRICS: "1"
+      PIHERDER_WORKER_METRICS_PORT: ${PIHERDER_WORKER_METRICS_PORT:-9809}
+      PROMETHEUS_MULTIPROC_DIR: /tmp/piherder-metrics
     volumes:
       # Must match web — multi-worker rsync writes here
       - ${PIHERDER_BACKUP_HOST_PATH:-./backups}:/backups

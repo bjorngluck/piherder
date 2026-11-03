@@ -1820,7 +1820,7 @@ def create_discovery_scan(
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)[:200]) from exc
     except Exception as exc:
-        logger.exception("discovery scan enqueue failed")
+        logger.error("discovery scan enqueue failed: %s", type(exc).__name__)
         raise HTTPException(status_code=503, detail=str(exc)[:200]) from exc
 
     session.add(
@@ -2209,7 +2209,7 @@ def create_discovery_device_scan(
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)[:200]) from exc
     except Exception as exc:
-        logger.exception("discovery device scan enqueue failed")
+        logger.error("discovery device scan enqueue failed: %s", type(exc).__name__)
         raise HTTPException(status_code=503, detail=str(exc)[:200]) from exc
 
     session.add(

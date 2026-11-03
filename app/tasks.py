@@ -475,7 +475,11 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
             try:
                 release_server_lock("backup", server_id, lock_token)
             except Exception as e:
-                logger.warning(f"[Celery] Failed to release backup lock server={server_id}: {e}")
+                logger.warning(
+                    "[Celery] Failed to release backup lock server=%s: %s",
+                    server_id,
+                    type(e).__name__,
+                )
         db.close()
 
 

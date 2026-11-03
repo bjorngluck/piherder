@@ -26,7 +26,13 @@ scrape_configs:
     authorization:
       type: Bearer
       credentials: "<METRICS_TOKEN>"
+  - job_name: piherder-worker
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["celery-worker:9809"]
 ```
+
+The worker target has no token. Compose does not publish port 9809, so scrape it from the compose network. `piherder_lock_acquire_failures_total` and `piherder_schedule_catchup_total` are per process. The web target shows the web process. The worker target adds the prefork children. Sum the series across both jobs.
 
 Useful series, and the full set exported by `app/services/metrics.py`:
 
