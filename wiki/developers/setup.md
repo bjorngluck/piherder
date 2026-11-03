@@ -45,8 +45,8 @@ bash scripts/vendor_cdns.sh
 |------|------|
 | `pyproject.toml` | Declared mins |
 | `uv.lock` | Resolver source of truth |
-| `requirements.lock.txt` | Hashed pins for Docker + CI (runtime + dev) |
-| `requirements.runtime.lock.txt` | Runtime-only pins |
+| `requirements.lock.txt` | Hashed pins for CI (runtime + dev) |
+| `requirements.runtime.lock.txt` | Runtime-only pins. The Docker image installs this file |
 
 ```bash
 ./scripts/refresh-lockfiles.sh   # after changing pyproject deps (needs uv)

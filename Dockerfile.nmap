@@ -21,9 +21,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.lock.txt ./
+COPY requirements.runtime.lock.txt ./
 RUN pip install --upgrade pip setuptools wheel && \
-    pip install --require-hashes -r requirements.lock.txt
+    pip install --require-hashes -r requirements.runtime.lock.txt
 
 COPY . .
 RUN pip install --no-deps -e .

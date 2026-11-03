@@ -61,7 +61,7 @@ Suggested build order: boot and logging, the NameErrors, locks, CI with migratio
 | Tier | Lock |
 |------|------|
 | Must | **Certificate presets keep category and group.** Issue [#82](https://github.com/bjorngluck/piherder/issues/82). In the tree. The wizard category is `category`. `group` stays the unix group. A preset keeps both |
-| Must | **Production lockfile in the image.** Issue [#83](https://github.com/bjorngluck/piherder/issues/83). Not built. The image installs the production lockfile only. Dev packages are not in the image. Record the image size before and after |
+| Must | **Production lockfile in the image.** Issue [#83](https://github.com/bjorngluck/piherder/issues/83). In the tree. The image installs `requirements.runtime.lock.txt` only. Dev packages are not in the image. Image size before: 739114216 bytes. After: 700781466 bytes |
 | Must | **host_facts on a down host, and job state.** Issue [#87](https://github.com/bjorngluck/piherder/issues/87). In the tree. `host_facts` on an unreachable host waits out the probe window before another queue. The probe window matches the Celery task time limit. A failed facts job names the host. A failed job does not keep a success summary. Pending jobs are not counted as running |
 
 ### Security
@@ -148,7 +148,7 @@ The ops track stays beside this order. It does not land as commits.
 | 3 | NameErrors ([#76](https://github.com/bjorngluck/piherder/issues/76), [#77](https://github.com/bjorngluck/piherder/issues/77)) | In the tree |
 | 4 | Locks ([#78](https://github.com/bjorngluck/piherder/issues/78), [#79](https://github.com/bjorngluck/piherder/issues/79)) | In the tree |
 | 5 | CI with migrations ([#80](https://github.com/bjorngluck/piherder/issues/80), [#74](https://github.com/bjorngluck/piherder/issues/74), [#81](https://github.com/bjorngluck/piherder/issues/81)) | In the tree |
-| 6 | Rest of Must correctness, then security, then Shoulds | Not built |
+| 6 | Rest of Must correctness ([#82](https://github.com/bjorngluck/piherder/issues/82), [#83](https://github.com/bjorngluck/piherder/issues/83), [#87](https://github.com/bjorngluck/piherder/issues/87)), then security, then Shoulds | Must correctness is in the tree |
 
 ---
 

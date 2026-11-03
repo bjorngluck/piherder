@@ -49,12 +49,12 @@ RUN arch="$(dpkg --print-architecture)" \
 
 WORKDIR /app
 
-# Locked third-party deps first (layer cache when requirements.lock.txt is unchanged).
-# Source of truth: uv.lock → export via scripts/refresh-lockfiles.sh
-# requirements.lock.txt = runtime + [dev] (pytest) for compose / CI image parity.
-COPY requirements.lock.txt ./
+# Locked runtime deps first (layer cache when the runtime lockfile is unchanged).
+# Source of truth: uv.lock, exported via scripts/refresh-lockfiles.sh.
+# The image installs requirements.runtime.lock.txt only. CI keeps the dev lock.
+COPY requirements.runtime.lock.txt ./
 RUN pip install --upgrade pip setuptools wheel && \
-    pip install --require-hashes -r requirements.lock.txt
+    pip install --require-hashes -r requirements.runtime.lock.txt
 
 # Project source + install without re-resolving dependencies.
 # --no-build-isolation: setuptools/wheel already in the image from the lockfile.

@@ -11,7 +11,7 @@ docker compose up -d
 # PIHERDER_IMAGE=bjorngluck/piherder:1.10.0 docker compose up -d
 ```
 
-**Dependency pins:** the image installs from committed `requirements.lock.txt` (`pip install --require-hashes`). Bump deps with `./scripts/refresh-lockfiles.sh` before a release build so Hub tags match the lockfile in the git tag.
+**Dependency pins:** the image installs from committed `requirements.runtime.lock.txt` (`pip install --require-hashes`). CI still uses `requirements.lock.txt` (runtime plus dev). Bump deps with `./scripts/refresh-lockfiles.sh` before a release build so Hub tags match the lockfile in the git tag.
 
 ---
 
