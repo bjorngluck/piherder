@@ -1,64 +1,132 @@
-# PiHerder v1.15.0: draft
+# PiHerder v1.15.0: hardening
 
-**Status:** **DRAFT** on `v1.15.0-dev`. Scope is still to be confirmed by the maintainer. Not voted. Package stays `1.13.0`. No tag.  
-**Date opened:** 2026-10-31.  
+**Status:** **Scoped** on `v1.15.0-dev`. The maintainer set Must and Should on 2026-11-03. This is a hardening release. Package stays `1.13.0`. No tag.  
+**Date opened:** 2026-10-31. **Rewritten:** 2026-11-03.  
 **Git branch:** `v1.15.0-dev`  
-**Package / image version:** package stays **`1.13.0`**. About / footer stay **1.13.0**. This draft does not bump the package.  
-**Theme:** leftovers that did not land in v1.14. Scope is not locked.  
-**Baseline:** `v1.14.0-dev` at `adf968c`. **v1.14.0** is not tagged. Production image stays **1.13.0**.  
+**Package / image version:** package stays **`1.13.0`**. About / footer stay **1.13.0**. This plan does not bump the package.  
+**Theme:** architecture plus bug fixes. No new features. Features, themes, and breaking changes go to 2.0. Architect owns `PLAN_v2.0.0.md`. This repo does not add that file.  
+**Baseline:** `v1.15.0-dev` at `78990487`, which merges `v1.14.0-dev` at `4e7d7fb`. **v1.14.0** is not tagged. Production image stays **1.13.0**.  
 **Milestone:** **v1.15.0** is still to be created by the maintainer. These issues are not on a milestone.  
-**Mode:** not voted. Do not treat the rows below as Must or Should.  
+**Mode:** **Must, then Should.** Must blocks the tag. Should can slip.  
 **Related:** [PLAN_v1.14.0.md](PLAN_v1.14.0.md) · draft [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md)
 
-> Cut 2026-10-31 from `v1.14.0-dev` at `adf968c`. Nothing on this train is built. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) stay on the v1.14.0 milestone until that release. They are not refiled here. Volume prune `dry_run` already shipped in v1.14. Placeholders only (`host-a`, `example.com`).
+> Rewritten 2026-11-03 after the merge of `4e7d7fb`. Nothing on this train is built. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) stay on the v1.14.0 milestone until that release. They are not refiled here. Placeholders only (`host-a`, `example.com`).
 
 ---
 
 ## 0. Intent
 
-v1.14 records the missed-slot catch-up, Drive OAuth health, the fleet summary, mute rules, restore safety, the compose drift badge, and volume prune on the API. This draft lists four leftovers. The maintainer confirms the scope before a vote. Must and Should are not assigned.
+v1.14 records the missed-slot catch-up, Drive OAuth health, the fleet summary, mute rules, restore safety, the compose drift badge, and volume prune on the API. v1.15 hardens that tree. It fixes boot, logging, NameErrors, locks, migrations, and the security findings from the November 2026 reviews. It does not add a feature theme.
 
-Volume prune `dry_run` already shipped in v1.14. `POST /api/v1/servers/{id}/docker/volumes` and hosted `prune_volumes` list unused volumes and sizes when `dry_run` is true. That path deletes nothing and writes no audit row. It is not rebuilt on this train.
+Features, themes, and breaking changes belong on 2.0. Architect writes `PLAN_v2.0.0.md`. Do not create that file on this branch.
+
+Volume prune `dry_run` already shipped in v1.14, including the best-effort wording from `4e7d7fb`. `POST /api/v1/servers/{id}/docker/volumes` and hosted `prune_volumes` give a best-effort preview of dangling volumes when `dry_run` is true. That set can differ slightly from what `docker volume prune -f` removes on newer Docker versions, and there is a small time gap before the delete. It is not an exact match. That path deletes nothing and writes no audit row. It is not rebuilt on this train.
+
+Suggested build order: boot and logging, the NameErrors, locks, CI with migrations, the rest of Must correctness, then security, then the Shoulds.
 
 ---
 
 ## 1. Decision lock
 
-Not voted. The maintainer confirms scope. Build order is not set.
-
-### Tokens
+### Boot and logging
 
 | Tier | Lock |
 |------|------|
-| Draft | **Separate opt-in destructive token scope.** Issue [#71](https://github.com/bjorngluck/piherder/issues/71). Not built. Hosted `prune_volumes` with `confirm` true can permanently delete unused Docker volumes. v1.14 accepts that for an `edit` token. This item adds a separate scope so an `edit` token does not delete unless the operator opts in. `dry_run` stays on `edit`. Existing `edit` tokens do not gain the new scope |
+| Must | **Boot keeps loggers and fails closed.** Issue [#75](https://github.com/bjorngluck/piherder/issues/75). Not built. Alembic `fileConfig()` must not disable existing loggers, so scheduler, alert, and auth log lines still emit after migrations. A failed `alembic upgrade head` aborts boot. It does not log the error and continue |
 
-### Backups
-
-| Tier | Lock |
-|------|------|
-| Draft | **Restore preview of the chosen copy.** Issue [#72](https://github.com/bjorngluck/piherder/issues/72). Not built. `GET /api/v1/servers/{id}/backup/restore-preview` diffs the local backup and does not show permission or owner-only changes. A `destination_id` still diffs that local tree. This item diffs the chosen copy and lists permission and owner changes. The preview still does not write |
-
-### Docker
+### NameErrors
 
 | Tier | Lock |
 |------|------|
-| Draft | **Git drift SSH cost.** Issue [#73](https://github.com/bjorngluck/piherder/issues/73). Not built. The compose git drift badge opens one SSH session per project. Batch the checks or cache the results. The badge still compares a checkout with the last fetched origin and does not fetch or deploy |
+| Must | **NPM integration create.** Issue [#76](https://github.com/bjorngluck/piherder/issues/76). Not built. Create calls an undefined `poll_svc` after the row commits, so the UI says save failed for a save that worked. Use the real poll service. The create path returns success |
+| Must | **Backups page last backup.** Issue [#77](https://github.com/bjorngluck/piherder/issues/77). Not built. The backups page uses `AuditLog` without importing it and swallows the error, so last backup status is always empty. Import `AuditLog` and do not hide that exception. The page shows the last backup |
 
-### Migrations
+### Locks
 
 | Tier | Lock |
 |------|------|
-| Draft | **Explicit 051 and 052 downgrades.** Issue [#74](https://github.com/bjorngluck/piherder/issues/74). Not built. Alembic `051` drops `docker_prune_schedule` inside a bare `except` that ignores every error. Alembic `052` drops `backup_catchup_enabled` and `container_check_catchup_enabled` the same way. Name the missing-column case, or drop a column only when it exists. Upgrade behavior stays as it is. This draft does not apply either migration to a live database |
+| Must | **Host lock fails closed.** Issue [#78](https://github.com/bjorngluck/piherder/issues/78). Not built. A Redis error on acquire must not fall back to a process-local lock. Two workers must not run `rsync --delete` on one host. The acquire fails and the job retries later |
+| Must | **Patch, stack, reboot, and prune take the per-host lock.** Issue [#79](https://github.com/bjorngluck/piherder/issues/79). Not built. Those jobs acquire the same per-host lock as a backup. Each refuses or defers while a backup holds the lock |
 
-### Already shipped
+### CI and migrations
+
+| Tier | Lock |
+|------|------|
+| Must | **CI on dev branches, a Postgres migration job, lint, coverage.** Issue [#80](https://github.com/bjorngluck/piherder/issues/80). Not built. Test CI runs on pushes to `v*-dev`, not only `main` and pull requests. A Postgres job upgrades to head and downgrades to base. Tests use migrations instead of `create_all`. A ruff lint gate is added. Coverage is back over 85%. A broken downgrade fails that job |
+| Must | **Explicit 051 and 052 downgrades.** Issue [#74](https://github.com/bjorngluck/piherder/issues/74). Not built. Alembic `051` drops `docker_prune_schedule` inside a bare `except` that ignores every error. Alembic `052` drops `backup_catchup_enabled` and `container_check_catchup_enabled` the same way. Name the missing-column case, or drop a column only when it exists. Upgrade behavior stays as it is. This plan does not apply either migration to a live database |
+| Must | **Indexes on job and audit log filters.** Issue [#81](https://github.com/bjorngluck/piherder/issues/81). Not built. A reversible migration adds `job (server_id, status, created_at)` and `auditlog (server_id, action, started_at)`. Upgrade and downgrade both pass in the CI migration job |
+
+### Other correctness
+
+| Tier | Lock |
+|------|------|
+| Must | **Certificate presets keep category and group.** Issue [#82](https://github.com/bjorngluck/piherder/issues/82). Not built. Two assignments both set `group`, so the wizard category is overwritten by the unix group. One key is renamed (for example `category`). A preset keeps both |
+| Must | **Production lockfile in the image.** Issue [#83](https://github.com/bjorngluck/piherder/issues/83). Not built. The image installs the production lockfile only. Dev packages are not in the image. Record the image size before and after |
+| Must | **host_facts on a down host, and job state.** Issue [#87](https://github.com/bjorngluck/piherder/issues/87). Not built. `host_facts` on an unreachable host is not re-queued in a loop, and the failure is attributed to the host. The probe window matches the task time limit. A failed job never carries a success summary. Pending jobs are not counted as running |
+
+### Security
+
+| Tier | Lock |
+|------|------|
+| Must | **Escape `tojson` in templates.** Issue [#84](https://github.com/bjorngluck/piherder/issues/84). Not built. `tojson` output is HTML-escaped in templates so a stored value that contains a script tag cannot run. Related to [#97](https://github.com/bjorngluck/piherder/issues/97) |
+| Must | **rsync checks the pinned host key.** Issue [#85](https://github.com/bjorngluck/piherder/issues/85). Not built. rsync ssh uses the pinned known_hosts entry and `StrictHostKeyChecking=yes`. A host whose key changed is refused |
+| Must | **Block secret-looking file names.** Issue [#92](https://github.com/bjorngluck/piherder/issues/92). Not built. The files API and hosted `read_file` refuse names that look like secrets (`.env`, `*.key`, `id_*`, `*.pem`, `secrets`, and similar). `read_file` is not described as read-only. The tool text marks it sensitive |
+| Must | **Redis password, default DB password, pyasn1.** Issue [#93](https://github.com/bjorngluck/piherder/issues/93). Not built. Boot requires a Redis password. Boot refuses the default database password outside demo mode. pyasn1 is **0.6.5** |
+| Must | **Webhook targets and trusted proxies.** Issue [#94](https://github.com/bjorngluck/piherder/issues/94). Not built. Webhook URLs that resolve to private, loopback, or link-local ranges are rejected unless an explicit allowlist opts them in. Trusted-proxy CIDR defaults are narrower. Forwarded headers from an untrusted source are ignored |
+| Must | **Leak-guard and audit retention.** Issue [#95](https://github.com/bjorngluck/piherder/issues/95). Not built. An empty leak-guard denylist fails closed. A `jobs` token cannot queue audit retention. That action needs a higher scope and returns 403 for `jobs` |
+| Must | **Pin images and Actions, quote the rsync key path.** Issue [#96](https://github.com/bjorngluck/piherder/issues/96). Not built. Base images are pinned by digest. GitHub Actions are pinned by commit SHA. The rsync key path is quoted, including a path that contains spaces. piherder-mcp gets a lockfile and stops auto-sending `confirm: true`. The v1.14 removed list had parked pinning Actions to commit SHAs. This plan puts that pin back as supply-chain hardening |
+| Must | **CSP nonces only on known scripts.** Issue [#97](https://github.com/bjorngluck/piherder/issues/97). Not built. Nonces attach only to known first-party script tags. An injected script tag renders without a nonce |
+
+### Should
+
+| Tier | Lock |
+|------|------|
+| Should | **Separate opt-in destructive token scope.** Issue [#71](https://github.com/bjorngluck/piherder/issues/71). Not built. Hosted `prune_volumes` with `confirm` true can permanently delete unused Docker volumes. v1.14 accepts that for an `edit` token. This item adds a separate scope so an `edit` token does not delete unless the operator opts in. `dry_run` stays on `edit`. Existing `edit` tokens do not gain the new scope |
+| Should | **Restore preview of the chosen copy.** Issue [#72](https://github.com/bjorngluck/piherder/issues/72). Not built. `GET /api/v1/servers/{id}/backup/restore-preview` diffs the local backup and does not show permission or owner-only changes. A `destination_id` still diffs that local tree. This item diffs the chosen copy and lists permission and owner changes. The preview still does not write |
+| Should | **Git drift SSH cost.** Issue [#73](https://github.com/bjorngluck/piherder/issues/73). Not built. The compose git drift badge opens one SSH session per project. Batch the checks or cache the results. The badge still compares a checkout with the last fetched origin and does not fetch or deploy |
+| Should | **Readiness, worker health, unhealthy containers.** Issue [#86](https://github.com/bjorngluck/piherder/issues/86). Not built. `/ready` checks the database, Redis, and migration head. The Celery healthcheck is a real worker ping. A container that stays unhealthy raises an alert. `/health` stays the process-alive check |
+| Should | **One log record per Celery exception.** Issue [#88](https://github.com/bjorngluck/piherder/issues/88). Not built. A raised task exception writes one ERROR record with the traceback attached, not one ERROR per traceback line |
+| Should | **Unreachable hosts and missed backups.** Issue [#89](https://github.com/bjorngluck/piherder/issues/89). Not built. A host unreachable for more than 24 hours, or with 2 missed backups, raises one critical alert on the push channels. Each trigger fires once, not on a repeat. Per-host status is healthy, degraded, or unreachable, with how long it has been in that state |
+| Should | **One source for MCP tool definitions.** Issue [#90](https://github.com/bjorngluck/piherder/issues/90). Not built. Hosted MCP, the stdio adapter, and the Home Assistant plugin are hand-copied and have drifted. Generate tool definitions from one schema, or add a parity test. CI fails when the tool lists or schemas differ |
+| Should | **Self-backup and restore drill.** Issue [#91](https://github.com/bjorngluck/piherder/issues/91). Not built. Document and test backup and restore of PiHerder itself (database plus config). A test restores that backup into a fresh instance and the app boots with data intact. The drill doc is on the docs site. An optional monthly test restore of one host backup to scratch storage may follow |
+| Should | **Stack-check age, delivery failures, starter rules.** Issue [#98](https://github.com/bjorngluck/piherder/issues/98). Not built. A gauge for the age of the last stack check and a counter for alert delivery failures appear on `/metrics`. A starter Grafana dashboard and a Prometheus rule file ship under `contrib/`. The rule file passes `promtool check rules` in CI |
+
+### Ops track
+
+These are operator tasks. They are not repo changes and they are not GitHub issues on this plan.
+
+| Item | Lock |
+|------|------|
+| Grafana | A contact point and alert rules for this fleet. Separate from the starter files in [#98](https://github.com/bjorngluck/piherder/issues/98) |
+| Metrics | Scrape `/metrics` |
+| Hosts | Node exporters on all hosts |
+| Tailscale | A tagged Tailscale key |
+| Drive | Publish the Drive OAuth app |
+
+### Already shipped or out of this train
 
 | Topic | Lock |
 |-------|------|
-| Volume prune `dry_run` | Shipped in v1.14. Lists unused volumes and sizes. Deletes nothing. Not this train |
+| Volume prune `dry_run` | Shipped in v1.14, wording at `4e7d7fb`. Best-effort preview of dangling volumes. Not an exact match for `docker volume prune -f`. Deletes nothing. Not this train |
 | Issues #61 to #64 | In the v1.14 tree. They stay on the v1.14.0 milestone until that release |
 | Milestone v1.15.0 | Still to be created by the maintainer |
 | Version bump | Package stays **1.13.0** until the maintainer says otherwise. About stays **1.13.0** |
+| 2.0 | Features, themes, and breaking changes. Architect owns `PLAN_v2.0.0.md`. Do not add that file here |
 | Demo | The public demo is not pointed at this branch |
+
+### Build order
+
+| # | Step | Issues |
+|---|------|--------|
+| 1 | Boot and logging | [#75](https://github.com/bjorngluck/piherder/issues/75) |
+| 2 | NameErrors | [#76](https://github.com/bjorngluck/piherder/issues/76), [#77](https://github.com/bjorngluck/piherder/issues/77) |
+| 3 | Locks | [#78](https://github.com/bjorngluck/piherder/issues/78), [#79](https://github.com/bjorngluck/piherder/issues/79) |
+| 4 | CI with migrations | [#80](https://github.com/bjorngluck/piherder/issues/80), [#74](https://github.com/bjorngluck/piherder/issues/74), [#81](https://github.com/bjorngluck/piherder/issues/81) |
+| 5 | Rest of Must correctness | [#82](https://github.com/bjorngluck/piherder/issues/82), [#83](https://github.com/bjorngluck/piherder/issues/83), [#87](https://github.com/bjorngluck/piherder/issues/87) |
+| 6 | Security | [#84](https://github.com/bjorngluck/piherder/issues/84), [#85](https://github.com/bjorngluck/piherder/issues/85), [#92](https://github.com/bjorngluck/piherder/issues/92), [#93](https://github.com/bjorngluck/piherder/issues/93), [#94](https://github.com/bjorngluck/piherder/issues/94), [#95](https://github.com/bjorngluck/piherder/issues/95), [#96](https://github.com/bjorngluck/piherder/issues/96), [#97](https://github.com/bjorngluck/piherder/issues/97) |
+| 7 | Shoulds | [#71](https://github.com/bjorngluck/piherder/issues/71), [#72](https://github.com/bjorngluck/piherder/issues/72), [#73](https://github.com/bjorngluck/piherder/issues/73), [#86](https://github.com/bjorngluck/piherder/issues/86), [#88](https://github.com/bjorngluck/piherder/issues/88), [#89](https://github.com/bjorngluck/piherder/issues/89), [#90](https://github.com/bjorngluck/piherder/issues/90), [#91](https://github.com/bjorngluck/piherder/issues/91), [#98](https://github.com/bjorngluck/piherder/issues/98) |
+
+The ops track stays beside this order. It does not land as commits.
 
 ---
 
@@ -66,7 +134,8 @@ Not voted. The maintainer confirms scope. Build order is not set.
 
 | Date | What changed |
 |------|----------------|
-| 2026-10-31 | **Draft opened** from `v1.14.0-dev` at `adf968c`. Scope is still to be confirmed by the maintainer. Issues: [#71](https://github.com/bjorngluck/piherder/issues/71) destructive token scope, [#72](https://github.com/bjorngluck/piherder/issues/72) restore preview of the chosen copy, [#73](https://github.com/bjorngluck/piherder/issues/73) git drift SSH cost, [#74](https://github.com/bjorngluck/piherder/issues/74) explicit 051 and 052 downgrades. Milestone **v1.15.0** is still to be created by the maintainer. Volume prune `dry_run` already shipped in v1.14. Nothing is built. |
+| 2026-10-31 | **Draft opened** from `v1.14.0-dev` at `adf968c`. Scope was still to be confirmed. Issues then: [#71](https://github.com/bjorngluck/piherder/issues/71), [#72](https://github.com/bjorngluck/piherder/issues/72), [#73](https://github.com/bjorngluck/piherder/issues/73), [#74](https://github.com/bjorngluck/piherder/issues/74). Milestone **v1.15.0** was still to be created. Nothing was built. |
+| 2026-11-03 | **Rewritten as a hardening release** after the merge of `4e7d7fb` (`78990487`). No new features. Features, themes, and breaking changes go to 2.0. Architect owns `PLAN_v2.0.0.md`. That file is not added. Must correctness: [#75](https://github.com/bjorngluck/piherder/issues/75), [#76](https://github.com/bjorngluck/piherder/issues/76), [#77](https://github.com/bjorngluck/piherder/issues/77), [#78](https://github.com/bjorngluck/piherder/issues/78), [#79](https://github.com/bjorngluck/piherder/issues/79), [#80](https://github.com/bjorngluck/piherder/issues/80), [#74](https://github.com/bjorngluck/piherder/issues/74), [#81](https://github.com/bjorngluck/piherder/issues/81), [#82](https://github.com/bjorngluck/piherder/issues/82), [#83](https://github.com/bjorngluck/piherder/issues/83), [#87](https://github.com/bjorngluck/piherder/issues/87). Must security: [#84](https://github.com/bjorngluck/piherder/issues/84), [#85](https://github.com/bjorngluck/piherder/issues/85), [#92](https://github.com/bjorngluck/piherder/issues/92), [#93](https://github.com/bjorngluck/piherder/issues/93), [#94](https://github.com/bjorngluck/piherder/issues/94), [#95](https://github.com/bjorngluck/piherder/issues/95), [#96](https://github.com/bjorngluck/piherder/issues/96), [#97](https://github.com/bjorngluck/piherder/issues/97). Should: [#71](https://github.com/bjorngluck/piherder/issues/71), [#72](https://github.com/bjorngluck/piherder/issues/72), [#73](https://github.com/bjorngluck/piherder/issues/73), [#86](https://github.com/bjorngluck/piherder/issues/86), [#88](https://github.com/bjorngluck/piherder/issues/88), [#89](https://github.com/bjorngluck/piherder/issues/89), [#90](https://github.com/bjorngluck/piherder/issues/90), [#91](https://github.com/bjorngluck/piherder/issues/91), [#98](https://github.com/bjorngluck/piherder/issues/98). Ops track stays off the repo: Grafana contact point and rules, scraping `/metrics`, node exporters on all hosts, a tagged Tailscale key, publishing the Drive OAuth app. Nothing is built. |
 
 ---
 
@@ -75,10 +144,12 @@ Not voted. The maintainer confirms scope. Build order is not set.
 | # | Step | Status |
 |---|------|--------|
 | 1 | Maintainer creates milestone **v1.15.0** | Not created |
-| 2 | Maintainer confirms this scope | Not confirmed |
-| 3 | Vote Must, Should, Discover, Later, or Out | Not voted |
-| 4 | Build | Nothing is built |
+| 2 | Boot and logging ([#75](https://github.com/bjorngluck/piherder/issues/75)) | Not built |
+| 3 | NameErrors ([#76](https://github.com/bjorngluck/piherder/issues/76), [#77](https://github.com/bjorngluck/piherder/issues/77)) | Not built |
+| 4 | Locks ([#78](https://github.com/bjorngluck/piherder/issues/78), [#79](https://github.com/bjorngluck/piherder/issues/79)) | Not built |
+| 5 | CI with migrations ([#80](https://github.com/bjorngluck/piherder/issues/80), [#74](https://github.com/bjorngluck/piherder/issues/74), [#81](https://github.com/bjorngluck/piherder/issues/81)) | Not built |
+| 6 | Rest of Must correctness, then security, then Shoulds | Not built |
 
 ---
 
-*DRAFT on `v1.15.0-dev`. Scope is still to be confirmed by the maintainer. Package stays 1.13.0. Not tagged. Milestone v1.15.0 is still to be created by the maintainer.*
+*Scoped on `v1.15.0-dev`. Hardening only. Package stays 1.13.0. Not tagged. Milestone v1.15.0 is still to be created by the maintainer. Features, themes, and breaking changes go to 2.0.*
