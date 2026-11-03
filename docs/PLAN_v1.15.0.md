@@ -32,7 +32,7 @@ Suggested build order: boot and logging, the NameErrors, locks, CI with migratio
 
 | Tier | Lock |
 |------|------|
-| Must | **Boot keeps loggers and fails closed.** Issue [#75](https://github.com/bjorngluck/piherder/issues/75). Not built. Alembic `fileConfig()` must not disable existing loggers, so scheduler, alert, and auth log lines still emit after migrations. A failed `alembic upgrade head` aborts boot. It does not log the error and continue |
+| Must | **Boot keeps loggers and fails closed.** Issue [#75](https://github.com/bjorngluck/piherder/issues/75). In the tree. Alembic `fileConfig()` must not disable existing loggers, so scheduler, alert, and auth log lines still emit after migrations. A failed `alembic upgrade head` aborts boot. It does not log the error and continue |
 
 ### NameErrors
 
@@ -144,7 +144,7 @@ The ops track stays beside this order. It does not land as commits.
 | # | Step | Status |
 |---|------|--------|
 | 1 | Maintainer creates milestone **v1.15.0** | Not created |
-| 2 | Boot and logging ([#75](https://github.com/bjorngluck/piherder/issues/75)) | Not built |
+| 2 | Boot and logging ([#75](https://github.com/bjorngluck/piherder/issues/75)) | In the tree |
 | 3 | NameErrors ([#76](https://github.com/bjorngluck/piherder/issues/76), [#77](https://github.com/bjorngluck/piherder/issues/77)) | Not built |
 | 4 | Locks ([#78](https://github.com/bjorngluck/piherder/issues/78), [#79](https://github.com/bjorngluck/piherder/issues/79)) | Not built |
 | 5 | CI with migrations ([#80](https://github.com/bjorngluck/piherder/issues/80), [#74](https://github.com/bjorngluck/piherder/issues/74), [#81](https://github.com/bjorngluck/piherder/issues/81)) | Not built |

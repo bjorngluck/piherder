@@ -7,6 +7,15 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def configure_migration_logging(config_file_name: str | None) -> None:
+    """Apply Alembic's logging config without disabling loggers the app already created."""
+    if not config_file_name:
+        return
+    from logging.config import fileConfig
+
+    fileConfig(config_file_name, disable_existing_loggers=False)
+
+
 def run_alembic_upgrade() -> None:
     """Apply migrations to head. Safe to call on every startup."""
     try:

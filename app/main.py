@@ -40,24 +40,19 @@ except ImportError:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Schema: Alembic is the source of truth (idempotent upgrade to head).
-    # create_all remains a safety net for brand-new DBs if migrate is skipped.
-    try:
-        from .db_migrate import run_alembic_upgrade
+    # Schema: Alembic is the source of truth. A failed upgrade aborts boot.
+    from .db_migrate import run_alembic_upgrade
 
+    try:
         run_alembic_upgrade()
+    except Exception:
+        logger.exception("Alembic upgrade failed; refusing to start")
+        raise
+    # Ensure metadata tables exist even if migration only adds columns
+    try:
+        init_db()
     except Exception as e:
-        print(f"Alembic migration warning: {e}")
-        try:
-            init_db()
-        except Exception as e2:
-            print(f"init_db fallback failed: {e2}")
-    else:
-        # Ensure metadata tables exist even if migration only adds columns
-        try:
-            init_db()
-        except Exception as e:
-            print(f"init_db after migrate: {e}")
+        print(f"init_db after migrate: {e}")
 
     try:
         from .services.jobs import cleanup_orphan_web_jobs, cleanup_stale_backup_jobs
