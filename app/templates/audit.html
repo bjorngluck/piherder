@@ -237,7 +237,7 @@
 
 <p class="mt-4 text-xs text-muted">Click an event for full details</p>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 const AUDIT_LOGS = {{ logs | tojson }};
 </script>
 
@@ -265,7 +265,7 @@ const AUDIT_LOGS = {{ logs | tojson }};
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 function statusClass(sd) {
   if (sd === 'success') return 'status-success';
   if (sd === 'failed') return 'status-failed';

@@ -237,7 +237,7 @@
   <a href="/audit" class="text-accent hover:underline">Audit</a>
 </p>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 const JOBS = {{ jobs | tojson }};
 </script>
 
@@ -262,7 +262,7 @@ const JOBS = {{ jobs | tojson }};
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

@@ -648,7 +648,7 @@
 
 {# While inventory is refreshing (or first load), re-fetch fragment every 2s until ready #}
 {% if inventory_poll_fast|default(false) or _refreshing %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var el = document.getElementById('docker-stack');
   if (!el || typeof htmx === 'undefined') return;
@@ -667,7 +667,7 @@
 })();
 </script>
 {% else %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var el = document.getElementById('docker-stack');
   if (el && el._invPollTimer) {

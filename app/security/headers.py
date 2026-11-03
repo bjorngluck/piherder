@@ -18,7 +18,6 @@ Env:
 """
 from __future__ import annotations
 
-import re
 import secrets
 from contextvars import ContextVar
 from typing import Optional
@@ -32,25 +31,6 @@ from ..config import settings
 
 # Readable during Jinja render (same task as the middleware). Not process-wide.
 csp_nonce_var: ContextVar[str] = ContextVar("piherder_csp_nonce", default="")
-
-_SCRIPT_OPEN = re.compile(r"<script\b([^>]*)>", re.IGNORECASE)
-_SCRIPT_SRC = re.compile(r"\bsrc\s*=", re.IGNORECASE)
-_SCRIPT_NONCE = re.compile(r"\bnonce\s*=", re.IGNORECASE)
-_SCRIPT_TYPE_Q = re.compile(
-    r"""\btype\s*=\s*(['"])(.*?)\1""", re.IGNORECASE
-)
-_SCRIPT_TYPE_BARE = re.compile(r"""\btype\s*=\s*([^\s'"]+)""", re.IGNORECASE)
-# Empty type and classic/module scripts execute. JSON and templates do not.
-_EXECUTABLE_TYPES = frozenset(
-    {
-        "",
-        "text/javascript",
-        "application/javascript",
-        "application/ecmascript",
-        "text/ecmascript",
-        "module",
-    }
-)
 
 
 def csp_enabled() -> bool:
@@ -108,37 +88,14 @@ def is_openapi_ui_path(path: str) -> bool:
     return p == "/docs" or p.startswith("/docs/") or p == "/redoc" or p.startswith("/redoc/")
 
 
-def _script_type(attrs: str) -> str:
-    quoted = _SCRIPT_TYPE_Q.search(attrs or "")
-    if quoted:
-        return (quoted.group(2) or "").strip().lower()
-    bare = _SCRIPT_TYPE_BARE.search(attrs or "")
-    if bare:
-        return (bare.group(1) or "").strip().lower()
-    return ""
-
-
 def stamp_inline_scripts(html: str, nonce: str) -> str:
-    """Add ``nonce`` to executable inline ``<script>`` tags.
+    """Leave rendered HTML unchanged.
 
-    External ``src`` scripts stay as they are (``'self'`` covers ``/static``).
-    ``type=application/json`` (and other non-executed types) stay un-nonced.
-    Event-handler attributes are not rewritten here. Product pages do not
-    emit them (CSP Slice 2); ``script-src-attr 'none'`` blocks any leftover.
+    Templates set ``nonce`` on the script tags they write. This function does
+    not scan the body for ``<script>`` tags.
     """
-    token = (nonce or "").strip()
-    if not token or not html or "<script" not in html.lower():
-        return html
-
-    def repl(match: re.Match) -> str:
-        attrs = match.group(1) or ""
-        if _SCRIPT_SRC.search(attrs) or _SCRIPT_NONCE.search(attrs):
-            return match.group(0)
-        if _script_type(attrs) not in _EXECUTABLE_TYPES:
-            return match.group(0)
-        return f'<script nonce="{token}"{attrs}>'
-
-    return _SCRIPT_OPEN.sub(repl, html)
+    del nonce
+    return html
 
 
 def build_csp(
@@ -281,43 +238,6 @@ def security_headers_dict(
     return headers
 
 
-async def _stamp_html_response(response: Response, nonce: str) -> Response:
-    """Rewrite an HTML body so inline scripts carry this request's nonce.
-
-    Reads ``body_iterator`` (BaseHTTPMiddleware streams the downstream app)
-    and puts the stamped bytes back on the same response so ``Set-Cookie``
-    headers are not collapsed.
-    """
-    ctype = (response.headers.get("content-type") or "").lower()
-    if "text/html" not in ctype:
-        return response
-    if (response.headers.get("content-encoding") or "").strip():
-        return response
-    iterator = getattr(response, "body_iterator", None)
-    if iterator is None:
-        return response
-    chunks: list[bytes] = []
-    async for chunk in iterator:
-        if isinstance(chunk, str):
-            chunks.append(chunk.encode("utf-8"))
-        else:
-            chunks.append(chunk)
-    raw = b"".join(chunks)
-    try:
-        text = raw.decode("utf-8")
-        stamped = stamp_inline_scripts(text, nonce)
-        new_body = raw if stamped == text else stamped.encode("utf-8")
-    except Exception:
-        new_body = raw
-
-    async def _one():
-        yield new_body
-
-    response.body_iterator = _one()
-    response.headers["content-length"] = str(len(new_body))
-    return response
-
-
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Attach CSP + baseline security headers to every response.
 
@@ -333,8 +253,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             path = request.url.path or ""
             openapi = is_openapi_ui_path(path)
-            if csp_enabled() and not openapi:
-                response = await _stamp_html_response(response, nonce)
             from ..services.demo import x_conversion_enabled
 
             for k, v in security_headers_dict(

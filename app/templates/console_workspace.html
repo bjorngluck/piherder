@@ -205,7 +205,7 @@
   }
 </style>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var HOSTS = {{ hosts_json|htmlsafe_json }};
   var initialId = {{ initial_host_id if initial_host_id is not none else 'null' }};

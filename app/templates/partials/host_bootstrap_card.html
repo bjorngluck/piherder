@@ -117,7 +117,7 @@
   </details>
   {% endif %}
 </div>
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var form = document.querySelector('form[data-testid="host-bootstrap-form"]');
   var panel = document.querySelector('[data-testid="host-bootstrap-job-panel"]');

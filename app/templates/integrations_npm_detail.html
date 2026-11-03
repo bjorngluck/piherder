@@ -248,7 +248,7 @@
 </div>
 
 {% if can_mutate and proxy_hosts %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var dockerOpts = {{ docker_options_json|htmlsafe_json }};
 

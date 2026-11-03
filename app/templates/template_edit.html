@@ -294,7 +294,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 function templateEditor() {
   const initialVars = {{ form.variables_json | htmlsafe_json }};
   const initialChecks = {{ form.checklist_json | htmlsafe_json }};

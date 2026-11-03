@@ -335,7 +335,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 function showBuildModal(projName, buildServices, serverId) {
   const modal = document.getElementById('build-modal');
   const form = document.getElementById('build-form');

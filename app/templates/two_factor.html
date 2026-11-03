@@ -89,7 +89,7 @@
 </section>
 
 {% if has_passkey %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   const btn = document.getElementById('wa-login-btn');
   const errEl = document.getElementById('wa-error');

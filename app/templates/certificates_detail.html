@@ -849,7 +849,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var layoutHelp = {{ (layout_help or {})|tojson }};
   var layoutHelpAll = {{ (layout_help_all or layout_help or {})|tojson }};

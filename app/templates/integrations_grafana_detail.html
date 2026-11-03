@@ -360,7 +360,7 @@
       </button>
     </div>
   </form>
-  <script>
+  <script nonce="{{ csp_nonce() }}">
   (function () {
     const dockerOpts = {{ docker_options_json|htmlsafe_json }};
     const kindEl = document.getElementById('kind');

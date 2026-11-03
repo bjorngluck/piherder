@@ -625,7 +625,7 @@
 </div>
 {% endif %}
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 function openDnsHubModal(id) {
   var m = document.getElementById(id);
   if (!m) return;

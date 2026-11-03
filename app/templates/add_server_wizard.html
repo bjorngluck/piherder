@@ -173,7 +173,7 @@
       <a href="/servers/new/exit?server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-save-exit">Save &amp; exit</a>
     </div>
   </form>
-  <script>
+  <script nonce="{{ csp_nonce() }}">
   function toggleWizardAuth() {
     const mode = (document.querySelector('input[name="key_mode"]:checked') || {}).value || 'generate';
     const upload = document.getElementById('wiz-upload-key');
@@ -311,7 +311,7 @@
       <a href="/servers/new/exit?server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-save-exit">Save &amp; exit</a>
     </form>
   </div>
-  <script>
+  <script nonce="{{ csp_nonce() }}">
   function wizardCopyTextFrom(id, btn) {
     var ta = document.getElementById(id);
     if (!ta || !ta.value) return;

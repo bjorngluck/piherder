@@ -472,7 +472,7 @@
       {% endif %}
     </div>
   </div>
-  <script>
+  <script nonce="{{ csp_nonce() }}">
   (function () {
     var btn = document.getElementById('hf-passkey');
     if (!btn) return;
@@ -798,7 +798,7 @@
   {% endif %}
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var root = document.querySelector('[data-testid="host-files-page"]');
   if (!root || root.getAttribute('data-needs-stepup') === '1') return;

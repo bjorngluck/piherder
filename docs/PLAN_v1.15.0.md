@@ -75,7 +75,7 @@ Suggested build order: boot and logging, the NameErrors, locks, CI with migratio
 | Must | **Webhook targets and trusted proxies.** Issue [#94](https://github.com/bjorngluck/piherder/issues/94). Not built. Webhook URLs that resolve to private, loopback, or link-local ranges are rejected unless an explicit allowlist opts them in. Trusted-proxy CIDR defaults are narrower. Forwarded headers from an untrusted source are ignored |
 | Must | **Leak-guard and audit retention.** Issue [#95](https://github.com/bjorngluck/piherder/issues/95). Not built. An empty leak-guard denylist fails closed. A `jobs` token cannot queue audit retention. That action needs a higher scope and returns 403 for `jobs` |
 | Must | **Pin images and Actions, quote the rsync key path.** Issue [#96](https://github.com/bjorngluck/piherder/issues/96). Not built. Base images are pinned by digest. GitHub Actions are pinned by commit SHA. The rsync key path is quoted, including a path that contains spaces. piherder-mcp gets a lockfile and stops auto-sending `confirm: true`. The v1.14 removed list had parked pinning Actions to commit SHAs. This plan puts that pin back as supply-chain hardening |
-| Must | **CSP nonces only on known scripts.** Issue [#97](https://github.com/bjorngluck/piherder/issues/97). Not built. Nonces attach only to known first-party script tags. An injected script tag renders without a nonce |
+| Must | **CSP nonces only on known scripts.** Issue [#97](https://github.com/bjorngluck/piherder/issues/97). In the tree. Templates set the nonce on the script tags they write. Rendered HTML is not scanned for script tags |
 
 ### Should
 

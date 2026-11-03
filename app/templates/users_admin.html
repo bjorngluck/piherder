@@ -426,7 +426,7 @@
 </div>
 
 {% include "partials/password_policy_js.html" %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   // Create user modal
   var createModal = document.getElementById('create-user-modal');

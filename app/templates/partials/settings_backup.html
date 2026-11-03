@@ -518,7 +518,7 @@
         </form>
       </div>
     </div>
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     (function () {
       var form = document.getElementById('drive-copy-form');
       if (!form) return;
@@ -715,7 +715,7 @@
   }
 </style>
 {% if folder_provider %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var current = "";
   var viewGen = 0;

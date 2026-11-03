@@ -255,7 +255,7 @@
     </button>
   </div>
   <p id="ph-action-status" class="text-xs text-muted hidden" role="status"></p>
-  <script>
+  <script nonce="{{ csp_nonce() }}">
   (function () {
     var ACTION_URL = {{ ("/integrations/" ~ integration.id ~ "/pihole/action")|tojson }};
     var statusEl = document.getElementById('ph-action-status');
@@ -425,7 +425,7 @@
     <button type="submit" class="btn btn-secondary min-h-11">Clear host link</button>
   </form>
   {% endif %}
-  <script>
+  <script nonce="{{ csp_nonce() }}">
   (function () {
     var dockerOpts = {{ docker_options_json|htmlsafe_json }};
     var form = document.querySelector('form.pihole-host-bind-form');
@@ -584,7 +584,7 @@
   <input type="hidden" name="target" id="ph-dns-rm-target" value="">
   <input type="hidden" name="raw" id="ph-dns-rm-raw" value="">
 </form>
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var modal = document.getElementById('ph-dns-remove-modal');
   var form = document.getElementById('ph-dns-remove-form');

@@ -318,7 +318,7 @@
     </div>
   </div>
 </div>
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var form = document.querySelector('[data-testid="nmap-scan-now-form"]');
   if (!form) return;
@@ -675,7 +675,7 @@
 <p class="text-sm text-muted hidden nmap-filter-empty" id="nmap-map-empty-filter" data-testid="nmap-map-empty-filter">
   Nothing matches this filter. Enable <strong class="text-text">Show unlinked</strong> or clear the search.
 </p>
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var input = document.getElementById('nmap-map-search');
   var map = document.getElementById('nmap-map');
@@ -1027,7 +1027,7 @@
     </div>
   </div>
 </div>
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var sel = document.getElementById('sch_intensity');
   var box = document.getElementById('sch-vuln-options');

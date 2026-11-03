@@ -13,7 +13,7 @@
     </div>
   </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Docker shell is instant; overlay stays until #docker-stack HTMX fragment arrives.
 (function initDockerLoading() {
   const overlay = document.getElementById('docker-page-loading');
@@ -354,7 +354,7 @@
 <!-- Cleanup modal: list unused by default, then optional prune -->
 {% include "partials/docker_modals.html" %}
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 function setCleanupStatus(state, message) {
   const box = document.getElementById('cleanup-status');
   const text = document.getElementById('cleanup-status-text');
