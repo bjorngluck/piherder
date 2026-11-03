@@ -1,9 +1,11 @@
 """Unit tests for per-server job mutex (multi-worker)."""
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+from celery.exceptions import Retry
 
 from app.services import server_job_lock as lock
 
@@ -109,3 +111,44 @@ def test_redis_busy_returns_none(monkeypatch):
     fake.set.return_value = None  # NX not set
     monkeypatch.setattr(lock, "_get_redis", lambda: fake)
     assert lock.try_acquire_server_lock("backup", 1, holder="a") is None
+
+
+def test_redis_acquire_error_does_not_grant_and_reschedules(monkeypatch):
+    """A Redis error on acquire grants nothing, and the backup task retries."""
+    from app.tasks import backup_server
+
+    class _RedisDown:
+        def set(self, *args, **kwargs):
+            raise ConnectionError("redis down")
+
+    monkeypatch.setattr(lock, "_get_redis", lambda: _RedisDown())
+    assert lock.try_acquire_server_lock("backup", 3, holder="job-7") is None
+    assert not lock.is_server_locked("backup", 3)
+
+    server = SimpleNamespace(id=3, name="host-a", hostname="host-a.example.com")
+    job = SimpleNamespace(
+        id=7,
+        status="pending",
+        server_id=3,
+        details="{}",
+        started_at=None,
+        finished_at=None,
+    )
+    mock_db = MagicMock()
+    mock_db.exec.return_value.first.return_value = server
+    mock_db.get.return_value = job
+
+    with (
+        patch("app.tasks.Session", return_value=mock_db),
+        patch("app.tasks._update_job_status") as upd,
+        patch("app.tasks.run_backup") as run_backup,
+        patch.object(backup_server, "retry", side_effect=Retry(message="wait")) as retry,
+    ):
+        with pytest.raises(Retry):
+            backup_server.run(3, job_id=7)
+
+    retry.assert_called_once()
+    run_backup.assert_not_called()
+    upd.assert_called()
+    status = upd.call_args.args[1] if upd.call_args.args else upd.call_args.kwargs.get("status")
+    assert status == "pending"

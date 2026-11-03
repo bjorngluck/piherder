@@ -3,8 +3,9 @@
 Guarantees at most one active backup (or patch) **per server** across workers,
 while allowing parallel jobs **across** different servers.
 
-Primary backend: Redis (same broker as Celery). Fallback: process-local
-threading locks so unit tests and single-process runs still serialize.
+Primary backend: Redis (same broker as Celery). When Redis is not
+configured, process-local locks keep unit tests and single-process runs
+serialized. A Redis error during acquire does not take that local lock.
 """
 from __future__ import annotations
 
@@ -166,7 +167,8 @@ def try_acquire_server_lock(
                 return token
             return None
         except Exception as e:
-            logger.warning(f"[server_lock] Redis acquire failed, falling back local: {e}")
+            logger.warning("[server_lock] Redis acquire failed: %s", e)
+            return None
 
     if _local_acquire(key, token, ttl):
         logger.debug(f"[server_lock] local acquired {kind} server={server_id}")
