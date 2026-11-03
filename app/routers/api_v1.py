@@ -476,6 +476,7 @@ def _restore_preview_public(server_id: int, result: dict[str, Any]) -> dict[str,
         "summary": result.get("summary") or "",
         "error": result.get("error"),
         "note": result.get("note"),
+        "ownership_step": bool(result.get("ownership_step")),
     }
 
 
@@ -483,11 +484,14 @@ def _restore_preview_public(server_id: int, result: dict[str, Any]) -> dict[str,
     "/servers/{server_id}/backup/restore-preview",
     summary="Dry-run restore preview",
     description=(
-        "Scope read. SSH rsync dry-run of the local backup against the host. "
-        "It diffs that local backup and does not show permission or owner-only changes. "
+        "Scope read. SSH rsync dry-run against the host. "
+        "Without destination_id it diffs the local backup. "
+        "With destination_id it diffs that chosen copy from a temporary folder that is removed. "
+        "changes include create, update, delete, permission, and owner. "
+        "ownership_step is true when that tree has an ownership manifest. The preview does not apply it. "
         "Times out after 120 seconds. One preview at a time per host. "
         "A busy host returns 409. feature:backup applies when the token is feature-restricted. "
-        "Does not write. Not a hosted MCP tool."
+        "Does not write to the host. Not a hosted MCP tool."
     ),
 )
 def api_restore_preview(
