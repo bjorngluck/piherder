@@ -2254,7 +2254,8 @@ class StaleCleanupBody(BaseModel):
     summary="Queue stale data cleanup",
     description=(
         "Fleet purge of old jobs, audit rows, and optional nmap runs. "
-        "Requires scope jobs on a token that is not feature-restricted. "
+        "Requires scope admin. A jobs token is not enough. "
+        "A feature-restricted token is refused. "
         "Not an MCP tool. The audit row records this token and the client IP."
     ),
 )
@@ -2265,12 +2266,12 @@ def api_queue_stale_data_cleanup(
 ):
     from ..services import stale_data_cleanup as sdc
 
-    auth.require(tok_svc.SCOPE_JOBS)
+    auth.require(tok_svc.SCOPE_ADMIN)
     if tok_svc.feature_keys_allowed(auth.scopes) is not None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
-                "Stale data cleanup needs a jobs token with no feature:* limit. "
+                "Stale data cleanup needs an admin token with no feature:* limit. "
                 "Feature-restricted tokens cannot purge fleet history."
             ),
         )

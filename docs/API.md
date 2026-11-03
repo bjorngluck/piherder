@@ -318,7 +318,7 @@ Hosted MCP `trigger_job` uses this same list, including `container_start`, `cont
 
 | Method | Path | Scope | Description |
 |--------|------|-------|-------------|
-| `POST` | `/api/v1/maintenance/stale-data-cleanup` | `jobs` | Queue fleet `stale_data_cleanup` (HTTP **202**) |
+| `POST` | `/api/v1/maintenance/stale-data-cleanup` | `admin` | Queue fleet `stale_data_cleanup` (HTTP **202**). A `jobs` token is **403**. A feature-restricted token is **403** |
 
 ```json
 { "dry_run": false }
