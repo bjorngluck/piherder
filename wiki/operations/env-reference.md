@@ -103,9 +103,9 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 | `PIHERDER_ACCENT` | Unset — same card. `#RRGGBB` locks the accent (`--color-accent` and the subtle accent background). Primary red `#e60012` stays. Demo ignores name, accent, and the Catalog checkbox. Hiding Catalog has no env var |
 | `REDIS_URL` | Optional alias used in some deploy notes. Broker and result URLs are authoritative. When set, boot still requires a password in this URL |
 
-## LAN Discovery (nmap) — opt-in {#lan-discovery-nmap--opt-in}
+## LAN Discovery (nmap) {#lan-discovery-nmap--opt-in}
 
-Default `docker compose up` does **not** start the nmap worker. See [LAN Discovery](../integrations/lan-discovery.md) · [install](../getting-started/install.md#6-optional-lan-discovery-nmap-worker).
+`docker compose up` starts `celery-worker-nmap` with the rest of the stack. Web still never runs nmap. See [LAN Discovery](../integrations/lan-discovery.md) · [install](../getting-started/install.md#6-optional-lan-discovery-nmap-worker).
 
 ### Worker fence (compose-owned — usually not in `.env`)
 
@@ -125,13 +125,13 @@ Task code also refuses when the **`nmap` binary is missing** (main image has no 
 |----------|--------------|---------|
 | `PIHERDER_NMAP_VULN_PATH` | `./piherder_nmap_vuln` | Host bind for vuln pack volume |
 | `PIHERDER_NMAP_VULN_ROOT` | `/var/lib/piherder/nmap-vuln` | In-container path (web **:ro**, nmap worker **rw**) |
-| `PIHERDER_NMAP_IMAGE` | `piherder:nmap-local` | Image tag for profile `nmap` |
+| `PIHERDER_NMAP_IMAGE` | `piherder:nmap-local` | Image tag for `celery-worker-nmap` |
 | `PIHERDER_NMAP_DATABASE_URL` | loopback Postgres | Host-network worker → `127.0.0.1:5432` |
 | `PIHERDER_NMAP_REDIS_URL` | loopback Redis with a password | Host-network worker uses `127.0.0.1:6379`. Boot refuses this URL when it has no password |
 
 ```bash
 docker build -f Dockerfile.nmap -t piherder:nmap-local .
-docker compose --profile nmap up -d celery-worker-nmap
+docker compose up -d celery-worker-nmap
 ```
 
 ## Agents (MCP)

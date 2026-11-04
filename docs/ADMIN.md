@@ -326,8 +326,8 @@ Opt-in Catalog integration — see user wiki [LAN Discovery](../wiki/integration
 
 | Item | Detail |
 |------|--------|
-| Worker | Compose profile `nmap` · image `Dockerfile.nmap` · queue `nmap` · concurrency 1 · host network |
-| Default install | No nmap worker; no vuln DB in image layers |
+| Worker | `celery-worker-nmap` starts with the stack · image `Dockerfile.nmap` · queue `nmap` · concurrency 1 · host network |
+| Default install | Nmap worker is in the stack. No vuln DB in image layers |
 | Vuln pack | Host volume `./piherder_nmap_vuln` (web ro, worker rw); update job on nmap queue |
 | Schedules | Multiple; create **and edit**; all off by default |
 | Curated options | Timing (`-T3`–`T5`), port scope (top / all / list), UDP, deep **script presets** (none/cpe/offline/full) — no free-form flags |
@@ -617,7 +617,7 @@ Current release: [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md). Package **1.13.0**. I
 
 Full catalog with comments and defaults: **[`.env.example`](../.env.example)** (copy to `.env`). Compose injects those keys into **web** and **celery-worker** (Caddy only needs `PIHERDER_HOSTNAME`). Required: `PIHERDER_MASTER_KEY`, plus a strong `SECRET_KEY` in production.
 
-**LAN nmap fence (compose-owned):** `PIHERDER_NMAP_WORKER=0` on web/main celery, `=1` on `celery-worker-nmap` — usually **not** set in `.env`. Optional nmap path/image overrides (`PIHERDER_NMAP_VULN_PATH`, `PIHERDER_NMAP_IMAGE`, …) are in `.env.example`. Operator wiki: [env-reference — LAN Discovery](../wiki/operations/env-reference.md#lan-discovery-nmap--opt-in).
+**LAN nmap fence (compose-owned):** `PIHERDER_NMAP_WORKER=0` on web/main celery, `=1` on `celery-worker-nmap`. The worker starts with the stack. Usually **not** set in `.env`. Optional nmap path/image overrides (`PIHERDER_NMAP_VULN_PATH`, `PIHERDER_NMAP_IMAGE`, …) are in `.env.example`. Operator wiki: [env reference, LAN Discovery](../wiki/operations/env-reference.md#lan-discovery-nmap--opt-in).
 
 ### Volumes (compose defaults)
 
@@ -626,7 +626,7 @@ Full catalog with comments and defaults: **[`.env.example`](../.env.example)** (
 | `${PIHERDER_BACKUP_HOST_PATH:-./backups}` | `/backups` | rsync destinations for server backups |
 | `./piherder_backups` | `/herder_backups` | PiHerder self-backup archives (chown to uid 1000 if permission errors) |
 | `./piherder_data` | `/data` | Avatars, nmap run XML under `nmap/runs/` (Settings live in Postgres) |
-| `${PIHERDER_NMAP_VULN_PATH:-./piherder_nmap_vuln}` | `/var/lib/piherder/nmap-vuln` | Opt-in vuln pack (web **:ro**, nmap worker **rw**; profile `nmap`) |
+| `${PIHERDER_NMAP_VULN_PATH:-./piherder_nmap_vuln}` | `/var/lib/piherder/nmap-vuln` | Vuln pack (web **:ro**, nmap worker **rw**) |
 | `./certs` | `/certs` (Caddy, ro) | `fullchain.pem` + `privkey.pem` |
 
 If you previously used `~/backup`, set in `.env`:

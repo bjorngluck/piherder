@@ -30,7 +30,7 @@ Inspired by projects like [Nginx Proxy Manager](https://github.com/NginxProxyMan
 - Docker Compose browser, multi-file editing, **compose sets** (multiple compose files under one project), inventory cache
 - Service templates (deploy wizard, variables, preview/confirm)
 - Integrations: Uptime Kuma, Grafana, Pi-hole (v6), Nginx Proxy Manager + cert management
-- **LAN Discovery** (opt-in nmap worker, devices, schedules, Hosts map overlay)
+- **LAN Discovery** (nmap worker, devices, schedules, Hosts map overlay)
 - Network Maps (DNS fabric, logical/physical topology, service paths, runtime stack view groups)
 - **Reports:** backup dest, OS patches, LAN live, Docker deploys, console sessions (PiHerder history — not Grafana). Pin / hide / reorder cards per browser
 - PWA + Web Push notifications

@@ -27,9 +27,9 @@ An agent with `read` can read the saved ranges and recent scans (`read_discovery
 
 | Requirement | Notes |
 |-------------|--------|
-| **nmap worker** | Compose **profile `nmap`** — not started by default |
+| **nmap worker** | `celery-worker-nmap` starts with `docker compose up` |
 | **nmap image** | Build: `docker build -f Dockerfile.nmap -t piherder:nmap-local .` |
-| **Start worker** | `docker compose --profile nmap up -d celery-worker-nmap` |
+| **Start worker** | `docker compose up -d celery-worker-nmap` |
 | **Worker fence** | Compose sets `PIHERDER_NMAP_WORKER=0` on web/main celery and `=1` on the nmap worker. Tasks refuse when marker is 0 or `nmap` is missing. **Usually not in `.env`** — see [env reference](../operations/env-reference.md#lan-discovery-nmap--opt-in) · [`.env.example`](https://github.com/bjorngluck/piherder/blob/main/.env.example) |
 | **Vuln pack volume** | Host dir `./piherder_nmap_vuln` (or `PIHERDER_NMAP_VULN_PATH`) mounted into web (ro) + nmap worker (rw) |
 | **Host networking** | Worker uses **host network** so ARP/MAC and LAN reachability work; Postgres/Redis must listen on host loopback (`127.0.0.1`) as in stock compose |

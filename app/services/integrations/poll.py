@@ -652,7 +652,7 @@ def test_connection(integration: Integration) -> Any:
         if not cfg.get("cidrs"):
             err = "no CIDRs configured"
         elif not online.get("online"):
-            err = "nmap worker offline (start compose profile nmap)"
+            err = "nmap worker offline (celery-worker-nmap is not running)"
         return SimpleNamespace(
             ok=ok,
             error=err,

@@ -176,9 +176,9 @@ services:
       retries: 5
       start_period: 60s
 
-  # LAN discovery (nmap) — opt-in profile. Default `docker compose up` does not start this.
+  # LAN discovery (nmap). Starts with the rest of the stack. No Compose profile.
   #   docker build -f Dockerfile.nmap -t piherder:nmap-local .
-  #   docker compose --profile nmap up -d celery-worker-nmap
+  #   docker compose up -d celery-worker-nmap
   # Vulners / CVE artefacts live on the host volume (not in the image):
   #   ./piherder_nmap_vuln → /var/lib/piherder/nmap-vuln
   #
@@ -189,7 +189,6 @@ services:
   # **Host network** is required for MAC addresses (ARP/L2). Docker bridge only sees L3,
   # so XML never gets addrtype=mac. Hostnames need reverse DNS (uncheck Skip DNS) and/or PTR.
   celery-worker-nmap:
-    profiles: ["nmap"]
     image: ${PIHERDER_NMAP_IMAGE:-piherder:nmap-local}
     build:
       context: .

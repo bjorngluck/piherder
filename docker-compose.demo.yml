@@ -58,6 +58,6 @@ services:
       PIHERDER_HOST_FILES: "false"
       PIHERDER_UPDATE_CHECK: "false"
 
-  # Optional: scale nmap worker to 0 on demo (no live scans)
-  # celery-worker-nmap:
-  #   profiles: ["nmap-off"]
+  # Public demo does not run host-network scans.
+  celery-worker-nmap:
+    profiles: ["nmap"]
