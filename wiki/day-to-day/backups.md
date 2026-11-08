@@ -4,8 +4,6 @@
 
 **Server backups** copy chosen directories from a fleet host into the PiHerder host’s backup volume using **rsync over SSH**. Runs are **jobs** on **Celery** (not inside a web request), so a long rsync does not freeze the UI.
 
-The host Backups page shows **last ok** or **last failed** from that host's most recent backup audit entry. Older backups, other actions, and other hosts do not override it. A running backup takes priority. A host with no backup history shows **ready**. A legacy success entry with a failed rsync result shows **last failed**. A failed audit lookup is logged and the page still renders.
-
 ## Why it exists
 
 Homelab hosts hold compose data, configs, and media that are painful to rebuild. PiHerder makes backup **repeatable, scheduled, audited, and restorable** without maintaining a separate cron library on every Pi. You choose **paths** and **policy**; the control plane handles queueing and history.

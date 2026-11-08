@@ -101,24 +101,19 @@ async def server_backups(
     if not current_sources and isinstance(global_backup_defaults, dict):
         current_sources = list(global_backup_defaults.get("sources") or [])
 
-    try:
-        last_backup_log = session.exec(
-            select(AuditLog)
-            .where(AuditLog.server_id == server.id, AuditLog.action == "backup")
-            .order_by(AuditLog.started_at.desc())
-            .limit(1)
-        ).first()
-        last_backup_status = (
-            backup_svc.effective_backup_status(
-                last_backup_log.status, last_backup_log.output_snippet
-            )
-            if last_backup_log
-            else None
+    last_backup_log = session.exec(
+        select(AuditLog)
+        .where(AuditLog.server_id == server.id, AuditLog.action == "backup")
+        .order_by(AuditLog.started_at.desc())
+        .limit(1)
+    ).first()
+    last_backup_status = (
+        backup_svc.effective_backup_status(
+            last_backup_log.status, last_backup_log.output_snippet
         )
-    except Exception:
-        logger.exception(
-            "Unable to load last backup status for server %s", server.id
-        )
+        if last_backup_log
+        else None
+    )
 
     from ..services.backup_path_policy import parse_rules, DEFAULT_DENY_PREFIXES
     from ..services import backup_restore as restore_svc
