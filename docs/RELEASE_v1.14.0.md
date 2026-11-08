@@ -1,20 +1,20 @@
 # PiHerder v1.14.0
 
-**Status:** Draft
+**Status:** Code freeze
 
-**Date:** not tagged
+**Date:** 2026-11-08 (freeze). Not tagged.
 
 **Git tag:** none
 
-**Package / image version:** package stays `1.13.0`. About / footer stay **1.13.0**. This note is not an upgrade path.
+**Package / image version:** package **1.14.0**. About and the footer say **1.14.0** after web is recreated from this tree. The published image stays **1.13.0**.
 
 **Baseline:** `v1.13.0` (2026-10-26)
 
-Maintainer walks in [QA_v1.14.0](QA_v1.14.0.md) are written and are not signed. Screenshot names are reserved in the [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status). They are not captured. The public demo is not pointed at this branch.
+Maintainer walks in [QA_v1.14.0](QA_v1.14.0.md) are signed 2026-11-08. The [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status) is wired. Names and paths in those frames are examples. The frames do not show the footer. The public demo is not pointed at this branch.
 
-**Image:** production stays [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) **1.13.0**. This draft does not move `1.13`, `latest`, or any pin.
+**Image:** production stays [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) **1.13.0**. This freeze does not move `1.13`, `latest`, or any pin. No 1.14 digest exists yet.
 
-Home Assistant plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is already the card (Home Assistant **2024.7** or newer). **0.5.3** stays the previous tag. Published adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** adds `fleet_summary`, `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. **0.4.3** stays the previous package. Hosted `/mcp` also lists `prune_volumes`. Adapter **0.4.4** does not. A later adapter tag carries that tool if it lands. No new plugin tag and no new adapter tag in this draft.
+Home Assistant plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the card (Home Assistant **2024.7** or newer). **0.5.3** stays the previous tag. Published adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** adds `fleet_summary`, `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. **0.4.3** stays the previous package. Hosted `/mcp` also lists `prune_volumes`. Adapter **0.4.4** does not. No new plugin tag and no new adapter tag in this freeze. Secret `PIHERDER_PUSH_DENYLIST` is set. Actions run 215 printed `push denylist clean`. Patterns stay off git.
 
 Operator how-to stays on the wiki: [Backups](https://piherder-docs.hacknow.info/day-to-day/backups/) · [Docker](https://piherder-docs.hacknow.info/docker/overview/) · [Jobs and audit](https://piherder-docs.hacknow.info/day-to-day/jobs-audit-notifications/) · [Alerts](https://piherder-docs.hacknow.info/operations/alerts-email-webhooks/) · [Web SSH](https://piherder-docs.hacknow.info/day-to-day/web-ssh-console/) · [Home Assistant](https://piherder-docs.hacknow.info/integrations/home-assistant/). Technical record: [PLAN_v1.14.0](PLAN_v1.14.0.md). Maintainer QA: [QA_v1.14.0](QA_v1.14.0.md). Prior notes: [RELEASE_v1.13.0](RELEASE_v1.13.0.md).
 
@@ -76,20 +76,19 @@ CI `--cov-fail-under` is **85** on `app`. Adapter **v0.4.4** is already tagged o
 
 ## Not in this release
 
-- The push-denylist secret is set. Actions run 215 printed `push denylist clean`. Patterns stay off git. The workflow itself shipped earlier.
 - A new adapter tag for `prune_volumes`.
 - Fine-grained roles, stricter command-audit redaction, per-host Prometheus sensor ignore, and per-target scrape status.
 - borg, kopia, rclone crypt, and putting the Home Assistant plugin in the image. The removed set from 2026-10-27 stays off future ballots. The list is in [PLAN_v1.14.0](PLAN_v1.14.0.md).
-- The package bump, the tag, and the Hub publish. About stays **1.13.0**.
+- The git tag and the Hub publish. The published image stays **1.13.0**. Pin `1.13.0` stays that release.
 - Closing [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), or [#64](https://github.com/bjorngluck/piherder/issues/64). [#50](https://github.com/bjorngluck/piherder/issues/50) shipped in v1.13.0 and is not rebuilt.
 
 ---
 
 ## Upgrade
 
-This draft is not an upgrade path. Production stays **1.13.0**. Do not apply Alembic `052_schedule_catchup` or `053_alert_mute` ahead of the tag.
+The published image stays **1.13.0**. Do not apply Alembic `052_schedule_catchup` or `053_alert_mute` while that image is still serving the database.
 
-When this ships, those two revisions run on web start. Recreate **web** and **celery-worker**. About should say the package that ships. Plugin **0.5.4** is already the card. Adapter **0.4.4** is already on PyPI. A cached **0.4.3** needs `uvx --refresh piherder-mcp`, then a restart of the MCP client. Hosted `prune_volumes` is ahead of that package. The public demo is updated only when asked.
+When you take this release, those two revisions run on web start. Recreate **web** and **celery-worker**. About should say **1.14.0**. Plugin **0.5.4** is the card. Adapter **0.4.4** is on PyPI. A cached **0.4.3** needs `uvx --refresh piherder-mcp`, then a restart of the MCP client. Hosted `prune_volumes` is ahead of that package. The public demo is updated only when asked.
 
 ## Known issues
 

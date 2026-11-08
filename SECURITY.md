@@ -4,7 +4,8 @@
 
 | Version | Support |
 |---------|---------|
-| **v1.13.0** | Current release ([RELEASE_v1.13.0.md](docs/RELEASE_v1.13.0.md)). Tag **v1.13.0**. Image `1.13.0` / `1.13` / `latest`. Pin `1.12.1` stays that patch. Package **1.13.0** |
+| **v1.14.0** | Code freeze 2026-11-08 ([RELEASE_v1.14.0.md](docs/RELEASE_v1.14.0.md)). Not tagged. Package **1.14.0**. Published image stays **v1.13.0** |
+| **v1.13.0** | Published image ([RELEASE_v1.13.0.md](docs/RELEASE_v1.13.0.md)). Tag **v1.13.0**. Image `1.13.0` / `1.13` / `latest`. Pin `1.12.1` stays that patch. Package **1.13.0** |
 | **v1.11.x** | Previous image pin; still valid ([RELEASE_v1.11.0.md](docs/RELEASE_v1.11.0.md) · [PLAN_v1.11.0.md](docs/PLAN_v1.11.0.md)). Tag **v1.11.0**. Pin `1.11.0` / `1.11` |
 | **v1.10.x** | Previous image pin; still valid ([RELEASE_v1.10.0.md](docs/RELEASE_v1.10.0.md) · [PLAN_v1.10.0.md](docs/PLAN_v1.10.0.md)). Tag **v1.10.0**. Pin `1.10.0` / `1.10` |
 | **v1.9.x** | Previous production pin; still valid ([RELEASE_v1.9.0.md](docs/RELEASE_v1.9.0.md) · [PLAN_v1.9.0.md](docs/PLAN_v1.9.0.md)). Tag **v1.9.0** |

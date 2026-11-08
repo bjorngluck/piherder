@@ -2,15 +2,15 @@
 
 **Branch:** `v1.14.0-dev`
 
-**Code freeze:** not set. Package bump, merge, tag, and Hub stay a separate ask.
+**Code freeze:** set 2026-11-08. Merge, tag, and Hub stay a separate ask.
 
-**Package:** stays **`1.13.0`**. About / footer stay **1.13.0**.
+**Package:** **`1.14.0`**. About / footer say **1.14.0** after web is recreated from this tree. The published image stays **1.13.0**.
 
-**Operator QA:** Schedules through the push denylist, and the 1.13 regression, are signed 2026-11-08. Screenshots are not signed.
+**Operator QA:** signed 2026-11-08, including screenshots and the 1.13 regression.
 
-**Release notes:** not written. Not tagged.
+**Release notes:** [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Code freeze. Not tagged.
 
-**Screenshots:** reserved in [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status). Not captured.
+**Screenshots:** wired in [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status). Names and paths are examples.
 
 **Pull request:** draft [#70](https://github.com/bjorngluck/piherder/pull/70).
 
@@ -20,7 +20,7 @@ Plan: [PLAN_v1.14.0.md](PLAN_v1.14.0.md). v1.13 sign-off stays [QA_v1.13.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Adapter work is [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp). Do not point the public demo at this branch. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
 
-Must and Should code is on `v1.14.0-dev`. These boxes are the operator walk. Schedules through the push denylist, and the 1.13 regression, are signed 2026-11-08. The screenshot boxes are not signed. Alembic `052_schedule_catchup` and `053_alert_mute` are in the tree and are not applied to a live database. This walk does not apply them. Issues [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) stay open until the release.
+Must and Should code is on `v1.14.0-dev`. These boxes are the operator walk. Every walk on this page is signed 2026-11-08. Alembic `052_schedule_catchup` and `053_alert_mute` are in the tree and are not applied to a live database. This walk does not apply them. Issues [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) stay open until the release.
 
 ---
 
@@ -167,11 +167,11 @@ borg, kopia, rclone crypt, and putting the Home Assistant plugin in the image st
 
 ## Screenshots
 
-Reserved 2026-10-28. Not captured. About and the footer still say **1.13.0**. Mask names, paths, addresses, and secrets. Do not photograph the public demo. The file list is [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status).
+Signed 2026-11-08. Wired in the [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status). Names and paths are examples. The frames do not show the footer. Mask names, paths, addresses, and secrets. Do not photograph the public demo.
 
-- [ ] `docker-git-drift.png`
-- [ ] `settings-mute-rules.png`
-- [ ] `alerts-drive-oauth.png`
+- [x] `docker-git-drift.png`
+- [x] `settings-mute-rules.png`
+- [x] `alerts-drive-oauth.png`
 
 ## 1.13 regression
 
