@@ -4,9 +4,9 @@
 
 **Base:** `main` · **Head:** `v1.15.0-dev` · [QA_v1.15.0.md](QA_v1.15.0.md): walks are empty.
 
-**State:** not opened. Code freeze is set 2026-11-08. Notes are [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md) (draft). Package **1.15.0**. The published image stays **1.14.0**. Not tagged.
+**State:** Draft. Code freeze is set 2026-11-08. Notes are [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md) (draft). Package **1.15.0**. The published image stays **1.14.0**. Not tagged.
 
-Open this pull request only after the QA boxes are signed. Leave it a draft until then. Merge, the `v1.15.0` tag, the GitHub Release, and the Hub push are a separate ask.
+QA walks are empty, so this stays a draft. Merge, the `v1.15.0` tag, the GitHub Release, and the Hub push are a separate ask.
 
 Design: [PLAN_v1.15.0.md](PLAN_v1.15.0.md). Maintainer ticks: [QA_v1.15.0.md](QA_v1.15.0.md). Notes: [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md). Screenshot list: [v1.15 pack](../wiki/assets/screenshots/README.md#v115--pack-status). Reserved, not captured.
 
@@ -25,7 +25,7 @@ Alembic `054_job_audit_indexes` is in the tree. Do not apply it while the **1.14
 - [ ] QA boxes signed in [QA_v1.15.0.md](QA_v1.15.0.md)
 - [ ] Screenshots captured and wired. Frames do not show the footer
 - [ ] End-user notes (`RELEASE_v1.15.0.md`) leave draft status
-- [ ] Version pull request opened from this file
+- [x] Version pull request opened from this file. It stays a draft until the QA boxes are signed
 - [ ] Merge to `main`
 - [ ] Tag `v1.15.0` and publish the image (`1.15.0`, `1.15`, `latest`). Pin `1.14.0` stays that release
 - [ ] Public demo, only when asked
