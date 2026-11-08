@@ -6,13 +6,13 @@
 
 **Package:** stays **`1.13.0`**. About / footer stay **1.13.0**.
 
-**Operator QA:** walks are written and are not signed.
+**Operator QA:** Schedules, Drive, Fleet read, and Console are signed 2026-11-08. The remaining walks are not signed.
 
 **Release notes:** not written. Not tagged.
 
 **Screenshots:** reserved in [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status). Not captured.
 
-**Pull request:** not opened.
+**Pull request:** draft [#70](https://github.com/bjorngluck/piherder/pull/70).
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
@@ -20,7 +20,7 @@ Plan: [PLAN_v1.14.0.md](PLAN_v1.14.0.md). v1.13 sign-off stays [QA_v1.13.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Adapter work is [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp). Do not point the public demo at this branch. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
 
-Must and Should code is on `v1.14.0-dev`. These boxes are the operator walk. They are not signed. Alembic `052_schedule_catchup` and `053_alert_mute` are in the tree and are not applied to a live database. This walk does not apply them. Issues [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) stay open until the release.
+Must and Should code is on `v1.14.0-dev`. These boxes are the operator walk. Schedules, Drive, Fleet read, and Console are signed 2026-11-08. The remaining boxes are not signed. Alembic `052_schedule_catchup` and `053_alert_mute` are in the tree and are not applied to a live database. This walk does not apply them. Issues [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) stay open until the release.
 
 ---
 
@@ -28,58 +28,58 @@ Must and Should code is on `v1.14.0-dev`. These boxes are the operator walk. The
 
 Issue [#62](https://github.com/bjorngluck/piherder/issues/62). Opt-in per schedule, off by default. A catch-up is one exclusive job in Job history.
 
-Not signed.
+Signed 2026-11-08.
 
-- [ ] Host Backups shows **Catch up one missed backup. Off unless you turn this on.** A new host leaves it unticked
-- [ ] The container-check form shows **Catch up one missed image check. Off unless you turn this on.** A new host leaves it unticked
-- [ ] With the backup tick on, one missed backup slot enqueues one `backup` job. A second pass for that same slot does not enqueue another
-- [ ] With the image-check tick on, one missed image-check slot enqueues one `container_update_check` job
-- [ ] OS update checks, OS patch, redeploy, and `docker_prune` do not catch up, even if a caller opts in
-- [ ] A catch-up does not start while a run of that kind is already active on the host
-- [ ] A slot is skipped when a newer run of that schedule has already finished
-- [ ] The job records why the slot was missed: `scheduler_down`, `overlap`, `clock`, `error`, or `unknown`
-- [ ] A successful catch-up resolves the matching `backup_schedule_missed` or `container_check_missed` alert
-- [ ] `/metrics` exposes `piherder_schedule_catchup_total` with `kind` of `backup` or `container_check` and `result` of `queued`, `skipped`, or `failed`. The counter is per process and resets on restart. Sum it across workers and use increase() or rate()
+- [x] Host Backups shows **Catch up one missed backup. Off unless you turn this on.** A new host leaves it unticked
+- [x] The container-check form shows **Catch up one missed image check. Off unless you turn this on.** A new host leaves it unticked
+- [x] With the backup tick on, one missed backup slot enqueues one `backup` job. A second pass for that same slot does not enqueue another
+- [x] With the image-check tick on, one missed image-check slot enqueues one `container_update_check` job
+- [x] OS update checks, OS patch, redeploy, and `docker_prune` do not catch up, even if a caller opts in
+- [x] A catch-up does not start while a run of that kind is already active on the host
+- [x] A slot is skipped when a newer run of that schedule has already finished
+- [x] The job records why the slot was missed: `scheduler_down`, `overlap`, `clock`, `error`, or `unknown`
+- [x] A successful catch-up resolves the matching `backup_schedule_missed` or `container_check_missed` alert
+- [x] `/metrics` exposes `piherder_schedule_catchup_total` with `kind` of `backup` or `container_check` and `result` of `queued`, `skipped`, or `failed`. The counter is per process and resets on restart. Sum it across workers and use increase() or rate()
 
 ## Drive (Must)
 
 Issue [#63](https://github.com/bjorngluck/piherder/issues/63). No new credential store. The saved time is not the token.
 
-Not signed.
+Signed 2026-11-08.
 
-- [ ] The Drive destination has **Google app is in Testing**. It is off unless the operator turns it on
-- [ ] A failed refresh opens `drive_oauth_refresh_failed` at critical
-- [ ] With the testing tick on, a saved token older than 5 days opens `drive_oauth_token_aging` at warning
-- [ ] A missing save time does not open the ageing warning
-- [ ] The alert text has presence and age only. It does not show the token, the client secret, or the rclone config
-- [ ] Neither type can be muted, including by a host mute rule
-- [ ] A successful refresh or a new token resolves the open row
+- [x] The Drive destination has **Google app is in Testing**. It is off unless the operator turns it on
+- [x] A failed refresh opens `drive_oauth_refresh_failed` at critical
+- [x] With the testing tick on, a saved token older than 5 days opens `drive_oauth_token_aging` at warning
+- [x] A missing save time does not open the ageing warning
+- [x] The alert text has presence and age only. It does not show the token, the client secret, or the rclone config
+- [x] Neither type can be muted, including by a host mute rule
+- [x] A successful refresh or a new token resolves the open row
 
 ## Fleet read (Must)
 
 Issue [#61](https://github.com/bjorngluck/piherder/issues/61). This does not replace `GET /api/v1/summary` or hosted `summary`.
 
-Not signed.
+Signed 2026-11-08.
 
-- [ ] `GET /api/v1/fleet/summary` (`read`) returns counts and states for hosts, open alerts, failed jobs, backups, Drive replication, and pending updates
-- [ ] The body has host ids. It has no addresses, tokens, webhook URLs, or filesystem paths
-- [ ] `since=` omitted is the current snapshot. A usable ISO-8601 `since` returns only areas that changed after that time
-- [ ] An unusable `since` is HTTP 400
-- [ ] With **API and MCP read audit** on, the call writes one `api_read` row and the row has no token value. With it off, the call writes no audit row
-- [ ] Hosted `/mcp` `fleet_summary` (`read`) calls that route. Adapter **0.4.4** lists the tool. Adapter **0.4.3** does not
-- [ ] `GET /api/v1/summary` and hosted `summary` are unchanged
+- [x] `GET /api/v1/fleet/summary` (`read`) returns counts and states for hosts, open alerts, failed jobs, backups, Drive replication, and pending updates
+- [x] The body has host ids. It has no addresses, tokens, webhook URLs, or filesystem paths
+- [x] `since=` omitted is the current snapshot. A usable ISO-8601 `since` returns only areas that changed after that time
+- [x] An unusable `since` is HTTP 400
+- [x] With **API and MCP read audit** on, the call writes one `api_read` row and the row has no token value. With it off, the call writes no audit row
+- [x] Hosted `/mcp` `fleet_summary` (`read`) calls that route. Adapter **0.4.4** lists the tool. Adapter **0.4.3** does not
+- [x] `GET /api/v1/summary` and hosted `summary` are unchanged
 
 ## Console (Must)
 
 The suggestion bar, a word hidden until Enter, and scrambled Tab were reproduced with Samsung Keyboard on Android Chrome. Gboard did not reproduce them. A live preview and two later input changes were tried and reverted.
 
-Not signed.
+Signed 2026-11-08.
 
-- [ ] The short phone sheet stays open when the dimmed area is tapped
-- [ ] The sheet sits above the keyboard
-- [ ] Shell input is the committed console. There is no live PTY preview and no whole-phrase Tab flush
-- [ ] [KI-console-samsung-keyboard](../wiki/day-to-day/web-ssh-console.md#ki-console-samsung-keyboard) names the three Samsung Keyboard symptoms and the Gboard workaround
-- [ ] Desktop keyboards and a physical keyboard are unchanged
+- [x] The short phone sheet stays open when the dimmed area is tapped
+- [x] The sheet sits above the keyboard
+- [x] Shell input is the committed console. There is no live PTY preview and no whole-phrase Tab flush
+- [x] [KI-console-samsung-keyboard](../wiki/day-to-day/web-ssh-console.md#ki-console-samsung-keyboard) names the three Samsung Keyboard symptoms and the Gboard workaround
+- [x] Desktop keyboards and a physical keyboard are unchanged
 
 ## Backups (Should)
 
