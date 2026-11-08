@@ -42,6 +42,40 @@ def test_ready_fails_when_database_redis_or_migrations_are_wrong(monkeypatch):
     assert behind.json()["checks"]["migrations"] == "error"
 
 
+def test_ready_pings_every_redis_url_and_hides_credentials(monkeypatch):
+    import redis
+
+    seen = []
+
+    def from_url(url, **_kwargs):
+        class Client:
+            def ping(self):
+                seen.append(url)
+                if "s3cret" in url:
+                    raise redis.exceptions.AuthenticationError(url)
+                return True
+
+            def close(self):
+                return None
+
+        return Client()
+
+    monkeypatch.setattr(redis, "from_url", from_url)
+    monkeypatch.setenv("CELERY_BROKER_URL", "redis://192.0.2.8:6379/0")
+    monkeypatch.setenv("CELERY_RESULT_BACKEND", "redis://:s3cret@192.0.2.9:6379/1")
+    monkeypatch.setenv("REDIS_URL", "redis://192.0.2.8:6379/0")
+    monkeypatch.delenv("PIHERDER_NMAP_REDIS_URL", raising=False)
+    monkeypatch.setattr(readiness, "check_database", lambda: True)
+    monkeypatch.setattr(readiness, "migration_matches_head", lambda: True)
+    payload = readiness.readiness()
+    assert payload["redis"] == "error"
+    assert payload["database"] == "ok"
+    assert "s3cret" not in str(payload)
+    assert "redis://" not in str(payload)
+    assert seen[0] == "redis://192.0.2.8:6379/0"
+    assert "s3cret" in seen[1]
+
+
 def test_worker_check_fails_when_no_worker_answers(monkeypatch):
     class _Inspector:
         def ping(self):

@@ -93,4 +93,10 @@ def test_backup_audit_failure_is_logged(backup_page, monkeypatch, caplog):
     with caplog.at_level(logging.ERROR, logger="piherder.servers"):
         response = client.get("/servers/1/backups")
     assert response.status_code == 200
-    assert any("last backup status" in record.message and record.exc_info for record in caplog.records)
+    assert any(
+        "last backup status" in record.message
+        and "RuntimeError" in record.message
+        and record.exc_info is None
+        for record in caplog.records
+    )
+    assert "synthetic audit failure" not in caplog.text

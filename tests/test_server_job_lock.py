@@ -259,3 +259,115 @@ def test_dual_lock_releases_the_first_host_when_auth_fails(monkeypatch):
     with pytest.raises(lock.RedisAuthFailed):
         lock.try_acquire_dual_server_lock("backup", 2, 9, holder="job-1")
     assert calls["n"] == 2
+
+
+def _use_real_redis_client(monkeypatch, client_factory):
+    import redis
+
+    lock.reset_redis_client_for_tests()
+    lock._redis_failed = False
+    lock.reset_lock_acquire_failures_for_tests()
+    lock.clear_local_locks_for_tests()
+    monkeypatch.setenv("CELERY_BROKER_URL", "redis://192.0.2.8:6379/0")
+    monkeypatch.setattr(redis, "from_url", lambda *_args, **_kwargs: client_factory())
+
+
+def test_first_ping_failure_does_not_take_a_local_lock(monkeypatch):
+    """Two acquires while the first ping fails do not share a process-local token."""
+
+    class Client:
+        def ping(self):
+            raise ConnectionError("refused")
+
+        def close(self):
+            return None
+
+    _use_real_redis_client(monkeypatch, Client)
+    with pytest.raises(lock.LockUnavailable):
+        lock.try_acquire_server_lock("backup", 3, holder="job-a")
+    with pytest.raises(lock.LockUnavailable):
+        lock.try_acquire_server_lock("backup", 3, holder="job-b")
+    assert lock._local == {}
+    assert lock._redis_failed is False
+    assert lock.lock_acquire_failure_counts()["redis_error"] == 2
+
+
+def test_lock_recovers_when_a_later_ping_succeeds(monkeypatch):
+    state = {"pings": 0}
+
+    class Client:
+        def ping(self):
+            state["pings"] += 1
+            if state["pings"] == 1:
+                raise ConnectionError("down")
+
+        def set(self, *_args, **_kwargs):
+            return True
+
+        def close(self):
+            return None
+
+    _use_real_redis_client(monkeypatch, Client)
+    with pytest.raises(lock.LockUnavailable):
+        lock.try_acquire_server_lock("backup", 4, holder="job-a")
+    token = lock.try_acquire_server_lock("backup", 4, holder="job-b")
+    assert token
+    assert lock._local == {}
+    assert state["pings"] == 2
+
+
+def test_first_ping_auth_failure_fails_the_job_and_does_not_run_it(monkeypatch, caplog):
+    """A rejected password at connect fails the job. The backup body does not run."""
+    import logging
+
+    import redis
+
+    secret = "redis://:secret-value@192.0.2.8:6379/0"
+
+    class Client:
+        def ping(self):
+            raise redis.exceptions.AuthenticationError(f"WRONGPASS {secret}")
+
+        def close(self):
+            return None
+
+    _use_real_redis_client(monkeypatch, Client)
+    with caplog.at_level(logging.ERROR, logger="app.services.server_job_lock"):
+        with pytest.raises(lock.RedisAuthFailed):
+            lock.try_acquire_server_lock("backup", 3, holder="job-7")
+    assert lock._local == {}
+    assert lock.lock_acquire_failure_counts()["redis_error"] == 1
+    assert secret not in " ".join(rec.getMessage() for rec in caplog.records)
+
+    from app.tasks import backup_server
+
+    server = SimpleNamespace(id=3, name="host-a", hostname="host-a.example.com")
+    job = SimpleNamespace(
+        id=7,
+        status="pending",
+        server_id=3,
+        details="{}",
+        started_at=None,
+        finished_at=None,
+    )
+    mock_db = MagicMock()
+    mock_db.exec.return_value.first.return_value = server
+    mock_db.get.return_value = job
+    with (
+        caplog.at_level(logging.ERROR, logger="app.tasks"),
+        patch("app.tasks.Session", return_value=mock_db),
+        patch("app.tasks._update_job_status") as upd,
+        patch("app.tasks.run_backup") as run_backup,
+        patch.object(backup_server, "retry", side_effect=Retry(message="wait")) as retry,
+    ):
+        result = backup_server.run(3, job_id=7)
+    retry.assert_not_called()
+    run_backup.assert_not_called()
+    assert result["status"] == "failed"
+    assert result["error"] == "Redis authentication failed."
+    upd.assert_called()
+    assert upd.call_args.args[1] == "failed"
+    assert upd.call_args.args[2]["error"] == "Redis authentication failed."
+    logged = " ".join(rec.getMessage() for rec in caplog.records)
+    assert secret not in logged
+    assert "WRONGPASS" not in logged

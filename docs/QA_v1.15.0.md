@@ -46,8 +46,9 @@ Issue [#77](https://github.com/bjorngluck/piherder/issues/77). From pull request
 
 Issue [#78](https://github.com/bjorngluck/piherder/issues/78).
 
-- [ ] When Redis errors on lock acquire, the job does not run on a process-local lock. It retries later
+- [ ] When Redis errors on lock acquire, including the first ping, the job does not run on a process-local lock. It retries later. The failure is not cached
 - [ ] That failure reports `lock_unavailable`. The log is a warning and `piherder_lock_acquire_failures_total` increases with `reason` `redis_error`
+- [ ] A rejected Redis password fails the host job once with `Redis authentication failed.` and does not retry. The log has no URL and no password
 - [ ] A held lock increases the same counter with `reason` `busy`
 
 Issue [#79](https://github.com/bjorngluck/piherder/issues/79).
@@ -159,8 +160,7 @@ Issue [#73](https://github.com/bjorngluck/piherder/issues/73).
 
 Issue [#86](https://github.com/bjorngluck/piherder/issues/86).
 
-- [ ] `GET /ready` checks the database, Redis, and the migration head. It returns 503 when one check is not ok
-- [ ] `GET /health` stays the process-alive check
+- [ ] `GET /health` is process liveness. `GET /ready` checks the database, every configured Redis URL, and the migration head. It returns 503 when one check is not ok. The body does not include a URL
 - [ ] The Celery healthcheck is a real worker ping
 - [ ] A container that stays unhealthy opens one warning, `container_unhealthy`
 - [ ] Settings can mute that type. A mute rule stops webhook, email, and push. The inbox row is still written
@@ -194,6 +194,7 @@ Issue [#98](https://github.com/bjorngluck/piherder/issues/98).
 - [ ] `/metrics` exposes a gauge for the age of the last stack check and a counter for alert delivery failures
 - [ ] `contrib/` has a starter Grafana dashboard and a Prometheus rule file
 - [ ] `promtool check rules` passes on that rule file in CI
+- [ ] The rule file warns on lock acquire failures and on `up{job="piherder-worker"} == 0`
 
 ## Companions
 
@@ -201,6 +202,8 @@ Plugin **0.5.4** and adapter **0.4.4** stay the published packages. No new plugi
 
 - [ ] The herder README and the wiki still say adapter **0.4.4** until that pull request is merged and tagged
 - [ ] CI `--cov-fail-under` is **90** on `app`. The unit run is **90%** (54249/60276)
+- [ ] Published plugin **0.5.4** and adapter **0.4.4** work against this build with an existing token. A destructive adapter call sends `confirm`
+- [ ] A copy of a 1.14 database moves `053` to `054` and back to `053` with the same master key. Data and settings stay. Record the time. Upgrade-to-head CI is not this rehearsal
 
 ## Screenshots
 

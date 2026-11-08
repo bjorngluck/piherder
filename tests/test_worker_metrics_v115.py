@@ -9,6 +9,8 @@ import sys
 import textwrap
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -137,7 +139,9 @@ def test_redis_logs_use_the_exception_type_only(monkeypatch, caplog):
     lock.reset_redis_client_for_tests()
     backup_progress._redis_client = None
     with caplog.at_level(logging.DEBUG):
-        assert lock._get_redis() is None
+        with pytest.raises(lock.LockUnavailable):
+            lock._get_redis()
+        assert lock._redis_failed is False
         assert backup_progress._get_redis() is None
         monkeypatch.setattr(runtime, "_redis", _boom)
         assert runtime.try_acquire_lock("host", "host-a", holder="job") is False

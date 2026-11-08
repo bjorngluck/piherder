@@ -156,6 +156,7 @@ The ops track stays beside this order. It does not land as commits.
 | 2026-11-08 | **Coverage 90.** CI `--cov-fail-under` raised **85** to **90**. Unit run **90%** (54249/60276). Packs are `tests/test_coverage_v115_q90_*.py`. No new GitHub issue. |
 | 2026-11-08 | **Code freeze.** Package is **1.15.0**. The published image stays **1.14.0**. Draft notes are [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md). [QA_v1.15.0.md](QA_v1.15.0.md) walks stay empty. Screenshot names stay reserved. Not tagged. Issues stay open. |
 | 2026-11-08 | **Draft pull request.** [#101](https://github.com/bjorngluck/piherder/pull/101) is open from `v1.15.0-dev` into `main`. It stays a draft until the QA boxes are signed. Not tagged. |
+| 2026-11-08 | **Review follow-up.** A configured Redis lock failure, including the first ping, fails closed and is not cached. A rejected password fails the host job once. Log handlers redact Redis and Postgres URL credentials. `/ready` pings every Redis URL the banner checks. Starter Prometheus rules cover lock failures and `piherder-worker`. `docker-compose.yml` is unchanged. |
 
 ---
 

@@ -347,7 +347,11 @@ def run_exclusive_job(task, job_id: int, server_id: int, audit_id: int, job_type
             return {"status": "failed", "job_id": job_id, "reason": "worker_restart"}
 
         if jt in HOST_BACKUP_LOCK_TYPES:
-            from .server_job_lock import LockUnavailable, try_acquire_server_lock
+            from .server_job_lock import (
+                LockUnavailable,
+                RedisAuthFailed,
+                try_acquire_server_lock,
+            )
 
             lock_server = int(server_id)
             unavailable = False
@@ -355,6 +359,14 @@ def run_exclusive_job(task, job_id: int, server_id: int, audit_id: int, job_type
                 lock_token = try_acquire_server_lock(
                     "backup", lock_server, holder=f"{jt}:{job_id}"
                 )
+            except RedisAuthFailed:
+                logger.error("Redis authentication failed.")
+                _fail_message(job_id, audit_id, jt, "Redis authentication failed.")
+                return {
+                    "status": "failed",
+                    "job_id": job_id,
+                    "error": "Redis authentication failed.",
+                }
             except LockUnavailable:
                 lock_token = None
                 unavailable = True

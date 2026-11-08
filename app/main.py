@@ -27,6 +27,10 @@ from . import templates as templates_mod  # shared Jinja instance (avoids circul
 from .security.auth import get_optional_current_user
 import logging
 
+from .security.log_redaction import install_log_redaction
+
+install_log_redaction()
+
 logger = logging.getLogger(__name__)
 
 try:

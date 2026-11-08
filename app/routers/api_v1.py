@@ -524,6 +524,7 @@ def api_restore_preview(
     from ..services.backup_restore import preview_restore
     from ..services.server_job_lock import (
         LockUnavailable,
+        RedisAuthFailed,
         release_server_lock,
         try_acquire_server_lock,
     )
@@ -532,6 +533,11 @@ def api_restore_preview(
         lock = try_acquire_server_lock(
             "backup", int(server.id), holder="restore-preview", ttl_sec=180
         )
+    except RedisAuthFailed:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Redis authentication failed.",
+        ) from None
     except LockUnavailable as locked:
         raise HTTPException(
             status.HTTP_409_CONFLICT,

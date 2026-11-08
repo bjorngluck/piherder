@@ -20,11 +20,14 @@ from app.services.backup import (
 from app.services.backup_audit import compact_backup_snippet, record_backup_audit_from_job
 from app.services.server_job_lock import (
     LockUnavailable,
+    RedisAuthFailed,
     try_acquire_server_lock,
     try_acquire_dual_server_lock,
     release_server_lock,
     release_dual_server_lock,
 )
+
+_REDIS_AUTH_ERROR = "Redis authentication failed."
 from app.database import get_engine
 from app.models import Server, Job
 from datetime import datetime
@@ -33,6 +36,23 @@ import logging
 import traceback
 
 logger = logging.getLogger(__name__)
+
+
+def _fail_redis_auth(job_id: int | None, server_id: int | None) -> dict:
+    """A rejected Redis password fails the job once. It is not retried."""
+    logger.error(_REDIS_AUTH_ERROR)
+    if job_id:
+        _update_job_status(
+            job_id,
+            "failed",
+            {"error": _REDIS_AUTH_ERROR, "current": "failed", "log_lines": [_REDIS_AUTH_ERROR]},
+        )
+    return {
+        "status": "failed",
+        "job_id": job_id,
+        "server_id": server_id,
+        "error": _REDIS_AUTH_ERROR,
+    }
 
 
 def _remember_worker(job, request) -> bool:
@@ -221,6 +241,8 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
         unavailable = False
         try:
             lock_token = try_acquire_server_lock("backup", server_id, holder=holder)
+        except RedisAuthFailed:
+            return _fail_redis_auth(job_id, server_id)
         except LockUnavailable:
             lock_token = None
             unavailable = True
@@ -544,6 +566,8 @@ def service_migrate(
             lock_tokens = try_acquire_dual_server_lock(
                 "backup", source_id, dest_id, holder=holder
             )
+        except RedisAuthFailed:
+            return _fail_redis_auth(job_id, None)
         except LockUnavailable:
             lock_tokens = None
             unavailable = True
@@ -684,6 +708,8 @@ def _migrate_dual_lock_task(
             lock_tokens = try_acquire_dual_server_lock(
                 "backup", source_id, dest_id, holder=holder
             )
+        except RedisAuthFailed:
+            return _fail_redis_auth(job_id, None)
         except LockUnavailable:
             lock_tokens = None
             unavailable = True

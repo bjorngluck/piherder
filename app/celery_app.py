@@ -1,5 +1,5 @@
 from celery import Celery
-from celery.signals import worker_init, worker_ready
+from celery.signals import after_setup_logger, after_setup_task_logger, worker_init, worker_ready
 import os
 
 from .security.boot_secrets import prepare_process_urls
@@ -40,6 +40,14 @@ celery.conf.update(
     # Avoid stealing tasks that another worker is about to run after lock wait
     worker_disable_rate_limits=True,
 )
+
+
+@after_setup_logger.connect
+@after_setup_task_logger.connect
+def _redact_celery_handler_output(**_kwargs):
+    from .security.log_redaction import install_log_redaction
+
+    install_log_redaction()
 
 
 @worker_init.connect

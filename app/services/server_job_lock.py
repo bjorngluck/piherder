@@ -3,9 +3,11 @@
 Guarantees at most one active backup (or patch) **per server** across workers,
 while allowing parallel jobs **across** different servers.
 
-Primary backend: Redis (same broker as Celery). When Redis is not
-configured, process-local locks keep unit tests and single-process runs
-serialized. A Redis error during acquire does not take that local lock.
+Primary backend: Redis (same broker as Celery). Process-local locks are
+only for a process with no broker URL, and for tests that set
+``_redis_failed``. A configured Redis that fails at connect, at the first
+ping, or during a command does not take the local lock and does not
+remember the failure.
 """
 from __future__ import annotations
 
@@ -73,33 +75,74 @@ def _lock_key(kind: LockKind, server_id: int) -> str:
     return f"{KEY_PREFIX}:{kind}:{int(server_id)}"
 
 
+def _broker_configured() -> bool:
+    """True when the process was given a Redis URL. The localhost default is not configured."""
+    return bool(
+        (os.getenv("CELERY_BROKER_URL") or "").strip()
+        or (os.getenv("CELERY_RESULT_BACKEND") or "").strip()
+    )
+
+
+def _redis_failure(exc: BaseException) -> Exception:
+    """Map a driver error to a fixed lock error. The driver text is dropped."""
+    from ..security.boot_secrets import redis_auth_error
+
+    if redis_auth_error(exc):
+        err: Exception = RedisAuthFailed()
+    else:
+        err = LockUnavailable()
+    err.type_name = type(exc).__name__  # type: ignore[attr-defined]
+    return err
+
+
+def _invalidate_redis_client() -> None:
+    """Drop a client that just failed so the next acquire opens a new one."""
+    global _redis_client
+    client = _redis_client
+    _redis_client = None
+    if client is None:
+        return
+    try:
+        client.close()
+    except Exception:
+        pass
+
+
+def _close_quiet(client) -> None:
+    if client is None:
+        return
+    try:
+        client.close()
+    except Exception:
+        pass
+
+
 def _get_redis():
-    """Shared Redis client or None if unavailable."""
-    global _redis_client, _redis_failed
+    """Shared Redis client, or None when Redis is not configured.
+
+    A configured URL that fails raises LockUnavailable or RedisAuthFailed.
+    The failure is not cached.
+    """
+    global _redis_client
     if _redis_failed:
         return None
     if _redis_client is not None:
         return _redis_client
+    if not _broker_configured():
+        return None
+    client = None
     try:
         import redis
 
-        url = (
-            os.getenv("CELERY_BROKER_URL")
-            or os.getenv("CELERY_RESULT_BACKEND")
-            or "redis://localhost:6379/0"
-        )
+        url = os.getenv("CELERY_BROKER_URL") or os.getenv("CELERY_RESULT_BACKEND") or ""
         client = redis.from_url(url, decode_responses=True, socket_connect_timeout=2)
         client.ping()
         _redis_client = client
         logger.debug("[server_lock] Redis available for cross-worker mutex")
         return _redis_client
     except Exception as exc:
-        logger.debug(
-            "[server_lock] Redis unavailable, using in-process locks: %s",
-            type(exc).__name__,
-        )
-        _redis_failed = True
-        return None
+        _close_quiet(client)
+        raise _redis_failure(exc) from None
 
 
 def reset_redis_client_for_tests() -> None:
@@ -201,8 +244,8 @@ def try_acquire_server_lock(
     """Try to acquire the per-server mutex.
 
     Returns a lock token on success (pass to release/refresh), or None if the
-    lock is held. A Redis error raises LockUnavailable and does not take the
-    process-local lock.
+    lock is held. A configured Redis error, including the first ping, raises
+    LockUnavailable or RedisAuthFailed and does not take the process-local lock.
     """
     if server_id is None:
         return None
@@ -211,7 +254,19 @@ def try_acquire_server_lock(
     key = _lock_key(kind, server_id)
     token = f"{holder}:{uuid.uuid4().hex[:12]}"
 
-    r = _get_redis()
+    try:
+        r = _get_redis()
+    except RedisAuthFailed:
+        logger.error("Redis authentication failed.")
+        note_lock_acquire_failure("redis_error")
+        raise
+    except LockUnavailable as exc:
+        logger.warning(
+            "[server_lock] Redis acquire failed: %s",
+            getattr(exc, "type_name", None) or "LockUnavailable",
+        )
+        note_lock_acquire_failure("redis_error")
+        raise
     if r is not None:
         try:
             ok = r.set(key, token, nx=True, ex=ttl)
@@ -223,6 +278,7 @@ def try_acquire_server_lock(
             note_lock_acquire_failure("busy")
             return None
         except Exception as exc:
+            _invalidate_redis_client()
             from ..security.boot_secrets import redis_auth_error
 
             if redis_auth_error(exc):
@@ -306,7 +362,14 @@ def release_server_lock(
     if not token or server_id is None:
         return False
     key = _lock_key(kind, server_id)
-    r = _get_redis()
+    try:
+        r = _get_redis()
+    except (LockUnavailable, RedisAuthFailed) as exc:
+        logger.warning(
+            "[server_lock] Redis release failed: %s",
+            getattr(exc, "type_name", None) or type(exc).__name__,
+        )
+        return False
     if r is not None:
         try:
             n = r.eval(_RELEASE_LUA, 1, key, token)
@@ -314,10 +377,12 @@ def release_server_lock(
                 logger.info(f"[server_lock] released {kind} server={server_id}")
             return bool(n)
         except Exception as exc:
+            _invalidate_redis_client()
             logger.warning(
                 "[server_lock] Redis release failed: %s",
                 type(exc).__name__,
             )
+            return False
 
     ok = _local_release(key, token)
     if ok:
@@ -338,16 +403,25 @@ def refresh_server_lock(
     ttl = int(ttl_sec if ttl_sec is not None else DEFAULT_TTL_SEC)
     ttl = max(30, ttl)
     key = _lock_key(kind, server_id)
-    r = _get_redis()
+    try:
+        r = _get_redis()
+    except (LockUnavailable, RedisAuthFailed) as exc:
+        logger.warning(
+            "[server_lock] Redis refresh failed: %s",
+            getattr(exc, "type_name", None) or type(exc).__name__,
+        )
+        return False
     if r is not None:
         try:
             n = r.eval(_REFRESH_LUA, 1, key, token, str(ttl))
             return bool(n)
         except Exception as exc:
+            _invalidate_redis_client()
             logger.warning(
                 "[server_lock] Redis refresh failed: %s",
                 type(exc).__name__,
             )
+            return False
 
     return _local_refresh(key, token, ttl)
 
@@ -357,12 +431,16 @@ def server_lock_holder(kind: LockKind, server_id: int) -> str | None:
     if server_id is None:
         return None
     key = _lock_key(kind, server_id)
-    r = _get_redis()
+    try:
+        r = _get_redis()
+    except (LockUnavailable, RedisAuthFailed):
+        return None
     if r is not None:
         try:
             return r.get(key)
         except Exception:
-            pass
+            _invalidate_redis_client()
+            return None
     return _local_holder(key)
 
 

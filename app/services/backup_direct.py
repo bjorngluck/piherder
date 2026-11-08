@@ -708,6 +708,7 @@ def push_server(
     from .demo import demo_mode
     from .server_job_lock import (
         LockUnavailable,
+        RedisAuthFailed,
         release_server_lock,
         try_acquire_server_lock,
     )
@@ -728,6 +729,11 @@ def push_server(
                 "backup",
                 int(server.id),
                 holder=f"direct-{getattr(destination, 'id', None) or 'copy'}",
+            )
+        except RedisAuthFailed:
+            return _stamp_rows(
+                destination,
+                [{"source": folder, "rel": folder, "error": "Redis authentication failed."}],
             )
         except LockUnavailable:
             return _stamp_rows(

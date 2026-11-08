@@ -115,8 +115,12 @@ async def server_backups(
             if last_backup_log
             else None
         )
-    except Exception:
-        logger.exception("Unable to load last backup status for server %s", server.id)
+    except Exception as exc:
+        logger.error(
+            "Unable to load last backup status for server %s: %s",
+            server.id,
+            type(exc).__name__,
+        )
 
     from ..services.backup_path_policy import parse_rules, DEFAULT_DENY_PREFIXES
     from ..services import backup_restore as restore_svc

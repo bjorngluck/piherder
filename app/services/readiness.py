@@ -1,7 +1,6 @@
 """Process readiness and the worker ping used by the container healthcheck."""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from sqlalchemy import text
@@ -17,21 +16,25 @@ def check_database() -> bool:
 
 
 def check_redis() -> bool:
+    """Ping every Redis URL the boot banner checks. One failure is not ready."""
     import redis
 
-    url = (
-        os.getenv("CELERY_BROKER_URL")
-        or os.getenv("REDIS_URL")
-        or "redis://localhost:6379/0"
-    )
-    client = redis.from_url(url, socket_connect_timeout=2, socket_timeout=2)
-    try:
-        return bool(client.ping())
-    finally:
+    from ..security.boot_secrets import redis_urls_from_env
+
+    urls = redis_urls_from_env()
+    if not urls:
+        return False
+    for url in urls:
+        client = redis.from_url(url, socket_connect_timeout=2, socket_timeout=2)
         try:
-            client.close()
-        except Exception:
-            pass
+            if not client.ping():
+                return False
+        finally:
+            try:
+                client.close()
+            except Exception:
+                pass
+    return True
 
 
 def migration_matches_head() -> bool:

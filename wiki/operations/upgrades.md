@@ -182,9 +182,11 @@ When the tag exists, recreate **web**, **celery-worker**, and **celery-worker-nm
 Before a lab copy of this branch:
 
 - [ ] A missing Redis password or a rejected Redis password keeps PiHerder running and shows a notice on every page, including login. Set `REDIS_PASSWORD` and include it in `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, and `REDIS_URL` to clear that notice. The log line has no URL and no password. A connection error does not add a notice. Compose starts Redis with no password when `REDIS_PASSWORD` is unset.
-- [ ] Set `PIHERDER_TRUSTED_PROXY_CIDRS` to the proxy subnet. The compose default on this branch is loopback only (`127.0.0.1/32`, `::1/128`). Forwarded headers from a peer on `10.0.0.0/8`, `172.16.0.0/12`, or `192.168.0.0/16` are ignored until that subnet is listed.
+- [ ] `docker-compose.yml` stays as it is. `PIHERDER_TRUSTED_PROXY_CIDRS` still defaults to loopback only (`127.0.0.1/32`, `::1/128`), and an existing `.env` value wins. Bundled Caddy is another container, so set the variable to that one proxy address. Do not list the whole compose subnet. Forwarded headers from any other peer stay ignored.
+- [ ] A private webhook needs `PIHERDER_WEBHOOK_ALLOW_CIDRS`.
 - [ ] The default database password keeps PiHerder running and shows the same notice outside demo mode. Set a unique password on the Postgres role and in `DATABASE_URL`. The nmap worker reuses `DATABASE_URL` and rewrites host `db` to `127.0.0.1` unless `PIHERDER_NMAP_DATABASE_URL` is set.
-- [ ] `GET /ready` checks the database, Redis, and migration head. It returns 503 when one check is not ok. `GET /health` stays the process-alive check.
+- [ ] `GET /health` is process liveness. `GET /ready` checks the database, every configured Redis URL, and the migration head. It returns 503 when one check is not ok. The body does not include a URL.
+- [ ] From a 1.14 database at revision `053`, recreate web and celery-worker and let web apply `054`. Keep `PIHERDER_MASTER_KEY`. To return to image `1.14.0`, downgrade to `053_alert_mute` before that image starts. The downgrade drops the two indexes. Data and settings stay. Time this on a copy. Upgrade-to-head CI is not this rehearsal.
 
 ## Breaking notes
 
