@@ -58,7 +58,19 @@ These types cannot be muted, including by a host rule: `backup_failed`, `herder_
 
 Creating, editing, and deleting a rule is audited (`alert_mute_created`, `alert_mute_updated`, `alert_mute_deleted`) and needs scope `edit`. `read` can list rules and cannot change one. Demo cannot save one.
 
-`GET /api/v1/alerts` items include `muted`. It is computed from the rules that are active now. `/metrics` gauge `piherder_alerts_muted` is the number of those rules. Its help text says number of active mute rules. An expired rule stays in the table and does not count.
+`GET /api/v1/alerts` items include `muted`. It is computed from the rules that are active now. `/metrics` gauge `piherder_alerts_muted` is the number of those rules. Its help text says number of active mute rules. An expired rule stays in the table and does not count. Mute rules ship in **1.14.0**.
+
+<figure class="ph-figure" markdown>
+  ![Mute rules](../assets/screenshots/settings-mute-rules.png)
+  <figcaption>Mute rules, empty. One host or one alert type, with an optional end. Host is None. No webhook URL and no token. Category policy stays on the card above.</figcaption>
+</figure>
+
+A failed Google Drive refresh opens `drive_oauth_refresh_failed` at critical. When the destination tick **Google app is in Testing** is on and the saved token is older than 5 days, `drive_oauth_token_aging` opens at warning. The body is presence and age only. It does not show the token. Neither type can be muted. Either resolves on a successful refresh or a new token. Both ship in **1.14.0**.
+
+<figure class="ph-figure" markdown>
+  ![Google Drive refresh failed](../assets/screenshots/alerts-drive-oauth.png)
+  <figcaption>A resolved Google Drive refresh failed row. The body is presence and age only. No token and no client secret.</figcaption>
+</figure>
 
 The Network map checkbox **Alert when a Kuma-bound container is stopped** writes the same **Inventory** enabled flag (do not fork a second switch).
 

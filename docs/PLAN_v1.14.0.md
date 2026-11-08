@@ -1,16 +1,16 @@
 # PiHerder v1.14.0: catch up a missed slot, warn on Drive OAuth, summarise the fleet, and fix the mobile console
 
-**Status:** **In progress** on `v1.14.0-dev`. Voted 2026-10-27. Package stays `1.13.0`. No tag.  
+**Status:** **Released** 2026-11-08. Tag **v1.14.0**. Package **1.14.0**. Voted 2026-10-27.
 **Date opened:** 2026-10-24 (draft on the unreleased `v1.13.0-dev` tip). **Voted and restarted from `main`:** 2026-10-27.  
 **Git branch:** `v1.14.0-dev`  
-**Package / image version:** package stays **`1.13.0`**. About / footer stay **1.13.0**. This train does not bump the package.  
+**Package / image version:** package **`1.14.0`**. Tag **v1.14.0**. Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release.
 **Theme:** catch up a missed slot, warn on Drive OAuth, summarise the fleet, and fix the mobile console  
 **Baseline:** tagged **`v1.13.0`** (2026-10-26). Production image is **1.13.0**.  
 **Mode:** **Must → Should.** Tiers were voted 2026-10-27. Nothing was voted Discover.  
-**QA:** [QA_v1.14.0.md](QA_v1.14.0.md). Walks are written and are not signed. Screenshot names are reserved in the [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status). Not captured.
-**Related:** [PLAN_v1.13.0.md](PLAN_v1.13.0.md) · [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) · draft [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md) · [PR_v1.14.0.md](PR_v1.14.0.md)
+**QA:** [QA_v1.14.0.md](QA_v1.14.0.md). Walks and screenshots are signed 2026-11-08. The [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status) is wired.
+**Related:** [PLAN_v1.13.0.md](PLAN_v1.13.0.md) · [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) · [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md) · [PR_v1.14.0.md](PR_v1.14.0.md)
 
-> Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Package stays `1.13.0`. No tag. The public demo is not pointed at this branch. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is tagged. **0.4.3** stays the previous package. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) are in the herder tree and stay open until the release. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is merged and tagged **v0.5.4**. The four root copies are removed. `brand/` stays. Restore safety in the tree: a pre-restore snapshot, manifest file and byte checks, and `GET /api/v1/servers/{id}/backup/restore-preview`. Compose git drift is in the tree. The stack list compares a checkout with the last fetched origin and does not deploy. Volume prune is in the tree: `POST /api/v1/servers/{id}/docker/volumes` and hosted `prune_volumes` need `confirm` true and write one audit row. They are not the scheduled prune. Adapter **0.4.4** does not list that tool. The push-denylist workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is not set. Until it has at least one pattern, the workflow prints that the manual grep remains and exits 0. It does not report a clean scan. Patterns stay off git.
+> Restarted 2026-10-27 from `main` after **v1.13.0** shipped. Code freeze is set 2026-11-08. Package is `1.14.0`. The published image stays **1.13.0**. No tag. The public demo is not pointed at this branch. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is tagged. **0.4.3** stays the previous package. [#50](https://github.com/bjorngluck/piherder/issues/50) is already in v1.13.0. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) are in the herder tree and stay open until the release. [piherder-ha#6](https://github.com/bjorngluck/piherder-ha/issues/6) is merged and tagged **v0.5.4**. The four root copies are removed. `brand/` stays. Restore safety in the tree: a pre-restore snapshot, manifest file and byte checks, and `GET /api/v1/servers/{id}/backup/restore-preview`. Compose git drift is in the tree. The stack list compares a checkout with the last fetched origin and does not deploy. Volume prune is in the tree: `POST /api/v1/servers/{id}/docker/volumes` and hosted `prune_volumes` need `confirm` true and write one audit row. They are not the scheduled prune. Adapter **0.4.4** does not list that tool. The push-denylist workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is set. Actions run 215 printed `push denylist clean`. Patterns stay off git.
 
 ---
 
@@ -82,11 +82,11 @@ Build order for Must: [#62](https://github.com/bjorngluck/piherder/issues/62), [
 |------|------|
 | Must | **Adapter cut.** Done. Tag **[v0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is on merge `30bfa2f` (pull request 9). It adds `fleet_summary`, `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. Volume prune is not in this package. **0.4.3** stays the previous tag. piherder-mcp has no open issues |
 | Must | **Coverage 85.** CI `--cov-fail-under` is **85** on `app`. Compose report **85%** (49078/57940, 84.70% before rounding). The gate uses the rounded figure |
-| Should | **Push-denylist secret.** Workflow is in (`.github/workflows/push-denylist.yml`). Secret `PIHERDER_PUSH_DENYLIST` is not set. One literal per line, at least 4 characters. Comments and blank lines are ignored. An empty secret prints that the manual grep remains and exits 0. It does not report a clean scan. Patterns stay off git |
+| Should | **Push-denylist secret.** Workflow is in (`.github/workflows/push-denylist.yml`). Secret `PIHERDER_PUSH_DENYLIST` is set. Actions run 215 printed `push denylist clean`. One literal per line, at least 4 characters. Comments and blank lines are ignored. Patterns stay off git |
 
 | Topic | Lock |
 |-------|------|
-| Version bump | Package stays **1.13.0** until freeze. About stays **1.13.0** |
+| Version bump | Package is **1.14.0** at freeze. About says **1.14.0** after web is recreated from this tree. The published image stays **1.13.0** |
 | Demo | The public demo is not pointed at this branch |
 | Plugin | The card stays the separate HACS repo. Plugin **0.5.4** is tagged. **0.5.3** stays the previous tag |
 | Adapter | Tag **v0.4.4** is cut. **0.4.3** stays the previous tag |
@@ -130,6 +130,13 @@ Nothing else was voted **Out**.
 | 2026-10-28 | **Push denylist.** The workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is not set. An empty secret does not report a clean scan. Patterns stay off git. |
 | 2026-10-28 | **QA.** Operator walks are written in [QA_v1.14.0.md](QA_v1.14.0.md) and are not signed. Screenshot names are reserved in the [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status). Not captured. About and the footer stay **1.13.0**. |
 | 2026-10-28 | **Draft notes.** [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md) is a draft. Package stays **1.13.0**. Not tagged. Not an upgrade path. Draft pull request [#70](https://github.com/bjorngluck/piherder/pull/70). |
+| 2026-11-08 | **QA.** Schedules, Drive, Fleet read, and Console are signed in [QA_v1.14.0.md](QA_v1.14.0.md). The remaining walks are not signed. |
+| 2026-11-08 | **QA.** Backups, Docker, and Alerts are signed in [QA_v1.14.0.md](QA_v1.14.0.md). Plugin and adapter, the push denylist, screenshots, and the 1.13 regression stay open. |
+| 2026-11-08 | **QA.** Plugin and adapter are signed in [QA_v1.14.0.md](QA_v1.14.0.md). The push denylist, screenshots, and the 1.13 regression stay open. |
+| 2026-11-08 | **QA.** Push denylist is signed. Actions run 215 printed `push denylist clean`. Screenshots and the 1.13 regression stay open. |
+| 2026-11-08 | **QA.** The 1.13 regression is signed in [QA_v1.14.0.md](QA_v1.14.0.md). Screenshots stay open. |
+| 2026-11-08 | **Code freeze.** Screenshots are wired. QA is signed. Package is **1.14.0**. The published image stays **1.13.0**. Not tagged. Pull request [#70](https://github.com/bjorngluck/piherder/pull/70) stays open. |
+| 2026-11-08 | **Released.** Pull request [#70](https://github.com/bjorngluck/piherder/pull/70) is merged. Tag **v1.14.0**. Image tags `1.14.0`, `1.14`, and `latest` are `sha256:681ba3384f235d3e354c1320223a65c359c33c2478bd34dc3598723fae029334`. Pin `1.13.0` stays that release. |
 | 2026-10-31 | **Review follow-ups.** Catch-up `result` is `queued`. A failed catch-up is not retried. A busy host writes at most one audit row for that slot. `clock` scales with the schedule. Volume prune accepts `dry_run`. Demo mode blocks volume and build-cache prune. A retry keeps the first pre-restore snapshot until the restore succeeds or Undo runs. Undo uses rsync `--delete`. Free space is checked with statvfs before the host is copied. Extra host files warn. Restore preview diffs the local backup, times out at 120 seconds, and returns 409 when that host is busy. `admin_change` cannot be muted. |
 
 ---
@@ -140,12 +147,12 @@ Nothing else was voted **Out**.
 |---|------|--------|
 | 1 | Open **`v1.14.0-dev`** on shipped `main` | **Done** 2026-10-27 |
 | 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | **Done** 2026-10-27. Plugin **v0.5.4** is tagged. Adapter **v0.4.4** is tagged. Volume prune is not on that tag. Samsung Keyboard is KI-console-samsung-keyboard |
-| 3 | Should, if it fits | Mute rules ([#64](https://github.com/bjorngluck/piherder/issues/64)) are in the tree. HACS install wording is in the tree. Plugin version stays **0.5.4**. A pre-restore snapshot is in the tree. Manifest file-count and byte verification is in the tree. The dry-run restore preview API is in the tree. The compose git drift badge is in the tree. Volume prune is in the tree. Adapter **0.4.4** does not list it. The push-denylist workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is not set |
-| 4 | Freeze | Not set. Package stays **1.13.0** |
-| 5 | Operator QA | Walks written in [QA_v1.14.0.md](QA_v1.14.0.md). Not signed. Screenshots reserved, not captured |
-| 6 | Draft notes and pull request | Notes are [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Draft pull request [#70](https://github.com/bjorngluck/piherder/pull/70). Draft until QA is signed |
-| 7 | Tag and Hub | Not cut |
+| 3 | Should, if it fits | Mute rules ([#64](https://github.com/bjorngluck/piherder/issues/64)) are in the tree. HACS install wording is in the tree. Plugin version stays **0.5.4**. A pre-restore snapshot is in the tree. Manifest file-count and byte verification is in the tree. The dry-run restore preview API is in the tree. The compose git drift badge is in the tree. Volume prune is in the tree. Adapter **0.4.4** does not list it. The push-denylist workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is set. Actions run 215 printed `push denylist clean` |
+| 4 | Freeze | **Set** 2026-11-08. No new product work on this branch. Package is **1.14.0**. The published image stays **1.13.0** |
+| 5 | Operator QA | Signed 2026-11-08 in [QA_v1.14.0.md](QA_v1.14.0.md), including screenshots and the 1.13 regression |
+| 6 | Notes and pull request | Notes are [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Pull request [#70](https://github.com/bjorngluck/piherder/pull/70) stays open. Not tagged |
+| 7 | Tag and Hub | Tag **v1.14.0** is cut. Hub tags `1.14.0`, `1.14`, and `latest` are `sha256:681ba3384f235d3e354c1320223a65c359c33c2478bd34dc3598723fae029334` |
 
 ---
 
-*Voted 2026-10-27 on tagged v1.13.0. In progress on `v1.14.0-dev`. Package stays 1.13.0. Not tagged.*
+*Voted 2026-10-27 on tagged v1.13.0. Released 2026-11-08 as tag v1.14.0. Package is 1.14.0. Pin 1.13.0 stays that release.*

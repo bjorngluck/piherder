@@ -476,19 +476,23 @@ Configurable per-server fields that map 1:1: `backup_paths`, `docker_base_dir`, 
 
 ---
 
-## Current release (`v1.13.0`)
+## Current release (`v1.14.0`)
 
-Package **1.13.0**. About and the footer say **1.13.0**. Image tags are `1.13.0` / `1.13` / `latest`. Pin `1.12.1` stays that patch.
+Package **1.14.0**. About and the footer say **1.14.0**. Image tags are `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release. Tag **v1.14.0**. Notes: [docs/RELEASE_v1.14.0.md](docs/RELEASE_v1.14.0.md).
+
+## Previous release (`v1.13.0`)
+
+Package **1.13.0**. Tag **v1.13.0**. Pin `1.13.0` stays that release.
 
 Must and Should are on `v1.13.0-dev`: restore ownership (`.piherder-ownership.json`, numeric `uid`, `gid`, and octal `mode`, `setuid` and `setgid` stripped), a possible NIC change with **Replace stale MAC** ([#50](https://github.com/bjorngluck/piherder/issues/50)), the one-shot token cookie `api_token_once`, host tool bootstrap and feature preflight (`POST /servers/{id}/host-deps/bootstrap`, exclusive Celery job `host_bootstrap`, optional `bootstrap_username` when the fleet user is already restricted `piherder`, feature-gated `rsync` and official `docker-ce` for `ubuntu`, `debian`, and `raspbian`, `confirm_docker_bootstrap`, a fresh SSH check after `usermod`, audit action `host_bootstrap`, progress and errors inside the SSH access window), backup minutes across all 1,440 slots, Docker build-cache prune, per-host `docker_prune_schedule`, dangling image prune after a successful update, a 30 minute inventory refresh reset, inventory `update_available`, the stuck-queue alert and gauges, `GET /api/v1/alerts` and hosted `list_alerts`, an OAuth `client_name` suffix, orphaned running jobs, and `get_engine()`. Published adapter stays **0.4.3**. Hosted `/mcp` lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac` ahead of that adapter. Host bootstrap is not on `/api/v1` or `/mcp`.
 
 QA walks are signed 2026-10-25. Code freeze is set 2026-10-25. About Docker prune and Docker cleanup frames are wired 2026-10-26. Host bootstrap is wired. NIC change and the stuck-queue frames are wired. Pull request [#60](https://github.com/bjorngluck/piherder/pull/60) is open. Plan: [docs/PLAN_v1.13.0.md](docs/PLAN_v1.13.0.md). Walks: [docs/QA_v1.13.0.md](docs/QA_v1.13.0.md).
 
-## Open train (`v1.14.0-dev`)
+## Shipped train (`v1.14.0`)
 
-Package stays **1.13.0**. About stays **1.13.0**. No tag. The image on Hub stays **1.13.0**.
+Package is **1.14.0**. Tag **v1.14.0**. Image tags are `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release.
 
-In the tree: missed-slot catch-up, Drive OAuth health, fleet summary, the mobile console sheet and Samsung Keyboard note, mute rules, HACS install wording, a pre-restore host snapshot with Undo, manifest file-count and byte checks, `GET /api/v1/servers/{id}/backup/restore-preview`, a compose git drift badge, and volume prune on the API and hosted `/mcp`. That preview is an SSH rsync dry-run of the local backup with a 120 second timeout. A destination id diffs that chosen copy and lists permission and owner changes. The preview does not write to the host. One preview at a time per host. A busy host returns 409. It does not write. It is not a hosted MCP tool. A retry keeps the first pre-restore snapshot until the restore succeeds or Undo runs. Undo uses rsync `--delete`. Free space is checked with statvfs before the host is copied. `admin_change` cannot be muted. The badge compares a checkout with the last fetched origin and does not fetch or deploy. Volume prune `dry_run` lists unused volumes and deletes nothing. `confirm` true writes one audit row and is not the scheduled prune. Plugin **0.5.4** and adapter **0.4.4** are already tagged. Adapter **0.4.4** does not list volume prune. The push-denylist workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is not set. An empty secret does not report a clean scan. Patterns stay off git. Plan: [docs/PLAN_v1.14.0.md](docs/PLAN_v1.14.0.md). Draft notes: [docs/RELEASE_v1.14.0.md](docs/RELEASE_v1.14.0.md). Walks: [docs/QA_v1.14.0.md](docs/QA_v1.14.0.md). Not signed. Draft pull request [#70](https://github.com/bjorngluck/piherder/pull/70) is open.
+In the tree: missed-slot catch-up, Drive OAuth health, fleet summary, the mobile console sheet and Samsung Keyboard note, mute rules, HACS install wording, a pre-restore host snapshot with Undo, manifest file-count and byte checks, `GET /api/v1/servers/{id}/backup/restore-preview`, a compose git drift badge, and volume prune on the API and hosted `/mcp`. That preview is an SSH rsync dry-run of the local backup with a 120 second timeout. It does not show permission or owner-only changes. One preview at a time per host. A busy host returns 409. It does not write. It is not a hosted MCP tool. A retry keeps the first pre-restore snapshot until the restore succeeds or Undo runs. Undo uses rsync `--delete`. Free space is checked with statvfs before the host is copied. `admin_change` cannot be muted. The badge compares a checkout with the last fetched origin and does not fetch or deploy. Volume prune `dry_run` lists unused volumes and deletes nothing. `confirm` true writes one audit row and is not the scheduled prune. Plugin **0.5.4** and adapter **0.4.4** are already tagged. Adapter **0.4.4** does not list volume prune. The push-denylist workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is set. Actions run 215 printed `push denylist clean`. Patterns stay off git. Plan: [docs/PLAN_v1.14.0.md](docs/PLAN_v1.14.0.md). Notes: [docs/RELEASE_v1.14.0.md](docs/RELEASE_v1.14.0.md). Walks: [docs/QA_v1.14.0.md](docs/QA_v1.14.0.md). Signed 2026-11-08. Screenshots are wired. Pull request [#70](https://github.com/bjorngluck/piherder/pull/70) is merged. Tag **v1.14.0**.
 
 ---
 

@@ -14,7 +14,7 @@ Anything committed here is public. Use generic names in code, tests, docs, and c
 
 ## Current train
 
-`v1.14.0-dev` is the open train. Package stays `1.13.0`. Must is in the tree. Should in the tree: mute rules, HACS install wording, a pre-restore snapshot, manifest file and byte checks, the dry-run restore preview, the compose git drift badge, and volume prune on the API and hosted `/mcp`. The push-denylist workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is not set. An empty secret does not report a clean scan. Patterns stay off git. Adapter **0.4.4** does not list volume prune. `v1.13.0` is the current release. No tag. Host tool bootstrap is `POST /servers/{id}/host-deps/bootstrap` and is not on `/api/v1` or `/mcp`.
+`v1.15.0-dev` is the open train. Package stays `1.14.0` until the v1.15 freeze. `v1.14.0` is the current release. Tag `v1.14.0`. Package is `1.14.0`. Image tags are `1.14.0`, `1.14`, and `latest`. Manifest `sha256:681ba3384f235d3e354c1320223a65c359c33c2478bd34dc3598723fae029334`. Pin `1.13.0` stays that release. Adapter **0.4.4** does not list volume prune. Host tool bootstrap is `POST /servers/{id}/host-deps/bootstrap` and is not on `/api/v1` or `/mcp`.
 
 ## Opening a version train
 
