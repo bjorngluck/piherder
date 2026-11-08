@@ -2705,11 +2705,13 @@ def test_settings_posts(client, monkeypatch):
     assert tc.post("/herder-backups/alerts/policy", cookies=cookies).status_code == 303
 
     monkeypatch.setattr("app.services.app_settings.save_settings", _real_save)
-    assert tc.post(
+    saved = tc.post(
         "/herder-backups/alerts/host-unreachable",
         data={"enabled": "1", "quiet_unit": "days", "quiet_amount": "1"},
         cookies=cookies,
-    ).status_code == 303
+    )
+    assert saved.status_code == 303
+    assert "host_unreachable_saved=1" in saved.headers["location"]
     monkeypatch.setattr(
         "app.services.alert_policy.set_type_override", lambda *a, **k: _raise("type")
     )

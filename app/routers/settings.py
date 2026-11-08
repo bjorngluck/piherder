@@ -2164,6 +2164,7 @@ async def save_host_unreachable(
     session: Session = Depends(get_session),
 ):
     """Quiet time and on/off for the host unreachable alert."""
+    from ..services import alert_policy as apol
     from ..services.demo import http_403_if_demo
     from ..services.host_posture import quiet_hours_from_amount, sync_host_posture_alerts
 
