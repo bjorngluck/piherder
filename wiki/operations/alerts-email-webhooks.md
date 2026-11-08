@@ -38,6 +38,8 @@ Settings → Alerts → **Alert policy** is the taxonomy + volume control so map
 
 v1.12 also opens `backup_destination_auth_failed` (critical, a Drive, OneDrive, or SMB credential was rejected), `backup_stale` (warning), `backup_schedule_missed` (warning), `backup_copy_early` (warning), and `container_updates` (warning). A possible NIC change (`lan_discovery`, info) ships in **1.13.0**.
 
+On the open train, a host not seen for 24 hours opens one critical `host_unreachable` alert. Two missed backup slots open one critical `backup_missed_repeat` alert. A repeat of the same condition does not push again. Seeing the host, or a backup success, resolves the matching alert. A container that stays unhealthy opens one warning, `container_unhealthy`. These alerts are not in the **1.14.0** image. `host_unreachable` and `backup_missed_repeat` are in the alert catalog. `container_unhealthy` fires, and it is not a catalog row yet, so Settings cannot mute that type on its own.
+
 Per category you can **mute**, override **severity** (`default` keeps the table above), set **debounce** (minutes before a dismissed flap re-opens), and **re-alert** (hours; `0` = no channel nudge while still open).
 
 **Severity `default`** means each type keeps its catalog / emitter hint (so stack-health fail vs warn, and cert verify partial vs fail, stay distinct).

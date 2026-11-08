@@ -26,8 +26,6 @@ docker compose up -d
 
 ## Checklist
 
-- [ ] Set `REDIS_PASSWORD` and put it in `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, and `REDIS_URL` before upgrading. The web process and the worker ping Redis with that password at boot. If Redis rejects the password, the stack does not start. The log line has no URL and no password.
-- [ ] Set `PIHERDER_TRUSTED_PROXY_CIDRS` to the proxy subnet before upgrading. The compose default is loopback only (`127.0.0.1/32`, `::1/128`). Forwarded headers from a peer on `10.0.0.0/8`, `172.16.0.0/12`, or `192.168.0.0/16` are ignored until that subnet is listed.
 - [ ] Self-backup successful (**admin** — Settings → PiHerder backup)  
 - [ ] `PIHERDER_MASTER_KEY` unchanged and backed up offline  
 - [ ] Read [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.6.0.md) for the version you jump to  
@@ -174,6 +172,17 @@ Alembic **051** adds `docker_prune_schedule`. Recreate **web** and **celery-work
 **v1.14.0** is the current release. Notes: [RELEASE_v1.14.0.md](https://github.com/bjorngluck/piherder/blob/v1.14.0/docs/RELEASE_v1.14.0.md). Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release.
 
 Alembic **052** (`052_schedule_catchup`) and **053** (`053_alert_mute`) run on web start. Recreate **web** and **celery-worker**. About should say **1.14.0**. Do not apply those revisions by hand before this image is running. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** stays the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** stays the package. Hosted `/mcp` lists `prune_volumes`. Adapter **0.4.4** does not. The public demo is updated only when asked.
+
+## Open train {#open-train}
+
+**v1.15.0** is not tagged. The package on `v1.15.0-dev` stays **1.14.0**. Plan: [PLAN_v1.15.0.md](https://github.com/bjorngluck/piherder/blob/v1.15.0-dev/docs/PLAN_v1.15.0.md). Do not point a fleet at this branch until the release notes exist.
+
+Before a lab copy of this branch:
+
+- [ ] Set `REDIS_PASSWORD` and put it in `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, and `REDIS_URL`. Boot pings Redis with that password in the web process and the worker. A rejected password refuses to start. The log line has no URL and no password. A connection error does not refuse boot.
+- [ ] Set `PIHERDER_TRUSTED_PROXY_CIDRS` to the proxy subnet. The compose default on this branch is loopback only (`127.0.0.1/32`, `::1/128`). Forwarded headers from a peer on `10.0.0.0/8`, `172.16.0.0/12`, or `192.168.0.0/16` are ignored until that subnet is listed.
+- [ ] Boot refuses the default database password outside demo mode.
+- [ ] `GET /ready` checks the database, Redis, and migration head. It returns 503 when one check is not ok. `GET /health` stays the process-alive check.
 
 ## Breaking notes
 

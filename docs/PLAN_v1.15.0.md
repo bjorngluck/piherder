@@ -1,10 +1,10 @@
 # PiHerder v1.15.0: hardening
 
-**Status:** **Scoped** on `v1.15.0-dev`. The maintainer set Must and Should on 2026-11-03. This is a hardening release. Package stays `1.14.0`. No v1.15 tag.  
+**Status:** **Built** on `v1.15.0-dev`. Not frozen. Operator QA is not signed. Package stays `1.14.0`. No v1.15 tag.
 **Date opened:** 2026-10-31. **Rewritten:** 2026-11-03. **Merged shipped main:** 2026-11-08.  
 **Git branch:** `v1.15.0-dev`  
 **Package / image version:** package stays **`1.14.0`**. About / footer stay **1.14.0**. This plan does not bump the package to `1.15.0`.  
-**Theme:** architecture plus bug fixes. No new features. Features, themes, and breaking changes go to 2.0. Architect owns `PLAN_v2.0.0.md`. This repo does not add that file.  
+**Theme:** architecture plus bug fixes. No new features. Features, themes, and breaking changes go to 2.0. A draft [PLAN_v2.0.0.md](PLAN_v2.0.0.md) is on this branch. It is not this train's scope.
 **Baseline:** shipped `main` at `84dd50c`. Tag **v1.14.0** is `553379d`. Production image is **1.14.0**. Manifest `sha256:681ba3384f235d3e354c1320223a65c359c33c2478bd34dc3598723fae029334`. Pin `1.13.0` stays that release.  
 **Milestone:** **v1.15.0** is still to be created by the maintainer. These issues are not on a milestone.  
 **Mode:** **Must, then Should.** Must blocks the tag. Should can slip.  
@@ -18,7 +18,7 @@
 
 v1.14 records the missed-slot catch-up, Drive OAuth health, the fleet summary, mute rules, restore safety, the compose drift badge, and volume prune on the API. v1.15 hardens that tree. It fixes boot, logging, NameErrors, locks, migrations, and the security findings from the November 2026 reviews. It does not add a feature theme.
 
-Features, themes, and breaking changes belong on 2.0. Architect writes `PLAN_v2.0.0.md`. Do not create that file on this branch.
+Features, themes, and breaking changes belong on 2.0. The draft is [PLAN_v2.0.0.md](PLAN_v2.0.0.md). Do not add those changes to this train.
 
 Volume prune `dry_run` already shipped in v1.14, including the best-effort wording from `4e7d7fb`. `POST /api/v1/servers/{id}/docker/volumes` and hosted `prune_volumes` give a best-effort preview of dangling volumes when `dry_run` is true. That set can differ slightly from what `docker volume prune -f` removes on newer Docker versions, and there is a small time gap before the delete. It is not an exact match. That path deletes nothing and writes no audit row. It is not rebuilt on this train.
 
@@ -111,7 +111,7 @@ These are operator tasks. They are not repo changes and they are not GitHub issu
 | Issues #61 to #64 | Shipped in v1.14.0. Not this train |
 | Milestone v1.15.0 | Still to be created by the maintainer |
 | Version bump | Package stays **1.14.0** until the v1.15 freeze. About stays **1.14.0** |
-| 2.0 | Features, themes, and breaking changes. Architect owns `PLAN_v2.0.0.md`. Do not add that file here |
+| 2.0 | Features, themes, and breaking changes. Draft is [PLAN_v2.0.0.md](PLAN_v2.0.0.md). Do not add them here |
 | Demo | The public demo is not pointed at this branch |
 
 ### Build order
@@ -139,6 +139,7 @@ The ops track stays beside this order. It does not land as commits.
 | 2026-11-03 | **Rewritten as a hardening release** after the merge of `4e7d7fb` (`78990487`). No new features. Features, themes, and breaking changes go to 2.0. Architect owns `PLAN_v2.0.0.md`. That file is not added. Must correctness: [#75](https://github.com/bjorngluck/piherder/issues/75), [#76](https://github.com/bjorngluck/piherder/issues/76), [#77](https://github.com/bjorngluck/piherder/issues/77), [#78](https://github.com/bjorngluck/piherder/issues/78), [#79](https://github.com/bjorngluck/piherder/issues/79), [#80](https://github.com/bjorngluck/piherder/issues/80), [#74](https://github.com/bjorngluck/piherder/issues/74), [#81](https://github.com/bjorngluck/piherder/issues/81), [#82](https://github.com/bjorngluck/piherder/issues/82), [#83](https://github.com/bjorngluck/piherder/issues/83), [#87](https://github.com/bjorngluck/piherder/issues/87). Must security: [#84](https://github.com/bjorngluck/piherder/issues/84), [#85](https://github.com/bjorngluck/piherder/issues/85), [#92](https://github.com/bjorngluck/piherder/issues/92), [#93](https://github.com/bjorngluck/piherder/issues/93), [#94](https://github.com/bjorngluck/piherder/issues/94), [#95](https://github.com/bjorngluck/piherder/issues/95), [#96](https://github.com/bjorngluck/piherder/issues/96), [#97](https://github.com/bjorngluck/piherder/issues/97). Should: [#71](https://github.com/bjorngluck/piherder/issues/71), [#72](https://github.com/bjorngluck/piherder/issues/72), [#73](https://github.com/bjorngluck/piherder/issues/73), [#86](https://github.com/bjorngluck/piherder/issues/86), [#88](https://github.com/bjorngluck/piherder/issues/88), [#89](https://github.com/bjorngluck/piherder/issues/89), [#90](https://github.com/bjorngluck/piherder/issues/90), [#91](https://github.com/bjorngluck/piherder/issues/91), [#98](https://github.com/bjorngluck/piherder/issues/98). Ops track stays off the repo: Grafana contact point and rules, scraping `/metrics`, node exporters on all hosts, a tagged Tailscale key, publishing the Drive OAuth app. Nothing is built. |
 | 2026-11-08 | **Merged shipped `main`** at `84dd50c`. Tag **v1.14.0** is `553379d`. Package on this branch is **1.14.0**. Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release. No v1.15 tag. |
 | 2026-11-08 | **[#99](https://github.com/bjorngluck/piherder/pull/99) is on this train** as `9bf46da`, authored by the submitter. The backups page logs a failed audit lookup and still renders. The extra cases cover failure, a legacy success with failed rsync output, other hosts and actions, no history, and the logged error. `docs/RELEASE_UNRELEASED.md` is not on this branch. pyasn1 **0.6.5** from [#100](https://github.com/bjorngluck/piherder/pull/100) is already in `requirements.lock.txt` and `requirements.runtime.lock.txt`. |
+| 2026-11-08 | **Doc pass.** Must and Should are in the tree except [#71](https://github.com/bjorngluck/piherder/issues/71) (design only). The 28 open issues stay open. Milestone **v1.15.0** is not created. No QA file, release notes, or version pull request. The wiki alerts page, the upgrade page, and the API server example name the open-train behavior. |
 
 ---
 
@@ -151,8 +152,11 @@ The ops track stays beside this order. It does not land as commits.
 | 3 | NameErrors ([#76](https://github.com/bjorngluck/piherder/issues/76), [#77](https://github.com/bjorngluck/piherder/issues/77)) | In the tree |
 | 4 | Locks ([#78](https://github.com/bjorngluck/piherder/issues/78), [#79](https://github.com/bjorngluck/piherder/issues/79)) | In the tree |
 | 5 | CI with migrations ([#80](https://github.com/bjorngluck/piherder/issues/80), [#74](https://github.com/bjorngluck/piherder/issues/74), [#81](https://github.com/bjorngluck/piherder/issues/81)) | In the tree |
-| 6 | Rest of Must correctness ([#82](https://github.com/bjorngluck/piherder/issues/82), [#83](https://github.com/bjorngluck/piherder/issues/83), [#87](https://github.com/bjorngluck/piherder/issues/87)), then security, then Shoulds | Must correctness is in the tree |
+| 6 | Rest of Must correctness ([#82](https://github.com/bjorngluck/piherder/issues/82), [#83](https://github.com/bjorngluck/piherder/issues/83), [#87](https://github.com/bjorngluck/piherder/issues/87)) | In the tree |
+| 7 | Security ([#84](https://github.com/bjorngluck/piherder/issues/84), [#85](https://github.com/bjorngluck/piherder/issues/85), [#92](https://github.com/bjorngluck/piherder/issues/92), [#93](https://github.com/bjorngluck/piherder/issues/93), [#94](https://github.com/bjorngluck/piherder/issues/94), [#95](https://github.com/bjorngluck/piherder/issues/95), [#96](https://github.com/bjorngluck/piherder/issues/96), [#97](https://github.com/bjorngluck/piherder/issues/97)) | In the tree |
+| 8 | Shoulds | In the tree, except [#71](https://github.com/bjorngluck/piherder/issues/71), which is design only |
+| 9 | Operator QA, release notes, and the version pull request | Not started |
 
 ---
 
-*Scoped on `v1.15.0-dev`. Hardening only. Package stays 1.14.0. Not tagged. Milestone v1.15.0 is still to be created by the maintainer. Features, themes, and breaking changes go to 2.0.*
+*Built on `v1.15.0-dev`. Not frozen. Hardening only. Package stays 1.14.0. Not tagged. Milestone v1.15.0 is still to be created by the maintainer. Features, themes, and breaking changes stay in the 2.0 draft.*

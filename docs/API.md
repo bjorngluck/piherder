@@ -166,11 +166,15 @@ Base path: **`/api/v1`**
   "backup_schedule_source": "fleet",
   "next_backup_run": "2026-07-11T02:30:00+02:00",
   "backup_scheduled": true,
+  "host_status": "healthy",
+  "host_status_seconds": 0,
   "alerts_open": 0,
   "alert_title": null,
   "alerts": []
 }
 ```
+
+`host_status` is `healthy`, `degraded`, or `unreachable`. Unreachable means the host has not been seen for 24 hours. Degraded means it has been quiet for 15 minutes, or at least one backup slot was missed. `host_status_seconds` is how long the host has been in that status. Both are on the open train. The **1.14.0** image does not return them.
 
 **PATCH body** (omit fields you do not want to change):
 
