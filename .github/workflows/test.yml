@@ -69,7 +69,7 @@ jobs:
           pip install --require-hashes -r requirements.lock.txt
           # Project only — do not re-resolve third-party deps
           pip install --no-deps -e .
-          # Coverage reporter (not hashed in lock; CI fail-under 85)
+          # Coverage reporter (not hashed in lock; CI fail-under 90)
           pip install "pytest-cov>=5.0"
 
       - name: Install promtool
@@ -94,7 +94,7 @@ jobs:
             --cov=app \
             --cov-report=term-missing:skip-covered \
             --cov-report=xml \
-            --cov-fail-under=85
+            --cov-fail-under=90
 
       - name: Upload coverage XML
         if: always()

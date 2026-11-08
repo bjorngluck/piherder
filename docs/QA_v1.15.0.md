@@ -200,7 +200,7 @@ Issue [#98](https://github.com/bjorngluck/piherder/issues/98).
 Plugin **0.5.4** and adapter **0.4.4** stay the published packages. No new plugin tag on this walk. Adapter **0.4.5** waits on pull request 10.
 
 - [ ] The herder README and the wiki still say adapter **0.4.4** until that pull request is merged and tagged
-- [ ] CI `--cov-fail-under` is **85** on `app`
+- [ ] CI `--cov-fail-under` is **90** on `app`. The unit run is **90%** (54249/60276)
 
 ## Screenshots
 

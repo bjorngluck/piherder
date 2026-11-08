@@ -52,7 +52,8 @@ Suggested build order: boot and logging, the NameErrors, locks, CI with migratio
 
 | Tier | Lock |
 |------|------|
-| Must | **CI on dev branches, a Postgres migration job, lint, coverage.** Issue [#80](https://github.com/bjorngluck/piherder/issues/80). In the tree. Test CI runs on pushes to `v*-dev`, not only `main` and pull requests. A Postgres job upgrades to head and downgrades to base, and a downgrade error fails that job. The shared test engine runs Alembic on Postgres. SQLite still uses `create_all` because the migration SQL is Postgres. A ruff lint gate is added. Coverage is back over 85% |
+| Must | **CI on dev branches, a Postgres migration job, lint, coverage.** Issue [#80](https://github.com/bjorngluck/piherder/issues/80). In the tree. Test CI runs on pushes to `v*-dev`, not only `main` and pull requests. A Postgres job upgrades to head and downgrades to base, and a downgrade error fails that job. The shared test engine runs Alembic on Postgres. SQLite still uses `create_all` because the migration SQL is Postgres. A ruff lint gate is added. Coverage fail-under is **90** |
+| Must | **Coverage 90.** Before freeze. CI `--cov-fail-under` is **90** on `app`. Unit run **90%** (54249/60276). No new GitHub issue. The v1.14 floor was 85 |
 | Must | **Explicit 051 and 052 downgrades.** Issue [#74](https://github.com/bjorngluck/piherder/issues/74). In the tree. Alembic `051` drops `docker_prune_schedule` only when that column exists. Alembic `052` drops `backup_catchup_enabled` and `container_check_catchup_enabled` the same way. A real drop error is not swallowed. Upgrade behavior stays as it is. Revision `040` already drops its table only when the table exists. This plan does not apply either migration to a live database |
 | Must | **Indexes on job and audit log filters.** Issue [#81](https://github.com/bjorngluck/piherder/issues/81). In the tree. A reversible migration adds `job (server_id, status, created_at)` and `auditlog (server_id, action, started_at)`. Upgrade and downgrade both pass in the CI migration job |
 
@@ -144,6 +145,7 @@ The ops track stays beside this order. It does not land as commits.
 | 2026-11-08 | **[#93](https://github.com/bjorngluck/piherder/issues/93) stays a notice.** A default database password, a Redis URL with no password, or a rejected Redis password keeps the process running and shows a notice on every page, including login. Demo mode hides only the default database password notice. Compose starts Redis with no password when `REDIS_PASSWORD` is unset. The nmap worker reuses `DATABASE_URL` and rewrites host `db` to `127.0.0.1` unless `PIHERDER_NMAP_DATABASE_URL` is set. The issue stays open. |
 | 2026-11-08 | **[#89](https://github.com/bjorngluck/piherder/issues/89) quiet time.** `host_unreachable` uses the latest answer, not the date the host was added. Settings → Alerts sets the quiet time in hours or days. Default 24 hours. Turning the alert off clears open cards. The issue stays open. |
 | 2026-11-08 | **QA file.** [QA_v1.15.0.md](QA_v1.15.0.md) lists the walks. The boxes are empty. The v1.15 screenshot names are reserved and not captured. Release notes and the version pull request are not started. Issues stay open. |
+| 2026-11-08 | **Coverage 90.** CI `--cov-fail-under` raised **85** to **90**. Unit run **90%** (54249/60276). Packs are `tests/test_coverage_v115_q90_*.py`. No new GitHub issue. |
 
 ---
 
