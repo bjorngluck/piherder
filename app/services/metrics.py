@@ -257,6 +257,19 @@ def collect_samples(session: Session) -> list[tuple[str, str, list[str]]]:
             [_line("piherder_notifications_open", open_total)],
         )
     )
+    try:
+        from . import alert_mute as mute_svc
+
+        muted_rules = mute_svc.active_count(session)
+    except Exception:
+        muted_rules = 0
+    samples.append(
+        (
+            "piherder_alerts_muted",
+            "number of active mute rules",
+            [_line("piherder_alerts_muted", muted_rules)],
+        )
+    )
     notif_lines = [
         _line("piherder_notifications_open_by_type", n, {"type": t})
         for t, n in sorted(notif_by_type.items())
@@ -335,4 +348,17 @@ def render_prometheus(samples: Iterable[tuple[str, str, list[str]]]) -> str:
 
 
 def metrics_body(session: Session) -> str:
-    return render_prometheus(collect_samples(session))
+    body = render_prometheus(collect_samples(session))
+    try:
+        from .schedule_catchup import catchup_counter_lines
+
+        lines = catchup_counter_lines()
+    except Exception:
+        lines = []
+    extra = [
+        "# HELP piherder_schedule_catchup_total Catch-up attempts for a missed backup or image check. Per process. Resets when the process restarts",
+        "# TYPE piherder_schedule_catchup_total counter",
+        *lines,
+        "",
+    ]
+    return body + "\n".join(extra)

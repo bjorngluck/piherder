@@ -121,11 +121,20 @@ def test_slim_project_and_container():
             "containers": [c],
             "has_build": True,
             "build_services": ["web"],
+            "git_repo": True,
+            "git_drift": True,
+            "git_behind": 3,
+            "git_ahead": 1,
+            "git_dirty": 2,
+            "git_branch": "main",
         }
     )
     assert p["name"] == "app"
     assert len(p["containers"]) == 1
     assert p["has_build"] is True
+    assert p["git_drift"] is True
+    assert p["git_behind"] == 3
+    assert p["git_branch"] == "main"
 
 
 def test_is_refresh_stuck_when_not_in_flight_set():

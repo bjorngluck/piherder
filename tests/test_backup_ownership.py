@@ -6,6 +6,8 @@ import stat
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from app.services.backup_ownership import (
     apply_manifest_tree,
     canonical_mode,
@@ -42,18 +44,37 @@ def test_collect_and_roundtrip_manifest(tmp_path: Path):
     db = nested / "app.db"
     db.write_text("x", encoding="utf-8")
     os.chmod(db, 0o640)
+    link = root / "data" / "alias"
+    link.symlink_to("app.db")
     entries = collect_local_tree(root)
     by_path = {row["path"]: row for row in entries}
     assert by_path[""]["uid"] == os.getuid()
+    assert by_path[""]["kind"] == "dir"
+    assert "bytes" not in by_path[""]
     assert by_path["data/app.db"]["mode"] == "0640"
     assert by_path["data/app.db"]["gid"] == os.getgid()
+    assert by_path["data/app.db"]["kind"] == "file"
+    assert by_path["data/app.db"]["bytes"] == 1
+    assert by_path["data/alias"]["kind"] == "link"
+    assert "bytes" not in by_path["data/alias"]
     dest = tmp_path / "backup"
     dest.mkdir()
     write_manifest(dest, entries)
     loaded = load_manifest(dest)
     assert loaded is not None
     assert loaded["entries"][0]["path"] == ""
+    assert loaded["file_count"] == 1
+    assert loaded["byte_count"] == 1
+    write_manifest(dest, [{"path": "data/app.db", "uid": 1, "gid": 1, "mode": "0644"}])
+    plain = load_manifest(dest)
+    assert plain is not None
+    assert "file_count" not in plain
     assert load_manifest(tmp_path / "empty") is None
+    (dest / ".piherder-ownership.json").write_text(
+        '{"schema":1,"entries":[],"file_count":true,"byte_count":1}',
+        encoding="utf-8",
+    )
+    assert "not usable" in load_manifest(dest)["error"]
     (dest / ".piherder-ownership.json").write_text("{", encoding="utf-8")
     broken = load_manifest(dest)
     assert broken is not None and "unreadable" in broken["error"]
@@ -144,6 +165,41 @@ def test_sudo_script_checks_paths_as_root():
     assert "sudo -n /usr/bin/chown" in script
     assert "sudo -n /usr/bin/true" in script
     assert "[ -e " not in script
+
+
+def test_size_listing_counts_regular_files_and_rejects_junk():
+    from app.services.backup_ownership import collect_remote_counts, parse_size_output
+
+    assert parse_size_output(b"") == (0, 0)
+    assert parse_size_output(b"4\x001\x00") == (2, 5)
+    with pytest.raises(ValueError, match="truncated"):
+        parse_size_output(b"app.db\x004\x00")
+
+    class Sizes:
+        def exec_command(self, cmd, timeout=None):
+            if cmd.startswith("sudo"):
+                return None, _Bytes(b"", 1), _Bytes(b"no sudo", 1)
+            return None, _Bytes(b"4\x00", 0), _Bytes(b"", 0)
+
+    from app.services.backup_ownership import remote_content_command
+
+    assert collect_remote_counts(Sizes(), "/srv/app") == (1, 4)
+    command = remote_content_command("/srv/my app")
+    assert "-type f" in command
+    assert "'/srv/my app'" in command
+
+
+class _Bytes:
+    def __init__(self, payload, rc):
+        self.payload = payload
+        self.rc = rc
+        self.channel = self
+
+    def read(self):
+        return self.payload
+
+    def recv_exit_status(self):
+        return self.rc
 
 
 def test_ownership_remote_command_is_one_shell_word():

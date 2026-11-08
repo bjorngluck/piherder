@@ -230,11 +230,27 @@ def _stamp_direct_ownership(
     """Upload the sidecar after a straight-out sync. A failure keeps the copy."""
     remote_tmp = ""
     try:
-        from .backup_ownership import MANIFEST_NAME, SCHEMA, collect_remote_tree
+        from .backup_ownership import (
+            MANIFEST_NAME,
+            collect_remote_counts,
+            collect_remote_tree,
+            manifest_document,
+        )
 
         entries = collect_remote_tree(client, source)
+        counts = None
+        try:
+            counts = collect_remote_counts(client, source)
+        except Exception as exc:
+            logger.warning("[backup] direct file and byte counts failed for %s: %s", source, exc)
+            note = "File and byte counts were not recorded"
+            row["warning"] = f"{row['warning']}; {note}" if row.get("warning") else note
         payload = json.dumps(
-            {"schema": SCHEMA, "entries": entries},
+            manifest_document(
+                entries,
+                file_count=None if counts is None else counts[0],
+                byte_count=None if counts is None else counts[1],
+            ),
             separators=(",", ":"),
         ).encode("utf-8")
         remote_tmp = f"/tmp/ph-own-{secrets.token_hex(6)}.json"

@@ -336,6 +336,24 @@ def _slim_project(p: Dict[str, Any]) -> Dict[str, Any]:
         "container_count": p.get("container_count") or 0,
         "containers": [_slim_container(c) for c in (p.get("containers") or [])],
     }
+    if p.get("git_repo"):
+        row["git_repo"] = True
+        row["git_drift"] = bool(p.get("git_drift"))
+        try:
+            row["git_behind"] = max(0, int(p.get("git_behind") or 0))
+        except (TypeError, ValueError):
+            row["git_behind"] = 0
+        try:
+            row["git_ahead"] = max(0, int(p.get("git_ahead") or 0))
+        except (TypeError, ValueError):
+            row["git_ahead"] = 0
+        try:
+            row["git_dirty"] = max(0, int(p.get("git_dirty") or 0))
+        except (TypeError, ValueError):
+            row["git_dirty"] = 0
+        branch = str(p.get("git_branch") or "")[:128]
+        if branch:
+            row["git_branch"] = branch
     # Compose sets (extra docker-compose.<name>.yml under same folder)
     raw_sets = p.get("compose_sets")
     if isinstance(raw_sets, list) and raw_sets:

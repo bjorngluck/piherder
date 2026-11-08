@@ -205,9 +205,10 @@ def test_initialize_tools_and_health_match_api(tmp_path, monkeypatch):
 
         listed = _rpc(client, secrets["read"], "tools/list")
         names = [tool["name"] for tool in listed.json()["result"]["tools"]]
-        assert names[:8] == [
+        assert names[:9] == [
             "health",
             "summary",
+            "fleet_summary",
             "list_servers",
             "get_server",
             "inventory",

@@ -1946,6 +1946,16 @@ def _list_compose_uncached(
             }
             if compose_graph:
                 row["compose_graph"] = compose_graph
+            try:
+                from .git_project import drift_from_report, drift_script, parse_git_report
+
+                git_status, git_out, _git_err = run_command(
+                    client, drift_script(proj_dir), timeout=12
+                )
+                if git_status == 0 and git_out:
+                    row.update(drift_from_report(parse_git_report(git_out)))
+            except Exception:
+                pass
             projects.append(row)
         return projects
     finally:
@@ -1986,8 +1996,9 @@ def list_unused_images_and_containers(server: Server) -> dict:
 def prune_unused(server: Server, prune_type: str = 'both') -> dict:
     """Prune one category. ``both`` is dangling images and exited containers.
 
-    ``networks`` is unused networks. ``volumes`` is unused volumes. The page
-    is the only caller that passes ``volumes``, and only after confirm.
+    ``networks`` is unused networks. ``volumes`` is unused volumes. The Docker
+    page job passes ``volumes`` only after confirm. The volume prune API does
+    the same, and it is not the scheduled prune.
     """
     commands = {
         "images": 'docker image prune -f --filter "dangling=true"',
@@ -2026,6 +2037,110 @@ def prune_unused(server: Server, prune_type: str = 'both') -> dict:
         try:
             client.close()
         except:
+            pass
+
+
+_DOCKER_SIZE = re.compile(r"^(\d+(?:\.\d+)?)([kKMGT]i?B|B)$")
+_DOCKER_SCALE = {
+    "B": 1,
+    "kB": 10**3,
+    "MB": 10**6,
+    "GB": 10**9,
+    "TB": 10**12,
+    "KiB": 2**10,
+    "MiB": 2**20,
+    "GiB": 2**30,
+    "TiB": 2**40,
+}
+
+
+def parse_docker_size(text: str) -> int | None:
+    """Docker CLI size such as 1.5kB or 0B, as an integer byte count."""
+    match = _DOCKER_SIZE.match((text or "").strip().replace(" ", ""))
+    if not match:
+        return None
+    scale = _DOCKER_SCALE.get(match.group(2))
+    if scale is None:
+        return None
+    return int(round(float(match.group(1)) * scale))
+
+
+def parse_volume_df(text: str) -> dict[str, int | None]:
+    """Map volume name to size from ``docker system df -v``. Missing size is None."""
+    sizes: dict[str, int | None] = {}
+    in_table = False
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if line.startswith("VOLUME NAME"):
+            in_table = True
+            continue
+        if not in_table:
+            continue
+        if not line or line.endswith("space usage:") or line.endswith("usage:"):
+            break
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        sizes[parts[0]] = parse_docker_size(parts[-1])
+    return sizes
+
+
+def parse_deleted_volumes(output: str) -> list[str]:
+    """Names under ``Deleted Volumes:`` in ``docker volume prune`` output."""
+    names: list[str] = []
+    capture = False
+    for raw in (output or "").splitlines():
+        line = raw.strip()
+        if line.lower().startswith("deleted volumes"):
+            capture = True
+            continue
+        if not capture:
+            continue
+        if not line or line.lower().startswith("total reclaimed"):
+            break
+        if " " not in line:
+            names.append(line)
+    return names
+
+
+def volume_prune_audit_details(source: str, output: str) -> dict:
+    """Audit payload for one unused-volume prune. ``source`` is ui, rest, or mcp."""
+    kind = source if source in ("ui", "rest", "mcp") else "rest"
+    return {
+        "source": kind,
+        "volumes": parse_deleted_volumes(output),
+        "bytes_reclaimed": parse_reclaimed_bytes(output),
+    }
+
+
+def parse_reclaimed_bytes(output: str) -> int | None:
+    """Integer bytes from ``Total reclaimed space:``. None when the line is absent."""
+    for raw in (output or "").splitlines():
+        line = raw.strip()
+        if "reclaimed space" not in line.lower():
+            continue
+        piece = line.split(":", 1)[-1].strip()
+        return parse_docker_size(piece)
+    return None
+
+
+def list_dangling_volumes(server: Server) -> dict:
+    """Unused volumes and sizes. Does not delete. ``docker system df -v`` is optional."""
+    client = get_ssh_client(server)
+    try:
+        status, out, err = run_command(client, "docker volume ls -qf dangling=true", timeout=30)
+        if status != 0:
+            detail = (err or out or "volume list failed").strip()
+            return {"success": False, "output": detail[:500], "volumes": []}
+        names = [line.strip() for line in (out or "").splitlines() if line.strip()]
+        df_status, df_out, _df_err = run_command(client, "docker system df -v", timeout=30)
+        sizes = parse_volume_df(df_out or "") if df_status == 0 else {}
+        volumes = [{"name": name, "size_bytes": sizes.get(name)} for name in names]
+        return {"success": True, "volumes": volumes, "output": ""}
+    finally:
+        try:
+            client.close()
+        except Exception:
             pass
 
 

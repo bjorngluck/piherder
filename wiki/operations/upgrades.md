@@ -157,15 +157,21 @@ No new Alembic revision. Recreate **web** and **celery-worker**. About should sa
 
 ## 1.12.0 → 1.12.1 {#1120--1121}
 
-**v1.12.1** is the previous patch. Notes: [RELEASE_v1.12.1.md](https://github.com/bjorngluck/piherder/blob/v1.12.1/docs/RELEASE_v1.12.1.md). Pin `1.12.1` stays that patch. Pin `1.12.0` stays that patch. The next jump is [1.12.1 → 1.13.0](#1121--1130).
+**v1.12.1** is an earlier patch. Notes: [RELEASE_v1.12.1.md](https://github.com/bjorngluck/piherder/blob/v1.12.1/docs/RELEASE_v1.12.1.md). Pin `1.12.1` stays that patch. Pin `1.12.0` stays that patch. The next jump is [1.12.1 → 1.13.0](#1121--1130).
 
 No new Alembic revision. Recreate **web** and **celery-worker**. About should say **1.12.1**. certifi is **2026.10.19**. Plugin **[0.5.3](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.3)** is the card for that patch. Adapter **[0.4.3](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.3)** stays.
 
 ## 1.12.1 → 1.13.0 {#1121--1130}
 
-**v1.13.0** is the current release. Notes: [RELEASE_v1.13.0.md](https://github.com/bjorngluck/piherder/blob/v1.13.0/docs/RELEASE_v1.13.0.md). Image `1.13.0` / `1.13` / `latest`. Pin `1.12.1` stays that patch.
+**v1.13.0** is the published image. Notes: [RELEASE_v1.13.0.md](https://github.com/bjorngluck/piherder/blob/v1.13.0/docs/RELEASE_v1.13.0.md). Image `1.13.0` / `1.13` / `latest`. Pin `1.12.1` stays that patch. The next jump is [1.13.0 → 1.14.0](#1130--1140).
 
-Alembic **051** adds `docker_prune_schedule`. Recreate **web** and **celery-worker**. About should say **1.13.0**. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the current card. **0.5.3** was the card when v1.13.0 shipped. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is the current package. **0.4.3** was the package when v1.13.0 shipped. `uvx --refresh piherder-mcp`, then restart the MCP client. Hosted `/mcp` lists `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. `fleet_summary` returns 404 on this image. Volume prune stays on the Docker page. The public demo is updated only when asked.
+Alembic **051** adds `docker_prune_schedule`. Recreate **web** and **celery-worker**. About should say **1.13.0**. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the current card. **0.5.3** was the card when v1.13.0 shipped. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is the current package. It adds `fleet_summary`, `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. **0.4.3** was the package when v1.13.0 shipped and does not list those four. `uvx --refresh piherder-mcp`, then restart the MCP client. Hosted `/mcp` lists those four, and also `prune_volumes` (`confirm` true, one audit row, not scheduled). Adapter **0.4.4** does not list `prune_volumes`. The host page queues a separate `docker_prune` job. The public demo is updated only when asked.
+
+## 1.13.0 → 1.14.0 {#1130--1140}
+
+**v1.14.0** is code freeze on `v1.14.0-dev`. Notes: [RELEASE_v1.14.0.md](https://github.com/bjorngluck/piherder/blob/v1.14.0-dev/docs/RELEASE_v1.14.0.md). Not tagged. Package **1.14.0**. The published image stays `1.13.0` / `1.13` / `latest`. Pin `1.13.0` stays that release.
+
+Alembic **052** (`052_schedule_catchup`) and **053** (`053_alert_mute`) run on web start when this image ships. Recreate **web** and **celery-worker**. About should say **1.14.0**. Do not apply those revisions while the database is still served by the **1.13.0** image. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** stays the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** stays the package. Hosted `/mcp` lists `prune_volumes`. Adapter **0.4.4** does not. The public demo is updated only when asked.
 
 ## Breaking notes
 

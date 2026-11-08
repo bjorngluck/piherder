@@ -767,15 +767,30 @@ def _stamp_ownership_manifest(
 ) -> None:
     """Write the sidecar after a successful copy. A failure is a warning, not a lost backup."""
     try:
-        from .backup_ownership import collect_local_tree, collect_remote_tree, write_manifest
+        from .backup_ownership import (
+            collect_local_tree,
+            collect_remote_counts,
+            collect_remote_tree,
+            write_manifest,
+        )
 
+        counts = None
         if is_local:
             entries = collect_local_tree(source)
         elif ssh_client is not None:
             entries = collect_remote_tree(ssh_client, source)
+            try:
+                counts = collect_remote_counts(ssh_client, source)
+            except Exception as exc:
+                logger.warning("[backup] file and byte counts failed for %s: %s", source, exc)
+                note = "File and byte counts were not recorded"
+                row["warning"] = f"{row['warning']}; {note}" if row.get("warning") else note
         else:
             raise RuntimeError("no SSH session for ownership")
-        write_manifest(dest, entries)
+        if counts is None:
+            write_manifest(dest, entries)
+        else:
+            write_manifest(dest, entries, file_count=counts[0], byte_count=counts[1])
         row["ownership_entries"] = len(entries)
     except Exception as exc:
         logger.warning("[backup] ownership manifest failed for %s: %s", source, exc)

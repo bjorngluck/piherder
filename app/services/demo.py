@@ -73,6 +73,7 @@ _ACTION_HINTS: dict[str, str] = {
         "in the public demo."
     ),
     "herder_restore": "Instance restore/delete is disabled in the public demo.",
+    "docker_write": "Docker changes on a host are disabled in the public demo.",
     "connector": (
         "Adding or changing connectors, DNS, certs, templates, and other fleet "
         "config is disabled in the public demo (shared sandbox)."

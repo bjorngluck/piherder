@@ -127,6 +127,41 @@ def parse_git_report(text: str) -> dict[str, Any]:
     return report
 
 
+def drift_from_report(report: dict[str, Any]) -> dict[str, Any]:
+    """True when this checkout differs from the last fetched origin branch.
+
+    Behind, ahead, or a tracked edit counts. Untracked files do not. A missing
+    checkout, a folder this user does not own, or a folder that is not a repo
+    returns nothing, so the stack list shows no badge. This does not fetch.
+    """
+    result = str((report or {}).get("result") or "")
+    if result in ("unowned", "missing") or not (report or {}).get("repo"):
+        return {}
+    try:
+        behind = int((report or {}).get("behind") or 0)
+    except (TypeError, ValueError):
+        behind = 0
+    try:
+        ahead = int((report or {}).get("ahead") or 0)
+    except (TypeError, ValueError):
+        ahead = 0
+    dirty = (report or {}).get("dirty") or []
+    dirty_n = len(dirty) if isinstance(dirty, list) else 0
+    behind = behind if behind > 0 else 0
+    ahead = ahead if ahead > 0 else 0
+    branch = str((report or {}).get("branch") or "").strip()[:128]
+    if branch == "HEAD":
+        branch = ""
+    return {
+        "git_repo": True,
+        "git_drift": behind > 0 or ahead > 0 or dirty_n > 0,
+        "git_behind": behind,
+        "git_ahead": ahead,
+        "git_dirty": dirty_n,
+        "git_branch": branch,
+    }
+
+
 def _run(server: Server, script: str, timeout: int = 180) -> str:
     client = get_ssh_client(server)
     try:
@@ -210,6 +245,31 @@ done
 if [ "$branch" != HEAD ] && git rev-parse --verify --quiet "origin/$branch" >/dev/null; then
   printf 'behind=%s\\n' "$(git rev-list --count HEAD.."origin/$branch")"
   printf 'ahead=%s\\n' "$(git rev-list --count "origin/$branch"..HEAD)"
+fi
+"""
+
+
+def drift_script(path: str) -> str:
+    """Read behind, ahead, and tracked edits. Do not fetch or change the tree."""
+    return _enter(path) + """
+if [ ! -d .git ]; then
+  echo repo=0
+  exit 0
+fi
+echo repo=1
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
+printf 'branch=%s\\n' "$branch"
+git status --porcelain 2>/dev/null | while IFS= read -r line; do
+  code=$(printf '%s' "$line" | cut -c1-2)
+  file=$(printf '%s' "$line" | cut -c4-)
+  case "$code" in
+    '??') ;;
+    *) printf 'dirty=%s\\n' "$file" ;;
+  esac
+done
+if [ "$branch" != HEAD ] && git rev-parse --verify --quiet "origin/$branch" >/dev/null; then
+  printf 'behind=%s\\n' "$(git rev-list --count HEAD.."origin/$branch" 2>/dev/null || echo 0)"
+  printf 'ahead=%s\\n' "$(git rev-list --count "origin/$branch"..HEAD 2>/dev/null || echo 0)"
 fi
 """
 

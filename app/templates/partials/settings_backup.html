@@ -401,6 +401,10 @@
                 <input type="checkbox" name="copy_herder_backup" value="1" {% if drive_herder %}checked{% endif %}>
                 Also copy each new self-backup
               </label>
+              <label class="flex items-center gap-2 min-h-11">
+                <input type="checkbox" name="google_app_testing" value="1" {% if drive_testing %}checked{% endif %}>
+                Google app is in Testing. Off unless you turn this on. A testing token older than 5 days raises a warning.
+              </label>
             </fieldset>
             <fieldset data-copy-fields="onedrive" {% if copy_provider != 'onedrive' %}disabled{% endif %} class="space-y-3 border-0 p-0 m-0 min-w-0 {% if copy_provider != 'onedrive' %}hidden{% endif %}">
               <div>

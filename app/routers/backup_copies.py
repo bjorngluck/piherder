@@ -151,6 +151,7 @@ def _apply_drive_form(
     drive_folder: str,
     client_id: str,
     client_secret: str,
+    google_app_testing: str = "",
 ):
     if (provider or "drive").strip() not in ("drive", "onedrive"):
         return "provider"
@@ -168,6 +169,9 @@ def _apply_drive_form(
             schedule=cron or None,
             after_host_backup=_form_on(after_host_backup),
             copy_herder_backup=_form_on(copy_herder_backup),
+            google_app_testing=(
+                _form_on(google_app_testing) if (provider or "").strip() == "drive" else None
+            ),
         )
     except ValueError as exc:
         return str(exc) if str(exc) in ("folder", "client") else "client"
@@ -326,6 +330,7 @@ async def save_copy_config(
     drive_folder: str = Form(""),
     client_id: str = Form(""),
     client_secret: str = Form(""),
+    google_app_testing: str = Form(""),
     host: str = Form(""),
     share: str = Form(""),
     smb_path: str = Form(""),
@@ -380,6 +385,7 @@ async def save_copy_config(
             drive_folder=drive_folder,
             client_id=client_id,
             client_secret=client_secret,
+            google_app_testing=google_app_testing if key == "drive" else "",
         )
     if failed:
         session.rollback()
@@ -400,6 +406,7 @@ async def start_google_connect(
     drive_folder: str = Form(""),
     client_id: str = Form(""),
     client_secret: str = Form(""),
+    google_app_testing: str = Form(""),
     user: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
@@ -423,6 +430,7 @@ async def start_google_connect(
         drive_folder=drive_folder,
         client_id=client_id,
         client_secret=client_secret,
+        google_app_testing=google_app_testing,
     )
     if failed:
         session.rollback()
@@ -530,7 +538,10 @@ async def google_connect_callback(
         expires_in=int(token["expires_in"]) if str(token.get("expires_in") or "").isdigit() else None,
     )
     dest.credentials_encrypted = encrypt_str(plain)
+    copies.mark_drive_token_saved(dest)
     _commit_drive(session, dest)
+    copies.resolve_drive_refresh_failed(session, dest.id)
+    copies.resolve_drive_token_aging(session, dest.id)
     response = _redirect("copy_saved=1")
     response.delete_cookie(copies.OAUTH_STATE_COOKIE, path="/")
     return response

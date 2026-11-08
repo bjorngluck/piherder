@@ -218,46 +218,65 @@
             return (window.innerWidth || 0) < 900;
           }
         }
+        function keyboardInset() {
+          try {
+            var vv = window.visualViewport;
+            if (!vv) return 0;
+            var layout = window.innerHeight || vv.height || 0;
+            return Math.max(0, Math.floor(layout - vv.height - (vv.offsetTop || 0)));
+          } catch (e) { return 0; }
+        }
+        function pinToVisibleArea() {
+          var vv = window.visualViewport;
+          var top = vv ? Math.max(0, Math.floor(vv.offsetTop || 0)) : 0;
+          var vis = vv ? Math.max(200, Math.floor(vv.height)) : viewportH();
+          pop.style.padding = '0';
+          pop.style.paddingTop = top ? (top + 'px') : '0';
+          pop.style.alignItems = 'flex-start';
+          pop.style.justifyContent = 'stretch';
+          pop.style.background = '#0b0f14';
+          panel.style.width = '100%';
+          panel.style.maxWidth = 'none';
+          panel.style.height = vis + 'px';
+          panel.style.maxHeight = vis + 'px';
+          panel.style.minHeight = vis + 'px';
+          panel.style.borderRadius = '0';
+          panel.style.border = '0';
+        }
         function applyPanelSize(maximized) {
           if (!panel || !pop) return;
           var h = viewportH();
-          if (maximized) {
-            pop.style.padding = '0';
-            pop.style.alignItems = 'stretch';
-            pop.style.justifyContent = 'stretch';
-            pop.style.background = '#0b0f14';
+          // Keyboard open: keep the sheet in the visible area. A bottom sheet
+          // otherwise sits under the keyboard, and the next tap hits the dimmed
+          // page and hides the console.
+          if (maximized || (isMobileLayout() && keyboardInset() > 80)) {
+            pinToVisibleArea();
+            return;
+          }
+          pop.style.padding = '';
+          pop.style.paddingTop = '';
+          pop.style.alignItems = '';
+          pop.style.justifyContent = '';
+          pop.style.background = '';
+          panel.style.width = '';
+          panel.style.maxWidth = '';
+          panel.style.border = '';
+          panel.style.borderRadius = '';
+          if (isMobileLayout()) {
+            var layout = Math.floor(window.innerHeight || h);
+            var sheet = Math.max(280, Math.floor(layout * 0.52));
+            panel.style.height = sheet + 'px';
+            panel.style.maxHeight = sheet + 'px';
+            panel.style.minHeight = '';
             panel.style.width = '100%';
-            panel.style.maxWidth = 'none';
-            panel.style.height = h + 'px';
-            panel.style.maxHeight = h + 'px';
-            panel.style.minHeight = h + 'px';
-            panel.style.borderRadius = '0';
-            panel.style.border = '0';
+            panel.style.borderRadius = '0.75rem 0.75rem 0 0';
+            pop.style.padding = '0';
+            pop.style.alignItems = 'flex-end';
+            pop.style.justifyContent = 'stretch';
           } else {
-            pop.style.padding = '';
-            pop.style.alignItems = '';
-            pop.style.justifyContent = '';
-            pop.style.background = '';
-            panel.style.width = '';
-            panel.style.maxWidth = '';
-            panel.style.border = '';
-            panel.style.borderRadius = '';
-            if (isMobileLayout()) {
-              // Short bottom sheet (~half screen) so Maximize is obvious
-              var sheet = Math.max(280, Math.floor(h * 0.52));
-              panel.style.height = sheet + 'px';
-              panel.style.maxHeight = sheet + 'px';
-              panel.style.minHeight = '';
-              panel.style.width = '100%';
-              panel.style.borderRadius = '0.75rem 0.75rem 0 0';
-              pop.style.padding = '0';
-              pop.style.alignItems = 'flex-end';
-              pop.style.justifyContent = 'stretch';
-            } else {
-              panel.style.height = '';
-              panel.style.maxHeight = '';
-              panel.style.minHeight = '';
-            }
+            panel.style.height = '';
+            panel.style.maxHeight = '';
+            panel.style.minHeight = '';
           }
         }
         var dockHistPushed = false;
@@ -452,7 +471,11 @@
         if (btnMax) btnMax.addEventListener('click', toggleMax);
         if (pop) {
           pop.addEventListener('click', function (ev) {
-            if (ev.target === pop) dockPopup(); // backdrop: dock, don't kill
+            if (ev.target !== pop) return;
+            // On a phone the dimmed area is easy to hit, and that was hiding
+            // the sheet. Hide stays on the Hide button.
+            if (isMobileLayout()) return;
+            dockPopup();
           });
         }
         document.addEventListener('keydown', function (ev) {

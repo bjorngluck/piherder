@@ -801,6 +801,17 @@ def api_meta_dict() -> dict:
             {"method": "GET", "path": "/api/v1/alerts", "scope": "read", "summary": "Open notifications"},
             {"method": "GET", "path": "/api/v1/inventory", "scope": "read", "summary": "Fleet Docker inventory snapshots (no SSH)"},
             {"method": "GET", "path": "/api/v1/servers/{id}/inventory", "scope": "read", "summary": "One host Docker inventory snapshot (no SSH)"},
+            {
+                "method": "GET",
+                "path": "/api/v1/servers/{id}/backup/restore-preview",
+                "scope": "read",
+                "summary": (
+                    "Scope read. SSH rsync dry-run of the local backup against the host. "
+                    "It diffs that local backup and does not show permission or owner-only changes. "
+                    "120 second timeout. One preview at a time per host. "
+                    "A busy host returns 409. Does not write. Not a hosted MCP tool."
+                ),
+            },
             {"method": "GET", "path": "/api/v1/services", "scope": "read", "summary": "Fleet service up/down from stored monitor chips"},
             {
                 "method": "PATCH",
@@ -825,7 +836,19 @@ def api_meta_dict() -> dict:
                 "scope": "edit",
                 "summary": (
                     "Start a Docker prune job. images, containers, both, or networks. "
-                    "Volume prune stays on the Docker page."
+                    "Unused volumes are POST /docker/volumes with confirm true."
+                ),
+            },
+            {
+                "method": "POST",
+                "path": "/api/v1/servers/{id}/docker/volumes",
+                "scope": "edit",
+                "summary": (
+                    "Prune unused Docker volumes. dry_run true lists them and deletes nothing. "
+                    "confirm true deletes them and writes one audit row "
+                    "with source, deleted names, and bytes reclaimed. "
+                    "Not a docker_prune job and not scheduled. "
+                    "Dry-run first and get a human's OK."
                 ),
             },
             {

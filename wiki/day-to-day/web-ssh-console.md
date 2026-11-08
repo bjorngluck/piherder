@@ -105,7 +105,7 @@ The [public demo](../operations/demo-site.md) enables Console for the shared **v
 | **+ Hosts** | Multi-host workspace at `/console` — **stays visible when maximized** |
 | **Passkey / TOTP** | Step-up first; **+ Shell / Lock / Aa** appear only after unlock |
 | **+ Shell** | New PTY (after step-up) |
-| **Tab** (soft key) | Sends a real Tab to the shell (completion). Desktop physical + soft Tab match. **Mobile:** flushes the IME token, then Tab — see [Known issues](#known-issues) |
+| **Tab** (soft key) | Sends a real Tab to the shell (completion). Desktop physical + soft Tab match. **Mobile:** flushes the IME token, then Tab. Samsung Keyboard can scramble the line. See [Known issues](#known-issues) |
 | Shell tab **×** | Close that shell only (multiple shells per host) |
 | **Aa** | Font size **8–28** (hidden until tapped) |
 | Gate **···** | Show/hide status + slot count (saves vertical space) |
@@ -191,6 +191,25 @@ How to try it: enable `PIHERDER_SSH_CONSOLE=true`, migrate, recreate **web**, ti
 Path completion still depends on the **remote SSH user’s** home (least-priv `piherder` may have no `~/docker`).
 
 **Not a demo-shell bug:** public demo uses a simulated PTY with toy paths; self-hosted live SSH uses real bash completion for that host’s login user.
+
+### KI-console-samsung-keyboard {#ki-console-samsung-keyboard}
+
+**Status:** Open. Reported 2026-10-27 on Android Chrome.  
+**Surface:** The web SSH console while the phone keyboard is Samsung Keyboard.
+
+Samsung Keyboard reproduces three failures on the current console:
+
+| Symptom | What happens |
+|---------|----------------|
+| Suggestion row | Predictive text changes the word while you type. |
+| Hidden word | Letters stay in the keyboard until Enter, so the shell line looks empty. |
+| Tab | Soft Tab can duplicate or scramble the line. |
+
+The same console with **Gboard** did not reproduce those failures. Typing and Tab completion were almost clean.
+
+**Workaround:** Switch the phone keyboard to Gboard for the console. Or turn off **Predictive text** in Samsung Keyboard settings.
+
+The page cannot hide Samsung Keyboard's suggestion row. Desktop keyboards and a physical keyboard are unchanged. Input experiments that tried to outguess the phone keyboard were reverted the same day. They made typing worse.
 
 ---
 

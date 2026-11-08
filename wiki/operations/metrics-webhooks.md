@@ -58,6 +58,7 @@ Useful series, and the full set exported by `app/services/metrics.py`:
 | `piherder_schedule_missed` | 1 while a due slot was missed. Labels `kind` (`backup`, `container_check`, `docker_prune`) and `server_id` |
 | `piherder_queue_oldest_pending_seconds` | Age in seconds of the oldest `pending` job, or 0 when none are pending |
 | `piherder_stuck_queue` | 1 when that age is over 15 minutes and no Celery worker answered. An unknown heartbeat leaves this at 0 |
+| `piherder_schedule_catchup_total` | Catch-up attempts. Labels `kind` (`backup`, `container_check`) and `result` (`queued`, `skipped`, `failed`). Per process. Resets on restart. Sum it across workers and use increase() or rate() |
 
 `piherder_schedule_missed{kind="backup",server_id="1"}` is 1 when that host's latest due backup slot did not start within 15 minutes and has not succeeded since. `kind="container_check"` is the same gauge for a container image check. `kind="docker_prune"` is the same gauge for a saved per-host Docker prune. Schedules that are off are omitted. The prune kind ships in **1.13.0**.
 
