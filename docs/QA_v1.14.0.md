@@ -6,7 +6,7 @@
 
 **Package:** stays **`1.13.0`**. About / footer stay **1.13.0**.
 
-**Operator QA:** Schedules, Drive, Fleet read, Console, Backups, Docker, Alerts, Plugin and adapter, and the push denylist are signed 2026-11-08. Screenshots and the 1.13 regression are not signed.
+**Operator QA:** Schedules through the push denylist, and the 1.13 regression, are signed 2026-11-08. Screenshots are not signed.
 
 **Release notes:** not written. Not tagged.
 
@@ -20,7 +20,7 @@ Plan: [PLAN_v1.14.0.md](PLAN_v1.14.0.md). v1.13 sign-off stays [QA_v1.13.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Adapter work is [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp). Do not point the public demo at this branch. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
 
-Must and Should code is on `v1.14.0-dev`. These boxes are the operator walk. Schedules, Drive, Fleet read, Console, Backups, Docker, Alerts, Plugin and adapter, and the push denylist are signed 2026-11-08. The remaining boxes are not signed. Alembic `052_schedule_catchup` and `053_alert_mute` are in the tree and are not applied to a live database. This walk does not apply them. Issues [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) stay open until the release.
+Must and Should code is on `v1.14.0-dev`. These boxes are the operator walk. Schedules through the push denylist, and the 1.13 regression, are signed 2026-11-08. The screenshot boxes are not signed. Alembic `052_schedule_catchup` and `053_alert_mute` are in the tree and are not applied to a live database. This walk does not apply them. Issues [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) stay open until the release.
 
 ---
 
@@ -175,10 +175,10 @@ Reserved 2026-10-28. Not captured. About and the footer still say **1.13.0**. Ma
 
 ## 1.13 regression
 
-Not signed. Do not retick [QA_v1.13.0.md](QA_v1.13.0.md).
+Signed 2026-11-08. Do not retick [QA_v1.13.0.md](QA_v1.13.0.md).
 
-- [ ] A backup still writes `.piherder-ownership.json`, and a restore still applies numeric owner, group, and mode
-- [ ] Possible NIC change and **Replace stale MAC** still behave as signed on v1.13.0
-- [ ] Docker build-cache prune, the prune schedule, and dangling-image prune after a successful update still leave volumes alone
-- [ ] Host tool bootstrap still creates a `host_bootstrap` job and does not show a password in the job log
-- [ ] A token with `admin` can still GET users, tokens, and the audit log. A `read` token cannot
+- [x] A backup still writes `.piherder-ownership.json`, and a restore still applies numeric owner, group, and mode
+- [x] Possible NIC change and **Replace stale MAC** still behave as signed on v1.13.0
+- [x] Docker build-cache prune, the prune schedule, and dangling-image prune after a successful update still leave volumes alone
+- [x] Host tool bootstrap still creates a `host_bootstrap` job and does not show a password in the job log
+- [x] A token with `admin` can still GET users, tokens, and the audit log. A `read` token cannot
