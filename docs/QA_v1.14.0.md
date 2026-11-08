@@ -6,7 +6,7 @@
 
 **Package:** stays **`1.13.0`**. About / footer stay **1.13.0**.
 
-**Operator QA:** Schedules, Drive, Fleet read, Console, Backups, Docker, and Alerts are signed 2026-11-08. Plugin and adapter, the push denylist, screenshots, and the 1.13 regression are not signed.
+**Operator QA:** Schedules, Drive, Fleet read, Console, Backups, Docker, Alerts, and Plugin and adapter are signed 2026-11-08. The push denylist, screenshots, and the 1.13 regression are not signed.
 
 **Release notes:** not written. Not tagged.
 
@@ -20,7 +20,7 @@ Plan: [PLAN_v1.14.0.md](PLAN_v1.14.0.md). v1.13 sign-off stays [QA_v1.13.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Adapter work is [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp). Do not point the public demo at this branch. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
 
-Must and Should code is on `v1.14.0-dev`. These boxes are the operator walk. Schedules, Drive, Fleet read, Console, Backups, Docker, and Alerts are signed 2026-11-08. The remaining boxes are not signed. Alembic `052_schedule_catchup` and `053_alert_mute` are in the tree and are not applied to a live database. This walk does not apply them. Issues [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) stay open until the release.
+Must and Should code is on `v1.14.0-dev`. These boxes are the operator walk. Schedules, Drive, Fleet read, Console, Backups, Docker, Alerts, and Plugin and adapter are signed 2026-11-08. The remaining boxes are not signed. Alembic `052_schedule_catchup` and `053_alert_mute` are in the tree and are not applied to a live database. This walk does not apply them. Issues [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) stay open until the release.
 
 ---
 
@@ -139,12 +139,12 @@ Signed 2026-11-08.
 
 Plugin **0.5.4** and adapter **0.4.4** are already tagged. No new plugin tag and no new adapter tag on this walk.
 
-Not signed.
+Signed 2026-11-08.
 
-- [ ] The integration root has no `icon.png`, `icon@2x.png`, `logo.png`, or `logo@2x.png`. `brand/` stays. Tag **v0.5.4** is the card. **v0.5.3** was not moved
-- [ ] The herder wiki and the plugin README say HACS, Integrations, PiHerder. They do not say to add a custom repository. Plugin version stays **0.5.4**
-- [ ] Adapter tag **v0.4.4** lists `fleet_summary`, `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. It does not list `prune_volumes`. **v0.4.3** was not moved
-- [ ] CI `--cov-fail-under` is **85** on `app`
+- [x] The integration root has no `icon.png`, `icon@2x.png`, `logo.png`, or `logo@2x.png`. `brand/` stays. Tag **v0.5.4** is the card. **v0.5.3** was not moved
+- [x] The herder wiki and the plugin README say HACS, Integrations, PiHerder. They do not say to add a custom repository. Plugin version stays **0.5.4**
+- [x] Adapter tag **v0.4.4** lists `fleet_summary`, `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. It does not list `prune_volumes`. **v0.4.3** was not moved
+- [x] CI `--cov-fail-under` is **85** on `app`
 
 ## Push denylist (Should)
 
