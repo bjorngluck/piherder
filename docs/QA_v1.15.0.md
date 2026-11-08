@@ -12,7 +12,7 @@
 
 **Screenshots:** reserved, not captured. Names are in the [v1.15 pack](../wiki/assets/screenshots/README.md#v115--pack-status). Names and paths in any frame must be examples. About on this tree says **1.15.0**. The frames do not show the footer.
 
-**Pull request:** not opened. The checklist is [PR_v1.15.0.md](PR_v1.15.0.md). A version pull request waits until these boxes are signed.
+**Pull request:** draft [#101](https://github.com/bjorngluck/piherder/pull/101). The checklist is [PR_v1.15.0.md](PR_v1.15.0.md). It stays a draft until these boxes are signed.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 

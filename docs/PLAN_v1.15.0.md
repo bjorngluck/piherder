@@ -154,7 +154,8 @@ The ops track stays beside this order. It does not land as commits.
 | 2026-11-08 | **[#89](https://github.com/bjorngluck/piherder/issues/89) quiet time.** `host_unreachable` uses the latest answer, not the date the host was added. Settings → Alerts sets the quiet time in hours or days. Default 24 hours. Turning the alert off clears open cards. The issue stays open. |
 | 2026-11-08 | **QA file.** [QA_v1.15.0.md](QA_v1.15.0.md) lists the walks. The boxes are empty. The v1.15 screenshot names are reserved and not captured. Release notes and the version pull request are not started. Issues stay open. |
 | 2026-11-08 | **Coverage 90.** CI `--cov-fail-under` raised **85** to **90**. Unit run **90%** (54249/60276). Packs are `tests/test_coverage_v115_q90_*.py`. No new GitHub issue. |
-| 2026-11-08 | **Code freeze.** Package is **1.15.0**. The published image stays **1.14.0**. Draft notes are [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md). [QA_v1.15.0.md](QA_v1.15.0.md) walks stay empty. Screenshot names stay reserved. [PR_v1.15.0.md](PR_v1.15.0.md) is written and the pull request is not opened. Not tagged. Issues stay open. |
+| 2026-11-08 | **Code freeze.** Package is **1.15.0**. The published image stays **1.14.0**. Draft notes are [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md). [QA_v1.15.0.md](QA_v1.15.0.md) walks stay empty. Screenshot names stay reserved. Not tagged. Issues stay open. |
+| 2026-11-08 | **Draft pull request.** [#101](https://github.com/bjorngluck/piherder/pull/101) is open from `v1.15.0-dev` into `main`. It stays a draft until the QA boxes are signed. Not tagged. |
 
 ---
 
@@ -171,7 +172,7 @@ The ops track stays beside this order. It does not land as commits.
 | 7 | Security ([#84](https://github.com/bjorngluck/piherder/issues/84), [#85](https://github.com/bjorngluck/piherder/issues/85), [#92](https://github.com/bjorngluck/piherder/issues/92), [#93](https://github.com/bjorngluck/piherder/issues/93), [#94](https://github.com/bjorngluck/piherder/issues/94), [#95](https://github.com/bjorngluck/piherder/issues/95), [#96](https://github.com/bjorngluck/piherder/issues/96), [#97](https://github.com/bjorngluck/piherder/issues/97)) | In the tree |
 | 8 | Shoulds | In the tree, except [#71](https://github.com/bjorngluck/piherder/issues/71), which is design only |
 | 9 | Operator QA | [QA_v1.15.0.md](QA_v1.15.0.md) exists. Walks are empty. Screenshot names are reserved and not captured |
-| 10 | Release notes and the version pull request | Draft notes are [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md). [PR_v1.15.0.md](PR_v1.15.0.md) is not opened. Not tagged |
+| 10 | Release notes and the version pull request | Draft notes are [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md). Draft pull request [#101](https://github.com/bjorngluck/piherder/pull/101). Not tagged |
 | 11 | Freeze | **Set** 2026-11-08. No new product work on this branch. Package is **1.15.0**. The published image stays **1.14.0** |
 
 ---

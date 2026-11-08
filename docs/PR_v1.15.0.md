@@ -4,7 +4,7 @@
 
 **Base:** `main` · **Head:** `v1.15.0-dev` · [QA_v1.15.0.md](QA_v1.15.0.md): walks are empty.
 
-**State:** Draft. Code freeze is set 2026-11-08. Notes are [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md) (draft). Package **1.15.0**. The published image stays **1.14.0**. Not tagged.
+**State:** Draft [#101](https://github.com/bjorngluck/piherder/pull/101). Code freeze is set 2026-11-08. Notes are [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md) (draft). Package **1.15.0**. The published image stays **1.14.0**. Not tagged.
 
 QA walks are empty, so this stays a draft. Merge, the `v1.15.0` tag, the GitHub Release, and the Hub push are a separate ask.
 
