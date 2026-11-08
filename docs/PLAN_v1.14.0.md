@@ -1,9 +1,9 @@
 # PiHerder v1.14.0: catch up a missed slot, warn on Drive OAuth, summarise the fleet, and fix the mobile console
 
-**Status:** **Code freeze** on `v1.14.0-dev` 2026-11-08. Voted 2026-10-27. Package **1.14.0**. No tag.
+**Status:** **Released** 2026-11-08. Tag **v1.14.0**. Package **1.14.0**. Voted 2026-10-27.
 **Date opened:** 2026-10-24 (draft on the unreleased `v1.13.0-dev` tip). **Voted and restarted from `main`:** 2026-10-27.  
 **Git branch:** `v1.14.0-dev`  
-**Package / image version:** package **`1.14.0`**. About / footer say **1.14.0** after web is recreated from this tree. The published image stays **1.13.0**.
+**Package / image version:** package **`1.14.0`**. Tag **v1.14.0**. Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release.
 **Theme:** catch up a missed slot, warn on Drive OAuth, summarise the fleet, and fix the mobile console  
 **Baseline:** tagged **`v1.13.0`** (2026-10-26). Production image is **1.13.0**.  
 **Mode:** **Must → Should.** Tiers were voted 2026-10-27. Nothing was voted Discover.  
@@ -136,6 +136,7 @@ Nothing else was voted **Out**.
 | 2026-11-08 | **QA.** Push denylist is signed. Actions run 215 printed `push denylist clean`. Screenshots and the 1.13 regression stay open. |
 | 2026-11-08 | **QA.** The 1.13 regression is signed in [QA_v1.14.0.md](QA_v1.14.0.md). Screenshots stay open. |
 | 2026-11-08 | **Code freeze.** Screenshots are wired. QA is signed. Package is **1.14.0**. The published image stays **1.13.0**. Not tagged. Pull request [#70](https://github.com/bjorngluck/piherder/pull/70) stays open. |
+| 2026-11-08 | **Released.** Pull request [#70](https://github.com/bjorngluck/piherder/pull/70) is merged. Tag **v1.14.0**. Image tags `1.14.0`, `1.14`, and `latest`. The digest is added after the Hub push. Pin `1.13.0` stays that release. |
 | 2026-10-31 | **Review follow-ups.** Catch-up `result` is `queued`. A failed catch-up is not retried. A busy host writes at most one audit row for that slot. `clock` scales with the schedule. Volume prune accepts `dry_run`. Demo mode blocks volume and build-cache prune. A retry keeps the first pre-restore snapshot until the restore succeeds or Undo runs. Undo uses rsync `--delete`. Free space is checked with statvfs before the host is copied. Extra host files warn. Restore preview diffs the local backup, times out at 120 seconds, and returns 409 when that host is busy. `admin_change` cannot be muted. |
 
 ---
@@ -150,8 +151,8 @@ Nothing else was voted **Out**.
 | 4 | Freeze | **Set** 2026-11-08. No new product work on this branch. Package is **1.14.0**. The published image stays **1.13.0** |
 | 5 | Operator QA | Signed 2026-11-08 in [QA_v1.14.0.md](QA_v1.14.0.md), including screenshots and the 1.13 regression |
 | 6 | Notes and pull request | Notes are [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Pull request [#70](https://github.com/bjorngluck/piherder/pull/70) stays open. Not tagged |
-| 7 | Tag and Hub | Not cut |
+| 7 | Tag and Hub | Tag **v1.14.0** is cut. The Hub digest is added after the image push |
 
 ---
 
-*Voted 2026-10-27 on tagged v1.13.0. Code freeze is set 2026-11-08 on `v1.14.0-dev`. Package is 1.14.0. The published image stays 1.13.0. Not tagged.*
+*Voted 2026-10-27 on tagged v1.13.0. Released 2026-11-08 as tag v1.14.0. Package is 1.14.0. Pin 1.13.0 stays that release.*

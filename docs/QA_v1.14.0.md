@@ -2,13 +2,13 @@
 
 **Branch:** `v1.14.0-dev`
 
-**Code freeze:** set 2026-11-08. Merge, tag, and Hub stay a separate ask.
+**Code freeze:** set 2026-11-08. Merged and tagged **v1.14.0**.
 
-**Package:** **`1.14.0`**. About / footer say **1.14.0** after web is recreated from this tree. The published image stays **1.13.0**.
+**Package:** **`1.14.0`**. Tag **v1.14.0**. Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release.
 
 **Operator QA:** signed 2026-11-08, including screenshots and the 1.13 regression.
 
-**Release notes:** [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Code freeze. Not tagged.
+**Release notes:** [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Tag **v1.14.0**.
 
 **Screenshots:** wired in [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status). Names and paths are examples.
 
