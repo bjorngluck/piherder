@@ -393,6 +393,10 @@ def set_type_override(type_id: str, **fields: Any) -> dict[str, Any]:
             cur["severity"] = sev
         elif sev in (None, "", "default"):
             cur.pop("severity", None)
+    if "quiet_hours" in fields and fields["quiet_hours"] is not None:
+        cur["quiet_hours"] = int(fields["quiet_hours"])
+    if "quiet_unit" in fields and fields["quiet_unit"] in ("hours", "days"):
+        cur["quiet_unit"] = fields["quiet_unit"]
     types[tid] = cur
     policy["types"] = types
     extra: dict[str, Any] = {"alert_type_policy": policy}

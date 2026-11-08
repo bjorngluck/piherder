@@ -110,10 +110,12 @@ def test_worker_http_serves_the_lock_counter():
     assert "ok" in proc.stdout
 
 
-def test_compose_requires_redis_password_and_hides_the_worker_port():
+def test_compose_redis_password_is_optional_and_hides_the_worker_port():
     text = (ROOT / "docker-compose.yml").read_text()
-    assert "${REDIS_PASSWORD:?set REDIS_PASSWORD}" in text
-    assert "${REDIS_PASSWORD:-}" not in text
+    assert "${REDIS_PASSWORD:?set REDIS_PASSWORD}" not in text
+    assert "REDIS_PASSWORD: ${REDIS_PASSWORD:-}" in text
+    assert 'exec /usr/local/bin/docker-entrypoint.sh redis-server --requirepass "$$REDIS_PASSWORD"' in text
+    assert "postgresql://piherder:piherder@127.0.0.1:5432/piherder" not in text
     assert 'PIHERDER_WORKER_METRICS: "1"' in text
     assert "PIHERDER_WORKER_METRICS_PORT: ${PIHERDER_WORKER_METRICS_PORT:-9809}" in text
     assert "PROMETHEUS_MULTIPROC_DIR: /tmp/piherder-metrics" in text

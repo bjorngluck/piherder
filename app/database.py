@@ -46,7 +46,22 @@ def _create_app_engine(url: str):
     )
 
 
-engine = _create_app_engine(settings.DATABASE_URL)
+def _process_database_url() -> str:
+    """Apply the nmap host rewrite before the engine is created."""
+    from .security.boot_secrets import database_url_for_process
+
+    url = database_url_for_process(
+        settings.DATABASE_URL,
+        nmap_worker=(os.environ.get("PIHERDER_NMAP_WORKER") or "").strip() == "1",
+        nmap_database_url=os.environ.get("PIHERDER_NMAP_DATABASE_URL") or "",
+    )
+    if url != settings.DATABASE_URL:
+        settings.DATABASE_URL = url
+        os.environ["DATABASE_URL"] = url
+    return url
+
+
+engine = _create_app_engine(_process_database_url())
 
 
 def get_engine():

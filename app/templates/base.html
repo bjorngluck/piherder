@@ -493,6 +493,22 @@
   </div>
   {% endif %}
 
+  {# Insecure boot settings. No dismiss control. Login and every later page. #}
+  {% set _boot = boot_warnings() if boot_warnings is defined else [] %}
+  {% if _boot %}
+  <div id="ph-boot-secrets" class="boot-secrets-banner banner-warning" role="alert" data-testid="boot-secrets-banner">
+    <div class="max-w-5xl mx-auto px-4 py-3">
+      <p class="boot-secrets-title">Action needed</p>
+      <ul>
+        {% for item in _boot %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+      <p class="boot-secrets-foot">PiHerder is running. This notice stays on every page until the item above is fixed.</p>
+    </div>
+  </div>
+  {% endif %}
+
   <main class="max-w-5xl mx-auto px-6 py-8 w-full min-w-0 overflow-x-clip">
     {% block content %}{% endblock %}
   </main>

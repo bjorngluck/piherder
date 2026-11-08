@@ -30,15 +30,40 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v1.12.0** | **Captured** 2026-10-22 and wired. Names, paths, and addresses in the frames are masked. About and the footer still say **1.11.0**. [§ v1.12](#v112--pack-status). [QA](../../../docs/QA_v1.12.0.md) |
 | **v1.13.0** | Pack landed 2026-10-26. About and the footer say **1.13.0**. [§ v1.13](#v113--pack-status). [QA](../../../docs/QA_v1.13.0.md) |
 | **v1.14.0** | **Captured** 2026-11-08 and wired. Names and paths are examples. About on this tree says **1.14.0**. The published image stays **1.13.0**. [§ v1.14](#v114--pack-status). [QA](../../../docs/QA_v1.14.0.md) |
+| **v1.15.0** | **Reserved**, not captured. Open train. About stays **1.14.0**. [§ v1.15](#v115--pack-status). [QA](../../../docs/QA_v1.15.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
 !!! tip "Capture from this train"
-    **v1.14** frames are captured and wired. Names and paths are examples. About on this tree says **1.14.0**. The frames do not show the footer. Names are in [§ v1.14](#v114--pack-status).
+    **v1.15** frames are reserved and not captured. About stays **1.14.0**. The frames must not show the footer. Names are in [§ v1.15](#v115--pack-status).
+
+    **v1.14** frames stay captured and wired. Do not retake them for this train.
 
     Do not photograph the public demo. Mask names, paths, addresses, tokens, the SMB password, the Google client secret, and the Microsoft client secret.
 
-    **v1.13 captures** stay. Do not retake them for this release.
+---
+
+## v1.15.0 pack status {#v115--pack-status}
+
+**Reserved** 2026-11-08. Not captured. About stays **1.14.0**. The frames must not show the footer. Mask names, paths, addresses, and secrets. Do not photograph the public demo. Maintainer walks are [QA_v1.15.0.md](../../../docs/QA_v1.15.0.md). The boxes are empty.
+
+| File | Surface | What the frame should show | Where |
+|------|---------|----------------------------|--------|
+| `login-boot-secrets.png` | Login | **Reserved.** The **Action needed** banner on the login page. Example copy only. No password, no URL, and no dismiss control | [Install](../../getting-started/install.md) |
+| `settings-host-unreachable.png` | Settings → Alerts | **Reserved.** **Host unreachable**, with Quiet for and the raise checkbox. No webhook URL and no token | [Alerts](../../operations/alerts-email-webhooks.md) |
+| `alerts-host-unreachable.png` | Alerts | **Reserved.** One open `host_unreachable` card for host-a. The hour count is the quiet time, not the age of the host record | [Alerts](../../operations/alerts-email-webhooks.md) |
+
+### Do not shoot for 1.15
+
+| Slice | Why |
+|-------|-----|
+| v1.14 pack | `docker-git-drift.png`, `settings-mute-rules.png`, and `alerts-drive-oauth.png` stay |
+| `/ready` and `/health` | Walk only. No new screen |
+| Boot banner after sign-in | The login frame is enough. The same banner is on every page |
+| Mute rules | `settings-mute-rules.png` stays. Delivery mute is not the host-unreachable switch |
+| Adapter confirm and lockfile | No screen. Pull request 10 is not tagged |
+| Push denylist | No screen. Patterns stay off git |
+| Public demo | Stays the production image |
 
 ---
 

@@ -175,13 +175,13 @@ Alembic **052** (`052_schedule_catchup`) and **053** (`053_alert_mute`) run on w
 
 ## Open train {#open-train}
 
-**v1.15.0** is not tagged. The package on `v1.15.0-dev` stays **1.14.0**. Plan: [PLAN_v1.15.0.md](https://github.com/bjorngluck/piherder/blob/v1.15.0-dev/docs/PLAN_v1.15.0.md). Do not point a fleet at this branch until the release notes exist.
+**v1.15.0** is not tagged. The package on `v1.15.0-dev` stays **1.14.0**. Plan: [PLAN_v1.15.0.md](https://github.com/bjorngluck/piherder/blob/v1.15.0-dev/docs/PLAN_v1.15.0.md). [QA](https://github.com/bjorngluck/piherder/blob/v1.15.0-dev/docs/QA_v1.15.0.md) walks are empty. Screenshot names are reserved and not captured. Do not point a fleet at this branch until the release notes exist.
 
 Before a lab copy of this branch:
 
-- [ ] Set `REDIS_PASSWORD` and put it in `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, and `REDIS_URL`. Boot pings Redis with that password in the web process and the worker. A rejected password refuses to start. The log line has no URL and no password. A connection error does not refuse boot.
+- [ ] A missing Redis password or a rejected Redis password keeps PiHerder running and shows a notice on every page, including login. Set `REDIS_PASSWORD` and include it in `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, and `REDIS_URL` to clear that notice. The log line has no URL and no password. A connection error does not add a notice. Compose starts Redis with no password when `REDIS_PASSWORD` is unset.
 - [ ] Set `PIHERDER_TRUSTED_PROXY_CIDRS` to the proxy subnet. The compose default on this branch is loopback only (`127.0.0.1/32`, `::1/128`). Forwarded headers from a peer on `10.0.0.0/8`, `172.16.0.0/12`, or `192.168.0.0/16` are ignored until that subnet is listed.
-- [ ] Boot refuses the default database password outside demo mode.
+- [ ] The default database password keeps PiHerder running and shows the same notice outside demo mode. Set a unique password on the Postgres role and in `DATABASE_URL`. The nmap worker reuses `DATABASE_URL` and rewrites host `db` to `127.0.0.1` unless `PIHERDER_NMAP_DATABASE_URL` is set.
 - [ ] `GET /ready` checks the database, Redis, and migration head. It returns 503 when one check is not ok. `GET /health` stays the process-alive check.
 
 ## Breaking notes

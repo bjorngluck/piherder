@@ -159,3 +159,13 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def _prepare_boot_urls() -> None:
+    """Normalize Redis URLs and the nmap database host before other modules read them."""
+    from .security.boot_secrets import prepare_process_urls
+
+    prepare_process_urls(settings)
+
+
+_prepare_boot_urls()

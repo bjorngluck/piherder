@@ -174,7 +174,7 @@ Base path: **`/api/v1`**
 }
 ```
 
-`host_status` is `healthy`, `degraded`, or `unreachable`. Unreachable means the host has not been seen for 24 hours. Degraded means it has been quiet for 15 minutes, or at least one backup slot was missed. `host_status_seconds` is how long the host has been in that status. Both are on the open train. The **1.14.0** image does not return them.
+`host_status` is `healthy`, `degraded`, or `unreachable`. Unreachable means the host has not answered for the quiet time. The default is 24 hours. Settings → Alerts changes that wait. Degraded means the latest answer is at least 15 minutes old, or at least one backup slot was missed. A host with no answer yet stays healthy. `host_status_seconds` is how long the host has been in that status. Both are on the open train. The **1.14.0** image does not return them.
 
 **PATCH body** (omit fields you do not want to change):
 

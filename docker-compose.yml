@@ -132,7 +132,17 @@ services:
   redis:
     image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
     container_name: piherder-redis
-    command: redis-server --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+    # Empty REDIS_PASSWORD starts Redis with no password. A set password still
+    # uses requirepass. The official entrypoint still drops to the redis user.
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        if [ -n "$$REDIS_PASSWORD" ]; then
+          exec /usr/local/bin/docker-entrypoint.sh redis-server --requirepass "$$REDIS_PASSWORD"
+        fi
+        exec /usr/local/bin/docker-entrypoint.sh redis-server
     restart: unless-stopped
     volumes:
       - redis_data:/data
@@ -208,11 +218,13 @@ services:
       # Override web default — this process is the only allowed nmap executor
       PIHERDER_NMAP_WORKER: "1"
       PIHERDER_NMAP_VULN_ROOT: /var/lib/piherder/nmap-vuln
-      # Host network: compose service DNS (redis/db) is unavailable — use loopback ports.
+      # Host network: compose service DNS (redis/db) is unavailable. Use loopback ports.
+      # DATABASE_URL stays the shared URL. The process rewrites host db to
+      # 127.0.0.1 unless PIHERDER_NMAP_DATABASE_URL is set.
+      PIHERDER_NMAP_DATABASE_URL: ${PIHERDER_NMAP_DATABASE_URL:-}
       CELERY_BROKER_URL: ${PIHERDER_NMAP_REDIS_URL:-redis://:${REDIS_PASSWORD}@127.0.0.1:6379/0}
       CELERY_RESULT_BACKEND: ${PIHERDER_NMAP_REDIS_URL:-redis://:${REDIS_PASSWORD}@127.0.0.1:6379/0}
       REDIS_URL: ${PIHERDER_NMAP_REDIS_URL:-redis://:${REDIS_PASSWORD}@127.0.0.1:6379/0}
-      DATABASE_URL: ${PIHERDER_NMAP_DATABASE_URL:-postgresql://piherder:piherder@127.0.0.1:5432/piherder}
     volumes:
       - ./piherder_data:/data
       - ${PIHERDER_NMAP_VULN_PATH:-./piherder_nmap_vuln}:/var/lib/piherder/nmap-vuln

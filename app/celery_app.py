@@ -2,6 +2,11 @@ from celery import Celery
 from celery.signals import worker_init, worker_ready
 import os
 
+from .security.boot_secrets import prepare_process_urls
+
+# Celery reads the broker URL once, at import. Normalize before that read.
+prepare_process_urls(None)
+
 celery = Celery(
     "piherder",
     broker=os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"),

@@ -88,10 +88,10 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 
 | Variable | Default idea |
 |----------|--------------|
-| `DATABASE_URL` | `postgresql://piherder:piherder@db:5432/piherder`. Outside demo mode, boot refuses that default password |
-| `CELERY_BROKER_URL` | `redis://:password@redis:6379/0`. Boot refuses a Redis URL with no password |
-| `CELERY_RESULT_BACKEND` | same Redis, also with a password |
-| `REDIS_PASSWORD` | Required by the compose Redis service (`requirepass`). No default. Compose refuses to start when it is unset |
+| `DATABASE_URL` | `postgresql://piherder:piherder@db:5432/piherder`. Outside demo mode, that default password keeps the app running and shows a notice on every page, including login |
+| `CELERY_BROKER_URL` | `redis://:password@redis:6379/0`. A URL with no password keeps the app running and shows the same notice |
+| `CELERY_RESULT_BACKEND` | same Redis. A missing password shows the same notice |
+| `REDIS_PASSWORD` | Compose Redis `requirepass` when set. When unset, Redis starts with no password and the notice stays up |
 | `CELERY_CONCURRENCY` | `2` pool slots (compose → celery-worker) |
 | `PIHERDER_WORKER_METRICS` | `1` on the compose celery-worker. Unset leaves the worker metrics port closed |
 | `PIHERDER_WORKER_METRICS_PORT` | `9809`. Compose does not publish this port |
@@ -101,7 +101,7 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 | `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` | Unset — **Settings → General → Jobs** (default 30 minutes). When this env var is set it **locks** that field. Probe every 30s. Floor 30, ceiling 86400 |
 | `PIHERDER_INSTANCE_NAME` | Unset — **Settings → General → Instance**. When set, locks the header wordmark. Empty Settings name keeps Pi / Herder. The mark image stays |
 | `PIHERDER_ACCENT` | Unset — same card. `#RRGGBB` locks the accent (`--color-accent` and the subtle accent background). Primary red `#e60012` stays. Demo ignores name, accent, and the Catalog checkbox. Hiding Catalog has no env var |
-| `REDIS_URL` | Optional alias used in some deploy notes. Broker and result URLs are authoritative. When set, boot still requires a password in this URL |
+| `REDIS_URL` | Optional alias used in some deploy notes. Broker and result URLs are authoritative. When set without a password, the same notice stays up |
 
 ## LAN Discovery (nmap) {#lan-discovery-nmap--opt-in}
 
@@ -126,8 +126,8 @@ Task code also refuses when the **`nmap` binary is missing** (main image has no 
 | `PIHERDER_NMAP_VULN_PATH` | `./piherder_nmap_vuln` | Host bind for vuln pack volume |
 | `PIHERDER_NMAP_VULN_ROOT` | `/var/lib/piherder/nmap-vuln` | In-container path (web **:ro**, nmap worker **rw**) |
 | `PIHERDER_NMAP_IMAGE` | `piherder:nmap-local` | Image tag for `celery-worker-nmap` |
-| `PIHERDER_NMAP_DATABASE_URL` | loopback Postgres | Host-network worker → `127.0.0.1:5432` |
-| `PIHERDER_NMAP_REDIS_URL` | loopback Redis with a password | Host-network worker uses `127.0.0.1:6379`. Boot refuses this URL when it has no password |
+| `PIHERDER_NMAP_DATABASE_URL` | empty | Host-network worker reuses `DATABASE_URL` and rewrites host `db` to `127.0.0.1`. Set this only for a different URL |
+| `PIHERDER_NMAP_REDIS_URL` | loopback Redis | Host-network worker uses `127.0.0.1:6379`. A missing password shows the same notice |
 
 ```bash
 docker build -f Dockerfile.nmap -t piherder:nmap-local .

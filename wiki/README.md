@@ -3,8 +3,9 @@
 Markdown sources for the **MkDocs Material** documentation site.
 
 **Live site:** [https://piherder-docs.hacknow.info/](https://piherder-docs.hacknow.info/)  
-**Release notes:** [docs/RELEASE_v1.4.0.md](../docs/RELEASE_v1.4.0.md) (current Hub) · [docs/RELEASE_v1.3.0.md](../docs/RELEASE_v1.3.0.md) · [docs/RELEASE_v1.2.0.md](../docs/RELEASE_v1.2.0.md) · [docs/RELEASE_v1.1.1.md](../docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.1.0.md](../docs/RELEASE_v1.1.0.md) · prior [docs/RELEASE_v1.0.0.md](../docs/RELEASE_v1.0.0.md)  
-**Screenshots:** [assets/screenshots/README.md](assets/screenshots/README.md)
+**Release notes:** [docs/RELEASE_v1.14.0.md](../docs/RELEASE_v1.14.0.md) (current image). Open train: [docs/PLAN_v1.15.0.md](../docs/PLAN_v1.15.0.md) and [docs/QA_v1.15.0.md](../docs/QA_v1.15.0.md).
+
+**Screenshots:** [assets/screenshots/README.md](assets/screenshots/README.md). The v1.14 pack is wired. The v1.15 pack is reserved and not captured.
 
 Operator pages prefer: **What this is** → **Why** → **End-to-end** → reference detail. See [contributing-docs](developers/contributing-docs.md).
 

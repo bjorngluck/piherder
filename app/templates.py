@@ -184,6 +184,16 @@ from .services import demo as _demo_svc  # noqa: E402
 
 templates.env.globals["demo_mode"] = _demo_svc.demo_mode
 
+
+def _boot_warnings():
+    """Read the function at render time so tests can replace it."""
+    from .security.boot_secrets import boot_warnings
+
+    return boot_warnings()
+
+
+templates.env.globals["boot_warnings"] = _boot_warnings
+
 from .services.job_worker import job_worker_label as _job_worker_label  # noqa: E402
 
 templates.env.globals["job_worker_label"] = _job_worker_label

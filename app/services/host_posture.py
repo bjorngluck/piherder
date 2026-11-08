@@ -13,9 +13,21 @@ from typing import Optional
 from sqlmodel import Session
 
 UNREACHABLE_AFTER = timedelta(hours=24)
+UNREACHABLE_AFTER_HOURS = 24
+UNREACHABLE_AFTER_MAX_HOURS = 24 * 90
 DEGRADED_AFTER = timedelta(minutes=15)
 HOST_UNREACHABLE = "host_unreachable"
 BACKUP_MISSED_REPEAT = "backup_missed_repeat"
+# A successful answer. The date the host was added is not one of these.
+_CONTACT_FIELDS = (
+    "last_seen",
+    "host_facts_at",
+    "last_backup_at",
+    "last_os_check_at",
+    "last_container_check_at",
+    "docker_inventory_at",
+    "host_deps_checked_at",
+)
 
 
 def _as_utc(value: Optional[datetime]) -> Optional[datetime]:
@@ -24,6 +36,68 @@ def _as_utc(value: Optional[datetime]) -> Optional[datetime]:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
+
+
+def last_contact_at(server) -> Optional[datetime]:
+    """Latest time this host answered. Empty when PiHerder has no answer yet."""
+    stamps = []
+    for name in _CONTACT_FIELDS:
+        stamp = _as_utc(getattr(server, name, None))
+        if stamp is not None:
+            stamps.append(stamp)
+    return max(stamps) if stamps else None
+
+
+def unreachable_after_hours() -> int:
+    """Quiet time before the alert. Settings stores hours. Default is 24."""
+    try:
+        from .alert_policy import raw_policy
+
+        policy = raw_policy()
+        types = policy.get("types") if isinstance(policy.get("types"), dict) else {}
+        row = types.get(HOST_UNREACHABLE) if isinstance(types.get(HOST_UNREACHABLE), dict) else {}
+        hours = int(row.get("quiet_hours"))
+    except (TypeError, ValueError):
+        hours = UNREACHABLE_AFTER_HOURS
+    except Exception:
+        hours = UNREACHABLE_AFTER_HOURS
+    return max(1, min(int(hours), UNREACHABLE_AFTER_MAX_HOURS))
+
+
+def quiet_hours_from_amount(amount, unit: str) -> int:
+    """Hours from the Settings number and unit. Days are 24 hours each."""
+    try:
+        number = int(str(amount).strip())
+    except (TypeError, ValueError):
+        number = 1 if str(unit).strip().lower() == "days" else UNREACHABLE_AFTER_HOURS
+    if str(unit).strip().lower() == "days":
+        number *= 24
+    return max(1, min(int(number), UNREACHABLE_AFTER_MAX_HOURS))
+
+
+def host_unreachable_form() -> dict:
+    """Settings card: on/off, the number, and hours or days."""
+    from .alert_policy import effective, raw_policy
+
+    hours = unreachable_after_hours()
+    try:
+        enabled = bool(effective(HOST_UNREACHABLE).enabled)
+    except Exception:
+        enabled = True
+    unit = "hours"
+    try:
+        policy = raw_policy()
+        types = policy.get("types") if isinstance(policy.get("types"), dict) else {}
+        row = types.get(HOST_UNREACHABLE) if isinstance(types.get(HOST_UNREACHABLE), dict) else {}
+        stored = str(row.get("quiet_unit") or "").strip().lower()
+        if stored in ("hours", "days"):
+            unit = stored
+    except Exception:
+        unit = "hours"
+    amount = hours // 24 if unit == "days" else hours
+    if amount < 1:
+        amount = 1
+    return {"enabled": enabled, "amount": amount, "unit": unit, "hours": hours}
 
 
 def _server_name(server) -> str:
@@ -66,15 +140,19 @@ def host_posture(
     *,
     missed_backups: int = 0,
     missed_at: Optional[datetime] = None,
+    unreachable_after: Optional[timedelta] = None,
 ) -> dict:
-    """``status`` is healthy, degraded, or unreachable. ``duration_seconds`` is time in that status."""
+    """``status`` is healthy, degraded, or unreachable. ``duration_seconds`` is time in that status.
+
+    Quiet time starts at the latest answer. A host with no answer yet is not
+    unreachable. The date the host was added is not an answer.
+    """
     moment = _as_utc(now) or datetime.now(timezone.utc)
-    seen = _as_utc(getattr(server, "last_seen", None))
-    born = _as_utc(getattr(server, "created_at", None))
-    anchor = seen or born
+    anchor = last_contact_at(server)
     quiet = (moment - anchor) if anchor is not None else timedelta(0)
     missed_at = _as_utc(missed_at)
-    if anchor is not None and quiet >= UNREACHABLE_AFTER:
+    limit = unreachable_after if unreachable_after is not None else timedelta(hours=unreachable_after_hours())
+    if anchor is not None and quiet >= limit:
         status = "unreachable"
         since = anchor
     elif (anchor is not None and quiet >= DEGRADED_AFTER) or missed_backups >= 1:
@@ -146,7 +224,7 @@ def sync_host_posture_alerts(session: Session, now: Optional[datetime] = None) -
         missed_fp = f"{BACKUP_MISSED_REPEAT}:{server_id}"
         if posture["status"] == "unreachable":
             hours = max(1, posture["duration_seconds"] // 3600)
-            upsert_notification(
+            row = upsert_notification(
                 session,
                 fingerprint=unreachable_fp,
                 type=HOST_UNREACHABLE,
@@ -156,7 +234,8 @@ def sync_host_posture_alerts(session: Session, now: Optional[datetime] = None) -
                 severity="critical",
                 server_id=server_id,
             )
-            open_count += 1
+            if row is not None and getattr(row, "status", None) == "open":
+                open_count += 1
         else:
             resolve_by_fingerprint(session, unreachable_fp)
         if streak >= 2:
