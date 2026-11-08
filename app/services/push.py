@@ -43,6 +43,7 @@ TYPE_PREF_FIELDS = {
     "nmap_new_device": "integration_down",
     "nmap_device_offline": "integration_down",
     "stack_container_down": "integration_down",
+    "container_unhealthy": "integration_down",
     "stack_health": "herder_backup_failed",
     "template_drift": "os_updates",
     # Cert alerts use master switch only if unmapped; map to critical-ish prefs

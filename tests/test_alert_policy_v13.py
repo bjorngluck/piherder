@@ -41,6 +41,13 @@ def test_catalog_defaults():
     assert apol.CATALOG_BY_ID["nmap_device_offline"].default_severity == "info"
     assert apol.CATALOG_BY_ID["backup_failed"].default_severity == "critical"
     assert apol.CATALOG_BY_ID["stack_health"].default_severity is None
+    unhealthy = apol.CATALOG_BY_ID["container_unhealthy"]
+    assert unhealthy.category == "inventory"
+    assert unhealthy.label == "Unhealthy containers"
+    assert unhealthy.default_severity == "warning"
+    assert unhealthy.id not in apol.NEVER_MUTE
+    assert unhealthy.id not in apol.PINNED_CRITICAL
+    assert apol.category_of("container_unhealthy") == "inventory"
     assert apol.category_of("host_down") == "host"
     assert apol.category_of("nope") == "other"
 
@@ -62,6 +69,19 @@ def test_effective_mute_and_severity_override(monkeypatch):
     hint = apol.effective("stack_health")
     assert hint.severity is None
     assert apol.resolve_severity(hint, "critical") == "critical"
+
+
+def test_container_unhealthy_type_mute_resolves(monkeypatch):
+    _policy(monkeypatch, {"types": {"container_unhealthy": {"enabled": False}}})
+    assert apol.effective("container_unhealthy").enabled is False
+    session, _engine = _memory_session()
+    with patch.object(ntf, "_maybe_webhook"), patch.object(ntf, "_maybe_push"):
+        ntf.notify_unhealthy_containers(session, 4, "host-a", ["app-1"])
+        assert ntf.open_count(session) == 0
+        _policy(monkeypatch, {})
+        ntf.notify_unhealthy_containers(session, 4, "host-a", ["app-1"])
+        assert ntf.open_count(session) == 1
+        assert apol.effective("container_unhealthy").severity == "warning"
 
 
 def test_upsert_mute_resolves(monkeypatch):

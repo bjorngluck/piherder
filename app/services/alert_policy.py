@@ -82,6 +82,15 @@ CATALOG: tuple[TypeSpec, ...] = (
         0,
     ),
     TypeSpec(
+        "container_unhealthy",
+        "inventory",
+        "Unhealthy containers",
+        "warning",
+        True,
+        0,
+        0,
+    ),
+    TypeSpec(
         "integration_monitor_down",
         "integration",
         "Kuma service down",
