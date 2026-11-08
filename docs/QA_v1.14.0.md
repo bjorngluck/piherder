@@ -6,7 +6,7 @@
 
 **Package:** stays **`1.13.0`**. About / footer stay **1.13.0**.
 
-**Operator QA:** Schedules, Drive, Fleet read, Console, Backups, Docker, Alerts, and Plugin and adapter are signed 2026-11-08. The push denylist, screenshots, and the 1.13 regression are not signed.
+**Operator QA:** Schedules, Drive, Fleet read, Console, Backups, Docker, Alerts, Plugin and adapter, and the push denylist are signed 2026-11-08. Screenshots and the 1.13 regression are not signed.
 
 **Release notes:** not written. Not tagged.
 
@@ -20,7 +20,7 @@ Plan: [PLAN_v1.14.0.md](PLAN_v1.14.0.md). v1.13 sign-off stays [QA_v1.13.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Adapter work is [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp). Do not point the public demo at this branch. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
 
-Must and Should code is on `v1.14.0-dev`. These boxes are the operator walk. Schedules, Drive, Fleet read, Console, Backups, Docker, Alerts, and Plugin and adapter are signed 2026-11-08. The remaining boxes are not signed. Alembic `052_schedule_catchup` and `053_alert_mute` are in the tree and are not applied to a live database. This walk does not apply them. Issues [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) stay open until the release.
+Must and Should code is on `v1.14.0-dev`. These boxes are the operator walk. Schedules, Drive, Fleet read, Console, Backups, Docker, Alerts, Plugin and adapter, and the push denylist are signed 2026-11-08. The remaining boxes are not signed. Alembic `052_schedule_catchup` and `053_alert_mute` are in the tree and are not applied to a live database. This walk does not apply them. Issues [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) stay open until the release.
 
 ---
 
@@ -148,11 +148,11 @@ Signed 2026-11-08.
 
 ## Push denylist (Should)
 
-The workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is not set. This box stays open until the secret has at least one pattern.
+The workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is set. Run 215, attempt 2, printed `push denylist clean` for `3ba3968..27f0e2c`. The log masks the secret. Patterns stay off git.
 
-Not signed.
+Signed 2026-11-08.
 
-- [ ] Secret `PIHERDER_PUSH_DENYLIST` has at least one literal of 4 or more characters. Comments and blank lines do not count. An empty secret prints that the manual grep remains and exits 0. That is not a pass. The job does not print a pattern or the matched line. Patterns stay off git
+- [x] Secret `PIHERDER_PUSH_DENYLIST` has at least one literal of 4 or more characters. Comments and blank lines do not count. An empty secret prints that the manual grep remains and exits 0. That is not a pass. The job does not print a pattern or the matched line. Patterns stay off git
 
 ## Later
 

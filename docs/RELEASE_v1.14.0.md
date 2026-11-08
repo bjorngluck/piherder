@@ -76,7 +76,7 @@ CI `--cov-fail-under` is **85** on `app`. Adapter **v0.4.4** is already tagged o
 
 ## Not in this release
 
-- Secret `PIHERDER_PUSH_DENYLIST` is not set. The workflow is in. Until it has at least one pattern, the job prints that the manual grep remains and exits 0. It does not report a clean scan. Patterns stay off git.
+- The push-denylist secret is set. Actions run 215 printed `push denylist clean`. Patterns stay off git. The workflow itself shipped earlier.
 - A new adapter tag for `prune_volumes`.
 - Fine-grained roles, stricter command-audit redaction, per-host Prometheus sensor ignore, and per-target scrape status.
 - borg, kopia, rclone crypt, and putting the Home Assistant plugin in the image. The removed set from 2026-10-27 stays off future ballots. The list is in [PLAN_v1.14.0](PLAN_v1.14.0.md).

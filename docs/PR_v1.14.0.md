@@ -12,7 +12,7 @@
 
 Train after production **v1.13.0**. A missed backup or image check can be caught up once, off by default. Google Drive OAuth failure and a testing token older than 5 days raise alerts that cannot be muted. `GET /api/v1/fleet/summary` is a read-only snapshot beside the existing summary. The phone console sheet stays up above the keyboard. Samsung Keyboard remains a known issue.
 
-Should work on the same branch: mute rules, a pre-restore snapshot, manifest file and byte checks, a dry-run restore preview, a compose **Git drift** pill, and volume prune on the API and hosted `/mcp`. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** and adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** are already tagged. Adapter **0.4.4** does not list `prune_volumes`. Secret `PIHERDER_PUSH_DENYLIST` is not set.
+Should work on the same branch: mute rules, a pre-restore snapshot, manifest file and byte checks, a dry-run restore preview, a compose **Git drift** pill, and volume prune on the API and hosted `/mcp`. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** and adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** are already tagged. Adapter **0.4.4** does not list `prune_volumes`. Secret `PIHERDER_PUSH_DENYLIST` is set. Actions run 215 printed `push denylist clean`.
 
 Design: [PLAN_v1.14.0.md](PLAN_v1.14.0.md). Maintainer ticks: [QA_v1.14.0.md](QA_v1.14.0.md). Draft notes: [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Screenshot list: [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status).
 
