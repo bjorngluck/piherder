@@ -371,3 +371,113 @@ def test_first_ping_auth_failure_fails_the_job_and_does_not_run_it(monkeypatch, 
     logged = " ".join(rec.getMessage() for rec in caplog.records)
     assert secret not in logged
     assert "WRONGPASS" not in logged
+
+
+class _SharedRedis:
+    """One keyspace, so two workers contend on the same broker."""
+
+    def __init__(self) -> None:
+        self.store: dict[str, str] = {}
+        self.fail_set = False
+
+    def ping(self):
+        return True
+
+    def set(self, key, value, nx=False, ex=None):
+        if self.fail_set:
+            raise ConnectionError("refused")
+        if nx and key in self.store:
+            return False
+        self.store[key] = value
+        return True
+
+    def eval(self, script, _numkeys, key, token, *_rest):
+        if self.store.get(key) != token:
+            return 0
+        if "del" in script:
+            del self.store[key]
+        return 1
+
+    def get(self, key):
+        return self.store.get(key)
+
+    def close(self):
+        return None
+
+
+def test_unset_broker_matches_celery_and_two_workers_contend(monkeypatch):
+    """Locks use the same broker Celery would, and a miss is not a local lock."""
+    import redis
+
+    from app.celery_app import celery
+    from app.security.boot_secrets import effective_backend_url, effective_broker_url
+
+    assert celery.conf.broker_url == effective_broker_url()
+    assert celery.conf.result_backend == effective_backend_url()
+
+    shared = _SharedRedis()
+    seen: list[str] = []
+
+    def _from_url(url, **_kwargs):
+        seen.append(url)
+        return shared
+
+    monkeypatch.delenv("CELERY_BROKER_URL", raising=False)
+    monkeypatch.delenv("CELERY_RESULT_BACKEND", raising=False)
+    monkeypatch.delenv("PIHERDER_SINGLE_PROCESS", raising=False)
+    lock.reset_redis_client_for_tests()
+    lock._redis_failed = False
+    lock.reset_lock_acquire_failures_for_tests()
+    lock.clear_local_locks_for_tests()
+    monkeypatch.setattr(redis, "from_url", _from_url)
+
+    assert effective_broker_url() == "redis://localhost:6379/0"
+    first = lock.try_acquire_server_lock("backup", 8, holder="worker-a")
+    second = lock.try_acquire_server_lock("backup", 8, holder="worker-b")
+    other = lock.try_acquire_server_lock("backup", 9, holder="worker-b")
+    assert first and other
+    assert second is None
+    assert lock._local == {}
+    assert seen == ["redis://localhost:6379/0"]
+    assert lock.lock_acquire_failure_counts()["busy"] == 1
+
+    assert lock.release_server_lock("backup", 8, first) is True
+    recovered = lock.try_acquire_server_lock("backup", 8, holder="worker-b")
+    assert recovered
+    assert lock._local == {}
+
+    shared.fail_set = True
+    before = lock.lock_acquire_failure_counts()["redis_error"]
+    with pytest.raises(lock.LockUnavailable):
+        lock.try_acquire_server_lock("backup", 8, holder="worker-c")
+    assert lock._local == {}
+    assert lock._redis_failed is False
+    assert lock.lock_acquire_failure_counts()["redis_error"] == before + 1
+
+    shared.fail_set = False
+    assert lock.release_server_lock("backup", 8, recovered) is True
+    again = lock.try_acquire_server_lock("backup", 8, holder="worker-c")
+    assert again
+    assert lock._local == {}
+    assert seen[-1] == "redis://localhost:6379/0"
+
+
+def test_single_process_flag_is_the_only_local_lock(monkeypatch):
+    import redis
+
+    called = {"n": 0}
+
+    def _from_url(*_args, **_kwargs):
+        called["n"] += 1
+        raise AssertionError("single-process mode must not open Redis")
+
+    monkeypatch.setenv("PIHERDER_SINGLE_PROCESS", "1")
+    monkeypatch.setenv("CELERY_BROKER_URL", "redis://192.0.2.8:6379/0")
+    lock.reset_redis_client_for_tests()
+    lock._redis_failed = False
+    lock.clear_local_locks_for_tests()
+    monkeypatch.setattr(redis, "from_url", _from_url)
+    token = lock.try_acquire_server_lock("backup", 6, holder="solo")
+    assert token
+    assert called["n"] == 0
+    assert lock._local

@@ -16,7 +16,12 @@ def check_database() -> bool:
 
 
 def check_redis() -> bool:
-    """Ping every Redis URL the boot banner checks. One failure is not ready."""
+    """Ping the same Redis URLs the boot banner checks.
+
+    The first two are the broker and result backend Celery resolved,
+    including the localhost default when those variables are empty.
+    One failure is not ready.
+    """
     import redis
 
     from ..security.boot_secrets import redis_urls_from_env

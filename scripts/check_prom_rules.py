@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RULES = ROOT / "contrib" / "prometheus" / "piherder.rules.yml"
+RULE_TESTS = ROOT / "contrib" / "prometheus" / "piherder.rules.test.yml"
 CACHED = Path("/tmp/promtool-v2.55.1/promtool")
 
 
@@ -41,9 +42,24 @@ def main() -> int:
     )
     sys.stdout.write(proc.stdout)
     sys.stderr.write(proc.stderr)
-    if proc.returncode == 0:
-        print("promtool check rules ok")
-    return proc.returncode
+    if proc.returncode != 0:
+        return proc.returncode
+    print("promtool check rules ok")
+    if not RULE_TESTS.is_file():
+        print(f"missing {RULE_TESTS}")
+        return 1
+    tested = subprocess.run(
+        [tool, "test", "rules", str(RULE_TESTS)],
+        check=False,
+        text=True,
+        capture_output=True,
+        cwd=RULE_TESTS.parent,
+    )
+    sys.stdout.write(tested.stdout)
+    sys.stderr.write(tested.stderr)
+    if tested.returncode == 0:
+        print("promtool test rules ok")
+    return tested.returncode
 
 
 if __name__ == "__main__":

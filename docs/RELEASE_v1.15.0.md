@@ -44,7 +44,7 @@ Issue [#86](https://github.com/bjorngluck/piherder/issues/86). `GET /health` is 
 
 ### Locks fail closed
 
-Issue [#78](https://github.com/bjorngluck/piherder/issues/78). A Redis error while taking a host lock does not fall back to a process-local lock. That includes a failed first ping. The failure is not cached, so the next attempt opens a new connection. A connection error retries later and reports `lock_unavailable`. The log is a warning. `piherder_lock_acquire_failures_total` increases with `reason` `redis_error`. A held lock uses `reason` `busy`. A rejected password fails the host job once with `Redis authentication failed.` and does not retry. The log line has no URL and no password. Process-local locks remain only when no broker URL is set.
+Issue [#78](https://github.com/bjorngluck/piherder/issues/78). Celery, host locks, and `/ready` use the same broker and result-backend resolvers. An empty or unset broker variable is still `redis://localhost:6379/0`. A Redis error while taking a host lock does not fall back to a process-local lock. That includes a failed first ping. The failure is not cached, so the next attempt opens a new connection. A connection error retries later and reports `lock_unavailable`. The log is a warning. `piherder_lock_acquire_failures_total` increases with `reason` `redis_error`. A held lock uses `reason` `busy`. A rejected password fails the host job once with `Redis authentication failed.` and does not retry. The log line has no URL and no password. Move's inline path does the same: the password failure closes the job, and a Redis outage leaves the job pending with `lock_unavailable`. Process-local locks remain only for tests and for `PIHERDER_SINGLE_PROCESS=1`.
 
 Issue [#79](https://github.com/bjorngluck/piherder/issues/79). Patch, stack, reboot, and prune take the same per-host lock as a backup, and each waits while a backup holds it.
 
@@ -52,7 +52,7 @@ Issue [#79](https://github.com/bjorngluck/piherder/issues/79). Patch, stack, reb
 
 Issue [#92](https://github.com/bjorngluck/piherder/issues/92). The files API and hosted `read_file` refuse names that look like secrets (`.env`, `*.key`, `id_*`, `*.pem`, `secrets`, and similar). The tool text says the tool is sensitive.
 
-Issue [#94](https://github.com/bjorngluck/piherder/issues/94). A webhook URL that resolves to a private, loopback, or link-local address is rejected unless `PIHERDER_WEBHOOK_ALLOW_CIDRS` lists that address. The compose file still defaults `PIHERDER_TRUSTED_PROXY_CIDRS` to loopback only (`127.0.0.1/32`, `::1/128`). An existing `.env` value wins over that default and is left as it is. Bundled Caddy is another container, so its peer is not loopback. Set the variable to that one proxy address. Do not list the whole compose subnet. Forwarded headers from any other peer are ignored.
+Issue [#94](https://github.com/bjorngluck/piherder/issues/94). A webhook URL that resolves to a private, loopback, or link-local address is rejected unless `PIHERDER_WEBHOOK_ALLOW_CIDRS` lists that address. Stock compose gives the default network subnet `192.0.2.0/24` and pins Caddy at `192.0.2.10`. `PIHERDER_TRUSTED_PROXY_CIDRS` defaults to that one address plus loopback (`192.0.2.10/32`, `127.0.0.1/32`, `::1/128`). An existing `.env` value wins. Do not list the whole subnet. Another container on that subnet cannot supply forwarded headers. If `192.0.2.0/24` is already used by another Docker network, set `PIHERDER_COMPOSE_SUBNET`, set `PIHERDER_CADDY_IP` inside it, and set the trusted-proxy variable to that address as a `/32` plus loopback.
 
 Issue [#84](https://github.com/bjorngluck/piherder/issues/84) and [#97](https://github.com/bjorngluck/piherder/issues/97). `tojson` stays inside a script tag. Templates set the CSP nonce on the script tags they write. Rendered HTML is not scanned for script tags.
 
@@ -112,16 +112,16 @@ Issue [#90](https://github.com/bjorngluck/piherder/issues/90). `tests/fixtures/m
 
 Not an upgrade path while this draft is untagged. The image to run is still **1.14.0**.
 
-When the tag is cut, recreate **web**, **celery-worker**, and **celery-worker-nmap**. Alembic `054_job_audit_indexes` runs on web start. About should say **1.15.0**. Do not apply that revision by hand before this image is running.
+When the tag is cut, stop **celery-worker** and **celery-worker-nmap** first so they do not write job rows while the indexes change. Recreate **web** and let it apply Alembic `054_job_audit_indexes`. Start **celery-worker** after `/ready` reports migrations ok. Start **celery-worker-nmap** only with `--profile nmap`. About should say **1.15.0**. Do not apply that revision by hand before this image is running. A plain `docker compose up` does not start the nmap worker. It is a second image (`Dockerfile.nmap`), it runs as root on the host network, and it adds `NET_RAW` and `NET_ADMIN`.
 
 Before that recreate:
 
 - Set a unique database password on the Postgres role and in `DATABASE_URL`. An existing volume keeps the role password it was created with. `POSTGRES_PASSWORD` in compose applies to a new volume.
 - Set `REDIS_PASSWORD` and include it in the Redis URLs. Compose still starts Redis when the variable is unset, and the banner stays until the password is set.
-- `docker-compose.yml` is unchanged. Its default for `PIHERDER_TRUSTED_PROXY_CIDRS` is still loopback only. An existing `.env` value wins. Bundled Caddy is on the compose network, so set the variable to that one proxy address before expecting real client IPs. Do not list the whole subnet.
+- Stock compose pins Caddy at `192.0.2.10` on subnet `192.0.2.0/24`. The trusted-proxy default is that `/32` plus loopback. An existing `.env` value wins. Do not list the whole subnet. If the subnet conflicts with another Docker network, set `PIHERDER_COMPOSE_SUBNET`, `PIHERDER_CADDY_IP`, and the trusted-proxy `/32` together.
 - A webhook aimed at a private address needs `PIHERDER_WEBHOOK_ALLOW_CIDRS`.
 - `GET /health` is liveness. `GET /ready` reports database, Redis, and migration failure.
-- Rollback to image `1.14.0` uses the same `PIHERDER_MASTER_KEY`. While the 1.15 web container can still see the database, downgrade Alembic to `053_alert_mute` (that drops the two `054` indexes only), then pin the image. Upgrade-to-head CI is not this rehearsal.
+- Rollback to image `1.14.0` uses the same `PIHERDER_MASTER_KEY`. Stop the workers first. While the 1.15 web container can still see the database, downgrade Alembic to `053_alert_mute` (that drops the two `054` indexes only), then pin the image and start web before the workers. Upgrade-to-head CI is not this rehearsal.
 - The weak-secret banner is a compatibility choice. It is not credential enforcement. Issue [#93](https://github.com/bjorngluck/piherder/issues/93) stays open. A rejected Redis password still fails the host job.
 
 Plugin **0.5.4** stays the card. Adapter **0.4.4** stays the package on PyPI. The public demo is updated only when asked.

@@ -326,8 +326,8 @@ Opt-in Catalog integration — see user wiki [LAN Discovery](../wiki/integration
 
 | Item | Detail |
 |------|--------|
-| Worker | `celery-worker-nmap` starts with the stack · image `Dockerfile.nmap` · queue `nmap` · concurrency 1 · host network |
-| Default install | Nmap worker is in the stack. No vuln DB in image layers |
+| Worker | Profile `nmap`. Not started by a plain `docker compose up`. Image `Dockerfile.nmap`. Queue `nmap`. Concurrency 1. Host network. Root, `NET_RAW`, `NET_ADMIN` |
+| Default install | Nmap worker is off until `--profile nmap`. No vuln DB in image layers |
 | Vuln pack | Host volume `./piherder_nmap_vuln` (web ro, worker rw); update job on nmap queue |
 | Schedules | Multiple; create **and edit**; all off by default |
 | Curated options | Timing (`-T3`–`T5`), port scope (top / all / list), UDP, deep **script presets** (none/cpe/offline/full) — no free-form flags |
@@ -602,7 +602,7 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Host Files** | Default off (`PIHERDER_HOST_FILES=false`). **Files** button on every SSH host (including HAOS). Fleet jail = docker_base or home; privileged jail = `/` minus virtual FS. Operator+ on a real herder; public demo is a **canned** tree (no SFTP). API scope `files` (fleet list/get/put only). UI: edit, zip/unzip, chmod/chown, search (names + contents), preview, `.env` step-up, Docker volumes + `docker cp`. Transfer cap: Settings → Files (default 512 MiB, ceiling 32 GiB; env lock). Wiki: [host-files](../wiki/day-to-day/host-files.md) |
 | **Service migrate** | Default on (`PIHERDER_SERVICE_MIGRATE`; set `false` to hide **Move to another host…**). Project **Lock to this host…** is always available (operator+). HAOS is never a migrate source/dest. Flag on: stop → copy → dest up → DNS **or** NPM `forward_host` PUT (proxy-host binding is enough) → TLS/Kuma validate → rebind (maps, Kuma service, Grafana container chips, cert clone). Optional **Adopt into fabric**. Optional leftover `compose down`, or **remove** source project + named volumes (extra ack; dest never wiped). Copy/dest-up fail: JobHold **Start source stack**. A finished Move has no Undo. **v1.5:** job runs on **Celery** (`app.tasks.service_migrate`, same worker as backups). Recycle **web** mid-Move is safe; recycle **celery-worker** fails a running Move (staging kept). Rebuild **web and celery-worker** after migrate code changes. **v1.4** ran on web `BackgroundTasks`. [RELEASE_v1.4.0](RELEASE_v1.4.0.md) is historical. Hosted `/mcp` `start_move` calls that moves route. Undo stays off MCP. `POST /jobs` with `service_migrate` is refused. `POST /api/v1/servers/{id}/moves` with `confirm: true` starts one (leftover stopped). The Home Assistant card (plugin **0.5.3**) uses that route. Wiki: [Move a service](../wiki/docker/service-migration.md) |
 | **SSH host keys** | First successful **Test connection** **pins** the remote key (TOFU). Mismatch refuses. Reset the pin under SSH access after a rebuild. New hosts default SSH user **`pi`** (existing rows unchanged). |
-| **App port** | Compose binds **`127.0.0.1:8000`** only. Honour `X-Forwarded-For` / `CF-Connecting-IP` only from `PIHERDER_TRUSTED_PROXY_CIDRS`. The compose file still defaults that to loopback, and an existing `.env` value wins. Set it to the one Caddy address, not the whole compose subnet. |
+| **App port** | Compose binds **`127.0.0.1:8000`** only. Honour `X-Forwarded-For` / `CF-Connecting-IP` only from `PIHERDER_TRUSTED_PROXY_CIDRS`. Stock compose defaults that to the pinned Caddy address `192.0.2.10/32` plus loopback, and an existing `.env` value wins. Do not list the whole compose subnet. If `192.0.2.0/24` conflicts, set `PIHERDER_COMPOSE_SUBNET`, `PIHERDER_CADDY_IP`, and that `/32` together. |
 | **Password-reset URLs** | Built from **`PIHERDER_PUBLIC_URL` only** (Host / `X-Forwarded-Host` ignored). |
 | **Backup vanished (B-retry)** | Auto-retry code 24 / vanished 23; soft-OK by default — `PIHERDER_BACKUP_VANISHED_*` |
 | **Metrics** | Set `METRICS_TOKEN` if `/metrics` is not private-network-only |
@@ -617,7 +617,7 @@ Published release: [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Tag **v1.14.0**. Im
 
 Full catalog with comments and defaults: **[`.env.example`](../.env.example)** (copy to `.env`). Compose injects those keys into **web** and **celery-worker** (Caddy only needs `PIHERDER_HOSTNAME`). Required: `PIHERDER_MASTER_KEY`, plus a strong `SECRET_KEY` in production.
 
-**LAN nmap fence (compose-owned):** `PIHERDER_NMAP_WORKER=0` on web/main celery, `=1` on `celery-worker-nmap`. The worker starts with the stack. Usually **not** set in `.env`. Optional nmap path/image overrides (`PIHERDER_NMAP_VULN_PATH`, `PIHERDER_NMAP_IMAGE`, …) are in `.env.example`. Operator wiki: [env reference, LAN Discovery](../wiki/operations/env-reference.md#lan-discovery-nmap--opt-in).
+**LAN nmap fence (compose-owned):** `PIHERDER_NMAP_WORKER=0` on web/main celery, `=1` on `celery-worker-nmap`. The worker is profile `nmap` and does not start with a plain `docker compose up`. It is a second image, root on the host network, with `NET_RAW` and `NET_ADMIN`. Usually **not** set in `.env`. Optional nmap path/image overrides (`PIHERDER_NMAP_VULN_PATH`, `PIHERDER_NMAP_IMAGE`, …) are in `.env.example`. Operator wiki: [env reference, LAN Discovery](../wiki/operations/env-reference.md#lan-discovery-nmap--opt-in).
 
 ### Volumes (compose defaults)
 

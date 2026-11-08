@@ -12,7 +12,7 @@ Design: [PLAN_v1.15.0.md](PLAN_v1.15.0.md). Maintainer ticks: [QA_v1.15.0.md](QA
 
 ## Test plan
 
-- [ ] Unit suite on sqlite. CI `--cov-fail-under` is **90**. Lock init failure, log redaction, and `/ready` Redis URLs are in that suite
+- [ ] Unit suite on sqlite. CI `--cov-fail-under` is **90**. Lock init failure, shared broker URL, Move lock errors, log redaction, `/ready` Redis URLs, and the stock Caddy peer are in that suite
 - [ ] Postgres migration job upgrades to head and downgrades to base
 - [ ] `mkdocs build --strict`
 - [ ] Walk [QA_v1.15.0.md](QA_v1.15.0.md), including the 1.14 regression

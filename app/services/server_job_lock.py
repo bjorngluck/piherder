@@ -3,9 +3,11 @@
 Guarantees at most one active backup (or patch) **per server** across workers,
 while allowing parallel jobs **across** different servers.
 
-Primary backend: Redis (same broker as Celery). Process-local locks are
-only for a process with no broker URL, and for tests that set
-``_redis_failed``. A configured Redis that fails at connect, at the first
+Primary backend: the same broker URL Celery and ``/ready`` use
+(``effective_broker_url``). An unset broker variable is still that
+localhost default, not a reason to skip Redis. Process-local locks are
+only for tests that set ``_redis_failed``, and for an explicit
+``PIHERDER_SINGLE_PROCESS=1`` run. A Redis error at connect, at the first
 ping, or during a command does not take the local lock and does not
 remember the failure.
 """
@@ -75,12 +77,12 @@ def _lock_key(kind: LockKind, server_id: int) -> str:
     return f"{KEY_PREFIX}:{kind}:{int(server_id)}"
 
 
-def _broker_configured() -> bool:
-    """True when the process was given a Redis URL. The localhost default is not configured."""
-    return bool(
-        (os.getenv("CELERY_BROKER_URL") or "").strip()
-        or (os.getenv("CELERY_RESULT_BACKEND") or "").strip()
-    )
+def _local_locks_allowed() -> bool:
+    """True only for the test switch or an explicit single-process run."""
+    if _redis_failed:
+        return True
+    flag = (os.getenv("PIHERDER_SINGLE_PROCESS") or "").strip().lower()
+    return flag in {"1", "true", "yes", "on"}
 
 
 def _redis_failure(exc: BaseException) -> Exception:
@@ -118,23 +120,24 @@ def _close_quiet(client) -> None:
 
 
 def _get_redis():
-    """Shared Redis client, or None when Redis is not configured.
+    """Shared Redis client, or None when process-local locks are explicit.
 
-    A configured URL that fails raises LockUnavailable or RedisAuthFailed.
-    The failure is not cached.
+    Any other process uses ``effective_broker_url``, including the localhost
+    default. A connect or ping failure raises LockUnavailable or
+    RedisAuthFailed. The failure is not cached.
     """
     global _redis_client
-    if _redis_failed:
+    if _local_locks_allowed():
         return None
     if _redis_client is not None:
         return _redis_client
-    if not _broker_configured():
-        return None
     client = None
     try:
         import redis
 
-        url = os.getenv("CELERY_BROKER_URL") or os.getenv("CELERY_RESULT_BACKEND") or ""
+        from ..security.boot_secrets import effective_broker_url
+
+        url = effective_broker_url()
         client = redis.from_url(url, decode_responses=True, socket_connect_timeout=2)
         client.ping()
         _redis_client = client

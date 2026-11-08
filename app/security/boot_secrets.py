@@ -156,10 +156,24 @@ def prepare_process_urls(settings=None) -> None:
         os.environ["DATABASE_URL"] = updated
 
 
+def effective_broker_url(env: dict[str, str] | None = None) -> str:
+    """Broker URL Celery uses. An empty or unset variable is the localhost default."""
+    source = os.environ if env is None else env
+    raw = (source.get("CELERY_BROKER_URL") or "").strip()
+    return raw or _DEFAULT_REDIS_URL
+
+
+def effective_backend_url(env: dict[str, str] | None = None) -> str:
+    """Result-backend URL Celery uses. An empty or unset variable is the localhost default."""
+    source = os.environ if env is None else env
+    raw = (source.get("CELERY_RESULT_BACKEND") or "").strip()
+    return raw or _DEFAULT_REDIS_URL
+
+
 def redis_urls_from_env(env: dict[str, str] | None = None) -> list[str]:
     source = os.environ if env is None else env
-    broker = (source.get("CELERY_BROKER_URL") or _DEFAULT_REDIS_URL).strip() or _DEFAULT_REDIS_URL
-    backend = (source.get("CELERY_RESULT_BACKEND") or _DEFAULT_REDIS_URL).strip() or _DEFAULT_REDIS_URL
+    broker = effective_broker_url(source)
+    backend = effective_backend_url(source)
     urls = [broker]
     if backend not in urls:
         urls.append(backend)

@@ -1,16 +1,16 @@
 from celery import Celery
 from celery.signals import after_setup_logger, after_setup_task_logger, worker_init, worker_ready
-import os
 
-from .security.boot_secrets import prepare_process_urls
+from .security.boot_secrets import effective_backend_url, effective_broker_url, prepare_process_urls
 
 # Celery reads the broker URL once, at import. Normalize before that read.
+# Host locks and /ready use the same two resolvers.
 prepare_process_urls(None)
 
 celery = Celery(
     "piherder",
-    broker=os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"),
-    backend=os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0"),
+    broker=effective_broker_url(),
+    backend=effective_backend_url(),
     include=["app.tasks"]
 )
 

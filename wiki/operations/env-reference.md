@@ -98,6 +98,7 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 | `PIHERDER_WORKER_METRICS_URL` | `http://celery-worker:9809/metrics`. `GET /metrics/worker` fetches this URL. A request parameter cannot change it |
 | `PROMETHEUS_MULTIPROC_DIR` | `/tmp/piherder-metrics` on the celery-worker so prefork children add their counts |
 | `PIHERDER_SERVER_LOCK_TTL` | `7200` backup mutex TTL |
+| `PIHERDER_SINGLE_PROCESS` | Unset. Set `1` only for one process with no shared Redis. Host locks stay in that process. Leave it unset when Celery or more than one worker is running |
 | `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` | Unset — **Settings → General → Jobs** (default 30 minutes). When this env var is set it **locks** that field. Probe every 30s. Floor 30, ceiling 86400 |
 | `PIHERDER_INSTANCE_NAME` | Unset — **Settings → General → Instance**. When set, locks the header wordmark. Empty Settings name keeps Pi / Herder. The mark image stays |
 | `PIHERDER_ACCENT` | Unset — same card. `#RRGGBB` locks the accent (`--color-accent` and the subtle accent background). Primary red `#e60012` stays. Demo ignores name, accent, and the Catalog checkbox. Hiding Catalog has no env var |
@@ -105,7 +106,7 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 
 ## LAN Discovery (nmap) {#lan-discovery-nmap--opt-in}
 
-`docker compose up` starts `celery-worker-nmap` with the rest of the stack. Web still never runs nmap. See [LAN Discovery](../integrations/lan-discovery.md) · [install](../getting-started/install.md#6-optional-lan-discovery-nmap-worker).
+`docker compose up` does not start `celery-worker-nmap`. The service is profile `nmap`. Web still never runs nmap. The worker is a second image (`Dockerfile.nmap`), runs as root on the host network, and adds `NET_RAW` and `NET_ADMIN`. Leave the profile off unless you want that process. See [LAN Discovery](../integrations/lan-discovery.md) · [install](../getting-started/install.md#6-optional-lan-discovery-nmap-worker).
 
 ### Worker fence (compose-owned — usually not in `.env`)
 
@@ -131,7 +132,7 @@ Task code also refuses when the **`nmap` binary is missing** (main image has no 
 
 ```bash
 docker build -f Dockerfile.nmap -t piherder:nmap-local .
-docker compose up -d celery-worker-nmap
+docker compose --profile nmap up -d celery-worker-nmap
 ```
 
 ## Agents (MCP)
@@ -158,7 +159,9 @@ The herder has **no MCP env var and no MCP port**. `PIHERDER_URL` and `PIHERDER_
 | `METRICS_TOKEN` | Bearer for `GET /metrics` — **set in production** (empty = open scrape on app port) |
 | `METRICS_BACKUP_STALE_HOURS` | Stale backup gauge (default 36) |
 | `CORS_ORIGINS` | Exact browser origins for `/api/v1` (empty = off) |
-| `PIHERDER_TRUSTED_PROXY_CIDRS` | CIDRs whose TCP peer may supply `CF-Connecting-IP` / `X-Forwarded-For` / `X-Real-IP`. Empty = **never** trust those headers (peer only). Compose default is loopback only (`127.0.0.1/32`, `::1/128`). Set the proxy subnet. A peer on `10.0.0.0/8`, `172.16.0.0/12`, or `192.168.0.0/16` is not trusted until that subnet is listed |
+| `PIHERDER_TRUSTED_PROXY_CIDRS` | CIDRs whose TCP peer may supply `CF-Connecting-IP` / `X-Forwarded-For` / `X-Real-IP`. Empty = **never** trust those headers (peer only). Compose default is the pinned Caddy address plus loopback (`192.0.2.10/32`, `127.0.0.1/32`, `::1/128`). An existing `.env` value wins. Do not list the compose subnet. A peer on `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, or another address in `192.0.2.0/24` is not trusted until that address is listed |
+| `PIHERDER_COMPOSE_SUBNET` | `192.0.2.0/24`. Compose default network. Change it only when that subnet is already in use, and then set `PIHERDER_CADDY_IP` inside the new subnet |
+| `PIHERDER_CADDY_IP` | `192.0.2.10`. Pinned Caddy address. If you change it, set `PIHERDER_TRUSTED_PROXY_CIDRS` to that `/32` plus loopback when the variable is already set in `.env` |
 | `PIHERDER_WEBHOOK_ALLOW_CIDRS` | Optional. Webhook URLs that resolve to a private, loopback, or link-local address are refused unless the address is in this list |
 | `WEBHOOK_URL` / `WEBHOOK_NUMBER` | Fallback outbound webhook (e.g. Signal via n8n) when Settings → Alerts has no URL — [Alerts](alerts-email-webhooks.md) |
 | `WEBHOOK_RECIPIENTS` | Optional JSON list of recipients for some webhook paths |

@@ -1,0 +1,42 @@
+rule_files:
+  - piherder.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'up{job="piherder-worker"}'
+        values: '0+0x6 1+0x8'
+      - series: 'piherder_lock_acquire_failures_total{reason="redis_error"}'
+        values: '0 1+0x30'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: PiherderWorkerDown
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: PiherderWorkerDown
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: piherder-worker
+            exp_annotations:
+              summary: The PiHerder worker scrape is down
+              description: Prometheus has not scraped the piherder-worker job for 5 minutes.
+      - eval_time: 8m
+        alertname: PiherderWorkerDown
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: PiherderLockAcquireFailures
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: PiherderLockAcquireFailures
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Host lock acquires are failing
+              description: A worker could not take a host lock during the last 15 minutes. This includes a Redis error on the first ping.
+      - eval_time: 20m
+        alertname: PiherderLockAcquireFailures
+        exp_alerts: []

@@ -15,9 +15,14 @@ from sqlmodel import select
 
 from ..models import Job, Server
 from .server_job_lock import (
+    LockUnavailable,
+    RedisAuthFailed,
     release_dual_server_lock,
     try_acquire_dual_server_lock,
 )
+
+_REDIS_AUTH_ERROR = "Redis authentication failed."
+_HOST_BUSY = "A backup or Move is already using the source or destination host"
 
 logger = logging.getLogger(__name__)
 
@@ -266,6 +271,67 @@ def fail_migrate_worker_restart(job_id: int, audit_id: int) -> None:
     )
 
 
+def _leave_pending_for_lock_retry(job_id: int) -> None:
+    """Keep a Move retryable. Do not close the audit as failed."""
+    js = _jobs()
+    with js._get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if not job or job.status in ("cancelled", "success", "failed"):
+            return
+        job.status = "pending"
+        js._merge_job_details(
+            job, current="lock_unavailable", log_line="lock_unavailable"
+        )
+        session.add(job)
+        session.commit()
+
+
+def _acquire_dual_or_settle(
+    job_id: int,
+    source_id: int,
+    dest_id: int,
+    audit_id: int,
+    job_type: str,
+) -> tuple[str, str] | None:
+    """Take both host locks, or settle the job.
+
+    A rejected Redis password fails the job once. A Redis outage leaves the
+    job pending and raises ``LockUnavailable`` so the caller can retry.
+    A held lock fails the job. ``None`` means the job is already finalized.
+    """
+    js = _jobs()
+    try:
+        tokens = try_acquire_dual_server_lock(
+            "backup", source_id, dest_id, holder=str(job_id)
+        )
+    except RedisAuthFailed:
+        _source, hostname = js._load_server_for_job(source_id)
+        js._finish(
+            audit_id,
+            job_id,
+            "failed",
+            _REDIS_AUTH_ERROR,
+            hostname,
+            job_type,
+        )
+        return None
+    except LockUnavailable:
+        _leave_pending_for_lock_retry(job_id)
+        raise
+    if not tokens:
+        _source, hostname = js._load_server_for_job(source_id)
+        js._finish(
+            audit_id,
+            job_id,
+            "failed",
+            _HOST_BUSY,
+            hostname,
+            job_type,
+        )
+        return None
+    return tokens
+
+
 def _run_migrate_holding_locks(
     job_id: int,
     source_id: int,
@@ -274,20 +340,10 @@ def _run_migrate_holding_locks(
     audit_id: int,
 ) -> None:
     """Inline/pytest path: take the dual-host backup mutex, then run the pipeline."""
-    js = _jobs()
-    lock_tokens = try_acquire_dual_server_lock(
-        "backup", source_id, dest_id, holder=str(job_id)
+    lock_tokens = _acquire_dual_or_settle(
+        job_id, source_id, dest_id, audit_id, "service_migrate"
     )
     if not lock_tokens:
-        source, hostname = js._load_server_for_job(source_id)
-        js._finish(
-            audit_id,
-            job_id,
-            "failed",
-            "A backup or Move is already using the source or destination host",
-            hostname,
-            "service_migrate",
-        )
         return
     try:
         _execute_service_migrate(job_id, source_id, dest_id, project, audit_id)
@@ -608,20 +664,10 @@ def enqueue_service_migrate_undo(
 
 
 def _run_undo_holding_locks(job_id: int, source_id: int, dest_id: int, audit_id: int) -> None:
-    js = _jobs()
-    lock_tokens = try_acquire_dual_server_lock(
-        "backup", source_id, dest_id, holder=str(job_id)
+    lock_tokens = _acquire_dual_or_settle(
+        job_id, source_id, dest_id, audit_id, "service_migrate_undo"
     )
     if not lock_tokens:
-        source, hostname = js._load_server_for_job(source_id)
-        js._finish(
-            audit_id,
-            job_id,
-            "failed",
-            "A backup or Move is already using the source or destination host",
-            hostname,
-            "service_migrate_undo",
-        )
         return
     try:
         _execute_service_migrate_undo(job_id, source_id, dest_id, audit_id)
@@ -821,22 +867,12 @@ def enqueue_service_migrate_dest_recover(
 def _run_dest_recover_holding_locks(
     job_id: int, source_id: int, dest_id: int, audit_id: int
 ) -> None:
-    js = _jobs()
     from .service_migrate.dest_up_recover import JOB_TYPE
 
-    lock_tokens = try_acquire_dual_server_lock(
-        "backup", source_id, dest_id, holder=str(job_id)
+    lock_tokens = _acquire_dual_or_settle(
+        job_id, source_id, dest_id, audit_id, JOB_TYPE
     )
     if not lock_tokens:
-        source, hostname = js._load_server_for_job(source_id)
-        js._finish(
-            audit_id,
-            job_id,
-            "failed",
-            "A backup or Move is already using the source or destination host",
-            hostname,
-            JOB_TYPE,
-        )
         return
     try:
         _execute_dest_up_recover(job_id, source_id, dest_id, audit_id)

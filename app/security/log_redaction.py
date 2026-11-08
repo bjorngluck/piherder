@@ -28,6 +28,8 @@ def redact_text(text: str) -> str:
 
 
 def _redact_value(value):
+    if isinstance(value, BaseException):
+        return redact_text(f"{type(value).__name__}: {value}")
     if isinstance(value, str):
         return redact_text(value)
     if isinstance(value, tuple):
@@ -37,17 +39,47 @@ def _redact_value(value):
     return value
 
 
+def _rendered_message(record: logging.LogRecord) -> str:
+    """Interpolate after the pieces are cleaned, then clean the result."""
+    try:
+        rendered = record.getMessage()
+    except Exception:
+        rendered = str(record.msg)
+    return redact_text(rendered)
+
+
 class CredentialRedactionFilter(logging.Filter):
-    """Redact msg, args, and the formatted traceback."""
+    """Redact the template, the rendered line, arguments, and the traceback.
+
+    Handlers format the record after this filter. The stored template is
+    replaced with the redacted rendered line and the arguments are cleared,
+    so a later ``getMessage()`` cannot put a credential back together.
+    """
 
     def filter(self, record: logging.LogRecord) -> bool:
         try:
-            if record.args:
-                record.args = _redact_value(record.args)
             if isinstance(record.msg, str):
                 record.msg = redact_text(record.msg)
-            if record.exc_info and not record.exc_text:
-                record.exc_text = "".join(traceback.format_exception(*record.exc_info))
+            elif record.msg is not None:
+                record.msg = redact_text(str(record.msg))
+            if record.args:
+                record.args = _redact_value(record.args)
+            record.msg = _rendered_message(record)
+            record.args = ()
+            if isinstance(getattr(record, "message", None), str):
+                record.message = redact_text(record.message)
+            if record.exc_info:
+                etype, value, tb = record.exc_info
+                if not record.exc_text:
+                    record.exc_text = "".join(traceback.format_exception(etype, value, tb))
+                safe_text = redact_text(f"{getattr(etype, '__name__', 'Exception')}: {value}")
+                try:
+                    safe = type(value)(safe_text)
+                except Exception:
+                    safe = RuntimeError(safe_text)
+                # Keep the traceback attached. A later formatter that rebuilds
+                # it from exc_info sees the redacted exception text.
+                record.exc_info = (type(safe), safe, tb)
             if isinstance(record.exc_text, str):
                 record.exc_text = redact_text(record.exc_text)
         except Exception:

@@ -46,7 +46,9 @@ Issue [#77](https://github.com/bjorngluck/piherder/issues/77). From pull request
 
 Issue [#78](https://github.com/bjorngluck/piherder/issues/78).
 
+- [ ] Celery, host locks, and `/ready` use the same broker resolver. An unset broker URL is still `redis://localhost:6379/0`. Process-local locks run only with `PIHERDER_SINGLE_PROCESS=1`
 - [ ] When Redis errors on lock acquire, including the first ping, the job does not run on a process-local lock. It retries later. The failure is not cached
+- [ ] Two workers on that broker cannot both hold one host. After the holder releases, the other worker takes the lock. The busy counter and the Redis-error counter both move
 - [ ] That failure reports `lock_unavailable`. The log is a warning and `piherder_lock_acquire_failures_total` increases with `reason` `redis_error`
 - [ ] A rejected Redis password fails the host job once with `Redis authentication failed.` and does not retry. The log has no URL and no password
 - [ ] A held lock increases the same counter with `reason` `busy`
@@ -124,7 +126,9 @@ Issue [#94](https://github.com/bjorngluck/piherder/issues/94).
 
 - [ ] A webhook URL that resolves to a private, loopback, or link-local address is rejected
 - [ ] `PIHERDER_WEBHOOK_ALLOW_CIDRS` can opt one of those addresses in
-- [ ] The compose trusted-proxy default is loopback only. Forwarded headers from any other peer are ignored
+- [ ] Stock compose trusts `192.0.2.10/32` plus loopback. An existing `.env` value wins. A neighbor on `192.0.2.0/24` cannot spoof forwarded headers. Two clients through Caddy keep separate login rate-limit buckets
+- [ ] If `192.0.2.0/24` is already a Docker network, the install documents `PIHERDER_COMPOSE_SUBNET`, `PIHERDER_CADDY_IP`, and the matching trusted-proxy `/32`
+- [ ] `celery-worker-nmap` stays off unless `--profile nmap` is set. The notes name the extra image build, root, host network, `NET_RAW`, and `NET_ADMIN`
 
 Issue [#95](https://github.com/bjorngluck/piherder/issues/95).
 
@@ -194,7 +198,7 @@ Issue [#98](https://github.com/bjorngluck/piherder/issues/98).
 - [ ] `/metrics` exposes a gauge for the age of the last stack check and a counter for alert delivery failures
 - [ ] `contrib/` has a starter Grafana dashboard and a Prometheus rule file
 - [ ] `promtool check rules` passes on that rule file in CI
-- [ ] The rule file warns on lock acquire failures and on `up{job="piherder-worker"} == 0`
+- [ ] The rule file warns on lock acquire failures and on `up{job="piherder-worker"} == 0`. `promtool test rules` shows each alert fire and clear. No live notification receiver is used
 
 ## Companions
 
@@ -203,7 +207,7 @@ Plugin **0.5.4** and adapter **0.4.4** stay the published packages. No new plugi
 - [ ] The herder README and the wiki still say adapter **0.4.4** until that pull request is merged and tagged
 - [ ] CI `--cov-fail-under` is **90** on `app`. The unit run is **90%** (54249/60276)
 - [ ] Published plugin **0.5.4** and adapter **0.4.4** work against this build with an existing token. A destructive adapter call sends `confirm`
-- [ ] A copy of a 1.14 database moves `053` to `054` and back to `053` with the same master key. Data and settings stay. Record the time. Upgrade-to-head CI is not this rehearsal
+- [ ] A copy of a 1.14 database moves `053` to `054` and back to `053` with the same master key. Data and settings stay. Workers are stopped before the change and started after web is ready. Record the time. Upgrade-to-head CI is not this rehearsal
 
 ## Screenshots
 

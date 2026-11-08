@@ -82,6 +82,8 @@ def test_extract_client_ip_ignores_spoofed_headers_from_untrusted_peer():
 def test_default_proxy_cidrs_ignore_a_private_peer():
     nets = rip.DEFAULT_COMPOSE_TRUSTED_PROXY_CIDRS.split(",")
     assert "10.0.0.0/8" not in nets
+    assert "192.0.2.0/24" not in nets
+    assert "192.0.2.10/32" in nets
     assert (
         rip.extract_client_ip(
             {"X-Forwarded-For": "203.0.113.9"},
@@ -93,11 +95,65 @@ def test_default_proxy_cidrs_ignore_a_private_peer():
     assert (
         rip.extract_client_ip(
             {"X-Forwarded-For": "203.0.113.9"},
+            "192.0.2.20",
+            trusted_cidrs=nets,
+        )
+        == "192.0.2.20"
+    )
+    assert (
+        rip.extract_client_ip(
+            {"X-Forwarded-For": "203.0.113.9"},
+            "192.0.2.10",
+            trusted_cidrs=nets,
+        )
+        == "203.0.113.9"
+    )
+    assert (
+        rip.extract_client_ip(
+            {"X-Forwarded-For": "203.0.113.9"},
             "127.0.0.1",
             trusted_cidrs=nets,
         )
         == "203.0.113.9"
     )
+
+
+def test_stock_caddy_clients_have_separate_login_buckets(monkeypatch):
+    """Two visitors through Caddy do not share a bucket. A spoofed header does not move it."""
+    from app.security import auth as auth_mod
+
+    monkeypatch.delenv("PIHERDER_DISABLE_AUTH_RATE_LIMIT", raising=False)
+    nets = rip.DEFAULT_COMPOSE_TRUSTED_PROXY_CIDRS.split(",")
+    caddy = "192.0.2.10"
+    left = rip.extract_client_ip(
+        {"X-Forwarded-For": "203.0.113.10"}, caddy, trusted_cidrs=nets
+    )
+    right = rip.extract_client_ip(
+        {"X-Forwarded-For": "203.0.113.11"}, caddy, trusted_cidrs=nets
+    )
+    assert left == "203.0.113.10"
+    assert right == "203.0.113.11"
+    spoofed = rip.extract_client_ip(
+        {"X-Forwarded-For": "203.0.113.10", "CF-Connecting-IP": "198.51.100.9"},
+        "198.51.100.8",
+        trusted_cidrs=nets,
+    )
+    assert spoofed == "198.51.100.8"
+    neighbor = rip.extract_client_ip(
+        {"X-Forwarded-For": "203.0.113.10"},
+        "192.0.2.20",
+        trusted_cidrs=nets,
+    )
+    assert neighbor == "192.0.2.20"
+    auth_mod._auth_attempts.clear()
+    try:
+        for _ in range(10):
+            assert auth_mod.rate_limit_auth(f"login:{left}", max_attempts=10, window_seconds=300)
+        assert not auth_mod.rate_limit_auth(f"login:{left}", max_attempts=10, window_seconds=300)
+        assert auth_mod.rate_limit_auth(f"login:{right}", max_attempts=10, window_seconds=300)
+        assert auth_mod.rate_limit_auth(f"login:{spoofed}", max_attempts=10, window_seconds=300)
+    finally:
+        auth_mod._auth_attempts.clear()
 
 
 def test_extract_client_ip_empty_cidrs_never_trusts_forwarded():
