@@ -131,6 +131,7 @@ Nothing else was voted **Out**.
 | 2026-10-28 | **QA.** Operator walks are written in [QA_v1.14.0.md](QA_v1.14.0.md) and are not signed. Screenshot names are reserved in the [v1.14 pack](../wiki/assets/screenshots/README.md#v114--pack-status). Not captured. About and the footer stay **1.13.0**. |
 | 2026-10-28 | **Draft notes.** [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md) is a draft. Package stays **1.13.0**. Not tagged. Not an upgrade path. Draft pull request [#70](https://github.com/bjorngluck/piherder/pull/70). |
 | 2026-11-08 | **QA.** Schedules, Drive, Fleet read, and Console are signed in [QA_v1.14.0.md](QA_v1.14.0.md). The remaining walks are not signed. |
+| 2026-11-08 | **QA.** Backups, Docker, and Alerts are signed in [QA_v1.14.0.md](QA_v1.14.0.md). Plugin and adapter, the push denylist, screenshots, and the 1.13 regression stay open. |
 | 2026-10-31 | **Review follow-ups.** Catch-up `result` is `queued`. A failed catch-up is not retried. A busy host writes at most one audit row for that slot. `clock` scales with the schedule. Volume prune accepts `dry_run`. Demo mode blocks volume and build-cache prune. A retry keeps the first pre-restore snapshot until the restore succeeds or Undo runs. Undo uses rsync `--delete`. Free space is checked with statvfs before the host is copied. Extra host files warn. Restore preview diffs the local backup, times out at 120 seconds, and returns 409 when that host is busy. `admin_change` cannot be muted. |
 
 ---
@@ -143,7 +144,7 @@ Nothing else was voted **Out**.
 | 2 | Must, in order #62, #63, #61, mobile console, coverage 85, plugin brand, adapter tag | **Done** 2026-10-27. Plugin **v0.5.4** is tagged. Adapter **v0.4.4** is tagged. Volume prune is not on that tag. Samsung Keyboard is KI-console-samsung-keyboard |
 | 3 | Should, if it fits | Mute rules ([#64](https://github.com/bjorngluck/piherder/issues/64)) are in the tree. HACS install wording is in the tree. Plugin version stays **0.5.4**. A pre-restore snapshot is in the tree. Manifest file-count and byte verification is in the tree. The dry-run restore preview API is in the tree. The compose git drift badge is in the tree. Volume prune is in the tree. Adapter **0.4.4** does not list it. The push-denylist workflow is in. Secret `PIHERDER_PUSH_DENYLIST` is not set |
 | 4 | Freeze | Not set. Package stays **1.13.0** |
-| 5 | Operator QA | Schedules, Drive, Fleet read, and Console signed 2026-11-08 in [QA_v1.14.0.md](QA_v1.14.0.md). Remaining walks are not signed. Screenshots reserved, not captured |
+| 5 | Operator QA | Schedules, Drive, Fleet read, Console, Backups, Docker, and Alerts signed 2026-11-08 in [QA_v1.14.0.md](QA_v1.14.0.md). Plugin and adapter, the push denylist, screenshots, and the 1.13 regression are not signed. Screenshots reserved, not captured |
 | 6 | Draft notes and pull request | Notes are [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Draft pull request [#70](https://github.com/bjorngluck/piherder/pull/70). Draft until QA is signed |
 | 7 | Tag and Hub | Not cut |
 

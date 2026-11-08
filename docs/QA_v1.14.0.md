@@ -6,7 +6,7 @@
 
 **Package:** stays **`1.13.0`**. About / footer stay **1.13.0**.
 
-**Operator QA:** Schedules, Drive, Fleet read, and Console are signed 2026-11-08. The remaining walks are not signed.
+**Operator QA:** Schedules, Drive, Fleet read, Console, Backups, Docker, and Alerts are signed 2026-11-08. Plugin and adapter, the push denylist, screenshots, and the 1.13 regression are not signed.
 
 **Release notes:** not written. Not tagged.
 
@@ -20,7 +20,7 @@ Plan: [PLAN_v1.14.0.md](PLAN_v1.14.0.md). v1.13 sign-off stays [QA_v1.13.0.md](Q
 
 Plugin work is [bjorngluck/piherder-ha](https://github.com/bjorngluck/piherder-ha). It is not inside the PiHerder image. Adapter work is [bjorngluck/piherder-mcp](https://github.com/bjorngluck/piherder-mcp). Do not point the public demo at this branch. Do not photograph the public demo. Mask names, paths, addresses, and secrets.
 
-Must and Should code is on `v1.14.0-dev`. These boxes are the operator walk. Schedules, Drive, Fleet read, and Console are signed 2026-11-08. The remaining boxes are not signed. Alembic `052_schedule_catchup` and `053_alert_mute` are in the tree and are not applied to a live database. This walk does not apply them. Issues [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) stay open until the release.
+Must and Should code is on `v1.14.0-dev`. These boxes are the operator walk. Schedules, Drive, Fleet read, Console, Backups, Docker, and Alerts are signed 2026-11-08. The remaining boxes are not signed. Alembic `052_schedule_catchup` and `053_alert_mute` are in the tree and are not applied to a live database. This walk does not apply them. Issues [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) stay open until the release.
 
 ---
 
@@ -85,55 +85,55 @@ Signed 2026-11-08.
 
 A real restore copies the current host folder aside first. Undo writes that copy back. A new sidecar records `file_count` and `byte_count` for regular files.
 
-Not signed.
+Signed 2026-11-08.
 
-- [ ] A real restore copies the current host folder aside before it writes. The copy keeps owners. A retry keeps that first copy until the restore succeeds or Undo runs
-- [ ] Free space is checked with statvfs against the local source size. A short disk fails before the host is copied
-- [ ] A snapshot that fails does not start the restore
-- [ ] Dry-run does not take the snapshot
-- [ ] **Undo last restore** writes that copy back with rsync `--delete`, which removes files created after the restore
-- [ ] A sidecar from this train stores `file_count` and `byte_count` for regular files only
-- [ ] A real restore is good only when the host matches both counts. Extra files already on the host are a warning and the restore still succeeds
-- [ ] An older sidecar without those counts still restores
-- [ ] Dry-run does not check the counts
-- [ ] `GET /api/v1/servers/{id}/backup/restore-preview` (`read`) is an SSH rsync dry-run of the local backup with a 120 second timeout. It does not show permission or owner-only changes. A second preview while the host backup lock is held returns 409. It does not write
-- [ ] That preview is not a hosted MCP tool
-- [ ] The v1.13 ownership step still applies numeric `uid`, `gid`, and mode with `setuid` and `setgid` cleared
+- [x] A real restore copies the current host folder aside before it writes. The copy keeps owners. A retry keeps that first copy until the restore succeeds or Undo runs
+- [x] Free space is checked with statvfs against the local source size. A short disk fails before the host is copied
+- [x] A snapshot that fails does not start the restore
+- [x] Dry-run does not take the snapshot
+- [x] **Undo last restore** writes that copy back with rsync `--delete`, which removes files created after the restore
+- [x] A sidecar from this train stores `file_count` and `byte_count` for regular files only
+- [x] A real restore is good only when the host matches both counts. Extra files already on the host are a warning and the restore still succeeds
+- [x] An older sidecar without those counts still restores
+- [x] Dry-run does not check the counts
+- [x] `GET /api/v1/servers/{id}/backup/restore-preview` (`read`) is an SSH rsync dry-run of the local backup with a 120 second timeout. It does not show permission or owner-only changes. A second preview while the host backup lock is held returns 409. It does not write
+- [x] That preview is not a hosted MCP tool
+- [x] The v1.13 ownership step still applies numeric `uid`, `gid`, and mode with `setuid` and `setgid` cleared
 
 ## Docker (Should)
 
 **Git drift** is a pill on the stack list. Volume prune on the API is a separate call from the host page job and from scheduled `docker_prune`.
 
-Not signed.
+Signed 2026-11-08.
 
-- [ ] The stack list shows **Git drift** when a tracked checkout is behind the last fetched origin branch, ahead of it, or has tracked edits
-- [ ] Untracked files do not show the pill
-- [ ] The inventory probe does not fetch and does not deploy. The pill appears after the next inventory refresh
-- [ ] The host page confirm queues a `docker_prune` job for unused volumes. `docker-prune.png` and `docker-build-cache-prune.png` stay
-- [ ] `POST /api/v1/servers/{id}/docker/volumes` (`edit`) with `dry_run` true lists unused volumes and deletes nothing. `confirm` true prunes them in the request and writes `source`, names, and bytes reclaimed. It is not a `docker_prune` job and not scheduled
-- [ ] A body without `confirm` true does not prune
-- [ ] A `read` token cannot call that route
-- [ ] Hosted `prune_volumes` (`edit`) does the same prune when `confirm` is true. A missing confirm returns an error and does not call the API
-- [ ] Each of those writes one audit row, `docker_volume_prune`
-- [ ] A saved `docker_prune_schedule` still starts `both` only. Volumes stay off that schedule
-- [ ] Adapter **0.4.4** does not list `prune_volumes`. **0.4.3** was not moved
+- [x] The stack list shows **Git drift** when a tracked checkout is behind the last fetched origin branch, ahead of it, or has tracked edits
+- [x] Untracked files do not show the pill
+- [x] The inventory probe does not fetch and does not deploy. The pill appears after the next inventory refresh
+- [x] The host page confirm queues a `docker_prune` job for unused volumes. `docker-prune.png` and `docker-build-cache-prune.png` stay
+- [x] `POST /api/v1/servers/{id}/docker/volumes` (`edit`) with `dry_run` true lists unused volumes and deletes nothing. `confirm` true prunes them in the request and writes `source`, names, and bytes reclaimed. It is not a `docker_prune` job and not scheduled
+- [x] A body without `confirm` true does not prune
+- [x] A `read` token cannot call that route
+- [x] Hosted `prune_volumes` (`edit`) does the same prune when `confirm` is true. A missing confirm returns an error and does not call the API
+- [x] Each of those writes one audit row, `docker_volume_prune`
+- [x] A saved `docker_prune_schedule` still starts `both` only. Volumes stay off that schedule
+- [x] Adapter **0.4.4** does not list `prune_volumes`. **0.4.3** was not moved
 
 ## Alerts (Should)
 
 Issue [#64](https://github.com/bjorngluck/piherder/issues/64). Mute rules are separate from category mute. Alembic `053_alert_mute` is not applied to a live database.
 
-Not signed.
+Signed 2026-11-08.
 
-- [ ] Settings → Alerts → **Mute rules** can save one host or one alert type
-- [ ] A second rule for the same host or the same type is rejected. Kind and target stay fixed after create
-- [ ] A window is optional. A start with no end is rejected. An end that is not after the start is rejected
-- [ ] An active rule skips webhook, email, and push. The inbox row is still written. The schedule still runs
-- [ ] These types cannot be muted, including by a host rule: `backup_failed`, `herder_backup_failed`, `backup_destination_auth_failed`, `drive_oauth_refresh_failed`, `drive_oauth_token_aging`, and `admin_change`
-- [ ] Create, edit, and delete write `alert_mute_created`, `alert_mute_updated`, and `alert_mute_deleted`. Scope `edit` is required. A `read` token can list rules and cannot change one
-- [ ] Demo cannot save a rule
-- [ ] `GET /api/v1/alerts` items include `muted` from the rules that are active now
-- [ ] `/metrics` gauge `piherder_alerts_muted` is the number of active rules. Help text says number of active mute rules. An expired rule stays in the table and does not count
-- [ ] Sensor-level ignores stay in Prometheus
+- [x] Settings → Alerts → **Mute rules** can save one host or one alert type
+- [x] A second rule for the same host or the same type is rejected. Kind and target stay fixed after create
+- [x] A window is optional. A start with no end is rejected. An end that is not after the start is rejected
+- [x] An active rule skips webhook, email, and push. The inbox row is still written. The schedule still runs
+- [x] These types cannot be muted, including by a host rule: `backup_failed`, `herder_backup_failed`, `backup_destination_auth_failed`, `drive_oauth_refresh_failed`, `drive_oauth_token_aging`, and `admin_change`
+- [x] Create, edit, and delete write `alert_mute_created`, `alert_mute_updated`, and `alert_mute_deleted`. Scope `edit` is required. A `read` token can list rules and cannot change one
+- [x] Demo cannot save a rule
+- [x] `GET /api/v1/alerts` items include `muted` from the rules that are active now
+- [x] `/metrics` gauge `piherder_alerts_muted` is the number of active rules. Help text says number of active mute rules. An expired rule stays in the table and does not count
+- [x] Sensor-level ignores stay in Prometheus
 
 ## Plugin and adapter (Must & Should)
 
