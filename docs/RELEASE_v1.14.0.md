@@ -14,7 +14,7 @@ Maintainer walks in [QA_v1.14.0](QA_v1.14.0.md) are signed 2026-11-08. The [v1.1
 
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) multi-arch `linux/amd64` and `linux/arm64`.
 
-**Tags:** `1.14.0`, `1.14`, and `latest`. The manifest digest is added after the Hub push. Pin `1.13.0` stays that release. Pin `1.12.1` stays that patch.
+**Tags:** `1.14.0`, `1.14`, and `latest`. Manifest `sha256:681ba3384f235d3e354c1320223a65c359c33c2478bd34dc3598723fae029334` (`linux/amd64` and `linux/arm64`). Pin `1.13.0` stays that release. Pin `1.12.1` stays that patch.
 
 Home Assistant plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the card (Home Assistant **2024.7** or newer). **0.5.3** stays the previous tag. Published adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** adds `fleet_summary`, `list_alerts`, `prune_build_cache`, and `replace_stale_mac`. **0.4.3** stays the previous package. Hosted `/mcp` also lists `prune_volumes`. Adapter **0.4.4** does not. No new plugin tag and no new adapter tag in this release. Secret `PIHERDER_PUSH_DENYLIST` is set. Actions run 215 printed `push denylist clean`. Patterns stay off git.
 

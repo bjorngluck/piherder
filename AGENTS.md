@@ -14,7 +14,7 @@ Anything committed here is public. Use generic names in code, tests, docs, and c
 
 ## Current train
 
-`v1.14.0` is the current release. Tag `v1.14.0`. Package is `1.14.0`. Image tags are `1.14.0`, `1.14`, and `latest`. The manifest digest is added after the Hub push. Pin `1.13.0` stays that release. No train is open. Adapter **0.4.4** does not list volume prune. Host tool bootstrap is `POST /servers/{id}/host-deps/bootstrap` and is not on `/api/v1` or `/mcp`.
+`v1.14.0` is the current release. Tag `v1.14.0`. Package is `1.14.0`. Image tags are `1.14.0`, `1.14`, and `latest`. Manifest `sha256:681ba3384f235d3e354c1320223a65c359c33c2478bd34dc3598723fae029334`. Pin `1.13.0` stays that release. No train is open. Adapter **0.4.4** does not list volume prune. Host tool bootstrap is `POST /servers/{id}/host-deps/bootstrap` and is not on `/api/v1` or `/mcp`.
 
 ## Opening a version train
 

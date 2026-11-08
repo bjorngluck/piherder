@@ -136,7 +136,7 @@ Nothing else was voted **Out**.
 | 2026-11-08 | **QA.** Push denylist is signed. Actions run 215 printed `push denylist clean`. Screenshots and the 1.13 regression stay open. |
 | 2026-11-08 | **QA.** The 1.13 regression is signed in [QA_v1.14.0.md](QA_v1.14.0.md). Screenshots stay open. |
 | 2026-11-08 | **Code freeze.** Screenshots are wired. QA is signed. Package is **1.14.0**. The published image stays **1.13.0**. Not tagged. Pull request [#70](https://github.com/bjorngluck/piherder/pull/70) stays open. |
-| 2026-11-08 | **Released.** Pull request [#70](https://github.com/bjorngluck/piherder/pull/70) is merged. Tag **v1.14.0**. Image tags `1.14.0`, `1.14`, and `latest`. The digest is added after the Hub push. Pin `1.13.0` stays that release. |
+| 2026-11-08 | **Released.** Pull request [#70](https://github.com/bjorngluck/piherder/pull/70) is merged. Tag **v1.14.0**. Image tags `1.14.0`, `1.14`, and `latest` are `sha256:681ba3384f235d3e354c1320223a65c359c33c2478bd34dc3598723fae029334`. Pin `1.13.0` stays that release. |
 | 2026-10-31 | **Review follow-ups.** Catch-up `result` is `queued`. A failed catch-up is not retried. A busy host writes at most one audit row for that slot. `clock` scales with the schedule. Volume prune accepts `dry_run`. Demo mode blocks volume and build-cache prune. A retry keeps the first pre-restore snapshot until the restore succeeds or Undo runs. Undo uses rsync `--delete`. Free space is checked with statvfs before the host is copied. Extra host files warn. Restore preview diffs the local backup, times out at 120 seconds, and returns 409 when that host is busy. `admin_change` cannot be muted. |
 
 ---
@@ -151,7 +151,7 @@ Nothing else was voted **Out**.
 | 4 | Freeze | **Set** 2026-11-08. No new product work on this branch. Package is **1.14.0**. The published image stays **1.13.0** |
 | 5 | Operator QA | Signed 2026-11-08 in [QA_v1.14.0.md](QA_v1.14.0.md), including screenshots and the 1.13 regression |
 | 6 | Notes and pull request | Notes are [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Pull request [#70](https://github.com/bjorngluck/piherder/pull/70) stays open. Not tagged |
-| 7 | Tag and Hub | Tag **v1.14.0** is cut. The Hub digest is added after the image push |
+| 7 | Tag and Hub | Tag **v1.14.0** is cut. Hub tags `1.14.0`, `1.14`, and `latest` are `sha256:681ba3384f235d3e354c1320223a65c359c33c2478bd34dc3598723fae029334` |
 
 ---
 
