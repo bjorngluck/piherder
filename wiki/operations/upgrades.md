@@ -9,7 +9,7 @@ How to move a running compose install to a newer **git tag or `main`**, pull the
 Upgrades change code *and* schema. A self-backup + unchanged master key is the difference between a smooth pull and an unrecoverable encrypted store.
 
 !!! tip "Prefer tags"
-    Prefer **tagged production releases** (`v1.6.0` / later `1.6.x`). Treat untagged `main` as moving. See [Home](../index.md#release-status) · [RELEASE_v1.6.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.6.0.md).
+    Prefer a **tagged production release**. The published tag is **v1.14.0**. **v1.15.0** is frozen and not tagged. Treat untagged `main` as moving. See [Home](../index.md#release-status) · [RELEASE_v1.14.0.md](https://github.com/bjorngluck/piherder/blob/v1.14.0/docs/RELEASE_v1.14.0.md).
 
 ```bash
 # Config DR first
@@ -17,18 +17,18 @@ Upgrades change code *and* schema. A self-backup + unchanged master key is the d
 # Also snapshot Postgres volume if you can
 
 git fetch --tags
-git checkout v1.6.0   # or later 1.6.x
+git checkout v1.14.0
 docker compose pull
 docker compose up -d
 # Alembic runs on web startup
-# optional pin: PIHERDER_IMAGE=bjorngluck/piherder:1.6.0 docker compose up -d
+# optional pin: PIHERDER_IMAGE=bjorngluck/piherder:1.14.0 docker compose up -d
 ```
 
 ## Checklist
 
 - [ ] Self-backup successful (**admin** — Settings → PiHerder backup)  
 - [ ] `PIHERDER_MASTER_KEY` unchanged and backed up offline  
-- [ ] Read [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.6.0.md) for the version you jump to  
+- [ ] Read the release notes for the version you jump to. Published notes: [v1.14.0](https://github.com/bjorngluck/piherder/blob/v1.14.0/docs/RELEASE_v1.14.0.md)
 - [ ] `docker compose ps` healthy (image `bjorngluck/piherder:…`)  
 - [ ] Smoke: login, Users recovery (if multi-user), one server, maps/ports, optional template  
 - [ ] Hard-refresh browser once after UI/CSS deploys (query-busted stylesheets)  
@@ -169,13 +169,15 @@ Alembic **051** adds `docker_prune_schedule`. Recreate **web** and **celery-work
 
 ## 1.13.0 → 1.14.0 {#1130--1140}
 
-**v1.14.0** is the current release. Notes: [RELEASE_v1.14.0.md](https://github.com/bjorngluck/piherder/blob/v1.14.0/docs/RELEASE_v1.14.0.md). Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release.
+**v1.14.0** is the published release. Notes: [RELEASE_v1.14.0.md](https://github.com/bjorngluck/piherder/blob/v1.14.0/docs/RELEASE_v1.14.0.md). Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release. The next jump is [1.14.0 → 1.15.0](#1140--1150), and that jump is not tagged.
 
 Alembic **052** (`052_schedule_catchup`) and **053** (`053_alert_mute`) run on web start. Recreate **web** and **celery-worker**. About should say **1.14.0**. Do not apply those revisions by hand before this image is running. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** stays the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** stays the package. Hosted `/mcp` lists `prune_volumes`. Adapter **0.4.4** does not. The public demo is updated only when asked.
 
-## Open train {#open-train}
+## 1.14.0 → 1.15.0 {#1140--1150}
 
-**v1.15.0** is not tagged. The package on `v1.15.0-dev` stays **1.14.0**. Plan: [PLAN_v1.15.0.md](https://github.com/bjorngluck/piherder/blob/v1.15.0-dev/docs/PLAN_v1.15.0.md). [QA](https://github.com/bjorngluck/piherder/blob/v1.15.0-dev/docs/QA_v1.15.0.md) walks are empty. Screenshot names are reserved and not captured. Do not point a fleet at this branch until the release notes exist.
+**v1.15.0** is frozen and not tagged. Draft notes: [RELEASE_v1.15.0.md](https://github.com/bjorngluck/piherder/blob/v1.15.0-dev/docs/RELEASE_v1.15.0.md). Package on `v1.15.0-dev` is **1.15.0**. The published image stays **1.14.0**. Plan: [PLAN_v1.15.0.md](https://github.com/bjorngluck/piherder/blob/v1.15.0-dev/docs/PLAN_v1.15.0.md). [QA](https://github.com/bjorngluck/piherder/blob/v1.15.0-dev/docs/QA_v1.15.0.md) walks are empty. Screenshot names are reserved and not captured. Do not point a fleet at this branch.
+
+When the tag exists, recreate **web**, **celery-worker**, and **celery-worker-nmap**. Alembic **054** (`054_job_audit_indexes`) runs on web start. About should say **1.15.0**. Do not apply that revision by hand before this image is running. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** stays the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** stays the package. The public demo is updated only when asked.
 
 Before a lab copy of this branch:
 

@@ -2,17 +2,17 @@
 
 **Branch:** `v1.15.0-dev`
 
-**Code freeze:** not set.
+**Code freeze:** set 2026-11-08. No new product work on this branch.
 
-**Package:** stays **`1.14.0`**. About and the footer stay **1.14.0**. No v1.15 tag. Image `1.14.0` / `1.14` / `latest` stays the v1.14.0 image. Pin `1.13.0` stays that release.
+**Package:** **`1.15.0`**. About and the footer say **1.15.0** after web is recreated from this tree. No v1.15 tag. Image `1.14.0` / `1.14` / `latest` stays the v1.14.0 image. Pin `1.13.0` stays that release.
 
 **Operator QA:** not signed. The boxes below are empty.
 
-**Release notes:** not written. Do not tag or publish from this file.
+**Release notes:** draft [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md). Do not tag or publish from this file.
 
-**Screenshots:** reserved, not captured. Names are in the [v1.15 pack](../wiki/assets/screenshots/README.md#v115--pack-status). Names and paths in any frame must be examples.
+**Screenshots:** reserved, not captured. Names are in the [v1.15 pack](../wiki/assets/screenshots/README.md#v115--pack-status). Names and paths in any frame must be examples. About on this tree says **1.15.0**. The frames do not show the footer.
 
-**Pull request:** none. A version pull request waits until these boxes are signed.
+**Pull request:** not opened. The checklist is [PR_v1.15.0.md](PR_v1.15.0.md). A version pull request waits until these boxes are signed.
 
 This file is **maintainer-only** (repo `docs/`). It is **not** published on the operator wiki.
 
@@ -62,7 +62,7 @@ Issue [#80](https://github.com/bjorngluck/piherder/issues/80).
 - [ ] Test CI runs on a push to `v1.15.0-dev`, not only on `main` and pull requests
 - [ ] The Postgres job upgrades to head and downgrades to base. A downgrade error fails that job
 - [ ] The ruff lint gate runs
-- [ ] Coverage is over 85%
+- [ ] CI coverage fail-under is **90**
 
 Issue [#74](https://github.com/bjorngluck/piherder/issues/74). Do not apply `051` or `052` to a live database for this box.
 
@@ -204,7 +204,7 @@ Plugin **0.5.4** and adapter **0.4.4** stay the published packages. No new plugi
 
 ## Screenshots
 
-Not captured. Reserve the names below. Do not photograph the public demo. Mask names, paths, addresses, and secrets. About on this tree says **1.14.0**. The frames do not show the footer. The v1.14 pack stays. Do not retake it.
+Not captured. Reserve the names below. Do not photograph the public demo. Mask names, paths, addresses, and secrets. About on this tree says **1.15.0**. The frames do not show the footer. The v1.14 pack stays. Do not retake it.
 
 - [ ] `login-boot-secrets.png`
 - [ ] `settings-host-unreachable.png`
@@ -225,7 +225,7 @@ Do not retick [QA_v1.14.0.md](QA_v1.14.0.md).
 Not a walk on this train.
 
 - The ops track: Grafana contact point, scraping `/metrics`, node exporters, a tagged Tailscale key, and publishing the Drive OAuth app
-- Milestone **v1.15.0**, release notes, the version pull request, the tag, and the Hub publish
+- Milestone **v1.15.0**, opening the version pull request, the tag, and the Hub publish. Draft notes are [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md)
 - Features, themes, and breaking changes. Those stay in [PLAN_v2.0.0.md](PLAN_v2.0.0.md)
 
 borg, kopia, rclone crypt, and putting the Home Assistant plugin in the image stay off this train. The removed set from 2026-10-27 stays off future ballots. The list is in [PLAN_v1.14.0.md](PLAN_v1.14.0.md).

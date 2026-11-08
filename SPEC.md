@@ -478,7 +478,13 @@ Configurable per-server fields that map 1:1: `backup_paths`, `docker_base_dir`, 
 
 ## Current release (`v1.14.0`)
 
-Package **1.14.0**. About and the footer say **1.14.0**. Image tags are `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release. Tag **v1.14.0**. Notes: [docs/RELEASE_v1.14.0.md](docs/RELEASE_v1.14.0.md).
+Package on the published image is **1.14.0**. Image tags are `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release. Tag **v1.14.0**. Notes: [docs/RELEASE_v1.14.0.md](docs/RELEASE_v1.14.0.md).
+
+## Frozen train (`v1.15.0`)
+
+Code freeze is set 2026-11-08. Package on this branch is **1.15.0**. About and the footer say **1.15.0** after web is recreated from this tree. The published image stays **1.14.0**. Not tagged. Draft notes: [docs/RELEASE_v1.15.0.md](docs/RELEASE_v1.15.0.md). Plan: [docs/PLAN_v1.15.0.md](docs/PLAN_v1.15.0.md). Walks: [docs/QA_v1.15.0.md](docs/QA_v1.15.0.md). The boxes are empty. The version pull request is not opened.
+
+Hardening only. A weak database password or a Redis password gap keeps the process up and shows a notice on every page, including login. A host alerts as unreachable only after it has gone quiet for the Settings wait. The date the host was added is not an answer. `GET /ready` checks the database, Redis, and migration head. CI coverage fail-under is **90**. Issue [#71](https://github.com/bjorngluck/piherder/issues/71) is design only. Issues stay open until the release close.
 
 ## Previous release (`v1.13.0`)
 

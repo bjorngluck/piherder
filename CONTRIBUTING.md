@@ -13,7 +13,7 @@ Thanks for your interest in PiHerder! The project is maintained by **Bjorn Gluck
 
 **Only the maintainer merges to `main`** and cuts releases. Opening a PR is a proposal.
 
-Work that is not a pull request goes on the current `v*-dev` branch, never on `main`. Each train's scope is a plan file: [docs/PLAN_v1.15.0.md](docs/PLAN_v1.15.0.md) is the open train, and [docs/PLAN_v2.0.0.md](docs/PLAN_v2.0.0.md) holds features, themes, and breaking changes. Older trains are `docs/PLAN_v*.md`.
+Work that is not a pull request goes on the current `v*-dev` branch, never on `main`. [docs/PLAN_v1.15.0.md](docs/PLAN_v1.15.0.md) is frozen. [docs/PLAN_v2.0.0.md](docs/PLAN_v2.0.0.md) holds features, themes, and breaking changes. Older trains are `docs/PLAN_v*.md`.
 
 ## License
 
@@ -22,7 +22,7 @@ All contributions are offered under the **[MIT License](LICENSE)**. By submittin
 ## Getting Started
 
 - Read the [README](README.md) and [SPEC.md](SPEC.md) for project goals and design principles.
-- Current release: **[v1.14.0](docs/RELEASE_v1.14.0.md)**. Package **1.14.0**. Tag **v1.14.0**. QA is signed 2026-11-08. Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release. Pin `1.12.1` stays that patch. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Prior notes: **[v1.13.0](docs/RELEASE_v1.13.0.md)** · **[v1.12.0](docs/RELEASE_v1.12.0.md)**. [PLAN](docs/PLAN_v1.12.0.md) · [QA](docs/QA_v1.12.0.md). **[v1.11.0](docs/RELEASE_v1.11.0.md)**. [PLAN](docs/PLAN_v1.11.0.md) · [QA](docs/QA_v1.11.0.md). **[v1.10.0](docs/RELEASE_v1.10.0.md)**. [PLAN](docs/PLAN_v1.10.0.md) · [QA](docs/QA_v1.10.0.md). Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)**. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)**. Operator wiki [Backups](wiki/day-to-day/backups.md) · [Self-backup](wiki/operations/self-backup.md) · [Agents (MCP)](wiki/operations/mcp.md) · [Home Assistant](wiki/integrations/home-assistant.md). Prior: [v1.9.0](docs/RELEASE_v1.9.0.md) · [v1.8.1](docs/RELEASE_v1.8.1.md) · [v1.8.0](docs/RELEASE_v1.8.0.md) · [v1.7.0](docs/RELEASE_v1.7.0.md) · [v1.6.0](docs/RELEASE_v1.6.0.md) · [v1.5.0](docs/RELEASE_v1.5.0.md) · [v1.4.0](docs/RELEASE_v1.4.0.md) · [v1.3.0](docs/RELEASE_v1.3.0.md) · [v1.2.0](docs/RELEASE_v1.2.0.md) · [v1.1.1](docs/RELEASE_v1.1.1.md) · [v1.0.0](docs/RELEASE_v1.0.0.md).
+- Published release: **[v1.14.0](docs/RELEASE_v1.14.0.md)**. Tag **v1.14.0**. Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release. Frozen train: **[v1.15.0](docs/RELEASE_v1.15.0.md)** (draft). Package **1.15.0**. Not tagged. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)**. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)**. Older notes are listed in [docs/README.md](docs/README.md).
 - Look for issues tagged `good first issue` or `help wanted`.
 
 ## Running tests

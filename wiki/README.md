@@ -3,7 +3,7 @@
 Markdown sources for the **MkDocs Material** documentation site.
 
 **Live site:** [https://piherder-docs.hacknow.info/](https://piherder-docs.hacknow.info/)  
-**Release notes:** [docs/RELEASE_v1.14.0.md](../docs/RELEASE_v1.14.0.md) (current image). Open train: [docs/PLAN_v1.15.0.md](../docs/PLAN_v1.15.0.md) and [docs/QA_v1.15.0.md](../docs/QA_v1.15.0.md).
+**Release notes:** [docs/RELEASE_v1.14.0.md](../docs/RELEASE_v1.14.0.md) (published image). Frozen train: [docs/RELEASE_v1.15.0.md](../docs/RELEASE_v1.15.0.md), [docs/PLAN_v1.15.0.md](../docs/PLAN_v1.15.0.md), and [docs/QA_v1.15.0.md](../docs/QA_v1.15.0.md). Package **1.15.0**. Not tagged.
 
 **Screenshots:** [assets/screenshots/README.md](assets/screenshots/README.md). The v1.14 pack is wired. The v1.15 pack is reserved and not captured.
 

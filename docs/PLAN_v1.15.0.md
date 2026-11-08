@@ -1,16 +1,24 @@
 # PiHerder v1.15.0: hardening
 
-**Status:** **Built** on `v1.15.0-dev`. Not frozen. [QA_v1.15.0.md](QA_v1.15.0.md) exists. Walks are empty. Package stays `1.14.0`. No v1.15 tag.
-**Date opened:** 2026-10-31. **Rewritten:** 2026-11-03. **Merged shipped main:** 2026-11-08.  
-**Git branch:** `v1.15.0-dev`  
-**Package / image version:** package stays **`1.14.0`**. About / footer stay **1.14.0**. This plan does not bump the package to `1.15.0`.  
-**Theme:** architecture plus bug fixes. No new features. Features, themes, and breaking changes go to 2.0. A draft [PLAN_v2.0.0.md](PLAN_v2.0.0.md) is on this branch. It is not this train's scope.
-**Baseline:** shipped `main` at `84dd50c`. Tag **v1.14.0** is `553379d`. Production image is **1.14.0**. Manifest `sha256:681ba3384f235d3e354c1320223a65c359c33c2478bd34dc3598723fae029334`. Pin `1.13.0` stays that release.  
-**Milestone:** **v1.15.0** is still to be created by the maintainer. These issues are not on a milestone.  
-**Mode:** **Must, then Should.** Must blocks the tag. Should can slip.  
-**Related:** [PLAN_v1.14.0.md](PLAN_v1.14.0.md) · [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md) · [QA_v1.15.0.md](QA_v1.15.0.md)
+**Status:** **Frozen** 2026-11-08 on `v1.15.0-dev`. [QA_v1.15.0.md](QA_v1.15.0.md) walks are empty. Package is **1.15.0**. The published image stays **1.14.0**. No v1.15 tag. Draft notes: [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md).
 
-> Merged shipped `main` (`84dd50c`) on 2026-11-08. Tag **v1.14.0** is `553379d`. Package stays **1.14.0**. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) shipped in v1.14.0 and are not refiled here. Placeholders only (`host-a`, `example.com`).
+**Date opened:** 2026-10-31. **Rewritten:** 2026-11-03. **Merged shipped main:** 2026-11-08. **Frozen:** 2026-11-08.
+
+**Git branch:** `v1.15.0-dev`
+
+**Package / image version:** package **`1.15.0`**. About and the footer say **1.15.0** after web is recreated from this tree. The published image stays **1.14.0** (`1.14.0` / `1.14` / `latest`). Pin `1.13.0` stays that release.
+
+**Theme:** architecture plus bug fixes. No new features. Features, themes, and breaking changes go to 2.0. A draft [PLAN_v2.0.0.md](PLAN_v2.0.0.md) is on this branch. It is not this train's scope.
+
+**Baseline:** shipped `main` at `84dd50c`. Tag **v1.14.0** is `553379d`. Production image is **1.14.0**. Manifest `sha256:681ba3384f235d3e354c1320223a65c359c33c2478bd34dc3598723fae029334`. Pin `1.13.0` stays that release.
+
+**Milestone:** **v1.15.0** is still to be created by the maintainer. These issues are not on a milestone.
+
+**Mode:** **Must, then Should.** Must blocks the tag. Should can slip.
+
+**Related:** [PLAN_v1.14.0.md](PLAN_v1.14.0.md) · [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md) · [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md) · [QA_v1.15.0.md](QA_v1.15.0.md) · [PR_v1.15.0.md](PR_v1.15.0.md)
+
+> Code freeze is set 2026-11-08. Package is **1.15.0**. The published image stays **1.14.0**. No new product work on this branch. [#61](https://github.com/bjorngluck/piherder/issues/61), [#62](https://github.com/bjorngluck/piherder/issues/62), [#63](https://github.com/bjorngluck/piherder/issues/63), and [#64](https://github.com/bjorngluck/piherder/issues/64) shipped in v1.14.0 and are not refiled here. Placeholders only (`host-a`, `example.com`).
 
 ---
 
@@ -111,7 +119,7 @@ These are operator tasks. They are not repo changes and they are not GitHub issu
 | Volume prune `dry_run` | Shipped in v1.14, wording at `4e7d7fb`. Best-effort preview of dangling volumes. Not an exact match for `docker volume prune -f`. Deletes nothing. Not this train |
 | Issues #61 to #64 | Shipped in v1.14.0. Not this train |
 | Milestone v1.15.0 | Still to be created by the maintainer |
-| Version bump | Package stays **1.14.0** until the v1.15 freeze. About stays **1.14.0** |
+| Version bump | Package is **1.15.0** at freeze. About says **1.15.0** after web is recreated from this tree. The published image stays **1.14.0** |
 | 2.0 | Features, themes, and breaking changes. Draft is [PLAN_v2.0.0.md](PLAN_v2.0.0.md). Do not add them here |
 | Demo | The public demo is not pointed at this branch |
 
@@ -146,6 +154,7 @@ The ops track stays beside this order. It does not land as commits.
 | 2026-11-08 | **[#89](https://github.com/bjorngluck/piherder/issues/89) quiet time.** `host_unreachable` uses the latest answer, not the date the host was added. Settings → Alerts sets the quiet time in hours or days. Default 24 hours. Turning the alert off clears open cards. The issue stays open. |
 | 2026-11-08 | **QA file.** [QA_v1.15.0.md](QA_v1.15.0.md) lists the walks. The boxes are empty. The v1.15 screenshot names are reserved and not captured. Release notes and the version pull request are not started. Issues stay open. |
 | 2026-11-08 | **Coverage 90.** CI `--cov-fail-under` raised **85** to **90**. Unit run **90%** (54249/60276). Packs are `tests/test_coverage_v115_q90_*.py`. No new GitHub issue. |
+| 2026-11-08 | **Code freeze.** Package is **1.15.0**. The published image stays **1.14.0**. Draft notes are [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md). [QA_v1.15.0.md](QA_v1.15.0.md) walks stay empty. Screenshot names stay reserved. [PR_v1.15.0.md](PR_v1.15.0.md) is written and the pull request is not opened. Not tagged. Issues stay open. |
 
 ---
 
@@ -162,8 +171,9 @@ The ops track stays beside this order. It does not land as commits.
 | 7 | Security ([#84](https://github.com/bjorngluck/piherder/issues/84), [#85](https://github.com/bjorngluck/piherder/issues/85), [#92](https://github.com/bjorngluck/piherder/issues/92), [#93](https://github.com/bjorngluck/piherder/issues/93), [#94](https://github.com/bjorngluck/piherder/issues/94), [#95](https://github.com/bjorngluck/piherder/issues/95), [#96](https://github.com/bjorngluck/piherder/issues/96), [#97](https://github.com/bjorngluck/piherder/issues/97)) | In the tree |
 | 8 | Shoulds | In the tree, except [#71](https://github.com/bjorngluck/piherder/issues/71), which is design only |
 | 9 | Operator QA | [QA_v1.15.0.md](QA_v1.15.0.md) exists. Walks are empty. Screenshot names are reserved and not captured |
-| 10 | Release notes and the version pull request | Not started |
+| 10 | Release notes and the version pull request | Draft notes are [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md). [PR_v1.15.0.md](PR_v1.15.0.md) is not opened. Not tagged |
+| 11 | Freeze | **Set** 2026-11-08. No new product work on this branch. Package is **1.15.0**. The published image stays **1.14.0** |
 
 ---
 
-*Built on `v1.15.0-dev`. Not frozen. Hardening only. Package stays 1.14.0. Not tagged. Milestone v1.15.0 is still to be created by the maintainer. Features, themes, and breaking changes stay in the 2.0 draft.*
+*Frozen 2026-11-08 on `v1.15.0-dev`. Hardening only. Package is 1.15.0. The published image stays 1.14.0. Not tagged. QA walks are empty. Milestone v1.15.0 is still to be created by the maintainer. Features, themes, and breaking changes stay in the 2.0 draft.*
