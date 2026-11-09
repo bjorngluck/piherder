@@ -15,6 +15,8 @@
 	# Client IP for API token allowlists (backend reads XFF / X-Real-IP)
 	reverse_proxy web:8000 {
 		flush_interval -1
+		header_up -CF-Connecting-IP
+		header_up -True-Client-IP
 		header_up X-Real-IP {remote_host}
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto {scheme}
@@ -36,6 +38,8 @@
 
 	reverse_proxy web:8000 {
 		flush_interval -1
+		header_up -CF-Connecting-IP
+		header_up -True-Client-IP
 		header_up X-Real-IP {remote_host}
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto https

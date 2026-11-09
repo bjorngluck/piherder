@@ -2,7 +2,8 @@
 
 Forwarded headers (CF-Connecting-IP / X-Forwarded-For / X-Real-IP) are used
 **only** when the TCP peer sits in ``PIHERDER_TRUSTED_PROXY_CIDRS``. Empty
-CIDRs (app default) = never trust client-supplied headers — use the peer.
+CIDRs (app default) mean never trust those headers. Use the TCP peer.
+True-Client-IP is not a trusted header.
 
 Stock Compose trusts the pinned Caddy address (192.0.2.10/32) and loopback.
 It does not trust the rest of the compose subnet. An operator override of
@@ -105,12 +106,11 @@ def peer_is_trusted_proxy(
 
 
 def _forwarded_ip_from_headers(headers: Mapping[str, Any] | None) -> str:
-    """First hop from CF / XFF / X-Real-IP. Empty if none present."""
+    """First hop from CF-Connecting-IP, X-Forwarded-For, or X-Real-IP."""
     h = {str(k).lower(): str(v) for k, v in (headers or {}).items()}
-    for key in ("cf-connecting-ip", "true-client-ip"):
-        val = h.get(key)
-        if val:
-            return _normalize_ip_candidate(val.split(",")[0])
+    val = h.get("cf-connecting-ip")
+    if val:
+        return _normalize_ip_candidate(val.split(",")[0])
     xff = h.get("x-forwarded-for") or h.get("x-forwarded_for")
     if xff:
         return _normalize_ip_candidate(xff.split(",")[0])
@@ -132,10 +132,12 @@ def extract_client_ip(
     When ``trust_forwarded`` is True (or the TCP peer is in trusted CIDRs),
     preference is:
 
-      1. CF-Connecting-IP / True-Client-IP
-      2. X-Forwarded-For — first hop only
+      1. CF-Connecting-IP
+      2. X-Forwarded-For, first hop only
       3. X-Real-IP
       4. TCP peer (request.client.host)
+
+    True-Client-IP is ignored.
 
     Otherwise forwarded headers are ignored (fail closed).
     """

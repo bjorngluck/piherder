@@ -7,9 +7,14 @@
 # get 421 so opening origin to Cloudflare (or anyone) does not expose the app
 # under an alternate name.
 #
-# Client IP: when Cloudflare proxies (orange cloud), the TCP peer is a CF edge
-# address. Use CF-Connecting-IP as X-Real-IP / X-Forwarded-For so the app and
-# Turnstile siteverify see the real visitor. Direct (non-CF) traffic uses remote_host.
+# Client IP: the default path does not trust headers the client sent.
+# X-Real-IP and X-Forwarded-For are the TCP peer Caddy accepted.
+# CF-Connecting-IP and True-Client-IP are removed before the proxy.
+# A CF-Connecting-IP header is not proof that Cloudflare sent the request.
+#
+# Cloudflare opt-in is off. Uncomment the servers block in the global options
+# and paste the current ranges from https://www.cloudflare.com/ips/
+# The list has to be kept current. Then forward {client_ip} instead of {remote_host}.
 #
 # Local dev without certs: use Caddyfile.dev (see docs/ADMIN.md)
 
@@ -19,6 +24,14 @@
 	admin 0.0.0.0:2019
 	# Non-standard host ports; do not auto-redirect HTTP→HTTPS on 443
 	auto_https off
+
+	# Cloudflare opt-in (off). Uncomment, paste the current ranges from
+	# https://www.cloudflare.com/ips/ and keep that list current. Then, in the
+	# reverse_proxy below, forward {client_ip} instead of {remote_host}.
+	# servers {
+	#	trusted_proxies static <Cloudflare ranges>
+	#	client_ip_headers CF-Connecting-IP
+	# }
 }
 
 # HTTP — host :8888 (or :80 on demo)
@@ -43,20 +56,11 @@
 	@wrong_host not host {$PIHERDER_HOSTNAME}
 	abort @wrong_host
 
-	@from_cf header CF-Connecting-IP *
-	handle @from_cf {
-		reverse_proxy web:8000 {
-			flush_interval -1
-			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
-			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
-			header_up CF-Connecting-IP {http.request.header.CF-Connecting-IP}
-			header_up X-Forwarded-Proto https
-			header_up X-Forwarded-Host {http.request.host}
-		}
-	}
 	handle {
 		reverse_proxy web:8000 {
 			flush_interval -1
+			header_up -CF-Connecting-IP
+			header_up -True-Client-IP
 			header_up X-Real-IP {remote_host}
 			header_up X-Forwarded-For {remote_host}
 			header_up X-Forwarded-Proto https

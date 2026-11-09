@@ -278,6 +278,8 @@ services:
 
 networks:
   # Replaces the implicit project network so Caddy has one address.
+  # 192.0.2.0/24 is TEST-NET-1. It was picked on purpose so the example
+  # subnet is not a private LAN range.
   # Extra compose files that omit `networks` still join this default.
   # If the subnet is already in use, set PIHERDER_COMPOSE_SUBNET, set
   # PIHERDER_CADDY_IP inside that subnet, and set PIHERDER_TRUSTED_PROXY_CIDRS

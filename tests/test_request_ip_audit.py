@@ -25,8 +25,32 @@ def test_extract_client_ip_prefers_xff():
     )
 
 
+def test_true_client_ip_is_ignored():
+    """True-Client-IP is not a trusted header. X-Forwarded-For still is."""
+    nets = rip.DEFAULT_COMPOSE_TRUSTED_PROXY_CIDRS.split(",")
+    assert (
+        rip.extract_client_ip(
+            {
+                "True-Client-IP": "203.0.113.77",
+                "X-Forwarded-For": "203.0.113.9",
+            },
+            "192.0.2.10",
+            trusted_cidrs=nets,
+        )
+        == "203.0.113.9"
+    )
+    assert (
+        rip.extract_client_ip(
+            {"True-Client-IP": "203.0.113.77"},
+            "192.0.2.10",
+            trusted_cidrs=nets,
+        )
+        == "192.0.2.10"
+    )
+
+
 def test_extract_client_ip_prefers_cf_connecting_ip_over_xff():
-    """Orange-cloud: Caddy XFF is CF edge; real visitor is CF-Connecting-IP."""
+    """A trusted proxy may still send CF-Connecting-IP. It wins over X-Forwarded-For."""
     assert (
         rip.extract_client_ip(
             {
