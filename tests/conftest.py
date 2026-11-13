@@ -354,12 +354,27 @@ def _isolate_suite_from_live_services():
     _apply_runtime_isolation()
     assert_runtime_targets()
     import app.models  # noqa: F401  # register tables
-    from sqlmodel import SQLModel
 
     import app.database as database
+    from tests.schema_setup import apply_test_schema
 
-    SQLModel.metadata.create_all(database.engine)
+    apply_test_schema(database.engine)
     yield
+
+
+@pytest.fixture(autouse=True)
+def _host_locks_stay_local_for_the_suite():
+    """The suite broker port is closed. Ordinary tests keep the process-local lock.
+
+    Production never sets ``_redis_failed``. A test of the fail-closed path
+    calls ``reset_redis_client_for_tests`` and leaves the flag clear.
+    """
+    from app.services import server_job_lock as lock
+
+    previous = lock._redis_failed
+    lock._redis_failed = True
+    yield
+    lock._redis_failed = previous
 
 
 @pytest.fixture(autouse=True)

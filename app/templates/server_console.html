@@ -120,7 +120,7 @@
     </div>
     <div class="ch-keys ch-keys-extra hidden" id="console-keys-extra" hidden aria-hidden="true"></div>
   </div>
-  <script>
+  <script nonce="{{ csp_nonce() }}">
   /**
    * Soft keys (v15)
    * Keep focus on pointerdown so Android does not cancel composition.
@@ -434,7 +434,7 @@
   .console-workspace-shell:fullscreen .ch-panes,
   .console-workspace-shell.is-window-max .ch-panes { flex: 1 1 auto; min-height: 0; }
 </style>
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var serverId = {{ server.id }};
   var maxShells = {{ max_shells|int }};

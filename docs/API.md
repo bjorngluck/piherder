@@ -68,7 +68,7 @@ Client IP resolution is enforced in the **backend** on every authenticated API r
 2. `X-Real-IP`  
 3. TCP peer address  
 
-**Proxy:** Bundled Caddy **overwrites** `X-Forwarded-For` / `X-Real-IP` with the true client IP (`{remote_host}`) so allowlists work for traffic on ports 8888/8443. Compose publishes web as **`127.0.0.1:8000` only** (not the LAN). Forwarded headers are honoured only when the TCP peer is in `PIHERDER_TRUSTED_PROXY_CIDRS` (Compose default: RFC1918 + loopback so Caddy is trusted). Hitting the app port from an untrusted peer ignores spoofed `X-Forwarded-For`. Mismatch → **403** `Client IP not allowed for this API token`.
+**Proxy:** Bundled Caddy **overwrites** `X-Forwarded-For` / `X-Real-IP` with the true client IP (`{remote_host}`) so allowlists work for traffic on ports 8888/8443. Compose publishes web as **`127.0.0.1:8000` only** (not the LAN). A home-network proxy may pass the visitor address. There is no client-IP setting to fill in. A public peer is not trusted. Hitting the app port from an untrusted peer ignores spoofed `X-Forwarded-For`. Mismatch → **403** `Client IP not allowed for this API token`.
 
 ---
 
@@ -130,10 +130,10 @@ Base path: **`/api/v1`**
 | `GET` | `/api/v1/inventory` | `read` | Last Docker inventory for every host (DB snapshot, never SSH). Slim containers include `name`, `running`, `state`, `image`, `status` (uptime text), `project`, and `update_available`. `projects` lists each compose project and its images with `update_available` |
 | `GET` | `/api/v1/servers/{id}/inventory` | `read` | Same snapshot for one host, plus `os_pretty`, `hardware`, `disk_*_bytes`. `projects` and each image include `update_available` |
 | `GET` | `/api/v1/services` | `read` | Fleet service chips (`state` up/down) from stored monitor rows. Does not poll Kuma or NPM |
-| `GET` | `/api/v1/servers/{id}/backup/restore-preview` | `read` | SSH rsync dry-run of the local backup (`source`, optional `destination_id`). It diffs that local backup and does not show permission or owner-only changes. `changes` lists relative paths a restore would send (`create` or `update`). `wrote` is false. It times out after 120 seconds. One preview at a time per host. A busy host returns 409. It does not pull a copy onto this PiHerder, does not write to the host, and does not take a rollback snapshot. Backups must be on for that host. A feature-restricted token also needs `feature:backup`. A bad source, a blocked path, a missing local tree, or an unavailable copy is HTTP 400. Not a hosted MCP tool |
+| `GET` | `/api/v1/servers/{id}/backup/restore-preview` | `read` | SSH rsync dry-run (`source`, optional `destination_id`). Without `destination_id` it diffs the local backup. With `destination_id` it diffs that chosen copy from a temporary folder that is removed before the response. `changes` lists relative paths (`create`, `update`, `delete`, `permission`, or `owner`). `ownership_step` is true when that tree has an ownership manifest. The preview does not apply it. `wrote` is false. It times out after 120 seconds. One preview at a time per host. A busy host returns 409 with detail `This host is busy`. A Redis error returns 409 with code `lock_unavailable` and a fixed message. It does not write to the host and does not take a rollback snapshot. Backups must be on for that host. A feature-restricted token also needs `feature:backup`. A bad source, a blocked path, a missing local tree, or an unavailable copy is HTTP 400. Not a hosted MCP tool |
 | `PATCH` | `/api/v1/servers/{id}/features` | `edit` | Toggle feature flags |
 | `GET` | `/api/v1/servers/{id}/files?p=` | `files` | List jail-relative directory (fleet) |
-| `GET` | `/api/v1/servers/{id}/files/download?p=` | `files` | Download one file |
+| `GET` | `/api/v1/servers/{id}/files/download?p=` | `files` | Download one file. Secret-looking names (`.env`, `*.key`, `id_*`, `*.pem`, `secrets`, and similar) are refused with 403 |
 | `POST` | `/api/v1/servers/{id}/files` | `files` | Multipart upload (`file`, `p`) |
 | `POST` | `/api/v1/servers/{id}/files/mkdir` | `files` | JSON `{p, name}` |
 | `POST` | `/api/v1/servers/{id}/files/rename` | `files` | JSON `{p, src, dest}` |
@@ -166,11 +166,15 @@ Base path: **`/api/v1`**
   "backup_schedule_source": "fleet",
   "next_backup_run": "2026-07-11T02:30:00+02:00",
   "backup_scheduled": true,
+  "host_status": "healthy",
+  "host_status_seconds": 0,
   "alerts_open": 0,
   "alert_title": null,
   "alerts": []
 }
 ```
+
+`host_status` is `healthy`, `degraded`, or `unreachable`. Unreachable means the host has not answered for the quiet time. The default is 24 hours. Settings → Alerts changes that wait. Degraded means the latest answer is at least 15 minutes old, or at least one backup slot was missed. A host with no answer yet stays healthy. `host_status_seconds` is how long the host has been in that status. Both ship in **1.15.0**. The **1.14.0** image does not return them.
 
 **PATCH body** (omit fields you do not want to change):
 
@@ -184,7 +188,7 @@ Base path: **`/api/v1`**
 
 Server-side feature flags still gate jobs: you cannot run a backup job if `features.backup` is false on the server (enable it first with `edit`, or in the UI).
 
-`GET /api/v1/servers/{id}/backup/restore-preview?source=/data/app` is a dry-run of the local backup. Optional `destination_id` names a saved copy, and the diff is still the local tree. Permission or owner-only changes are not listed. The body has `ok`, `dry_run` (true), `wrote` (false), `server_id`, `source`, `place`, `changes` (`path` and `action` of `create` or `update`), `change_count`, `truncated`, `summary`, `error`, and `note`. It times out after 120 seconds. One preview at a time per host returns 409 when that host is busy. It does not include the host address or the local backup path. A real restore and Undo stay on the Backups page. They are not this route.
+`GET /api/v1/servers/{id}/backup/restore-preview?source=/data/app` is a dry-run. Optional `destination_id` names a saved copy, and the diff is that copy. Permission and owner changes are listed. The body has `ok`, `dry_run` (true), `wrote` (false), `server_id`, `source`, `place`, `changes` (`path` and `action` of `create`, `update`, `delete`, `permission`, or `owner`), `change_count`, `truncated`, `summary`, `error`, `note`, and `ownership_step`. It times out after 120 seconds. One preview at a time per host returns 409 when that host is busy (`This host is busy`). A Redis error returns 409 with code `lock_unavailable` and the fixed message `The host lock is unavailable`. It does not include the host address or the local backup path. A real restore and Undo stay on the Backups page. They are not this route.
 
 ```json
 {
@@ -318,7 +322,7 @@ Hosted MCP `trigger_job` uses this same list, including `container_start`, `cont
 
 | Method | Path | Scope | Description |
 |--------|------|-------|-------------|
-| `POST` | `/api/v1/maintenance/stale-data-cleanup` | `jobs` | Queue fleet `stale_data_cleanup` (HTTP **202**) |
+| `POST` | `/api/v1/maintenance/stale-data-cleanup` | `admin` | Queue fleet `stale_data_cleanup` (HTTP **202**). A `jobs` token is **403**. A feature-restricted token is **403** |
 
 ```json
 { "dry_run": false }

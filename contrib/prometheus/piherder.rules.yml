@@ -1,0 +1,43 @@
+groups:
+  - name: piherder
+    rules:
+      - alert: PiherderStackCheckStale
+        expr: piherder_stack_check_age_seconds > 900
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Stack health check is stale
+          description: The last stack health check is older than 15 minutes.
+      - alert: PiherderStackCheckMissing
+        expr: absent(piherder_stack_check_age_seconds)
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Stack health check age is missing
+          description: Prometheus has no sample for the last stack health check.
+      - alert: PiherderAlertDeliveryFailures
+        expr: sum(increase(piherder_alert_delivery_failures_total[15m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Alert delivery is failing
+          description: One or more alert deliveries failed during the last 15 minutes.
+      - alert: PiherderLockAcquireFailures
+        expr: sum(increase(piherder_lock_acquire_failures_total[15m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Host lock acquires are failing
+          description: A worker could not take a host lock during the last 15 minutes. This includes a Redis error on the first ping.
+      - alert: PiherderWorkerDown
+        expr: up{job="piherder-worker"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: The PiHerder worker scrape is down
+          description: Prometheus has not scraped the piherder-worker job for 5 minutes.

@@ -690,7 +690,7 @@
       <button type="submit" class="btn btn-accent text-xs min-h-9 px-3">Save link</button>
     </form>
     <script type="application/json" id="edge-fleet-data">{{ (p.fleet_link_targets or []) | tojson }}</script>
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     (function () {
       var form = document.getElementById('fabric-manual-edge-form');
       if (!form || form.dataset.xhostBound) return;

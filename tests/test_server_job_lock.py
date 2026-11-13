@@ -1,9 +1,11 @@
 """Unit tests for per-server job mutex (multi-worker)."""
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+from celery.exceptions import Retry
 
 from app.services import server_job_lock as lock
 
@@ -12,11 +14,13 @@ from app.services import server_job_lock as lock
 def _clean_local_locks():
     lock.clear_local_locks_for_tests()
     lock.reset_redis_client_for_tests()
+    lock.reset_lock_acquire_failures_for_tests()
     # Force local path (no Redis) unless a test patches _get_redis
     lock._redis_failed = True
     yield
     lock.clear_local_locks_for_tests()
     lock.reset_redis_client_for_tests()
+    lock.reset_lock_acquire_failures_for_tests()
 
 
 def test_acquire_release_local():
@@ -109,3 +113,371 @@ def test_redis_busy_returns_none(monkeypatch):
     fake.set.return_value = None  # NX not set
     monkeypatch.setattr(lock, "_get_redis", lambda: fake)
     assert lock.try_acquire_server_lock("backup", 1, holder="a") is None
+    assert lock.lock_acquire_failure_counts() == {"redis_error": 0, "busy": 1}
+
+
+def test_redis_acquire_error_does_not_grant_and_reschedules(monkeypatch, caplog):
+    """A Redis error defers the backup. The job body does not run and it does not succeed."""
+    import logging
+
+    from app.tasks import backup_server
+
+    class _RedisDown:
+        def set(self, *args, **kwargs):
+            raise ConnectionError("redis down")
+
+    monkeypatch.setattr(lock, "_get_redis", lambda: _RedisDown())
+    with caplog.at_level(logging.WARNING, logger="app.services.server_job_lock"):
+        with pytest.raises(lock.LockUnavailable):
+            lock.try_acquire_server_lock("backup", 3, holder="job-7")
+    assert not lock.is_server_locked("backup", 3)
+    assert lock.lock_acquire_failure_counts() == {"redis_error": 1, "busy": 0}
+    warnings = [
+        rec.message for rec in caplog.records if rec.levelname == "WARNING"
+    ]
+    assert any(
+        "Redis acquire failed" in message and "ConnectionError" in message
+        for message in warnings
+    )
+    assert all("redis down" not in message for message in warnings)
+
+    server = SimpleNamespace(id=3, name="host-a", hostname="host-a.example.com")
+    job = SimpleNamespace(
+        id=7,
+        status="pending",
+        server_id=3,
+        details="{}",
+        started_at=None,
+        finished_at=None,
+    )
+    mock_db = MagicMock()
+    mock_db.exec.return_value.first.return_value = server
+    mock_db.get.return_value = job
+
+    with (
+        patch("app.tasks.Session", return_value=mock_db),
+        patch("app.tasks._update_job_status") as upd,
+        patch("app.tasks.run_backup") as run_backup,
+        patch.object(backup_server, "retry", side_effect=Retry(message="wait")) as retry,
+    ):
+        with pytest.raises(Retry):
+            backup_server.run(3, job_id=7)
+
+    retry.assert_called_once()
+    run_backup.assert_not_called()
+    upd.assert_called()
+    status = upd.call_args.args[1] if upd.call_args.args else upd.call_args.kwargs.get("status")
+    extra = upd.call_args.args[2] if len(upd.call_args.args) > 2 else {}
+    # Deferred: still pending, retried, and not recorded as success or failure.
+    assert status == "pending"
+    assert status not in ("success", "failed")
+    assert extra.get("current") == "lock_unavailable"
+    assert extra.get("log_lines") == ["lock_unavailable"]
+    assert "redis down" not in str(extra)
+    assert "Waiting for another backup" not in str(extra)
+    assert lock.lock_acquire_failure_counts()["redis_error"] == 2
+
+
+def test_redis_auth_error_fails_the_job_and_does_not_defer(monkeypatch, caplog):
+    """A rejected password fails the job. It is not deferred like a connection error."""
+    import logging
+
+    import redis
+
+    from app.tasks import backup_server
+
+    marker = "marker-secret redis://192.0.2.40:6379/0"
+
+    class _Rejected:
+        def set(self, *args, **kwargs):
+            raise redis.exceptions.AuthenticationError(f"WRONGPASS {marker}")
+
+    monkeypatch.setattr(lock, "_get_redis", lambda: _Rejected())
+    with caplog.at_level(logging.ERROR, logger="app.services.server_job_lock"):
+        with pytest.raises(lock.RedisAuthFailed) as caught:
+            lock.try_acquire_server_lock("backup", 3, holder="job-7")
+    assert str(caught.value) == "Redis authentication failed."
+    assert marker not in " ".join(rec.getMessage() for rec in caplog.records)
+    assert "WRONGPASS" not in " ".join(rec.getMessage() for rec in caplog.records)
+    assert lock.lock_acquire_failure_counts()["redis_error"] == 1
+
+    server = SimpleNamespace(id=3, name="host-a", hostname="host-a.example.com")
+    job = SimpleNamespace(
+        id=7,
+        status="pending",
+        server_id=3,
+        details="{}",
+        started_at=None,
+        finished_at=None,
+    )
+    mock_db = MagicMock()
+    mock_db.exec.return_value.first.return_value = server
+    mock_db.get.return_value = job
+
+    with (
+        caplog.at_level(logging.ERROR, logger="app.tasks"),
+        patch("app.tasks.Session", return_value=mock_db),
+        patch("app.tasks._update_job_status") as upd,
+        patch("app.tasks.run_backup") as run_backup,
+        patch("app.tasks._flush_job_progress_db"),
+        patch("app.tasks.clear_job_progress_buffer"),
+        patch.object(backup_server, "retry", side_effect=Retry(message="wait")) as retry,
+    ):
+        backup_server.run(3, job_id=7)
+
+    retry.assert_not_called()
+    run_backup.assert_not_called()
+    upd.assert_called()
+    status = upd.call_args.args[1]
+    extra = upd.call_args.args[2]
+    assert status == "failed"
+    assert extra.get("error") == "Redis authentication failed."
+    assert marker not in str(extra)
+    assert "WRONGPASS" not in str(extra)
+    assert "redis://" not in str(extra)
+    task_log = " ".join(rec.getMessage() for rec in caplog.records)
+    assert marker not in task_log
+    assert "WRONGPASS" not in task_log
+
+
+def test_dual_lock_releases_the_first_host_when_auth_fails(monkeypatch):
+    import redis
+
+    calls = {"n": 0}
+
+    class _SecondRejects:
+        def set(self, *args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return True
+            raise redis.exceptions.AuthenticationError("WRONGPASS")
+
+        def eval(self, *args, **kwargs):
+            return 1
+
+    monkeypatch.setattr(lock, "_get_redis", lambda: _SecondRejects())
+    with pytest.raises(lock.RedisAuthFailed):
+        lock.try_acquire_dual_server_lock("backup", 2, 9, holder="job-1")
+    assert calls["n"] == 2
+
+
+def _use_real_redis_client(monkeypatch, client_factory):
+    import redis
+
+    lock.reset_redis_client_for_tests()
+    lock._redis_failed = False
+    lock.reset_lock_acquire_failures_for_tests()
+    lock.clear_local_locks_for_tests()
+    monkeypatch.setenv("CELERY_BROKER_URL", "redis://192.0.2.8:6379/0")
+    monkeypatch.setattr(redis, "from_url", lambda *_args, **_kwargs: client_factory())
+
+
+def test_first_ping_failure_does_not_take_a_local_lock(monkeypatch):
+    """Two acquires while the first ping fails do not share a process-local token."""
+
+    class Client:
+        def ping(self):
+            raise ConnectionError("refused")
+
+        def close(self):
+            return None
+
+    _use_real_redis_client(monkeypatch, Client)
+    with pytest.raises(lock.LockUnavailable):
+        lock.try_acquire_server_lock("backup", 3, holder="job-a")
+    with pytest.raises(lock.LockUnavailable):
+        lock.try_acquire_server_lock("backup", 3, holder="job-b")
+    assert lock._local == {}
+    assert lock._redis_failed is False
+    assert lock.lock_acquire_failure_counts()["redis_error"] == 2
+
+
+def test_lock_recovers_when_a_later_ping_succeeds(monkeypatch):
+    state = {"pings": 0}
+
+    class Client:
+        def ping(self):
+            state["pings"] += 1
+            if state["pings"] == 1:
+                raise ConnectionError("down")
+
+        def set(self, *_args, **_kwargs):
+            return True
+
+        def close(self):
+            return None
+
+    _use_real_redis_client(monkeypatch, Client)
+    with pytest.raises(lock.LockUnavailable):
+        lock.try_acquire_server_lock("backup", 4, holder="job-a")
+    token = lock.try_acquire_server_lock("backup", 4, holder="job-b")
+    assert token
+    assert lock._local == {}
+    assert state["pings"] == 2
+
+
+def test_first_ping_auth_failure_fails_the_job_and_does_not_run_it(monkeypatch, caplog):
+    """A rejected password at connect fails the job. The backup body does not run."""
+    import logging
+
+    import redis
+
+    secret = "redis://:secret-value@192.0.2.8:6379/0"
+
+    class Client:
+        def ping(self):
+            raise redis.exceptions.AuthenticationError(f"WRONGPASS {secret}")
+
+        def close(self):
+            return None
+
+    _use_real_redis_client(monkeypatch, Client)
+    with caplog.at_level(logging.ERROR, logger="app.services.server_job_lock"):
+        with pytest.raises(lock.RedisAuthFailed):
+            lock.try_acquire_server_lock("backup", 3, holder="job-7")
+    assert lock._local == {}
+    assert lock.lock_acquire_failure_counts()["redis_error"] == 1
+    assert secret not in " ".join(rec.getMessage() for rec in caplog.records)
+
+    from app.tasks import backup_server
+
+    server = SimpleNamespace(id=3, name="host-a", hostname="host-a.example.com")
+    job = SimpleNamespace(
+        id=7,
+        status="pending",
+        server_id=3,
+        details="{}",
+        started_at=None,
+        finished_at=None,
+    )
+    mock_db = MagicMock()
+    mock_db.exec.return_value.first.return_value = server
+    mock_db.get.return_value = job
+    with (
+        caplog.at_level(logging.ERROR, logger="app.tasks"),
+        patch("app.tasks.Session", return_value=mock_db),
+        patch("app.tasks._update_job_status") as upd,
+        patch("app.tasks.run_backup") as run_backup,
+        patch.object(backup_server, "retry", side_effect=Retry(message="wait")) as retry,
+    ):
+        result = backup_server.run(3, job_id=7)
+    retry.assert_not_called()
+    run_backup.assert_not_called()
+    assert result["status"] == "failed"
+    assert result["error"] == "Redis authentication failed."
+    upd.assert_called()
+    assert upd.call_args.args[1] == "failed"
+    assert upd.call_args.args[2]["error"] == "Redis authentication failed."
+    logged = " ".join(rec.getMessage() for rec in caplog.records)
+    assert secret not in logged
+    assert "WRONGPASS" not in logged
+
+
+class _SharedRedis:
+    """One keyspace, so two workers contend on the same broker."""
+
+    def __init__(self) -> None:
+        self.store: dict[str, str] = {}
+        self.fail_set = False
+
+    def ping(self):
+        return True
+
+    def set(self, key, value, nx=False, ex=None):
+        if self.fail_set:
+            raise ConnectionError("refused")
+        if nx and key in self.store:
+            return False
+        self.store[key] = value
+        return True
+
+    def eval(self, script, _numkeys, key, token, *_rest):
+        if self.store.get(key) != token:
+            return 0
+        if "del" in script:
+            del self.store[key]
+        return 1
+
+    def get(self, key):
+        return self.store.get(key)
+
+    def close(self):
+        return None
+
+
+def test_unset_broker_matches_celery_and_two_workers_contend(monkeypatch):
+    """Locks use the same broker Celery would, and a miss is not a local lock."""
+    import redis
+
+    from app.celery_app import celery
+    from app.security.boot_secrets import effective_backend_url, effective_broker_url
+
+    assert celery.conf.broker_url == effective_broker_url()
+    assert celery.conf.result_backend == effective_backend_url()
+
+    shared = _SharedRedis()
+    seen: list[str] = []
+
+    def _from_url(url, **_kwargs):
+        seen.append(url)
+        return shared
+
+    monkeypatch.delenv("CELERY_BROKER_URL", raising=False)
+    monkeypatch.delenv("CELERY_RESULT_BACKEND", raising=False)
+    monkeypatch.delenv("PIHERDER_SINGLE_PROCESS", raising=False)
+    lock.reset_redis_client_for_tests()
+    lock._redis_failed = False
+    lock.reset_lock_acquire_failures_for_tests()
+    lock.clear_local_locks_for_tests()
+    monkeypatch.setattr(redis, "from_url", _from_url)
+
+    assert effective_broker_url() == "redis://localhost:6379/0"
+    first = lock.try_acquire_server_lock("backup", 8, holder="worker-a")
+    second = lock.try_acquire_server_lock("backup", 8, holder="worker-b")
+    other = lock.try_acquire_server_lock("backup", 9, holder="worker-b")
+    assert first and other
+    assert second is None
+    assert lock._local == {}
+    assert seen == ["redis://localhost:6379/0"]
+    assert lock.lock_acquire_failure_counts()["busy"] == 1
+
+    assert lock.release_server_lock("backup", 8, first) is True
+    recovered = lock.try_acquire_server_lock("backup", 8, holder="worker-b")
+    assert recovered
+    assert lock._local == {}
+
+    shared.fail_set = True
+    before = lock.lock_acquire_failure_counts()["redis_error"]
+    with pytest.raises(lock.LockUnavailable):
+        lock.try_acquire_server_lock("backup", 8, holder="worker-c")
+    assert lock._local == {}
+    assert lock._redis_failed is False
+    assert lock.lock_acquire_failure_counts()["redis_error"] == before + 1
+
+    shared.fail_set = False
+    assert lock.release_server_lock("backup", 8, recovered) is True
+    again = lock.try_acquire_server_lock("backup", 8, holder="worker-c")
+    assert again
+    assert lock._local == {}
+    assert seen[-1] == "redis://localhost:6379/0"
+
+
+def test_single_process_flag_is_the_only_local_lock(monkeypatch):
+    import redis
+
+    called = {"n": 0}
+
+    def _from_url(*_args, **_kwargs):
+        called["n"] += 1
+        raise AssertionError("single-process mode must not open Redis")
+
+    monkeypatch.setenv("PIHERDER_SINGLE_PROCESS", "1")
+    monkeypatch.setenv("CELERY_BROKER_URL", "redis://192.0.2.8:6379/0")
+    lock.reset_redis_client_for_tests()
+    lock._redis_failed = False
+    lock.clear_local_locks_for_tests()
+    monkeypatch.setattr(redis, "from_url", _from_url)
+    token = lock.try_acquire_server_lock("backup", 6, holder="solo")
+    assert token
+    assert called["n"] == 0
+    assert lock._local

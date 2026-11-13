@@ -1,0 +1,825 @@
+[
+  {
+    "description": "Token health, scopes, and allowed features.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "name": "health"
+  },
+  {
+    "description": "Fleet heartbeat from the database. Does not SSH.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "name": "summary"
+  },
+  {
+    "description": "Counts and states for hosts, alerts, failed jobs, backups, Drive replication, and pending updates. since is optional ISO-8601. Does not replace summary. Does not SSH.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "since": {
+          "description": "Optional ISO-8601 timestamp",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "fleet_summary"
+  },
+  {
+    "description": "List servers. limit default 100, max 100. Each server includes effective_backup_schedule, next_backup_run, and backup_scheduled.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "description": "Page size (default 100, max 100)",
+          "type": "integer"
+        },
+        "offset": {
+          "description": "Page offset",
+          "type": "integer"
+        },
+        "q": {
+          "description": "Optional name/host filter",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "list_servers"
+  },
+  {
+    "description": "One server, including feature flags. Includes effective_backup_schedule, next_backup_run, and backup_scheduled. backup_scheduled is false only when backups are on, the scheduler is running, and no job is registered. Null means that state is unknown.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "server_id": {
+          "description": "Server id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "server_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_server"
+  },
+  {
+    "description": "Stored Docker inventory. Omit server_id for the fleet. Does not SSH.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "server_id": {
+          "description": "Host id. Omit for the whole fleet.",
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "inventory"
+  },
+  {
+    "description": "Stored service up/down chips. Does not poll Kuma or NPM.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "name": "services"
+  },
+  {
+    "description": "List jobs. Pass server_id to limit the list to one host.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "active_only": {
+          "description": "Only active jobs",
+          "type": "boolean"
+        },
+        "job_type": {
+          "description": "Optional job type",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Page size (default 50)",
+          "type": "integer"
+        },
+        "offset": {
+          "description": "Page offset",
+          "type": "integer"
+        },
+        "server_id": {
+          "description": "Optional host id",
+          "type": "integer"
+        },
+        "status_filter": {
+          "description": "Optional job status",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "list_jobs"
+  },
+  {
+    "description": "One job. detail=true includes a longer log tail.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "description": "Include a longer log tail",
+          "type": "boolean"
+        },
+        "job_id": {
+          "description": "Job id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "job_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_job"
+  },
+  {
+    "description": "Open notifications. Does not include dismissed or resolved rows.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "description": "Page size (default 100, max 100)",
+          "type": "integer"
+        },
+        "offset": {
+          "description": "Page offset",
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "list_alerts"
+  },
+  {
+    "description": "Toggle backup, os_patch, or docker. Omit a field to leave it unchanged.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "backup": {
+          "description": "Backups feature",
+          "type": "boolean"
+        },
+        "docker": {
+          "description": "Docker / containers feature",
+          "type": "boolean"
+        },
+        "os_patch": {
+          "description": "OS patch feature",
+          "type": "boolean"
+        },
+        "server_id": {
+          "description": "Server id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "server_id"
+      ],
+      "type": "object"
+    },
+    "name": "set_features"
+  },
+  {
+    "description": "Start a Docker prune job. Needs the edit scope. prune_type is images, containers, both, or networks. both is dangling images and exited containers. Unused volumes are prune_volumes. dry_run is a best-effort preview of dangling volumes, not an exact match. confirm true deletes them. HTTP 202 means accepted. HTTP 409 means a prune is already active: poll get_job and do not start another.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "prune_type": {
+          "description": "Default both. Volumes are not accepted.",
+          "enum": [
+            "images",
+            "containers",
+            "both",
+            "networks"
+          ],
+          "type": "string"
+        },
+        "server_id": {
+          "description": "Server id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "server_id"
+      ],
+      "type": "object"
+    },
+    "name": "prune_docker"
+  },
+  {
+    "description": "Prune the Docker build cache and the buildx cache on one host. Needs the edit scope. One audit row. Not a docker_prune job and not scheduled.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "server_id": {
+          "description": "Server id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "server_id"
+      ],
+      "type": "object"
+    },
+    "name": "prune_build_cache"
+  },
+  {
+    "description": "Prune unused Docker volumes on one host. dry_run true is a best-effort preview of dangling volumes and sizes. It deletes nothing. That set can differ slightly from what docker volume prune -f removes on newer Docker versions, and there is a small time gap between the dry run and the delete. It is not an exact match. confirm is not required for a dry run. confirm true deletes them and writes one audit row. Needs the edit scope. Not a docker_prune job and not scheduled. Dry-run first and get a human's OK.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm": {
+          "description": "Must be true to delete. Not required when dry_run is true.",
+          "type": "boolean"
+        },
+        "dry_run": {
+          "description": "Best-effort preview of dangling volumes and sizes. Not an exact match for docker volume prune -f. Deletes nothing.",
+          "type": "boolean"
+        },
+        "server_id": {
+          "description": "Server id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "server_id"
+      ],
+      "type": "object"
+    },
+    "name": "prune_volumes"
+  },
+  {
+    "description": "Start backup, retention, os_patch, container_patch, os_update_check, container_update_check, container_start, container_stop, container_restart, container_redeploy, host_reboot, docker_stack_check, docker_stack_deploy, docker_stack_stop, docker_stack_start, docker_stack_restart, template_deploy, or template_redeploy. For a docker_stack job, source_filter is the compose project path. container_start, container_stop, container_restart, and container_redeploy require service (one compose service name) and source_filter (the compose project directory). HTTP 202 means accepted. HTTP 409 means that job is already active: poll get_job and do not start another.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "job_type": {
+                "enum": [
+                  "container_start",
+                  "container_stop",
+                  "container_restart",
+                  "container_redeploy"
+                ]
+              }
+            },
+            "required": [
+              "job_type"
+            ]
+          },
+          "then": {
+            "required": [
+              "service",
+              "source_filter"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "job_type": {
+          "description": "One of the jobs POST types",
+          "enum": [
+            "backup",
+            "retention",
+            "os_patch",
+            "container_patch",
+            "os_update_check",
+            "container_update_check",
+            "container_start",
+            "container_stop",
+            "container_restart",
+            "container_redeploy",
+            "host_reboot",
+            "docker_stack_check",
+            "docker_stack_deploy",
+            "docker_stack_stop",
+            "docker_stack_start",
+            "docker_stack_restart",
+            "template_deploy",
+            "template_redeploy"
+          ],
+          "type": "string"
+        },
+        "os_steps": {
+          "description": "Optional OS patch steps",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "server_id": {
+          "description": "Server id",
+          "type": "integer"
+        },
+        "service": {
+          "description": "Compose service name. Required for container_start, container_stop, container_restart, and container_redeploy",
+          "type": "string"
+        },
+        "source_filter": {
+          "description": "Backup source name, the compose project path for a docker_stack job, or the compose project directory for container_start, container_stop, container_restart, and container_redeploy (required for those four)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "server_id",
+        "job_type"
+      ],
+      "type": "object"
+    },
+    "name": "trigger_job"
+  },
+  {
+    "description": "Start a stop-first Move of one compose project. server_id is the source. dest_server_id is the destination. project is the compose project name, not a directory. confirm must be true. The source stack is left stopped. There is no undo. HTTP 202 means accepted. HTTP 409 means a stack, Move, or backup is already running: poll get_job.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm": {
+          "description": "Must be true. The source stack is left stopped.",
+          "type": "boolean"
+        },
+        "dest_server_id": {
+          "description": "Destination server id",
+          "type": "integer"
+        },
+        "project": {
+          "description": "Compose project name. Not a filesystem path.",
+          "type": "string"
+        },
+        "server_id": {
+          "description": "Server id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "server_id",
+        "dest_server_id",
+        "project",
+        "confirm"
+      ],
+      "type": "object"
+    },
+    "name": "start_move"
+  },
+  {
+    "description": "Read LAN Discovery. Omit integration_id to list saved ranges and the latest scan. Pass integration_id for recent scans and a short device list. That list stops at 50 and includes total. Page the rest with list_discovery_devices. Pass run_id with integration_id for one scan. No credentials and no script output.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "integration_id": {
+          "description": "LAN Discovery integration id",
+          "type": "integer"
+        },
+        "run_id": {
+          "description": "Scan id. Requires integration_id.",
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "read_discovery"
+  },
+  {
+    "description": "Start a LAN Discovery scan of the ranges saved on that integration. confirm must be true. intensity is discovery, inventory, detailed, or deep. The agent does not choose targets. Vulnerability scripts stay off. HTTP 202 means accepted.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm": {
+          "description": "Must be true.",
+          "type": "boolean"
+        },
+        "integration_id": {
+          "description": "LAN Discovery integration id",
+          "type": "integer"
+        },
+        "intensity": {
+          "description": "discovery, inventory, detailed, or deep. Default discovery.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "integration_id",
+        "confirm"
+      ],
+      "type": "object"
+    },
+    "name": "start_discovery"
+  },
+  {
+    "description": "Page LAN Discovery devices. state is new, known, linked, ignored, or stale. limit defaults to 50 and caps at 200. offset pages. No MAC, notes, or script output.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "integration_id": {
+          "description": "LAN Discovery integration id",
+          "type": "integer"
+        },
+        "limit": {
+          "description": "Page size. Default 50. Maximum 200.",
+          "type": "integer"
+        },
+        "offset": {
+          "description": "Rows to skip. Default 0.",
+          "type": "integer"
+        },
+        "state": {
+          "description": "new, known, linked, ignored, or stale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "integration_id"
+      ],
+      "type": "object"
+    },
+    "name": "list_discovery_devices"
+  },
+  {
+    "description": "Set the operator name on one LAN Discovery device. Kind and map role stay. A new or offline device becomes known. Pass an empty display_name to clear the name.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "device_id": {
+          "description": "Device id",
+          "type": "integer"
+        },
+        "display_name": {
+          "description": "Operator name. Empty clears it.",
+          "type": "string"
+        },
+        "integration_id": {
+          "description": "LAN Discovery integration id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "integration_id",
+        "device_id",
+        "display_name"
+      ],
+      "type": "object"
+    },
+    "name": "rename_discovery_device"
+  },
+  {
+    "description": "Set a LAN Discovery device to known, new, or ignored. A linked device cannot be marked new. Marking known leaves a linked device linked.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "device_id": {
+          "description": "Device id",
+          "type": "integer"
+        },
+        "integration_id": {
+          "description": "LAN Discovery integration id",
+          "type": "integer"
+        },
+        "state": {
+          "description": "known, new, or ignored",
+          "type": "string"
+        }
+      },
+      "required": [
+        "integration_id",
+        "device_id",
+        "state"
+      ],
+      "type": "object"
+    },
+    "name": "set_discovery_device_state"
+  },
+  {
+    "description": "Ignore a stale LAN Discovery row that shares this device's hostname and IP. Copies display name, kind override, and notes onto this MAC. One audit row. Identity stays the MAC.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "device_id": {
+          "description": "New MAC device id",
+          "type": "integer"
+        },
+        "integration_id": {
+          "description": "LAN Discovery integration id",
+          "type": "integer"
+        },
+        "stale_device_id": {
+          "description": "Stale row to ignore",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "integration_id",
+        "device_id",
+        "stale_device_id"
+      ],
+      "type": "object"
+    },
+    "name": "replace_stale_mac"
+  },
+  {
+    "description": "Link a LAN Discovery device to a fleet server.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "device_id": {
+          "description": "Device id",
+          "type": "integer"
+        },
+        "integration_id": {
+          "description": "LAN Discovery integration id",
+          "type": "integer"
+        },
+        "server_id": {
+          "description": "Fleet server id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "integration_id",
+        "device_id",
+        "server_id"
+      ],
+      "type": "object"
+    },
+    "name": "link_discovery_device"
+  },
+  {
+    "description": "Unlink a LAN Discovery device. The device becomes known.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "device_id": {
+          "description": "Device id",
+          "type": "integer"
+        },
+        "integration_id": {
+          "description": "LAN Discovery integration id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "integration_id",
+        "device_id"
+      ],
+      "type": "object"
+    },
+    "name": "unlink_discovery_device"
+  },
+  {
+    "description": "Permanently delete one LAN Discovery device. confirm must be true. A linked device is refused. There is no undo.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm": {
+          "description": "Must be true. There is no undo.",
+          "type": "boolean"
+        },
+        "device_id": {
+          "description": "Device id",
+          "type": "integer"
+        },
+        "integration_id": {
+          "description": "LAN Discovery integration id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "integration_id",
+        "device_id",
+        "confirm"
+      ],
+      "type": "object"
+    },
+    "name": "purge_discovery_device"
+  },
+  {
+    "description": "Permanently delete offline LAN Discovery devices. confirm must be true. Linked devices stay. There is no undo. The result lists the removed ids.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm": {
+          "description": "Must be true. There is no undo.",
+          "type": "boolean"
+        },
+        "integration_id": {
+          "description": "LAN Discovery integration id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "integration_id",
+        "confirm"
+      ],
+      "type": "object"
+    },
+    "name": "purge_stale_discovery_devices"
+  },
+  {
+    "description": "Scan one LAN Discovery device. confirm must be true. intensity is discovery, inventory, detailed, or deep. Default deep. The device address must sit inside the saved ranges. Vulnerability scripts stay off. HTTP 202 means accepted.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm": {
+          "description": "Must be true.",
+          "type": "boolean"
+        },
+        "device_id": {
+          "description": "Device id",
+          "type": "integer"
+        },
+        "integration_id": {
+          "description": "LAN Discovery integration id",
+          "type": "integer"
+        },
+        "intensity": {
+          "description": "discovery, inventory, detailed, or deep. Default deep.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "integration_id",
+        "device_id",
+        "confirm"
+      ],
+      "type": "object"
+    },
+    "name": "scan_discovery_device"
+  },
+  {
+    "description": "List a fleet-jail directory. p is jail-relative.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "p": {
+          "description": "Jail-relative directory",
+          "type": "string"
+        },
+        "server_id": {
+          "description": "Server id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "server_id"
+      ],
+      "type": "object"
+    },
+    "name": "list_files"
+  },
+  {
+    "description": "Download one fleet-jail file. Sensitive. Secret-looking names are refused. Result is capped around 256 KiB and says when it was cut.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "p": {
+          "description": "Jail-relative file path",
+          "type": "string"
+        },
+        "server_id": {
+          "description": "Server id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "server_id",
+        "p"
+      ],
+      "type": "object"
+    },
+    "name": "read_file"
+  },
+  {
+    "description": "Upload text into the fleet jail. p is the directory. name is the file basename. Cap 256 KiB.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "File basename",
+          "type": "string"
+        },
+        "p": {
+          "description": "Jail-relative directory",
+          "type": "string"
+        },
+        "server_id": {
+          "description": "Server id",
+          "type": "integer"
+        },
+        "text": {
+          "description": "UTF-8 file body",
+          "type": "string"
+        }
+      },
+      "required": [
+        "server_id",
+        "p",
+        "name",
+        "text"
+      ],
+      "type": "object"
+    },
+    "name": "write_file"
+  },
+  {
+    "description": "Create a directory in the fleet jail. p is the parent. name is the new directory.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "New directory name",
+          "type": "string"
+        },
+        "p": {
+          "description": "Jail-relative parent",
+          "type": "string"
+        },
+        "server_id": {
+          "description": "Server id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "server_id",
+        "p",
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "mkdir"
+  },
+  {
+    "description": "Rename inside the current fleet-jail directory.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "dest": {
+          "description": "New basename",
+          "type": "string"
+        },
+        "p": {
+          "description": "Jail-relative directory",
+          "type": "string"
+        },
+        "server_id": {
+          "description": "Server id",
+          "type": "integer"
+        },
+        "src": {
+          "description": "Current basename",
+          "type": "string"
+        }
+      },
+      "required": [
+        "server_id",
+        "src",
+        "dest"
+      ],
+      "type": "object"
+    },
+    "name": "rename_file"
+  },
+  {
+    "description": "Delete one file or an empty directory in the fleet jail. Not recursive.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "p": {
+          "description": "Jail-relative path",
+          "type": "string"
+        },
+        "server_id": {
+          "description": "Server id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "server_id",
+        "p"
+      ],
+      "type": "object"
+    },
+    "name": "delete_file"
+  }
+]

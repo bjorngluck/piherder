@@ -15,6 +15,25 @@ from ..services import metrics as metrics_svc
 router = APIRouter(tags=["metrics"])
 
 
+def _authorize_metrics(request: Request) -> None:
+    """Same gate for /metrics and /metrics/worker. Errors fail closed."""
+    try:
+        expected = (settings.METRICS_TOKEN or "").strip()
+        if not expected:
+            return
+        auth = request.headers.get("authorization") or ""
+        if auth.lower().startswith("bearer "):
+            token = auth[7:].strip()
+        else:
+            token = (request.headers.get("x-metrics-token") or "").strip()
+        if not _token_ok(token, expected):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 def _token_ok(provided: str, expected: str) -> bool:
     """Constant-time compare for bearer tokens (pad to equal length via secrets)."""
     if not expected:
@@ -34,19 +53,20 @@ async def prometheus_metrics(
     request: Request,
     session: Session = Depends(get_session),
 ):
-    expected = (settings.METRICS_TOKEN or "").strip()
-    if expected:
-        auth = request.headers.get("authorization") or ""
-        token = ""
-        if auth.lower().startswith("bearer "):
-            token = auth[7:].strip()
-        elif request.headers.get("x-metrics-token"):
-            token = (request.headers.get("x-metrics-token") or "").strip()
-        if not _token_ok(token, expected):
-            raise HTTPException(status_code=401, detail="Unauthorized")
+    _authorize_metrics(request)
 
     body = metrics_svc.metrics_body(session)
     return Response(
         content=body,
         media_type="text/plain; version=0.0.4; charset=utf-8",
     )
+
+
+@router.get("/metrics/worker")
+async def worker_prometheus_metrics(request: Request):
+    """Proxy the worker scrape. The target URL is not taken from the request."""
+    _authorize_metrics(request)
+    from ..services.worker_metrics import fetch_worker_metrics
+
+    status, body, media = fetch_worker_metrics()
+    return Response(content=body, status_code=status, media_type=media)

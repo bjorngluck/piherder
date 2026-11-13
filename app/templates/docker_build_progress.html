@@ -38,7 +38,7 @@
   </p>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 const logEl = document.getElementById('build-log');
 const sid = {{ sid | tojson }};
 const params = new URLSearchParams({

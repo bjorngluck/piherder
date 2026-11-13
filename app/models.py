@@ -1,5 +1,5 @@
 from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Index, UniqueConstraint
 from datetime import datetime
 from typing import Optional, List, Any
 import json
@@ -374,6 +374,15 @@ class ConsoleTranscript(SQLModel, table=True):
 
 
 class AuditLog(SQLModel, table=True):
+    __table_args__ = (
+        Index(
+            "ix_auditlog_server_action_started",
+            "server_id",
+            "action",
+            "started_at",
+        ),
+    )
+
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: Optional[int] = Field(default=None, foreign_key="user.id")
     server_id: Optional[int] = Field(default=None, foreign_key="server.id")
@@ -396,6 +405,15 @@ class AuditLog(SQLModel, table=True):
 
 
 class Job(SQLModel, table=True):
+    __table_args__ = (
+        Index(
+            "ix_job_server_status_created",
+            "server_id",
+            "status",
+            "created_at",
+        ),
+    )
+
     id: Optional[int] = Field(default=None, primary_key=True)
     server_id: Optional[int] = Field(default=None, foreign_key="server.id")
     job_type: str  # backup, container_patch, os_patch, os_update_check, container_update_check, docker_stack_check, docker_stack_deploy, retention, diagnostics, herder_backup

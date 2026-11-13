@@ -272,13 +272,13 @@ async def deployment_redeploy(
             return JSONResponse({"detail": str(e)}, status_code=400)
         return _redirect(f"/templates/deployments/{deployment_id}", error=str(e)[:200])
     except Exception as e:
-        logger.exception("template redeploy enqueue")
+        logger.error("template redeploy enqueue: %s", type(e).__name__)
         _audit(
             session,
             user,
             "template.redeploy",
             server_id=server.id,
-            details=f"deployment={deployment_id} enqueue_error={e}",
+            details=f"deployment={deployment_id} enqueue_error={type(e).__name__}",
             status="failed",
         )
         if request.headers.get("X-PiHerder-Async") == "1":
@@ -360,7 +360,7 @@ async def deployment_check_drift(
             error=str(e)[:200],
         )
     except Exception as e:
-        logger.exception("template drift check enqueue")
+        logger.error("template drift check enqueue: %s", type(e).__name__)
         if request.headers.get("X-PiHerder-Async") == "1":
             return JSONResponse({"detail": str(e)[:200]}, status_code=500)
         return _redirect(
@@ -743,13 +743,13 @@ async def template_confirm_deploy(
             return JSONResponse({"detail": str(e)}, status_code=400)
         return _redirect(f"/templates/{slug}/deploy", error=str(e)[:200])
     except Exception as e:
-        logger.exception("template deploy enqueue")
+        logger.error("template deploy enqueue: %s", type(e).__name__)
         _audit(
             session,
             user,
             "template.deploy",
             server_id=server_id,
-            details=f"slug={slug} enqueue_error={e}",
+            details=f"slug={slug} enqueue_error={type(e).__name__}",
             status="failed",
         )
         if request.headers.get("X-PiHerder-Async") == "1":

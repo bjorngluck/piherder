@@ -149,6 +149,18 @@ JSON + gzip of **selected** tables (often dominated by capped audit + logos) typ
 
 ---
 
+## Restore drill
+
+Run this on a lab copy before you trust a new archive. It uses a placeholder host name. It does not restore host rsync trees.
+
+1. Take a **Full** self-backup. Copy the `.tar.gz` and `PIHERDER_MASTER_KEY` off the machine.
+2. Install a fresh PiHerder. Put the same master key in its environment. Do not point it at the live database.
+3. Restore that archive from **Settings → PiHerder backup**. A Full archive replaces the fresh database and writes logos and avatars under the data directory. Herder settings in the archive replace the fresh settings.
+4. Restart web and the worker.
+5. Sign in. Confirm the host list still contains the hosts from the archive (for example `host-a`). Open Jobs and confirm a recent row is present when the dump had one. Change nothing on the live fleet from this lab copy.
+
+The automated check is `tests/test_herder_restore_drill_v115.py`. It writes a config archive from a database that contains `host-a`, restores that archive onto an empty database, starts the app, and reads the host back. A monthly restore of one host backup onto scratch storage is not part of this drill.
+
 ## Related
 
 | Topic | Page |

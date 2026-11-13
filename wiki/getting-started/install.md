@@ -83,7 +83,7 @@ Continue: [First login](first-login.md) — **register the first admin** (no def
 
 ### 6. (Optional) LAN Discovery nmap worker
 
-Default `docker compose up` does **not** start nmap. Web **never** runs scans: it only enqueues to queue `nmap`.
+`docker compose up` does not start the nmap worker. Web **never** runs scans: it only enqueues to queue `nmap`. The worker is opt-in because it is a second image, root on the host network, with `NET_RAW` and `NET_ADMIN`.
 
 **Worker fence (compose hard-codes — no `.env` required):**
 

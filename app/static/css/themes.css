@@ -1405,6 +1405,32 @@ pre.log, .backup-progress-log {
   color: var(--banner-warning-text);
 }
 
+.boot-secrets-banner {
+  border-bottom: 4px solid var(--banner-warning-border);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.boot-secrets-banner .boot-secrets-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+}
+
+.boot-secrets-banner ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.boot-secrets-banner li + li {
+  margin-top: 0.25rem;
+}
+
+.boot-secrets-banner .boot-secrets-foot {
+  margin: 0.6rem 0 0;
+  font-weight: 600;
+}
+
 /* Status pills using semantic vars */
 .status-pill {
   display: inline-block;

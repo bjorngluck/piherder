@@ -467,6 +467,20 @@ def test_map_presets_include_must_have_ids():
     assert "grafana" in (graf.get("post") or "").lower()
 
 
+def test_map_preset_keeps_category_and_unix_group():
+    npm = cert_svc.get_map_preset("npm_pair")
+    assert npm is not None
+    assert npm["category"] == "Reverse proxy"
+    assert npm["group"] == "root"
+    graf = cert_svc.get_map_preset("grafana_volume")
+    assert graf is not None
+    assert graf["category"] == "Docker"
+    assert graf["group"] == ""
+    for preset in cert_svc.map_presets_for_ui():
+        assert preset.get("category")
+        assert "group" in preset
+
+
 def test_map_preset_layouts_are_valid():
     for p in cert_svc.map_presets_for_ui():
         assert p["layout"] in cert_svc.LAYOUTS

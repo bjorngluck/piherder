@@ -5,9 +5,12 @@ encrypted in the JSON blob. Env WEBHOOK_* remains a fallback when UI URL empty.
 """
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
+import os
 import smtplib
+import socket
 import ssl
 from email.message import EmailMessage
 from typing import Any, Optional
@@ -18,8 +21,26 @@ import httpx
 from ..config import settings as env_settings
 from ..security.encryption import decrypt_str, encrypt_str
 from . import app_settings as app_cfg
+from .request_ip import parse_trusted_proxy_cidrs
 
 logger = logging.getLogger(__name__)
+
+# Private, loopback, and link-local ranges. Documentation ranges stay allowed.
+# ipaddress.is_private on this interpreter also marks those documentation ranges.
+_WEBHOOK_BLOCKED_NETS = tuple(
+    ipaddress.ip_network(item)
+    for item in (
+        "0.0.0.0/8",
+        "10.0.0.0/8",
+        "127.0.0.0/8",
+        "169.254.0.0/16",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "::1/128",
+        "fc00::/7",
+        "fe80::/10",
+    )
+)
 
 SEVERITIES = ("info", "warning", "critical")
 _SEV_RANK = {"info": 0, "warning": 1, "critical": 2}
@@ -27,6 +48,12 @@ _SEV_RANK = {"info": 0, "warning": 1, "critical": 2}
 
 def _rank(sev: str) -> int:
     return _SEV_RANK.get((sev or "warning").lower(), 1)
+
+
+def _note_delivery_failure(channel: str) -> None:
+    from .delivery_metrics import note_alert_delivery_failure
+
+    note_alert_delivery_failure(channel)
 
 
 # ── Webhook (Wh-lite) ────────────────────────────────────────────────────────
@@ -134,12 +161,25 @@ def send_webhook(
         headers["Authorization"] = f"Bearer {secret}"
         headers["X-PiHerder-Webhook-Secret"] = secret
     try:
-        r = httpx.post(wc["url"], json=payload, headers=headers, timeout=10)
+        validate_webhook_url(wc["url"])
+    except ValueError:
+        _note_delivery_failure("webhook")
+        return {"ok": False, "error": "webhook target is not allowed"}
+    try:
+        r = httpx.post(
+            wc["url"],
+            json=payload,
+            headers=headers,
+            timeout=10,
+            follow_redirects=False,
+        )
         if r.status_code >= 400:
+            _note_delivery_failure("webhook")
             return {"ok": False, "error": f"HTTP {r.status_code}", "status_code": r.status_code}
         return {"ok": True, "status_code": r.status_code}
     except Exception as e:
         logger.debug("webhook failed: %s", e)
+        _note_delivery_failure("webhook")
         return {"ok": False, "error": str(e)[:200]}
 
 
@@ -293,18 +333,93 @@ def maybe_email_notification(
         lines.append(body)
     if link_url:
         lines.append(f"\nOpen: {link_url}")
-    send_email(
+    result = send_email(
         to=[x.strip() for x in to.split(",") if x.strip()],
         subject=f"PiHerder: {title}"[:200],
         body_text="\n".join(lines),
     )
+    if not result.get("ok"):
+        _note_delivery_failure("email")
+    return result
+
+
+def _parse_webhook_ip(raw: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
+    return ipaddress.ip_address((raw or "").split("%", 1)[0].strip())
+
+
+def _canonical_address(
+    addr: ipaddress.IPv4Address | ipaddress.IPv6Address,
+) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
+    mapped = getattr(addr, "ipv4_mapped", None)
+    return mapped if mapped is not None else addr
+
+
+def _address_blocked(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    addr = _canonical_address(addr)
+    if addr.is_multicast or addr.is_unspecified:
+        return True
+    return any(addr.version == net.version and addr in net for net in _WEBHOOK_BLOCKED_NETS)
+
+
+def _address_allowlisted(
+    addr: ipaddress.IPv4Address | ipaddress.IPv6Address,
+    nets: list,
+) -> bool:
+    addr = _canonical_address(addr)
+    for net in nets:
+        if addr.version != net.version:
+            continue
+        if addr in net:
+            return True
+    return False
+
+
+def _resolve_webhook_host(host: str) -> list[str]:
+    """Addresses for a webhook host. Tests replace this. No URL is logged."""
+    found: list[str] = []
+    for item in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM):
+        sockaddr = item[4]
+        if sockaddr:
+            found.append(str(sockaddr[0]))
+    return found
+
+
+def _webhook_addresses(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+    try:
+        return [_parse_webhook_ip(host)]
+    except ValueError:
+        pass
+    try:
+        raws = _resolve_webhook_host(host)
+    except Exception:
+        return []
+    out: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
+    for raw in raws:
+        try:
+            out.append(_parse_webhook_ip(raw))
+        except ValueError:
+            return []
+    return out
 
 
 def validate_webhook_url(url: str) -> str:
+    """Accept an http(s) URL whose addresses are public, or on the allowlist.
+
+    Private, loopback, and link-local targets are refused. An explicit
+    ``PIHERDER_WEBHOOK_ALLOW_CIDRS`` list opts those addresses back in.
+    The error text has no host and no address.
+    """
     u = (url or "").strip()
     if not u:
         return ""
-    p = urlparse(u)
-    if p.scheme not in ("http", "https") or not p.netloc:
+    parsed = urlparse(u)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
         raise ValueError("Webhook URL must be http(s)://host/…")
+    addresses = _webhook_addresses(parsed.hostname)
+    if not addresses:
+        raise ValueError("Webhook target is not allowed.")
+    allow = parse_trusted_proxy_cidrs(os.environ.get("PIHERDER_WEBHOOK_ALLOW_CIDRS"))
+    for addr in addresses:
+        if _address_blocked(addr) and not _address_allowlisted(addr, allow):
+            raise ValueError("Webhook target is not allowed.")
     return u

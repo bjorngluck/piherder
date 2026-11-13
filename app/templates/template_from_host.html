@@ -18,7 +18,7 @@
     No hosts with Docker enabled. Enable Containers on a server first, then open Docker and Force refresh inventory.
   </div>
   {% else %}
-  <script type="application/json" id="from-host-projects-data">{{ host_projects_json | safe }}</script>
+  <script type="application/json" id="from-host-projects-data">{{ host_projects_json | htmlsafe_json }}</script>
 
   <form method="post" action="/templates/from-host" class="card p-4 space-y-4"
         x-data="fromHostPicker()"
@@ -114,7 +114,7 @@
   {% endif %}
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 function fromHostPicker() {
   return {
     serverId: '',

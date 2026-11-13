@@ -266,12 +266,21 @@ def sanitize_basename(name: Optional[str]) -> str:
     return base
 
 
-def is_secretish(name: str) -> bool:
-    base = (name or "").replace("\\", "/").rsplit("/", 1)[-1]
-    low = base.lower()
-    if low in SECRET_EXACT or low.startswith(".env."):
+def _secretish_component(part: str) -> bool:
+    low = (part or "").lower()
+    if not low:
+        return False
+    if low in SECRET_EXACT or low.startswith(".env.") or low.startswith("id_"):
+        return True
+    if "secrets" in low:
         return True
     return any(low.endswith(suf) for suf in SECRET_SUFFIXES)
+
+
+def is_secretish(name: str) -> bool:
+    raw = (name or "").replace("\\", "/")
+    parts = [part for part in raw.split("/") if part not in ("", ".", "..")]
+    return any(_secretish_component(part) for part in parts)
 
 
 def jail_path(server: Any, *, role: str = ROLE_FLEET, identity: Any = None) -> str:

@@ -76,9 +76,9 @@ class Settings(BaseSettings):
     # Never use * with API tokens. Backend still enforces Bearer + scopes + IP allowlist.
     CORS_ORIGINS: Optional[str] = None
 
-    # Trust CF-Connecting-IP / X-Forwarded-For / X-Real-IP only when the TCP peer
-    # is in this list (comma-separated CIDRs). Empty = never trust forwarded headers
-    # (use the TCP peer). Bundled Compose sets RFC1918 + loopback so Caddy is trusted.
+    # Optional narrow list. Unset or blank trusts home-network peers
+    # (private, link-local, CGNAT, loopback, and the stock compose subnet).
+    # Set this only to trust fewer peers.
     PIHERDER_TRUSTED_PROXY_CIDRS: Optional[str] = None
 
     # GitHub release check for “new version available” banner / About page
@@ -158,3 +158,13 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def _prepare_boot_urls() -> None:
+    """Normalize Redis URLs and the nmap database host before other modules read them."""
+    from .security.boot_secrets import prepare_process_urls
+
+    prepare_process_urls(settings)
+
+
+_prepare_boot_urls()

@@ -71,7 +71,7 @@
 <p class="mt-4 text-xs text-muted max-w-xl">
   After adding: open <strong>SSH access</strong> on the server page to deploy the public key (password or copy-paste script), test the connection, or rotate keys later.
 </p>
-<script>
+<script nonce="{{ csp_nonce() }}">
 function toggleAuthFields() {
   const mode = (document.querySelector('input[name="key_mode"]:checked') || {}).value || 'generate';
   const upload = document.getElementById('upload-key-fields');

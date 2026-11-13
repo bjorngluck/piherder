@@ -15,10 +15,24 @@ from app.models import AuditLog, Job, Server
 from app.services import jobs as js
 from app.services.jobs_exclusive import (
     EXCLUSIVE_CELERY_TYPES,
+    HOST_BACKUP_LOCK_TYPES,
     _enqueue_celery,
     run_exclusive_job,
 )
 from app.tasks import HOST_BOOTSTRAP_EXPIRES_SEC, exclusive_job, host_bootstrap_job
+
+
+@pytest.fixture(autouse=True)
+def _exclusive_tests_use_local_locks():
+    """Do not take a Redis host lock from this file."""
+    from app.services import server_job_lock as lock
+
+    previous = lock._redis_failed
+    lock._redis_failed = True
+    lock.clear_local_locks_for_tests()
+    yield
+    lock.clear_local_locks_for_tests()
+    lock._redis_failed = previous
 
 
 def _engine():
@@ -62,7 +76,7 @@ class _Task:
         raise Retry(message="wait")
 
 
-def test_exclusive_types_are_celery_owned_and_not_the_backup_mutex():
+def test_exclusive_types_are_celery_owned():
     assert "os_patch" in js._CELERY_JOB_TYPES
     assert "docker_stack_deploy" in EXCLUSIVE_CELERY_TYPES
     assert "template_drift_check" in EXCLUSIVE_CELERY_TYPES
@@ -82,7 +96,7 @@ def test_exclusive_types_are_celery_owned_and_not_the_backup_mutex():
     from app.services import jobs_exclusive as exclusive_mod
 
     src = open(exclusive_mod.__file__, encoding="utf-8").read()
-    assert "try_acquire" not in src
+    assert "try_acquire_server_lock" in src
 
 
 def test_enqueue_os_patch_uses_default_queue_not_the_thread_pool(monkeypatch):
@@ -571,3 +585,81 @@ def test_host_bootstrap_failure_redacts_password(monkeypatch, caplog):
         assert secret not in blob
         assert enc not in blob
         assert "ssh failed" in blob
+
+
+def test_patch_stack_reboot_and_prune_defer_while_backup_holds_the_lock(monkeypatch):
+    from app.services import server_job_lock as lock
+
+    engine = _engine()
+    _bind(monkeypatch, engine)
+    with Session(engine) as session:
+        srv = Server(
+            name="host-a",
+            hostname="host-a.example.com",
+            ip_address="192.0.2.10",
+            ssh_port=22,
+        )
+        session.add(srv)
+        session.commit()
+        session.refresh(srv)
+        session.expunge(srv)
+
+    held = lock.try_acquire_server_lock("backup", srv.id, holder="backup-job")
+    assert held
+    try:
+        monkeypatch.setattr(
+            "app.services.jobs_exclusive._execute",
+            lambda *a, **k: (_ for _ in ()).throw(AssertionError("executed")),
+        )
+        monkeypatch.setattr(
+            "app.services.jobs_exclusive._ssh_ready",
+            lambda *a, **k: (_ for _ in ()).throw(AssertionError("ssh")),
+        )
+        for kind in sorted(HOST_BACKUP_LOCK_TYPES):
+            with Session(engine) as session:
+                job = Job(
+                    server_id=srv.id,
+                    job_type=kind,
+                    status="pending",
+                    details="{}",
+                )
+                session.add(job)
+                session.commit()
+                session.refresh(job)
+                jid = job.id
+            task = _Task()
+            with pytest.raises(Retry):
+                run_exclusive_job(task, jid, srv.id, 1, kind, {})
+            assert task.countdowns == [30]
+            with Session(engine) as session:
+                row = session.get(Job, jid)
+                assert row is not None
+                assert row.status == "pending"
+                details = row.details or ""
+                assert "waiting_for_server" in details
+                assert "Waiting for the backup on this server to finish" in details
+
+        monkeypatch.setattr("app.services.jobs_exclusive._ssh_ready", lambda *a, **k: True)
+        ran: dict = {}
+        monkeypatch.setattr(
+            "app.services.jobs_exclusive._execute",
+            lambda job_type, *a, **k: ran.setdefault("kind", job_type),
+        )
+        with Session(engine) as session:
+            job = Job(
+                server_id=srv.id,
+                job_type="os_update_check",
+                status="pending",
+                details="{}",
+            )
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            jid = job.id
+        result = run_exclusive_job(_Task(), jid, srv.id, 1, "os_update_check", {})
+        assert result["status"] == "ok"
+        assert ran["kind"] == "os_update_check"
+        assert "os_update_check" not in HOST_BACKUP_LOCK_TYPES
+        assert lock.is_server_locked("backup", srv.id)
+    finally:
+        lock.release_server_lock("backup", srv.id, held)

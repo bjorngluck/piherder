@@ -1316,7 +1316,32 @@ def _list_containers_uncached(server: Server, enrich_mounts: bool = True) -> Lis
             _enrich_container_mounts(server, containers)
         except Exception:
             pass
+    _note_unhealthy_containers(server, containers)
     return containers
+
+
+def _note_unhealthy_containers(server: Server, containers: list[dict]) -> None:
+    """Record one alert when a listed container stays unhealthy."""
+    try:
+        server_id = getattr(server, "id", None)
+        if server_id is None:
+            return
+        from sqlmodel import Session
+
+        from ..database import get_engine
+        from .notifications import notify_unhealthy_containers, unhealthy_container_names
+
+        names = unhealthy_container_names(containers)
+        with Session(get_engine()) as session:
+            notify_unhealthy_containers(
+                session,
+                int(server_id),
+                getattr(server, "name", None) or str(server_id),
+                names,
+            )
+            session.commit()
+    except Exception:
+        return
 
 
 def _human_bytes(n: int) -> str:
@@ -1946,17 +1971,28 @@ def _list_compose_uncached(
             }
             if compose_graph:
                 row["compose_graph"] = compose_graph
-            try:
-                from .git_project import drift_from_report, drift_script, parse_git_report
+            projects.append(row)
+        try:
+            from .git_project import (
+                drift_from_report,
+                drift_script_many,
+                parse_git_report,
+                split_drift_output,
+            )
 
+            paths = [row["path"] for row in projects if row.get("path")]
+            if paths:
                 git_status, git_out, _git_err = run_command(
-                    client, drift_script(proj_dir), timeout=12
+                    client, drift_script_many(paths), timeout=20
                 )
                 if git_status == 0 and git_out:
-                    row.update(drift_from_report(parse_git_report(git_out)))
-            except Exception:
-                pass
-            projects.append(row)
+                    by_path = split_drift_output(git_out)
+                    for row in projects:
+                        chunk = by_path.get(row.get("path") or "")
+                        if chunk:
+                            row.update(drift_from_report(parse_git_report(chunk)))
+        except Exception:
+            pass
         return projects
     finally:
         try:

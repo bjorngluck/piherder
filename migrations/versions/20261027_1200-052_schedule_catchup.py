@@ -38,8 +38,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    conn = op.get_bind()
+    insp = inspect(conn)
+    if "server" not in set(insp.get_table_names()):
+        return
+    cols = {c["name"] for c in insp.get_columns("server")}
     for name in ("container_check_catchup_enabled", "backup_catchup_enabled"):
-        try:
+        if name in cols:
             op.drop_column("server", name)
-        except Exception:
-            pass

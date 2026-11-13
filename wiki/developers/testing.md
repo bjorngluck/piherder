@@ -17,16 +17,16 @@ pip install --no-deps -e .
 pytest -q
 # Coverage (v1.7 CI floor ≥80%; v1.6 floor was 75)
 pip install pytest-cov
-pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=85
+pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=90
 ```
 
 Unit tests live under `tests/` — no live SSH required for the main suite. Default `pytest` only collects `tests/` (not `e2e/`). `tests/conftest.py` points the database, settings directory, and broker at throwaway targets before the app is imported. The guard accepts only those exact values. Host `pytest` does not use the live database.
 
 | Bar | Value |
 |-----|--------|
-| **Suite freeze target** | **85** on the coverage report for `app` (v1.14). v1.7 set the floor at 80 |
-| **CI fail-under** | **85**. The v1.14 compose run is **85%** on the report (49078/57940, 84.70% before rounding). The gate uses that rounded figure |
-| **1.x end goal** | The CI floor is **85** on this train. |
+| **Suite freeze target** | **90** on the coverage report for `app` (v1.15). v1.14 set the floor at 85. v1.7 set the floor at 80 |
+| **CI fail-under** | **90**. The v1.15 unit run is **90%** (54249/60276). The gate uses the rounded figure |
+| **1.x end goal** | The CI floor is **90** on this train. |
 | **v1.0 production** | Authz matrix + input validation + credential recovery tests; no 100% target; prefer service tests over router % |
 
 ### v1.0 production-hardening packs
@@ -84,7 +84,7 @@ CI covers unit + Playwright on fixtures. Live fleet validation (real SSH, HAOS, 
 | Unit | push/PR (app, tests, migrations, locks) | [`.github/workflows/test.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/test.yml) — hashed lock + `pytest -q` |
 | **E2E** | push/PR (app, e2e, compose, Dockerfile, …) | [`.github/workflows/e2e.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/e2e.yml) — e2e compose set + Playwright Chromium |
 | Docs | wiki / mkdocs changes | [`.github/workflows/docs.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/docs.yml) |
-| Push denylist | every push and pull request | [`.github/workflows/push-denylist.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/push-denylist.yml). Patterns stay in the GitHub secret `PIHERDER_PUSH_DENYLIST`, one literal per line, at least 4 characters. Comments and blank lines are ignored. The secret is set. Actions run 215 printed `push denylist clean`. The job does not print a pattern or the matched line |
+| Push denylist | every push and pull request | [`.github/workflows/push-denylist.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/push-denylist.yml). Patterns stay in the GitHub secret `PIHERDER_PUSH_DENYLIST`, one literal per line, at least 4 characters. Comments and blank lines are ignored. An empty secret fails closed and exits 1. It does not report a clean scan. The secret is set. Actions run 215 printed `push denylist clean`. The job does not print a pattern or the matched line |
 
 ## Before a release
 

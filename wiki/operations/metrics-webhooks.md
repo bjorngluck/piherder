@@ -26,7 +26,16 @@ scrape_configs:
     authorization:
       type: Bearer
       credentials: "<METRICS_TOKEN>"
+  - job_name: piherder-worker
+    metrics_path: /metrics/worker
+    static_configs:
+      - targets: ["host-a.example.com:8000"]
+    authorization:
+      type: Bearer
+      credentials: "<METRICS_TOKEN>"
 ```
+
+`GET /metrics/worker` uses the same token as `GET /metrics`. The web process fetches `PIHERDER_WORKER_METRICS_URL` (default `http://celery-worker:9809/metrics`) with a 2 second timeout and returns that body unchanged. A query parameter cannot change the target. Compose does not publish port 9809. If the worker cannot be reached, the route returns 503 and the body is `Worker metrics are unavailable.` `piherder_lock_acquire_failures_total` and `piherder_schedule_catchup_total` are per process. The web target shows the web process. The worker target adds the prefork children. Sum the series across both jobs. The worker clears `PROMETHEUS_MULTIPROC_DIR` when it starts, so files from dead children do not carry into the next start.
 
 Useful series, and the full set exported by `app/services/metrics.py`:
 
@@ -59,6 +68,11 @@ Useful series, and the full set exported by `app/services/metrics.py`:
 | `piherder_queue_oldest_pending_seconds` | Age in seconds of the oldest `pending` job, or 0 when none are pending |
 | `piherder_stuck_queue` | 1 when that age is over 15 minutes and no Celery worker answered. An unknown heartbeat leaves this at 0 |
 | `piherder_schedule_catchup_total` | Catch-up attempts. Labels `kind` (`backup`, `container_check`) and `result` (`queued`, `skipped`, `failed`). Per process. Resets on restart. Sum it across workers and use increase() or rate() |
+| `piherder_lock_acquire_failures_total` | Host lock acquires that did not take the lock. Label `reason` is `redis_error` or `busy`. A Redis error also logs a warning. Per process. Resets on restart. Sum it across workers and use increase() or rate() |
+| `piherder_stack_check_age_seconds` | Seconds since the last stack health check. Omitted until a check has a timestamp |
+| `piherder_alert_delivery_failures_total` | Alert deliveries that did not succeed. Label `channel` is `webhook`, `email`, or `push`. Per process. Resets on restart. Sum it across workers and use increase() or rate() |
+
+A starter Grafana dashboard is `contrib/grafana/piherder-starter.json`. Starter Prometheus rules are `contrib/prometheus/piherder.rules.yml`. `scripts/check_prom_rules.py` runs `promtool check rules` on that file. The rule file warns when `piherder_lock_acquire_failures_total` increases over 15 minutes, and when `up{job="piherder-worker"}` is 0 for 5 minutes. `GET /health` is process liveness. `GET /ready` reports database, Redis, and migration failure.
 
 `piherder_schedule_missed{kind="backup",server_id="1"}` is 1 when that host's latest due backup slot did not start within 15 minutes and has not succeeded since. `kind="container_check"` is the same gauge for a container image check. `kind="docker_prune"` is the same gauge for a saved per-host Docker prune. Schedules that are off are omitted. The prune kind ships in **1.13.0**.
 

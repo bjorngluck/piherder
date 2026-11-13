@@ -27,6 +27,10 @@ from . import templates as templates_mod  # shared Jinja instance (avoids circul
 from .security.auth import get_optional_current_user
 import logging
 
+from .security.log_redaction import install_log_redaction
+
+install_log_redaction()
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -40,24 +44,22 @@ except ImportError:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Schema: Alembic is the source of truth (idempotent upgrade to head).
-    # create_all remains a safety net for brand-new DBs if migrate is skipped.
-    try:
-        from .db_migrate import run_alembic_upgrade
+    from .security.boot_secrets import enforce_boot_secrets
 
+    enforce_boot_secrets()
+    # Schema: Alembic is the source of truth. A failed upgrade aborts boot.
+    from .db_migrate import run_alembic_upgrade
+
+    try:
         run_alembic_upgrade()
+    except Exception:
+        logger.exception("Alembic upgrade failed; refusing to start")
+        raise
+    # Ensure metadata tables exist even if migration only adds columns
+    try:
+        init_db()
     except Exception as e:
-        print(f"Alembic migration warning: {e}")
-        try:
-            init_db()
-        except Exception as e2:
-            print(f"init_db fallback failed: {e2}")
-    else:
-        # Ensure metadata tables exist even if migration only adds columns
-        try:
-            init_db()
-        except Exception as e:
-            print(f"init_db after migrate: {e}")
+        print(f"init_db after migrate: {e}")
 
     try:
         from .services.jobs import cleanup_orphan_web_jobs, cleanup_stale_backup_jobs
@@ -131,14 +133,8 @@ async def lifespan(app: FastAPI):
                 "NOTE: METRICS_TOKEN is unset — GET /metrics is open on the app port. "
                 "Set a bearer token (or firewall) for production scrapes."
             )
-        _cidrs = (_cfg.PIHERDER_TRUSTED_PROXY_CIDRS or "").strip()
-        if _cidrs:
-            print(f"Trusted proxy CIDRs: {_cidrs}")
-        else:
-            print(
-                "NOTE: PIHERDER_TRUSTED_PROXY_CIDRS is empty — "
-                "X-Forwarded-For / CF-Connecting-IP are ignored (TCP peer only)."
-            )
+        if (_cfg.PIHERDER_TRUSTED_PROXY_CIDRS or "").strip():
+            print("Client IP trust is narrowed by the environment.")
     except Exception as e:
         logger.warning("Startup config checks skipped: %s", e)
 
@@ -317,7 +313,7 @@ class SameOriginPostMiddleware(BaseHTTPMiddleware):
             # Automation tokens and public health/metrics are not cookie CSRF targets
             if auth.startswith("bearer ") or path.startswith("/api/v1"):
                 return await call_next(request)
-            if path in ("/health", "/metrics") or path.startswith("/static"):
+            if path in ("/health", "/ready", "/metrics", "/metrics/worker") or path.startswith("/static"):
                 return await call_next(request)
             from .security.auth import same_origin_request
 
@@ -676,4 +672,18 @@ async def root(request: Request, user: User = Depends(get_optional_current_user)
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/ready")
+async def ready():
+    from fastapi.responses import JSONResponse
+
+    from .services.readiness import readiness
+
+    checks = readiness()
+    ok = all(value == "ok" for value in checks.values())
+    return JSONResponse(
+        status_code=200 if ok else 503,
+        content={"status": "ready" if ok else "not_ready", "checks": checks},
+    )
 

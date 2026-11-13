@@ -6,9 +6,9 @@ x-piherder-app-env: &piherder-app-env
   SECRET_KEY: ${SECRET_KEY:?set a long random SECRET_KEY in .env}
   PIHERDER_ALLOW_INSECURE: ${PIHERDER_ALLOW_INSECURE:-false}
   DATABASE_URL: ${DATABASE_URL:-postgresql://piherder:piherder@db:5432/piherder}
-  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
-  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
-  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD}@redis:6379/0}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD}@redis:6379/0}
+  REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD}@redis:6379/0}
   DATA_ROOT: ${DATA_ROOT:-/data}
   BACKUP_ROOT: ${BACKUP_ROOT:-/backups}
   HERDER_BACKUP_ROOT: ${HERDER_BACKUP_ROOT:-/herder_backups}
@@ -31,8 +31,6 @@ x-piherder-app-env: &piherder-app-env
   METRICS_TOKEN: ${METRICS_TOKEN:-}
   METRICS_BACKUP_STALE_HOURS: ${METRICS_BACKUP_STALE_HOURS:-36}
   CORS_ORIGINS: ${CORS_ORIGINS:-}
-  # Trust XFF/CF only from Caddy on the compose network (not from :8000 clients)
-  PIHERDER_TRUSTED_PROXY_CIDRS: ${PIHERDER_TRUSTED_PROXY_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32,::1/128}
   PIHERDER_SERVER_LOCK_TTL: ${PIHERDER_SERVER_LOCK_TTL:-7200}
   PIHERDER_NMAP_VULN_ROOT: ${PIHERDER_NMAP_VULN_ROOT:-/var/lib/piherder/nmap-vuln}
   # Web SSH console — default off. Timeouts / concurrency / bind live in Settings.
@@ -116,7 +114,7 @@ services:
       start_period: 40s
 
   db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
     container_name: piherder-db
     environment:
       - POSTGRES_USER=piherder
@@ -130,8 +128,19 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
     container_name: piherder-redis
+    # Empty REDIS_PASSWORD starts Redis with no password. A set password still
+    # uses requirepass. The official entrypoint still drops to the redis user.
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        if [ -n "$$REDIS_PASSWORD" ]; then
+          exec /usr/local/bin/docker-entrypoint.sh redis-server --requirepass "$$REDIS_PASSWORD"
+        fi
+        exec /usr/local/bin/docker-entrypoint.sh redis-server
     restart: unless-stopped
     volumes:
       - redis_data:/data
@@ -156,6 +165,10 @@ services:
     environment:
       <<: *piherder-app-env
       CELERY_CONCURRENCY: ${CELERY_CONCURRENCY:-2}
+      # Prefork children add lock and catch-up counts. The port stays on this network.
+      PIHERDER_WORKER_METRICS: "1"
+      PIHERDER_WORKER_METRICS_PORT: ${PIHERDER_WORKER_METRICS_PORT:-9809}
+      PROMETHEUS_MULTIPROC_DIR: /tmp/piherder-metrics
     volumes:
       # Must match web — multi-worker rsync writes here
       - ${PIHERDER_BACKUP_HOST_PATH:-./backups}:/backups
@@ -165,17 +178,22 @@ services:
       - db
       - redis
     healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      test: ["CMD", "python", "-c", "from app.services.readiness import worker_responds; raise SystemExit(0 if worker_responds() else 1)"]
       interval: 45s
       timeout: 15s
       retries: 5
       start_period: 60s
 
-  # LAN discovery (nmap) — opt-in profile. Default `docker compose up` does not start this.
+  # LAN discovery (nmap). Opt-in profile. A plain `docker compose up` does not
+  # start this container.
   #   docker build -f Dockerfile.nmap -t piherder:nmap-local .
   #   docker compose --profile nmap up -d celery-worker-nmap
   # Vulners / CVE artefacts live on the host volume (not in the image):
   #   ./piherder_nmap_vuln → /var/lib/piherder/nmap-vuln
+  #
+  # This worker is a second image build, runs as root on the host network, and
+  # adds NET_RAW plus NET_ADMIN. It is one more container and a host-network
+  # process. Leave the profile off unless you want LAN scans.
   #
   # Security boundary: root + host network + queue nmap only. Never add -Q nmap
   # to the main celery-worker. Task code refuses when PIHERDER_NMAP_WORKER=0 or
@@ -204,11 +222,13 @@ services:
       # Override web default — this process is the only allowed nmap executor
       PIHERDER_NMAP_WORKER: "1"
       PIHERDER_NMAP_VULN_ROOT: /var/lib/piherder/nmap-vuln
-      # Host network: compose service DNS (redis/db) is unavailable — use loopback ports.
-      CELERY_BROKER_URL: ${PIHERDER_NMAP_REDIS_URL:-redis://127.0.0.1:6379/0}
-      CELERY_RESULT_BACKEND: ${PIHERDER_NMAP_REDIS_URL:-redis://127.0.0.1:6379/0}
-      REDIS_URL: ${PIHERDER_NMAP_REDIS_URL:-redis://127.0.0.1:6379/0}
-      DATABASE_URL: ${PIHERDER_NMAP_DATABASE_URL:-postgresql://piherder:piherder@127.0.0.1:5432/piherder}
+      # Host network: compose service DNS (redis/db) is unavailable. Use loopback ports.
+      # DATABASE_URL stays the shared URL. The process rewrites host db to
+      # 127.0.0.1 unless PIHERDER_NMAP_DATABASE_URL is set.
+      PIHERDER_NMAP_DATABASE_URL: ${PIHERDER_NMAP_DATABASE_URL:-}
+      CELERY_BROKER_URL: ${PIHERDER_NMAP_REDIS_URL:-redis://:${REDIS_PASSWORD}@127.0.0.1:6379/0}
+      CELERY_RESULT_BACKEND: ${PIHERDER_NMAP_REDIS_URL:-redis://:${REDIS_PASSWORD}@127.0.0.1:6379/0}
+      REDIS_URL: ${PIHERDER_NMAP_REDIS_URL:-redis://:${REDIS_PASSWORD}@127.0.0.1:6379/0}
     volumes:
       - ./piherder_data:/data
       - ${PIHERDER_NMAP_VULN_PATH:-./piherder_nmap_vuln}:/var/lib/piherder/nmap-vuln
@@ -227,7 +247,7 @@ services:
       start_period: 40s
 
   caddy:
-    image: caddy:2
+    image: caddy:2@sha256:36c24ad91a7ff7bc4c87fe22bfa8df3c4b18da0773d73fc12ee2c52b98c0bb7e
     container_name: piherder-caddy
     ports:
       - "8888:80"
@@ -243,12 +263,29 @@ services:
       - ./certs:/certs:ro
       - caddy_data:/data
       - caddy_config:/config
+    networks:
+      default:
+        ipv4_address: ${PIHERDER_CADDY_IP:-192.0.2.10}
     restart: unless-stopped
     depends_on:
       - web
 
   # E2E services: docker-compose.e2e.yml (same project, compose set "e2e")
   #   docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d
+
+networks:
+  # Replaces the implicit project network so Caddy has one address.
+  # 192.0.2.0/24 is TEST-NET-1. It was picked on purpose so the example
+  # subnet is not a private LAN range.
+  # Extra compose files that omit `networks` still join this default.
+  # If the subnet is already in use, set PIHERDER_COMPOSE_SUBNET and set
+  # PIHERDER_CADDY_IP inside that subnet. Client IP needs no setting.
+  default:
+    name: ${PIHERDER_COMPOSE_NETWORK:-piherder_net}
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${PIHERDER_COMPOSE_SUBNET:-192.0.2.0/24}
 
 volumes:
   postgres_data:

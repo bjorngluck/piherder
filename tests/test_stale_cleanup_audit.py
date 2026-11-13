@@ -122,14 +122,26 @@ def test_bearer_cleanup_records_token(tmp_path, monkeypatch):
             _row, plain = tok.create_api_token(
                 session, name="mcp", created_by=user, scopes=["read", "jobs", "edit"]
             )
+            admin_row, admin_plain = tok.create_api_token(
+                session, name="audit-admin", created_by=user, scopes=["admin"]
+            )
             limited, limited_plain = tok.create_api_token(
                 session,
                 name="backup-only",
                 created_by=user,
                 scopes=["read", "jobs", "feature:backup"],
             )
-            token_id = _row.id
+            token_id = admin_row.id
+            assert _row.id
             assert limited.id
+
+        jobs_denied = client.post(
+            "/api/v1/maintenance/stale-data-cleanup",
+            headers={"Authorization": f"Bearer {plain}"},
+            json={"dry_run": True},
+        )
+        assert jobs_denied.status_code == 403
+        assert "admin" in jobs_denied.text
 
         denied = client.post(
             "/api/v1/maintenance/stale-data-cleanup",
@@ -140,7 +152,7 @@ def test_bearer_cleanup_records_token(tmp_path, monkeypatch):
 
         accepted = client.post(
             "/api/v1/maintenance/stale-data-cleanup",
-            headers={"Authorization": f"Bearer {plain}"},
+            headers={"Authorization": f"Bearer {admin_plain}"},
             json={"dry_run": True},
         )
         assert accepted.status_code == 202, accepted.text
@@ -156,7 +168,7 @@ def test_bearer_cleanup_records_token(tmp_path, monkeypatch):
             )
             assert len(queued) == 1
             assert queued[0].api_token_id == token_id
-            assert queued[0].api_token_name == "mcp"
+            assert queued[0].api_token_name == "audit-admin"
             assert queued[0].client_ip
             job_id = body["job_id"]
             sdc.run_stale_data_cleanup(session, job_id=job_id, dry_run=True, cfg=_CFG)
@@ -165,7 +177,7 @@ def test_bearer_cleanup_records_token(tmp_path, monkeypatch):
             )
             assert len(done) == 1
             assert done[0].api_token_id == token_id
-            assert done[0].api_token_name == "mcp"
+            assert done[0].api_token_name == "audit-admin"
             assert done[0].client_ip == queued[0].client_ip
     finally:
         app.dependency_overrides.clear()

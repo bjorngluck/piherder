@@ -9,7 +9,7 @@ How to move a running compose install to a newer **git tag or `main`**, pull the
 Upgrades change code *and* schema. A self-backup + unchanged master key is the difference between a smooth pull and an unrecoverable encrypted store.
 
 !!! tip "Prefer tags"
-    Prefer **tagged production releases** (`v1.6.0` / later `1.6.x`). Treat untagged `main` as moving. See [Home](../index.md#release-status) · [RELEASE_v1.6.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.6.0.md).
+    Prefer a **tagged production release**. The published tag is **v1.14.0**. **v1.15.0** is frozen and not tagged. Treat untagged `main` as moving. See [Home](../index.md#release-status) · [RELEASE_v1.14.0.md](https://github.com/bjorngluck/piherder/blob/v1.14.0/docs/RELEASE_v1.14.0.md).
 
 ```bash
 # Config DR first
@@ -17,18 +17,18 @@ Upgrades change code *and* schema. A self-backup + unchanged master key is the d
 # Also snapshot Postgres volume if you can
 
 git fetch --tags
-git checkout v1.6.0   # or later 1.6.x
+git checkout v1.14.0
 docker compose pull
 docker compose up -d
 # Alembic runs on web startup
-# optional pin: PIHERDER_IMAGE=bjorngluck/piherder:1.6.0 docker compose up -d
+# optional pin: PIHERDER_IMAGE=bjorngluck/piherder:1.14.0 docker compose up -d
 ```
 
 ## Checklist
 
 - [ ] Self-backup successful (**admin** — Settings → PiHerder backup)  
 - [ ] `PIHERDER_MASTER_KEY` unchanged and backed up offline  
-- [ ] Read [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.6.0.md) for the version you jump to  
+- [ ] Read the release notes for the version you jump to. Published notes: [v1.14.0](https://github.com/bjorngluck/piherder/blob/v1.14.0/docs/RELEASE_v1.14.0.md)
 - [ ] `docker compose ps` healthy (image `bjorngluck/piherder:…`)  
 - [ ] Smoke: login, Users recovery (if multi-user), one server, maps/ports, optional template  
 - [ ] Hard-refresh browser once after UI/CSS deploys (query-busted stylesheets)  
@@ -169,9 +169,27 @@ Alembic **051** adds `docker_prune_schedule`. Recreate **web** and **celery-work
 
 ## 1.13.0 → 1.14.0 {#1130--1140}
 
-**v1.14.0** is the current release. Notes: [RELEASE_v1.14.0.md](https://github.com/bjorngluck/piherder/blob/v1.14.0/docs/RELEASE_v1.14.0.md). Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release.
+**v1.14.0** is the published release. Notes: [RELEASE_v1.14.0.md](https://github.com/bjorngluck/piherder/blob/v1.14.0/docs/RELEASE_v1.14.0.md). Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release. The next jump is [1.14.0 → 1.15.0](#1140--1150), and that jump is not tagged.
 
 Alembic **052** (`052_schedule_catchup`) and **053** (`053_alert_mute`) run on web start. Recreate **web** and **celery-worker**. About should say **1.14.0**. Do not apply those revisions by hand before this image is running. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** stays the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** stays the package. Hosted `/mcp` lists `prune_volumes`. Adapter **0.4.4** does not. The public demo is updated only when asked.
+
+## 1.14.0 → 1.15.0 {#1140--1150}
+
+**v1.15.0** is frozen and not tagged. Draft notes: [RELEASE_v1.15.0.md](https://github.com/bjorngluck/piherder/blob/v1.15.0-dev/docs/RELEASE_v1.15.0.md). Package on `v1.15.0-dev` is **1.15.0**. The published image stays **1.14.0**. Plan: [PLAN_v1.15.0.md](https://github.com/bjorngluck/piherder/blob/v1.15.0-dev/docs/PLAN_v1.15.0.md). [QA](https://github.com/bjorngluck/piherder/blob/v1.15.0-dev/docs/QA_v1.15.0.md) walks are empty. Screenshot names are reserved and not captured. Do not point a fleet at this branch.
+
+When the tag exists, stop **celery-worker** and **celery-worker-nmap** before the schema change. Recreate **web**. Alembic **054** (`054_job_audit_indexes`) runs on web start. Start **celery-worker** after `/ready` reports migrations ok. Start **celery-worker-nmap** only with `--profile nmap`. About should say **1.15.0**. Do not apply that revision by hand before this image is running. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** stays the card. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** stays the package. The public demo is updated only when asked.
+
+Before a lab copy of this branch:
+
+- [ ] A missing Redis password or a rejected Redis password keeps PiHerder running and shows a notice on every page, including login. Set `REDIS_PASSWORD` and include it in `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, and `REDIS_URL` to clear that notice. The log line has no URL and no password. A connection error does not add a notice. Compose starts Redis with no password when `REDIS_PASSWORD` is unset.
+- [ ] Stock compose uses subnet `192.0.2.0/24` (TEST-NET-1, picked on purpose) and pins Caddy at `192.0.2.10`. There is no client-IP setting to fill in. A home-network proxy is trusted. A public peer cannot spoof forwarded headers. If that subnet is already in use, set `PIHERDER_COMPOSE_SUBNET` and `PIHERDER_CADDY_IP`. The default Compose network name changes from `<project>_default` to `piherder_net`. Reattach containers that used the old network, for example an external Prometheus scraper. `PIHERDER_COMPOSE_NETWORK` sets another name. The default Caddyfile drops `CF-Connecting-IP` and `True-Client-IP` and sets `X-Real-IP` and `X-Forwarded-For` from the TCP peer. Cloudflare is opt-in in the Caddyfile: uncomment the `servers` block, paste the current ranges from https://www.cloudflare.com/ips/, and forward `{client_ip}`.
+- [ ] Cloudflare proxy users: turn on the Cloudflare opt-in in the Caddyfile before upgrading. Without it, every visitor shows up as a Cloudflare edge address, so visitors share one login rate limit and API token IP allowlists stop matching.
+- [ ] Custom Caddyfile users: remove the old `@from_cf` block (the one that copies CF-Connecting-IP into X-Real-IP and X-Forwarded-For). This release trusts Caddy, so keeping that block lets any client fake its IP. Copy the new default reverse_proxy header lines from the stock Caddyfile.
+- [ ] A private webhook needs `PIHERDER_WEBHOOK_ALLOW_CIDRS`.
+- [ ] The default database password keeps PiHerder running and shows the same notice outside demo mode. Set a unique password on the Postgres role and in `DATABASE_URL`. The nmap worker reuses `DATABASE_URL` and rewrites host `db` to `127.0.0.1` unless `PIHERDER_NMAP_DATABASE_URL` is set.
+- [ ] `GET /health` is process liveness. `GET /ready` checks the database, every configured Redis URL, and the migration head. It returns 503 when one check is not ok. The body does not include a URL.
+- [ ] From a 1.14 database at revision `053`, stop the workers, recreate web, and let web apply `054`. Keep `PIHERDER_MASTER_KEY`. Start workers after `/ready` reports migrations ok. To return to image `1.14.0`, stop the workers, downgrade to `053_alert_mute` while the 1.15 web image can still see the database, then pin the image and start web before the workers. The downgrade drops the two indexes. Data and settings stay. Time this on a copy. Upgrade-to-head CI is not this rehearsal.
+- [ ] LAN discovery stays off until `docker compose --profile nmap up -d`. The nmap worker is a second image build, root on the host network, with `NET_RAW` and `NET_ADMIN`.
 
 ## Breaking notes
 

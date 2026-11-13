@@ -189,11 +189,11 @@ def test_send_webhook_paths(monkeypatch):
     monkeypatch.setattr(backup_svc.settings, "WEBHOOK_URL", "")
     backup_svc._send_webhook("hi")  # no-op
 
-    monkeypatch.setattr(backup_svc.settings, "WEBHOOK_URL", "http://hook.example")
+    monkeypatch.setattr(backup_svc.settings, "WEBHOOK_URL", "http://203.0.113.10/hook")
     monkeypatch.setattr(backup_svc.settings, "WEBHOOK_NUMBER", "1")
     monkeypatch.setattr(backup_svc.settings, "WEBHOOK_RECIPIENTS", '["a"]')
-    with patch("app.services.backup.httpx.post") as post:
+    with patch("app.services.alert_channels.httpx.post") as post:
         backup_svc._send_webhook("msg")
         post.assert_called_once()
-    with patch("app.services.backup.httpx.post", side_effect=RuntimeError("net")):
+    with patch("app.services.alert_channels.httpx.post", side_effect=RuntimeError("net")):
         backup_svc._send_webhook("msg")  # never raises

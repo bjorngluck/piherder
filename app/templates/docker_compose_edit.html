@@ -488,7 +488,7 @@
   {% endif %}
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function() {
   const serverId = {{ server.id }};
   const projName = "{{ project.name | replace('"', '\\"') | replace("'", "\\'") }}";

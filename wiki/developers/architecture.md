@@ -9,7 +9,7 @@ flowchart TB
         FastAPI --> DB[(PostgreSQL)]
         FastAPI --> Scheduler["APScheduler"]
         FastAPI --> Celery["Celery worker(s)"]
-        FastAPI --> CeleryNmap["celery-worker-nmap (profile nmap)"]
+        FastAPI --> CeleryNmap["celery-worker-nmap"]
     end
 
     Scheduler -->|backup cron| Celery

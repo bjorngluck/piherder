@@ -88,19 +88,25 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 
 | Variable | Default idea |
 |----------|--------------|
-| `DATABASE_URL` | `postgresql://piherder:piherder@db:5432/piherder` |
-| `CELERY_BROKER_URL` | `redis://redis:6379/0` |
-| `CELERY_RESULT_BACKEND` | same Redis |
+| `DATABASE_URL` | `postgresql://piherder:piherder@db:5432/piherder`. Outside demo mode, that default password keeps the app running and shows a notice on every page, including login |
+| `CELERY_BROKER_URL` | `redis://:password@redis:6379/0`. A URL with no password keeps the app running and shows the same notice |
+| `CELERY_RESULT_BACKEND` | same Redis. A missing password shows the same notice |
+| `REDIS_PASSWORD` | Compose Redis `requirepass` when set. When unset, Redis starts with no password and the notice stays up |
 | `CELERY_CONCURRENCY` | `2` pool slots (compose → celery-worker) |
+| `PIHERDER_WORKER_METRICS` | `1` on the compose celery-worker. Unset leaves the worker metrics port closed |
+| `PIHERDER_WORKER_METRICS_PORT` | `9809`. Compose does not publish this port |
+| `PIHERDER_WORKER_METRICS_URL` | `http://celery-worker:9809/metrics`. `GET /metrics/worker` fetches this URL. A request parameter cannot change it |
+| `PROMETHEUS_MULTIPROC_DIR` | `/tmp/piherder-metrics` on the celery-worker so prefork children add their counts |
 | `PIHERDER_SERVER_LOCK_TTL` | `7200` backup mutex TTL |
+| `PIHERDER_SINGLE_PROCESS` | Unset. Set `1` only for one process with no shared Redis. Host locks stay in that process. Leave it unset when Celery or more than one worker is running |
 | `PIHERDER_EXCLUSIVE_HOST_WAIT_SEC` | Unset — **Settings → General → Jobs** (default 30 minutes). When this env var is set it **locks** that field. Probe every 30s. Floor 30, ceiling 86400 |
 | `PIHERDER_INSTANCE_NAME` | Unset — **Settings → General → Instance**. When set, locks the header wordmark. Empty Settings name keeps Pi / Herder. The mark image stays |
 | `PIHERDER_ACCENT` | Unset — same card. `#RRGGBB` locks the accent (`--color-accent` and the subtle accent background). Primary red `#e60012` stays. Demo ignores name, accent, and the Catalog checkbox. Hiding Catalog has no env var |
-| `REDIS_URL` | Optional alias used in some deploy notes — broker/result URLs are authoritative |
+| `REDIS_URL` | Optional alias used in some deploy notes. Broker and result URLs are authoritative. When set without a password, the same notice stays up |
 
-## LAN Discovery (nmap) — opt-in {#lan-discovery-nmap--opt-in}
+## LAN Discovery (nmap) {#lan-discovery-nmap--opt-in}
 
-Default `docker compose up` does **not** start the nmap worker. See [LAN Discovery](../integrations/lan-discovery.md) · [install](../getting-started/install.md#6-optional-lan-discovery-nmap-worker).
+`docker compose up` does not start `celery-worker-nmap`. The service is profile `nmap`. Web still never runs nmap. The worker is a second image (`Dockerfile.nmap`), runs as root on the host network, and adds `NET_RAW` and `NET_ADMIN`. Leave the profile off unless you want that process. See [LAN Discovery](../integrations/lan-discovery.md) · [install](../getting-started/install.md#6-optional-lan-discovery-nmap-worker).
 
 ### Worker fence (compose-owned — usually not in `.env`)
 
@@ -120,9 +126,9 @@ Task code also refuses when the **`nmap` binary is missing** (main image has no 
 |----------|--------------|---------|
 | `PIHERDER_NMAP_VULN_PATH` | `./piherder_nmap_vuln` | Host bind for vuln pack volume |
 | `PIHERDER_NMAP_VULN_ROOT` | `/var/lib/piherder/nmap-vuln` | In-container path (web **:ro**, nmap worker **rw**) |
-| `PIHERDER_NMAP_IMAGE` | `piherder:nmap-local` | Image tag for profile `nmap` |
-| `PIHERDER_NMAP_DATABASE_URL` | loopback Postgres | Host-network worker → `127.0.0.1:5432` |
-| `PIHERDER_NMAP_REDIS_URL` | loopback Redis | Host-network worker → `127.0.0.1:6379` |
+| `PIHERDER_NMAP_IMAGE` | `piherder:nmap-local` | Image tag for `celery-worker-nmap` |
+| `PIHERDER_NMAP_DATABASE_URL` | empty | Host-network worker reuses `DATABASE_URL` and rewrites host `db` to `127.0.0.1`. Set this only for a different URL |
+| `PIHERDER_NMAP_REDIS_URL` | loopback Redis | Host-network worker uses `127.0.0.1:6379`. A missing password shows the same notice |
 
 ```bash
 docker build -f Dockerfile.nmap -t piherder:nmap-local .
@@ -153,7 +159,9 @@ The herder has **no MCP env var and no MCP port**. `PIHERDER_URL` and `PIHERDER_
 | `METRICS_TOKEN` | Bearer for `GET /metrics` — **set in production** (empty = open scrape on app port) |
 | `METRICS_BACKUP_STALE_HOURS` | Stale backup gauge (default 36) |
 | `CORS_ORIGINS` | Exact browser origins for `/api/v1` (empty = off) |
-| `PIHERDER_TRUSTED_PROXY_CIDRS` | CIDRs whose TCP peer may supply `CF-Connecting-IP` / `X-Forwarded-For` / `X-Real-IP`. Empty = **never** trust those headers (peer only). Compose default: RFC1918 + loopback so bundled Caddy is trusted |
+| `PIHERDER_COMPOSE_SUBNET` | `192.0.2.0/24`. Compose default network. Change it only when that subnet is already in use, and then set `PIHERDER_CADDY_IP` inside the new subnet |
+| `PIHERDER_CADDY_IP` | `192.0.2.10`. Pinned Caddy address on the stock compose subnet |
+| `PIHERDER_WEBHOOK_ALLOW_CIDRS` | Optional. Webhook URLs that resolve to a private, loopback, or link-local address are refused unless the address is in this list |
 | `WEBHOOK_URL` / `WEBHOOK_NUMBER` | Fallback outbound webhook (e.g. Signal via n8n) when Settings → Alerts has no URL — [Alerts](alerts-email-webhooks.md) |
 | `WEBHOOK_RECIPIENTS` | Optional JSON list of recipients for some webhook paths |
 | `VAPID_*` | Optional pin; auto-gen is default |

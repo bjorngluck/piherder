@@ -1,12 +1,10 @@
 """Client IP resolution for reverse-proxied requests (Caddy) and audit logging.
 
-Forwarded headers (CF-Connecting-IP / X-Forwarded-For / X-Real-IP) are used
-**only** when the TCP peer sits in ``PIHERDER_TRUSTED_PROXY_CIDRS``. Empty
-CIDRs (app default) = never trust client-supplied headers — use the peer.
-
-Bundled Compose sets RFC1918 + loopback so Caddy on the Docker network is
-trusted. Direct hits on the app port from an untrusted peer cannot spoof
-allowlists, rate limits, or console IP binding.
+A home-network peer may pass the visitor in CF-Connecting-IP, X-Forwarded-For,
+or X-Real-IP. That covers private ranges, link-local, shared CGNAT space
+(``100.64.0.0/10``), the stock compose subnet ``192.0.2.0/24``, and loopback.
+There is no Compose or ``.env`` setting for this. A public peer is ignored.
+True-Client-IP is not read.
 
 A ContextVar carries the resolved IP for the duration of a request so every
 AuditLog write can pick it up without threading Request through all layers.
@@ -21,9 +19,10 @@ _request_client_ip: ContextVar[Optional[str]] = ContextVar(
     "piherder_request_client_ip", default=None
 )
 
-# Compose default — Caddy on the Docker bridge. Not applied unless env/compose sets it.
+# Used when the variable is unset or blank. Not an operator task.
 DEFAULT_COMPOSE_TRUSTED_PROXY_CIDRS = (
-    "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32,::1/128"
+    "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.0.0/16,"
+    "100.64.0.0/10,192.0.2.0/24,127.0.0.0/8,::1/128,fc00::/7,fe80::/10"
 )
 
 
@@ -66,14 +65,16 @@ def parse_trusted_proxy_cidrs(
 def trusted_proxy_cidrs_from_settings() -> list[
     ipaddress.IPv4Network | ipaddress.IPv6Network
 ]:
+    """Home-network peers when the variable is unset. A set value narrows that."""
     try:
         from ..config import settings
 
-        return parse_trusted_proxy_cidrs(
-            getattr(settings, "PIHERDER_TRUSTED_PROXY_CIDRS", None)
-        )
+        raw = getattr(settings, "PIHERDER_TRUSTED_PROXY_CIDRS", None)
     except Exception:
-        return []
+        raw = None
+    if raw is None or not str(raw).strip():
+        raw = DEFAULT_COMPOSE_TRUSTED_PROXY_CIDRS
+    return parse_trusted_proxy_cidrs(raw)
 
 
 def peer_is_trusted_proxy(
@@ -106,12 +107,11 @@ def peer_is_trusted_proxy(
 
 
 def _forwarded_ip_from_headers(headers: Mapping[str, Any] | None) -> str:
-    """First hop from CF / XFF / X-Real-IP. Empty if none present."""
+    """First hop from CF-Connecting-IP, X-Forwarded-For, or X-Real-IP."""
     h = {str(k).lower(): str(v) for k, v in (headers or {}).items()}
-    for key in ("cf-connecting-ip", "true-client-ip"):
-        val = h.get(key)
-        if val:
-            return _normalize_ip_candidate(val.split(",")[0])
+    val = h.get("cf-connecting-ip")
+    if val:
+        return _normalize_ip_candidate(val.split(",")[0])
     xff = h.get("x-forwarded-for") or h.get("x-forwarded_for")
     if xff:
         return _normalize_ip_candidate(xff.split(",")[0])
@@ -133,10 +133,12 @@ def extract_client_ip(
     When ``trust_forwarded`` is True (or the TCP peer is in trusted CIDRs),
     preference is:
 
-      1. CF-Connecting-IP / True-Client-IP
-      2. X-Forwarded-For — first hop only
+      1. CF-Connecting-IP
+      2. X-Forwarded-For, first hop only
       3. X-Real-IP
       4. TCP peer (request.client.host)
+
+    True-Client-IP is ignored.
 
     Otherwise forwarded headers are ignored (fail closed).
     """

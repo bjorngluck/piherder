@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "piherder"
-version = "1.14.0"
+version = "1.15.0"
 description = "PiHerder – Secure fleet management for Raspberry Pi clusters (backups, patching, control) with zero plaintext secrets."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -33,6 +33,8 @@ dependencies = [
     "pyyaml>=6.0",
     "celery[redis]>=5.4.0",
     "redis>=5.0.0",
+    "prometheus-client>=0.21",
+    "pyasn1==0.6.5",
     "pyotp>=2.9",
     "qrcode>=7.4",
     "pywebpush>=2.0",
@@ -52,6 +54,14 @@ e2e = [
     "pytest-playwright>=0.5",
     "playwright>=1.40",
 ]
+
+[tool.ruff]
+line-length = 100
+src = ["app", "tests", "migrations"]
+
+[tool.ruff.lint]
+# Real undefined names and syntax problems. Style noise stays out of the gate.
+select = ["E9", "F63", "F7", "F82"]
 
 [tool.pytest.ini_options]
 # Default unit suite only — run E2E explicitly: pytest e2e -q

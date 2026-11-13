@@ -82,7 +82,7 @@ def schedule_backup_job(server_id: int):
             if server and server.backup_enabled:
                 enqueue_backup_for_server(db, server, scheduled=True)
     except Exception as e:
-        logger.debug(f"[SCHEDULER] Error enqueuing backup for {server_id}: {e}")
+        logger.debug(f"[SCHEDULER] Error enqueuing backup for {server_id}: {type(e).__name__}")
 
 
 def schedule_os_check_job(server_id: int):
@@ -99,7 +99,7 @@ def schedule_os_check_job(server_id: int):
             enqueue_os_update_check(server.id)
             logger.info(f"[SCHEDULER] Queued OS update check for server {server_id}")
     except Exception as e:
-        logger.warning(f"[SCHEDULER] Error OS check for {server_id}: {e}")
+        logger.warning(f"[SCHEDULER] Error OS check for {server_id}: {type(e).__name__}")
 
 
 def _container_checks_globally_enabled() -> bool:
@@ -165,7 +165,7 @@ def schedule_container_check_job(server_id: int):
             enqueue_container_update_check(server.id)
             logger.info(f"[SCHEDULER] Queued container update check for server {server_id}")
     except Exception as e:
-        logger.warning(f"[SCHEDULER] Error container check for {server_id}: {e}")
+        logger.warning(f"[SCHEDULER] Error container check for {server_id}: {type(e).__name__}")
 
 
 def schedule_os_apply_job(server_id: int):
@@ -196,7 +196,7 @@ def schedule_os_apply_job(server_id: int):
             else:
                 logger.info(f"[SCHEDULER] OS apply not queued (busy/skip) for server {server_id}")
     except Exception as e:
-        logger.warning(f"[SCHEDULER] Error OS apply for {server_id}: {e}")
+        logger.warning(f"[SCHEDULER] Error OS apply for {server_id}: {type(e).__name__}")
 
 
 def schedule_container_apply_job(server_id: int):
@@ -233,7 +233,7 @@ def schedule_container_apply_job(server_id: int):
                     f"[SCHEDULER] Container apply not queued (busy/skip) for server {server_id}"
                 )
     except Exception as e:
-        logger.warning(f"[SCHEDULER] Error container apply for {server_id}: {e}")
+        logger.warning(f"[SCHEDULER] Error container apply for {server_id}: {type(e).__name__}")
 
 
 def _remove_job(scheduler, job_id: str):
@@ -293,7 +293,7 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
 
                 backup_cron = effective_fleet_cron(sid)
             except Exception as e:
-                logger.warning(f"[SCHEDULER] Fleet backup time failed for {sid}: {e}")
+                logger.warning(f"[SCHEDULER] Fleet backup time failed for {sid}: {type(e).__name__}")
                 backup_cron = None
     if backup_cron:
         try:
@@ -311,7 +311,7 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
                 f"{backup_cron} ({tz})"
             )
         except Exception as e:
-            logger.warning(f"[SCHEDULER] Backup schedule failed for {sid}: {e}")
+            logger.warning(f"[SCHEDULER] Backup schedule failed for {sid}: {type(e).__name__}")
 
     # OS update check
     oid = f"os_check_{sid}"
@@ -329,7 +329,7 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
             )
             logger.info(f"[SCHEDULER] OS check scheduled for server {sid}: {server.os_check_schedule} ({tz})")
         except Exception as e:
-            logger.warning(f"[SCHEDULER] OS check schedule failed for {sid}: {e}")
+            logger.warning(f"[SCHEDULER] OS check schedule failed for {sid}: {type(e).__name__}")
 
     # Container update check. A saved cron still registers while the fleet
     # switch is on. The per-host flag alone used to drop the job after Apply
@@ -354,7 +354,7 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
                 f"{server.container_check_schedule} ({tz})"
             )
         except Exception as e:
-            logger.warning(f"[SCHEDULER] Container check schedule failed for {sid}: {e}")
+            logger.warning(f"[SCHEDULER] Container check schedule failed for {sid}: {type(e).__name__}")
 
     # OS patch apply (opt-in; requires feature flag + explicit apply enable)
     oaid = f"os_apply_{sid}"
@@ -379,7 +379,7 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
                 f"{server.os_apply_schedule} ({tz})"
             )
         except Exception as e:
-            logger.warning(f"[SCHEDULER] OS apply schedule failed for {sid}: {e}")
+            logger.warning(f"[SCHEDULER] OS apply schedule failed for {sid}: {type(e).__name__}")
 
     # Container patch apply (opt-in)
     caid = f"container_apply_{sid}"
@@ -404,7 +404,7 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
                 f"{server.container_apply_schedule} ({tz})"
             )
         except Exception as e:
-            logger.warning(f"[SCHEDULER] Container apply schedule failed for {sid}: {e}")
+            logger.warning(f"[SCHEDULER] Container apply schedule failed for {sid}: {type(e).__name__}")
 
     # Docker prune. Volumes stay off. Build cache is a separate action.
     prid = f"docker_prune_{sid}"
@@ -425,7 +425,7 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
                 f"[SCHEDULER] Docker prune scheduled for server {sid}: {prune_cron} ({tz})"
             )
         except Exception as e:
-            logger.warning(f"[SCHEDULER] Docker prune schedule failed for {sid}: {e}")
+            logger.warning(f"[SCHEDULER] Docker prune schedule failed for {sid}: {type(e).__name__}")
 
 
 def schedule_docker_prune_job(server_id: int):
@@ -479,7 +479,7 @@ def sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER):
                 sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server)
         sync_backup_copy_schedule(scheduler, HAS_SCHEDULER)
     except Exception as e:
-        logger.warning(f"[SCHEDULER] sync_all failed: {e}")
+        logger.warning(f"[SCHEDULER] sync_all failed: {type(e).__name__}")
 
 
 DOCKER_INVENTORY_JOB_ID = "docker_inventory_fleet"
@@ -581,17 +581,17 @@ def schedule_docker_inventory_fleet():
                     logger.warning(
                         "[SCHEDULER] docker inventory refresh reset failed for %s: %s",
                         server.id,
-                        e,
+                        type(e).__name__,
                     )
                 if inventory_svc.is_stale(server, max_age_sec=inventory_svc.SCHEDULER_STALE_SEC):
                     try:
                         inventory_svc.refresh_server_inventory(server.id, force=False)
                     except Exception as e:
                         logger.warning(
-                            f"[SCHEDULER] docker inventory refresh failed for {server.id}: {e}"
+                            f"[SCHEDULER] docker inventory refresh failed for {server.id}: {type(e).__name__}"
                         )
     except Exception as e:
-        logger.warning(f"[SCHEDULER] docker inventory fleet job failed: {e}")
+        logger.warning(f"[SCHEDULER] docker inventory fleet job failed: {type(e).__name__}")
 
 
 def sync_docker_inventory_schedule(scheduler, HAS_SCHEDULER):
@@ -613,7 +613,7 @@ def sync_docker_inventory_schedule(scheduler, HAS_SCHEDULER):
             f"[SCHEDULER] Docker inventory fleet every {DOCKER_INVENTORY_INTERVAL_MIN}m"
         )
     except Exception as e:
-        logger.warning(f"[SCHEDULER] Docker inventory schedule failed: {e}")
+        logger.warning(f"[SCHEDULER] Docker inventory schedule failed: {type(e).__name__}")
 
 
 HOST_FACTS_JOB_ID = "host_facts_fleet"
@@ -635,19 +635,24 @@ def schedule_host_facts_fleet():
                 jobs_svc.cleanup_stale_backup_jobs(db)
                 jobs_svc.reconcile_orphaned_running_jobs(db)
             except Exception as e:
-                logger.warning("[SCHEDULER] stale job sweep failed: %s", e)
+                logger.warning(
+                    "[SCHEDULER] stale job sweep failed: %s",
+                    type(e).__name__,
+                )
             for server in db.exec(select(Server)).all():
                 if not server.id:
+                    continue
+                if facts_svc.down_host_backoff(db, server):
                     continue
                 if facts_svc.is_stale(server, max_age_sec=facts_svc.SCHEDULER_STALE_SEC):
                     try:
                         facts_svc.request_refresh(server.id, force=False)
                     except Exception as e:
                         logger.warning(
-                            f"[SCHEDULER] host facts refresh failed for {server.id}: {e}"
+                            f"[SCHEDULER] host facts refresh failed for {server.id}: {type(e).__name__}"
                         )
     except Exception as e:
-        logger.warning(f"[SCHEDULER] host facts fleet job failed: {e}")
+        logger.warning(f"[SCHEDULER] host facts fleet job failed: {type(e).__name__}")
 
 
 def sync_host_facts_schedule(scheduler, HAS_SCHEDULER):
@@ -666,7 +671,7 @@ def sync_host_facts_schedule(scheduler, HAS_SCHEDULER):
         )
         logger.info(f"[SCHEDULER] Host facts fleet every {HOST_FACTS_INTERVAL_MIN}m")
     except Exception as e:
-        logger.warning(f"[SCHEDULER] Host facts schedule failed: {e}")
+        logger.warning(f"[SCHEDULER] Host facts schedule failed: {type(e).__name__}")
 
 
 STACK_HEALTH_JOB_ID = "stack_health_check"
@@ -698,7 +703,7 @@ def schedule_stack_health_job():
         with Session(get_engine()) as db:
             sync_stale_backup_alerts(db)
     except Exception as e:
-        logger.warning(f"[SCHEDULER] stack health job failed: {e}")
+        logger.warning(f"[SCHEDULER] stack health job failed: {type(e).__name__}")
 
 
 def sync_stack_health_schedule(scheduler, HAS_SCHEDULER):
@@ -720,7 +725,7 @@ def sync_stack_health_schedule(scheduler, HAS_SCHEDULER):
             f"[SCHEDULER] Stack health every {STACK_HEALTH_INTERVAL_MIN}m"
         )
     except Exception as e:
-        logger.warning(f"[SCHEDULER] Stack health schedule failed: {e}")
+        logger.warning(f"[SCHEDULER] Stack health schedule failed: {type(e).__name__}")
 
 
 INTEGRATIONS_POLL_JOB_ID = "integrations_poll"
@@ -735,7 +740,7 @@ def schedule_integrations_poll_job():
 
         poll_svc.poll_all_enabled(notify=True)
     except Exception as e:
-        logger.warning(f"[SCHEDULER] integrations poll failed: {e}")
+        logger.warning(f"[SCHEDULER] integrations poll failed: {type(e).__name__}")
 
 
 def sync_integrations_poll_schedule(scheduler, HAS_SCHEDULER):
@@ -757,7 +762,7 @@ def sync_integrations_poll_schedule(scheduler, HAS_SCHEDULER):
             f"[SCHEDULER] Integrations poll every {INTEGRATIONS_POLL_INTERVAL_SEC}s"
         )
     except Exception as e:
-        logger.warning(f"[SCHEDULER] Integrations poll schedule failed: {e}")
+        logger.warning(f"[SCHEDULER] Integrations poll schedule failed: {type(e).__name__}")
 
 
 def sync_nmap_schedules(scheduler, HAS_SCHEDULER):
@@ -767,7 +772,7 @@ def sync_nmap_schedules(scheduler, HAS_SCHEDULER):
 
         return _sync(scheduler, HAS_SCHEDULER)
     except Exception as e:
-        logger.warning(f"[SCHEDULER] nmap schedules sync failed: {e}")
+        logger.warning(f"[SCHEDULER] nmap schedules sync failed: {type(e).__name__}")
         return 0
 
 
@@ -787,7 +792,7 @@ def schedule_cert_renew_job():
             if results:
                 logger.info("[SCHEDULER] cert renew check: %s result(s)", len(results))
     except Exception as e:
-        logger.warning(f"[SCHEDULER] cert renew check failed: {e}")
+        logger.warning(f"[SCHEDULER] cert renew check failed: {type(e).__name__}")
 
 
 TEMPLATE_DRIFT_JOB_ID = "template_drift_check"
@@ -855,7 +860,7 @@ def sync_cert_renew_schedule(scheduler, HAS_SCHEDULER):
             f"[SCHEDULER] Cert renew check every {CERT_RENEW_INTERVAL_HOURS}h"
         )
     except Exception as e:
-        logger.warning(f"[SCHEDULER] Cert renew schedule failed: {e}")
+        logger.warning(f"[SCHEDULER] Cert renew schedule failed: {type(e).__name__}")
 
 
 def sync_herder_backup_schedule(scheduler, HAS_SCHEDULER):
@@ -891,7 +896,7 @@ def sync_herder_backup_schedule(scheduler, HAS_SCHEDULER):
         )
         logger.info(f"[SCHEDULER] PiHerder self-backup scheduled: {cron} ({tz})")
     except Exception as e:
-        logger.warning(f"[SCHEDULER] Could not register herder backup schedule: {e}")
+        logger.warning(f"[SCHEDULER] Could not register herder backup schedule: {type(e).__name__}")
 
 
 def sync_stale_data_cleanup_schedule(scheduler, HAS_SCHEDULER):
@@ -935,7 +940,7 @@ def sync_stale_data_cleanup_schedule(scheduler, HAS_SCHEDULER):
         )
         logger.info(f"[SCHEDULER] Stale data cleanup scheduled: {cron} ({tz})")
     except Exception as e:
-        logger.warning(f"[SCHEDULER] Could not register stale data cleanup: {e}")
+        logger.warning(f"[SCHEDULER] Could not register stale data cleanup: {type(e).__name__}")
 
 
 def schedule_stale_data_cleanup_job():
@@ -977,6 +982,12 @@ def watch_missed_schedules():
     try:
         with Session(get_engine()) as session:
             opened = sync_missed_schedule_alerts(session)
+            try:
+                from .host_posture import sync_host_posture_alerts
+
+                sync_host_posture_alerts(session)
+            except Exception:
+                logger.exception("[SCHEDULER] Host posture check failed")
             try:
                 from .schedule_catchup import run_due_catchups
 
@@ -1092,7 +1103,7 @@ def schedule_herder_backup_job():
             mode,
         )
     except Exception as e:
-        logger.error(f"[SCHEDULER] PiHerder self-backup error: {e}")
+        logger.error(f"[SCHEDULER] PiHerder self-backup error: {type(e).__name__}")
         try:
             from . import jobs as js
 

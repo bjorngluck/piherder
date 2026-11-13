@@ -271,7 +271,7 @@
           <button type="button"
                   data-sec-btn="build"
                   data-proj-name="{{ proj.name | e }}"
-                  data-build-services='{{ proj.build_services | tojson | safe }}'
+                  data-build-services='{{ proj.build_services | tojson }}'
                   data-server-id="{{ server.id }}">Build…</button>
           {% endif %}
           {% set proj_map = (fabric_by_project or {}).get((proj.name or '')|lower) %}
@@ -648,7 +648,7 @@
 
 {# While inventory is refreshing (or first load), re-fetch fragment every 2s until ready #}
 {% if inventory_poll_fast|default(false) or _refreshing %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var el = document.getElementById('docker-stack');
   if (!el || typeof htmx === 'undefined') return;
@@ -667,7 +667,7 @@
 })();
 </script>
 {% else %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var el = document.getElementById('docker-stack');
   if (el && el._invPollTimer) {

@@ -360,9 +360,9 @@
       </button>
     </div>
   </form>
-  <script>
+  <script nonce="{{ csp_nonce() }}">
   (function () {
-    const dockerOpts = {{ docker_options_json|safe }};
+    const dockerOpts = {{ docker_options_json|htmlsafe_json }};
     const kindEl = document.getElementById('kind');
     const serverEl = document.getElementById('server_id');
     const scopeBox = document.getElementById('docker-scope-fields');

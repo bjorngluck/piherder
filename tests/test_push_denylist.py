@@ -55,12 +55,25 @@ def test_diff_spec_uses_the_event():
     assert deny.diff_spec("") == "origin/main...HEAD"
 
 
-def test_empty_secret_does_not_scan(monkeypatch, capsys):
+def test_empty_secret_fails_closed(monkeypatch, capsys):
     monkeypatch.delenv("PIHERDER_PUSH_DENYLIST", raising=False)
-    assert deny.main() == 0
+    assert deny.main() == 1
     out = capsys.readouterr().out
-    assert "manual grep remains" in out
+    assert "Refusing to pass" in out
+    assert "clean" not in out.lower()
     assert "FLEETWORD" not in out
+
+    monkeypatch.setenv("PIHERDER_PUSH_DENYLIST", "\n# note\n\nab\n")
+    assert deny.main() == 1
+
+
+def test_workflow_reads_the_repo_secret_and_does_not_echo_it():
+    text = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "push-denylist.yml"
+    ).read_text(encoding="utf-8")
+    assert "secrets.PIHERDER_PUSH_DENYLIST" in text
+    assert "vars.PIHERDER_PUSH_DENYLIST" not in text
+    assert "echo" not in text.lower()
 
 
 def test_match_report_omits_the_pattern_and_the_line(monkeypatch, capsys):

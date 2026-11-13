@@ -310,7 +310,7 @@
       </label>
     </div>
     <button type="submit" class="btn btn-accent min-h-11 text-sm">Move service</button>
-  <script>
+  <script nonce="{{ csp_nonce() }}">
     (function () {
       var form = document.querySelector('[data-testid="migrate-start-form"]');
       if (!form) return;

@@ -62,6 +62,16 @@ class EffectivePolicy:
 
 CATALOG: tuple[TypeSpec, ...] = (
     TypeSpec("host_down", "host", "Host down (Kuma SSH)", "critical", True, 15, 24),
+    TypeSpec("host_unreachable", "host", "Host unreachable", "critical", True, 0, 0),
+    TypeSpec(
+        "backup_missed_repeat",
+        "backup",
+        "Two backup slots missed",
+        "critical",
+        True,
+        0,
+        0,
+    ),
     TypeSpec(
         "stack_container_down",
         "inventory",
@@ -69,6 +79,15 @@ CATALOG: tuple[TypeSpec, ...] = (
         "critical",
         True,
         15,
+        0,
+    ),
+    TypeSpec(
+        "container_unhealthy",
+        "inventory",
+        "Unhealthy containers",
+        "warning",
+        True,
+        0,
         0,
     ),
     TypeSpec(
@@ -374,6 +393,10 @@ def set_type_override(type_id: str, **fields: Any) -> dict[str, Any]:
             cur["severity"] = sev
         elif sev in (None, "", "default"):
             cur.pop("severity", None)
+    if "quiet_hours" in fields and fields["quiet_hours"] is not None:
+        cur["quiet_hours"] = int(fields["quiet_hours"])
+    if "quiet_unit" in fields and fields["quiet_unit"] in ("hours", "days"):
+        cur["quiet_unit"] = fields["quiet_unit"]
     types[tid] = cur
     policy["types"] = types
     extra: dict[str, Any] = {"alert_type_policy": policy}

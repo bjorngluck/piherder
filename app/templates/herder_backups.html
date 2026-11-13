@@ -413,7 +413,7 @@
 {% include "partials/settings_backup.html" %}
 {% include "partials/settings_api.html" %}
 {# Demo seed restore is operator-only (CLI) — not exposed in the shared UI #}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var heroByTab = {};
   try {

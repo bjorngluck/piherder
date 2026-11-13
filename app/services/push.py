@@ -37,10 +37,13 @@ TYPE_PREF_FIELDS = {
     "herder_backup_failed": "herder_backup_failed",
     "integration_monitor_down": "integration_down",
     "host_down": "integration_down",
+    "host_unreachable": "integration_down",
+    "backup_missed_repeat": "backup_failed",
     "map_infra_down": "integration_down",
     "nmap_new_device": "integration_down",
     "nmap_device_offline": "integration_down",
     "stack_container_down": "integration_down",
+    "container_unhealthy": "integration_down",
     "stack_health": "herder_backup_failed",
     "template_drift": "os_updates",
     # Cert alerts use master switch only if unmapped; map to critical-ish prefs
@@ -424,6 +427,12 @@ def build_push_payload(
     }
 
 
+def _note_push_delivery_failure() -> None:
+    from .delivery_metrics import note_alert_delivery_failure
+
+    note_alert_delivery_failure("push")
+
+
 def _deliver_payload(
     session: Session,
     *,
@@ -477,8 +486,10 @@ def _deliver_payload(
                 _delete_subscription_id(session, sub.id)  # type: ignore[arg-type]
             else:
                 logger.warning("Web push failed for sub %s: %s", sub.id, e)
+            _note_push_delivery_failure()
         except Exception as e:
             logger.warning("Web push error for sub %s: %s", sub.id, e)
+            _note_push_delivery_failure()
 
     if sent:
         try:

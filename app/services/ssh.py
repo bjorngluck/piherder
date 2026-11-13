@@ -12,6 +12,7 @@ import base64
 import hashlib
 import logging
 import os
+import shlex
 import tempfile
 from contextlib import contextmanager
 from io import StringIO
@@ -30,8 +31,6 @@ SSH_OPTS = {
     "banner_timeout": 15,
     "auth_timeout": 15,
 }
-
-LEGACY_SSH_OPTS_STR = "-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"
 
 
 class HostKeyMismatch(RuntimeError):
@@ -197,10 +196,43 @@ def temp_key_file(privkey_plain: str):
         os.chmod(path, 0o600)
         yield path
     finally:
-        try:
-            os.unlink(path)
-        except Exception:
-            pass
+        for candidate in (path, f"{path}.known"):
+            try:
+                os.unlink(candidate)
+            except Exception:
+                pass
+
+
+def write_pinned_known_hosts(server: Server, key_path: str) -> str:
+    """Write the server's pinned host key for OpenSSH. Empty if nothing is pinned."""
+    path = f"{key_path}.known"
+    host = (getattr(server, "hostname", None) or "").strip()
+    port = int(getattr(server, "ssh_port", None) or 22)
+    key_type = (getattr(server, "ssh_hostkey_type", None) or "").strip()
+    b64 = (getattr(server, "ssh_hostkey_b64", None) or "").strip()
+    lines: list[str] = []
+    if host and key_type and b64 and "\n" not in b64 and " " not in b64:
+        names: list[str] = []
+        for name in (host, f"[{host}]:{port}"):
+            if name not in names:
+                names.append(name)
+        lines = [f"{name} {key_type} {b64}\n" for name in names]
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as handle:
+        handle.writelines(lines)
+    return path
+
+
+def rsync_e_command(server: Server, key_path: str) -> str:
+    """ssh -e string for rsync. The identity path is quoted. Host key checking is strict."""
+    known = write_pinned_known_hosts(server, key_path)
+    port = int(getattr(server, "ssh_port", None) or 22)
+    return (
+        f"ssh -i {shlex.quote(key_path)} -p {port} "
+        "-o BatchMode=yes -o StrictHostKeyChecking=yes "
+        f"-o UserKnownHostsFile={shlex.quote(known)} "
+        "-o GlobalKnownHostsFile=/dev/null -o ConnectTimeout=15"
+    )
 
 
 def _load_pkey(priv: str) -> paramiko.PKey:

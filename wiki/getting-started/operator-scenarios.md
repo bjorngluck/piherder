@@ -204,13 +204,13 @@ Full page: [Move a service](../docker/service-migration.md). Do **not** pick **R
 
 ---
 
-### Journey H — LAN discovery (opt-in nmap) {#journey-h}
+### Journey H: LAN discovery (nmap) {#journey-h}
 
 **Goal:** See the **whole LAN** (fleet + everything else) without auto-enrolling 50 devices as managed servers.
 
 | Step | Action | Why |
 |------|--------|-----|
-| 1 | Build + start **nmap** worker (`--profile nmap`); fence is compose-owned (`PIHERDER_NMAP_WORKER`) | Web never runs nmap |
+| 1 | Build the **nmap** image. `docker compose up` starts the worker. The fence is compose-owned (`PIHERDER_NMAP_WORKER`) | Web never runs nmap |
 | 2 | [LAN Discovery](../integrations/lan-discovery.md) integration + CIDR(s) | Scope allowlist |
 | 3 | Overview → **Scan now** modal → Discovery, then Inventory (ports); detailed/deep needs **in-app** confirm | Trust before schedules; Cancel does not queue |
 | 4 | **Devices** → **List** or **Map** → edit modal: **map name**, **device type**, **gateway** if router, **Mark known** | Labels + kind + Router spine + inbox |

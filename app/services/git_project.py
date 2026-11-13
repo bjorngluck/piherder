@@ -249,6 +249,34 @@ fi
 """
 
 
+def drift_script_many(paths: list[str]) -> str:
+    """One shell script for every project. One SSH command, no fetch."""
+    chunks: list[str] = []
+    for path in paths:
+        chunks.append(
+            "printf 'PIHERDER_DRIFT_PATH=%s\\n' "
+            + shlex.quote(path)
+            + "\n"
+            + drift_script(path)
+        )
+    return "\n".join(chunks)
+
+
+def split_drift_output(text: str) -> dict[str, str]:
+    """Map each project path to the drift report that followed its marker."""
+    current: str | None = None
+    buckets: dict[str, list[str]] = {}
+    for raw in (text or "").splitlines():
+        if raw.startswith("PIHERDER_DRIFT_PATH="):
+            current = raw.split("=", 1)[1]
+            buckets.setdefault(current, [])
+            continue
+        if current is None:
+            continue
+        buckets[current].append(raw)
+    return {path: "\n".join(lines) for path, lines in buckets.items()}
+
+
 def drift_script(path: str) -> str:
     """Read behind, ahead, and tracked edits. Do not fetch or change the tree."""
     return _enter(path) + """

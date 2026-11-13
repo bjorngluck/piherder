@@ -326,8 +326,8 @@ Opt-in Catalog integration — see user wiki [LAN Discovery](../wiki/integration
 
 | Item | Detail |
 |------|--------|
-| Worker | Compose profile `nmap` · image `Dockerfile.nmap` · queue `nmap` · concurrency 1 · host network |
-| Default install | No nmap worker; no vuln DB in image layers |
+| Worker | Profile `nmap`. Not started by a plain `docker compose up`. Image `Dockerfile.nmap`. Queue `nmap`. Concurrency 1. Host network. Root, `NET_RAW`, `NET_ADMIN` |
+| Default install | Nmap worker is off until `--profile nmap`. No vuln DB in image layers |
 | Vuln pack | Host volume `./piherder_nmap_vuln` (web ro, worker rw); update job on nmap queue |
 | Schedules | Multiple; create **and edit**; all off by default |
 | Curated options | Timing (`-T3`–`T5`), port scope (top / all / list), UDP, deep **script presets** (none/cpe/offline/full) — no free-form flags |
@@ -549,7 +549,7 @@ scrape_configs:
       credentials_file: /etc/prometheus/piherder_token  # or credentials: "..."
 ```
 
-Useful series: `piherder_up`, `piherder_db_up`, `piherder_servers*`, `piherder_jobs*`, `piherder_notifications_open*`, `piherder_servers_backup_stale`. `piherder_schedule_catchup_total` is per process and resets on restart, so sum it across workers and use increase() or rate().
+Useful series: `piherder_up`, `piherder_db_up`, `piherder_servers*`, `piherder_jobs*`, `piherder_notifications_open*`, `piherder_servers_backup_stale`. `piherder_schedule_catchup_total` and `piherder_lock_acquire_failures_total` (`reason` `redis_error` or `busy`) are per process and reset on restart, so sum them across workers and use increase() or rate().
 
 If `METRICS_TOKEN` is empty, treat `/metrics` like `/health` — private network only.
 
@@ -602,7 +602,7 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Host Files** | Default off (`PIHERDER_HOST_FILES=false`). **Files** button on every SSH host (including HAOS). Fleet jail = docker_base or home; privileged jail = `/` minus virtual FS. Operator+ on a real herder; public demo is a **canned** tree (no SFTP). API scope `files` (fleet list/get/put only). UI: edit, zip/unzip, chmod/chown, search (names + contents), preview, `.env` step-up, Docker volumes + `docker cp`. Transfer cap: Settings → Files (default 512 MiB, ceiling 32 GiB; env lock). Wiki: [host-files](../wiki/day-to-day/host-files.md) |
 | **Service migrate** | Default on (`PIHERDER_SERVICE_MIGRATE`; set `false` to hide **Move to another host…**). Project **Lock to this host…** is always available (operator+). HAOS is never a migrate source/dest. Flag on: stop → copy → dest up → DNS **or** NPM `forward_host` PUT (proxy-host binding is enough) → TLS/Kuma validate → rebind (maps, Kuma service, Grafana container chips, cert clone). Optional **Adopt into fabric**. Optional leftover `compose down`, or **remove** source project + named volumes (extra ack; dest never wiped). Copy/dest-up fail: JobHold **Start source stack**. A finished Move has no Undo. **v1.5:** job runs on **Celery** (`app.tasks.service_migrate`, same worker as backups). Recycle **web** mid-Move is safe; recycle **celery-worker** fails a running Move (staging kept). Rebuild **web and celery-worker** after migrate code changes. **v1.4** ran on web `BackgroundTasks`. [RELEASE_v1.4.0](RELEASE_v1.4.0.md) is historical. Hosted `/mcp` `start_move` calls that moves route. Undo stays off MCP. `POST /jobs` with `service_migrate` is refused. `POST /api/v1/servers/{id}/moves` with `confirm: true` starts one (leftover stopped). The Home Assistant card (plugin **0.5.3**) uses that route. Wiki: [Move a service](../wiki/docker/service-migration.md) |
 | **SSH host keys** | First successful **Test connection** **pins** the remote key (TOFU). Mismatch refuses. Reset the pin under SSH access after a rebuild. New hosts default SSH user **`pi`** (existing rows unchanged). |
-| **App port** | Compose binds **`127.0.0.1:8000`** only. Honour `X-Forwarded-For` / `CF-Connecting-IP` only from `PIHERDER_TRUSTED_PROXY_CIDRS`. |
+| **App port** | Compose binds **`127.0.0.1:8000`** only. A home-network proxy may pass the visitor address. There is no client-IP setting in Compose or `.env`. A public peer is not trusted. |
 | **Password-reset URLs** | Built from **`PIHERDER_PUBLIC_URL` only** (Host / `X-Forwarded-Host` ignored). |
 | **Backup vanished (B-retry)** | Auto-retry code 24 / vanished 23; soft-OK by default — `PIHERDER_BACKUP_VANISHED_*` |
 | **Metrics** | Set `METRICS_TOKEN` if `/metrics` is not private-network-only |
@@ -611,13 +611,13 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
 | **Image pin** | Hub **`1.14.0`** / `1.14` / `latest` (Pin `1.13.0` stays that release. Pin `1.12.1` stays that patch. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image) |
 
-Current release: [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Tag **v1.14.0**. Package **1.14.0**. Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release. Pin `1.12.1` stays that patch. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Prior image notes: [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) (2026-10-26). Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is the current package. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the current card. Prior: [RELEASE_v1.12.1.md](RELEASE_v1.12.1.md) · [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) · [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) · [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [RELEASE_v1.9.0.md](RELEASE_v1.9.0.md) · [RELEASE_v1.8.1.md](RELEASE_v1.8.1.md) · [RELEASE_v1.8.0.md](RELEASE_v1.8.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Published release: [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Tag **v1.14.0**. Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release. Frozen train: [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md). Package **1.15.0**. Not tagged. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)** is the current package. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)** is the current card. Older notes are listed in [docs/README.md](README.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 
 Full catalog with comments and defaults: **[`.env.example`](../.env.example)** (copy to `.env`). Compose injects those keys into **web** and **celery-worker** (Caddy only needs `PIHERDER_HOSTNAME`). Required: `PIHERDER_MASTER_KEY`, plus a strong `SECRET_KEY` in production.
 
-**LAN nmap fence (compose-owned):** `PIHERDER_NMAP_WORKER=0` on web/main celery, `=1` on `celery-worker-nmap` — usually **not** set in `.env`. Optional nmap path/image overrides (`PIHERDER_NMAP_VULN_PATH`, `PIHERDER_NMAP_IMAGE`, …) are in `.env.example`. Operator wiki: [env-reference — LAN Discovery](../wiki/operations/env-reference.md#lan-discovery-nmap--opt-in).
+**LAN nmap fence (compose-owned):** `PIHERDER_NMAP_WORKER=0` on web/main celery, `=1` on `celery-worker-nmap`. The worker is profile `nmap` and does not start with a plain `docker compose up`. It is a second image, root on the host network, with `NET_RAW` and `NET_ADMIN`. Usually **not** set in `.env`. Optional nmap path/image overrides (`PIHERDER_NMAP_VULN_PATH`, `PIHERDER_NMAP_IMAGE`, …) are in `.env.example`. Operator wiki: [env reference, LAN Discovery](../wiki/operations/env-reference.md#lan-discovery-nmap--opt-in).
 
 ### Volumes (compose defaults)
 
@@ -626,7 +626,7 @@ Full catalog with comments and defaults: **[`.env.example`](../.env.example)** (
 | `${PIHERDER_BACKUP_HOST_PATH:-./backups}` | `/backups` | rsync destinations for server backups |
 | `./piherder_backups` | `/herder_backups` | PiHerder self-backup archives (chown to uid 1000 if permission errors) |
 | `./piherder_data` | `/data` | Avatars, nmap run XML under `nmap/runs/` (Settings live in Postgres) |
-| `${PIHERDER_NMAP_VULN_PATH:-./piherder_nmap_vuln}` | `/var/lib/piherder/nmap-vuln` | Opt-in vuln pack (web **:ro**, nmap worker **rw**; profile `nmap`) |
+| `${PIHERDER_NMAP_VULN_PATH:-./piherder_nmap_vuln}` | `/var/lib/piherder/nmap-vuln` | Vuln pack (web **:ro**, nmap worker **rw**) |
 | `./certs` | `/certs` (Caddy, ro) | `fullchain.pem` + `privkey.pem` |
 
 If you previously used `~/backup`, set in `.env`:

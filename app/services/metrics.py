@@ -1,7 +1,8 @@
 """Prometheus text exposition for fleet health (scrape-time gauges, no SSH)."""
 from __future__ import annotations
 
-from typing import Iterable, Optional
+from datetime import datetime, timezone
+from typing import Any, Iterable, Optional
 
 from sqlalchemy import text
 from sqlmodel import Session, select, func
@@ -80,6 +81,32 @@ def _backup_counts(servers: list[Server], stale_hours: int) -> tuple[int, int]:
     return backup_counts(servers, stale_hours)
 
 
+def stack_check_age_seconds(
+    report: Optional[dict[str, Any]],
+    *,
+    now: Optional[datetime] = None,
+) -> Optional[float]:
+    """Age of the last stack health report, or None when it has no timestamp."""
+    if not report:
+        return None
+    raw = report.get("checked_at")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    text_value = raw.strip()
+    if text_value.endswith("Z"):
+        text_value = text_value[:-1] + "+00:00"
+    try:
+        checked = datetime.fromisoformat(text_value)
+    except ValueError:
+        return None
+    if checked.tzinfo is not None:
+        checked = checked.astimezone(timezone.utc).replace(tzinfo=None)
+    current = now or datetime.utcnow()
+    if current.tzinfo is not None:
+        current = current.astimezone(timezone.utc).replace(tzinfo=None)
+    return max(0.0, (current - checked).total_seconds())
+
+
 def collect_samples(session: Session) -> list[tuple[str, str, list[str]]]:
     """Return list of (metric_name, help, lines) for exposition."""
     db_ok = _db_up(session)
@@ -154,6 +181,15 @@ def collect_samples(session: Session) -> list[tuple[str, str, list[str]]]:
                 [_line("piherder_celery_pool_slots", pool_slots)],
             )
         )
+        age = stack_check_age_seconds(last)
+        if age is not None:
+            samples.append(
+                (
+                    "piherder_stack_check_age_seconds",
+                    "Seconds since the last stack health check",
+                    [_line("piherder_stack_check_age_seconds", int(age))],
+                )
+            )
     except Exception:
         pass
 
@@ -355,10 +391,28 @@ def metrics_body(session: Session) -> str:
         lines = catchup_counter_lines()
     except Exception:
         lines = []
+    try:
+        from .server_job_lock import lock_acquire_failure_lines
+
+        lock_lines = lock_acquire_failure_lines()
+    except Exception:
+        lock_lines = []
+    try:
+        from .delivery_metrics import delivery_failure_lines
+
+        delivery_lines = delivery_failure_lines()
+    except Exception:
+        delivery_lines = []
     extra = [
         "# HELP piherder_schedule_catchup_total Catch-up attempts for a missed backup or image check. Per process. Resets when the process restarts",
         "# TYPE piherder_schedule_catchup_total counter",
         *lines,
+        "# HELP piherder_lock_acquire_failures_total Host lock acquires that did not take the lock. Label reason is redis_error or busy. Per process. Resets when the process restarts",
+        "# TYPE piherder_lock_acquire_failures_total counter",
+        *lock_lines,
+        "# HELP piherder_alert_delivery_failures_total Alert deliveries that did not succeed. Label channel is webhook, email, or push. Per process. Resets when the process restarts",
+        "# TYPE piherder_alert_delivery_failures_total counter",
+        *delivery_lines,
         "",
     ]
     return body + "\n".join(extra)

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<script>
+<script nonce="{{ csp_nonce() }}">
   window.PIHERDER_PROGRESS_CLOSE = 'servers';
 </script>
 
@@ -360,7 +360,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var list = document.getElementById('server-host-list');
   var reorderMode = false;

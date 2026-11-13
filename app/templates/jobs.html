@@ -237,8 +237,8 @@
   <a href="/audit" class="text-accent hover:underline">Audit</a>
 </p>
 
-<script>
-const JOBS = {{ jobs | tojson | safe }};
+<script nonce="{{ csp_nonce() }}">
+const JOBS = {{ jobs | tojson }};
 </script>
 
 <div id="job-details-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3"
@@ -262,7 +262,7 @@ const JOBS = {{ jobs | tojson | safe }};
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

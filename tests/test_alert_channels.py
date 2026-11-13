@@ -16,7 +16,8 @@ def _isolate_settings(tmp_path, monkeypatch):
     app_cfg.clear_cache()
 
 
-def test_validate_webhook_url():
+def test_validate_webhook_url(monkeypatch):
+    monkeypatch.setattr(ch, "_resolve_webhook_host", lambda host: ["203.0.113.10"])
     assert ch.validate_webhook_url("https://n8n.example/hook") == "https://n8n.example/hook"
     with pytest.raises(ValueError):
         ch.validate_webhook_url("ftp://x")
@@ -42,6 +43,7 @@ def test_send_webhook_respects_event_filter(monkeypatch):
 
 
 def test_send_webhook_posts(monkeypatch):
+    monkeypatch.setattr(ch, "_resolve_webhook_host", lambda host: ["203.0.113.10"])
     monkeypatch.setattr(
         ch,
         "webhook_config",

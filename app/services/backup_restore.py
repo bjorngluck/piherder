@@ -16,6 +16,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -24,7 +25,7 @@ from ..config import settings
 from ..models import Server
 from . import backup_profiles
 from .backup_path_policy import validate_backup_path, parse_rules
-from .ssh import get_private_key_plain, temp_key_file, LEGACY_SSH_OPTS_STR
+from .ssh import get_private_key_plain, rsync_e_command, temp_key_file
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +48,19 @@ def parse_rsync_changes(text: str, *, limit: int = _CHANGE_LIMIT) -> dict[str, A
         elif len(line) > 12 and line[11] == " ":
             flags = line[:11]
             path = line[12:].strip()
-            if not flags or flags[0] not in "<>ch" or flags[0] == ".":
+            if flags[0] == ".":
+                owner = len(flags) > 7 and (flags[6] == "o" or flags[7] == "g")
+                perm = len(flags) > 5 and flags[5] == "p"
+                content = any(
+                    len(flags) > index and flags[index] != "." for index in (2, 3, 4)
+                )
+                if content or not (owner or perm):
+                    continue
+                action = "owner" if owner else "permission"
+            elif not flags or flags[0] not in "<>ch":
                 continue
-            action = "create" if "+" in flags else "update"
+            else:
+                action = "create" if "+" in flags else "update"
         else:
             continue
         if not path or path in (".", "./") or "\n" in path or "\x00" in path:
@@ -173,6 +184,7 @@ def source_copy_rel(server: Server, source: str) -> str:
 
 
 def _ssh_argv(key_path: str, port: int, user: str, host: str, remote_cmd: str) -> list[str]:
+    known = f"{key_path}.known"
     return [
         "ssh",
         "-i",
@@ -182,7 +194,11 @@ def _ssh_argv(key_path: str, port: int, user: str, host: str, remote_cmd: str) -
         "-o",
         "BatchMode=yes",
         "-o",
-        "StrictHostKeyChecking=accept-new",
+        "StrictHostKeyChecking=yes",
+        "-o",
+        f"UserKnownHostsFile={known}",
+        "-o",
+        "GlobalKnownHostsFile=/dev/null",
         "-o",
         "ConnectTimeout=15",
         f"{user}@{host}",
@@ -429,6 +445,7 @@ def restore_backup_source(
     dry_run: bool = True,
     pull_from=None,
     itemize: bool = False,
+    tree_override: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """
     Reverse rsync: local destination → remote source path.
@@ -452,19 +469,22 @@ def restore_backup_source(
             "source": source,
         }
 
-    # Find matching profile / destination
+    # Find matching profile / destination. A preview of a chosen copy
+    # passes that staged tree and does not read the local backup.
     dest_path: Optional[Path] = None
-    for p in backup_profiles.get_backup_profiles_db(server):
-        if (p.get("source") or "").rstrip("/") == source.rstrip("/"):
-            dest_path = Path(p["destination"])
-            break
-    if dest_path is None:
-        # fallback: compute dest
-        dest_name = Path(source).name or "root"
-        dest_path = backup_profiles.get_backup_root_for_server(server) / dest_name
+    if tree_override is not None:
+        dest_path = Path(tree_override)
+    else:
+        for p in backup_profiles.get_backup_profiles_db(server):
+            if (p.get("source") or "").rstrip("/") == source.rstrip("/"):
+                dest_path = Path(p["destination"])
+                break
+        if dest_path is None:
+            dest_name = Path(source).name or "root"
+            dest_path = backup_profiles.get_backup_root_for_server(server) / dest_name
 
     pulled = None
-    if pull_from is not None:
+    if pull_from is not None and tree_override is None:
         from . import backup_replicate
 
         rel = source_copy_rel(server, source)
@@ -538,7 +558,7 @@ def restore_backup_source(
         rsync_path = "sudo -n rsync"
 
     with temp_key_file(key_plain) as key_path:
-        ssh_cmd = f"ssh -i {shlex.quote(key_path)} -p {port} {LEGACY_SSH_OPTS_STR}"
+        ssh_cmd = rsync_e_command(server, key_path)
         from .backup_ownership import MANIFEST_NAME, load_manifest, render_apply_script
 
         rollback = {"skipped": True, "reason": "dry-run"} if dry_run else None
@@ -630,6 +650,9 @@ def restore_backup_source(
                 result.update(parse_rsync_changes(out))
                 result["wrote"] = False
                 result["ok"] = proc.returncode == 0
+                from .backup_ownership import MANIFEST_NAME as _manifest
+
+                result["ownership_step"] = (Path(dest_path) / _manifest).is_file()
             if proc.returncode != 0 or itemize:
                 return result
             loaded = load_manifest(dest_path)
@@ -657,21 +680,7 @@ def restore_backup_source(
                 use_sudo=user not in ("root",),
             )
             own = subprocess.run(
-                [
-                    "ssh",
-                    "-i",
-                    key_path,
-                    "-p",
-                    str(port),
-                    "-o",
-                    "BatchMode=yes",
-                    "-o",
-                    "StrictHostKeyChecking=accept-new",
-                    "-o",
-                    "ConnectTimeout=15",
-                    f"{user}@{host}",
-                    ownership_remote_command(source),
-                ],
+                _ssh_argv(key_path, port, user, host, ownership_remote_command(source)),
                 input=script,
                 capture_output=True,
                 text=True,
@@ -723,14 +732,56 @@ def restore_backup_source(
 
 
 def preview_restore(server: Server, source: str, *, pull_from=None) -> Dict[str, Any]:
-    """Dry-run itemized restore. Does not pull files here and does not write to the host."""
-    result = restore_backup_source(
-        server,
-        source,
-        dry_run=True,
-        pull_from=pull_from,
-        itemize=True,
-    )
+    """Dry-run itemized restore. Does not write to the host.
+
+    A chosen copy is read into a temporary folder, compared, and removed.
+    The local backup tree is left as it was.
+    """
+    staged: Optional[Path] = None
+    pulled: Optional[Dict[str, Any]] = None
+    try:
+        if pull_from is not None:
+            staged = Path(tempfile.mkdtemp(prefix="piherder-preview-"))
+            from . import backup_replicate
+
+            pulled = backup_replicate.pull_rel(
+                pull_from,
+                source_copy_rel(server, source),
+                dry_run=False,
+                local_dir=staged,
+            )
+            if not pulled.get("ok"):
+                return {
+                    "error": pulled.get("error") or "Could not read that copy",
+                    "rc": 1,
+                    "dry_run": True,
+                    "wrote": False,
+                    "source": (source or "").strip(),
+                    "changes": [],
+                    "change_count": 0,
+                    "truncated": False,
+                    "destination_id": getattr(pull_from, "id", None),
+                    "auth_failed": bool(pulled.get("auth_failed")),
+                    "ownership_step": False,
+                }
+        result = restore_backup_source(
+            server,
+            source,
+            dry_run=True,
+            pull_from=None,
+            itemize=True,
+            tree_override=staged,
+        )
+    finally:
+        if staged is not None:
+            shutil.rmtree(staged, ignore_errors=True)
+    if pull_from is not None and pulled and pulled.get("ok"):
+        result["place"] = pulled.get("place")
+        result["destination_id"] = getattr(pull_from, "id", None)
+        result["note"] = (
+            "Compared the chosen copy from a temporary folder. "
+            "That folder was removed. The host was not written."
+        )
     result["wrote"] = False
     result["dry_run"] = True
     result.pop("remote", None)
@@ -803,7 +854,7 @@ def undo_host_restore(server: Server, source: str) -> Dict[str, Any]:
     from .backup_ownership import load_manifest, render_apply_script
 
     with temp_key_file(key_plain) as key_path:
-        ssh_cmd = f"ssh -i {shlex.quote(key_path)} -p {port} {LEGACY_SSH_OPTS_STR}"
+        ssh_cmd = rsync_e_command(server, key_path)
         try:
             proc = _rsync_tree(
                 ssh_cmd=ssh_cmd,

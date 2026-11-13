@@ -23,13 +23,15 @@ def upgrade() -> None:
     if "integrationbinding" not in tables:
         conn.commit()
         return
-    # Drop old unique (integration_id, server_id, role) if present
-    conn.execute(
-        text(
-            "ALTER TABLE integrationbinding "
-            "DROP CONSTRAINT IF EXISTS uq_integration_server_role"
+    # Drop old unique (integration_id, server_id, role) if present.
+    # Postgres names it a constraint. SQLite keeps it as an index, dropped below.
+    if conn.dialect.name == "postgresql":
+        conn.execute(
+            text(
+                "ALTER TABLE integrationbinding "
+                "DROP CONSTRAINT IF EXISTS uq_integration_server_role"
+            )
         )
-    )
     # Also drop if named differently (Postgres unique index)
     conn.execute(
         text("DROP INDEX IF EXISTS uq_integration_server_role")

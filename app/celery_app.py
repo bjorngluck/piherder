@@ -1,10 +1,16 @@
 from celery import Celery
-import os
+from celery.signals import after_setup_logger, after_setup_task_logger, worker_init, worker_ready
+
+from .security.boot_secrets import effective_backend_url, effective_broker_url, prepare_process_urls
+
+# Celery reads the broker URL once, at import. Normalize before that read.
+# Host locks and /ready use the same two resolvers.
+prepare_process_urls(None)
 
 celery = Celery(
     "piherder",
-    broker=os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"),
-    backend=os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0"),
+    broker=effective_broker_url(),
+    backend=effective_backend_url(),
     include=["app.tasks"]
 )
 
@@ -28,6 +34,39 @@ celery.conf.update(
     broker_transport_options={"visibility_timeout": 10800},
     worker_prefetch_multiplier=1,
     task_acks_late=True,
+    # A redirected stderr writes one log record per traceback line.
+    # Leave tracebacks on the task logger as one record with exc_info.
+    worker_redirect_stdouts=False,
     # Avoid stealing tasks that another worker is about to run after lock wait
     worker_disable_rate_limits=True,
 )
+
+
+@after_setup_logger.connect
+@after_setup_task_logger.connect
+def _redact_celery_handler_output(**_kwargs):
+    from .security.log_redaction import install_log_redaction
+
+    install_log_redaction()
+
+
+@worker_init.connect
+def _clear_worker_metrics_dir(**_kwargs):
+    """Drop multiprocess files from children that died before this start."""
+    from .services.worker_metrics import prepare_multiproc_dir
+
+    prepare_multiproc_dir()
+
+
+@worker_init.connect
+def _enforce_boot_secrets_on_worker(**_kwargs):
+    from .security.boot_secrets import enforce_boot_secrets
+
+    enforce_boot_secrets()
+
+
+@worker_ready.connect
+def _serve_worker_metrics(**_kwargs):
+    from .services.worker_metrics import serve_worker_metrics
+
+    serve_worker_metrics()

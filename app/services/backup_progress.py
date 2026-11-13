@@ -56,8 +56,11 @@ def _get_redis():
         client.ping()
         _redis_client = client
         logger.debug("[backup] Using Redis for cross-process progress tracking")
-    except Exception as e:
-        logger.debug(f"[backup] Redis not available for progress, using in-memory only: {e}")
+    except Exception as exc:
+        logger.debug(
+            "[backup] Redis not available for progress, using in-memory only: %s",
+            type(exc).__name__,
+        )
         _redis_client = None
     return _redis_client
 

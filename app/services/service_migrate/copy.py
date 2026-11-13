@@ -28,11 +28,7 @@ def _log(log: Optional[LogFn], msg: str) -> None:
 
 
 def _ssh_rsync_cmd(key_path: str, server: Server) -> str:
-    port = int(getattr(server, "ssh_port", None) or 22)
-    base = _build_rsync_ssh_cmd(key_path)
-    if f"-p {port}" in base or "-p" in base.split():
-        return base
-    return f"{base} -p {port}"
+    return _build_rsync_ssh_cmd(key_path, server)
 
 
 def staging_tree_summary(root: Path, *, limit: int = 40) -> str:

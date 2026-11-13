@@ -407,6 +407,7 @@ async def login(
 
     user = authenticate_user(session, email, password)
     if not user:
+        logger.warning("login failed")
         try:
             al = make_audit_log(
                 user_id=None,

@@ -5,8 +5,9 @@ template jobs, and host facts leave the web process. nmap stays on ``-Q nmap``.
 ``retention`` and ``herder_backup`` use ``housekeeping_job``, not this dispatcher.
 Backup, Move, and undo keep their own tasks.
 
-A single-host job does **not** take Move's dual-host backup mutex. The DB
-exclusive lane (one active type, shared stack-mutation lane) is unchanged.
+Patch, stack, reboot, and prune take the same per-host lock as a backup.
+Other exclusive types do not. The DB exclusive lane (one active type, shared
+stack-mutation lane) is unchanged.
 
 Host SSH down: the row stays **pending** and the task retries until a probe
 succeeds or the wait limit elapses. A redelivery that finds the job already
@@ -47,6 +48,23 @@ EXCLUSIVE_CELERY_TYPES = frozenset(
         "host_facts",
         "docker_prune",
         "host_bootstrap",
+    }
+)
+
+# Same mutex a backup holds, so these cannot run during rsync.
+HOST_BACKUP_LOCK_TYPES = frozenset(
+    {
+        "os_patch",
+        "container_patch",
+        "host_reboot",
+        "docker_prune",
+        "docker_stack_check",
+        "docker_stack_deploy",
+        "docker_stack_stop",
+        "docker_stack_start",
+        "docker_stack_restart",
+        "docker_stack_down",
+        "docker_stack_remove",
     }
 )
 
@@ -254,12 +272,8 @@ def _enqueue_celery(
     try:
         async_result = publish()
     except Exception as exc:
-        msg = f"Failed to enqueue {job_type} to Celery: {exc}"
-        if job_type == "host_bootstrap":
-            msg = _redact_bootstrap_text(msg, payload)
-            logger.error("[Jobs] %s", msg)
-        else:
-            logger.exception("[Jobs] %s", msg)
+        msg = f"Failed to enqueue {job_type} to Celery"
+        logger.error("[Jobs] %s: %s", msg, type(exc).__name__)
         _fail_enqueue(job_id, msg)
         raise RuntimeError(msg) from exc
     with js._get_fresh_session() as session:
@@ -288,11 +302,17 @@ def _fail_enqueue(job_id: int, message: str) -> None:
 
 
 def run_exclusive_job(task, job_id: int, server_id: int, audit_id: int, job_type: str, payload: dict | None):
-    """Celery body. No backup mutex. SSH probe before work. Running redelivery fails."""
+    """Celery body. SSH probe before work. Running redelivery fails.
+
+    Patch, stack, reboot, and prune take the backup host lock and defer
+    while that lock is held.
+    """
     from celery.exceptions import MaxRetriesExceededError, Retry
 
     js = _jobs()
     body = dict(payload or {})
+    lock_token = None
+    lock_server = None
     try:
         with js._get_fresh_session() as session:
             job = session.get(js.Job, job_id)
@@ -325,6 +345,33 @@ def run_exclusive_job(task, job_id: int, server_id: int, audit_id: int, job_type
         if jt_running:
             _fail_running_redelivery(job_id, audit_id, jt_running)
             return {"status": "failed", "job_id": job_id, "reason": "worker_restart"}
+
+        if jt in HOST_BACKUP_LOCK_TYPES:
+            from .server_job_lock import (
+                LockUnavailable,
+                RedisAuthFailed,
+                try_acquire_server_lock,
+            )
+
+            lock_server = int(server_id)
+            unavailable = False
+            try:
+                lock_token = try_acquire_server_lock(
+                    "backup", lock_server, holder=f"{jt}:{job_id}"
+                )
+            except RedisAuthFailed:
+                logger.error("Redis authentication failed.")
+                _fail_message(job_id, audit_id, jt, "Redis authentication failed.")
+                return {
+                    "status": "failed",
+                    "job_id": job_id,
+                    "error": "Redis authentication failed.",
+                }
+            except LockUnavailable:
+                lock_token = None
+                unavailable = True
+            if not lock_token:
+                return _defer_for_backup_lock(task, job_id, jt, unavailable=unavailable)
 
         from .demo import demo_mode
 
@@ -371,6 +418,50 @@ def run_exclusive_job(task, job_id: int, server_id: int, audit_id: int, job_type
             logger.exception("exclusive_job failed job=%s type=%s", job_id, job_type)
         _fail_unexpected(job_id, audit_id, job_type, message)
         return {"status": "error", "job_id": job_id}
+    finally:
+        if lock_token is not None and lock_server is not None:
+            from .server_job_lock import release_server_lock
+
+            release_server_lock("backup", lock_server, lock_token)
+
+
+def _defer_for_backup_lock(task, job_id: int, job_type: str, unavailable: bool = False):
+    """Stay pending and retry. Redis errors report lock_unavailable, not a busy host."""
+    js = _jobs()
+    if unavailable:
+        current = "lock_unavailable"
+        log_line = "lock_unavailable"
+    else:
+        current = "waiting_for_server"
+        log_line = "Waiting for the backup on this server to finish"
+    with js._get_fresh_session() as session:
+        job = session.get(js.Job, job_id)
+        if not job or job.status not in ("pending", "running"):
+            return {"status": "skipped", "job_id": job_id}
+        js._merge_job_details(
+            job,
+            current=current,
+            log_line=log_line,
+            done=False,
+        )
+        job.status = "pending"
+        session.add(job)
+        session.commit()
+    if unavailable:
+        logger.info(
+            "[Jobs] %s job #%s lock_unavailable, retry in %ss",
+            job_type,
+            job_id,
+            HOST_WAIT_COUNTDOWN_SEC,
+        )
+    else:
+        logger.info(
+            "[Jobs] %s job #%s waiting for the backup lock, retry in %ss",
+            job_type,
+            job_id,
+            HOST_WAIT_COUNTDOWN_SEC,
+        )
+    raise task.retry(countdown=HOST_WAIT_COUNTDOWN_SEC)
 
 
 def _ssh_ready(server_id: int) -> bool:

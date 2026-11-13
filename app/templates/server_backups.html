@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<script>
+<script nonce="{{ csp_nonce() }}">
   window.PIHERDER_SERVER_ID = {{ server.id }};
   window.PIHERDER_PROGRESS_CLOSE = 'reload';
 </script>
@@ -495,7 +495,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Config / remove modals only — progress lives in base.html (PiHerderProgress)
 function showBackupConfigModal() {
   const modal = document.getElementById('backup-config-modal');

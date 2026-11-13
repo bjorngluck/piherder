@@ -84,8 +84,8 @@ def check_redis() -> dict[str, Any]:
         if pong:
             return _component("redis", "Redis", "ok", message="PING ok")
         return _component("redis", "Redis", "fail", message="PING returned false")
-    except Exception as e:
-        return _component("redis", "Redis", "fail", message=str(e)[:200])
+    except Exception as exc:
+        return _component("redis", "Redis", "fail", message=type(exc).__name__)
 
 
 def check_celery() -> dict[str, Any]:
@@ -158,12 +158,12 @@ def check_celery() -> dict[str, Any]:
                 "nodes": nodes[:20],
             },
         )
-    except Exception as e:
+    except Exception as exc:
         return _component(
             "celery",
             "Celery worker(s)",
             "fail",
-            message=str(e)[:200],
+            message=type(exc).__name__,
             detail={"workers": 0, "pool_slots": 0},
         )
 

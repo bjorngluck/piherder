@@ -581,6 +581,9 @@ async def settings_page(
         apol.parse_allowlist(smtp_cfg.get("notify_categories"))
     )
     alert_policy_ui = apol.ui_state()
+    from ..services.host_posture import host_unreachable_form
+
+    host_unreachable = host_unreachable_form()
     mute_rules: list = []
     mute_hosts: list = []
     mute_types: list = []
@@ -946,6 +949,7 @@ async def settings_page(
             "webhook_cfg": webhook_cfg,
             "smtp_cfg": smtp_cfg,
             "alert_policy_ui": alert_policy_ui,
+            "host_unreachable": host_unreachable,
             "mute_rules": mute_rules,
             "mute_hosts": mute_hosts,
             "mute_types": mute_types,
@@ -2150,6 +2154,51 @@ async def save_alerts_policy(
     session.commit()
     return RedirectResponse(
         _settings_url("alerts", policy_saved="1") + "#alerts-policy", status_code=303
+    )
+
+
+@router.post("/herder-backups/alerts/host-unreachable")
+async def save_host_unreachable(
+    request: Request,
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    """Quiet time and on/off for the host unreachable alert."""
+    from ..services import alert_policy as apol
+    from ..services.demo import http_403_if_demo
+    from ..services.host_posture import quiet_hours_from_amount, sync_host_posture_alerts
+
+    http_403_if_demo("settings_write")
+    form = await request.form()
+    enabled = str(form.get("enabled") or "") in ("1", "on", "true", "yes")
+    unit = "days" if str(form.get("quiet_unit") or "").strip().lower() == "days" else "hours"
+    hours = quiet_hours_from_amount(form.get("quiet_amount"), unit)
+    try:
+        apol.set_type_override(
+            "host_unreachable",
+            enabled=enabled,
+            quiet_hours=hours,
+            quiet_unit=unit,
+        )
+        sync_host_posture_alerts(session)
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("alerts", alerts_error=str(e)[:120]), status_code=303
+        )
+    state = "on" if enabled else "off"
+    session.add(
+        make_audit_log(
+            user_id=user.id,
+            action="alert_policy_changed",
+            status="success",
+            details=f"host unreachable {state}, quiet {hours}h",
+            finished_at=datetime.utcnow(),
+        )
+    )
+    session.commit()
+    return RedirectResponse(
+        _settings_url("alerts", host_unreachable_saved="1") + "#host-unreachable",
+        status_code=303,
     )
 
 

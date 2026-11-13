@@ -42,7 +42,7 @@
     Static snapshot + live SSE (<code>docker logs -f</code> over SSH). Scroll up to pause auto-follow when live.
   </p>
 
-  <script>
+  <script nonce="{{ csp_nonce() }}">
     let eventSource = null;
     let autoScroll = true;
     const SERVER_ID = {{ server.id | tojson }};

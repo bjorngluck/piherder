@@ -25,7 +25,7 @@ Settings → Alerts → **Alert policy** is the taxonomy + volume control so map
 | Category | What fires | Default |
 |----------|------------|---------|
 | **Hosts** | `host_down` — Kuma **SSH** monitor down | critical · debounce 15m · re-alert 24h |
-| **Inventory** | `stack_container_down` — Kuma-bound container stopped in Docker inventory | critical · debounce 15m |
+| **Inventory** | `stack_container_down` — Kuma-bound container stopped in Docker inventory. `container_unhealthy` is a container that stays unhealthy | critical, debounce 15m, for a stopped container. Warning for an unhealthy container |
 | **Kuma services** | `integration_monitor_down` — Kuma **service** monitor down | critical |
 | **Map infra** | `map_infra_down` — Network gateway / WAN Kuma chip down | warning |
 | **LAN discovery** | `nmap_new_device` (new host) · `nmap_device_offline` (stale / not seen ~14d) | warning / info |
@@ -37,6 +37,8 @@ Settings → Alerts → **Alert policy** is the taxonomy + volume control so map
 | **Admin** | user created · API token created · force 2FA or template 2FA changed | warning |
 
 v1.12 also opens `backup_destination_auth_failed` (critical, a Drive, OneDrive, or SMB credential was rejected), `backup_stale` (warning), `backup_schedule_missed` (warning), `backup_copy_early` (warning), and `container_updates` (warning). A possible NIC change (`lan_discovery`, info) ships in **1.13.0**.
+
+In **v1.15.0**, a host that has not answered for the quiet time opens one `host_unreachable` alert. The default quiet time is 24 hours. Settings → Alerts sets hours or days, and turning the alert off clears open cards. An answer is a backup, a facts check, an image check, or a Docker inventory refresh. The date the host was added is not an answer. Two missed backup slots open one critical `backup_missed_repeat` alert. A repeat of the same condition does not push again. Seeing the host, or a backup success, resolves the matching alert. A container that stays unhealthy opens one warning, `container_unhealthy`. These alerts are not in the **1.14.0** image. `host_unreachable`, `backup_missed_repeat`, and `container_unhealthy` are in the alert catalog. `container_unhealthy` is Inventory. Settings can mute that type on its own. A mute rule stops webhook, email, and push, and the inbox row is still written.
 
 Per category you can **mute**, override **severity** (`default` keeps the table above), set **debounce** (minutes before a dismissed flap re-opens), and **re-alert** (hours; `0` = no channel nudge while still open).
 

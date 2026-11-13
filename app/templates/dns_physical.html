@@ -587,7 +587,7 @@
 <script src="/static/js/fabric-mesh.js?v=20260730-overlay-nocapture" defer></script>
 <script src="/static/js/fabric-stack-expand.js?v=20260730-container-ports" defer></script>
 <script src="/static/js/fabric-host-ports-expand.js?v=20260730-pointerdown" defer></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var STORAGE_KEY = 'piherder.hostsmap.showDiscovered';
   var cb = document.getElementById('hosts-map-show-discovered');

@@ -24,7 +24,7 @@
   <link rel="stylesheet" href="/static/css/tailwind.css?v=20260812-box">
   <script src="/static/htmx.min.js"></script>
   <script defer src="/static/js/csp-events.js?v=20261020-scheduler-group"></script>
-  <script>
+  <script nonce="{{ csp_nonce() }}">
     if (window.htmx) htmx.config.inlineScriptNonce = {{ csp_nonce() | tojson }};
   </script>
   <script src="/static/js/session-login-redirect.js"></script>
@@ -47,7 +47,7 @@
   <link rel="stylesheet" href="/static/css/ops-pages.css?v=20261026-cleanup">
 
   <!-- Apply saved theme ASAP (before paint) so the page doesn't flash light → dark -->
-  <script>
+  <script nonce="{{ csp_nonce() }}">
     (function () {
       try {
         var t = localStorage.getItem('theme') || 'light';
@@ -493,6 +493,22 @@
   </div>
   {% endif %}
 
+  {# Insecure boot settings. No dismiss control. Login and every later page. #}
+  {% set _boot = boot_warnings() if boot_warnings is defined else [] %}
+  {% if _boot %}
+  <div id="ph-boot-secrets" class="boot-secrets-banner banner-warning" role="alert" data-testid="boot-secrets-banner">
+    <div class="max-w-5xl mx-auto px-4 py-3">
+      <p class="boot-secrets-title">Action needed</p>
+      <ul>
+        {% for item in _boot %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+      <p class="boot-secrets-foot">PiHerder is running. This notice stays on every page until the item above is fixed.</p>
+    </div>
+  </div>
+  {% endif %}
+
   <main class="max-w-5xl mx-auto px-6 py-8 w-full min-w-0 overflow-x-clip">
     {% block content %}{% endblock %}
   </main>
@@ -580,7 +596,7 @@
   </div>
 
   <!-- Theme + Mobile Hamburger (slide-out) handling. All in base.html only. -->
-  <script>
+  <script nonce="{{ csp_nonce() }}">
     // Immediate feedback when navigating to slow destinations (data-nav-loading on <a>)
     window.PiHerderNavLoading = (function () {
       function els() {
@@ -1137,7 +1153,7 @@
   </script>
 
   <!-- Original PiHerder scripts (timezone, poll, log update, etc.) -->
-  <script>
+  <script nonce="{{ csp_nonce() }}">
   window.PIHERDER_TZ = "{{ get_app_timezone() }}";
   (function localizeTimes() {
     let isConverting = false;
@@ -2084,7 +2100,7 @@
   </script>
 
   {% if user %}
-  <script>
+  <script nonce="{{ csp_nonce() }}">
   (function () {
     var el = document.getElementById('ph-update-banner');
     if (!el) return;
@@ -2104,7 +2120,7 @@
   })();
   </script>
   <script src="/static/js/push.js" defer></script>
-  <script>
+  <script nonce="{{ csp_nonce() }}">
   (function () {
     var KEY = 'pwa_install_dismissed';
     var deferred = null;
@@ -2183,7 +2199,7 @@
       </div>
     </div>
   </div>
-  <script>
+  <script nonce="{{ csp_nonce() }}">
   (function () {
     var modal = document.getElementById('ph-confirm-modal');
     var titleEl = document.getElementById('ph-confirm-title');

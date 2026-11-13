@@ -168,6 +168,18 @@ def test_unmutable_types_are_rejected_and_a_stale_backup_warning_is_allowed(tmp_
             ends_at=None,
         )
         assert row.alert_type == "backup_stale"
+        unhealthy = mute.create_rule(
+            session,
+            kind="type",
+            server_id=None,
+            alert_type="container_unhealthy",
+            starts_at=None,
+            ends_at=None,
+        )
+        assert unhealthy.alert_type == "container_unhealthy"
+        assert mute.is_muted(session, alert_type="container_unhealthy", server_id=None) is True
+        labels = dict(mute.mutable_types())
+        assert labels["container_unhealthy"] == "Unhealthy containers"
 
 
 def test_windows_reject_a_missing_end_and_an_end_before_the_start(tmp_path):

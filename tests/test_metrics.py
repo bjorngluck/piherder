@@ -115,3 +115,6 @@ def test_collect_samples_uses_fleet(monkeypatch):
     assert "piherder_servers_attention 1" in body
     assert 'piherder_jobs{status="running"} 1' in body
     assert 'piherder_notifications_open_by_type{type="backup_failed"} 1' in body
+    assert "# TYPE piherder_lock_acquire_failures_total counter" in body
+    assert 'piherder_lock_acquire_failures_total{reason="redis_error"}' in body
+    assert 'piherder_lock_acquire_failures_total{reason="busy"}' in body

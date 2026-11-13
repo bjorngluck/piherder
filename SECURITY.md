@@ -4,7 +4,8 @@
 
 | Version | Support |
 |---------|---------|
-| **v1.14.0** | Current release ([RELEASE_v1.14.0.md](docs/RELEASE_v1.14.0.md)). Tag **v1.14.0**. Package **1.14.0**. Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release |
+| **v1.15.0** | Frozen on `v1.15.0-dev` ([RELEASE_v1.15.0.md](docs/RELEASE_v1.15.0.md)). Package **1.15.0**. Not tagged. Not the published image |
+| **v1.14.0** | Current published release ([RELEASE_v1.14.0.md](docs/RELEASE_v1.14.0.md)). Tag **v1.14.0**. Package **1.14.0**. Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release |
 | **v1.13.0** | Previous image ([RELEASE_v1.13.0.md](docs/RELEASE_v1.13.0.md)). Tag **v1.13.0**. Pin `1.13.0` stays that release. Pin `1.12.1` stays that patch. Package **1.13.0** |
 | **v1.11.x** | Previous image pin; still valid ([RELEASE_v1.11.0.md](docs/RELEASE_v1.11.0.md) · [PLAN_v1.11.0.md](docs/PLAN_v1.11.0.md)). Tag **v1.11.0**. Pin `1.11.0` / `1.11` |
 | **v1.10.x** | Previous image pin; still valid ([RELEASE_v1.10.0.md](docs/RELEASE_v1.10.0.md) · [PLAN_v1.10.0.md](docs/PLAN_v1.10.0.md)). Tag **v1.10.0**. Pin `1.10.0` / `1.10` |
@@ -21,7 +22,7 @@
 | **`main`** | Development tip; security fixes land here first |
 | **v0.9.x and older** | Best-effort; prefer upgrade to latest production |
 
-Security fixes are applied on the default branch (`main`) and released as patch tags when warranted. The current release is **v1.13.0**. Image `1.13.0` / `1.13` / `latest`. Pin `1.12.1` stays that patch. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Pins **v1.10.0**, **v1.9.0**, **v1.8.1**, and **v1.7.0** stay valid ([PLAN_v1.10.0.md](docs/PLAN_v1.10.0.md)).
+Security fixes are applied on the default branch (`main`) and released as patch tags when warranted. The published release is **v1.14.0**. Image `1.14.0` / `1.14` / `latest`. **v1.15.0** is frozen and not tagged. Pin `1.13.0` stays that release.
 
 ## Reporting a vulnerability
 
@@ -73,7 +74,7 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki ro
 | Declared deps | `pyproject.toml` — minimum versions / ranges (`>=`) for package metadata |
 | Resolver lock | **`uv.lock`** — full resolved graph + hashes (source of truth) |
 | Pip export | **`requirements.lock.txt`** (runtime + `[dev]`) and **`requirements.runtime.lock.txt`** (runtime only) — generated with hashes via `scripts/refresh-lockfiles.sh` |
-| Docker image | `pip install --require-hashes -r requirements.lock.txt` then `pip install --no-deps --no-build-isolation -e .` ([Dockerfile](Dockerfile)) |
+| Docker image | `pip install --require-hashes -r requirements.runtime.lock.txt` then `pip install --no-deps --no-build-isolation -e .` ([Dockerfile](Dockerfile)). Dev packages stay out of the image |
 | CI | Same locked install ([`.github/workflows/test.yml`](.github/workflows/test.yml)) |
 | JWT library | **PyJWT[crypto]** (HS256). Former `python-jose` / transitive `ecdsa` removed. **`v1.9.0-dev`** pins PyJWT **2.15.1** and urllib3 **2.8.0**. The **1.8.1** image has these pins. The **1.8.0** image still has the older pins |
 | Vulnerability scan | Run `pip-audit` periodically (and/or Dependabot); deepen in [ROADMAP quality track](docs/ROADMAP_ECOSYSTEM.md#quality--platform-post-rc--post-10-first-production) |
@@ -128,7 +129,7 @@ Demo must use **unique** Fernet/session secrets and never hold decryptable produ
 
 - Put PiHerder behind trusted TLS; restrict network access where possible. Set `PIHERDER_PUBLIC_URL=https://…` so session cookies get the **Secure** flag (or force `COOKIE_SECURE=true`), OIDC redirect URIs match, and **email password-reset links** use that origin only (Host / `X-Forwarded-Host` are ignored).  
 - **Sign out** bumps `session_version` (stolen JWTs die; live consoles close within the revalidate interval — Settings → Console, default 10s; parked PTYs are destroyed). Trusted-device cookies still survive logout by design.  
-- Do **not** publish the app port on the LAN. Stock compose binds `127.0.0.1:8000` only; use Caddy (`:8888` / `:8443`). Forwarded client IPs (`X-Forwarded-For` / `CF-Connecting-IP`) are honoured only when the TCP peer is in `PIHERDER_TRUSTED_PROXY_CIDRS` (Compose sets RFC1918 + loopback so Caddy is trusted).  
+- Do **not** publish the app port on the LAN. Stock compose binds `127.0.0.1:8000` only; use Caddy (`:8888` / `:8443`). A home-network proxy may pass the visitor address in `X-Forwarded-For` / `CF-Connecting-IP`. There is no client-IP setting in Compose or `.env`. A public peer is not trusted.
 - Set `METRICS_TOKEN` if `/metrics` is reachable beyond a private scrape network.  
 - Treat API tokens like passwords; revoke compromised tokens immediately.  
 - Leave `CORS_ORIGINS` empty unless a browser on another origin must call `/api/v1`; never use `*`. CORS is not a substitute for Bearer + scopes + IP allowlists.  

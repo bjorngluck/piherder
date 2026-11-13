@@ -204,8 +204,9 @@ def test_dest_recover_celery_queue_and_a_missing_worker(monkeypatch):
     with _session() as session:
         src, dst = _pair(session)
         parent = _parent(session, src, dst)
-        with pytest.raises(RuntimeError, match="broker down"):
+        with pytest.raises(RuntimeError, match="Failed to enqueue dest-up recover to Celery") as raised:
             jm.enqueue_service_migrate_dest_recover(int(parent.id))
+        assert "broker down" not in str(raised.value)
 
 
 def test_dest_recover_execute_edges(monkeypatch):

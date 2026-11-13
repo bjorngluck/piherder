@@ -6,7 +6,8 @@ Maintainer plans and release notes. Operator wiki is `wiki/` (MkDocs).
 
 | Kind | Where |
 |------|--------|
-| Current release | [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Tag **v1.14.0**. Package **1.14.0**. Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release. Pin `1.12.1` stays that patch. Pin `1.12.0` stays that patch. Pin `1.11.1` / `1.11` is the previous minor image. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)**. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)**. Prior image [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) |
+| Published release | [RELEASE_v1.14.0.md](RELEASE_v1.14.0.md). Tag **v1.14.0**. Image `1.14.0` / `1.14` / `latest`. Pin `1.13.0` stays that release. Adapter **[0.4.4](https://github.com/bjorngluck/piherder-mcp/releases/tag/v0.4.4)**. Plugin **[0.5.4](https://github.com/bjorngluck/piherder-ha/releases/tag/v0.5.4)**. Prior image [RELEASE_v1.13.0.md](RELEASE_v1.13.0.md) |
+| Frozen train | [RELEASE_v1.15.0.md](RELEASE_v1.15.0.md) (draft) · [PLAN_v1.15.0.md](PLAN_v1.15.0.md) · [QA_v1.15.0.md](QA_v1.15.0.md) · [PR_v1.15.0.md](PR_v1.15.0.md) on `v1.15.0-dev`. Code freeze 2026-11-08. Package **1.15.0**. The published image stays **1.14.0**. Not tagged. QA walks are empty. Screenshot names are reserved and not captured. Draft pull request [#101](https://github.com/bjorngluck/piherder/pull/101) |
 | Prior release | [RELEASE_v1.12.0.md](RELEASE_v1.12.0.md) · [PLAN_v1.12.0.md](PLAN_v1.12.0.md) · [QA_v1.12.0.md](QA_v1.12.0.md). Tag **v1.12.0**. Pin `1.12.0` |
 | Prior release | [RELEASE_v1.11.0.md](RELEASE_v1.11.0.md) · [PLAN_v1.11.0.md](PLAN_v1.11.0.md) · [QA_v1.11.0.md](QA_v1.11.0.md). Tag **v1.11.0**. Pin `1.11.0` / `1.11` |
 | Prior release | [RELEASE_v1.10.0.md](RELEASE_v1.10.0.md) · [PLAN_v1.10.0.md](PLAN_v1.10.0.md) · [QA_v1.10.0.md](QA_v1.10.0.md). Tag **v1.10.0**. Pin `1.10.0` / `1.10` |

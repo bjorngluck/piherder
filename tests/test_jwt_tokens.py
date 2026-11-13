@@ -88,8 +88,14 @@ def test_tampered_token_rejected():
     token = create_access_token({"sub": "1"})
     parts = token.split(".")
     sig = parts[2]
-    last = "A" if sig[-1] != "A" else "B"
-    bad = ".".join([parts[0], parts[1], sig[:-1] + last])
+    # Change a middle signature character. The first can already be the
+    # replacement, so the token would not change. The last carries base64
+    # padding bits and can decode to the same HMAC.
+    mid = len(sig) // 2
+    replacement = "A" if sig[mid] != "A" else "B"
+    bad_sig = sig[:mid] + replacement + sig[mid + 1 :]
+    bad = ".".join([parts[0], parts[1], bad_sig])
+    assert bad != token
     assert decode_token_payload(bad) is None
 
 

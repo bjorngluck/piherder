@@ -218,6 +218,19 @@ def _backup_schedule_fields(server) -> dict[str, Any]:
     return resolve_backup_schedule(server)
 
 
+def _host_posture_fields(server, alerts: list[dict[str, Any]]) -> dict[str, Any]:
+    from datetime import datetime, timezone
+
+    from ..services.host_posture import apply_open_alerts, host_posture
+
+    moment = datetime.now(timezone.utc)
+    posture = apply_open_alerts(host_posture(server, moment), alerts, moment)
+    return {
+        "host_status": posture["status"],
+        "host_status_seconds": posture["duration_seconds"],
+    }
+
+
 def _server_public(
     s: Server, *, alerts: list[dict[str, Any]] | None = None
 ) -> dict[str, Any]:
@@ -253,6 +266,7 @@ def _server_public(
         "disk_used_bytes": getattr(s, "disk_used_bytes", None),
         "container_count": _container_count(s),
         "last_seen": last_seen,
+        **_host_posture_fields(s, alert_rows),
         "features": {
             "backup": bool(s.backup_enabled),
             "os_patch": bool(s.os_patch_enabled),
@@ -462,6 +476,7 @@ def _restore_preview_public(server_id: int, result: dict[str, Any]) -> dict[str,
         "summary": result.get("summary") or "",
         "error": result.get("error"),
         "note": result.get("note"),
+        "ownership_step": bool(result.get("ownership_step")),
     }
 
 
@@ -469,11 +484,14 @@ def _restore_preview_public(server_id: int, result: dict[str, Any]) -> dict[str,
     "/servers/{server_id}/backup/restore-preview",
     summary="Dry-run restore preview",
     description=(
-        "Scope read. SSH rsync dry-run of the local backup against the host. "
-        "It diffs that local backup and does not show permission or owner-only changes. "
+        "Scope read. SSH rsync dry-run against the host. "
+        "Without destination_id it diffs the local backup. "
+        "With destination_id it diffs that chosen copy from a temporary folder that is removed. "
+        "changes include create, update, delete, permission, and owner. "
+        "ownership_step is true when that tree has an ownership manifest. The preview does not apply it. "
         "Times out after 120 seconds. One preview at a time per host. "
         "A busy host returns 409. feature:backup applies when the token is feature-restricted. "
-        "Does not write. Not a hosted MCP tool."
+        "Does not write to the host. Not a hosted MCP tool."
     ),
 )
 def api_restore_preview(
@@ -504,11 +522,27 @@ def api_restore_preview(
                 detail="That copy is not available for this host",
             )
     from ..services.backup_restore import preview_restore
-    from ..services.server_job_lock import release_server_lock, try_acquire_server_lock
-
-    lock = try_acquire_server_lock(
-        "backup", int(server.id), holder="restore-preview", ttl_sec=180
+    from ..services.server_job_lock import (
+        LockUnavailable,
+        RedisAuthFailed,
+        release_server_lock,
+        try_acquire_server_lock,
     )
+
+    try:
+        lock = try_acquire_server_lock(
+            "backup", int(server.id), holder="restore-preview", ttl_sec=180
+        )
+    except RedisAuthFailed:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Redis authentication failed.",
+        ) from None
+    except LockUnavailable as locked:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={"code": locked.code, "message": locked.message},
+        ) from None
     if not lock:
         raise HTTPException(status.HTTP_409_CONFLICT, detail="This host is busy")
     try:
@@ -983,6 +1017,8 @@ def api_files_download(
 
     auth.require(tok_svc.SCOPE_FILES)
     server = _api_files_server(session, server_id)
+    if hf.is_secretish(p):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="secret_file")
     try:
         info = hf.stat_file(server, p, role=hf.ROLE_FLEET)
     except hf.FilesError as e:
@@ -1808,7 +1844,7 @@ def create_discovery_scan(
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)[:200]) from exc
     except Exception as exc:
-        logger.exception("discovery scan enqueue failed")
+        logger.error("discovery scan enqueue failed: %s", type(exc).__name__)
         raise HTTPException(status_code=503, detail=str(exc)[:200]) from exc
 
     session.add(
@@ -2197,7 +2233,7 @@ def create_discovery_device_scan(
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)[:200]) from exc
     except Exception as exc:
-        logger.exception("discovery device scan enqueue failed")
+        logger.error("discovery device scan enqueue failed: %s", type(exc).__name__)
         raise HTTPException(status_code=503, detail=str(exc)[:200]) from exc
 
     session.add(
@@ -2242,7 +2278,8 @@ class StaleCleanupBody(BaseModel):
     summary="Queue stale data cleanup",
     description=(
         "Fleet purge of old jobs, audit rows, and optional nmap runs. "
-        "Requires scope jobs on a token that is not feature-restricted. "
+        "Requires scope admin. A jobs token is not enough. "
+        "A feature-restricted token is refused. "
         "Not an MCP tool. The audit row records this token and the client IP."
     ),
 )
@@ -2253,12 +2290,12 @@ def api_queue_stale_data_cleanup(
 ):
     from ..services import stale_data_cleanup as sdc
 
-    auth.require(tok_svc.SCOPE_JOBS)
+    auth.require(tok_svc.SCOPE_ADMIN)
     if tok_svc.feature_keys_allowed(auth.scopes) is not None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
-                "Stale data cleanup needs a jobs token with no feature:* limit. "
+                "Stale data cleanup needs an admin token with no feature:* limit. "
                 "Feature-restricted tokens cannot purge fleet history."
             ),
         )

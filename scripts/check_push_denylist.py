@@ -3,8 +3,8 @@
 
 Patterns live in PIHERDER_PUSH_DENYLIST, one literal per line. They are not
 regular expressions and they are not printed. Matching ignores case. An empty
-or missing value does not scan. The manual grep remains until a maintainer
-sets the secret.
+or missing value fails closed and does not scan. The check does not report a
+clean result until a maintainer sets at least one pattern.
 
 Scans added lines only. A pull request uses the base commit. A push uses
 before..after. A new branch (before is all zeros) uses origin/main...HEAD.
@@ -110,8 +110,8 @@ def main() -> int:
     if short:
         print(f"push denylist ignored {short} short pattern(s)")
     if not patterns:
-        print("push denylist secret is unset. The manual grep remains.")
-        return 0
+        print("push denylist secret is unset. Refusing to pass.")
+        return 1
     spec = diff_spec(
         os.environ.get("GITHUB_EVENT_NAME", ""),
         base_sha=os.environ.get("PIHERDER_DENYLIST_BASE", ""),

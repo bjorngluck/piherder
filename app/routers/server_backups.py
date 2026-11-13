@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Stre
 from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
 from ..database import get_session, get_engine
-from ..models import Server, Job
+from ..models import AuditLog, Server, Job
 from ..services.audit_write import make_audit_log
 from datetime import datetime
 import json
@@ -29,7 +29,7 @@ from ..services.app_settings import format_datetime_in_app_tz
 from ..services.server_audit import record_server_audit
 from .. import templates as templates_mod
 from ..security.auth import get_current_user
-from ..models import User
+from ..models import AuditLog, User
 from ..config import settings
 
 try:
@@ -115,8 +115,12 @@ async def server_backups(
             if last_backup_log
             else None
         )
-    except Exception as e:
-        logger.debug("last_backup_status: %s", e)
+    except Exception as exc:
+        logger.error(
+            "Unable to load last backup status for server %s: %s",
+            server.id,
+            type(exc).__name__,
+        )
 
     from ..services.backup_path_policy import parse_rules, DEFAULT_DENY_PREFIXES
     from ..services import backup_restore as restore_svc

@@ -220,12 +220,12 @@ def layout_help_for_ui() -> dict[str, str]:
     """Help text for the three types shown in the new wizard."""
     return {k: LAYOUT_HELP[k] for k in ("pair", "combined", "pfx")}
 
-# Service-map presets (source of truth for UI + tests). Paths are examples — edit per host.
+# Service-map presets (source of truth for UI + tests). Paths are examples. Edit per host.
 # Keys are stable IDs used in the map form select.
 MAP_PRESETS: dict[str, dict[str, Any]] = {
     "npm_pair": {
         "id": "npm_pair",
-        "group": "Reverse proxy",
+        "category": "Reverse proxy",
         "title": "Nginx Proxy Manager (custom SSL)",
         "label": "NPM custom SSL",
         "remote_dir": "/opt/stacks/npm/data/custom_ssl",
@@ -246,7 +246,7 @@ MAP_PRESETS: dict[str, dict[str, Any]] = {
     },
     "caddy_pair": {
         "id": "caddy_pair",
-        "group": "Reverse proxy",
+        "category": "Reverse proxy",
         "title": "Caddy / generic Nginx PEM pair",
         "label": "Reverse proxy TLS",
         "remote_dir": "/opt/stacks/proxy/certs",
@@ -264,7 +264,7 @@ MAP_PRESETS: dict[str, dict[str, Any]] = {
     },
     "docker_bind": {
         "id": "docker_bind",
-        "group": "Docker",
+        "category": "Docker",
         "title": "Docker bind-mount certs directory",
         "label": "App stack certs",
         "remote_dir": "/opt/stacks/myservice/certs",
@@ -285,7 +285,7 @@ MAP_PRESETS: dict[str, dict[str, Any]] = {
     },
     "grafana_volume": {
         "id": "grafana_volume",
-        "group": "Docker",
+        "category": "Docker",
         "title": "Grafana TLS → Docker named volume",
         "label": "Grafana TLS",
         "remote_dir": "~",
@@ -320,7 +320,7 @@ MAP_PRESETS: dict[str, dict[str, Any]] = {
     },
     "octopi_haproxy": {
         "id": "octopi_haproxy",
-        "group": "Host TLS",
+        "category": "Host TLS",
         "title": "OctoPi / HAProxy combined (snakeoil)",
         "label": "OctoPi HAProxy",
         "remote_dir": "/etc/ssl",
@@ -342,7 +342,7 @@ MAP_PRESETS: dict[str, dict[str, Any]] = {
     },
     "unifi_pfx": {
         "id": "unifi_pfx",
-        "group": "PFX / Windows",
+        "category": "PFX / Windows",
         "title": "UniFi / Windows PFX",
         "label": "UniFi controller PFX",
         "remote_dir": "~/certs",
@@ -364,7 +364,7 @@ MAP_PRESETS: dict[str, dict[str, Any]] = {
     },
     "combined_generic": {
         "id": "combined_generic",
-        "group": "Host TLS",
+        "category": "Host TLS",
         "title": "Combined single PEM (generic)",
         "label": "Combined PEM",
         "remote_dir": "~/certs",
@@ -382,7 +382,7 @@ MAP_PRESETS: dict[str, dict[str, Any]] = {
     },
     "custom": {
         "id": "custom",
-        "group": "Custom",
+        "category": "Custom",
         "title": "Custom (blank defaults)",
         "label": "",
         "remote_dir": "~/certs",
@@ -402,7 +402,7 @@ MAP_PRESETS: dict[str, dict[str, Any]] = {
 
 
 def map_presets_for_ui() -> list[dict[str, Any]]:
-    """Ordered preset list for map form (grouped by ``group`` in UI)."""
+    """Ordered preset list for map form (grouped by ``category`` in UI)."""
     order = [
         "npm_pair",
         "caddy_pair",

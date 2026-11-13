@@ -20,6 +20,9 @@ from ..models import Server
 logger = logging.getLogger(__name__)
 
 SCHEDULER_STALE_SEC = 900  # 15 minutes
+# Same budget as Celery task_time_limit. A shorter stale sweep used to fail
+# a facts job while the probe was still allowed to run.
+HOST_FACTS_PROBE_SEC = 7200
 _refreshing: Set[int] = set()
 _refresh_lock = threading.Lock()
 
@@ -336,6 +339,40 @@ def apply_snapshot(session: Session, server: Server, info: dict[str, Any]) -> No
 REFRESH_STUCK_SEC = 30 * 60
 
 
+def down_host_backoff(session: Session, server: Server, *, now: datetime | None = None) -> bool:
+    """True when a down host should not get another facts job yet.
+
+    A failed facts job holds the host off until the probe window elapses.
+    A pending or running facts job is already in flight.
+    """
+    status = getattr(server, "host_facts_status", None) or "never"
+    if status not in ("error", "stale"):
+        return False
+    from sqlmodel import select
+
+    from ..models import Job
+
+    row = session.exec(
+        select(Job)
+        .where(Job.server_id == server.id, Job.job_type == "host_facts")
+        .order_by(Job.created_at.desc())
+    ).first()
+    if row is None:
+        return False
+    if row.status in ("pending", "running"):
+        return True
+    if row.status != "failed":
+        return False
+    stamp = row.finished_at or row.created_at
+    if stamp is None:
+        return False
+    current = now or datetime.utcnow()
+    try:
+        return (current - stamp).total_seconds() < HOST_FACTS_PROBE_SEC
+    except Exception:
+        return False
+
+
 def is_stale(server: Server, max_age_sec: int = SCHEDULER_STALE_SEC) -> bool:
     status = getattr(server, "host_facts_status", None) or "never"
     if status in ("never", "error", "stale"):
@@ -437,5 +474,9 @@ def request_refresh(server_id: int, *, force: bool = False) -> None:
             )
     except js.JobAlreadyActive:
         return
-    except Exception:
-        logger.warning("host facts enqueue failed for %s", server_id, exc_info=True)
+    except Exception as exc:
+        logger.warning(
+            "host facts enqueue failed for %s: %s",
+            server_id,
+            type(exc).__name__,
+        )

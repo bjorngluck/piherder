@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<script>window.PIHERDER_SERVER_ID = {{ server.id }};</script>
+<script nonce="{{ csp_nonce() }}">window.PIHERDER_SERVER_ID = {{ server.id }};</script>
 <div class="max-w-3xl mx-auto">
   <section class="ops-hero ops-hero--docker is-ok mb-4">
     <div class="ops-hero-main">
@@ -79,7 +79,7 @@
     <p class="text-sm text-muted">Pick a destination to run preflight.</p>
   </div>
 </div>
-<script>
+<script nonce="{{ csp_nonce() }}">
   (function () {
     function forPreflight(e) {
       var t = e.detail && e.detail.target;

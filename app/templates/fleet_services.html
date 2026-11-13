@@ -187,7 +187,7 @@
 
 <p class="text-sm text-muted mt-4 hidden" id="svc-empty-filter">No services match this filter.</p>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var grid = document.getElementById('svc-grid');
   if (!grid) return;

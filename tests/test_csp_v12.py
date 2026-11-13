@@ -1,6 +1,8 @@
 """v1.2 Content-Security-Policy helpers."""
 from __future__ import annotations
 
+import re
+
 from app.security import headers as hdr
 
 
@@ -95,21 +97,18 @@ def test_compiled_tailwind_css_present():
     assert "img,video{max-width:100%" not in compact
 
 
-def test_stamp_inline_scripts_skips_src_json_and_handlers():
+def test_stamp_inline_scripts_does_not_add_a_nonce():
     html = (
         "<button onclick=\"go()\">x</button>"
         "<script src=\"/static/htmx.min.js\"></script>"
         "<script type=\"application/json\">{\"a\":1}</script>"
-        "<script>\nwindow.PI = 1;\n</script>"
-        "<script type=\"module\">export default 1;</script>"
+        "<script nonce=\"known\">\nwindow.PI = 1;\n</script>"
+        "<script>bad()</script>"
     )
     out = hdr.stamp_inline_scripts(html, "n-1")
-    assert 'onclick="go()"' in out
-    assert '<script src="/static/htmx.min.js">' in out
-    assert '<script type="application/json">' in out
-    assert '<script nonce="n-1">\nwindow.PI = 1;\n</script>' in out
-    assert '<script nonce="n-1" type="module">' in out
-    assert out.count("nonce=") == 2
+    assert out == html
+    assert "<script>bad()</script>" in out
+    assert out.count("nonce=") == 1
 
 
 def test_demo_csp_is_report_only_until_enforce(monkeypatch):
@@ -171,6 +170,10 @@ def test_login_page_stamps_nonce_and_enforces(monkeypatch):
     script = [p for p in csp.split("; ") if p.startswith("script-src ")][0]
     assert "'unsafe-inline'" not in script
     assert 'nonce="' in res.text
+    page_nonces = set(re.findall(r'<script nonce="([^"]+)"', res.text))
+    header_nonce = re.search(r"'nonce-([^']+)'", csp)
+    assert header_nonce
+    assert page_nonces == {header_nonce.group(1)}
     assert "onclick=" not in res.text
     assert "/static/js/csp-events.js" in res.text
 

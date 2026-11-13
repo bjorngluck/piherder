@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import sys
-from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
@@ -15,11 +14,11 @@ if str(ROOT) not in sys.path:
 
 from sqlmodel import SQLModel  # noqa: E402
 from app.config import settings  # noqa: E402
+from app.db_migrate import configure_migration_logging  # noqa: E402
 from app import models  # noqa: F401,E402 — register all tables on metadata
 
 config = context.config
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+configure_migration_logging(config.config_file_name)
 
 # Override ini placeholder with real URL
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
