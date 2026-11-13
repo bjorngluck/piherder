@@ -76,10 +76,9 @@ class Settings(BaseSettings):
     # Never use * with API tokens. Backend still enforces Bearer + scopes + IP allowlist.
     CORS_ORIGINS: Optional[str] = None
 
-    # Trust CF-Connecting-IP / X-Forwarded-For / X-Real-IP only when the TCP peer
-    # is in this list (comma-separated CIDRs). Empty = never trust forwarded headers
-    # (use the TCP peer). Bundled Compose defaults to loopback only. Set the
-    # proxy subnet. Do not trust 10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16.
+    # Optional narrow list. Unset or blank trusts home-network peers
+    # (private, link-local, CGNAT, loopback, and the stock compose subnet).
+    # Set this only to trust fewer peers.
     PIHERDER_TRUSTED_PROXY_CIDRS: Optional[str] = None
 
     # GitHub release check for “new version available” banner / About page

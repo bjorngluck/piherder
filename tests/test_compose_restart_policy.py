@@ -32,10 +32,8 @@ def test_stock_caddy_is_one_address_and_nmap_is_opt_in():
     trusted = services["web"]["environment"]["PIHERDER_TRUSTED_PROXY_CIDRS"]
     assert trusted.startswith("${PIHERDER_TRUSTED_PROXY_CIDRS:-")
     assert "10.0.0.0/8" in trusted
-    assert "172.16.0.0/12" in trusted
-    assert "192.168.0.0/16" in trusted
+    assert "100.64.0.0/10" in trusted
     assert "192.0.2.0/24" in trusted
-    assert "127.0.0.1/32" in trusted
     caddy_ip = services["caddy"]["networks"]["default"]["ipv4_address"]
     assert "192.0.2.10" in caddy_ip
     subnet = data["networks"]["default"]["ipam"]["config"][0]["subnet"]

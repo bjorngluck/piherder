@@ -189,6 +189,19 @@ def test_stock_caddy_clients_have_separate_login_buckets(monkeypatch):
         auth_mod._auth_attempts.clear()
 
 
+def test_unset_trusted_proxy_trusts_a_home_network_peer(monkeypatch):
+    """A home lab does not set the variable. A private proxy still counts."""
+
+    class _Settings:
+        PIHERDER_TRUSTED_PROXY_CIDRS = None
+
+    monkeypatch.setattr("app.config.settings", _Settings())
+    assert rip.peer_is_trusted_proxy("172.18.0.5")
+    assert rip.peer_is_trusted_proxy("100.64.0.5")
+    assert rip.peer_is_trusted_proxy("192.0.2.10")
+    assert not rip.peer_is_trusted_proxy("198.51.100.8")
+
+
 def test_extract_client_ip_empty_cidrs_never_trusts_forwarded():
     assert (
         rip.extract_client_ip(

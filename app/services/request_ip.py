@@ -5,11 +5,11 @@ Forwarded headers (CF-Connecting-IP / X-Forwarded-For / X-Real-IP) are used
 CIDRs (app default) mean never trust those headers. Use the TCP peer.
 True-Client-IP is not a trusted header.
 
-Stock Compose trusts private ranges, the stock compose subnet
-``192.0.2.0/24``, and loopback. That is the same private-network default as
-v1.14, plus this subnet. An operator override of
-``PIHERDER_TRUSTED_PROXY_CIDRS`` wins. A public peer cannot spoof
-allowlists, rate limits, or console IP binding.
+A home lab does not set ``PIHERDER_TRUSTED_PROXY_CIDRS``. An unset or blank
+value trusts peers on private ranges, link-local, shared CGNAT space
+(``100.64.0.0/10``), the stock compose subnet ``192.0.2.0/24``, and loopback.
+Set the variable only to narrow that. A public peer cannot spoof allowlists,
+rate limits, or console IP binding.
 
 A ContextVar carries the resolved IP for the duration of a request so every
 AuditLog write can pick it up without threading Request through all layers.
@@ -24,9 +24,10 @@ _request_client_ip: ContextVar[Optional[str]] = ContextVar(
     "piherder_request_client_ip", default=None
 )
 
-# Compose default. Private ranges, the stock compose subnet, and loopback.
+# Used when the variable is unset or blank. Not an operator task.
 DEFAULT_COMPOSE_TRUSTED_PROXY_CIDRS = (
-    "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,192.0.2.0/24,127.0.0.1/32,::1/128"
+    "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.0.0/16,"
+    "100.64.0.0/10,192.0.2.0/24,127.0.0.0/8,::1/128,fc00::/7,fe80::/10"
 )
 
 
@@ -69,14 +70,16 @@ def parse_trusted_proxy_cidrs(
 def trusted_proxy_cidrs_from_settings() -> list[
     ipaddress.IPv4Network | ipaddress.IPv6Network
 ]:
+    """Home-network peers when the variable is unset. A set value narrows that."""
     try:
         from ..config import settings
 
-        return parse_trusted_proxy_cidrs(
-            getattr(settings, "PIHERDER_TRUSTED_PROXY_CIDRS", None)
-        )
+        raw = getattr(settings, "PIHERDER_TRUSTED_PROXY_CIDRS", None)
     except Exception:
-        return []
+        raw = None
+    if raw is None or not str(raw).strip():
+        raw = DEFAULT_COMPOSE_TRUSTED_PROXY_CIDRS
+    return parse_trusted_proxy_cidrs(raw)
 
 
 def peer_is_trusted_proxy(

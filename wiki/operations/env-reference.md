@@ -159,9 +159,9 @@ The herder has **no MCP env var and no MCP port**. `PIHERDER_URL` and `PIHERDER_
 | `METRICS_TOKEN` | Bearer for `GET /metrics` — **set in production** (empty = open scrape on app port) |
 | `METRICS_BACKUP_STALE_HOURS` | Stale backup gauge (default 36) |
 | `CORS_ORIGINS` | Exact browser origins for `/api/v1` (empty = off) |
-| `PIHERDER_TRUSTED_PROXY_CIDRS` | CIDRs whose TCP peer may supply `CF-Connecting-IP` / `X-Forwarded-For` / `X-Real-IP`. Empty = **never** trust those headers (peer only). Compose default is the private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), the stock compose subnet `192.0.2.0/24`, and loopback. Same private-network default as v1.14, plus that subnet. An existing `.env` value wins. A public peer is not trusted |
+| `PIHERDER_TRUSTED_PROXY_CIDRS` | Optional. Leave unset. A home-network peer may supply `CF-Connecting-IP` / `X-Forwarded-For` / `X-Real-IP`. That covers private ranges, link-local, CGNAT (`100.64.0.0/10`), the stock compose subnet, and loopback. Set a list only to trust fewer peers. A public peer is not trusted |
 | `PIHERDER_COMPOSE_SUBNET` | `192.0.2.0/24`. Compose default network. Change it only when that subnet is already in use, and then set `PIHERDER_CADDY_IP` inside the new subnet |
-| `PIHERDER_CADDY_IP` | `192.0.2.10`. Pinned Caddy address. If you change it, set `PIHERDER_TRUSTED_PROXY_CIDRS` to that `/32` plus loopback when the variable is already set in `.env` |
+| `PIHERDER_CADDY_IP` | `192.0.2.10`. Pinned Caddy address on the stock compose subnet. A home lab does not change this for client IP |
 | `PIHERDER_WEBHOOK_ALLOW_CIDRS` | Optional. Webhook URLs that resolve to a private, loopback, or link-local address are refused unless the address is in this list |
 | `WEBHOOK_URL` / `WEBHOOK_NUMBER` | Fallback outbound webhook (e.g. Signal via n8n) when Settings → Alerts has no URL — [Alerts](alerts-email-webhooks.md) |
 | `WEBHOOK_RECIPIENTS` | Optional JSON list of recipients for some webhook paths |
