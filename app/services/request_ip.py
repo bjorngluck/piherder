@@ -5,10 +5,11 @@ Forwarded headers (CF-Connecting-IP / X-Forwarded-For / X-Real-IP) are used
 CIDRs (app default) mean never trust those headers. Use the TCP peer.
 True-Client-IP is not a trusted header.
 
-Stock Compose trusts the pinned Caddy address (192.0.2.10/32) and loopback.
-It does not trust the rest of the compose subnet. An operator override of
-``PIHERDER_TRUSTED_PROXY_CIDRS`` wins. Direct hits on the app port from an
-untrusted peer cannot spoof allowlists, rate limits, or console IP binding.
+Stock Compose trusts private ranges, the stock compose subnet
+``192.0.2.0/24``, and loopback. That is the same private-network default as
+v1.14, plus this subnet. An operator override of
+``PIHERDER_TRUSTED_PROXY_CIDRS`` wins. A public peer cannot spoof
+allowlists, rate limits, or console IP binding.
 
 A ContextVar carries the resolved IP for the duration of a request so every
 AuditLog write can pick it up without threading Request through all layers.
@@ -23,8 +24,10 @@ _request_client_ip: ContextVar[Optional[str]] = ContextVar(
     "piherder_request_client_ip", default=None
 )
 
-# Compose default. The pinned Caddy address plus loopback. Not the subnet.
-DEFAULT_COMPOSE_TRUSTED_PROXY_CIDRS = "192.0.2.10/32,127.0.0.1/32,::1/128"
+# Compose default. Private ranges, the stock compose subnet, and loopback.
+DEFAULT_COMPOSE_TRUSTED_PROXY_CIDRS = (
+    "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,192.0.2.0/24,127.0.0.1/32,::1/128"
+)
 
 
 def _normalize_ip_candidate(raw: str | None) -> str:

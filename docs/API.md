@@ -68,7 +68,7 @@ Client IP resolution is enforced in the **backend** on every authenticated API r
 2. `X-Real-IP`  
 3. TCP peer address  
 
-**Proxy:** Bundled Caddy **overwrites** `X-Forwarded-For` / `X-Real-IP` with the true client IP (`{remote_host}`) so allowlists work for traffic on ports 8888/8443. Compose publishes web as **`127.0.0.1:8000` only** (not the LAN). Forwarded headers are honoured only when the TCP peer is in `PIHERDER_TRUSTED_PROXY_CIDRS`. The compose default is the pinned Caddy address plus loopback (`192.0.2.10/32`, `127.0.0.1/32`, `::1/128`). A peer on `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, or another address in `192.0.2.0/24` is not trusted until that address is set. Hitting the app port from an untrusted peer ignores spoofed `X-Forwarded-For`. Mismatch → **403** `Client IP not allowed for this API token`.
+**Proxy:** Bundled Caddy **overwrites** `X-Forwarded-For` / `X-Real-IP` with the true client IP (`{remote_host}`) so allowlists work for traffic on ports 8888/8443. Compose publishes web as **`127.0.0.1:8000` only** (not the LAN). Forwarded headers are honoured only when the TCP peer is in `PIHERDER_TRUSTED_PROXY_CIDRS`. The compose default is the private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), the stock compose subnet `192.0.2.0/24`, and loopback. A public peer is not trusted. Hitting the app port from an untrusted peer ignores spoofed `X-Forwarded-For`. Mismatch → **403** `Client IP not allowed for this API token`.
 
 ---
 

@@ -159,7 +159,7 @@ The herder has **no MCP env var and no MCP port**. `PIHERDER_URL` and `PIHERDER_
 | `METRICS_TOKEN` | Bearer for `GET /metrics` — **set in production** (empty = open scrape on app port) |
 | `METRICS_BACKUP_STALE_HOURS` | Stale backup gauge (default 36) |
 | `CORS_ORIGINS` | Exact browser origins for `/api/v1` (empty = off) |
-| `PIHERDER_TRUSTED_PROXY_CIDRS` | CIDRs whose TCP peer may supply `CF-Connecting-IP` / `X-Forwarded-For` / `X-Real-IP`. Empty = **never** trust those headers (peer only). Compose default is the pinned Caddy address plus loopback (`192.0.2.10/32`, `127.0.0.1/32`, `::1/128`). An existing `.env` value wins. Do not list the compose subnet. A peer on `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, or another address in `192.0.2.0/24` is not trusted until that address is listed |
+| `PIHERDER_TRUSTED_PROXY_CIDRS` | CIDRs whose TCP peer may supply `CF-Connecting-IP` / `X-Forwarded-For` / `X-Real-IP`. Empty = **never** trust those headers (peer only). Compose default is the private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), the stock compose subnet `192.0.2.0/24`, and loopback. Same private-network default as v1.14, plus that subnet. An existing `.env` value wins. A public peer is not trusted |
 | `PIHERDER_COMPOSE_SUBNET` | `192.0.2.0/24`. Compose default network. Change it only when that subnet is already in use, and then set `PIHERDER_CADDY_IP` inside the new subnet |
 | `PIHERDER_CADDY_IP` | `192.0.2.10`. Pinned Caddy address. If you change it, set `PIHERDER_TRUSTED_PROXY_CIDRS` to that `/32` plus loopback when the variable is already set in `.env` |
 | `PIHERDER_WEBHOOK_ALLOW_CIDRS` | Optional. Webhook URLs that resolve to a private, loopback, or link-local address are refused unless the address is in this list |

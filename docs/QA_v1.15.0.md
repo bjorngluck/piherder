@@ -126,7 +126,7 @@ Issue [#94](https://github.com/bjorngluck/piherder/issues/94).
 
 - [ ] A webhook URL that resolves to a private, loopback, or link-local address is rejected
 - [ ] `PIHERDER_WEBHOOK_ALLOW_CIDRS` can opt one of those addresses in
-- [ ] Stock compose trusts `192.0.2.10/32` plus loopback. An existing `.env` value wins. A neighbor on `192.0.2.0/24` cannot spoof forwarded headers. Two clients through Caddy keep separate login rate-limit buckets
+- [ ] Stock compose trusts the private ranges, `192.0.2.0/24`, and loopback. An existing `.env` value wins. A public peer cannot spoof forwarded headers. Two clients through Caddy keep separate login rate-limit buckets
 - [ ] `tests/caddy_client_ip_spoof.sh` runs the stock Caddyfile. A client that sends fake `CF-Connecting-IP`, `True-Client-IP`, `X-Real-IP`, and `X-Forwarded-For` is seen upstream as only its real connection address. CI does not run Caddy. The unit suite does not replace this walk
 - [ ] A custom Caddyfile with the old `@from_cf` block is flagged by the upgrade notes
 - [ ] If `192.0.2.0/24` is already a Docker network, the install documents `PIHERDER_COMPOSE_SUBNET`, `PIHERDER_CADDY_IP`, and the matching trusted-proxy `/32`

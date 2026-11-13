@@ -103,18 +103,19 @@ def test_extract_client_ip_ignores_spoofed_headers_from_untrusted_peer():
     )
 
 
-def test_default_proxy_cidrs_ignore_a_private_peer():
+def test_default_proxy_cidrs_trust_the_private_network():
     nets = rip.DEFAULT_COMPOSE_TRUSTED_PROXY_CIDRS.split(",")
-    assert "10.0.0.0/8" not in nets
-    assert "192.0.2.0/24" not in nets
-    assert "192.0.2.10/32" in nets
+    assert "10.0.0.0/8" in nets
+    assert "172.16.0.0/12" in nets
+    assert "192.168.0.0/16" in nets
+    assert "192.0.2.0/24" in nets
     assert (
         rip.extract_client_ip(
             {"X-Forwarded-For": "203.0.113.9"},
             "10.1.2.3",
             trusted_cidrs=nets,
         )
-        == "10.1.2.3"
+        == "203.0.113.9"
     )
     assert (
         rip.extract_client_ip(
@@ -122,7 +123,15 @@ def test_default_proxy_cidrs_ignore_a_private_peer():
             "192.0.2.20",
             trusted_cidrs=nets,
         )
-        == "192.0.2.20"
+        == "203.0.113.9"
+    )
+    assert (
+        rip.extract_client_ip(
+            {"X-Forwarded-For": "203.0.113.9"},
+            "198.51.100.8",
+            trusted_cidrs=nets,
+        )
+        == "198.51.100.8"
     )
     assert (
         rip.extract_client_ip(
@@ -168,7 +177,7 @@ def test_stock_caddy_clients_have_separate_login_buckets(monkeypatch):
         "192.0.2.20",
         trusted_cidrs=nets,
     )
-    assert neighbor == "192.0.2.20"
+    assert neighbor == "203.0.113.10"
     auth_mod._auth_attempts.clear()
     try:
         for _ in range(10):

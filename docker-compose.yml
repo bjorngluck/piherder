@@ -31,9 +31,9 @@ x-piherder-app-env: &piherder-app-env
   METRICS_TOKEN: ${METRICS_TOKEN:-}
   METRICS_BACKUP_STALE_HOURS: ${METRICS_BACKUP_STALE_HOURS:-36}
   CORS_ORIGINS: ${CORS_ORIGINS:-}
-  # Trust XFF/CF only from these peers. Stock default is the pinned Caddy
-  # address plus loopback. An existing .env value wins. Do not list the subnet.
-  PIHERDER_TRUSTED_PROXY_CIDRS: ${PIHERDER_TRUSTED_PROXY_CIDRS:-192.0.2.10/32,127.0.0.1/32,::1/128}
+  # Trust XFF/CF from peers on the same networks as the app. This is the
+  # v1.14 default, plus the stock compose subnet. An existing .env value wins.
+  PIHERDER_TRUSTED_PROXY_CIDRS: ${PIHERDER_TRUSTED_PROXY_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,192.0.2.0/24,127.0.0.1/32,::1/128}
   PIHERDER_SERVER_LOCK_TTL: ${PIHERDER_SERVER_LOCK_TTL:-7200}
   PIHERDER_NMAP_VULN_ROOT: ${PIHERDER_NMAP_VULN_ROOT:-/var/lib/piherder/nmap-vuln}
   # Web SSH console — default off. Timeouts / concurrency / bind live in Settings.
@@ -281,11 +281,11 @@ networks:
   # 192.0.2.0/24 is TEST-NET-1. It was picked on purpose so the example
   # subnet is not a private LAN range.
   # Extra compose files that omit `networks` still join this default.
-  # If the subnet is already in use, set PIHERDER_COMPOSE_SUBNET, set
-  # PIHERDER_CADDY_IP inside that subnet, and set PIHERDER_TRUSTED_PROXY_CIDRS
-  # to that address as a /32 plus loopback. Do not list the whole subnet.
-  # An existing trusted-proxy value in .env wins, so a custom Caddy address
-  # must be written there too when that variable is set.
+  # If the subnet is already in use, set PIHERDER_COMPOSE_SUBNET and set
+  # PIHERDER_CADDY_IP inside that subnet. The trusted-proxy default already
+  # includes 192.0.2.0/24 and the private ranges. An existing .env value wins.
+  # If you change the subnet to something outside those ranges, add it to
+  # PIHERDER_TRUSTED_PROXY_CIDRS.
   default:
     name: ${PIHERDER_COMPOSE_NETWORK:-piherder_net}
     driver: bridge
