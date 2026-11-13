@@ -1,15 +1,10 @@
 """Client IP resolution for reverse-proxied requests (Caddy) and audit logging.
 
-Forwarded headers (CF-Connecting-IP / X-Forwarded-For / X-Real-IP) are used
-**only** when the TCP peer sits in ``PIHERDER_TRUSTED_PROXY_CIDRS``. Empty
-CIDRs (app default) mean never trust those headers. Use the TCP peer.
-True-Client-IP is not a trusted header.
-
-A home lab does not set ``PIHERDER_TRUSTED_PROXY_CIDRS``. An unset or blank
-value trusts peers on private ranges, link-local, shared CGNAT space
+A home-network peer may pass the visitor in CF-Connecting-IP, X-Forwarded-For,
+or X-Real-IP. That covers private ranges, link-local, shared CGNAT space
 (``100.64.0.0/10``), the stock compose subnet ``192.0.2.0/24``, and loopback.
-Set the variable only to narrow that. A public peer cannot spoof allowlists,
-rate limits, or console IP binding.
+There is no Compose or ``.env`` setting for this. A public peer is ignored.
+True-Client-IP is not read.
 
 A ContextVar carries the resolved IP for the duration of a request so every
 AuditLog write can pick it up without threading Request through all layers.

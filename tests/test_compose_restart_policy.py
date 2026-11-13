@@ -29,11 +29,7 @@ def test_core_services_restart_unless_stopped():
 def test_stock_caddy_is_one_address_and_nmap_is_opt_in():
     data = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
     services = data["services"]
-    trusted = services["web"]["environment"]["PIHERDER_TRUSTED_PROXY_CIDRS"]
-    assert trusted.startswith("${PIHERDER_TRUSTED_PROXY_CIDRS:-")
-    assert "10.0.0.0/8" in trusted
-    assert "100.64.0.0/10" in trusted
-    assert "192.0.2.0/24" in trusted
+    assert "PIHERDER_TRUSTED_PROXY_CIDRS" not in (services["web"].get("environment") or {})
     caddy_ip = services["caddy"]["networks"]["default"]["ipv4_address"]
     assert "192.0.2.10" in caddy_ip
     subnet = data["networks"]["default"]["ipam"]["config"][0]["subnet"]

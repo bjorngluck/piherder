@@ -31,8 +31,6 @@ x-piherder-app-env: &piherder-app-env
   METRICS_TOKEN: ${METRICS_TOKEN:-}
   METRICS_BACKUP_STALE_HOURS: ${METRICS_BACKUP_STALE_HOURS:-36}
   CORS_ORIGINS: ${CORS_ORIGINS:-}
-  # Home-network peers. Leave this unset in .env. Set it only to narrow trust.
-  PIHERDER_TRUSTED_PROXY_CIDRS: ${PIHERDER_TRUSTED_PROXY_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.0.0/16,100.64.0.0/10,192.0.2.0/24,127.0.0.0/8,::1/128,fc00::/7,fe80::/10}
   PIHERDER_SERVER_LOCK_TTL: ${PIHERDER_SERVER_LOCK_TTL:-7200}
   PIHERDER_NMAP_VULN_ROOT: ${PIHERDER_NMAP_VULN_ROOT:-/var/lib/piherder/nmap-vuln}
   # Web SSH console — default off. Timeouts / concurrency / bind live in Settings.
@@ -281,10 +279,7 @@ networks:
   # subnet is not a private LAN range.
   # Extra compose files that omit `networks` still join this default.
   # If the subnet is already in use, set PIHERDER_COMPOSE_SUBNET and set
-  # PIHERDER_CADDY_IP inside that subnet. The trusted-proxy default already
-  # includes 192.0.2.0/24 and the private ranges. An existing .env value wins.
-  # If you change the subnet to something outside those ranges, add it to
-  # PIHERDER_TRUSTED_PROXY_CIDRS.
+  # PIHERDER_CADDY_IP inside that subnet. Client IP needs no setting.
   default:
     name: ${PIHERDER_COMPOSE_NETWORK:-piherder_net}
     driver: bridge
